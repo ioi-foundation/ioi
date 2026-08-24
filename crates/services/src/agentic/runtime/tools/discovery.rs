@@ -102,6 +102,18 @@ pub async fn discover_tools(
         allowed && provider_allowed
     });
 
+    // Discovery is a candidate projection, never execution authority. Only
+    // released registry heads are callable and therefore eligible for model
+    // exposure. Installed service/MCP/skill descriptors remain hidden until
+    // their owner admits an immutable RuntimeToolContract revision.
+    match crate::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry() {
+        Ok(registry) => tools.retain(|tool| registry.resolve_current_for_name(&tool.name).is_ok()),
+        Err(error) => {
+            log::error!("RuntimeToolContract registry unavailable during discovery: {error}");
+            tools.clear();
+        }
+    }
+
     tools
 }
 

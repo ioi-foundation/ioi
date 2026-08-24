@@ -39,6 +39,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use url::Url;
 
 mod handlers;
+mod runtime_tool_admission;
 
 const ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
 const CEC_CONTRACT_VERSION: &str = "cec.v0.4";

@@ -77,6 +77,11 @@ impl RuntimeAgentService {
         ) = default_worker_attach_state();
 
         Self {
+            runtime_tool_contract_registry: Arc::new(std::sync::RwLock::new(
+                crate::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry()
+                    .expect("native RuntimeToolContract registry must seed completely")
+                    .clone(),
+            )),
             gui,
             terminal,
             browser,
@@ -131,6 +136,11 @@ impl RuntimeAgentService {
         ) = default_worker_attach_state();
 
         Self {
+            runtime_tool_contract_registry: Arc::new(std::sync::RwLock::new(
+                crate::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry()
+                    .expect("native RuntimeToolContract registry must seed completely")
+                    .clone(),
+            )),
             gui,
             terminal,
             browser,

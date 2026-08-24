@@ -8,12 +8,15 @@ normalization, tool API, connector API, source-control publication effects,
 risk classes, and approval rules.
 Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-07-29.
+Last alignment pass: 2026-08-24.
 Doctrine status: canonical
-Implementation status: partial (the RuntimeToolContract owner and daemon tool catalog are live, the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate, and a conforming `ScmPublicationEffect` runtime path is live on `POST /v1/hypervisor/environments/{id}/scm/publish`; production IFC propagation/enforcement, MCP resource/prompt/elicitation/task/App propagation, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, a bound review-request host surface, and the whole of `ioi.scm-publication-effect.v2` remain planned)
+Implementation status: partial (the RuntimeToolContract owner, immutable native/seeded-connector registry, daemon invocation admission, pre-invocation receipts, information-flow checks, and daemon tool catalog are live for `RuntimeAgentService`; the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide wider contract substrate, and a conforming `ScmPublicationEffect` runtime path is live on `POST /v1/hypervisor/environments/{id}/scm/publish`; MCP transport normalization, estate-wide IFC propagation/enforcement, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, a bound review-request host surface, and the whole of `ioi.scm-publication-effect.v2` remain planned)
 Implementation refs:
+  - `crates/services/src/agentic/runtime/runtime_tool_contract_registry.rs`
+  - `crates/services/src/agentic/runtime/service/handler/execution/runtime_tool_admission.rs`
+  - `crates/services/src/agentic/runtime/tools/contracts.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
-Last implementation audit: 2026-07-29 (contract substrate; production IFC enforcement not claimed; `ScmPublicationEffect` v1 has a conforming runtime path whose refusal branches are each pinned by a test against the registered negative fixture, with the review-request host surface still unbound; `ScmPublicationEffect` v2 is registered contract substrate only and is implemented by nothing)
+Last implementation audit: 2026-08-24 (`RuntimeAgentService` resolves a released immutable contract after deterministic tool normalization and before prepare or invocation; unadmitted discovery candidates and direct invocations fail closed; exact contract/grant/information-flow coordinates are receipted in runtime state; MCP normalization and canonical harness-chain convergence remain separately owned work; `ScmPublicationEffect` v1 has a conforming runtime path whose refusal branches are pinned by tests, with the review-request host surface still unbound; `ScmPublicationEffect` v2 remains registered substrate only)
 
 ## Purpose
 
@@ -99,6 +102,33 @@ information-flow label outside either allowlist fails closed before the
 external invoker. Connector adapter entries bind their method/path mapping to
 one exact nested `runtime_tool_contract` revision; the adapter mapping is not a
 substitute tool contract.
+
+### Current runtime alignment
+
+The daemon's `RuntimeAgentService` owns one immutable registry of released
+native tool revisions plus the explicitly seeded Google Workspace and
+wallet-mail connector revisions. Each snapshot retains the exact JCS hash
+material, generated-schema projection, revision/hash indexes, admission receipt
+reference, head, and revocation state. `GET /v1/tools` projects that same seeded
+registry. Dynamic service, skill, and MCP candidates without an admitted head
+are hidden at discovery and refused again at invocation.
+
+`handle_action_execution` is the shared admission point for queue delivery,
+delegated workers, and approval resumes. It runs after any deterministic tool
+rewrite and before prepare, policy dispatch, adapter dispatch, or final
+invocation. Admission resolves the released head, compares the daemon-observed
+effect boundary, requires an exact worker-assignment tool grant or a compatible
+resolved-intent grant, enforces declared data class and destination, and writes
+an idempotent pre-invocation receipt binding the exact session, step, normalized
+arguments, contract revision/hash, `prim:*` grants, `scope:*` grants, and grant
+source. It does not claim that the receipt proves a later invocation or effect.
+
+This closure is deliberately scoped to the canonical agent-runtime execution
+owner. Live MCP primitive normalization and proof that MCP calls converge on
+this same final invoker remain under that transport's work. Consolidating the
+independent session/harness routes into the canonical mounted execution chain
+also remains separate work; neither absence permits an uncontracted call through
+`RuntimeAgentService`.
 
 ## MCP Gateway Requirement
 

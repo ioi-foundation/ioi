@@ -1328,6 +1328,114 @@ pub enum AgentTool {
 
 // Keep `crate::app::ActionTarget` referenced here so consumers get a stable, discoverable API.
 impl AgentTool {
+    /// Canonical names owned by typed/native `AgentTool` variants. Runtime
+    /// registries seed their immutable contract heads from this closed census.
+    pub const RESERVED_TOOL_NAMES: &'static [&'static str] = &[
+        "screen",
+        "file__write",
+        "file__edit",
+        "file__multi_edit",
+        "file__read",
+        "file__view",
+        "file__list",
+        "file__search",
+        "file__info",
+        "file__move",
+        "file__copy",
+        "file__delete",
+        "file__create_dir",
+        "file__zip",
+        "workspace_change__status",
+        "workspace_change__accept",
+        "workspace_change__reject",
+        "workspace_change__rollback",
+        "shell__run",
+        "shell__start",
+        "shell__reset",
+        "shell__status",
+        "shell__input",
+        "shell__terminate",
+        "software_install__resolve",
+        "software_install__execute_plan",
+        "shell__cd",
+        "browser__navigate",
+        "browser__subagent",
+        "browser__inspect",
+        "browser__click",
+        "browser__hover",
+        "browser__move_pointer",
+        "browser__pointer_down",
+        "browser__pointer_up",
+        "browser__click_at",
+        "browser__scroll",
+        "browser__type",
+        "browser__select",
+        "browser__press_key",
+        "browser__copy",
+        "browser__paste",
+        "browser__find_text",
+        "browser__inspect_canvas",
+        "browser__screenshot",
+        "browser__wait",
+        "browser__upload",
+        "browser__list_options",
+        "browser__select_option",
+        "browser__back",
+        "browser__list_tabs",
+        "browser__switch_tab",
+        "browser__close_tab",
+        "web__search",
+        "web__read",
+        "media__extract_transcript",
+        "media__extract_evidence",
+        "media__transcribe_audio",
+        "media__synthesize_speech",
+        "media__vision_read",
+        "media__generate_image",
+        "media__edit_image",
+        "media__generate_video",
+        "model__responses",
+        "model__embeddings",
+        "model__rerank",
+        "model_registry__install",
+        "model_registry__apply",
+        "model_registry__delete",
+        "model_registry__load",
+        "model_registry__unload",
+        "backend__install",
+        "backend__apply",
+        "backend__delete",
+        "backend__start",
+        "backend__stop",
+        "backend__health",
+        "gallery__sync",
+        "http__fetch",
+        "memory__search",
+        "memory__read",
+        "memory__replace",
+        "memory__append",
+        "memory__clear",
+        "screen__click_at",
+        "screen__type",
+        "screen__scroll",
+        "screen__inspect",
+        "screen__click",
+        "screen__find",
+        "window__focus",
+        "clipboard__copy",
+        "clipboard__paste",
+        "app__launch",
+        "math__eval",
+        "chat__reply",
+        "monitor__create",
+        "agent__delegate",
+        "agent__await",
+        "agent__pause",
+        "agent__complete",
+        "commerce__checkout",
+        "agent__escalate",
+    ];
+
     /// Returns the canonical serialized tool name for policy checks and receipts.
     pub fn name_string(&self) -> String {
         serde_json::to_value(self)
@@ -1349,88 +1457,7 @@ impl AgentTool {
 
     /// Returns true when `name` is reserved by a typed/native tool.
     pub fn is_reserved_tool_name(name: &str) -> bool {
-        matches!(
-            name,
-            "screen"
-                | "file__write"
-                | "file__edit"
-                | "file__multi_edit"
-                | "file__read"
-                | "file__view"
-                | "file__list"
-                | "file__search"
-                | "file__info"
-                | "file__move"
-                | "file__copy"
-                | "file__delete"
-                | "file__create_dir"
-                | "file__zip"
-                | "workspace_change__status"
-                | "workspace_change__accept"
-                | "workspace_change__reject"
-                | "workspace_change__rollback"
-                | "shell__run"
-                | "shell__start"
-                | "shell__reset"
-                | "software_install__resolve"
-                | "software_install__execute_plan"
-                | "shell__cd"
-                | "browser__navigate"
-                | "browser__subagent"
-                | "browser__inspect"
-                | "browser__click"
-                | "browser__hover"
-                | "browser__move_pointer"
-                | "browser__pointer_down"
-                | "browser__pointer_up"
-                | "browser__click_at"
-                | "browser__scroll"
-                | "browser__type"
-                | "browser__select"
-                | "browser__press_key"
-                | "browser__copy"
-                | "browser__paste"
-                | "browser__find_text"
-                | "browser__inspect_canvas"
-                | "browser__screenshot"
-                | "browser__wait"
-                | "browser__upload"
-                | "browser__list_options"
-                | "browser__select_option"
-                | "browser__back"
-                | "browser__list_tabs"
-                | "browser__switch_tab"
-                | "browser__close_tab"
-                | "web__search"
-                | "web__read"
-                | "media__extract_transcript"
-                | "media__extract_evidence"
-                | "http__fetch"
-                | "memory__search"
-                | "memory__read"
-                | "memory__replace"
-                | "memory__append"
-                | "memory__clear"
-                | "screen__click_at"
-                | "screen__type"
-                | "screen__scroll"
-                | "screen__inspect"
-                | "screen__click"
-                | "screen__find"
-                | "window__focus"
-                | "clipboard__copy"
-                | "clipboard__paste"
-                | "app__launch"
-                | "math__eval"
-                | "chat__reply"
-                | "monitor__create"
-                | "agent__delegate"
-                | "agent__await"
-                | "agent__pause"
-                | "agent__complete"
-                | "commerce__checkout"
-                | "agent__escalate"
-        )
+        Self::RESERVED_TOOL_NAMES.contains(&name)
     }
 
     /// Maps the tool to its corresponding `ActionTarget` for policy enforcement.

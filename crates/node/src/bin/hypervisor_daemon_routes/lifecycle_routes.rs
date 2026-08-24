@@ -99,7 +99,6 @@ use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
 use ioi_services::agentic::runtime::kernel::runtime_thread_fork_control::{
     RuntimeThreadForkControlRequest, RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
 };
-use ioi_services::agentic::runtime::kernel::runtime_tool_catalog::RuntimeToolCatalogProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
     RuntimeWorkspaceChangeControlRequest, RuntimeWorkspaceChangeProjectionRequest,
     RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -6043,21 +6042,27 @@ pub(crate) async fn handle_github_pr_create_plan(
 pub(crate) async fn handle_tools(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, AppError> {
-    let mut request_json = json!({
-        "operation": "runtime_tool_catalog",
-        "operation_kind": "runtime.tool_catalog.projection.tools",
-        "projection_kind": "tools",
-        "source": "hypervisor_daemon./v1/tools",
-    });
-    if let (Some(object), Some(pack)) = (request_json.as_object_mut(), params.get("pack")) {
-        object.insert("pack".to_string(), json!(pack.to_lowercase()));
-    }
-    let request: RuntimeToolCatalogProjectionRequest = serde_json::from_value(request_json)
-        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
-        .project_runtime_tool_catalog(&request)
-        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    Ok(Json(Value::Array(record.tools.clone())))
+    let registry =
+        ioi_services::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry()
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    let pack = params
+        .get("pack")
+        .map(|value| value.trim().to_ascii_lowercase());
+    let tools = registry
+        .current_released()
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?
+        .into_iter()
+        .filter(|resolved| {
+            pack.as_deref().map_or(true, |pack| {
+                pack == "all"
+                    || resolved.contract.namespace == pack
+                    || resolved.contract.owner.to_ascii_lowercase().contains(pack)
+            })
+        })
+        .map(|resolved| serde_json::to_value(resolved.contract))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    Ok(Json(Value::Array(tools)))
 }
 
 /// GET /v1/hypervisor/core-taxonomy — the canonical Hypervisor Core taxonomy (static

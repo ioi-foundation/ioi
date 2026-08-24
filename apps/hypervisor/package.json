@@ -36,6 +36,7 @@
     "check:provider-proposal-provenance": "node scripts/verify-provider-proposal-provenance.mjs",
     "check:command-execution-guardrails": "node scripts/verify-command-execution-guardrail-coverage.mjs",
     "check:enforcement-coverage-producer": "node scripts/verify-enforcement-coverage-producer.mjs",
+    "check:runtime-tool-contract-admission": "node scripts/verify-runtime-tool-contract-admission.mjs",
     "check:c7-c8-capstone": "node scripts/verify-c7-c8-capstone.mjs",
     "check:c8-v3-portable-bundle": "node --test scripts/lib/c8-v3-portable-bundle.test.mjs",
     "check:c8-v3-relying-party": "cargo build -p aft-c8-verifier && node scripts/verify-c8-v3-relying-party.mjs",
