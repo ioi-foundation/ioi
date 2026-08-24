@@ -418,8 +418,9 @@ only with an exact disposition and negative-reachability proof (ADR 0025).
 
 The attach lane is the commercial wedge, and a wedge that meets people where
 their agents already run must be paid for in contracts, not slogans. Four
-debts, each a named target (none is claimed built; see
-[`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)):
+obligations define the lane; their current implementation state is recorded in
+[`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md), never inferred
+from this canonical contract:
 
 - **Admission.** `ActionRequestEnvelope` is the canonical object for a
   gateway-mediated proposed action. It binds the adapter identity and
@@ -469,6 +470,12 @@ debts, each a named target (none is claimed built; see
   their adapter investment: adapter contracts are part of the open protocol
   surface named in
   [`economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md).
+
+  The gateway owner supplies the exact adapter/profile/request/receipt evidence
+  and the no-carryover boundary. The live activation crossing itself is admitted
+  by the GoalRun owner as part of general source/profile admission; it is not a
+  gateway route and must not duplicate the currently narrow application-owned
+  GoalRun activation path.
 
 #### ActionRequestEnvelope
 
