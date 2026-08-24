@@ -35,6 +35,8 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use super::outcome_room_routes::record_output_hash;
 
 const AUTHORITY_ADMISSION_INTENT_FAMILY: &str = "authority-admission-intents";
+const AUTHORITY_EFFECT_ADMISSION_V2_CONTRACT: &str =
+    "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2";
 const PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS: &[&str] = &[
     "output_hash",
     "final_invoker_status",
@@ -1339,6 +1341,175 @@ pub(crate) async fn revalidate_portable_authority_admission(
         );
     }
     Ok(())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PortableAdmissionEvidence {
+    pub(crate) admission_intent_ref: String,
+    pub(crate) receipt_ref: String,
+    pub(crate) receipt_hash: String,
+    pub(crate) effect_ref: String,
+    pub(crate) effect_hash: String,
+    pub(crate) final_invoker_status: String,
+}
+
+fn portable_admission_evidence_from_record(
+    admission_intent_ref: &str,
+    record: &Value,
+    expected_effect_ref: &str,
+    expected_effect_hash: &str,
+    expected_grant_hash: &str,
+) -> Result<PortableAdmissionEvidence, String> {
+    revalidate_admission_record(record, expected_effect_hash)?;
+    if record.get("authority_mode").and_then(Value::as_str) != Some("portable_v3")
+        || record
+            .pointer("/commitment/effect_ref")
+            .and_then(Value::as_str)
+            != Some(expected_effect_ref)
+        || record
+            .pointer("/commitment/grant_hash")
+            .and_then(Value::as_str)
+            != Some(expected_grant_hash)
+    {
+        return Err(
+            "authority admission evidence does not bind the exact portable grant and effect".into(),
+        );
+    }
+    let output_hash = record_output_hash(record, PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS);
+    if record.get("output_hash").and_then(Value::as_str) != Some(output_hash.as_str()) {
+        return Err("portable authority admission output hash does not recompute".into());
+    }
+    let paired_receipt: PortableAuthorityEffectAdmissionReceiptV2Record = serde_json::from_value(
+        record
+            .get("wallet_admission_receipt_v2")
+            .cloned()
+            .ok_or_else(|| {
+                "portable authority admission lacks its registered v2 receipt".to_string()
+            })?,
+    )
+    .map_err(|reason| format!("portable authority admission pair is malformed: {reason}"))?;
+    let receipt: Value =
+        serde_json::from_slice(&paired_receipt.receipt_json).map_err(|reason| {
+            format!("portable authority admission receipt JSON is malformed: {reason}")
+        })?;
+    validate_architecture_contract(AUTHORITY_EFFECT_ADMISSION_V2_CONTRACT, &receipt).map_err(
+        |reason| format!("portable authority admission v2 receipt is invalid: {reason}"),
+    )?;
+    if receipt
+        .pointer("/body/actual_effect_ref")
+        .and_then(Value::as_str)
+        != Some(expected_effect_ref)
+        || receipt
+            .pointer("/body/actual_effect_hash")
+            .and_then(Value::as_str)
+            != Some(expected_effect_hash)
+        || receipt
+            .pointer("/body/authority_grant_hash")
+            .and_then(Value::as_str)
+            != Some(expected_grant_hash)
+        || receipt.pointer("/body/decision").and_then(Value::as_str) != Some("admitted")
+        || receipt
+            .pointer("/body/invoker_called")
+            .and_then(Value::as_bool)
+            != Some(false)
+    {
+        return Err("portable authority admission v2 receipt differs from durable intent".into());
+    }
+    let receipt_ref = receipt
+        .pointer("/receipt_envelope/receipt_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "portable authority admission v2 receipt has no receipt id".to_string())?;
+    let receipt_hash = receipt
+        .get("receipt_hash")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "portable authority admission v2 receipt has no receipt hash".to_string())?;
+    if sha256_ref_bytes(receipt_hash, "receipt_hash")? != paired_receipt.receipt_hash
+        || sha256_ref_bytes(expected_grant_hash, "authority_grant_hash")?
+            != paired_receipt.grant_hash
+    {
+        return Err("portable authority admission pair differs from its registered receipt".into());
+    }
+    let final_invoker_status = record
+        .get("final_invoker_status")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "portable authority admission has no final-invoker status".to_string())?;
+    Ok(PortableAdmissionEvidence {
+        admission_intent_ref: admission_intent_ref.to_string(),
+        receipt_ref: receipt_ref.to_string(),
+        receipt_hash: receipt_hash.to_string(),
+        effect_ref: expected_effect_ref.to_string(),
+        effect_hash: expected_effect_hash.to_string(),
+        final_invoker_status: final_invoker_status.to_string(),
+    })
+}
+
+/// Resolve the wallet-owned registered v2 admission receipt behind the native
+/// route's daemon-local locator. When a response was lost before that locator
+/// reached the gateway, exact grant/effect coordinates recover a unique
+/// durable slot; ambiguity refuses rather than selecting by directory order.
+pub(crate) fn resolve_portable_admission_evidence(
+    data_dir: &str,
+    admission_receipt_locator: Option<&str>,
+    expected_effect_ref: &str,
+    expected_effect_hash: &str,
+    expected_grant_hash: &str,
+) -> Result<PortableAdmissionEvidence, String> {
+    if let Some(locator) = admission_receipt_locator {
+        let reference = locator.strip_prefix("receipt://").unwrap_or(locator);
+        let tail = admission_intent_tail(reference)?;
+        let record = super::durable_fs::read_record_durable(
+            data_dir,
+            AUTHORITY_ADMISSION_INTENT_FAMILY,
+            tail,
+        )?
+        .ok_or_else(|| "portable authority admission locator is absent".to_string())?;
+        return portable_admission_evidence_from_record(
+            reference,
+            &record,
+            expected_effect_ref,
+            expected_effect_hash,
+            expected_grant_hash,
+        );
+    }
+
+    let records = super::system_activation_routes::enumerate_family(
+        data_dir,
+        AUTHORITY_ADMISSION_INTENT_FAMILY,
+    )
+    .map_err(|error| format!("portable authority admission census failed: {error:?}"))?;
+    let mut matches = Vec::new();
+    for (tail, record) in records {
+        if record.get("authority_mode").and_then(Value::as_str) == Some("portable_v3")
+            && record
+                .pointer("/commitment/effect_ref")
+                .and_then(Value::as_str)
+                == Some(expected_effect_ref)
+            && record
+                .pointer("/commitment/effect_hash")
+                .and_then(Value::as_str)
+                == Some(expected_effect_hash)
+            && record
+                .pointer("/commitment/grant_hash")
+                .and_then(Value::as_str)
+                == Some(expected_grant_hash)
+        {
+            matches.push((tail, record));
+        }
+    }
+    if matches.len() != 1 {
+        return Err(format!(
+            "exact grant/effect coordinates resolve {} portable authority admission slots",
+            matches.len()
+        ));
+    }
+    let (tail, record) = matches.pop().expect("one portable admission");
+    portable_admission_evidence_from_record(
+        &format!("{AUTHORITY_ADMISSION_INTENT_FAMILY}/{tail}"),
+        &record,
+        expected_effect_ref,
+        expected_effect_hash,
+        expected_grant_hash,
+    )
 }
 
 async fn revalidate_authoritative_admission(
@@ -3971,6 +4142,65 @@ mod portable_authority_intent_tests {
             record_output_hash(&record, PORTABLE_ADMISSION_EVIDENCE_HASH_EXCLUSIONS),
             "editing either half of the wallet pair invalidates the daemon projection"
         );
+    }
+
+    #[test]
+    fn gateway_resolves_the_registered_v2_receipt_from_the_sealed_portable_pair() {
+        let receipt = fixture(
+            "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json",
+        );
+        let effect_ref = receipt["body"]["actual_effect_ref"]
+            .as_str()
+            .expect("effect ref");
+        let effect_hash = receipt["body"]["actual_effect_hash"]
+            .as_str()
+            .expect("effect hash");
+        let grant_hash = receipt["body"]["authority_grant_hash"]
+            .as_str()
+            .expect("grant hash");
+        let mut pair = owner_pair();
+        pair.admission_receipt = PortableAuthorityEffectAdmissionReceiptV2Record {
+            schema_version: 1,
+            grant_hash: sha256_ref_bytes(grant_hash, "grant_hash").unwrap(),
+            consumption_id: [0x33; 32],
+            receipt_hash: sha256_ref_bytes(
+                receipt["receipt_hash"].as_str().expect("receipt hash"),
+                "receipt_hash",
+            )
+            .unwrap(),
+            receipt_json: serde_jcs::to_vec(&receipt).unwrap(),
+        };
+        let commitment = json!({
+            "domain":"ioi.hypervisor.portable-authority-consumption.v1",
+            "effect_ref":effect_ref,
+            "effect_hash":effect_hash,
+            "grant_hash":grant_hash,
+        });
+        let mut record = portable_consumed_record("pai_gateway", &commitment, &pair);
+        record["final_invoker_status"] = json!("invoked");
+        let resolved = portable_admission_evidence_from_record(
+            "authority-admission-intents/pai_gateway",
+            &record,
+            effect_ref,
+            effect_hash,
+            grant_hash,
+        )
+        .expect("registered admission evidence");
+        assert_eq!(
+            resolved.receipt_ref,
+            receipt["receipt_envelope"]["receipt_id"]
+        );
+        assert_eq!(resolved.receipt_hash, receipt["receipt_hash"]);
+        assert_eq!(resolved.final_invoker_status, "invoked");
+
+        assert!(portable_admission_evidence_from_record(
+            "authority-admission-intents/pai_gateway",
+            &record,
+            effect_ref,
+            &format!("sha256:{}", hex::encode([0x99; 32])),
+            grant_hash,
+        )
+        .is_err());
     }
 
     #[test]
