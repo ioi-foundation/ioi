@@ -300,6 +300,10 @@ The same verifier path can construct a registered, canonically hashed v2
 pre-invocation admission receipt from the exact verified leaf and daemon effect;
 that pure constructor does not itself consume authority, persist the receipt, or
 authorize an invoker.
+Before registration, it can also verify the complete exact
+request/review/single-use-ceremony/signed-grant graph and request-to-grant
+non-widening. That sealed result is an admission input to wallet-owned durable
+state; it is not itself proof that the ceremony has been atomically consumed.
 
 A WebAuthn assertion can be evidence in an application consent or approval
 ceremony when its fresh server challenge is bound to

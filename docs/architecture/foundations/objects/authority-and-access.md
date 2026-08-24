@@ -467,6 +467,20 @@ and fixes every admitted artifact to the pre-invocation posture
 PEP persistence remain required before this constructor is a served effect
 path.
 
+The same path now verifies a production issuance bundle before owner-side
+persistence. It recomputes the domain-separated request body,
+review-preparation, review body, review receipt, ceremony-context, and signed
+grant hashes; requires the exact request/review/ceremony/grant identity,
+principal, acting subject, session, origin, authorization subject,
+presentation, posture, policy-decision, authority-resolution, and evidence
+links; requires an approved review and a single-use ceremony whose interval
+contains issuance; and proves that the signed grant does not widen the
+request's capabilities, scopes, resources, risk classes, approval
+requirements, budget, or expiry. The verified issuance bundle is sealed
+in-process like the grant and admission results, so public construction or
+deserialization cannot manufacture verification. Durable wallet registration
+and ceremony consumption remain the next owner crossing.
+
 The `standing_envelope` authorization subject resolves the registered
 `StandingAuthorityEnvelope` v1 object. That object closes the unattended class
 over exact provider-operation facets (provider, exact selector set, deposit,

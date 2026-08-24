@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub const AUTHORITY_GRANT_V3_CONTRACT: &str =
     "schema://ioi/foundations/authority-grant-envelope/v3";
@@ -25,11 +26,22 @@ pub const AUTHORITY_REVOCATION_SNAPSHOT_V1_CONTRACT: &str =
     "schema://ioi/foundations/authority-revocation-snapshot/v1";
 pub const AUTHORITY_EFFECT_ADMISSION_RECEIPT_V2_CONTRACT: &str =
     "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2";
+pub const AUTHORITY_SCOPE_REQUEST_V2_CONTRACT: &str =
+    "schema://ioi/foundations/authority-scope-request-envelope/v2";
+pub const APPROVAL_CEREMONY_CONTEXT_V1_CONTRACT: &str =
+    "schema://ioi/foundations/approval-ceremony-context/v1";
+pub const AUTHORITY_REVIEW_RECEIPT_V1_CONTRACT: &str =
+    "schema://ioi/components/wallet-network/authority-review-receipt/v1";
 
 const GRANT_V3_DOMAIN: &[u8] = b"IOI-AUTHORITY-GRANT-ENVELOPE-V3\0";
 const REVOCATION_SNAPSHOT_V1_DOMAIN: &[u8] = b"IOI-AUTHORITY-REVOCATION-SNAPSHOT-V1\0";
 const EFFECT_ADMISSION_BODY_V2_DOMAIN: &[u8] = b"IOI-AUTHORITY-EFFECT-ADMISSION-BODY-V2\0";
 const EFFECT_ADMISSION_RECEIPT_V2_DOMAIN: &[u8] = b"IOI-AUTHORITY-EFFECT-ADMISSION-RECEIPT-V2\0";
+const AUTHORITY_SCOPE_REQUEST_V2_DOMAIN: &[u8] = b"IOI-AUTHORITY-SCOPE-REQUEST-V2\0";
+const APPROVAL_CEREMONY_CONTEXT_V1_DOMAIN: &[u8] = b"IOI-APPROVAL-CEREMONY-CONTEXT-V1\0";
+const AUTHORITY_REVIEW_PREPARATION_V1_DOMAIN: &[u8] = b"IOI-AUTHORITY-REVIEW-PREPARATION-V1\0";
+const AUTHORITY_REVIEW_BODY_V1_DOMAIN: &[u8] = b"IOI-AUTHORITY-REVIEW-BODY-V1\0";
+const AUTHORITY_REVIEW_RECEIPT_V1_DOMAIN: &[u8] = b"IOI-AUTHORITY-REVIEW-RECEIPT-V1\0";
 
 /// Stable machine refusal names required by the portable-authority negative corpus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,6 +78,7 @@ pub enum PortableAuthorityRefusalCode {
     EffectMismatch,
     ProofMismatch,
     AdmissionReceiptInvalid,
+    IssuanceBundleInvalid,
 }
 
 impl PortableAuthorityRefusalCode {
@@ -102,6 +115,7 @@ impl PortableAuthorityRefusalCode {
             Self::EffectMismatch => "effect_mismatch",
             Self::ProofMismatch => "proof_mismatch",
             Self::AdmissionReceiptInvalid => "admission_receipt_invalid",
+            Self::IssuanceBundleInvalid => "issuance_bundle_invalid",
         }
     }
 }
@@ -255,6 +269,27 @@ impl VerifiedAuthorityEffectAdmissionReceiptV2 {
             .as_str()
             .expect("sealed admission receipt has a registered receipt_hash")
     }
+}
+
+pub struct PortableAuthorityIssuanceBundleV3Input<'a> {
+    pub verified_grant: &'a VerifiedPortableAuthorityV3,
+    pub leaf_grant: &'a Value,
+    pub authority_request: &'a Value,
+    pub approval_ceremony_context: &'a Value,
+    pub authority_review_receipt: &'a Value,
+}
+
+/// Sealed exact request/review/ceremony/grant graph admitted for owner-side persistence.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct VerifiedPortableAuthorityIssuanceBundleV3 {
+    pub authority_request_body_hash: String,
+    pub authority_review_preparation_hash: String,
+    pub authority_review_receipt_body_hash: String,
+    pub authority_review_receipt_hash: String,
+    pub approval_ceremony_context_hash: String,
+    pub authority_grant_ref: String,
+    pub authority_grant_hash: String,
+    verification_seal: PortableAuthorityVerificationSeal,
 }
 
 fn required_str<'a>(
@@ -1267,6 +1302,819 @@ pub fn authority_effect_admission_body_v2_hash(
     Ok(sha256_ref(&material))
 }
 
+pub fn authority_scope_request_v2_body_hash(
+    request: &Value,
+) -> Result<String, PortableAuthorityRefusal> {
+    let mut body = request.clone();
+    let object = body.as_object_mut().ok_or_else(|| {
+        refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "authority request must be one JSON object",
+        )
+    })?;
+    for field in [
+        "authority_request_body_hash",
+        "authority_grant_id",
+        "status",
+    ] {
+        object.remove(field);
+    }
+    let mut material = AUTHORITY_SCOPE_REQUEST_V2_DOMAIN.to_vec();
+    material.extend(jcs(
+        &body,
+        PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+    )?);
+    Ok(sha256_ref(&material))
+}
+
+pub fn approval_ceremony_context_v1_hash(
+    context: &Value,
+) -> Result<String, PortableAuthorityRefusal> {
+    let mut material = APPROVAL_CEREMONY_CONTEXT_V1_DOMAIN.to_vec();
+    material.extend(jcs(
+        context,
+        PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+    )?);
+    Ok(sha256_ref(&material))
+}
+
+pub fn authority_review_preparation_v1_hash(
+    review_body: &Value,
+) -> Result<String, PortableAuthorityRefusal> {
+    let object = review_body.as_object().ok_or_else(|| {
+        refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "authority review body must be one JSON object",
+        )
+    })?;
+    let fields = [
+        "authority_review_ref",
+        "authority_request_ref",
+        "authority_request_body_hash",
+        "reviewed_representation_hash",
+        "predecessor_authority_review_ref",
+        "predecessor_authority_review_body_hash",
+        "predecessor_authority_request_ref",
+        "predecessor_authority_request_body_hash",
+        "predecessor_authority_review_receipt_ref",
+        "predecessor_authority_review_receipt_hash",
+        "principal_ref",
+        "acting_subject_ref",
+        "product_session_ref",
+        "origin_binding_ref",
+        "authorization_subject",
+        "presentation_surface_ref",
+        "presentation_evidence_profile_ref",
+        "principal_authority_resolution_ref",
+        "principal_authority_resolution_hash",
+        "required_auth_factor_posture_refs",
+        "required_guardian_surface_refs",
+        "posture_satisfaction_profile_ref",
+        "interaction_mode",
+        "authentication_posture",
+        "receipt_timing",
+        "policy_hash",
+        "risk_classes",
+        "expires_at",
+    ];
+    let mut preparation = serde_json::Map::new();
+    preparation.insert(
+        "schema_version".to_owned(),
+        json!("ioi.components.wallet-network.authority-review-receipt.v1"),
+    );
+    for field in fields {
+        preparation.insert(
+            field.to_owned(),
+            object.get(field).cloned().ok_or_else(|| {
+                refuse(
+                    PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+                    format!("authority review body lacks {field}"),
+                )
+            })?,
+        );
+    }
+    let mut material = AUTHORITY_REVIEW_PREPARATION_V1_DOMAIN.to_vec();
+    material.extend(jcs(
+        &Value::Object(preparation),
+        PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+    )?);
+    Ok(sha256_ref(&material))
+}
+
+pub fn authority_review_body_v1_hash(
+    review_body: &Value,
+) -> Result<String, PortableAuthorityRefusal> {
+    let mut material = AUTHORITY_REVIEW_BODY_V1_DOMAIN.to_vec();
+    material.extend(jcs(
+        review_body,
+        PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+    )?);
+    Ok(sha256_ref(&material))
+}
+
+pub fn authority_review_receipt_v1_hash(
+    receipt: &Value,
+) -> Result<String, PortableAuthorityRefusal> {
+    let material_value = json!({
+        "schema_version": required_str(receipt, "/schema_version", PortableAuthorityRefusalCode::IssuanceBundleInvalid)?,
+        "receipt_envelope": receipt.get("receipt_envelope").cloned().ok_or_else(|| refuse(PortableAuthorityRefusalCode::IssuanceBundleInvalid, "review receipt lacks envelope"))?,
+        "body_hash": required_str(receipt, "/body_hash", PortableAuthorityRefusalCode::IssuanceBundleInvalid)?,
+    });
+    let mut material = AUTHORITY_REVIEW_RECEIPT_V1_DOMAIN.to_vec();
+    material.extend(jcs(
+        &material_value,
+        PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+    )?);
+    Ok(sha256_ref(&material))
+}
+
+fn require_same(
+    left: &Value,
+    left_pointer: &str,
+    right: &Value,
+    right_pointer: &str,
+    label: &str,
+) -> Result<(), PortableAuthorityRefusal> {
+    if left.pointer(left_pointer) != right.pointer(right_pointer)
+        || left.pointer(left_pointer).is_none()
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            format!("issuance bundle substitution at {label}"),
+        ));
+    }
+    Ok(())
+}
+
+fn rfc3339_seconds(value: &Value, pointer: &str) -> Result<u64, PortableAuthorityRefusal> {
+    let parsed = OffsetDateTime::parse(
+        required_str(
+            value,
+            pointer,
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+        )?,
+        &Rfc3339,
+    )
+    .map_err(|_| {
+        refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            format!("invalid RFC3339 timestamp at {pointer}"),
+        )
+    })?;
+    u64::try_from(parsed.unix_timestamp()).map_err(|_| {
+        refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            format!("timestamp at {pointer} predates Unix epoch"),
+        )
+    })
+}
+
+/// Verify the exact request → review → one-use ceremony → signed v3 grant graph.
+pub fn verify_portable_authority_issuance_bundle_v3(
+    input: PortableAuthorityIssuanceBundleV3Input<'_>,
+) -> Result<VerifiedPortableAuthorityIssuanceBundleV3, PortableAuthorityRefusal> {
+    for (contract, value) in [
+        (AUTHORITY_SCOPE_REQUEST_V2_CONTRACT, input.authority_request),
+        (
+            APPROVAL_CEREMONY_CONTEXT_V1_CONTRACT,
+            input.approval_ceremony_context,
+        ),
+        (
+            AUTHORITY_REVIEW_RECEIPT_V1_CONTRACT,
+            input.authority_review_receipt,
+        ),
+        (AUTHORITY_GRANT_V3_CONTRACT, input.leaf_grant),
+    ] {
+        validate_registered(
+            contract,
+            value,
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+        )?;
+    }
+    if input.leaf_grant["authority_grant_id"] != input.verified_grant.authority_grant_ref
+        || input.leaf_grant["body_hash"] != input.verified_grant.authority_grant_hash
+        || authority_grant_v3_body_hash(input.leaf_grant)?
+            != input.verified_grant.authority_grant_hash
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "issuance leaf differs from its sealed cryptographic verification",
+        ));
+    }
+
+    let request_hash = authority_scope_request_v2_body_hash(input.authority_request)?;
+    if input.authority_request["authority_request_body_hash"] != request_hash {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "authority request body hash mismatch",
+        ));
+    }
+    let review_body = input.authority_review_receipt.get("body").ok_or_else(|| {
+        refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "review receipt lacks body",
+        )
+    })?;
+    let review_preparation_hash = authority_review_preparation_v1_hash(review_body)?;
+    if review_body["authority_review_body_hash"] != review_preparation_hash {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "authority review preparation hash mismatch",
+        ));
+    }
+    let review_body_hash = authority_review_body_v1_hash(review_body)?;
+    if input.authority_review_receipt["body_hash"] != review_body_hash {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "authority review receipt body hash mismatch",
+        ));
+    }
+    let review_receipt_hash = authority_review_receipt_v1_hash(input.authority_review_receipt)?;
+    if input.authority_review_receipt["receipt_hash"] != review_receipt_hash {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "authority review receipt hash mismatch",
+        ));
+    }
+    let context_hash = approval_ceremony_context_v1_hash(input.approval_ceremony_context)?;
+    let grant_commitment = &input.leaf_grant["request_commitment"];
+
+    for (left, left_pointer, right, right_pointer, label) in [
+        (
+            input.authority_request,
+            "/authority_request_id",
+            review_body,
+            "/authority_request_ref",
+            "request.review_ref",
+        ),
+        (
+            input.authority_request,
+            "/authority_request_body_hash",
+            review_body,
+            "/authority_request_body_hash",
+            "request.review_hash",
+        ),
+        (
+            input.authority_request,
+            "/authority_request_id",
+            input.approval_ceremony_context,
+            "/authority_request_ref",
+            "request.context_ref",
+        ),
+        (
+            input.authority_request,
+            "/authority_request_body_hash",
+            input.approval_ceremony_context,
+            "/authority_request_body_hash",
+            "request.context_hash",
+        ),
+        (
+            input.authority_request,
+            "/authority_request_id",
+            input.leaf_grant,
+            "/request_id",
+            "request.grant_ref",
+        ),
+        (
+            input.authority_request,
+            "/authority_request_id",
+            grant_commitment,
+            "/authority_request_id",
+            "request.grant_commitment_ref",
+        ),
+        (
+            input.authority_request,
+            "/authority_request_body_hash",
+            grant_commitment,
+            "/authority_request_body_hash",
+            "request.grant_commitment_hash",
+        ),
+        (
+            review_body,
+            "/authority_review_ref",
+            input.approval_ceremony_context,
+            "/authority_review_ref",
+            "review.context_ref",
+        ),
+        (
+            review_body,
+            "/authority_review_body_hash",
+            input.approval_ceremony_context,
+            "/authority_review_body_hash",
+            "review.context_hash",
+        ),
+        (
+            review_body,
+            "/reviewed_representation_hash",
+            input.approval_ceremony_context,
+            "/reviewed_representation_hash",
+            "review.context_representation",
+        ),
+        (
+            review_body,
+            "/reviewed_representation_hash",
+            grant_commitment,
+            "/reviewed_representation_hash",
+            "review.grant_representation",
+        ),
+        (
+            review_body,
+            "/approval_ceremony_context_ref",
+            grant_commitment,
+            "/approval_ceremony_context_ref",
+            "review.grant_context_ref",
+        ),
+        (
+            review_body,
+            "/approval_ceremony_context_hash",
+            grant_commitment,
+            "/approval_ceremony_context_hash",
+            "review.grant_context_hash",
+        ),
+        (
+            review_body,
+            "/authorization_subject",
+            input.authority_request,
+            "/authorization_subject",
+            "request.review_subject",
+        ),
+        (
+            review_body,
+            "/authorization_subject",
+            input.approval_ceremony_context,
+            "/authorization_subject",
+            "review.context_subject",
+        ),
+        (
+            review_body,
+            "/authorization_subject",
+            grant_commitment,
+            "/authorization_subject",
+            "review.grant_subject",
+        ),
+        (
+            review_body,
+            "/principal_ref",
+            input.authority_request,
+            "/principal_ref",
+            "request.review_principal",
+        ),
+        (
+            review_body,
+            "/principal_ref",
+            input.approval_ceremony_context,
+            "/principal_ref",
+            "review.context_principal",
+        ),
+        (
+            review_body,
+            "/principal_ref",
+            grant_commitment,
+            "/principal_ref",
+            "review.grant_principal",
+        ),
+        (
+            review_body,
+            "/product_session_ref",
+            input.authority_request,
+            "/product_session_ref",
+            "request.review_session",
+        ),
+        (
+            review_body,
+            "/product_session_ref",
+            input.approval_ceremony_context,
+            "/product_session_ref",
+            "review.context_session",
+        ),
+        (
+            review_body,
+            "/product_session_ref",
+            grant_commitment,
+            "/product_session_ref",
+            "review.grant_session",
+        ),
+        (
+            review_body,
+            "/origin_binding_ref",
+            input.authority_request,
+            "/origin_binding_ref",
+            "request.review_origin",
+        ),
+        (
+            review_body,
+            "/origin_binding_ref",
+            input.approval_ceremony_context,
+            "/origin_binding_ref",
+            "review.context_origin",
+        ),
+        (
+            review_body,
+            "/origin_binding_ref",
+            grant_commitment,
+            "/origin_binding_ref",
+            "review.grant_origin",
+        ),
+        (
+            review_body,
+            "/acting_subject_ref",
+            input.authority_request,
+            "/subject_id",
+            "request.review_subject_id",
+        ),
+        (
+            review_body,
+            "/acting_subject_ref",
+            input.approval_ceremony_context,
+            "/acting_subject_ref",
+            "review.context_subject_id",
+        ),
+        (
+            review_body,
+            "/presentation_surface_ref",
+            input.approval_ceremony_context,
+            "/presentation_surface_ref",
+            "review.context_surface",
+        ),
+        (
+            review_body,
+            "/presentation_surface_ref",
+            grant_commitment,
+            "/presentation_surface_ref",
+            "review.grant_surface",
+        ),
+        (
+            review_body,
+            "/presentation_evidence_profile_ref",
+            input.approval_ceremony_context,
+            "/presentation_evidence_profile_ref",
+            "review.context_presentation_profile",
+        ),
+        (
+            review_body,
+            "/presentation_evidence_profile_ref",
+            grant_commitment,
+            "/presentation_evidence_profile_ref",
+            "review.grant_presentation_profile",
+        ),
+        (
+            review_body,
+            "/presentation_evidence_refs",
+            grant_commitment,
+            "/presentation_evidence_refs",
+            "review.grant_presentation_evidence",
+        ),
+        (
+            review_body,
+            "/approval_ceremony_evidence_refs",
+            grant_commitment,
+            "/approval_ceremony_evidence_refs",
+            "review.grant_ceremony_evidence",
+        ),
+        (
+            review_body,
+            "/required_auth_factor_posture_refs",
+            input.approval_ceremony_context,
+            "/required_auth_factor_posture_refs",
+            "review.context_factor_requirements",
+        ),
+        (
+            review_body,
+            "/required_auth_factor_posture_refs",
+            grant_commitment,
+            "/required_auth_factor_posture_refs",
+            "review.grant_factor_requirements",
+        ),
+        (
+            review_body,
+            "/required_guardian_surface_refs",
+            input.approval_ceremony_context,
+            "/required_guardian_surface_refs",
+            "review.context_guardian_requirements",
+        ),
+        (
+            review_body,
+            "/required_guardian_surface_refs",
+            grant_commitment,
+            "/required_guardian_surface_refs",
+            "review.grant_guardian_requirements",
+        ),
+        (
+            review_body,
+            "/satisfied_auth_factor_refs",
+            grant_commitment,
+            "/satisfied_auth_factor_refs",
+            "review.grant_satisfied_factors",
+        ),
+        (
+            review_body,
+            "/satisfied_guardian_surface_refs",
+            grant_commitment,
+            "/satisfied_guardian_surface_refs",
+            "review.grant_satisfied_guardians",
+        ),
+        (
+            review_body,
+            "/posture_satisfaction_profile_ref",
+            input.approval_ceremony_context,
+            "/posture_satisfaction_profile_ref",
+            "review.context_posture_profile",
+        ),
+        (
+            review_body,
+            "/posture_satisfaction_profile_ref",
+            grant_commitment,
+            "/posture_satisfaction_profile_ref",
+            "review.grant_posture_profile",
+        ),
+        (
+            review_body,
+            "/posture_satisfaction_evaluations",
+            grant_commitment,
+            "/posture_satisfaction_evaluations",
+            "review.grant_posture_evaluations",
+        ),
+        (
+            review_body,
+            "/posture_satisfaction_root",
+            grant_commitment,
+            "/posture_satisfaction_root",
+            "review.grant_posture_root",
+        ),
+        (
+            review_body,
+            "/interaction_mode",
+            input.approval_ceremony_context,
+            "/interaction_mode",
+            "review.context_interaction",
+        ),
+        (
+            review_body,
+            "/interaction_mode",
+            grant_commitment,
+            "/interaction_mode",
+            "review.grant_interaction",
+        ),
+        (
+            review_body,
+            "/authentication_posture",
+            input.approval_ceremony_context,
+            "/authentication_posture",
+            "review.context_authentication",
+        ),
+        (
+            review_body,
+            "/authentication_posture",
+            grant_commitment,
+            "/authentication_posture",
+            "review.grant_authentication",
+        ),
+        (
+            review_body,
+            "/receipt_timing",
+            input.approval_ceremony_context,
+            "/receipt_timing",
+            "review.context_receipt_timing",
+        ),
+        (
+            review_body,
+            "/receipt_timing",
+            grant_commitment,
+            "/receipt_timing",
+            "review.grant_receipt_timing",
+        ),
+        (
+            review_body,
+            "/principal_authority_resolution_ref",
+            input.approval_ceremony_context,
+            "/principal_authority_resolution_ref",
+            "review.context_authority_resolution_ref",
+        ),
+        (
+            review_body,
+            "/principal_authority_resolution_hash",
+            input.approval_ceremony_context,
+            "/principal_authority_resolution_hash",
+            "review.context_authority_resolution_hash",
+        ),
+        (
+            review_body,
+            "/principal_authority_resolution_ref",
+            grant_commitment,
+            "/principal_authority_resolution_ref",
+            "review.grant_authority_resolution_ref",
+        ),
+        (
+            review_body,
+            "/principal_authority_resolution_hash",
+            grant_commitment,
+            "/principal_authority_resolution_hash",
+            "review.grant_authority_resolution_hash",
+        ),
+        (
+            review_body,
+            "/policy_decision_receipt_ref",
+            input.approval_ceremony_context,
+            "/policy_decision_receipt_ref",
+            "review.context_policy_receipt_ref",
+        ),
+        (
+            review_body,
+            "/policy_decision_receipt_hash",
+            input.approval_ceremony_context,
+            "/policy_decision_receipt_hash",
+            "review.context_policy_receipt_hash",
+        ),
+        (
+            review_body,
+            "/policy_decision_receipt_ref",
+            grant_commitment,
+            "/policy_decision_receipt_ref",
+            "review.grant_policy_receipt_ref",
+        ),
+        (
+            review_body,
+            "/policy_decision_receipt_hash",
+            grant_commitment,
+            "/policy_decision_receipt_hash",
+            "review.grant_policy_receipt_hash",
+        ),
+        (
+            review_body,
+            "/policy_hash",
+            input.authority_request,
+            "/policy_hash",
+            "request.review_policy",
+        ),
+        (
+            review_body,
+            "/policy_hash",
+            input.approval_ceremony_context,
+            "/policy_hash",
+            "review.context_policy",
+        ),
+        (
+            review_body,
+            "/risk_classes",
+            input.authority_request,
+            "/risk_classes",
+            "request.review_risk",
+        ),
+        (
+            review_body,
+            "/risk_classes",
+            input.approval_ceremony_context,
+            "/risk_classes",
+            "review.context_risk",
+        ),
+        (
+            input.authority_request,
+            "/issuer_id",
+            input.leaf_grant,
+            "/issuer_id",
+            "request.grant_issuer",
+        ),
+        (
+            input.authority_request,
+            "/subject_id",
+            input.leaf_grant,
+            "/holder_id",
+            "request.grant_holder",
+        ),
+        (
+            input.authority_request,
+            "/requesting_runtime_ref",
+            input.leaf_grant,
+            "/audience",
+            "request.grant_audience",
+        ),
+    ] {
+        require_same(left, left_pointer, right, right_pointer, label)?;
+    }
+    if grant_commitment["approval_ceremony_context_hash"] != context_hash
+        || review_body["approval_ceremony_context_hash"] != context_hash
+        || grant_commitment["authority_review_receipt_ref"]
+            != input.authority_review_receipt["receipt_envelope"]["receipt_id"]
+        || grant_commitment["authority_review_receipt_hash"] != review_receipt_hash
+        || review_body["decision"].as_str() != Some("approved")
+        || input.approval_ceremony_context["single_use"].as_bool() != Some(true)
+        || input.approval_ceremony_context["revocation_epoch"]
+            != input.leaf_grant["revocation_epoch"]
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "issuance decision, ceremony, review receipt, or revocation binding mismatch",
+        ));
+    }
+
+    let grant_issued = required_u64(
+        input.leaf_grant,
+        "/issued_at",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )?;
+    if grant_issued < rfc3339_seconds(input.approval_ceremony_context, "/issued_at")?
+        || grant_issued > rfc3339_seconds(input.approval_ceremony_context, "/expires_at")?
+        || grant_issued > rfc3339_seconds(review_body, "/expires_at")?
+        || required_u64(
+            input.leaf_grant,
+            "/expires_at",
+            PortableAuthorityRefusalCode::MalformedGrant,
+        )? > rfc3339_seconds(
+            input.authority_request,
+            "/resource_scope/constraints/expiry",
+        )?
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "grant is outside its request, review, or one-use ceremony interval",
+        ));
+    }
+    let request_budget_microusd = required_u64(
+        input.authority_request,
+        "/resource_scope/constraints/max_budget_usd",
+        PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+    )?
+    .checked_mul(1_000_000)
+    .ok_or_else(|| {
+        refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "requested budget overflows microusd",
+        )
+    })?;
+    if required_u64(
+        input.leaf_grant,
+        "/risk_restrictions/max_budget_microusd",
+        PortableAuthorityRefusalCode::MalformedGrant,
+    )? > request_budget_microusd
+        || !string_set(
+            input.leaf_grant,
+            "/authority_scopes",
+            PortableAuthorityRefusalCode::MalformedGrant,
+        )?
+        .is_subset(&string_set(
+            input.authority_request,
+            "/authority_scopes_requested",
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+        )?)
+        || !string_set(
+            input.leaf_grant,
+            "/primitive_capability_constraints",
+            PortableAuthorityRefusalCode::MalformedGrant,
+        )?
+        .is_subset(&string_set(
+            input.authority_request,
+            "/primitive_capabilities_required",
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+        )?)
+        || !string_set(
+            input.leaf_grant,
+            "/resources",
+            PortableAuthorityRefusalCode::MalformedGrant,
+        )?
+        .is_subset(&string_set(
+            input.authority_request,
+            "/resource_scope/resources",
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+        )?)
+        || !string_set(
+            input.leaf_grant,
+            "/risk_restrictions/allowed_risk_classes",
+            PortableAuthorityRefusalCode::MalformedGrant,
+        )?
+        .is_subset(&string_set(
+            input.authority_request,
+            "/risk_classes",
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+        )?)
+        || !string_set(
+            input.authority_request,
+            "/resource_scope/constraints/approval_required_for",
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+        )?
+        .is_subset(&string_set(
+            input.leaf_grant,
+            "/risk_restrictions/approval_required_for",
+            PortableAuthorityRefusalCode::MalformedGrant,
+        )?)
+    {
+        return Err(refuse(
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid,
+            "signed grant widens the exact authority request",
+        ));
+    }
+
+    Ok(VerifiedPortableAuthorityIssuanceBundleV3 {
+        authority_request_body_hash: request_hash,
+        authority_review_preparation_hash: review_preparation_hash,
+        authority_review_receipt_body_hash: review_body_hash,
+        authority_review_receipt_hash: review_receipt_hash,
+        approval_ceremony_context_hash: context_hash,
+        authority_grant_ref: input.verified_grant.authority_grant_ref.clone(),
+        authority_grant_hash: input.verified_grant.authority_grant_hash.clone(),
+        verification_seal: PortableAuthorityVerificationSeal,
+    })
+}
+
 pub fn authority_effect_admission_receipt_v2_hash(
     schema_version: &str,
     receipt_envelope: &Value,
@@ -1720,6 +2568,225 @@ mod tests {
         (grant, key_set, snapshot)
     }
 
+    fn issuance_fixture() -> (Value, Value, Value, Value, Value, Value) {
+        let (mut grant, key_set, snapshot) = root_fixture();
+        let mut request = fixture("authority-scope-request-envelope-v2/positive-exact-effect.json");
+        request["authorization_subject"] =
+            grant["request_commitment"]["authorization_subject"].clone();
+        request["authority_request_id"] = grant["request_id"].clone();
+        request["principal_ref"] = grant["request_commitment"]["principal_ref"].clone();
+        request["product_session_ref"] = grant["request_commitment"]["product_session_ref"].clone();
+        request["origin_binding_ref"] = grant["request_commitment"]["origin_binding_ref"].clone();
+        request["subject_id"] = grant["holder_id"].clone();
+        request["issuer_id"] = grant["issuer_id"].clone();
+        request["requesting_runtime_ref"] = grant["audience"].clone();
+        request["requested_auth_factor_posture_refs"] =
+            grant["request_commitment"]["required_auth_factor_posture_refs"].clone();
+        request["requested_guardian_surface_refs"] =
+            grant["request_commitment"]["required_guardian_surface_refs"].clone();
+        request["primitive_capabilities_required"] =
+            grant["primitive_capability_constraints"].clone();
+        request["authority_scopes_requested"] = grant["authority_scopes"].clone();
+        request["resource_scope"]["resources"] = grant["resources"].clone();
+        request["resource_scope"]["constraints"]["expiry"] = json!("2026-08-24T17:00:00Z");
+        request["risk_classes"] = grant["risk_restrictions"]["allowed_risk_classes"].clone();
+        request["resource_scope"]["constraints"]["approval_required_for"] =
+            grant["risk_restrictions"]["approval_required_for"].clone();
+        request["authority_request_body_hash"] =
+            json!(authority_scope_request_v2_body_hash(&request).expect("request hash"));
+
+        let mut review = fixture("authority-review-receipt-v1/positive-approved.json");
+        let review_body = review["body"].as_object_mut().unwrap();
+        review_body.insert(
+            "authority_request_ref".into(),
+            request["authority_request_id"].clone(),
+        );
+        review_body.insert(
+            "authority_request_body_hash".into(),
+            request["authority_request_body_hash"].clone(),
+        );
+        review_body.insert("principal_ref".into(), request["principal_ref"].clone());
+        review_body.insert(
+            "product_session_ref".into(),
+            request["product_session_ref"].clone(),
+        );
+        review_body.insert(
+            "origin_binding_ref".into(),
+            request["origin_binding_ref"].clone(),
+        );
+        review_body.insert("acting_subject_ref".into(), request["subject_id"].clone());
+        review_body.insert(
+            "authorization_subject".into(),
+            request["authorization_subject"].clone(),
+        );
+        review_body.insert(
+            "required_auth_factor_posture_refs".into(),
+            request["requested_auth_factor_posture_refs"].clone(),
+        );
+        review_body.insert(
+            "required_guardian_surface_refs".into(),
+            request["requested_guardian_surface_refs"].clone(),
+        );
+        review_body.insert("policy_hash".into(), request["policy_hash"].clone());
+        review_body.insert("risk_classes".into(), request["risk_classes"].clone());
+        review_body.insert("reviewed_at".into(), json!("2026-08-24T16:01:00Z"));
+        review_body.insert("expires_at".into(), json!("2026-08-24T16:05:00Z"));
+        let preparation_hash =
+            authority_review_preparation_v1_hash(&review["body"]).expect("review preparation");
+        review["body"]["authority_review_body_hash"] = json!(preparation_hash);
+
+        let mut context = fixture("approval-ceremony-context-v1/positive-standing-envelope.json");
+        for (context_field, review_field) in [
+            ("authority_review_ref", "authority_review_ref"),
+            ("authority_review_body_hash", "authority_review_body_hash"),
+            (
+                "reviewed_representation_hash",
+                "reviewed_representation_hash",
+            ),
+            ("principal_ref", "principal_ref"),
+            ("acting_subject_ref", "acting_subject_ref"),
+            ("product_session_ref", "product_session_ref"),
+            ("origin_binding_ref", "origin_binding_ref"),
+            ("authorization_subject", "authorization_subject"),
+            ("presentation_surface_ref", "presentation_surface_ref"),
+            (
+                "presentation_evidence_profile_ref",
+                "presentation_evidence_profile_ref",
+            ),
+            (
+                "principal_authority_resolution_ref",
+                "principal_authority_resolution_ref",
+            ),
+            (
+                "principal_authority_resolution_hash",
+                "principal_authority_resolution_hash",
+            ),
+            (
+                "required_auth_factor_posture_refs",
+                "required_auth_factor_posture_refs",
+            ),
+            (
+                "required_guardian_surface_refs",
+                "required_guardian_surface_refs",
+            ),
+            (
+                "posture_satisfaction_profile_ref",
+                "posture_satisfaction_profile_ref",
+            ),
+            ("interaction_mode", "interaction_mode"),
+            ("authentication_posture", "authentication_posture"),
+            ("receipt_timing", "receipt_timing"),
+            ("policy_decision_receipt_ref", "policy_decision_receipt_ref"),
+            (
+                "policy_decision_receipt_hash",
+                "policy_decision_receipt_hash",
+            ),
+            ("policy_hash", "policy_hash"),
+            ("risk_classes", "risk_classes"),
+        ] {
+            context[context_field] = review["body"][review_field].clone();
+        }
+        context["approval_ceremony_context_ref"] =
+            review["body"]["approval_ceremony_context_ref"].clone();
+        context["authority_request_ref"] = request["authority_request_id"].clone();
+        context["authority_request_body_hash"] = request["authority_request_body_hash"].clone();
+        context["revocation_epoch"] = grant["revocation_epoch"].clone();
+        context["issued_at"] = json!("2026-08-24T16:01:00Z");
+        context["expires_at"] = json!("2026-08-24T16:05:00Z");
+        let context_hash =
+            approval_ceremony_context_v1_hash(&context).expect("approval context hash");
+        review["body"]["approval_ceremony_context_hash"] = json!(context_hash);
+
+        let review_body_hash =
+            authority_review_body_v1_hash(&review["body"]).expect("review body hash");
+        review["body_hash"] = json!(review_body_hash);
+        review["receipt_envelope"]["input_hash"] = request["authority_request_body_hash"].clone();
+        review["receipt_envelope"]["output_hash"] = review["body_hash"].clone();
+        review["receipt_envelope"]["policy_hash"] = review["body"]["policy_hash"].clone();
+        review["receipt_envelope"]["actor_id"] = review["body"]["decision_actor_ref"].clone();
+        review["receipt_envelope"]["timestamp"] = review["body"]["reviewed_at"].clone();
+        review["receipt_envelope"]["verification_ref"] =
+            review["body"]["policy_decision_receipt_ref"].clone();
+        review["receipt_hash"] =
+            json!(authority_review_receipt_v1_hash(&review).expect("review receipt hash"));
+
+        for (grant_field, review_field) in [
+            (
+                "reviewed_representation_hash",
+                "reviewed_representation_hash",
+            ),
+            ("presentation_surface_ref", "presentation_surface_ref"),
+            (
+                "presentation_evidence_profile_ref",
+                "presentation_evidence_profile_ref",
+            ),
+            ("presentation_evidence_refs", "presentation_evidence_refs"),
+            (
+                "approval_ceremony_context_ref",
+                "approval_ceremony_context_ref",
+            ),
+            (
+                "approval_ceremony_evidence_refs",
+                "approval_ceremony_evidence_refs",
+            ),
+            ("authorization_subject", "authorization_subject"),
+            ("principal_ref", "principal_ref"),
+            ("product_session_ref", "product_session_ref"),
+            ("origin_binding_ref", "origin_binding_ref"),
+            (
+                "required_auth_factor_posture_refs",
+                "required_auth_factor_posture_refs",
+            ),
+            (
+                "required_guardian_surface_refs",
+                "required_guardian_surface_refs",
+            ),
+            ("satisfied_auth_factor_refs", "satisfied_auth_factor_refs"),
+            (
+                "satisfied_guardian_surface_refs",
+                "satisfied_guardian_surface_refs",
+            ),
+            (
+                "posture_satisfaction_profile_ref",
+                "posture_satisfaction_profile_ref",
+            ),
+            (
+                "posture_satisfaction_evaluations",
+                "posture_satisfaction_evaluations",
+            ),
+            ("posture_satisfaction_root", "posture_satisfaction_root"),
+            ("interaction_mode", "interaction_mode"),
+            ("authentication_posture", "authentication_posture"),
+            ("receipt_timing", "receipt_timing"),
+            (
+                "principal_authority_resolution_ref",
+                "principal_authority_resolution_ref",
+            ),
+            (
+                "principal_authority_resolution_hash",
+                "principal_authority_resolution_hash",
+            ),
+            ("policy_decision_receipt_ref", "policy_decision_receipt_ref"),
+            (
+                "policy_decision_receipt_hash",
+                "policy_decision_receipt_hash",
+            ),
+        ] {
+            grant["request_commitment"][grant_field] = review["body"][review_field].clone();
+        }
+        grant["request_commitment"]["authority_request_id"] =
+            request["authority_request_id"].clone();
+        grant["request_commitment"]["authority_request_body_hash"] =
+            request["authority_request_body_hash"].clone();
+        grant["request_commitment"]["approval_ceremony_context_hash"] = json!(context_hash);
+        grant["request_commitment"]["authority_review_receipt_ref"] =
+            review["receipt_envelope"]["receipt_id"].clone();
+        grant["request_commitment"]["authority_review_receipt_hash"] =
+            review["receipt_hash"].clone();
+        sign_grant(&mut grant, &keypair(7));
+        (request, context, review, grant, key_set, snapshot)
+    }
+
     fn verify_root(
         grant: &Value,
         key_set: &Value,
@@ -1794,6 +2861,110 @@ mod tests {
         assert_eq!(verified.authority_grant_hash, grant["body_hash"]);
         assert!(verified.ancestor_grant_refs.is_empty());
         assert_eq!(verified.revocation_snapshot_refs.len(), 1);
+    }
+
+    #[test]
+    fn issuance_bundle_binds_request_review_single_use_ceremony_and_grant() {
+        let (request, context, review, grant, key_set, snapshot) = issuance_fixture();
+        let verified = verify_root(
+            &grant,
+            &key_set,
+            &snapshot,
+            grant["audience"].as_str().unwrap(),
+            &BTreeSet::new(),
+        )
+        .expect("verified v3 grant");
+        let bundle =
+            verify_portable_authority_issuance_bundle_v3(PortableAuthorityIssuanceBundleV3Input {
+                verified_grant: &verified,
+                leaf_grant: &grant,
+                authority_request: &request,
+                approval_ceremony_context: &context,
+                authority_review_receipt: &review,
+            })
+            .expect("verified issuance graph");
+        assert_eq!(bundle.authority_grant_hash, verified.authority_grant_hash);
+        assert_eq!(
+            bundle.approval_ceremony_context_hash,
+            approval_ceremony_context_v1_hash(&context).unwrap()
+        );
+    }
+
+    #[test]
+    fn issuance_bundle_refuses_request_ceremony_review_and_widening_substitution() {
+        let (request, context, review, grant, key_set, snapshot) = issuance_fixture();
+        let verified = verify_root(
+            &grant,
+            &key_set,
+            &snapshot,
+            grant["audience"].as_str().unwrap(),
+            &BTreeSet::new(),
+        )
+        .expect("verified v3 grant");
+        let verify_bundle = |request: &Value,
+                             context: &Value,
+                             review: &Value,
+                             grant: &Value,
+                             verified: &VerifiedPortableAuthorityV3| {
+            verify_portable_authority_issuance_bundle_v3(PortableAuthorityIssuanceBundleV3Input {
+                verified_grant: verified,
+                leaf_grant: grant,
+                authority_request: request,
+                approval_ceremony_context: context,
+                authority_review_receipt: review,
+            })
+        };
+
+        let mut changed_request = request.clone();
+        changed_request["purpose"] = json!("substituted purpose");
+        assert_eq!(
+            verify_bundle(&changed_request, &context, &review, &grant, &verified)
+                .expect_err("request substitution")
+                .code,
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid
+        );
+
+        let mut changed_context = context.clone();
+        changed_context["nonce_b64url"] = json!("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq");
+        assert_eq!(
+            verify_bundle(&request, &changed_context, &review, &grant, &verified)
+                .expect_err("ceremony substitution")
+                .code,
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid
+        );
+
+        let mut changed_review = review.clone();
+        changed_review["body"]["decision"] = json!("denied");
+        assert_eq!(
+            verify_bundle(&request, &context, &changed_review, &grant, &verified)
+                .expect_err("review substitution")
+                .code,
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid
+        );
+
+        let mut widened_grant = grant.clone();
+        widened_grant["risk_restrictions"]["max_budget_microusd"] = json!(1_000_001u64);
+        sign_grant(&mut widened_grant, &keypair(7));
+        let widened_verified = verify_root(
+            &widened_grant,
+            &key_set,
+            &snapshot,
+            widened_grant["audience"].as_str().unwrap(),
+            &BTreeSet::new(),
+        )
+        .expect("cryptographically valid widened grant");
+        assert_eq!(
+            verify_bundle(
+                &request,
+                &context,
+                &review,
+                &widened_grant,
+                &widened_verified,
+            )
+            .expect_err("request budget widening")
+            .code,
+            PortableAuthorityRefusalCode::IssuanceBundleInvalid
+        );
     }
 
     #[test]
