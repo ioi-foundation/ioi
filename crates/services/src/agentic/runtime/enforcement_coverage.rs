@@ -121,10 +121,15 @@ pub struct EnforcementCoverageRequirement {
     pub profile_or_adapter_ref: String,
     pub subject_version: String,
     pub subject_content_hash: String,
+    pub subject_implementation_ref: String,
+    pub subject_deployment_profile_ref: String,
     pub surface: String,
     pub action_class: String,
     pub boundary: String,
     pub scope_ref: String,
+    pub decision_source_ref: Option<String>,
+    pub authority_provider_ref: Option<String>,
+    pub final_invoker_ref: Option<String>,
     pub required_operating_mode: Option<String>,
     pub required_claims: Vec<EnforcementCoverageClaim>,
     pub evidence_requirement: EnforcementCoverageEvidenceRequirement,
@@ -497,6 +502,14 @@ impl EnforcementCoverageRegistry {
                 "/subject/content_hash",
                 requirement.subject_content_hash.as_str(),
             ),
+            (
+                "/subject/implementation_ref",
+                requirement.subject_implementation_ref.as_str(),
+            ),
+            (
+                "/subject/deployment_profile_ref",
+                requirement.subject_deployment_profile_ref.as_str(),
+            ),
             ("/scope/surface", requirement.surface.as_str()),
             ("/scope/action_class", requirement.action_class.as_str()),
             ("/scope/boundary", requirement.boundary.as_str()),
@@ -508,6 +521,31 @@ impl EnforcementCoverageRegistry {
                     "enforcement_coverage_scope_mismatch",
                     format!("{pointer} does not match the required exact coverage coordinates"),
                 ));
+            }
+        }
+        for (pointer, expected) in [
+            (
+                "/decision_source/decision_source_ref",
+                requirement.decision_source_ref.as_deref(),
+            ),
+            (
+                "/decision_source/authority_provider_ref",
+                requirement.authority_provider_ref.as_deref(),
+            ),
+            (
+                "/final_invoker/invoker_ref",
+                requirement.final_invoker_ref.as_deref(),
+            ),
+        ] {
+            if let Some(expected) = expected {
+                if string_at(declaration, pointer) != Some(expected) {
+                    return Err(EnforcementCoverageError::new(
+                        "enforcement_coverage_scope_mismatch",
+                        format!(
+                            "{pointer} does not match the required exact enforcement coordinates"
+                        ),
+                    ));
+                }
             }
         }
         if let Some(mode) = &requirement.required_operating_mode {
@@ -577,6 +615,112 @@ impl EnforcementCoverageRegistry {
             .keys()
             .map(|hash| self.operability_for_hash(hash, now_ms))
             .collect()
+    }
+
+    /// Resolve every logical head for one exact subject through the same
+    /// operability checks as a point lookup. A consumer may use this to derive
+    /// server-owned declaration refs without reading or trusting loose JSON
+    /// evidence beside the lifecycle registry.
+    pub fn resolve_current_for_subject(
+        &self,
+        subject_kind: &str,
+        profile_or_adapter_ref: &str,
+        now_ms: i64,
+    ) -> Result<Vec<ResolvedEnforcementCoverage>, EnforcementCoverageError> {
+        let mut resolved = Vec::new();
+        for snapshot in self.snapshots_by_hash.values().filter(|snapshot| {
+            self.head_by_declaration_id
+                .get(string_at(&snapshot.declaration, "/declaration_id").unwrap_or_default())
+                == Some(&snapshot.declaration_content_hash)
+                && string_at(&snapshot.declaration, "/subject/kind") == Some(subject_kind)
+                && string_at(&snapshot.declaration, "/subject/profile_or_adapter_ref")
+                    == Some(profile_or_adapter_ref)
+        }) {
+            let declaration = &snapshot.declaration;
+            let requirement = EnforcementCoverageRequirement {
+                declaration_artifact_ref: snapshot.declaration_artifact_ref.clone(),
+                declaration_content_hash: snapshot.declaration_content_hash.clone(),
+                subject_kind: subject_kind.to_owned(),
+                profile_or_adapter_ref: profile_or_adapter_ref.to_owned(),
+                subject_version: string_at(declaration, "/subject/version")
+                    .unwrap_or_default()
+                    .to_owned(),
+                subject_content_hash: string_at(declaration, "/subject/content_hash")
+                    .unwrap_or_default()
+                    .to_owned(),
+                subject_implementation_ref: string_at(declaration, "/subject/implementation_ref")
+                    .unwrap_or_default()
+                    .to_owned(),
+                subject_deployment_profile_ref: string_at(
+                    declaration,
+                    "/subject/deployment_profile_ref",
+                )
+                .unwrap_or_default()
+                .to_owned(),
+                surface: string_at(declaration, "/scope/surface")
+                    .unwrap_or_default()
+                    .to_owned(),
+                action_class: string_at(declaration, "/scope/action_class")
+                    .unwrap_or_default()
+                    .to_owned(),
+                boundary: string_at(declaration, "/scope/boundary")
+                    .unwrap_or_default()
+                    .to_owned(),
+                scope_ref: string_at(declaration, "/scope/scope_ref")
+                    .unwrap_or_default()
+                    .to_owned(),
+                decision_source_ref: string_at(declaration, "/decision_source/decision_source_ref")
+                    .map(str::to_owned),
+                authority_provider_ref: string_at(
+                    declaration,
+                    "/decision_source/authority_provider_ref",
+                )
+                .map(str::to_owned),
+                final_invoker_ref: string_at(declaration, "/final_invoker/invoker_ref")
+                    .map(str::to_owned),
+                required_operating_mode: None,
+                required_claims: Vec::new(),
+                evidence_requirement: EnforcementCoverageEvidenceRequirement::Verification,
+            };
+            resolved.push(self.resolve(&requirement, now_ms)?);
+        }
+        resolved.sort_by(|left, right| {
+            left.operability
+                .declaration_id
+                .cmp(&right.operability.declaration_id)
+        });
+        Ok(resolved)
+    }
+
+    /// Find the immutable snapshot already authored from one exact owner
+    /// evidence receipt and logical coordinate. Producers use this before
+    /// recomputing runtime-derived fields so an admission replay after a
+    /// binary or platform change returns the original evidence instead of
+    /// manufacturing a successor from the old source event.
+    pub fn snapshot_for_evidence_receipt(
+        &self,
+        evidence_receipt_ref: &str,
+        declaration_id: &str,
+        now_ms: i64,
+    ) -> Result<Option<ResolvedEnforcementCoverage>, EnforcementCoverageError> {
+        let mut matches = self.snapshots_by_hash.values().filter(|snapshot| {
+            snapshot.evidence_receipt_ref == evidence_receipt_ref
+                && string_at(&snapshot.declaration, "/declaration_id") == Some(declaration_id)
+        });
+        let Some(snapshot) = matches.next() else {
+            return Ok(None);
+        };
+        if matches.next().is_some() {
+            return Err(EnforcementCoverageError::new(
+                "enforcement_coverage_evidence_coordinate_ambiguous",
+                "one source evidence receipt resolves to multiple snapshots for the same logical coordinate",
+            ));
+        }
+        Ok(Some(ResolvedEnforcementCoverage {
+            operability: self.operability_for_hash(&snapshot.declaration_content_hash, now_ms),
+            declaration: snapshot.declaration.clone(),
+            evidence_receipt_ref: snapshot.evidence_receipt_ref.clone(),
+        }))
     }
 
     pub fn export_snapshot(&self) -> Result<Value, EnforcementCoverageError> {
@@ -834,10 +978,16 @@ mod tests {
             subject_version: "1.2.0".into(),
             subject_content_hash:
                 "sha256:1111111111111111111111111111111111111111111111111111111111111111".into(),
+            subject_implementation_ref: "artifact://acme/hypervisor-daemon/sha256-aaaa".into(),
+            subject_deployment_profile_ref: "deployment-profile://acme/node-alpha/managed-linux"
+                .into(),
             surface: "shell".into(),
             action_class: "process_spawn".into(),
             boundary: "managed_workload".into(),
             scope_ref: "enforcement-scope://acme/node-alpha/managed-shell".into(),
+            decision_source_ref: Some("runtime://acme/node-alpha/hypervisor-daemon".into()),
+            authority_provider_ref: Some("authority://acme/wallet-network".into()),
+            final_invoker_ref: Some("runtime://acme/node-alpha/workload-broker".into()),
             required_operating_mode: Some("active_enforcement".into()),
             required_claims: vec![
                 EnforcementCoverageClaim::Mediated,
@@ -872,6 +1022,25 @@ mod tests {
         assert_eq!(
             registry
                 .resolve(&mismatched, 1_784_678_400_000)
+                .unwrap_err()
+                .code,
+            "enforcement_coverage_scope_mismatch"
+        );
+        let mut wrong_invoker = requirement(artifact_ref.clone(), hash.clone());
+        wrong_invoker.final_invoker_ref = Some("runtime://acme/foreign-invoker".into());
+        assert_eq!(
+            registry
+                .resolve(&wrong_invoker, 1_784_678_400_000)
+                .unwrap_err()
+                .code,
+            "enforcement_coverage_scope_mismatch"
+        );
+        let mut wrong_implementation = requirement(artifact_ref.clone(), hash.clone());
+        wrong_implementation.subject_implementation_ref =
+            "artifact://acme/foreign-implementation".into();
+        assert_eq!(
+            registry
+                .resolve(&wrong_implementation, 1_784_678_400_000)
                 .unwrap_err()
                 .code,
             "enforcement_coverage_scope_mismatch"

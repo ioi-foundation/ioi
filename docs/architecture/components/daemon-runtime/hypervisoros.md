@@ -10,7 +10,7 @@ Type-2 runtime, or cloud agent harness.
 Superseded by: none.
 Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: mixed (bare-metal node profile design remains speculative with no HypervisorOS build; the EnforcementCoverageDeclaration substrate is (re)registered in this tree — registry entry, v1 schema, invariants, fixtures, generated projections, and the runtime lifecycle module `crates/services/src/agentic/runtime/enforcement_coverage.rs` — with no route producer or daemon admission wiring yet; the HypervisorOSNode / HypervisorOSBootProfile / HypervisorOSBootReceipt contracts are registered in this tree with the daemon node-attestation plane — types compiler, governed routes, durable substrate families, unit proofs — while the physical measured-boot producer remains unbuilt)
+Implementation status: mixed (bare-metal node profile design remains speculative with no HypervisorOS build; the EnforcementCoverageDeclaration substrate and its first live Authority Gateway producer are present — profile admission derives exact per-surface/action/scope uncovered baselines, an observed receipted action advances only its exact coordinate to positive coverage, owner-scoped Agentgres history restores the lifecycle, and the daemon exposes its operability index; Gateway and node-attestation consumers resolve the restored lifecycle rather than loose evidence files; a physical node-enforcement producer remains unbuilt; the HypervisorOSNode / HypervisorOSBootProfile / HypervisorOSBootReceipt contracts are registered in this tree with the daemon node-attestation plane — types compiler, governed routes, durable substrate families, unit proofs — while the physical measured-boot producer remains unbuilt)
 Last implementation audit: 2026-07-19
 
 ## Canonical Definition
@@ -451,21 +451,38 @@ Rules, restating the register in
   is registered in the architecture contract registry with this section as
   `canonical_owner_ref`. Its schema, invariants, fixtures, generated
   Rust/TypeScript projections, and the runtime lifecycle module
-  `crates/services/src/agentic/runtime/enforcement_coverage.rs` are **present
-  on current master** — the substrate a pre-refactor audit recorded was
-  re-landed there. What remains absent is the **route producer and daemon
-  admission wiring**: no route writes a declaration, and
-  `EnforcementCoverageRegistry` has no callers, so no declaration is ever
-  produced at runtime. Registry residency may therefore be claimed;
-  **runtime enforcement may not**, and no profile may advertise or rely on
-  coverage until a producer exists. The per-claim gap is recorded below and
-  in [`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md).
-- Known gap (recorded, not claimed): the registered invariants enforce
-  evidence only for `receipted` and `uncovered`. A `mediated` positive claim
-  is admitted against the **global** evidence bag, so evidence establishing
-  only discovery satisfies a mediated requirement. The per-claim
-  `verification_evidence_refs` rule stated above is owner doctrine that the
-  registered contract does not yet enforce.
+  `crates/services/src/agentic/runtime/enforcement_coverage.rs` are present.
+  The daemon folds owner-scoped Agentgres admission history before readiness
+  and refuses startup on malformed history, missing owner scope, or unresolved
+  predecessor lineage. `POST /v1/authority-gateway/profiles` is the first live
+  producer trigger: after exact profile admission it derives the declaration
+  matrix from the mounted daemon gate, never from caller-supplied coverage
+  claims, and records every coordinate as an explicit verified `uncovered`
+  baseline. Admission of an actual Gateway action then advances only that exact
+  surface/action/scope coordinate to positive coverage, citing the daemon-built
+  decision receipt and the action's owner-scoped Agentgres admission receipt.
+  `GET /v1/hypervisor/enforcement-coverage` projects currentness, expiry,
+  supersession, and revocation-aware operability. There is no second snapshot
+  file or last-writer-wins durable plane.
+- Authority Gateway action admission resolves the current verified
+  classification; execution revalidation requires positive mediated,
+  preventable, receipted coverage. Both resolve exact profile,
+  implementation, deployment, surface, class, scope, decision-source,
+  authority-provider, and final-invoker coordinates through the lifecycle.
+  Node-attestation admission also resolves through that lifecycle and refuses
+  an enforcement-profile reference with zero operable declarations or with
+  uncovered/non-mediated/non-preventable/non-receipted coverage. Loose JSON in
+  `hypervisoros-node-evidence` is no longer coverage truth.
+- Remaining bounded gap: no physical node-enforcement-profile producer exists
+  yet. The live producer currently covers admitted Authority Gateway effect
+  classes; it does not convert command-guardrail tests or measured-boot design
+  into a node-wide claim.
+- Remaining contract gap: mechanism roles are constrained per positive claim,
+  but verification evidence remains one declaration-wide bag rather than a
+  per-claim binding. The live route does not accept caller-authored coverage,
+  so that gap cannot be used to mint Gateway runtime truth, but the registered
+  portable contract still needs the stronger evidence shape before generic
+  producers are admitted.
 
 ## Minimal Implementation Objects
 

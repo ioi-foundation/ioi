@@ -74,6 +74,8 @@ mod editor_proxy;
 mod editor_routes;
 #[path = "hypervisor_daemon_routes/endgame_routes.rs"]
 mod endgame_routes;
+#[path = "hypervisor_daemon_routes/enforcement_coverage_routes.rs"]
+mod enforcement_coverage_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
@@ -250,6 +252,8 @@ pub(crate) struct DaemonState {
     inference: Arc<dyn InferenceRuntime>,
     model_name: String,
     pub(crate) data_dir: String,
+    pub(crate) enforcement_coverage_registry:
+        Mutex<ioi_services::agentic::runtime::enforcement_coverage::EnforcementCoverageRegistry>,
     // The workspace the daemon projects skills/hooks + repository context against (real
     // filesystem + git scans). Defaults to the daemon's cwd.
     pub(crate) workspace_root: String,
@@ -590,10 +594,13 @@ async fn async_main() -> anyhow::Result<()> {
     // bootstrap token to the host log. Loopback itself never becomes an administrator credential.
     lifecycle_routes::startup_auth_notice(&data_dir)
         .map_err(|error| anyhow::anyhow!("identity bootstrap blocks readiness: {error}"))?;
+    let enforcement_coverage_registry = enforcement_coverage_routes::restore_registry(&data_dir)
+        .map_err(|error| anyhow::anyhow!("enforcement coverage blocks readiness: {error}"))?;
     let state = Arc::new(DaemonState {
         inference,
         model_name,
         data_dir,
+        enforcement_coverage_registry: Mutex::new(enforcement_coverage_registry),
         workspace_root,
         home_dir,
         base_url: format!("http://{addr}"),
@@ -677,6 +684,10 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/authority-gateway/profiles",
             post(authority_gateway_routes::handle_profile_register),
+        )
+        .route(
+            "/v1/hypervisor/enforcement-coverage",
+            get(enforcement_coverage_routes::handle_operability),
         )
         .route(
             "/v1/action-requests",

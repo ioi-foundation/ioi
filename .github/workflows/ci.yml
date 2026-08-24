@@ -279,6 +279,7 @@ jobs:
           npm run check:environment-custody --workspace=@ioi/hypervisor-app
           npm run check:env-lease-authority --workspace=@ioi/hypervisor-app
           npm run check:command-execution-guardrails --workspace=@ioi/hypervisor-app
+          npm run check:enforcement-coverage-producer --workspace=@ioi/hypervisor-app
           npm run check:operational-depth --workspace=@ioi/hypervisor-app
           npm run check:ontology-backend-families --workspace=@ioi/hypervisor-app
           npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app

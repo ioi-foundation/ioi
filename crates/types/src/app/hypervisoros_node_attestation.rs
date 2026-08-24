@@ -798,6 +798,12 @@ fn validate_enforcement_declarations(
                 .to_owned(),
         );
     };
+    if declarations.is_empty() {
+        return Err(
+            "a declared node enforcement profile requires at least one operable coverage declaration"
+                .to_owned(),
+        );
+    }
     let mut refs = Vec::new();
     for declaration in declarations {
         validate_architecture_contract(ENFORCEMENT_COVERAGE_CONTRACT, declaration)
@@ -824,6 +830,16 @@ fn validate_enforcement_declarations(
         {
             return Err(
                 "only verified, freshness-current enforcement coverage declarations are admissible"
+                    .to_owned(),
+            );
+        }
+        if declaration.pointer("/claims/uncovered") != Some(&Value::Bool(false))
+            || declaration.pointer("/claims/mediated") != Some(&Value::Bool(true))
+            || declaration.pointer("/claims/preventable") != Some(&Value::Bool(true))
+            || declaration.pointer("/claims/receipted") != Some(&Value::Bool(true))
+        {
+            return Err(
+                "node admission requires positively mediated, preventable, and receipted coverage; an uncovered finding cannot satisfy enforcement"
                     .to_owned(),
             );
         }

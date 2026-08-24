@@ -32,13 +32,9 @@ const EXECUTION_RECEIPT_CONTRACT: &str =
     "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1";
 const ARTIFACT_RECEIPT_CONTRACT: &str =
     "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1";
-const COVERAGE_CONTRACT: &str =
-    "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1";
 const PROFILE_SCHEMA: &str = "ioi.components.daemon-runtime.authority-gateway-profile.v1";
-const COVERAGE_SCHEMA: &str = "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1";
 const PROFILE_DIR: &str = "authority-gateway-profiles";
 const ACTION_DIR: &str = "authority-gateway-action-requests";
-const COVERAGE_DIR: &str = "hypervisoros-node-evidence";
 const OWNER_NAMESPACE: &str = "hypervisor-authority-gateway";
 const ACTION_RESOURCE_KIND: &str = "authority-gateway-action-request";
 const SCM_ADVANCE_SCOPE: &str = "scope:scm.publication.advance-target-ref";
@@ -57,6 +53,22 @@ fn canonical_hash(material: &Value) -> Result<String, String> {
     serde_jcs::to_vec(material)
         .map(|bytes| format!("sha256:{:x}", Sha256::digest(bytes)))
         .map_err(|reason| format!("canonical hashing failed: {reason}"))
+}
+
+fn validate_profile_content_hash(profile: &Value) -> Result<(), String> {
+    let expected = canonical_hash(&json!({
+        "domain":"ioi.authority-gateway-profile-hash-jcs-sha256.v1",
+        "profile_ref":profile["profile_ref"],
+        "profile_revision":profile["profile_revision"],
+        "predecessor_profile_hash":profile["predecessor_profile_hash"],
+        "declaration":profile["declaration"],
+        "created_at":profile["created_at"],
+        "valid_until":profile["valid_until"],
+    }))?;
+    if profile.get("profile_hash").and_then(Value::as_str) != Some(expected.as_str()) {
+        return Err("gateway profile_hash does not bind its exact canonical profile bytes".into());
+    }
+    Ok(())
 }
 
 fn parse_time(value: &str, field: &str) -> Result<OffsetDateTime, String> {
@@ -196,6 +208,33 @@ fn bound_profile<'a>(
     }
 }
 
+fn profile_admission_receipt<'a>(
+    records: &'a [Value],
+    owner_ref: &str,
+    profile: &Value,
+) -> Result<&'a str, String> {
+    let profile_ref = profile.get("profile_ref").and_then(Value::as_str);
+    let profile_hash = profile.get("profile_hash").and_then(Value::as_str);
+    let mut matches = records.iter().filter(|record| {
+        record.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
+            && profile_from_record(record).is_some_and(|candidate| {
+                candidate.get("profile_ref").and_then(Value::as_str) == profile_ref
+                    && candidate.get("profile_hash").and_then(Value::as_str) == profile_hash
+            })
+    });
+    let record = matches
+        .next()
+        .ok_or_else(|| "gateway profile admission receipt is absent".to_string())?;
+    if matches.next().is_some() {
+        return Err("gateway profile admission receipt resolves ambiguously".into());
+    }
+    record
+        .get("admission_receipt_ref")
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("receipt://"))
+        .ok_or_else(|| "gateway profile admission receipt is invalid".to_string())
+}
+
 fn exact_adapter_binding(profile: &Value, request: &Value) -> Result<(), String> {
     if profile.pointer("/declaration/adapter") != request.get("source_adapter") {
         return Err("action request source adapter differs from the current profile".into());
@@ -295,177 +334,102 @@ fn supporting_surface<'a>(profile: &'a Value, request: &Value) -> Result<&'a Val
 }
 
 fn verify_coverage(
-    coverage_records: &[Value],
+    registry: &ioi_services::agentic::runtime::enforcement_coverage::EnforcementCoverageRegistry,
+    owner_ref: &str,
     profile: &Value,
     surface: &Value,
     request: &Value,
     now: &str,
+    require_positive_enforcement: bool,
 ) -> Result<Vec<String>, String> {
-    let profile_ref = profile["profile_ref"].as_str().unwrap_or_default();
-    let profile_hash = profile["profile_hash"].as_str().unwrap_or_default();
-    let implementation_ref = profile
-        .pointer("/declaration/adapter/implementation_ref")
+    let action_class = request
+        .pointer("/proposed_action/action_class")
         .and_then(Value::as_str)
-        .unwrap_or_default();
-    let deployment_ref = profile
-        .pointer("/declaration/adapter/deployment_profile_ref")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let pep_ref = profile
-        .pointer("/declaration/policy_enforcement_point_ref")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let provider_ref = profile
-        .pointer("/declaration/authority_provider_ref")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let final_invoker_ref = surface
-        .get("final_invoker_ref")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
+        .ok_or_else(|| "action request lacks action class".to_string())?;
+    let now_ms = i64::try_from(parse_time(now, "current time")?.unix_timestamp_nanos() / 1_000_000)
+        .map_err(|_| "current time is outside the supported millisecond range".to_string())?;
+    if require_positive_enforcement {
+        super::enforcement_coverage_routes::resolve_gateway_profile(
+            registry,
+            owner_ref,
+            profile,
+            surface,
+            action_class,
+            now_ms,
+        )
+    } else {
+        super::enforcement_coverage_routes::resolve_gateway_classification(
+            registry,
+            owner_ref,
+            profile,
+            surface,
+            action_class,
+            now_ms,
+        )
+    }
+}
+
+fn produce_observed_action_coverage(
+    state: &DaemonState,
+    caller: &WriteCaller,
+    profiles: &[Value],
+    request: &Value,
+    decision_receipt: &Value,
+    action_admission_receipt_ref: &str,
+) -> Result<Vec<Value>, Reply> {
+    let profile = bound_profile(profiles, request, &caller.owner_ref).map_err(|reason| {
+        error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "gateway_profile_resolution_failed",
+            reason,
+        )
+    })?;
+    let surface = supporting_surface(profile, request).map_err(|reason| {
+        error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "gateway_surface_not_admitted",
+            reason,
+        )
+    })?;
+    let profile_receipt =
+        profile_admission_receipt(profiles, &caller.owner_ref, profile).map_err(|reason| {
+            error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "gateway_profile_admission_evidence_unavailable",
+                reason,
+            )
+        })?;
     let action_class = request
         .pointer("/proposed_action/action_class")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    let surface_name = surface
-        .get("surface")
+    let decision_ref = decision_receipt
+        .get("receipt_ref")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    let required: BTreeSet<&str> = profile
-        .pointer("/declaration/required_enforcement_scope_refs")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .collect();
-    let now = parse_time(now, "current time")?;
-    let mut satisfied = BTreeSet::new();
-    let mut evidence = Vec::new();
-
-    for declaration in coverage_records {
-        let declaration = declaration.get("declaration").unwrap_or(declaration);
-        if declaration.get("schema_version").and_then(Value::as_str) != Some(COVERAGE_SCHEMA)
-            || declaration
-                .pointer("/subject/profile_or_adapter_ref")
-                .and_then(Value::as_str)
-                != Some(profile_ref)
-        {
-            continue;
-        }
-        validate_architecture_contract(COVERAGE_CONTRACT, declaration).map_err(|reason| {
-            format!("gateway coverage evidence is not registered-valid: {reason}")
-        })?;
-        let scope_ref = declaration
-            .pointer("/scope/scope_ref")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        if !required.contains(scope_ref) {
-            continue;
-        }
-        let evaluated_at = parse_time(
-            declaration
-                .pointer("/verification/evaluated_at")
-                .and_then(Value::as_str)
-                .ok_or_else(|| "coverage evidence lacks evaluated_at".to_string())?,
-            "coverage evaluated_at",
-        )?;
-        let valid_until = parse_time(
-            declaration
-                .pointer("/verification/valid_until")
-                .and_then(Value::as_str)
-                .ok_or_else(|| "coverage evidence lacks valid_until".to_string())?,
-            "coverage valid_until",
-        )?;
-        let exact = declaration.pointer("/subject/kind").and_then(Value::as_str)
-            == Some("authority_gateway_profile")
-            && declaration
-                .pointer("/subject/content_hash")
-                .and_then(Value::as_str)
-                == Some(profile_hash)
-            && declaration
-                .pointer("/subject/implementation_ref")
-                .and_then(Value::as_str)
-                == Some(implementation_ref)
-            && declaration
-                .pointer("/subject/deployment_profile_ref")
-                .and_then(Value::as_str)
-                == Some(deployment_ref)
-            && declaration
-                .pointer("/scope/surface")
-                .and_then(Value::as_str)
-                == Some(surface_name)
-            && declaration
-                .pointer("/scope/action_class")
-                .and_then(Value::as_str)
-                == Some(action_class)
-            && declaration.get("operating_mode").and_then(Value::as_str)
-                == Some("active_enforcement")
-            && declaration.get("status").and_then(Value::as_str) == Some("verified")
-            && declaration
-                .pointer("/verification/freshness_status")
-                .and_then(Value::as_str)
-                == Some("current")
-            && evaluated_at <= now
-            && now <= valid_until
-            && declaration
-                .pointer("/claims/mediated")
-                .and_then(Value::as_bool)
-                == Some(true)
-            && declaration
-                .pointer("/claims/preventable")
-                .and_then(Value::as_bool)
-                == Some(true)
-            && declaration
-                .pointer("/claims/receipted")
-                .and_then(Value::as_bool)
-                == Some(true)
-            && declaration
-                .pointer("/claims/uncovered")
-                .and_then(Value::as_bool)
-                == Some(false)
-            && declaration
-                .pointer("/decision_source/kind")
-                .and_then(Value::as_str)
-                == Some("daemon_policy_engine")
-            && declaration
-                .pointer("/decision_source/decision_source_ref")
-                .and_then(Value::as_str)
-                == Some(pep_ref)
-            && declaration
-                .pointer("/decision_source/authority_provider_ref")
-                .and_then(Value::as_str)
-                == Some(provider_ref)
-            && declaration
-                .pointer("/final_invoker/kind")
-                .and_then(Value::as_str)
-                == Some("daemon")
-            && declaration
-                .pointer("/final_invoker/invoker_ref")
-                .and_then(Value::as_str)
-                == Some(final_invoker_ref);
-        if exact {
-            if !satisfied.insert(scope_ref.to_string()) {
-                return Err(format!(
-                    "multiple current coverage declarations claim '{scope_ref}'"
-                ));
-            }
-            evidence.push(
-                declaration
-                    .get("declaration_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or(scope_ref)
-                    .to_string(),
-            );
-        }
-    }
-    let required_owned: BTreeSet<String> = required.into_iter().map(str::to_string).collect();
-    if satisfied != required_owned {
-        return Err(
-            "current verified coverage does not satisfy every profile enforcement scope".into(),
-        );
-    }
-    evidence.sort();
-    Ok(evidence)
+    let evaluated_at = decision_receipt
+        .get("decided_at")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    super::enforcement_coverage_routes::produce_gateway_action(
+        &state.enforcement_coverage_registry,
+        &state.data_dir,
+        caller,
+        profile,
+        surface,
+        action_class,
+        profile_receipt,
+        decision_ref,
+        action_admission_receipt_ref,
+        evaluated_at,
+    )
+    .map_err(|reason| {
+        error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "gateway_coverage_production_failed",
+            reason,
+        )
+    })
 }
 
 fn validate_request_window(request: &Value, now: &str) -> Result<(), String> {
@@ -910,6 +874,11 @@ pub(crate) async fn handle_profile_register(
     if let Err(reason) = validate_architecture_contract(PROFILE_CONTRACT, &profile) {
         return error(StatusCode::BAD_REQUEST, "gateway_profile_invalid", reason);
     }
+    if let Err(reason) = validate_profile_content_hash(&profile).and_then(|_| {
+        super::enforcement_coverage_routes::preflight_gateway_profile(&caller.owner_ref, &profile)
+    }) {
+        return error(StatusCode::BAD_REQUEST, "gateway_profile_invalid", reason);
+    }
     let profile_ref = profile["profile_ref"].as_str().unwrap_or_default();
     let profile_hash = profile["profile_hash"].as_str().unwrap_or_default();
     let prior = match prior_admission_for_key(
@@ -939,9 +908,26 @@ pub(crate) async fn handle_profile_register(
             prior.admission_batch_seq,
             &prior.admission_root,
         );
+        let coverage = match super::enforcement_coverage_routes::produce_gateway_profile(
+            &state.enforcement_coverage_registry,
+            &state.data_dir,
+            &caller,
+            &profile,
+            &receipt_ref,
+        ) {
+            Ok(coverage) => coverage,
+            Err(reason) => {
+                return error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "gateway_coverage_production_failed",
+                    reason,
+                )
+            }
+        };
         let record = json!({
             "record_id":record_id, "owner_ref":caller.owner_ref, "profile":profile,
             "admitted_head":prior.head, "admission_receipt_ref":receipt_ref,
+            "enforcement_coverage":coverage,
         });
         if let Err(reason) = persist_record(&state.data_dir, PROFILE_DIR, &record_id, &record) {
             return error(
@@ -1059,9 +1045,26 @@ pub(crate) async fn handle_profile_register(
         Err(reply) => return reply,
     };
     let record_id = record_id_from_hash("agp", &caller.owner_ref, profile_hash);
+    let coverage = match super::enforcement_coverage_routes::produce_gateway_profile(
+        &state.enforcement_coverage_registry,
+        &state.data_dir,
+        &caller,
+        &profile,
+        &commit.receipt_ref,
+    ) {
+        Ok(coverage) => coverage,
+        Err(reason) => {
+            return error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "gateway_coverage_production_failed",
+                reason,
+            )
+        }
+    };
     let record = json!({
         "record_id":record_id, "owner_ref":caller.owner_ref, "profile":profile,
         "admitted_head":commit.projection.head, "admission_receipt_ref":commit.receipt_ref,
+        "enforcement_coverage":coverage,
     });
     if let Err(reason) = persist_record(&state.data_dir, PROFILE_DIR, &record_id, &record) {
         return error(
@@ -1138,12 +1141,25 @@ pub(crate) async fn handle_action_request_create(
             prior.admission_batch_seq,
             &prior.admission_root,
         );
+        let profiles = read_record_dir(&state.data_dir, PROFILE_DIR);
+        let coverage = match produce_observed_action_coverage(
+            &state,
+            &caller,
+            &profiles,
+            &stored["action_request"],
+            &stored["gateway_decision_receipt"],
+            &receipt_ref,
+        ) {
+            Ok(coverage) => coverage,
+            Err(reply) => return reply,
+        };
         let record = json!({
             "record_id":record_id, "owner_ref":caller.owner_ref,
             "action_request":stored["action_request"],
             "gateway_decision_receipt":stored["gateway_decision_receipt"],
             "execution_status":"not_invoked", "admitted_head":prior.head,
             "admission_receipt_ref":receipt_ref,
+            "enforcement_coverage":coverage,
         });
         if let Err(reason) = persist_record(&state.data_dir, ACTION_DIR, &record_id, &record) {
             return error(
@@ -1193,11 +1209,29 @@ pub(crate) async fn handle_action_request_create(
             )
         }
     };
-    let coverage = read_record_dir(&state.data_dir, COVERAGE_DIR);
-    let coverage_refs = match verify_coverage(&coverage, profile, surface, &request, &now) {
+    let coverage_guard = match state.enforcement_coverage_registry.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            return error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "gateway_coverage_registry_unavailable",
+                "the enforcement-coverage lifecycle registry is unavailable",
+            )
+        }
+    };
+    let coverage_refs = match verify_coverage(
+        &coverage_guard,
+        &caller.owner_ref,
+        profile,
+        surface,
+        &request,
+        &now,
+        false,
+    ) {
         Ok(refs) => refs,
         Err(reason) => return error(StatusCode::CONFLICT, "gateway_coverage_unverified", reason),
     };
+    drop(coverage_guard);
     let decision_receipt = match build_decision_receipt(&request, coverage_refs, &now) {
         Ok(receipt) => receipt,
         Err(reason) => {
@@ -1222,12 +1256,24 @@ pub(crate) async fn handle_action_request_create(
         Ok(commit) => commit,
         Err(reply) => return reply,
     };
+    let coverage = match produce_observed_action_coverage(
+        &state,
+        &caller,
+        &profiles,
+        &payload["action_request"],
+        &payload["gateway_decision_receipt"],
+        &commit.receipt_ref,
+    ) {
+        Ok(coverage) => coverage,
+        Err(reply) => return reply,
+    };
     let record_id = record_id_from_hash("gar", &caller.owner_ref, request_hash);
     let record = json!({
         "record_id":record_id, "owner_ref":caller.owner_ref,
         "action_request":payload["action_request"], "gateway_decision_receipt":payload["gateway_decision_receipt"],
         "execution_status":"not_invoked", "admitted_head":commit.projection.head,
         "admission_receipt_ref":commit.receipt_ref,
+        "enforcement_coverage":coverage,
     });
     if let Err(reason) = persist_record(&state.data_dir, ACTION_DIR, &record_id, &record) {
         return error(
@@ -1428,10 +1474,28 @@ pub(crate) async fn handle_action_request_execute(
                 )
             }
         };
-        let coverage = read_record_dir(&state.data_dir, COVERAGE_DIR);
-        if let Err(reason) = verify_coverage(&coverage, profile, surface, &request, &now) {
+        let coverage_guard = match state.enforcement_coverage_registry.lock() {
+            Ok(guard) => guard,
+            Err(_) => {
+                return error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "gateway_coverage_registry_unavailable",
+                    "the enforcement-coverage lifecycle registry is unavailable",
+                )
+            }
+        };
+        if let Err(reason) = verify_coverage(
+            &coverage_guard,
+            &caller.owner_ref,
+            profile,
+            surface,
+            &request,
+            &now,
+            true,
+        ) {
             return error(StatusCode::CONFLICT, "gateway_coverage_unverified", reason);
         }
+        drop(coverage_guard);
         let expected_head = record
             .get("admitted_head")
             .and_then(Value::as_str)
@@ -1542,7 +1606,17 @@ pub(crate) async fn handle_action_request_execute(
             record["execution_status"] = json!("reconciliation_required");
             record["native_result"] = native_result;
             record["authority_evidence_error"] = json!(reason);
-            let _ = persist_record(&state.data_dir, ACTION_DIR, &record_id, &record);
+            if let Err(persist_reason) =
+                persist_record(&state.data_dir, ACTION_DIR, &record_id, &record)
+            {
+                return error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "gateway_reconciliation_state_persistence_failed",
+                    format!(
+                        "native SCM reached an authority-bearing disposition, but neither its authority evidence nor the reconciliation marker is durably available: {persist_reason}"
+                    ),
+                );
+            }
             return error(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "gateway_authority_evidence_unavailable",
@@ -1713,6 +1787,7 @@ mod tests {
             profile["declaration"]["adapter"]["deployment_profile_ref"].clone();
         coverage["scope"]["surface"] = json!("cli");
         coverage["scope"]["action_class"] = json!("git");
+        coverage["scope"]["boundary"] = json!("adapter");
         coverage["scope"]["scope_ref"] =
             profile["declaration"]["required_enforcement_scope_refs"][0].clone();
         coverage["decision_source"]["kind"] = json!("daemon_policy_engine");
@@ -1726,6 +1801,49 @@ mod tests {
         coverage["verification"]["evaluated_at"] = json!("2026-08-24T15:00:00Z");
         coverage["verification"]["valid_until"] = json!("2026-09-24T15:00:00Z");
         (profile, request, coverage, "2026-08-24T16:05:00Z")
+    }
+
+    fn coverage_registry(
+        mut coverage: Value,
+        profile: &Value,
+        surface: &Value,
+    ) -> ioi_services::agentic::runtime::enforcement_coverage::EnforcementCoverageRegistry {
+        use ioi_services::agentic::runtime::enforcement_coverage::{
+            EnforcementCoverageAdmissionRequest, EnforcementCoverageRegistry,
+        };
+        let action_class = coverage["scope"]["action_class"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let scope_ref = coverage["scope"]["scope_ref"].as_str().unwrap().to_owned();
+        coverage["declaration_id"] =
+            json!(super::super::enforcement_coverage_routes::coordinate_id(
+                "org://acme",
+                profile,
+                surface,
+                &action_class,
+                &scope_ref,
+            )
+            .unwrap());
+        let hash = canonical_hash(&coverage).expect("coverage hash");
+        let mut registry = EnforcementCoverageRegistry::default();
+        registry
+            .admit(
+                EnforcementCoverageAdmissionRequest {
+                    declaration_artifact_ref: format!(
+                        "artifact://ioi/enforcement-coverage/{}",
+                        hash.trim_start_matches("sha256:")
+                    ),
+                    declaration_content_hash: hash,
+                    declaration: coverage,
+                    expected_previous_hash: None,
+                    evidence_receipt_ref: "receipt://ioi/coverage-admission/test".into(),
+                    admitted_at: "2026-08-24T15:00:00Z".into(),
+                },
+                1_787_587_200_000,
+            )
+            .expect("coverage admitted");
+        registry
     }
 
     fn scm_execution_request() -> (Value, Value, Value) {
@@ -1777,12 +1895,26 @@ mod tests {
     fn exact_current_profile_surface_and_coverage_admit() {
         let (profile, request, coverage, now) = current_records();
         validate_architecture_contract(REQUEST_CONTRACT, &request).unwrap();
-        validate_architecture_contract(COVERAGE_CONTRACT, &coverage).unwrap();
+        validate_architecture_contract(
+            "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+            &coverage,
+        )
+        .unwrap();
         let records = vec![json!({"owner_ref":"org://acme","profile":profile})];
         let resolved = current_profile(&records, &request, now, "org://acme").unwrap();
         exact_adapter_binding(resolved, &request).unwrap();
         let surface = supporting_surface(resolved, &request).unwrap();
-        let refs = verify_coverage(&[coverage], resolved, surface, &request, now).unwrap();
+        let coverage = coverage_registry(coverage, resolved, surface);
+        let refs = verify_coverage(
+            &coverage,
+            "org://acme",
+            resolved,
+            surface,
+            &request,
+            now,
+            true,
+        )
+        .unwrap();
         assert_eq!(refs.len(), 1);
         let receipt = build_decision_receipt(&request, refs, now).unwrap();
         assert_eq!(receipt["decision"], "requires_approval");
@@ -1805,11 +1937,31 @@ mod tests {
         let resolved = current_profile(&records, &request, now, "org://acme").unwrap();
         let surface = supporting_surface(resolved, &request).unwrap();
         coverage["verification"]["valid_until"] = json!("2026-08-24T16:04:59Z");
-        assert!(verify_coverage(&[coverage], resolved, surface, &request, now).is_err());
+        let coverage = coverage_registry(coverage, resolved, surface);
+        assert!(verify_coverage(
+            &coverage,
+            "org://acme",
+            resolved,
+            surface,
+            &request,
+            now,
+            true,
+        )
+        .is_err());
 
         let (_, request, mut coverage, _) = current_records();
         coverage["verification"]["evaluated_at"] = json!("2026-08-24T16:05:01Z");
-        assert!(verify_coverage(&[coverage], resolved, surface, &request, now).is_err());
+        let coverage = coverage_registry(coverage, resolved, surface);
+        assert!(verify_coverage(
+            &coverage,
+            "org://acme",
+            resolved,
+            surface,
+            &request,
+            now,
+            true,
+        )
+        .is_err());
     }
 
     #[test]
