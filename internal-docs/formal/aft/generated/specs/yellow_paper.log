@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  18 AUG 2026 12:40
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.2.20)  23 AUG 2026 21:33
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1317,16 +1317,16 @@ Underfull \hbox (badness 2393) in paragraph at lines 2777--2814
 onCertificate \T1/lmr/m/n/10.95 (+20) into each pro-duced AFT block
  []
 
-[47] [48] [49] [50] [51] [52] [53]
+[47] [48] [49] [50] [51] [52] [53] [54]
 
 LaTeX Font Warning: Font shape `T1/lmr/m/scit' undefined
-(Font)              using `T1/lmr/m/scsl' instead on input line 3248.
+(Font)              using `T1/lmr/m/scsl' instead on input line 3320.
 
-[54] [55]
+[55] [56]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 3333.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 3405.
 LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line 
-3333.
+3405.
  (/usr/share/texmf/tex/latex/lm/ts1lmtt.fd
 File: ts1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
@@ -1337,31 +1337,31 @@ Package microtype Info: Loading generic protrusion settings for font family
 Package microtype Info: Character `texttrademark ' is missing
 (microtype)             in font `TS1/lmtt/m/n/9'.
 (microtype)             Ignoring protrusion settings for this character.
- [56
+ [57
 
-] [57] [58]
+] [58] [59]
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <9> on input line 3339.
- [59]
-[60] [61] [62] [63] [64
+(Font)              <9> on input line 3411.
+ [60]
+[61] [62] [63] [64] [65
 
-] [65] [66] [67] [68] [69] [70
+] [66] [67] [68] [69] [70] [71
 
-] [71] [72] [73] [74]
-[75] [76] [77] [78] [79] [80
+] [72] [73] [74] [75]
+[76] [77] [78] [79] [80] [81
 
-] [81] [82] [83] [84] [85] [86] [87] [88] [89
+] [82] [83] [84] [85] [86] [87] [88] [89] [90
 
 ]
-[90] [91] [92] [93
+[91] [92] [93] [94
 
-] [94] [95] [96] [97] [98] [99] [100] [101] [102] [103]
-[104] [105] [106] [107] [108] [109] [110] [111
+] [95] [96] [97] [98] [99] [100] [101] [102] [103] [104]
+[105] [106] [107] [108] [109] [110] [111] [112
 
-] [112] [113] [114] [115]
-[116] [117] [118] [119] [120] [121] [122] [123] [124] [125] [126] [127]
-[128] [129] [130] [131] [132] [133] [134] [135] [136] [137] [138] [139]
-[140] [141] [142] [143] [144] [145]
+] [113] [114] [115] [116]
+[117] [118] [119] [120] [121] [122] [123] [124] [125] [126] [127] [128]
+[129] [130] [131] [132] [133] [134] [135] [136] [137] [138] [139] [140]
+[141] [142] [143] [144] [145] [146]
 (/home/heathledger/Documents/ioi/repos/ioi/internal-docs/formal/aft/generated/s
 pecs/yellow_paper.aux)
  ***********
@@ -1376,11 +1376,11 @@ Package rerunfilecheck Info: File `yellow_paper.out' has not changed.
 (rerunfilecheck)             Checksum: 7DDB0C9CB1633895140406B386700E23;23192.
  ) 
 Here is how much of TeX's memory you used:
- 28437 strings out of 476182
- 531189 string characters out of 5795595
+ 28440 strings out of 476182
+ 531219 string characters out of 5795595
  1996975 words of memory out of 5000000
  49119 multiletter control sequences out of 15000+600000
- 681759 words of font info for 338 fonts, out of 8000000 for 9000
+ 681853 words of font info for 339 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  102i,12n,107p,1009b,859s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texmf/fonts/type1/public/lm/lmbx10.pfb></usr/share/texmf/fonts/ty
@@ -1402,10 +1402,10 @@ type1/public/lm/lmtk10.pfb></usr/share/texmf/fonts/type1/public/lm/lmtt10.pfb><
 /usr/share/texmf/fonts/type1/public/lm/lmtt8.pfb></usr/share/texmf/fonts/type1/
 public/lm/lmtt9.pfb></usr/share/texmf/fonts/type1/public/lm/lmtti10.pfb>
 Output written on /home/heathledger/Documents/ioi/repos/ioi/internal-docs/forma
-l/aft/generated/specs/yellow_paper.pdf (145 pages, 969300 bytes).
+l/aft/generated/specs/yellow_paper.pdf (146 pages, 975579 bytes).
 PDF statistics:
- 1462 PDF objects out of 1728 (max. 8388607)
- 1240 compressed objects within 13 object streams
- 348 named destinations out of 1000 (max. 500000)
+ 1467 PDF objects out of 1728 (max. 8388607)
+ 1244 compressed objects within 13 object streams
+ 349 named destinations out of 1000 (max. 500000)
  66453 words of extra memory for PDF output out of 74296 (max. 10000000)
 

@@ -94,7 +94,7 @@
 
 \title{Asymptote Fault Tolerance (AFT): Maximal Deterministic Byzantine Safety --- All-But-One (\(n-1\) of \(n\)), Relay-Free, Fully Attributable}
 \author{IOI}
-\date{March 17, 2026}
+\date{March 17, 2026 (revised August 23, 2026)}
 
 \begin{document}
 
@@ -2992,6 +2992,25 @@ envelopes remain bound in the campaign certificates. This closes the live
 RES-P4.3 measurement loop with an honest caveat, not a promoted
 reproduced-within-threshold claim and not a bare-metal claim.
 
+These numbers did not enter this table by editorial insertion. Both campaigns
+were executed under the estate's governed machine-authority protocol ---
+model-proposed, wallet-authorized, VM-isolated, with a durable intent
+commitment before the provider effect and an outcome commitment after
+provider-native evidence. The retained campaign bundle was then evaluated by a
+separate Rust relying-party verifier with its own typed evidence model, no
+shared certificate code generation, and filesystem-only portable input; it
+re-derives the summary statistics and variance verdicts from the raw five-pass
+samples, rejects forty fully resealed semantic mutations of the bundle, and
+admits a conforming bundle only through a named acceptance policy. The
+measured-results registry transitioned from revision 0 to revision 1 through
+that policy gate, with the accepted row bound to its certificate, environment,
+immutable image, exact provider, honesty class, and \code{variance\_caveated}
+verdict. The verifier is operationally separate, not organizationally
+independent --- IOI maintains both producer and verifier --- so this is a
+first-party relying-party admission, not third-party validation. Promotion of
+a reproduced-within-threshold row remains a separate future registry
+transition, never a table edit.
+
 \section{Related Work}
 
 Geeq's Proof of Honesty (PoH) is important prior work in the ``99\%'' (their figure, not an \AFT{} claim) direction:
@@ -3091,6 +3110,16 @@ holding the runtime to the kernel on every build), and attributed (every
 violator convicted individually). The liveness price and the residual
 list (Section~\ref{sec:residuals}) print beside these claims and are
 part of them.
+
+The same refusal discipline governs measurement. Every performance number
+in this paper carries a named reproduction class, and entry into the
+measured-results registry is a policy-gated relying-party state
+transition --- a producer cannot obtain an accepted row by editing a
+table, recomputing an outer hash, or weakening a verdict
+(Section~\ref{sec:measured-costs}). A paper that claims the two provable
+ceilings can afford to be exact about everything beneath them; the claim
+ladder, the machine gate, and the registry contract are that exactness,
+mechanized.
 
 \subsection{Claims}
 
@@ -3209,11 +3238,18 @@ dead ring are the unanimous handover and the labeled re-genesis, and no
 path in the estate activates a successor ring from elapsed time or
 non-response. The conditions a fourth formulation must meet are
 recorded in the specification's status banner.
-\item \textbf{RES-P4.3-throughput.} Close-latency and throughput figures
-at \(n \in \{4, 7\}\) await a pinned benchmark runner; the instrument
-exists and the reproduction command is recorded, but a number measured on
-a variable box would fail its own reproduce-within-variance gate and is
-therefore not printed (Section~\ref{sec:measured-costs}).
+\item \textbf{RES-P4.3-throughput.} The live measurement loop is closed
+with an honest caveat, not a promoted claim: two separately authorized
+campaigns on the same exact audited provider allocation and immutable
+image reproduced every sustained-TPS and commit-latency comparison within
+the predeclared thresholds, while injection TPS exceeded its threshold in
+seven of ten rows, so the printed Class C figures are
+\code{variance\_caveated} (Section~\ref{sec:measured-costs}) and were
+admitted into the measured-results registry under exactly that verdict.
+What remains open is strictly stronger: a reproduced-within-threshold
+promotion for injection TPS, and any measurement whose honesty class
+exceeds a measured container --- the runtime supplied no provider host
+attestation, so physical-host placement is unproven.
 \item \textbf{R14 --- the verified verifier.} A spec-extracted or
 refinement-proven UBC verifier remains a design-permitted residual; its
 outward complement (an independent twin implementation against exported
