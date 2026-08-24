@@ -3417,6 +3417,86 @@ mod tests {
         headers
     }
 
+    /// The workload broker holds no bearer session, so this seam reconstructs an
+    /// identity from values bound at capability-mint time. Its INV-37 disposition
+    /// says it DELEGATES to the canonical resolver and NARROWS to one owner. That
+    /// sentence is only worth writing if something checks it.
+    #[test]
+    fn workload_broker_identity_delegates_to_current_membership_and_narrows_to_one_owner() {
+        let dir = tempfile::tempdir().expect("broker identity data dir");
+        let data_dir = dir.path().to_str().expect("utf-8 data dir");
+        let principal_id = "usr_broker_identity";
+        let principal_ref = format!("user://{principal_id}");
+        authenticated_headers(
+            data_dir,
+            principal_id,
+            "broker-identity-token",
+            &[SCOPED_TENANT, SIBLING_TENANT],
+        );
+
+        // Delegation: the resolver really does see both memberships.
+        let current = super::super::lifecycle_routes::resolve_principal_tenant_refs(
+            data_dir,
+            &principal_ref,
+        )
+        .expect("canonical membership resolution");
+        assert!(current.contains(SCOPED_TENANT) && current.contains(SIBLING_TENANT));
+
+        // Narrowing: the reconstructed identity carries exactly the one owner
+        // that was bound, never the full membership the resolver returned.
+        let identity =
+            resolve_workload_broker_identity(data_dir, &principal_ref, SCOPED_TENANT, "corr://one")
+                .expect("bound owner is still a current membership");
+        assert_eq!(identity.principal_ref, principal_ref);
+        assert_eq!(
+            identity.tenant_refs,
+            [SCOPED_TENANT.to_owned()]
+                .into_iter()
+                .collect::<std::collections::BTreeSet<String>>(),
+            "the broker identity must narrow to the bound owner, never widen to every membership"
+        );
+
+        // Current membership, not membership at mint time: a revoked owner refuses.
+        super::super::lifecycle_routes::apply_membership_transition(
+            data_dir,
+            &principal_ref,
+            &principal_ref,
+            SCOPED_TENANT,
+            "organization",
+            "revoked",
+            1,
+            "test-broker-identity-revoke",
+            "test revocation",
+            "deployment_bootstrap",
+        )
+        .expect("revoke the bound owner");
+        assert!(matches!(
+            resolve_workload_broker_identity(data_dir, &principal_ref, SCOPED_TENANT, "corr://two"),
+            Err(RequestScopeRefusal::TenantAuthorityRequired)
+        ));
+
+        // A principal that never held the owner cannot assert it.
+        assert!(matches!(
+            resolve_workload_broker_identity(
+                data_dir,
+                &principal_ref,
+                "org://acme/never-a-member",
+                "corr://three"
+            ),
+            Err(RequestScopeRefusal::TenantAuthorityRequired)
+        ));
+        // And the seam takes only canonical local principals.
+        assert!(matches!(
+            resolve_workload_broker_identity(
+                data_dir,
+                "org://acme/alpha",
+                SCOPED_TENANT,
+                "corr://four"
+            ),
+            Err(RequestScopeRefusal::PrincipalIdentityInvalid)
+        ));
+    }
+
     #[test]
     fn request_identity_never_trusts_loopback_or_identity_headers() {
         let directory = tempfile::tempdir().unwrap();
