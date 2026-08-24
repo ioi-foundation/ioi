@@ -6,7 +6,7 @@ Supersedes: overlapping event/receipt examples in plans/specs when event, trace,
 Superseded by: none.
 Last alignment pass: 2026-08-12.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, `PhysicalActionExecutionReceipt` v1, and `GoalRunActivationReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipt profiles, full OutcomeRoom/collective-pursuit receipt production, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; the inference-computation-proof receipt and composed-delivery-link excerpts are dormant and unregistered, with no current carriage obligation)
+Implementation status: mixed (receipts/events live across existing owner planes; portable checkpoint/proof, temporal verification/evaluation, exact-action review/admission, managed-work billing/dispute, physical-action, and GoalRun activation machine contracts have registered schemas and generated projections; production portable cryptographic verification/CLI support, exact-action receipt emitters, managed-work billing/dispute kernels, physical execution, daemon/Agentgres billing/dispute/physical/checkpoint emission, supplier-statement resolution, adjudication/remedy receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipts, full OutcomeRoom/Campaign/embodied lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; dormant inference-computation-proof and composed-delivery-link excerpts remain unregistered)
 Last implementation audit: 2026-07-30
 
 ## Purpose
@@ -958,10 +958,13 @@ over one exact request and review representation while keeping presentation
 evidence, authenticator ceremony evidence, principal-authority resolution,
 grant issuance, effect admission, and execution as separate facts.
 
-This section is target doctrine. Current master has no registered
-`AuthorityReviewReceipt` schema, generated projection, production emitter, or
-v3 grant verifier. Those must land together in a later machine-contract cut;
-this profile does not silently extend an existing receipt or grant version.
+The closed `AuthorityReviewReceipt` v1 schema and generated Rust/TypeScript
+projections are registered. Its production wallet emitter and the v3 grant
+issuer/verifier remain implementation work; projections alone are not evidence
+that the review boundary ran.
+
+Registered review-receipt contract:
+`schema://ioi/components/wallet-network/authority-review-receipt/v1`.
 
 ```yaml
 AuthorityReviewReceiptV1:
@@ -1194,13 +1197,18 @@ or resource PEP makes the exact effect decision. Imported `verified`,
 
 ## Authority Effect Admission Receipt
 
-`AuthorityEffectAdmissionReceiptV1` is the target policy-enforcement-point
-evidence that closes the review-to-effect gap. Current master has no registered
-schema, generated projection, production emitter, or verifier for this profile.
+`AuthorityEffectAdmissionReceiptV2` is the registered target
+policy-enforcement-point evidence that closes the review-to-effect gap. The
+earlier registered v1 is an immutable flat compatibility precursor and cannot
+be rewritten into this `ReceiptEnvelope` wrapper. Production emission and
+verification of v2 remain implementation work.
+
+Registered target contract:
+`schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2`.
 
 ```yaml
-AuthorityEffectAdmissionReceiptV1:
-  schema_version: 1
+AuthorityEffectAdmissionReceiptV2:
+  schema_version: ioi.components.daemon-runtime.authority-effect-admission-receipt.v2
   receipt_envelope: ReceiptEnvelopeV1
   body:
     policy_enforcement_point_ref: runtime://...
@@ -1257,10 +1265,10 @@ mapping is:
 receipt_envelope:
   receipt_id: the wrapper's canonical receipt:// identity
   receipt_type: authority_effect_admission
-  receipt_profile_ref: schema://ioi/receipt/authority-effect-admission/v1
+  receipt_profile_ref: schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2
   attested_boundary_fact_refs: exact_sorted_unique(
     every non-null body ref matching ReceiptEnvelopeV1.$defs.canonicalRef)
-  claim_scope_ref: schema://ioi/receipt/authority-effect-admission/v1
+  claim_scope_ref: schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2
   run_id: null
   task_id: null
   actor_id: body.policy_enforcement_point_ref
@@ -1297,12 +1305,12 @@ Its hashes are:
 ```text
 body_hash =
   SHA-256(
-    "IOI-AUTHORITY-EFFECT-ADMISSION-BODY-V1\0" || RFC8785_JCS(body)
+    "IOI-AUTHORITY-EFFECT-ADMISSION-BODY-V2\0" || RFC8785_JCS(body)
   )
 
 receipt_hash =
   SHA-256(
-    "IOI-AUTHORITY-EFFECT-ADMISSION-RECEIPT-V1\0" ||
+    "IOI-AUTHORITY-EFFECT-ADMISSION-RECEIPT-V2\0" ||
     RFC8785_JCS({schema_version, receipt_envelope, body_hash})
   )
 ```
@@ -1316,9 +1324,8 @@ SHA-256(
 )
 ```
 
-Once v3 is registered, the PEP verifies its signature over that body hash;
-copied grant fields or signer identity do not substitute for the exact grant
-bytes.
+The PEP verifies the registered v3 signature over that body hash; copied grant
+fields or signer identity do not substitute for the exact grant bytes.
 
 The authorization-subject/proof matrix is exact:
 
@@ -1334,7 +1341,7 @@ requires a valid membership proof under the subject's named validation profile.
 Standing admission requires a complete constraint evaluation under that
 profile. Any kind/proof/nullability mismatch refuses.
 
-This v1 profile is persisted before invocation. Every v1 receipt therefore sets
+This v2 profile is persisted before invocation. Every v2 receipt therefore sets
 `invoker_called: false`, `invoker_receipt_ref: null`, and
 `effect_receipt_ref: null`, including an admitted decision; the later invoker
 and effect receipts point back to this immutable admission receipt. A

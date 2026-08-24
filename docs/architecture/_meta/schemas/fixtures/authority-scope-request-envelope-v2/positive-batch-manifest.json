@@ -1,0 +1,31 @@
+{
+  "schema_version": "ioi.foundations.authority-scope-request-envelope.v2",
+  "authority_request_id": "authority-request://wallet/u1/batch-001",
+  "principal_ref": "wallet://u1",
+  "product_session_ref": null,
+  "origin_binding_ref": null,
+  "subject_id": "worker://u1/batch-runner",
+  "issuer_id": "wallet://u1",
+  "requesting_runtime_ref": "runtime://hypervisor/daemon",
+  "purpose": "execute the reviewed closed batch",
+  "requested_auth_factor_posture_refs": ["policy://wallet/step-up"],
+  "requested_guardian_surface_refs": ["guardian://u1/mobile"],
+  "authorization_subject": {
+    "kind": "batch_manifest",
+    "subject_ref": "artifact://hypervisor/batch/001",
+    "subject_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "validation_profile_ref": "schema://ioi/effects/batch-manifest/v1"
+  },
+  "primitive_capabilities_required": ["prim:provider.deploy"],
+  "authority_scopes_requested": ["scope:hypervisor.deploy"],
+  "resource_scope": {
+    "resources": ["deployment://hypervisor/u1/batch-001"],
+    "constraints": { "max_budget_usd": 10, "expiry": "2026-08-24T16:00:00Z", "approval_required_for": ["cloud_deploy"] }
+  },
+  "destination_refs": ["provider://akash/mainnet"],
+  "risk_classes": ["cloud_deploy"],
+  "policy_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "authority_request_body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "authority_grant_id": null,
+  "status": "requested"
+}

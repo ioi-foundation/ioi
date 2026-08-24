@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2",
+  "title": "AuthorityEffectAdmissionReceipt",
+  "description": "Immutable pre-invocation PEP receipt over one v3 grant, exact effect, current authority, temporal, continuity, and revocation evidence.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.authority-effect-admission-receipt.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_envelope", "body", "body_hash", "receipt_hash"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.daemon-runtime.authority-effect-admission-receipt.v2" },
+    "receipt_envelope": { "$ref": "#/$defs/receiptEnvelope" },
+    "body": { "$ref": "#/$defs/admissionBody" },
+    "body_hash": { "$ref": "#/$defs/sha256Hash" },
+    "receipt_hash": { "$ref": "#/$defs/sha256Hash" }
+  },
+  "$defs": {
+    "receiptEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id", "receipt_type", "receipt_profile_ref", "attested_boundary_fact_refs",
+        "claim_scope_ref", "run_id", "task_id", "actor_id", "input_hash", "output_hash",
+        "policy_hash", "authority_grant_id", "primitive_capabilities", "authority_scopes",
+        "artifact_refs", "evidence_bundle_refs", "verification_ref", "acceptance_ref",
+        "adjudication_ref", "settlement_ref", "timestamp", "signature", "public_commitment_ref"
+      ],
+      "properties": {
+        "receipt_id": { "$ref": "#/$defs/receiptRef" },
+        "receipt_type": { "const": "authority_effect_admission" },
+        "receipt_profile_ref": { "const": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2" },
+        "attested_boundary_fact_refs": { "type": "array", "items": { "$ref": "#/$defs/canonicalRef" }, "minItems": 1, "uniqueItems": true },
+        "claim_scope_ref": { "const": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2" },
+        "run_id": { "type": "null" },
+        "task_id": { "type": "null" },
+        "actor_id": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+        "input_hash": { "$ref": "#/$defs/sha256Hash" },
+        "output_hash": { "$ref": "#/$defs/sha256Hash" },
+        "policy_hash": { "$ref": "#/$defs/sha256Hash" },
+        "authority_grant_id": { "$ref": "#/$defs/grantRef" },
+        "primitive_capabilities": { "type": "array", "items": { "$ref": "#/$defs/primitiveCapability" }, "uniqueItems": true },
+        "authority_scopes": { "type": "array", "items": { "$ref": "#/$defs/authorityScope" }, "uniqueItems": true },
+        "artifact_refs": { "type": "array", "items": { "$ref": "#/$defs/artifactRef" }, "uniqueItems": true },
+        "evidence_bundle_refs": { "type": "array", "items": { "$ref": "#/$defs/evidenceBundleRef" }, "uniqueItems": true },
+        "verification_ref": { "$ref": "#/$defs/receiptRef" },
+        "acceptance_ref": { "type": "null" },
+        "adjudication_ref": { "type": "null" },
+        "settlement_ref": { "type": "null" },
+        "timestamp": { "$ref": "#/$defs/canonicalDateTime" },
+        "signature": { "type": "null" },
+        "public_commitment_ref": { "type": "null" }
+      }
+    },
+    "admissionBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_enforcement_point_ref", "authorization_subject", "authority_grant_ref",
+        "authority_grant_hash", "authority_review_receipt_ref",
+        "authority_review_receipt_hash", "approval_ceremony_context_ref",
+        "approval_ceremony_context_hash", "principal_authority_resolution_ref",
+        "principal_authority_resolution_hash", "principal_authority_revalidation_receipt_ref",
+        "principal_authority_revalidation_receipt_hash", "temporal_verification_profile_ref",
+        "temporal_verification_profile_hash", "temporal_validity_evaluation_ref",
+        "temporal_validity_evaluation_hash", "temporal_posture",
+        "continuity_floor_evidence_refs", "revocation_evidence_status",
+        "revocation_snapshot_ref", "revocation_snapshot_hash", "revocation_epoch",
+        "actual_effect_ref", "actual_effect_hash", "decision_profile_ref", "policy_hash",
+        "proof_kind", "membership_proof_ref", "membership_proof_hash",
+        "standing_evaluation_ref", "standing_evaluation_hash", "decision", "refusal_code",
+        "invoker_called", "invoker_receipt_ref", "effect_receipt_ref", "decided_at"
+      ],
+      "properties": {
+        "policy_enforcement_point_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+        "authorization_subject": { "$ref": "#/$defs/authorizationSubject" },
+        "authority_grant_ref": { "$ref": "#/$defs/grantRef" },
+        "authority_grant_hash": { "$ref": "#/$defs/sha256Hash" },
+        "authority_review_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+        "authority_review_receipt_hash": { "$ref": "#/$defs/sha256Hash" },
+        "approval_ceremony_context_ref": { "type": "string", "pattern": "^approval-ceremony-context://[^\\s]{1,500}$" },
+        "approval_ceremony_context_hash": { "$ref": "#/$defs/sha256Hash" },
+        "principal_authority_resolution_ref": { "oneOf": [{ "$ref": "#/$defs/artifactRef" }, { "type": "null" }] },
+        "principal_authority_resolution_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "principal_authority_revalidation_receipt_ref": { "oneOf": [{ "$ref": "#/$defs/receiptRef" }, { "type": "null" }] },
+        "principal_authority_revalidation_receipt_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "temporal_verification_profile_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" },
+        "temporal_verification_profile_hash": { "$ref": "#/$defs/sha256Hash" },
+        "temporal_validity_evaluation_ref": { "type": "string", "pattern": "^(?:evidence|receipt)://[^\\s]{1,500}$" },
+        "temporal_validity_evaluation_hash": { "$ref": "#/$defs/sha256Hash" },
+        "temporal_posture": { "enum": ["online_fresh", "bounded_offline", "historical_only", "insufficient"] },
+        "continuity_floor_evidence_refs": { "type": "array", "items": { "type": "string", "pattern": "^(?:evidence|receipt)://[^\\s]{1,500}$" }, "uniqueItems": true },
+        "revocation_evidence_status": { "enum": ["verified", "not_evaluated", "unavailable", "invalid", "stale"] },
+        "revocation_snapshot_ref": { "oneOf": [{ "type": "string", "pattern": "^snapshot://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "revocation_snapshot_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "revocation_epoch": { "oneOf": [{ "$ref": "#/$defs/safeNonNegativeInteger" }, { "type": "null" }] },
+        "actual_effect_ref": { "type": "string", "pattern": "^effect://[^\\s]{1,500}$" },
+        "actual_effect_hash": { "$ref": "#/$defs/sha256Hash" },
+        "decision_profile_ref": { "$ref": "#/$defs/schemaOrPolicyRef" },
+        "policy_hash": { "$ref": "#/$defs/sha256Hash" },
+        "proof_kind": { "enum": ["exact_equality", "batch_membership", "standing_constraint"] },
+        "membership_proof_ref": { "oneOf": [{ "$ref": "#/$defs/evidenceOrReceiptRef" }, { "type": "null" }] },
+        "membership_proof_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "standing_evaluation_ref": { "oneOf": [{ "$ref": "#/$defs/evidenceOrReceiptRef" }, { "type": "null" }] },
+        "standing_evaluation_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "decision": { "enum": ["admitted", "refused", "unknown"] },
+        "refusal_code": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[a-z][a-z0-9._-]*$" }, { "type": "null" }] },
+        "invoker_called": { "const": false },
+        "invoker_receipt_ref": { "type": "null" },
+        "effect_receipt_ref": { "type": "null" },
+        "decided_at": { "$ref": "#/$defs/canonicalDateTime" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "authorization_subject": { "type": "object", "properties": { "kind": { "const": "exact_effect" } } } } },
+          "then": { "properties": { "proof_kind": { "const": "exact_equality" }, "membership_proof_ref": { "type": "null" }, "membership_proof_hash": { "type": "null" }, "standing_evaluation_ref": { "type": "null" }, "standing_evaluation_hash": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "authorization_subject": { "type": "object", "properties": { "kind": { "const": "batch_manifest" } } } } },
+          "then": { "properties": { "proof_kind": { "const": "batch_membership" }, "membership_proof_ref": { "$ref": "#/$defs/evidenceOrReceiptRef" }, "membership_proof_hash": { "$ref": "#/$defs/sha256Hash" }, "standing_evaluation_ref": { "type": "null" }, "standing_evaluation_hash": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "authorization_subject": { "type": "object", "properties": { "kind": { "const": "standing_envelope" } } } } },
+          "then": { "properties": { "proof_kind": { "const": "standing_constraint" }, "membership_proof_ref": { "type": "null" }, "membership_proof_hash": { "type": "null" }, "standing_evaluation_ref": { "$ref": "#/$defs/evidenceOrReceiptRef" }, "standing_evaluation_hash": { "$ref": "#/$defs/sha256Hash" } } }
+        },
+        {
+          "if": { "properties": { "decision": { "const": "admitted" } } },
+          "then": { "properties": { "refusal_code": { "type": "null" }, "revocation_evidence_status": { "const": "verified" }, "revocation_snapshot_ref": { "type": "string", "pattern": "^snapshot://[^\\s]{1,500}$" }, "revocation_snapshot_hash": { "$ref": "#/$defs/sha256Hash" }, "revocation_epoch": { "$ref": "#/$defs/safeNonNegativeInteger" }, "temporal_posture": { "enum": ["online_fresh", "bounded_offline"] } } },
+          "else": { "properties": { "refusal_code": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[a-z][a-z0-9._-]*$" } } }
+        },
+        {
+          "if": { "properties": { "revocation_evidence_status": { "const": "verified" } } },
+          "then": { "properties": { "revocation_snapshot_ref": { "type": "string", "pattern": "^snapshot://[^\\s]{1,500}$" }, "revocation_snapshot_hash": { "$ref": "#/$defs/sha256Hash" }, "revocation_epoch": { "$ref": "#/$defs/safeNonNegativeInteger" } } }
+        },
+        {
+          "if": { "properties": { "revocation_evidence_status": { "enum": ["not_evaluated", "unavailable"] } } },
+          "then": { "properties": { "revocation_snapshot_ref": { "type": "null" }, "revocation_snapshot_hash": { "type": "null" }, "revocation_epoch": { "type": "null" }, "decision": { "enum": ["refused", "unknown"] } } }
+        },
+        {
+          "if": { "properties": { "revocation_evidence_status": { "const": "stale" } } },
+          "then": { "properties": { "revocation_snapshot_ref": { "type": "string", "pattern": "^snapshot://[^\\s]{1,500}$" }, "revocation_snapshot_hash": { "$ref": "#/$defs/sha256Hash" }, "revocation_epoch": { "$ref": "#/$defs/safeNonNegativeInteger" }, "decision": { "enum": ["refused", "unknown"] } } }
+        },
+        {
+          "if": { "properties": { "revocation_evidence_status": { "const": "invalid" } } },
+          "then": { "properties": { "revocation_snapshot_ref": { "type": "string", "pattern": "^snapshot://[^\\s]{1,500}$" }, "revocation_snapshot_hash": { "$ref": "#/$defs/sha256Hash" }, "decision": { "enum": ["refused", "unknown"] } } }
+        }
+      ]
+    },
+    "authorizationSubject": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "subject_ref", "subject_hash", "validation_profile_ref"],
+      "properties": {
+        "kind": { "enum": ["exact_effect", "batch_manifest", "standing_envelope"] },
+        "subject_ref": { "$ref": "#/$defs/canonicalRef" },
+        "subject_hash": { "$ref": "#/$defs/sha256Hash" },
+        "validation_profile_ref": { "$ref": "#/$defs/schemaOrPolicyRef" }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "exact_effect" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^effect://[^\\s]{1,500}$" } } } },
+        { "if": { "properties": { "kind": { "const": "batch_manifest" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^artifact://[^\\s]{1,500}$" } } } },
+        { "if": { "properties": { "kind": { "const": "standing_envelope" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" } } } }
+      ]
+    },
+    "canonicalDateTime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "safeNonNegativeInteger": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" },
+    "grantRef": { "type": "string", "pattern": "^grant://[^\\s]{1,500}$" },
+    "artifactRef": { "type": "string", "pattern": "^artifact://[^\\s]{1,500}$" },
+    "schemaOrPolicyRef": { "type": "string", "pattern": "^(?:schema|policy)://[^\\s]{1,500}$" },
+    "evidenceOrReceiptRef": { "type": "string", "pattern": "^(?:evidence|receipt)://[^\\s]{1,500}$" },
+    "evidenceBundleRef": { "type": "string", "pattern": "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$" },
+    "primitiveCapability": { "type": "string", "pattern": "^prim:[a-z][a-z0-9._-]*$" },
+    "authorityScope": { "type": "string", "pattern": "^scope:[a-z][a-z0-9._-]*$" },
+    "sha256Hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

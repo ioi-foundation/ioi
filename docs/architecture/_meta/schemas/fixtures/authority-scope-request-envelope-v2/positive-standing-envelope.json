@@ -1,0 +1,31 @@
+{
+  "schema_version": "ioi.foundations.authority-scope-request-envelope.v2",
+  "authority_request_id": "authority-request://wallet/u1/standing-001",
+  "principal_ref": "service://u1/hypervisor",
+  "product_session_ref": null,
+  "origin_binding_ref": null,
+  "subject_id": "system://hypervisor/u1",
+  "issuer_id": "wallet://u1",
+  "requesting_runtime_ref": "runtime://hypervisor/daemon",
+  "purpose": "bounded unattended provider operations",
+  "requested_auth_factor_posture_refs": ["auth_factor://passkey/u1"],
+  "requested_guardian_surface_refs": [],
+  "authorization_subject": {
+    "kind": "standing_envelope",
+    "subject_ref": "policy://hypervisor/standing/u1",
+    "subject_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "validation_profile_ref": "schema://ioi/foundations/standing-authority-envelope/v1"
+  },
+  "primitive_capabilities_required": ["prim:provider.deploy"],
+  "authority_scopes_requested": ["scope:hypervisor.live-route.hypervisor-provider-op"],
+  "resource_scope": {
+    "resources": ["deployment://hypervisor/u1/*"],
+    "constraints": { "max_budget_usd": 10, "expiry": "2026-08-24T16:00:00Z", "approval_required_for": ["cloud_deploy"] }
+  },
+  "destination_refs": ["provider://akash/mainnet"],
+  "risk_classes": ["cloud_deploy"],
+  "policy_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "authority_request_body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "authority_grant_id": "grant://wallet/u1/standing-001",
+  "status": "granted"
+}

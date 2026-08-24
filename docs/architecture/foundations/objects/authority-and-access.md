@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of authority scope requests, approval ceremony context, authority grants, authority clients, access-point bindings, and step-up challenges.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-24.
 Doctrine status: canonical
-Implementation status: mixed (`AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, and `AuthorityRevocationSnapshot` v1 have registered schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections; production portable-authority cryptographic verifiers and CLIs remain planned)
-Last implementation audit: 2026-07-25
+Implementation status: mixed (`AuthorityScopeRequestEnvelope` v2, `ApprovalCeremonyContextEnvelope` v1, `AuthorityGrantEnvelope` v1/v2/v3, `AuthorityKeySet` v1, and `AuthorityRevocationSnapshot` v1 have registered schemas and generated Rust/TypeScript projections; production v3 issuance, complete-chain cryptographic verification, and offline CLI support remain in progress)
+Last implementation audit: 2026-08-24
 
 ## Purpose
 
@@ -23,7 +23,7 @@ this module does not restate them.
 
 ```yaml
 AuthorityScopeRequestEnvelopeV2:
-  schema_version: 2
+  schema_version: ioi.foundations.authority-scope-request-envelope.v2
   authority_request_id: authority-request://...
   principal_ref:
     principal://... | wallet://... | org://... | worker://... | service://... |
@@ -67,10 +67,13 @@ AuthorityScopeRequestEnvelopeV2:
   status: requested | granted | denied | expired | revoked
 ```
 
-The exact-action shape above is the target v2 successor. Current unversioned
-request adapters remain compatibility inputs until a closed v2 schema,
-fixtures, generated projections, migration rule, producer, and verifier land
-together; this prose does not mutate their wire contract.
+The exact-action shape above is the registered v2 successor. Current
+unversioned request adapters remain compatibility inputs behind explicit
+adapters until the production v2 producer and verifier replace them; they are
+not accepted as canonical v2 writes.
+
+Registered request contract:
+`schema://ioi/foundations/authority-scope-request-envelope/v2`.
 
 `product_session_ref` identifies a session owned by the product or deployment
 identity plane; wallet.network binds it into the request but does not own that
@@ -111,10 +114,10 @@ decision is request input; policy selects and records those later.
 
 ## ApprovalCeremonyContextEnvelope
 
-This is a target successor contract. Current master has no registered
-`ApprovalCeremonyContextEnvelope` schema, generated projection, production
-emitter, or verifier. It must land as one closed machine contract rather than
-being inferred from a challenge URL or reconstructed from mutable review state.
+This is a registered closed machine contract with generated Rust and TypeScript
+projections. Production emitters and verifiers must resolve its exact bytes; it
+must not be inferred from a challenge URL or reconstructed from mutable review
+state.
 
 ```yaml
 ApprovalCeremonyContextEnvelope:
@@ -314,7 +317,7 @@ a historical `valid_as_of` conclusion while present currentness remains
 indeterminate. Portable v1/v2 stay immutable; this cross-plane evaluation is an
 admission input rather than an inferred field in those envelopes.
 
-Portable v3 is the target successor required before the embedded
+Portable v3 is the registered successor required for the embedded
 sign-in-to-effect product proof. It retains the v2 portability and attenuation
 contract and additionally signs:
 
@@ -380,6 +383,9 @@ The signed v3 grant is independently verifiable against the exact target
 representation, presentation and ceremony evidence, required and satisfied
 factor/guardian posture, policy decision, any principal-authority resolution
 required by the portable principal contract, and authority-review receipt.
+Registered v3 contract:
+`schema://ioi/foundations/authority-grant-envelope/v3`.
+
 Request-side factor and guardian refs remain requested posture; only the
 separately named `satisfied_*` refs and their wallet-minted evidence record
 participation. `posture_satisfaction_evaluations` is the authoritative closed
@@ -424,10 +430,10 @@ profile, ceremony, factor, guardian, principal-authority coordinate or
 snapshot, authorization-subject, resource, destination, budget, policy, risk,
 or evidence-root substitution invalidates the commitment. A null session or
 origin is permitted only when the selected non-browser/non-product policy
-explicitly declares that posture; it is never inferred by omission. V1 and v2
-remain immutable compatibility contracts. V3 requires a new registered schema,
-fixtures, generated Rust/TypeScript projections, and verifier support rather
-than silently changing either registered version.
+explicitly declares that posture; it is never inferred by omission. V1, v2,
+and v3 remain immutable compatibility contracts. V3 production use requires
+the complete registered verifier path; projections or copied fields do not
+substitute for exact grant verification.
 
 The `standing_envelope` authorization subject resolves the registered
 `StandingAuthorityEnvelope` v1 object. That object closes the unattended class

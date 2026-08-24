@@ -1908,10 +1908,10 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2",
         "compatibility": "initial",
-        "migration_policy": "none",
-        "predecessor_remains_valid": false,
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
       },
@@ -1939,6 +1939,49 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2",
+      "canonical_name": "AuthorityEffectAdmissionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#authority-effect-admission-receipt",
+      "schema_version": "ioi.components.daemon-runtime.authority-effect-admission-receipt.v2",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "authority-effect-admission-receipt.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/daemon-runtime/authority-effect-admission-receipt/pre-invocation-binding/v2",
+          "path": "invariants/authority-effect-admission-receipt.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AuthorityEffectAdmissionReceiptV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AuthorityEffectAdmissionReceiptV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json"
+      ],
+      "negative_fixture_refs": []
     },
     {
       "contract_id": "schema://ioi/components/daemon-runtime/declassification-receipt/v1",
@@ -4512,6 +4555,60 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
+      "canonical_name": "AuthorityScopeRequestEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authorityscoperequestenvelope",
+      "schema_version": "ioi.foundations.authority-scope-request-envelope.v2",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "authority-scope-request-envelope.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/authority-scope-request-envelope/exact-request/v2",
+          "path": "invariants/authority-scope-request-envelope.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AuthorityScopeRequestEnvelopeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AuthorityScopeRequestEnvelopeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json",
+        "fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json",
+        "fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
       "canonical_name": "AuthorityGrantEnvelope",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
@@ -4592,7 +4689,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": "schema://ioi/foundations/authority-grant-envelope/v1",
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/authority-grant-envelope/v3",
         "compatibility": "breaking",
         "migration_policy": "explicit_adapter_required",
         "predecessor_remains_valid": true,
@@ -4644,6 +4741,49 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/authority-grant-envelope/v3",
+      "canonical_name": "AuthorityGrantEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
+      "schema_version": "ioi.foundations.authority-grant-envelope.v3",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/authority-grant-envelope/v2",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "authority-grant-envelope.v3.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/authority-grant-envelope/review-bound-portable-grant/v3",
+          "path": "invariants/authority-grant-envelope.v3.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AuthorityGrantEnvelopeV3"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AuthorityGrantEnvelopeV3"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/authority-grant-envelope-v3/positive-exact-effect.json"
+      ],
+      "negative_fixture_refs": []
     },
     {
       "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
@@ -8965,6 +9105,49 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/wallet-network/authority-review-receipt/v1",
+      "canonical_name": "AuthorityReviewReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#authority-review-receipt",
+      "schema_version": "ioi.components.wallet-network.authority-review-receipt.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "authority-review-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/wallet-network/authority-review-receipt/wrapper-binding/v1",
+          "path": "invariants/authority-review-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AuthorityReviewReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AuthorityReviewReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/authority-review-receipt-v1/positive-approved.json"
+      ],
+      "negative_fixture_refs": []
     },
     {
       "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",

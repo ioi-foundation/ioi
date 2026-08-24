@@ -6,7 +6,7 @@ Supersedes: older generic capability-grant wording when it conflicts with `scope
 Superseded by: none.
 Last alignment pass: 2026-08-12.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts; the wallet-interoperability surfaces — inbound external-wallet sign-in, outbound provider service, OIDC federation — are planned target contracts with no implementation, and the predecessor link_owner@v1 anchor store is superseded by them before any exposure)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action issuance/verification/admission plus embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, MPC vault, WalletReceipt v2, and wallet-interoperability surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -286,8 +286,8 @@ execution/effect receipts
 ```
 
 The closed ceremony context, `AuthorityReviewReceiptV1`, context-bound
-`AuthorityGrantEnvelope` v3, `AuthorityEffectAdmissionReceiptV1`, and target
-`WalletReceipt` v2 are successor contracts. Current registered v1/v2 grants,
+`AuthorityGrantEnvelope` v3, and `AuthorityEffectAdmissionReceiptV2` are
+registered successor contracts; `WalletReceipt` v2 remains a target. Current registered v1/v2 grants,
 the current WalletReceipt v1, and generic execution receipts remain unchanged
 and do not by themselves establish the end-to-end exact-action proof.
 

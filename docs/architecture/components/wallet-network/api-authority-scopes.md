@@ -9,7 +9,7 @@ Supersedes: older wallet authority API wording when it conflicts with `scope:*` 
 Superseded by: none.
 Last alignment pass: 2026-08-09.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
+Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant issuance, portable verification, admission-receipt emission, temporal evaluation, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, and WalletReceipt v2 surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs`
 Last implementation audit: 2026-07-19
@@ -759,7 +759,7 @@ producer, and verifier land as one cut.
 `product_session_ref` is owned by the calling product or deployment identity
 plane. wallet.network binds it into the authority request and review; it does
 not create, renew, revoke, or otherwise own that product session.
-`authority_request_body_hash` uses the target v2 profile
+`authority_request_body_hash` uses the registered v2 profile
 `SHA-256("IOI-AUTHORITY-SCOPE-REQUEST-V2\0" || RFC8785_JCS(closed_body))`,
 where `closed_body` is the exact v2 object excluding only
 `authority_request_body_hash`, `authority_grant_id`, and `status`.
@@ -769,7 +769,7 @@ posture only. They are not evidence that a factor or surface participated.
 Wallet-owned review and ceremony processing records actual
 `satisfied_auth_factor_refs`, `satisfied_guardian_surface_refs`, presentation
 evidence, and authenticator or quorum evidence in the `AuthorityReviewReceipt`
-and target v3 grant.
+and registered v3 grant.
 
 `authorization_subject.kind` determines effect admission:
 
@@ -781,11 +781,11 @@ and target v3 grant.
   requires every concrete effect to validate inside it; its subject ref is
   `policy://`.
 
-The daemon records that final comparison in the target
-`AuthorityEffectAdmissionReceiptV1`; a review receipt, grant, or generic tool
-receipt does not prove effect admission. This receipt profile is planned and
-must land with its schema, projection, emitter, and verifier before the
-end-to-end claim is made.
+The daemon records that final comparison in the registered
+`AuthorityEffectAdmissionReceiptV2`; a review receipt, grant, or generic tool
+receipt does not prove effect admission. Its schema and projections are built;
+the production emitter and verifier must land before the end-to-end claim is
+made.
 
 For every currently registered grant version, request-carried issuer and key
 fields remain evidence candidates rather than trust anchors. A live admitting
@@ -1454,7 +1454,7 @@ For `batch_review`, each effect requires membership in the committed
 `batch_manifest`. For a `session_envelope`, `silent_within_policy`, or
 `after_the_fact_receipt` path, every effect must satisfy the committed
 `standing_envelope`; receipts must state that the envelope, not the individual
-effect, was reviewed. The target `AuthorityEffectAdmissionReceiptV1` records
+effect, was reviewed. The registered `AuthorityEffectAdmissionReceiptV2` records
 that comparison and whether the invoker was called.
 
 ## Wallet Authority Client Surfaces

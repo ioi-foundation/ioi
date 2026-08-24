@@ -78,6 +78,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", "sha256:acc0b12e275584302f9fa0d30937e7439bdb8bf9af7805edcba0b861e24e3ae5"),
     ("schema://ioi/components/daemon-runtime/agent-harness-adapter/v1", "sha256:9243ba237b4624997f35edddfba804e2f30f8f1a3217d283cec4f19ff1ee65ec"),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", "sha256:6af61ba9d156c2e04c5641dbf78324ccc719d9da10d6269c87e358802d49feff"),
+    ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2", "sha256:3c85c272d8f2901b66eb4e922accff02315ac0ee5d15803c7fd0e1e24f69a2bd"),
     ("schema://ioi/components/daemon-runtime/declassification-receipt/v1", "sha256:3bd20027d03dcc1c41f63ffb4d886397ee85760e803138fa483d8bef7501ec7c"),
     ("schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1", "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c"),
     ("schema://ioi/components/daemon-runtime/harness-profile/v1", "sha256:755016efbf5fb6e51f010dac5431b1bc2ac25eff5a0670f03646cb388305e6ad"),
@@ -134,8 +135,10 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", "sha256:718d9c35d0e969108feb391bb83e0a1b8029f24e0cb2272de15b3fb261a64fd1"),
     ("schema://ioi/foundations/approval-ceremony-context/v1", "sha256:79ab3938ba4f148bddecb4ed29107f72f709d2339d20977b2dbb0cbae6703c98"),
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6"),
+    ("schema://ioi/foundations/authority-scope-request-envelope/v2", "sha256:e0cd0303ea58a4a3388fe3c8473da7c3e38c7cf20d26095d4663a524b3e7dd5f"),
     ("schema://ioi/foundations/authority-grant-envelope/v1", "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796"),
     ("schema://ioi/foundations/authority-grant-envelope/v2", "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e"),
+    ("schema://ioi/foundations/authority-grant-envelope/v3", "sha256:7dd1d2bc5f783d6b43d3ba3025aedb557d8594e0d13e693106ffde94d853be27"),
     ("schema://ioi/foundations/standing-authority-envelope/v1", "sha256:2966cc385e7c95a28d8a61304b57c6a39a787325c71b20019ec4a10705e7f006"),
     ("schema://ioi/foundations/authority-trajectory-state/v1", "sha256:b6699e24b52eb2d8e57fd086bee951e34d64b5d1a80d34c8ba47bfb77b6603f3"),
     ("schema://ioi/foundations/trajectory-admission-decision/v1", "sha256:3fdb69ca87b0946ba7f3644ee6197f0b47cda4c3f095864528973473cb9e6245"),
@@ -222,6 +225,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/data-retention-disposition/v1", "sha256:72a411978fd2958d9de618ce8addfc768da04fade4d54d728227c8dae323f315"),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3"),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8"),
+    ("schema://ioi/components/wallet-network/authority-review-receipt/v1", "sha256:4f4fdd73468bcb9e28d1e0ff2c2ddfcc84a6e5aa869fe2dcca46c5eb0e69ca4c"),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", "sha256:3c0ccfe0fc9ae22cb54e5d3e26bd571763cd45ace48fafe5f43d35dfcb9be3a7"),
     ("schema://ioi/components/wallet-network/wallet-ownership-proof/v1", "sha256:aa9f9bf3df83154bc4d3002a00e7ff7784da7cdb09ca2f61b32901ed0fb2ce6c"),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", "sha256:ed6f3f8e7a51cab064c06d906da7e8eddc5c1cb520512b7916f2a252b8775267"),
@@ -13555,6 +13559,763 @@ pub enum AuthorityEffectAdmissionReceiptV1Decision {
     Refused,
     #[serde(rename = r#"unknown"#)]
     Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityEffectAdmissionReceiptV2 {
+    pub schema_version: AuthorityEffectAdmissionReceiptV2SchemaVersion,
+    pub receipt_envelope: AuthorityEffectAdmissionReceiptV2ReceiptEnvelope,
+    pub body: AuthorityEffectAdmissionReceiptV2Body,
+    pub body_hash: String,
+    pub receipt_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityEffectAdmissionReceiptV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2","title":"AuthorityEffectAdmissionReceipt","description":"Immutable pre-invocation PEP receipt over one v3 grant, exact effect, current authority, temporal, continuity, and revocation evidence.","x-ioi-schema-version":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v2","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v2"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/admissionBody"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_effect_admission"},"receipt_profile_ref":{"const":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}},"admissionBody":{"type":"object","additionalProperties":false,"required":["policy_enforcement_point_ref","authorization_subject","authority_grant_ref","authority_grant_hash","authority_review_receipt_ref","authority_review_receipt_hash","approval_ceremony_context_ref","approval_ceremony_context_hash","principal_authority_resolution_ref","principal_authority_resolution_hash","principal_authority_revalidation_receipt_ref","principal_authority_revalidation_receipt_hash","temporal_verification_profile_ref","temporal_verification_profile_hash","temporal_validity_evaluation_ref","temporal_validity_evaluation_hash","temporal_posture","continuity_floor_evidence_refs","revocation_evidence_status","revocation_snapshot_ref","revocation_snapshot_hash","revocation_epoch","actual_effect_ref","actual_effect_hash","decision_profile_ref","policy_hash","proof_kind","membership_proof_ref","membership_proof_hash","standing_evaluation_ref","standing_evaluation_hash","decision","refusal_code","invoker_called","invoker_receipt_ref","effect_receipt_ref","decided_at"],"properties":{"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"authority_grant_ref":{"$ref":"#/$defs/grantRef"},"authority_grant_hash":{"$ref":"#/$defs/sha256Hash"},"authority_review_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_review_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"principal_authority_revalidation_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"principal_authority_revalidation_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"temporal_verification_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"temporal_verification_profile_hash":{"$ref":"#/$defs/sha256Hash"},"temporal_validity_evaluation_ref":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"temporal_validity_evaluation_hash":{"$ref":"#/$defs/sha256Hash"},"temporal_posture":{"enum":["online_fresh","bounded_offline","historical_only","insufficient"]},"continuity_floor_evidence_refs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"uniqueItems":true},"revocation_evidence_status":{"enum":["verified","not_evaluated","unavailable","invalid","stale"]},"revocation_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_snapshot_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"revocation_epoch":{"oneOf":[{"$ref":"#/$defs/safeNonNegativeInteger"},{"type":"null"}]},"actual_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"actual_effect_hash":{"$ref":"#/$defs/sha256Hash"},"decision_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"proof_kind":{"enum":["exact_equality","batch_membership","standing_constraint"]},"membership_proof_ref":{"oneOf":[{"$ref":"#/$defs/evidenceOrReceiptRef"},{"type":"null"}]},"membership_proof_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"standing_evaluation_ref":{"oneOf":[{"$ref":"#/$defs/evidenceOrReceiptRef"},{"type":"null"}]},"standing_evaluation_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"decision":{"enum":["admitted","refused","unknown"]},"refusal_code":{"oneOf":[{"type":"string","minLength":1,"maxLength":256,"pattern":"^[a-z][a-z0-9._-]*$"},{"type":"null"}]},"invoker_called":{"const":false},"invoker_receipt_ref":{"type":"null"},"effect_receipt_ref":{"type":"null"},"decided_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"exact_effect"}}}}},"then":{"properties":{"proof_kind":{"const":"exact_equality"},"membership_proof_ref":{"type":"null"},"membership_proof_hash":{"type":"null"},"standing_evaluation_ref":{"type":"null"},"standing_evaluation_hash":{"type":"null"}}}},{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"batch_manifest"}}}}},"then":{"properties":{"proof_kind":{"const":"batch_membership"},"membership_proof_ref":{"$ref":"#/$defs/evidenceOrReceiptRef"},"membership_proof_hash":{"$ref":"#/$defs/sha256Hash"},"standing_evaluation_ref":{"type":"null"},"standing_evaluation_hash":{"type":"null"}}}},{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"standing_envelope"}}}}},"then":{"properties":{"proof_kind":{"const":"standing_constraint"},"membership_proof_ref":{"type":"null"},"membership_proof_hash":{"type":"null"},"standing_evaluation_ref":{"$ref":"#/$defs/evidenceOrReceiptRef"},"standing_evaluation_hash":{"$ref":"#/$defs/sha256Hash"}}}},{"if":{"properties":{"decision":{"const":"admitted"}}},"then":{"properties":{"refusal_code":{"type":"null"},"revocation_evidence_status":{"const":"verified"},"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"temporal_posture":{"enum":["online_fresh","bounded_offline"]}}},"else":{"properties":{"refusal_code":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[a-z][a-z0-9._-]*$"}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"verified"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"}}}},{"if":{"properties":{"revocation_evidence_status":{"enum":["not_evaluated","unavailable"]}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"null"},"revocation_snapshot_hash":{"type":"null"},"revocation_epoch":{"type":"null"},"decision":{"enum":["refused","unknown"]}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"stale"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"decision":{"enum":["refused","unknown"]}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"invalid"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"decision":{"enum":["refused","unknown"]}}}}]},"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"safeNonNegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"evidenceBundleRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<AuthorityEffectAdmissionReceiptV2SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            receipt_envelope: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2ReceiptEnvelope,
+            >(
+                object
+                    .remove(r#"receipt_envelope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_envelope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body: serde_json::from_value::<AuthorityEffectAdmissionReceiptV2Body>(
+                object
+                    .remove(r#"body"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2SchemaVersion {
+    #[serde(rename = r#"ioi.components.daemon-runtime.authority-effect-admission-receipt.v2"#)]
+    IoiComponentsDaemonRuntimeAuthorityEffectAdmissionReceiptV2,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityEffectAdmissionReceiptV2ReceiptEnvelope {
+    pub receipt_id: String,
+    pub receipt_type: AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeReceiptType,
+    pub receipt_profile_ref: AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeReceiptProfileRef,
+    pub attested_boundary_fact_refs: Vec<String>,
+    pub claim_scope_ref: AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeClaimScopeRef,
+    pub run_id: (),
+    pub task_id: (),
+    pub actor_id: String,
+    pub input_hash: String,
+    pub output_hash: String,
+    pub policy_hash: String,
+    pub authority_grant_id: String,
+    pub primitive_capabilities: Vec<String>,
+    pub authority_scopes: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub evidence_bundle_refs: Vec<String>,
+    pub verification_ref: String,
+    pub acceptance_ref: (),
+    pub adjudication_ref: (),
+    pub settlement_ref: (),
+    pub timestamp: String,
+    pub signature: (),
+    pub public_commitment_ref: (),
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityEffectAdmissionReceiptV2ReceiptEnvelope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_effect_admission"},"receipt_profile_ref":{"const":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            receipt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_type: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeReceiptType,
+            >(
+                object
+                    .remove(r#"receipt_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile_ref: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeReceiptProfileRef,
+            >(
+                object
+                    .remove(r#"receipt_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attested_boundary_fact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"attested_boundary_fact_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"attested_boundary_fact_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claim_scope_ref: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeClaimScopeRef,
+            >(
+                object
+                    .remove(r#"claim_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            run_id: serde_json::from_value::<()>(
+                object
+                    .remove(r#"run_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"run_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            task_id: serde_json::from_value::<()>(
+                object
+                    .remove(r#"task_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actor_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"actor_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actor_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"input_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"input_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"output_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_grant_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capabilities: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capabilities"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"primitive_capabilities"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scopes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"artifact_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_bundle_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_bundle_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_bundle_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verification_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verification_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"acceptance_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acceptance_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudication_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"adjudication_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjudication_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            settlement_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"settlement_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"settlement_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            timestamp: serde_json::from_value::<String>(
+                object
+                    .remove(r#"timestamp"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"timestamp"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<()>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_commitment_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"public_commitment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_commitment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeReceiptType {
+    #[serde(rename = r#"authority_effect_admission"#)]
+    AuthorityEffectAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeReceiptProfileRef {
+    #[serde(
+        rename = r#"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"#
+    )]
+    SchemaIoiComponentsDaemonRuntimeAuthorityEffectAdmissionReceiptV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2ReceiptEnvelopeClaimScopeRef {
+    #[serde(
+        rename = r#"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"#
+    )]
+    SchemaIoiComponentsDaemonRuntimeAuthorityEffectAdmissionReceiptV2,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityEffectAdmissionReceiptV2Body {
+    pub policy_enforcement_point_ref: String,
+    pub authorization_subject: AuthorityEffectAdmissionReceiptV2BodyAuthorizationSubject,
+    pub authority_grant_ref: String,
+    pub authority_grant_hash: String,
+    pub authority_review_receipt_ref: String,
+    pub authority_review_receipt_hash: String,
+    pub approval_ceremony_context_ref: String,
+    pub approval_ceremony_context_hash: String,
+    pub principal_authority_resolution_ref: Option<String>,
+    pub principal_authority_resolution_hash: Option<String>,
+    pub principal_authority_revalidation_receipt_ref: Option<String>,
+    pub principal_authority_revalidation_receipt_hash: Option<String>,
+    pub temporal_verification_profile_ref: String,
+    pub temporal_verification_profile_hash: String,
+    pub temporal_validity_evaluation_ref: String,
+    pub temporal_validity_evaluation_hash: String,
+    pub temporal_posture: AuthorityEffectAdmissionReceiptV2BodyTemporalPosture,
+    pub continuity_floor_evidence_refs: Vec<String>,
+    pub revocation_evidence_status: AuthorityEffectAdmissionReceiptV2BodyRevocationEvidenceStatus,
+    pub revocation_snapshot_ref: Option<String>,
+    pub revocation_snapshot_hash: Option<String>,
+    pub revocation_epoch: Option<ArchitectureContractInteger>,
+    pub actual_effect_ref: String,
+    pub actual_effect_hash: String,
+    pub decision_profile_ref: String,
+    pub policy_hash: String,
+    pub proof_kind: AuthorityEffectAdmissionReceiptV2BodyProofKind,
+    pub membership_proof_ref: Option<String>,
+    pub membership_proof_hash: Option<String>,
+    pub standing_evaluation_ref: Option<String>,
+    pub standing_evaluation_hash: Option<String>,
+    pub decision: AuthorityEffectAdmissionReceiptV2BodyDecision,
+    pub refusal_code: Option<String>,
+    pub invoker_called: AuthorityEffectAdmissionReceiptV2BodyInvokerCalled,
+    pub invoker_receipt_ref: (),
+    pub effect_receipt_ref: (),
+    pub decided_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityEffectAdmissionReceiptV2Body {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["policy_enforcement_point_ref","authorization_subject","authority_grant_ref","authority_grant_hash","authority_review_receipt_ref","authority_review_receipt_hash","approval_ceremony_context_ref","approval_ceremony_context_hash","principal_authority_resolution_ref","principal_authority_resolution_hash","principal_authority_revalidation_receipt_ref","principal_authority_revalidation_receipt_hash","temporal_verification_profile_ref","temporal_verification_profile_hash","temporal_validity_evaluation_ref","temporal_validity_evaluation_hash","temporal_posture","continuity_floor_evidence_refs","revocation_evidence_status","revocation_snapshot_ref","revocation_snapshot_hash","revocation_epoch","actual_effect_ref","actual_effect_hash","decision_profile_ref","policy_hash","proof_kind","membership_proof_ref","membership_proof_hash","standing_evaluation_ref","standing_evaluation_hash","decision","refusal_code","invoker_called","invoker_receipt_ref","effect_receipt_ref","decided_at"],"properties":{"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"authority_grant_ref":{"$ref":"#/$defs/grantRef"},"authority_grant_hash":{"$ref":"#/$defs/sha256Hash"},"authority_review_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_review_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"principal_authority_revalidation_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"principal_authority_revalidation_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"temporal_verification_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"temporal_verification_profile_hash":{"$ref":"#/$defs/sha256Hash"},"temporal_validity_evaluation_ref":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"temporal_validity_evaluation_hash":{"$ref":"#/$defs/sha256Hash"},"temporal_posture":{"enum":["online_fresh","bounded_offline","historical_only","insufficient"]},"continuity_floor_evidence_refs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"uniqueItems":true},"revocation_evidence_status":{"enum":["verified","not_evaluated","unavailable","invalid","stale"]},"revocation_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_snapshot_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"revocation_epoch":{"oneOf":[{"$ref":"#/$defs/safeNonNegativeInteger"},{"type":"null"}]},"actual_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"actual_effect_hash":{"$ref":"#/$defs/sha256Hash"},"decision_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"proof_kind":{"enum":["exact_equality","batch_membership","standing_constraint"]},"membership_proof_ref":{"oneOf":[{"$ref":"#/$defs/evidenceOrReceiptRef"},{"type":"null"}]},"membership_proof_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"standing_evaluation_ref":{"oneOf":[{"$ref":"#/$defs/evidenceOrReceiptRef"},{"type":"null"}]},"standing_evaluation_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"decision":{"enum":["admitted","refused","unknown"]},"refusal_code":{"oneOf":[{"type":"string","minLength":1,"maxLength":256,"pattern":"^[a-z][a-z0-9._-]*$"},{"type":"null"}]},"invoker_called":{"const":false},"invoker_receipt_ref":{"type":"null"},"effect_receipt_ref":{"type":"null"},"decided_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"exact_effect"}}}}},"then":{"properties":{"proof_kind":{"const":"exact_equality"},"membership_proof_ref":{"type":"null"},"membership_proof_hash":{"type":"null"},"standing_evaluation_ref":{"type":"null"},"standing_evaluation_hash":{"type":"null"}}}},{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"batch_manifest"}}}}},"then":{"properties":{"proof_kind":{"const":"batch_membership"},"membership_proof_ref":{"$ref":"#/$defs/evidenceOrReceiptRef"},"membership_proof_hash":{"$ref":"#/$defs/sha256Hash"},"standing_evaluation_ref":{"type":"null"},"standing_evaluation_hash":{"type":"null"}}}},{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"standing_envelope"}}}}},"then":{"properties":{"proof_kind":{"const":"standing_constraint"},"membership_proof_ref":{"type":"null"},"membership_proof_hash":{"type":"null"},"standing_evaluation_ref":{"$ref":"#/$defs/evidenceOrReceiptRef"},"standing_evaluation_hash":{"$ref":"#/$defs/sha256Hash"}}}},{"if":{"properties":{"decision":{"const":"admitted"}}},"then":{"properties":{"refusal_code":{"type":"null"},"revocation_evidence_status":{"const":"verified"},"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"temporal_posture":{"enum":["online_fresh","bounded_offline"]}}},"else":{"properties":{"refusal_code":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[a-z][a-z0-9._-]*$"}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"verified"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"}}}},{"if":{"properties":{"revocation_evidence_status":{"enum":["not_evaluated","unavailable"]}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"null"},"revocation_snapshot_hash":{"type":"null"},"revocation_epoch":{"type":"null"},"decision":{"enum":["refused","unknown"]}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"stale"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"decision":{"enum":["refused","unknown"]}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"invalid"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"decision":{"enum":["refused","unknown"]}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_enforcement_point_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_enforcement_point_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_enforcement_point_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authorization_subject: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2BodyAuthorizationSubject,
+            >(
+                object
+                    .remove(r#"authorization_subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authorization_subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_grant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_grant_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_review_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_review_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_review_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_review_receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_review_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_review_receipt_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_context_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_ceremony_context_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_context_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_context_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_ceremony_context_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_context_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_authority_resolution_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_authority_resolution_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"principal_authority_resolution_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_authority_resolution_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_authority_resolution_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"principal_authority_resolution_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_authority_revalidation_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_authority_revalidation_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"principal_authority_revalidation_receipt_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_authority_revalidation_receipt_hash:
+                serde_json::from_value::<Option<String>>(
+                    object
+                        .remove(r#"principal_authority_revalidation_receipt_hash"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(
+                                r#"principal_authority_revalidation_receipt_hash"#,
+                            )
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            temporal_verification_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"temporal_verification_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"temporal_verification_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            temporal_verification_profile_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"temporal_verification_profile_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"temporal_verification_profile_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            temporal_validity_evaluation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"temporal_validity_evaluation_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"temporal_validity_evaluation_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            temporal_validity_evaluation_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"temporal_validity_evaluation_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"temporal_validity_evaluation_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            temporal_posture: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2BodyTemporalPosture,
+            >(
+                object
+                    .remove(r#"temporal_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"temporal_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            continuity_floor_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"continuity_floor_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"continuity_floor_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_evidence_status: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2BodyRevocationEvidenceStatus,
+            >(
+                object
+                    .remove(r#"revocation_evidence_status"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"revocation_evidence_status"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_snapshot_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"revocation_snapshot_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_snapshot_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_snapshot_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"revocation_snapshot_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"revocation_snapshot_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_epoch: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"revocation_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actual_effect_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"actual_effect_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actual_effect_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actual_effect_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"actual_effect_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actual_effect_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proof_kind: serde_json::from_value::<AuthorityEffectAdmissionReceiptV2BodyProofKind>(
+                object
+                    .remove(r#"proof_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proof_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_proof_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"membership_proof_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_proof_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_proof_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"membership_proof_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_proof_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            standing_evaluation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"standing_evaluation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"standing_evaluation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            standing_evaluation_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"standing_evaluation_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"standing_evaluation_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<AuthorityEffectAdmissionReceiptV2BodyDecision>(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refusal_code: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"refusal_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"refusal_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invoker_called: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2BodyInvokerCalled,
+            >(
+                object
+                    .remove(r#"invoker_called"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invoker_called"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invoker_receipt_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"invoker_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invoker_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_receipt_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"effect_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decided_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decided_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityEffectAdmissionReceiptV2BodyAuthorizationSubject {
+    pub kind: AuthorityEffectAdmissionReceiptV2BodyAuthorizationSubjectKind,
+    pub subject_ref: String,
+    pub subject_hash: String,
+    pub validation_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityEffectAdmissionReceiptV2BodyAuthorizationSubject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<
+                AuthorityEffectAdmissionReceiptV2BodyAuthorizationSubjectKind,
+            >(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"validation_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validation_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2BodyAuthorizationSubjectKind {
+    #[serde(rename = r#"exact_effect"#)]
+    ExactEffect,
+    #[serde(rename = r#"batch_manifest"#)]
+    BatchManifest,
+    #[serde(rename = r#"standing_envelope"#)]
+    StandingEnvelope,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2BodyTemporalPosture {
+    #[serde(rename = r#"online_fresh"#)]
+    OnlineFresh,
+    #[serde(rename = r#"bounded_offline"#)]
+    BoundedOffline,
+    #[serde(rename = r#"historical_only"#)]
+    HistoricalOnly,
+    #[serde(rename = r#"insufficient"#)]
+    Insufficient,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2BodyRevocationEvidenceStatus {
+    #[serde(rename = r#"verified"#)]
+    Verified,
+    #[serde(rename = r#"not_evaluated"#)]
+    NotEvaluated,
+    #[serde(rename = r#"unavailable"#)]
+    Unavailable,
+    #[serde(rename = r#"invalid"#)]
+    Invalid,
+    #[serde(rename = r#"stale"#)]
+    Stale,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2BodyProofKind {
+    #[serde(rename = r#"exact_equality"#)]
+    ExactEquality,
+    #[serde(rename = r#"batch_membership"#)]
+    BatchMembership,
+    #[serde(rename = r#"standing_constraint"#)]
+    StandingConstraint,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityEffectAdmissionReceiptV2BodyDecision {
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthorityEffectAdmissionReceiptV2BodyInvokerCalled {
+    False,
+}
+
+impl serde::Serialize for AuthorityEffectAdmissionReceiptV2BodyInvokerCalled {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityEffectAdmissionReceiptV2BodyInvokerCalled {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -32982,6 +33743,391 @@ pub enum ActiveSkillSetSnapshotV1RegistryStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityScopeRequestEnvelopeV2 {
+    pub schema_version: AuthorityScopeRequestEnvelopeV2SchemaVersion,
+    pub authority_request_id: String,
+    pub principal_ref: String,
+    pub product_session_ref: Option<String>,
+    pub origin_binding_ref: Option<String>,
+    pub subject_id: String,
+    pub issuer_id: String,
+    pub requesting_runtime_ref: Option<String>,
+    pub purpose: String,
+    pub requested_auth_factor_posture_refs: Vec<String>,
+    pub requested_guardian_surface_refs: Vec<String>,
+    pub authorization_subject: AuthorityScopeRequestEnvelopeV2AuthorizationSubject,
+    pub primitive_capabilities_required: Vec<String>,
+    pub authority_scopes_requested: Vec<String>,
+    pub resource_scope: AuthorityScopeRequestEnvelopeV2ResourceScope,
+    pub destination_refs: Vec<String>,
+    pub risk_classes: Vec<AuthorityScopeRequestEnvelopeV2RiskClassesItem>,
+    pub policy_hash: String,
+    pub authority_request_body_hash: String,
+    pub authority_grant_id: Option<String>,
+    pub status: AuthorityScopeRequestEnvelopeV2Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityScopeRequestEnvelopeV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-scope-request-envelope/v2","title":"AuthorityScopeRequestEnvelope","description":"Closed exact-subject authority request that binds requested posture, capabilities, resources, destinations, risk, and policy before review.","x-ioi-schema-version":"ioi.foundations.authority-scope-request-envelope.v2","type":"object","additionalProperties":false,"required":["schema_version","authority_request_id","principal_ref","product_session_ref","origin_binding_ref","subject_id","issuer_id","requesting_runtime_ref","purpose","requested_auth_factor_posture_refs","requested_guardian_surface_refs","authorization_subject","primitive_capabilities_required","authority_scopes_requested","resource_scope","destination_refs","risk_classes","policy_hash","authority_request_body_hash","authority_grant_id","status"],"properties":{"schema_version":{"const":"ioi.foundations.authority-scope-request-envelope.v2"},"authority_request_id":{"$ref":"#/$defs/authorityRequestRef"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"subject_id":{"$ref":"#/$defs/subjectRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"requesting_runtime_ref":{"oneOf":[{"$ref":"#/$defs/runtimeRef"},{"type":"null"}]},"purpose":{"type":"string","minLength":1,"maxLength":512},"requested_auth_factor_posture_refs":{"type":"array","items":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"uniqueItems":true},"requested_guardian_surface_refs":{"type":"array","items":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"uniqueItems":true},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"primitive_capabilities_required":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes_requested":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"resource_scope":{"type":"object","additionalProperties":false,"required":["resources","constraints"],"properties":{"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expiry","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expiry":{"$ref":"#/$defs/canonicalDateTime"},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}}}},"destination_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"oneOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"status":{"enum":["requested","granted","denied","expired","revoked"]}},"$defs":{"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"subjectRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]{1,500}$"},"runtimeRef":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AuthorityScopeRequestEnvelopeV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_request_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_request_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_request_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            product_session_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"product_session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"product_session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin_binding_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"origin_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requesting_runtime_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"requesting_runtime_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requesting_runtime_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            purpose: serde_json::from_value::<String>(
+                object
+                    .remove(r#"purpose"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"purpose"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_auth_factor_posture_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"requested_auth_factor_posture_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"requested_auth_factor_posture_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_guardian_surface_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"requested_guardian_surface_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"requested_guardian_surface_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authorization_subject: serde_json::from_value::<
+                AuthorityScopeRequestEnvelopeV2AuthorizationSubject,
+            >(
+                object
+                    .remove(r#"authorization_subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authorization_subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capabilities_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capabilities_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"primitive_capabilities_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes_requested: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes_requested"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scopes_requested"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_scope: serde_json::from_value::<AuthorityScopeRequestEnvelopeV2ResourceScope>(
+                object
+                    .remove(r#"resource_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            destination_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"destination_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"destination_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_classes: serde_json::from_value::<
+                Vec<AuthorityScopeRequestEnvelopeV2RiskClassesItem>,
+            >(
+                object
+                    .remove(r#"risk_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_request_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_request_body_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_request_body_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_grant_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AuthorityScopeRequestEnvelopeV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityScopeRequestEnvelopeV2SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.authority-scope-request-envelope.v2"#)]
+    IoiFoundationsAuthorityScopeRequestEnvelopeV2,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityScopeRequestEnvelopeV2AuthorizationSubject {
+    pub kind: AuthorityScopeRequestEnvelopeV2AuthorizationSubjectKind,
+    pub subject_ref: String,
+    pub subject_hash: String,
+    pub validation_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityScopeRequestEnvelopeV2AuthorizationSubject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind:
+                serde_json::from_value::<AuthorityScopeRequestEnvelopeV2AuthorizationSubjectKind>(
+                    object
+                        .remove(r#"kind"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"validation_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validation_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityScopeRequestEnvelopeV2AuthorizationSubjectKind {
+    #[serde(rename = r#"exact_effect"#)]
+    ExactEffect,
+    #[serde(rename = r#"batch_manifest"#)]
+    BatchManifest,
+    #[serde(rename = r#"standing_envelope"#)]
+    StandingEnvelope,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityScopeRequestEnvelopeV2ResourceScope {
+    pub resources: Vec<String>,
+    pub constraints: AuthorityScopeRequestEnvelopeV2ResourceScopeConstraints,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityScopeRequestEnvelopeV2ResourceScope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["resources","constraints"],"properties":{"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expiry","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expiry":{"$ref":"#/$defs/canonicalDateTime"},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            resources: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resources"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resources"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constraints: serde_json::from_value::<
+                AuthorityScopeRequestEnvelopeV2ResourceScopeConstraints,
+            >(
+                object
+                    .remove(r#"constraints"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constraints"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityScopeRequestEnvelopeV2ResourceScopeConstraints {
+    pub max_budget_usd: f64,
+    pub expiry: String,
+    pub approval_required_for: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityScopeRequestEnvelopeV2ResourceScopeConstraints {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["max_budget_usd","expiry","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expiry":{"$ref":"#/$defs/canonicalDateTime"},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            max_budget_usd: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"max_budget_usd"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_budget_usd"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expiry: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expiry"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expiry"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_required_for: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"approval_required_for"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_required_for"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityScopeRequestEnvelopeV2RiskClassesItem {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"trade"#)]
+    Trade,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"declassification"#)]
+    Declassification,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"cloud_deploy"#)]
+    CloudDeploy,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityScopeRequestEnvelopeV2Status {
+    #[serde(rename = r#"requested"#)]
+    Requested,
+    #[serde(rename = r#"granted"#)]
+    Granted,
+    #[serde(rename = r#"denied"#)]
+    Denied,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct AuthorityGrantEnvelopeV1 {
     pub authority_grant_id: String,
     pub request_id: String,
@@ -33508,6 +34654,864 @@ pub enum AuthorityGrantEnvelopeV2RiskRestrictionsAllowedRiskClassesItem {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AuthorityGrantEnvelopeV2SignatureSuite {
+    #[serde(rename = r#"ed25519"#)]
+    Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGrantEnvelopeV3 {
+    pub schema_version: AuthorityGrantEnvelopeV3SchemaVersion,
+    pub envelope_type: AuthorityGrantEnvelopeV3EnvelopeType,
+    pub signature_domain: AuthorityGrantEnvelopeV3SignatureDomain,
+    pub schema_hash: String,
+    pub authority_grant_id: String,
+    pub request_id: String,
+    pub issuer_id: String,
+    pub issuer_key_set_ref: String,
+    pub issuer_key_set_version: ArchitectureContractInteger,
+    pub issuer_key_id: String,
+    pub holder_id: String,
+    pub holder_key_id: String,
+    pub audience: String,
+    pub issued_at: ArchitectureContractInteger,
+    pub not_before: ArchitectureContractInteger,
+    pub expires_at: ArchitectureContractInteger,
+    pub parent_grant: Option<AuthorityGrantEnvelopeV3ParentGrant>,
+    pub authority_scopes: Vec<String>,
+    pub primitive_capability_constraints: Vec<String>,
+    pub resources: Vec<String>,
+    pub attenuating_caveats: Vec<String>,
+    pub risk_restrictions: AuthorityGrantEnvelopeV3RiskRestrictions,
+    pub revocation_epoch: ArchitectureContractInteger,
+    pub request_commitment: AuthorityGrantEnvelopeV3RequestCommitment,
+    pub body_hash: String,
+    pub signature_suite: AuthorityGrantEnvelopeV3SignatureSuite,
+    pub signature_key_id: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGrantEnvelopeV3 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-grant-envelope/v3"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v3","title":"AuthorityGrantEnvelope","description":"Portable signed authority grant binding the complete request-review-ceremony chain and one typed authorization subject.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v3","type":"object","additionalProperties":false,"required":["schema_version","envelope_type","signature_domain","schema_hash","authority_grant_id","request_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","holder_id","holder_key_id","audience","issued_at","not_before","expires_at","parent_grant","authority_scopes","primitive_capability_constraints","resources","attenuating_caveats","risk_restrictions","revocation_epoch","request_commitment","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-grant-envelope.v3"},"envelope_type":{"const":"ioi.authority-grant"},"signature_domain":{"const":"ioi.authority-grant-envelope.v3"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"$ref":"#/$defs/safePositiveInteger"},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"holder_id":{"$ref":"#/$defs/holderRef"},"holder_key_id":{"$ref":"#/$defs/keyRef"},"audience":{"$ref":"#/$defs/canonicalRef"},"issued_at":{"$ref":"#/$defs/safeNonNegativeInteger"},"not_before":{"$ref":"#/$defs/safeNonNegativeInteger"},"expires_at":{"$ref":"#/$defs/safeNonNegativeInteger"},"parent_grant":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["grant_ref","body_hash","proof_ref"],"properties":{"grant_ref":{"$ref":"#/$defs/grantRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"proof_ref":{"$ref":"#/$defs/proofRef"}}}]},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"attenuating_caveats":{"type":"array","items":{"$ref":"#/$defs/caveatRef"},"uniqueItems":true},"risk_restrictions":{"type":"object","additionalProperties":false,"required":["allowed_risk_classes","max_budget_microusd","max_calls","approval_required_for"],"properties":{"allowed_risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"minItems":1,"uniqueItems":true},"max_budget_microusd":{"$ref":"#/$defs/safeNonNegativeInteger"},"max_calls":{"$ref":"#/$defs/safePositiveInteger"},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"request_commitment":{"type":"object","additionalProperties":false,"required":["authority_request_id","authority_request_body_hash","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","authorization_subject","principal_ref","product_session_ref","origin_binding_ref","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","interaction_mode","authentication_posture","receipt_timing","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","authority_review_receipt_ref","authority_review_receipt_hash","approval_evidence_profile_ref","approval_evidence_leaf_refs","approval_evidence_root"],"properties":{"authority_request_id":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"const":"satisfied"}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"minItems":1}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"minItems":1}}}}]}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"const":"before_effect"},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"authority_review_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_review_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"approval_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"approval_evidence_leaf_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"minItems":1,"uniqueItems":true},"approval_evidence_root":{"$ref":"#/$defs/sha256Hash"}}},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"safeNonNegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"safePositiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]{1,500}$"},"holderRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime|wallet|org)://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]{1,500}$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]{1,500}$"},"caveatRef":{"type":"string","pattern":"^caveat://[^\\s]{1,500}$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"guardianRef":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"authFactorRef":{"type":"string","pattern":"^auth_factor://[^\\s]{1,500}$"},"authRequirementRef":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"presentationEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|attestation)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,500}$"},"approvalEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|artifact)://[^\\s]{1,500}$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AuthorityGrantEnvelopeV3SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            envelope_type: serde_json::from_value::<AuthorityGrantEnvelopeV3EnvelopeType>(
+                object
+                    .remove(r#"envelope_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"envelope_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_domain: serde_json::from_value::<AuthorityGrantEnvelopeV3SignatureDomain>(
+                object
+                    .remove(r#"signature_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            schema_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"schema_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_grant_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_key_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_set_version: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issuer_key_set_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_set_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            holder_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"holder_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"holder_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            holder_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"holder_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"holder_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            audience: serde_json::from_value::<String>(
+                object
+                    .remove(r#"audience"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"audience"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            not_before: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"not_before"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"not_before"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_grant: serde_json::from_value::<Option<AuthorityGrantEnvelopeV3ParentGrant>>(
+                object
+                    .remove(r#"parent_grant"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_grant"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scopes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capability_constraints: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capability_constraints"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"primitive_capability_constraints"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resources: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resources"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resources"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attenuating_caveats: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"attenuating_caveats"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attenuating_caveats"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_restrictions: serde_json::from_value::<AuthorityGrantEnvelopeV3RiskRestrictions>(
+                object
+                    .remove(r#"risk_restrictions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_restrictions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revocation_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_commitment:
+                serde_json::from_value::<AuthorityGrantEnvelopeV3RequestCommitment>(
+                    object
+                        .remove(r#"request_commitment"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"request_commitment"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_suite: serde_json::from_value::<AuthorityGrantEnvelopeV3SignatureSuite>(
+                object
+                    .remove(r#"signature_suite"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_suite"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature_key_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.authority-grant-envelope.v3"#)]
+    IoiFoundationsAuthorityGrantEnvelopeV3,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3EnvelopeType {
+    #[serde(rename = r#"ioi.authority-grant"#)]
+    IoiAuthorityGrant,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3SignatureDomain {
+    #[serde(rename = r#"ioi.authority-grant-envelope.v3"#)]
+    IoiAuthorityGrantEnvelopeV3,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGrantEnvelopeV3ParentGrant {
+    pub grant_ref: String,
+    pub body_hash: String,
+    pub proof_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGrantEnvelopeV3ParentGrant {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-grant-envelope/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["grant_ref","body_hash","proof_ref"],"properties":{"grant_ref":{"$ref":"#/$defs/grantRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"proof_ref":{"$ref":"#/$defs/proofRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            grant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"grant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proof_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proof_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proof_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGrantEnvelopeV3RiskRestrictions {
+    pub allowed_risk_classes: Vec<AuthorityGrantEnvelopeV3RiskRestrictionsAllowedRiskClassesItem>,
+    pub max_budget_microusd: ArchitectureContractInteger,
+    pub max_calls: ArchitectureContractInteger,
+    pub approval_required_for: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGrantEnvelopeV3RiskRestrictions {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-grant-envelope/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["allowed_risk_classes","max_budget_microusd","max_calls","approval_required_for"],"properties":{"allowed_risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"minItems":1,"uniqueItems":true},"max_budget_microusd":{"$ref":"#/$defs/safeNonNegativeInteger"},"max_calls":{"$ref":"#/$defs/safePositiveInteger"},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            allowed_risk_classes: serde_json::from_value::<
+                Vec<AuthorityGrantEnvelopeV3RiskRestrictionsAllowedRiskClassesItem>,
+            >(
+                object
+                    .remove(r#"allowed_risk_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"allowed_risk_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_budget_microusd: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_budget_microusd"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_budget_microusd"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_calls: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_calls"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_calls"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_required_for: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"approval_required_for"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_required_for"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3RiskRestrictionsAllowedRiskClassesItem {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"trade"#)]
+    Trade,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"declassification"#)]
+    Declassification,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"cloud_deploy"#)]
+    CloudDeploy,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGrantEnvelopeV3RequestCommitment {
+    pub authority_request_id: String,
+    pub authority_request_body_hash: String,
+    pub reviewed_representation_hash: String,
+    pub presentation_surface_ref: String,
+    pub presentation_evidence_profile_ref: String,
+    pub presentation_evidence_refs: Vec<String>,
+    pub approval_ceremony_context_ref: String,
+    pub approval_ceremony_context_hash: String,
+    pub approval_ceremony_evidence_refs: Vec<String>,
+    pub authorization_subject: AuthorityGrantEnvelopeV3RequestCommitmentAuthorizationSubject,
+    pub principal_ref: String,
+    pub product_session_ref: Option<String>,
+    pub origin_binding_ref: Option<String>,
+    pub required_auth_factor_posture_refs: Vec<String>,
+    pub required_guardian_surface_refs: Vec<String>,
+    pub satisfied_auth_factor_refs: Vec<String>,
+    pub satisfied_guardian_surface_refs: Vec<String>,
+    pub posture_satisfaction_profile_ref: String,
+    pub posture_satisfaction_evaluations:
+        Vec<AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItem>,
+    pub posture_satisfaction_root: String,
+    pub interaction_mode: AuthorityGrantEnvelopeV3RequestCommitmentInteractionMode,
+    pub authentication_posture: AuthorityGrantEnvelopeV3RequestCommitmentAuthenticationPosture,
+    pub receipt_timing: AuthorityGrantEnvelopeV3RequestCommitmentReceiptTiming,
+    pub principal_authority_resolution_ref: Option<String>,
+    pub principal_authority_resolution_hash: Option<String>,
+    pub policy_decision_receipt_ref: String,
+    pub policy_decision_receipt_hash: String,
+    pub authority_review_receipt_ref: String,
+    pub authority_review_receipt_hash: String,
+    pub approval_evidence_profile_ref: String,
+    pub approval_evidence_leaf_refs: Vec<String>,
+    pub approval_evidence_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityGrantEnvelopeV3RequestCommitment {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-grant-envelope/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["authority_request_id","authority_request_body_hash","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","authorization_subject","principal_ref","product_session_ref","origin_binding_ref","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","interaction_mode","authentication_posture","receipt_timing","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","authority_review_receipt_ref","authority_review_receipt_hash","approval_evidence_profile_ref","approval_evidence_leaf_refs","approval_evidence_root"],"properties":{"authority_request_id":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"const":"satisfied"}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"minItems":1}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"minItems":1}}}}]}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"const":"before_effect"},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"authority_review_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_review_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"approval_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"approval_evidence_leaf_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"minItems":1,"uniqueItems":true},"approval_evidence_root":{"$ref":"#/$defs/sha256Hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority_request_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_request_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_request_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_request_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_request_body_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_request_body_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reviewed_representation_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reviewed_representation_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reviewed_representation_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            presentation_surface_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"presentation_surface_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"presentation_surface_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            presentation_evidence_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"presentation_evidence_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"presentation_evidence_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            presentation_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"presentation_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"presentation_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_context_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_ceremony_context_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_context_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_context_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_ceremony_context_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_context_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"approval_ceremony_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authorization_subject: serde_json::from_value::<
+                AuthorityGrantEnvelopeV3RequestCommitmentAuthorizationSubject,
+            >(
+                object
+                    .remove(r#"authorization_subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authorization_subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            product_session_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"product_session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"product_session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin_binding_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"origin_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_auth_factor_posture_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_auth_factor_posture_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_auth_factor_posture_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_guardian_surface_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_guardian_surface_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_guardian_surface_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            satisfied_auth_factor_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"satisfied_auth_factor_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"satisfied_auth_factor_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            satisfied_guardian_surface_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"satisfied_guardian_surface_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"satisfied_guardian_surface_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            posture_satisfaction_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"posture_satisfaction_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"posture_satisfaction_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            posture_satisfaction_evaluations: serde_json::from_value::<
+                Vec<AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItem>,
+            >(
+                object
+                    .remove(r#"posture_satisfaction_evaluations"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"posture_satisfaction_evaluations"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            posture_satisfaction_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"posture_satisfaction_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"posture_satisfaction_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interaction_mode: serde_json::from_value::<
+                AuthorityGrantEnvelopeV3RequestCommitmentInteractionMode,
+            >(
+                object
+                    .remove(r#"interaction_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interaction_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authentication_posture: serde_json::from_value::<
+                AuthorityGrantEnvelopeV3RequestCommitmentAuthenticationPosture,
+            >(
+                object
+                    .remove(r#"authentication_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authentication_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_timing: serde_json::from_value::<
+                AuthorityGrantEnvelopeV3RequestCommitmentReceiptTiming,
+            >(
+                object
+                    .remove(r#"receipt_timing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_timing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_authority_resolution_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_authority_resolution_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"principal_authority_resolution_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_authority_resolution_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_authority_resolution_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"principal_authority_resolution_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_decision_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_decision_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_decision_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_decision_receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_decision_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_decision_receipt_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_review_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_review_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_review_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_review_receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_review_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_review_receipt_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_evidence_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_evidence_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_evidence_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_evidence_leaf_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"approval_evidence_leaf_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_evidence_leaf_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_evidence_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_evidence_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_evidence_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGrantEnvelopeV3RequestCommitmentAuthorizationSubject {
+    pub kind: AuthorityGrantEnvelopeV3RequestCommitmentAuthorizationSubjectKind,
+    pub subject_ref: String,
+    pub subject_hash: String,
+    pub validation_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityGrantEnvelopeV3RequestCommitmentAuthorizationSubject
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-grant-envelope/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<
+                AuthorityGrantEnvelopeV3RequestCommitmentAuthorizationSubjectKind,
+            >(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"validation_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validation_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3RequestCommitmentAuthorizationSubjectKind {
+    #[serde(rename = r#"exact_effect"#)]
+    ExactEffect,
+    #[serde(rename = r#"batch_manifest"#)]
+    BatchManifest,
+    #[serde(rename = r#"standing_envelope"#)]
+    StandingEnvelope,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItem {
+    pub requirement_ref: String,
+    pub requirement_kind:
+        AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItemRequirementKind,
+    pub satisfied_by_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub evaluation_profile_ref: String,
+    pub decision:
+        AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItemDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/authority-grant-envelope/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"const":"satisfied"}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"minItems":1}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"minItems":1}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            requirement_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requirement_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requirement_kind: serde_json::from_value::<AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItemRequirementKind>(
+                object
+                    .remove(r#"requirement_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            satisfied_by_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"satisfied_by_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"satisfied_by_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItemDecision>(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItemRequirementKind
+{
+    #[serde(rename = r#"auth_factor"#)]
+    AuthFactor,
+    #[serde(rename = r#"guardian_surface"#)]
+    GuardianSurface,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3RequestCommitmentPostureSatisfactionEvaluationsItemDecision {
+    #[serde(rename = r#"satisfied"#)]
+    Satisfied,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3RequestCommitmentInteractionMode {
+    #[serde(rename = r#"interactive"#)]
+    Interactive,
+    #[serde(rename = r#"noninteractive_policy"#)]
+    NoninteractivePolicy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3RequestCommitmentAuthenticationPosture {
+    #[serde(rename = r#"baseline"#)]
+    Baseline,
+    #[serde(rename = r#"step_up"#)]
+    StepUp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3RequestCommitmentReceiptTiming {
+    #[serde(rename = r#"before_effect"#)]
+    BeforeEffect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityGrantEnvelopeV3SignatureSuite {
     #[serde(rename = r#"ed25519"#)]
     Ed25519,
 }
@@ -79721,6 +81725,1425 @@ pub enum ConnectorCredentialGrantV1SchemaVersion {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1 {
+    pub schema_version: AuthorityReviewReceiptV1SchemaVersion,
+    pub receipt_envelope: AuthorityReviewReceiptV1ReceiptEnvelope,
+    pub body: AuthorityReviewReceiptV1Body,
+    pub body_hash: String,
+    pub receipt_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityReviewReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/authority-review-receipt/v1","title":"AuthorityReviewReceipt","description":"Portable wallet/policy decision receipt over one exact authority request, reviewed representation, ceremony context, and independently recorded presentation and authenticator evidence.","x-ioi-schema-version":"ioi.components.wallet-network.authority-review-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.wallet-network.authority-review-receipt.v1"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/reviewBody"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_review"},"receipt_profile_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"$ref":"#/$defs/decisionActorRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"type":"null"},"primitive_capabilities":{"type":"array","maxItems":0},"authority_scopes":{"type":"array","maxItems":0},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}},"reviewBody":{"type":"object","additionalProperties":false,"required":["authority_review_ref","authority_review_body_hash","authority_request_ref","authority_request_body_hash","principal_ref","product_session_ref","origin_binding_ref","acting_subject_ref","decision_actor_ref","authorization_subject","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","presentation_dimensions","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","auth_factor_evidence_refs","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","policy_hash","risk_classes","interaction_mode","authentication_posture","receipt_timing","decision","predecessor_authority_review_ref","predecessor_authority_review_body_hash","predecessor_authority_request_ref","predecessor_authority_request_body_hash","predecessor_authority_review_receipt_ref","predecessor_authority_review_receipt_hash","reviewed_at","expires_at"],"properties":{"authority_review_ref":{"type":"string","pattern":"^review://[^\\s]{1,500}$"},"authority_review_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_ref":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"acting_subject_ref":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"decision_actor_ref":{"$ref":"#/$defs/decisionActorRef"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"presentation_dimensions":{"type":"object","additionalProperties":false,"required":["operator_and_surface","content_binding","request_vs_effect_binding","enrollment_and_attestation","user_presence_and_verification","freshness_and_replay","proposer_independence"],"properties":{"operator_and_surface":{"$ref":"#/$defs/presentationDimension"},"content_binding":{"$ref":"#/$defs/presentationDimension"},"request_vs_effect_binding":{"$ref":"#/$defs/presentationDimension"},"enrollment_and_attestation":{"$ref":"#/$defs/presentationDimension"},"user_presence_and_verification":{"$ref":"#/$defs/presentationDimension"},"freshness_and_replay":{"$ref":"#/$defs/presentationDimension"},"proposer_independence":{"$ref":"#/$defs/presentationDimension"}}},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"$ref":"#/$defs/postureEvaluation"}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"auth_factor_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"enum":["before_effect","after_effect"]},"decision":{"enum":["approved","denied","edit_required","expired"]},"predecessor_authority_review_ref":{"oneOf":[{"type":"string","pattern":"^review://[^\\s]{1,500}$"},{"type":"null"}]},"predecessor_authority_review_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_request_ref":{"oneOf":[{"$ref":"#/$defs/authorityRequestRef"},{"type":"null"}]},"predecessor_authority_request_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_review_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"predecessor_authority_review_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"reviewed_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"decision":{"const":"approved"}}},"then":{"properties":{"posture_satisfaction_evaluations":{"type":"array","items":{"allOf":[{"$ref":"#/$defs/postureEvaluation"},{"type":"object","properties":{"decision":{"const":"satisfied"}}}]}}}}}]},"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"presentationDimension":{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}},"postureEvaluation":{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"enum":["satisfied","unsatisfied","unknown"]}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"}}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"}}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"decisionActorRef":{"type":"string","pattern":"^(?:wallet|policy|system|org)://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"guardianRef":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"authFactorRef":{"type":"string","pattern":"^auth_factor://[^\\s]{1,500}$"},"authRequirementRef":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"presentationEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|attestation)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,500}$"},"approvalEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|artifact)://[^\\s]{1,500}$"},"evidenceBundleRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AuthorityReviewReceiptV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_envelope: serde_json::from_value::<AuthorityReviewReceiptV1ReceiptEnvelope>(
+                object
+                    .remove(r#"receipt_envelope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_envelope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body: serde_json::from_value::<AuthorityReviewReceiptV1Body>(
+                object
+                    .remove(r#"body"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.wallet-network.authority-review-receipt.v1"#)]
+    IoiComponentsWalletNetworkAuthorityReviewReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1ReceiptEnvelope {
+    pub receipt_id: String,
+    pub receipt_type: AuthorityReviewReceiptV1ReceiptEnvelopeReceiptType,
+    pub receipt_profile_ref: AuthorityReviewReceiptV1ReceiptEnvelopeReceiptProfileRef,
+    pub attested_boundary_fact_refs: Vec<String>,
+    pub claim_scope_ref: AuthorityReviewReceiptV1ReceiptEnvelopeClaimScopeRef,
+    pub run_id: (),
+    pub task_id: (),
+    pub actor_id: String,
+    pub input_hash: String,
+    pub output_hash: String,
+    pub policy_hash: String,
+    pub authority_grant_id: (),
+    pub primitive_capabilities: Vec<serde_json::Value>,
+    pub authority_scopes: Vec<serde_json::Value>,
+    pub artifact_refs: Vec<String>,
+    pub evidence_bundle_refs: Vec<String>,
+    pub verification_ref: String,
+    pub acceptance_ref: (),
+    pub adjudication_ref: (),
+    pub settlement_ref: (),
+    pub timestamp: String,
+    pub signature: (),
+    pub public_commitment_ref: (),
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityReviewReceiptV1ReceiptEnvelope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_review"},"receipt_profile_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"$ref":"#/$defs/decisionActorRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"type":"null"},"primitive_capabilities":{"type":"array","maxItems":0},"authority_scopes":{"type":"array","maxItems":0},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            receipt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_type: serde_json::from_value::<
+                AuthorityReviewReceiptV1ReceiptEnvelopeReceiptType,
+            >(
+                object
+                    .remove(r#"receipt_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile_ref: serde_json::from_value::<
+                AuthorityReviewReceiptV1ReceiptEnvelopeReceiptProfileRef,
+            >(
+                object
+                    .remove(r#"receipt_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attested_boundary_fact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"attested_boundary_fact_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"attested_boundary_fact_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claim_scope_ref: serde_json::from_value::<
+                AuthorityReviewReceiptV1ReceiptEnvelopeClaimScopeRef,
+            >(
+                object
+                    .remove(r#"claim_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            run_id: serde_json::from_value::<()>(
+                object
+                    .remove(r#"run_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"run_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            task_id: serde_json::from_value::<()>(
+                object
+                    .remove(r#"task_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actor_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"actor_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actor_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"input_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"input_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"output_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_id: serde_json::from_value::<()>(
+                object
+                    .remove(r#"authority_grant_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capabilities: serde_json::from_value::<Vec<serde_json::Value>>(
+                object
+                    .remove(r#"primitive_capabilities"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"primitive_capabilities"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes: serde_json::from_value::<Vec<serde_json::Value>>(
+                object
+                    .remove(r#"authority_scopes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scopes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"artifact_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_bundle_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_bundle_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_bundle_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verification_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verification_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"acceptance_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acceptance_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudication_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"adjudication_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjudication_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            settlement_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"settlement_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"settlement_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            timestamp: serde_json::from_value::<String>(
+                object
+                    .remove(r#"timestamp"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"timestamp"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<()>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_commitment_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"public_commitment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_commitment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1ReceiptEnvelopeReceiptType {
+    #[serde(rename = r#"authority_review"#)]
+    AuthorityReview,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1ReceiptEnvelopeReceiptProfileRef {
+    #[serde(rename = r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#)]
+    SchemaIoiComponentsWalletNetworkAuthorityReviewReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1ReceiptEnvelopeClaimScopeRef {
+    #[serde(rename = r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#)]
+    SchemaIoiComponentsWalletNetworkAuthorityReviewReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1Body {
+    pub authority_review_ref: String,
+    pub authority_review_body_hash: String,
+    pub authority_request_ref: String,
+    pub authority_request_body_hash: String,
+    pub principal_ref: String,
+    pub product_session_ref: Option<String>,
+    pub origin_binding_ref: Option<String>,
+    pub acting_subject_ref: String,
+    pub decision_actor_ref: String,
+    pub authorization_subject: AuthorityReviewReceiptV1BodyAuthorizationSubject,
+    pub reviewed_representation_hash: String,
+    pub presentation_surface_ref: String,
+    pub presentation_evidence_profile_ref: String,
+    pub presentation_evidence_refs: Vec<String>,
+    pub presentation_dimensions: AuthorityReviewReceiptV1BodyPresentationDimensions,
+    pub approval_ceremony_context_ref: String,
+    pub approval_ceremony_context_hash: String,
+    pub approval_ceremony_evidence_refs: Vec<String>,
+    pub required_auth_factor_posture_refs: Vec<String>,
+    pub required_guardian_surface_refs: Vec<String>,
+    pub satisfied_auth_factor_refs: Vec<String>,
+    pub satisfied_guardian_surface_refs: Vec<String>,
+    pub posture_satisfaction_profile_ref: String,
+    pub posture_satisfaction_evaluations:
+        Vec<AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItem>,
+    pub posture_satisfaction_root: String,
+    pub auth_factor_evidence_refs: Vec<String>,
+    pub principal_authority_resolution_ref: Option<String>,
+    pub principal_authority_resolution_hash: Option<String>,
+    pub policy_decision_receipt_ref: String,
+    pub policy_decision_receipt_hash: String,
+    pub policy_hash: String,
+    pub risk_classes: Vec<AuthorityReviewReceiptV1BodyRiskClassesItem>,
+    pub interaction_mode: AuthorityReviewReceiptV1BodyInteractionMode,
+    pub authentication_posture: AuthorityReviewReceiptV1BodyAuthenticationPosture,
+    pub receipt_timing: AuthorityReviewReceiptV1BodyReceiptTiming,
+    pub decision: AuthorityReviewReceiptV1BodyDecision,
+    pub predecessor_authority_review_ref: Option<String>,
+    pub predecessor_authority_review_body_hash: Option<String>,
+    pub predecessor_authority_request_ref: Option<String>,
+    pub predecessor_authority_request_body_hash: Option<String>,
+    pub predecessor_authority_review_receipt_ref: Option<String>,
+    pub predecessor_authority_review_receipt_hash: Option<String>,
+    pub reviewed_at: String,
+    pub expires_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityReviewReceiptV1Body {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["authority_review_ref","authority_review_body_hash","authority_request_ref","authority_request_body_hash","principal_ref","product_session_ref","origin_binding_ref","acting_subject_ref","decision_actor_ref","authorization_subject","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","presentation_dimensions","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","auth_factor_evidence_refs","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","policy_hash","risk_classes","interaction_mode","authentication_posture","receipt_timing","decision","predecessor_authority_review_ref","predecessor_authority_review_body_hash","predecessor_authority_request_ref","predecessor_authority_request_body_hash","predecessor_authority_review_receipt_ref","predecessor_authority_review_receipt_hash","reviewed_at","expires_at"],"properties":{"authority_review_ref":{"type":"string","pattern":"^review://[^\\s]{1,500}$"},"authority_review_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_ref":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"acting_subject_ref":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"decision_actor_ref":{"$ref":"#/$defs/decisionActorRef"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"presentation_dimensions":{"type":"object","additionalProperties":false,"required":["operator_and_surface","content_binding","request_vs_effect_binding","enrollment_and_attestation","user_presence_and_verification","freshness_and_replay","proposer_independence"],"properties":{"operator_and_surface":{"$ref":"#/$defs/presentationDimension"},"content_binding":{"$ref":"#/$defs/presentationDimension"},"request_vs_effect_binding":{"$ref":"#/$defs/presentationDimension"},"enrollment_and_attestation":{"$ref":"#/$defs/presentationDimension"},"user_presence_and_verification":{"$ref":"#/$defs/presentationDimension"},"freshness_and_replay":{"$ref":"#/$defs/presentationDimension"},"proposer_independence":{"$ref":"#/$defs/presentationDimension"}}},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"$ref":"#/$defs/postureEvaluation"}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"auth_factor_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"enum":["before_effect","after_effect"]},"decision":{"enum":["approved","denied","edit_required","expired"]},"predecessor_authority_review_ref":{"oneOf":[{"type":"string","pattern":"^review://[^\\s]{1,500}$"},{"type":"null"}]},"predecessor_authority_review_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_request_ref":{"oneOf":[{"$ref":"#/$defs/authorityRequestRef"},{"type":"null"}]},"predecessor_authority_request_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_review_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"predecessor_authority_review_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"reviewed_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"decision":{"const":"approved"}}},"then":{"properties":{"posture_satisfaction_evaluations":{"type":"array","items":{"allOf":[{"$ref":"#/$defs/postureEvaluation"},{"type":"object","properties":{"decision":{"const":"satisfied"}}}]}}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority_review_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_review_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_review_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_review_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_review_body_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_review_body_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_request_body_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_request_body_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_request_body_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            product_session_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"product_session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"product_session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin_binding_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"origin_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acting_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"acting_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acting_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_actor_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_actor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_actor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authorization_subject: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyAuthorizationSubject,
+            >(
+                object
+                    .remove(r#"authorization_subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authorization_subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reviewed_representation_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reviewed_representation_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reviewed_representation_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            presentation_surface_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"presentation_surface_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"presentation_surface_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            presentation_evidence_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"presentation_evidence_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"presentation_evidence_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            presentation_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"presentation_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"presentation_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            presentation_dimensions: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensions,
+            >(
+                object
+                    .remove(r#"presentation_dimensions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"presentation_dimensions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_context_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_ceremony_context_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_context_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_context_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_ceremony_context_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_context_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_ceremony_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"approval_ceremony_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_ceremony_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_auth_factor_posture_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_auth_factor_posture_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_auth_factor_posture_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_guardian_surface_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_guardian_surface_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_guardian_surface_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            satisfied_auth_factor_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"satisfied_auth_factor_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"satisfied_auth_factor_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            satisfied_guardian_surface_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"satisfied_guardian_surface_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"satisfied_guardian_surface_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            posture_satisfaction_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"posture_satisfaction_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"posture_satisfaction_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            posture_satisfaction_evaluations: serde_json::from_value::<
+                Vec<AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItem>,
+            >(
+                object
+                    .remove(r#"posture_satisfaction_evaluations"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"posture_satisfaction_evaluations"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            posture_satisfaction_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"posture_satisfaction_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"posture_satisfaction_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            auth_factor_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"auth_factor_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"auth_factor_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_authority_resolution_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_authority_resolution_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"principal_authority_resolution_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_authority_resolution_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"principal_authority_resolution_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"principal_authority_resolution_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_decision_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_decision_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_decision_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_decision_receipt_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_decision_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_decision_receipt_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_classes:
+                serde_json::from_value::<Vec<AuthorityReviewReceiptV1BodyRiskClassesItem>>(
+                    object
+                        .remove(r#"risk_classes"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"risk_classes"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            interaction_mode:
+                serde_json::from_value::<AuthorityReviewReceiptV1BodyInteractionMode>(
+                    object
+                        .remove(r#"interaction_mode"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"interaction_mode"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            authentication_posture: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyAuthenticationPosture,
+            >(
+                object
+                    .remove(r#"authentication_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authentication_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_timing: serde_json::from_value::<AuthorityReviewReceiptV1BodyReceiptTiming>(
+                object
+                    .remove(r#"receipt_timing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_timing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<AuthorityReviewReceiptV1BodyDecision>(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_authority_review_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_authority_review_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_authority_review_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_authority_review_body_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_authority_review_body_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_authority_review_body_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_authority_request_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_authority_request_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_authority_request_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_authority_request_body_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_authority_request_body_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"predecessor_authority_request_body_hash"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_authority_review_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_authority_review_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"predecessor_authority_review_receipt_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_authority_review_receipt_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_authority_review_receipt_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"predecessor_authority_review_receipt_hash"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reviewed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reviewed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reviewed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyAuthorizationSubject {
+    pub kind: AuthorityReviewReceiptV1BodyAuthorizationSubjectKind,
+    pub subject_ref: String,
+    pub subject_hash: String,
+    pub validation_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityReviewReceiptV1BodyAuthorizationSubject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<AuthorityReviewReceiptV1BodyAuthorizationSubjectKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"validation_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validation_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyAuthorizationSubjectKind {
+    #[serde(rename = r#"exact_effect"#)]
+    ExactEffect,
+    #[serde(rename = r#"batch_manifest"#)]
+    BatchManifest,
+    #[serde(rename = r#"standing_envelope"#)]
+    StandingEnvelope,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPresentationDimensions {
+    pub operator_and_surface: AuthorityReviewReceiptV1BodyPresentationDimensionsOperatorAndSurface,
+    pub content_binding: AuthorityReviewReceiptV1BodyPresentationDimensionsContentBinding,
+    pub request_vs_effect_binding:
+        AuthorityReviewReceiptV1BodyPresentationDimensionsRequestVsEffectBinding,
+    pub enrollment_and_attestation:
+        AuthorityReviewReceiptV1BodyPresentationDimensionsEnrollmentAndAttestation,
+    pub user_presence_and_verification:
+        AuthorityReviewReceiptV1BodyPresentationDimensionsUserPresenceAndVerification,
+    pub freshness_and_replay: AuthorityReviewReceiptV1BodyPresentationDimensionsFreshnessAndReplay,
+    pub proposer_independence:
+        AuthorityReviewReceiptV1BodyPresentationDimensionsProposerIndependence,
+}
+
+impl<'de> serde::Deserialize<'de> for AuthorityReviewReceiptV1BodyPresentationDimensions {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["operator_and_surface","content_binding","request_vs_effect_binding","enrollment_and_attestation","user_presence_and_verification","freshness_and_replay","proposer_independence"],"properties":{"operator_and_surface":{"$ref":"#/$defs/presentationDimension"},"content_binding":{"$ref":"#/$defs/presentationDimension"},"request_vs_effect_binding":{"$ref":"#/$defs/presentationDimension"},"enrollment_and_attestation":{"$ref":"#/$defs/presentationDimension"},"user_presence_and_verification":{"$ref":"#/$defs/presentationDimension"},"freshness_and_replay":{"$ref":"#/$defs/presentationDimension"},"proposer_independence":{"$ref":"#/$defs/presentationDimension"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            operator_and_surface: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsOperatorAndSurface,
+            >(
+                object
+                    .remove(r#"operator_and_surface"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operator_and_surface"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_binding: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsContentBinding,
+            >(
+                object
+                    .remove(r#"content_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_vs_effect_binding: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsRequestVsEffectBinding,
+            >(
+                object
+                    .remove(r#"request_vs_effect_binding"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"request_vs_effect_binding"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            enrollment_and_attestation: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsEnrollmentAndAttestation,
+            >(
+                object
+                    .remove(r#"enrollment_and_attestation"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"enrollment_and_attestation"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            user_presence_and_verification: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsUserPresenceAndVerification,
+            >(
+                object
+                    .remove(r#"user_presence_and_verification"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"user_presence_and_verification"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            freshness_and_replay: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsFreshnessAndReplay,
+            >(
+                object
+                    .remove(r#"freshness_and_replay"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"freshness_and_replay"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposer_independence: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsProposerIndependence,
+            >(
+                object
+                    .remove(r#"proposer_independence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposer_independence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPresentationDimensionsOperatorAndSurface {
+    pub claim_profile_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub decision: AuthorityReviewReceiptV1BodyPresentationDimensionsOperatorAndSurfaceDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityReviewReceiptV1BodyPresentationDimensionsOperatorAndSurface
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            claim_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claim_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsOperatorAndSurfaceDecision,
+            >(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPresentationDimensionsOperatorAndSurfaceDecision {
+    #[serde(rename = r#"established"#)]
+    Established,
+    #[serde(rename = r#"not_established"#)]
+    NotEstablished,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPresentationDimensionsContentBinding {
+    pub claim_profile_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub decision: AuthorityReviewReceiptV1BodyPresentationDimensionsContentBindingDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityReviewReceiptV1BodyPresentationDimensionsContentBinding
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            claim_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claim_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsContentBindingDecision,
+            >(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPresentationDimensionsContentBindingDecision {
+    #[serde(rename = r#"established"#)]
+    Established,
+    #[serde(rename = r#"not_established"#)]
+    NotEstablished,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPresentationDimensionsRequestVsEffectBinding {
+    pub claim_profile_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub decision: AuthorityReviewReceiptV1BodyPresentationDimensionsRequestVsEffectBindingDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityReviewReceiptV1BodyPresentationDimensionsRequestVsEffectBinding
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            claim_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claim_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsRequestVsEffectBindingDecision,
+            >(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPresentationDimensionsRequestVsEffectBindingDecision {
+    #[serde(rename = r#"established"#)]
+    Established,
+    #[serde(rename = r#"not_established"#)]
+    NotEstablished,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPresentationDimensionsEnrollmentAndAttestation {
+    pub claim_profile_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub decision:
+        AuthorityReviewReceiptV1BodyPresentationDimensionsEnrollmentAndAttestationDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityReviewReceiptV1BodyPresentationDimensionsEnrollmentAndAttestation
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            claim_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claim_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsEnrollmentAndAttestationDecision,
+            >(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPresentationDimensionsEnrollmentAndAttestationDecision {
+    #[serde(rename = r#"established"#)]
+    Established,
+    #[serde(rename = r#"not_established"#)]
+    NotEstablished,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPresentationDimensionsUserPresenceAndVerification {
+    pub claim_profile_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub decision:
+        AuthorityReviewReceiptV1BodyPresentationDimensionsUserPresenceAndVerificationDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityReviewReceiptV1BodyPresentationDimensionsUserPresenceAndVerification
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            claim_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claim_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<AuthorityReviewReceiptV1BodyPresentationDimensionsUserPresenceAndVerificationDecision>(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPresentationDimensionsUserPresenceAndVerificationDecision {
+    #[serde(rename = r#"established"#)]
+    Established,
+    #[serde(rename = r#"not_established"#)]
+    NotEstablished,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPresentationDimensionsFreshnessAndReplay {
+    pub claim_profile_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub decision: AuthorityReviewReceiptV1BodyPresentationDimensionsFreshnessAndReplayDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityReviewReceiptV1BodyPresentationDimensionsFreshnessAndReplay
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            claim_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claim_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsFreshnessAndReplayDecision,
+            >(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPresentationDimensionsFreshnessAndReplayDecision {
+    #[serde(rename = r#"established"#)]
+    Established,
+    #[serde(rename = r#"not_established"#)]
+    NotEstablished,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPresentationDimensionsProposerIndependence {
+    pub claim_profile_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub decision: AuthorityReviewReceiptV1BodyPresentationDimensionsProposerIndependenceDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityReviewReceiptV1BodyPresentationDimensionsProposerIndependence
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            claim_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"claim_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claim_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPresentationDimensionsProposerIndependenceDecision,
+            >(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPresentationDimensionsProposerIndependenceDecision {
+    #[serde(rename = r#"established"#)]
+    Established,
+    #[serde(rename = r#"not_established"#)]
+    NotEstablished,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItem {
+    pub requirement_ref: String,
+    pub requirement_kind:
+        AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItemRequirementKind,
+    pub satisfied_by_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub evaluation_profile_ref: String,
+    pub decision: AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItemDecision,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"enum":["satisfied","unsatisfied","unknown"]}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"}}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"}}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            requirement_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requirement_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requirement_kind: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItemRequirementKind,
+            >(
+                object
+                    .remove(r#"requirement_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            satisfied_by_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"satisfied_by_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"satisfied_by_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluation_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision: serde_json::from_value::<
+                AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItemDecision,
+            >(
+                object
+                    .remove(r#"decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItemRequirementKind {
+    #[serde(rename = r#"auth_factor"#)]
+    AuthFactor,
+    #[serde(rename = r#"guardian_surface"#)]
+    GuardianSurface,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyPostureSatisfactionEvaluationsItemDecision {
+    #[serde(rename = r#"satisfied"#)]
+    Satisfied,
+    #[serde(rename = r#"unsatisfied"#)]
+    Unsatisfied,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyRiskClassesItem {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"trade"#)]
+    Trade,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"declassification"#)]
+    Declassification,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"cloud_deploy"#)]
+    CloudDeploy,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyInteractionMode {
+    #[serde(rename = r#"interactive"#)]
+    Interactive,
+    #[serde(rename = r#"noninteractive_policy"#)]
+    NoninteractivePolicy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyAuthenticationPosture {
+    #[serde(rename = r#"baseline"#)]
+    Baseline,
+    #[serde(rename = r#"step_up"#)]
+    StepUp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyReceiptTiming {
+    #[serde(rename = r#"before_effect"#)]
+    BeforeEffect,
+    #[serde(rename = r#"after_effect"#)]
+    AfterEffect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthorityReviewReceiptV1BodyDecision {
+    #[serde(rename = r#"approved"#)]
+    Approved,
+    #[serde(rename = r#"denied"#)]
+    Denied,
+    #[serde(rename = r#"edit_required"#)]
+    EditRequired,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct WalletAuthenticationChallengeV1 {
     pub schema_version: WalletAuthenticationChallengeV1SchemaVersion,
     pub challenge_id: String,
@@ -84793,6 +88216,14 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/daemon-runtime/declassification-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json",
         expected_accept: true,
@@ -86337,6 +89768,46 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/authority-scope-request-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/authority-scope-request-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/authority-scope-request-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/authority-scope-request-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/authority-scope-request-envelope/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/authority-grant-envelope/v1",
         path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
         expected_accept: true,
@@ -86430,6 +89901,14 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/authority-grant-envelope/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
         expected_rule_id: None,
     },
     GoldenFixture {
@@ -88654,6 +92133,14 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/wallet-network/authority-review-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
         expected_rule_id: None,
     },
     GoldenFixture {
@@ -92187,6 +95674,17 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json"#,
         contract_id: r#"schema://ioi/components/daemon-runtime/declassification-receipt/v1"#,
         source_fixture_path: Some(
@@ -94310,6 +97808,61 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-scope-request-envelope/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"#,
         contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v1"#,
         source_fixture_path: Some(
@@ -94440,6 +97993,17 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         value_json: None,
         ajv_schema_accept: false,
         oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json"#,
+        contract_id: r#"schema://ioi/foundations/authority-grant-envelope/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json"#,
@@ -97500,6 +101064,17 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json"#,
+        contract_id: r#"schema://ioi/components/wallet-network/authority-review-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json"#,
         contract_id: r#"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1"#,
         source_fixture_path: Some(
@@ -99182,6 +102757,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","title":"ScmPublicationEffect","description":"One immutable, receipted source-control publication crossing carried as one durable logical operation. The ScmPublicationOperation identity is observation-independent: it covers the work run, the proposal, the admitted destination binding, the target ref, the enumerated file set, the review intent, and frozen commit metadata, and it never contains an observed remote head. The observed head lives only in the per-attempt compare-and-swap fingerprint. A Prepared record is persisted before any remote effect is invoked, and a re-entry resolves by replaying an existing terminal result, recovering an already-converged remote revision, retrying the same frozen compare-and-swap when dispatch is proven absent and the original precondition still holds, or refusing as reconciliation_required. This contract states at-most-once execution plus reconciliation; it is not an exactly-once claim, and no representable field can advance a fresh child commit, request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, absorb a review-request reconciliation into the publication, or report success over a failed or unresolved sub-effect.","x-ioi-schema-version":"ioi.scm-publication-effect.v2","type":"object","additionalProperties":false,"required":["schema_version","publication_effect_id","publication_effect_hash","execution_semantics","operation","authority","preparation","attempt","recovery","outcome","effects","overall_outcome","nonclaims","committed_at"],"properties":{"schema_version":{"const":"ioi.scm-publication-effect.v2"},"publication_effect_id":{"$ref":"#/$defs/publicationEffectRef"},"publication_effect_hash":{"$ref":"#/$defs/hash"},"execution_semantics":{"const":"at_most_once_execution_plus_reconciliation"},"operation":{"type":"object","additionalProperties":false,"required":["operation_ref","operation_key","operation_key_domain","identity"],"properties":{"operation_ref":{"$ref":"#/$defs/operationRef"},"operation_key":{"$ref":"#/$defs/hash"},"operation_key_domain":{"const":"excludes_observed_remote_state"},"identity":{"type":"object","additionalProperties":false,"required":["work_run_ref","proposal_ref","proposal_hash","connector_ref","connector_revision_hash","destination_binding_ref","destination_binding_hash","repository_ref","target_ref","base_ref","base_revision_id","change_set_kind","files","file_set_digest","review_intent","frozen_commit_metadata","intended_revision_id"],"properties":{"work_run_ref":{"type":"string","pattern":"^work-run://[^\\s]{1,248}$"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_hash":{"$ref":"#/$defs/hash"},"connector_ref":{"type":"string","pattern":"^connector://[^\\s]{1,248}$"},"connector_revision_hash":{"$ref":"#/$defs/hash"},"destination_binding_ref":{"type":"string","pattern":"^scm-destination-binding://[^\\s]{1,248}$"},"destination_binding_hash":{"$ref":"#/$defs/hash"},"repository_ref":{"type":"string","pattern":"^repository://[^\\s]{1,224}$"},"target_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_revision_id":{"$ref":"#/$defs/revisionId"},"change_set_kind":{"const":"proposal_bound_file_set"},"files":{"type":"array","items":{"$ref":"#/$defs/changeSetFile"},"minItems":1,"maxItems":512,"uniqueItems":true},"file_set_digest":{"$ref":"#/$defs/hash"},"review_intent":{"enum":["requested","not_requested"]},"frozen_commit_metadata":{"type":"object","additionalProperties":false,"required":["commit_message_digest","authorship_commitment","authored_at","commit_timestamp","metadata_digest"],"properties":{"commit_message_digest":{"$ref":"#/$defs/hash"},"authorship_commitment":{"$ref":"#/$defs/hash"},"authored_at":{"$ref":"#/$defs/dateTime"},"commit_timestamp":{"$ref":"#/$defs/dateTime"},"metadata_digest":{"$ref":"#/$defs/hash"}}},"intended_revision_id":{"$ref":"#/$defs/revisionId"}}}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_grant_refs","authority_scope_refs","capability_lease_ref","admission_receipt_ref"],"properties":{"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/scopeRef"},"minItems":1,"maxItems":8,"uniqueItems":true},"capability_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"preparation":{"type":"object","additionalProperties":false,"required":["prepared_record_ref","prepared_record_hash","prepared_persisted_at","persistence_order","prepared_persistence_evidence_ref"],"properties":{"prepared_record_ref":{"$ref":"#/$defs/preparedRef"},"prepared_record_hash":{"$ref":"#/$defs/hash"},"prepared_persisted_at":{"$ref":"#/$defs/dateTime"},"persistence_order":{"const":"prepared_persisted_before_remote_effect"},"prepared_persistence_evidence_ref":{"$ref":"#/$defs/evidenceRef"}}},"attempt":{"type":"object","additionalProperties":false,"required":["publication_attempt_ref","attempt_number","cas","cas_fingerprint","frozen_cas_fingerprint","dispatch"],"properties":{"publication_attempt_ref":{"$ref":"#/$defs/attemptRef"},"attempt_number":{"type":"integer","minimum":1,"maximum":64},"cas":{"type":"object","additionalProperties":false,"required":["mechanism","remote_update_mode","stale_head_disposition","target_ref_precondition","expected_target_head","observed_at","observation_evidence_ref"],"properties":{"mechanism":{"const":"expected_head_compare_and_swap"},"remote_update_mode":{"const":"expected_head_advance_or_refuse"},"stale_head_disposition":{"const":"refuse_never_overwrite"},"target_ref_precondition":{"enum":["expected_head","must_not_exist"]},"expected_target_head":{"$ref":"#/$defs/nullableRevisionId"},"observed_at":{"$ref":"#/$defs/dateTime"},"observation_evidence_ref":{"$ref":"#/$defs/evidenceRef"}}},"cas_fingerprint":{"$ref":"#/$defs/hash"},"frozen_cas_fingerprint":{"$ref":"#/$defs/hash"},"dispatch":{"type":"object","additionalProperties":false,"required":["prepared_record_hash","dispatch_observation","dispatch_evidence_refs"],"properties":{"prepared_record_hash":{"$ref":"#/$defs/hash"},"dispatch_observation":{"enum":["proven_absent","proven_present","indeterminate"]},"dispatch_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":8,"uniqueItems":true}}}}},"recovery":{"type":"object","additionalProperties":false,"required":["resolution_disposition","remote_effect_invoked","remote_convergence","precondition_recheck","prior_terminal_effect_ref","prior_terminal_effect_hash","reconciliation_code","recovery_evidence_refs"],"properties":{"resolution_disposition":{"$ref":"#/$defs/resolutionDisposition"},"remote_effect_invoked":{"type":"boolean"},"remote_convergence":{"enum":["matches_intended_revision","diverged","unobserved"]},"precondition_recheck":{"enum":["holds","moved","unobserved"]},"prior_terminal_effect_ref":{"anyOf":[{"$ref":"#/$defs/publicationEffectRef"},{"type":"null"}]},"prior_terminal_effect_hash":{"$ref":"#/$defs/nullableHash"},"reconciliation_code":{"$ref":"#/$defs/nullableShortToken"},"recovery_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"outcome":{"type":"object","additionalProperties":false,"required":["resulting_revision","proof_ref"],"properties":{"resulting_revision":{"anyOf":[{"$ref":"#/$defs/resultingRevision"},{"type":"null"}]},"proof_ref":{"$ref":"#/$defs/evidenceRef"}}},"effects":{"type":"object","additionalProperties":false,"required":["publication","review_request"],"properties":{"publication":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused","reconciliation_required"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"review_request":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs","reconciliation"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted","reconciliation_required"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true},"reconciliation":{"type":"object","additionalProperties":false,"required":["operation_key","resolution_disposition","remote_effect_invoked","reconciliation_code"],"properties":{"operation_key":{"$ref":"#/$defs/hash"},"resolution_disposition":{"$ref":"#/$defs/reviewResolutionDisposition"},"remote_effect_invoked":{"type":"boolean"},"reconciliation_code":{"$ref":"#/$defs/nullableShortToken"}}}}}}},"overall_outcome":{"enum":["published_with_review_request","published_review_request_not_requested","review_request_failed","published_review_request_reconciliation_required","partially_applied","refused","reconciliation_required"]},"nonclaims":{"type":"array","items":{"enum":["grants_no_authority","no_remote_acceptance_beyond_receipt_evidence","asserts_no_review_approval","asserts_no_exactly_once_execution"]},"minItems":4,"maxItems":4,"uniqueItems":true},"committed_at":{"$ref":"#/$defs/dateTime"}},"allOf":[{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_with_review_request"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"object"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_not_requested"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_requested"}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"object"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"review_request_failed"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"failed"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_reconciliation_required"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"partially_applied"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"partially_applied"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_attempted"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"refused"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"refused"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["refused","not_attempted"]}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"reconciliation_required"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["not_attempted","reconciliation_required"]}}}}},"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"replayed_terminal_result"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"recovered_converged_remote"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false},"remote_convergence":{"const":"matches_intended_revision"}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"retried_frozen_cas"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":true},"precondition_recheck":{"const":"holds"}}},"attempt":{"type":"object","properties":{"dispatch":{"type":"object","properties":{"dispatch_observation":{"const":"proven_absent"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"attempt":{"type":"object","properties":{"cas":{"type":"object","properties":{"target_ref_precondition":{"const":"must_not_exist"}},"required":["target_ref_precondition"]}},"required":["cas"]}},"required":["attempt"]},"then":{"type":"object","properties":{"attempt":{"type":"object","properties":{"cas":{"type":"object","properties":{"expected_target_head":{"type":"null"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"operation":{"type":"object","properties":{"identity":{"type":"object","properties":{"review_intent":{"const":"not_requested"}},"required":["review_intent"]}},"required":["identity"]}},"required":["operation"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["not_requested","not_attempted"]},"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"not_engaged"}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"operation":{"type":"object","properties":{"identity":{"type":"object","properties":{"review_intent":{"const":"requested"}},"required":["review_intent"]}},"required":["identity"]}},"required":["operation"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["opened","failed","refused","not_attempted","reconciliation_required"]}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}},"required":["outcome"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas"]}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}},"required":["outcome"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"},"remote_effect_invoked":{"const":false}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"not_engaged"}},"required":["resolution_disposition"]}},"required":["reconciliation"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["not_requested","not_attempted"]},"reconciliation":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}}}}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"revisionId":{"type":"string","pattern":"^scm-revision:[0-9a-f]{40,64}$"},"nullableRevisionId":{"anyOf":[{"$ref":"#/$defs/revisionId"},{"type":"null"}]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"publicationEffectRef":{"type":"string","pattern":"^scm-publication-effect://[^\\s]{1,248}$"},"operationRef":{"type":"string","pattern":"^scm-publication-operation://[^\\s]{1,248}$"},"attemptRef":{"type":"string","pattern":"^scm-publication-attempt://[^\\s]{1,248}$"},"preparedRef":{"type":"string","pattern":"^scm-publication-prepared://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"scopeRef":{"type":"string","pattern":"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"},"shortToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9._:/-]{0,127}$"},"nullableShortToken":{"anyOf":[{"$ref":"#/$defs/shortToken"},{"type":"null"}]},"resolutionDisposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas","reconciliation_required"]},"reviewResolutionDisposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas","reconciliation_required","not_engaged"]},"resultingRevision":{"type":"object","additionalProperties":false,"required":["revision_id","target_head"],"properties":{"revision_id":{"$ref":"#/$defs/revisionId"},"target_head":{"$ref":"#/$defs/revisionId"}}},"changeSetFile":{"type":"object","additionalProperties":false,"required":["path","change_kind","content_digest","proposal_ref"],"properties":{"path":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"},"change_kind":{"enum":["added","modified","removed"]},"content_digest":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"}}}}}"##),
     ("schema://ioi/components/daemon-runtime/agent-harness-adapter/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v1","title":"AgentHarnessAdapter","x-ioi-schema-version":"ioi.agent-harness-adapter.v1","type":"object","additionalProperties":false,"required":["schema_version","adapter_id","revision_ref","content_hash","owner_ref","adapter_family","transport_kind","compatible_harness_profile_revision_refs","registry_status"],"properties":{"schema_version":{"const":"ioi.agent-harness-adapter.v1"},"adapter_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"adapter_family":{"enum":["codex_cli","claude_code","openhands","hermes","deepseek_tui","local_agent","remote_agent_api","custom"]},"transport_kind":{"enum":["local_process","daemon_plugin","remote_api","aiip","mcp","custom"]},"compatible_harness_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"supported_task_brief_schema_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"supported_event_and_result_schema_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"supported_runtime_and_model_route_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"rendering_and_normalization_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_runtime_tool_contract_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"capability_and_context_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"provenance_evaluation_and_conformance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1","title":"AuthorityEffectAdmissionReceipt","x-ioi-schema-version":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","policy_enforcement_point_ref","authorization_subject","authority_grant_ref","authority_grant_hash","actual_effect_ref","actual_effect_hash","decision_profile_ref","policy_hash","proof_kind","decision","invoker_called","decided_at","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v1"},"receipt_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"policy_enforcement_point_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authorization_subject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"subject_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"validation_profile_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}},"authority_grant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authority_grant_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_review_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"authority_review_receipt_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"approval_ceremony_context_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"approval_ceremony_context_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_verification_profile_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"temporal_verification_profile_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_validity_evaluation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"temporal_validity_evaluation_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"temporal_posture":{"enum":["online_fresh","bounded_offline","historical_only","insufficient"]},"revocation_evidence_status":{"enum":["verified","not_evaluated","unavailable","invalid","stale"]},"actual_effect_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"actual_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"decision_profile_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"policy_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"proof_kind":{"enum":["exact_equality","batch_membership","standing_constraint"]},"decision":{"enum":["admitted","refused","unknown"]},"refusal_code":{"anyOf":[{"type":"string"},{"type":"null"}]},"invoker_called":{"type":"boolean"},"invoker_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effect_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"decided_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$"},"body_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"receipt_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#),
+    ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2","title":"AuthorityEffectAdmissionReceipt","description":"Immutable pre-invocation PEP receipt over one v3 grant, exact effect, current authority, temporal, continuity, and revocation evidence.","x-ioi-schema-version":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v2","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.authority-effect-admission-receipt.v2"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/admissionBody"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_effect_admission"},"receipt_profile_ref":{"const":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}},"admissionBody":{"type":"object","additionalProperties":false,"required":["policy_enforcement_point_ref","authorization_subject","authority_grant_ref","authority_grant_hash","authority_review_receipt_ref","authority_review_receipt_hash","approval_ceremony_context_ref","approval_ceremony_context_hash","principal_authority_resolution_ref","principal_authority_resolution_hash","principal_authority_revalidation_receipt_ref","principal_authority_revalidation_receipt_hash","temporal_verification_profile_ref","temporal_verification_profile_hash","temporal_validity_evaluation_ref","temporal_validity_evaluation_hash","temporal_posture","continuity_floor_evidence_refs","revocation_evidence_status","revocation_snapshot_ref","revocation_snapshot_hash","revocation_epoch","actual_effect_ref","actual_effect_hash","decision_profile_ref","policy_hash","proof_kind","membership_proof_ref","membership_proof_hash","standing_evaluation_ref","standing_evaluation_hash","decision","refusal_code","invoker_called","invoker_receipt_ref","effect_receipt_ref","decided_at"],"properties":{"policy_enforcement_point_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"authority_grant_ref":{"$ref":"#/$defs/grantRef"},"authority_grant_hash":{"$ref":"#/$defs/sha256Hash"},"authority_review_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_review_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"principal_authority_revalidation_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"principal_authority_revalidation_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"temporal_verification_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"temporal_verification_profile_hash":{"$ref":"#/$defs/sha256Hash"},"temporal_validity_evaluation_ref":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"temporal_validity_evaluation_hash":{"$ref":"#/$defs/sha256Hash"},"temporal_posture":{"enum":["online_fresh","bounded_offline","historical_only","insufficient"]},"continuity_floor_evidence_refs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"uniqueItems":true},"revocation_evidence_status":{"enum":["verified","not_evaluated","unavailable","invalid","stale"]},"revocation_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_snapshot_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"revocation_epoch":{"oneOf":[{"$ref":"#/$defs/safeNonNegativeInteger"},{"type":"null"}]},"actual_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"actual_effect_hash":{"$ref":"#/$defs/sha256Hash"},"decision_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"proof_kind":{"enum":["exact_equality","batch_membership","standing_constraint"]},"membership_proof_ref":{"oneOf":[{"$ref":"#/$defs/evidenceOrReceiptRef"},{"type":"null"}]},"membership_proof_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"standing_evaluation_ref":{"oneOf":[{"$ref":"#/$defs/evidenceOrReceiptRef"},{"type":"null"}]},"standing_evaluation_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"decision":{"enum":["admitted","refused","unknown"]},"refusal_code":{"oneOf":[{"type":"string","minLength":1,"maxLength":256,"pattern":"^[a-z][a-z0-9._-]*$"},{"type":"null"}]},"invoker_called":{"const":false},"invoker_receipt_ref":{"type":"null"},"effect_receipt_ref":{"type":"null"},"decided_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"exact_effect"}}}}},"then":{"properties":{"proof_kind":{"const":"exact_equality"},"membership_proof_ref":{"type":"null"},"membership_proof_hash":{"type":"null"},"standing_evaluation_ref":{"type":"null"},"standing_evaluation_hash":{"type":"null"}}}},{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"batch_manifest"}}}}},"then":{"properties":{"proof_kind":{"const":"batch_membership"},"membership_proof_ref":{"$ref":"#/$defs/evidenceOrReceiptRef"},"membership_proof_hash":{"$ref":"#/$defs/sha256Hash"},"standing_evaluation_ref":{"type":"null"},"standing_evaluation_hash":{"type":"null"}}}},{"if":{"properties":{"authorization_subject":{"type":"object","properties":{"kind":{"const":"standing_envelope"}}}}},"then":{"properties":{"proof_kind":{"const":"standing_constraint"},"membership_proof_ref":{"type":"null"},"membership_proof_hash":{"type":"null"},"standing_evaluation_ref":{"$ref":"#/$defs/evidenceOrReceiptRef"},"standing_evaluation_hash":{"$ref":"#/$defs/sha256Hash"}}}},{"if":{"properties":{"decision":{"const":"admitted"}}},"then":{"properties":{"refusal_code":{"type":"null"},"revocation_evidence_status":{"const":"verified"},"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"temporal_posture":{"enum":["online_fresh","bounded_offline"]}}},"else":{"properties":{"refusal_code":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[a-z][a-z0-9._-]*$"}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"verified"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"}}}},{"if":{"properties":{"revocation_evidence_status":{"enum":["not_evaluated","unavailable"]}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"null"},"revocation_snapshot_hash":{"type":"null"},"revocation_epoch":{"type":"null"},"decision":{"enum":["refused","unknown"]}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"stale"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"decision":{"enum":["refused","unknown"]}}}},{"if":{"properties":{"revocation_evidence_status":{"const":"invalid"}}},"then":{"properties":{"revocation_snapshot_ref":{"type":"string","pattern":"^snapshot://[^\\s]{1,500}$"},"revocation_snapshot_hash":{"$ref":"#/$defs/sha256Hash"},"decision":{"enum":["refused","unknown"]}}}}]},"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"safeNonNegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,500}$"},"evidenceBundleRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"}}}"##),
     ("schema://ioi/components/daemon-runtime/declassification-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/declassification-receipt/v1","title":"DeclassificationReceipt","x-ioi-schema-version":"ioi.components.daemon-runtime.declassification-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","approval_ref","information_flow_label_refs","effect_ref","effect_hash","destination","authority_grant_ref","status_at_use","resulting_data_class","decided_at"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.declassification-receipt.v1"},"receipt_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"approval_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_tool_contract_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effect_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"request_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"reviewed_representation_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"destination":{"type":"string","minLength":1},"resulting_data_class":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]},"authority_grant_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"status_at_use":{"enum":["valid","expired","revoked","scope_mismatch","invalid"]},"decided_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$"}}}"#),
     ("schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","title":"EnforcementCoverageDeclaration","description":"One evidence-backed enforcement coverage declaration for an exact profile or adapter revision, platform, surface, action class, and scope. The declaration reports coverage facts without owning policy, authority, execution, or durable runtime truth. declaration_id is not self-authenticating: the consuming deployment evidence or operability index must bind the exact declaration artifact reference and content hash. Any change to claims, status, freshness, evidence, or other declaration bytes produces a new content-bound snapshot rather than mutating an accepted snapshot.","x-ioi-schema-version":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","declaration_id","subject","scope","claims","mechanisms","platform","required_privilege","custom_os_kernel_module_required_for_claim","bypass","operating_mode","decision_source","final_invoker","availability","receipt","verification","known_gaps","limitations","status"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"},"declaration_id":{"type":"string","pattern":"^enforcement-coverage://[^\\s]{1,248}$","description":"Stable logical identifier only; consumers must separately verify the exact declaration artifact reference and content hash."},"subject":{"type":"object","additionalProperties":false,"required":["kind","profile_or_adapter_ref","version","content_hash","implementation_ref","deployment_profile_ref"],"properties":{"kind":{"enum":["node_enforcement_profile","authority_gateway_profile"]},"profile_or_adapter_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","pattern":"^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$","maxLength":256},"content_hash":{"$ref":"#/$defs/hash"},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"deployment_profile_ref":{"$ref":"#/$defs/canonicalRef"}}},"scope":{"type":"object","additionalProperties":false,"required":["surface","action_class","boundary","scope_ref"],"properties":{"surface":{"$ref":"#/$defs/canonicalName"},"action_class":{"$ref":"#/$defs/canonicalName"},"boundary":{"enum":["managed_workload","host","application","adapter","external_service","physical_unit","other_declared"]},"scope_ref":{"$ref":"#/$defs/canonicalRef"}}},"claims":{"type":"object","additionalProperties":false,"required":["discovered","observable","attributable","mediated","preventable","receipted","uncovered"],"properties":{"discovered":{"$ref":"#/$defs/claimState"},"observable":{"$ref":"#/$defs/claimState"},"attributable":{"$ref":"#/$defs/claimState"},"mediated":{"$ref":"#/$defs/claimState"},"preventable":{"$ref":"#/$defs/claimState"},"receipted":{"$ref":"#/$defs/claimState"},"uncovered":{"$ref":"#/$defs/claimState"}}},"mechanisms":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["mechanism_id","kind","implementation_ref","version","roles"],"properties":{"mechanism_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"kind":{"enum":["daemon_gate","sandbox","seccomp","ebpf","lsm","network_proxy","datawall","ctee_policy","tee_attestation","platform_native_user_space","platform_native_privileged","application_adapter","harness_adapter","mcp_gateway","shell_wrapper","filesystem_watcher","browser_extension","api_gateway","ci_gate","webhook_gate","receipt_ingestion","custom_os_kernel_module","other_declared"]},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","minLength":1,"maxLength":128},"roles":{"type":"array","items":{"enum":["discovery","observation","attribution","mediation","prevention","receipt_emission"]},"minItems":1,"maxItems":6,"uniqueItems":true}}},"maxItems":32,"uniqueItems":true},"platform":{"type":"object","additionalProperties":false,"required":["family","version","architecture","execution_context","native_security_facility_refs"],"properties":{"family":{"enum":["linux","macos","windows","portable","other_declared"]},"version":{"type":"string","minLength":1,"maxLength":128},"architecture":{"enum":["x86_64","aarch64","portable","other_declared"]},"execution_context":{"enum":["user_session","managed_host","container","vm","microvm","bare_metal","hosted_service","other_declared"]},"native_security_facility_refs":{"$ref":"#/$defs/canonicalRefs"}}},"required_privilege":{"enum":["user","elevated","os_privileged","kernel","hardware_backed"]},"custom_os_kernel_module_required_for_claim":{"type":"boolean"},"bypass":{"type":"object","additionalProperties":false,"required":["resistance","assumptions","known_bypass_refs"],"properties":{"resistance":{"enum":["none","cooperative","best_effort","managed_host","measured_host"]},"assumptions":{"type":"array","items":{"type":"string","minLength":1,"maxLength":512},"maxItems":32,"uniqueItems":true},"known_bypass_refs":{"$ref":"#/$defs/canonicalRefs"}}},"operating_mode":{"enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"decision_source":{"type":"object","additionalProperties":false,"required":["kind","decision_source_ref","policy_ref","authority_provider_ref"],"properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval","none","unknown"]},"decision_source_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_provider_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"final_invoker":{"type":"object","additionalProperties":false,"required":["kind","invoker_ref"],"properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human","none","unknown"]},"invoker_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"availability":{"type":"object","additionalProperties":false,"required":["online_behavior","offline_behavior","failure_posture"],"properties":{"online_behavior":{"$ref":"#/$defs/availabilityBehavior"},"offline_behavior":{"$ref":"#/$defs/availabilityBehavior"},"failure_posture":{"enum":["fail_closed","fail_open","audit_only","quarantine","not_applicable","unknown"]}}},"receipt":{"type":"object","additionalProperties":false,"required":["scope","contract_refs","evidence_refs"],"properties":{"scope":{"enum":["none","observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"verification":{"type":"object","additionalProperties":false,"required":["verifier_ref","verification_method_ref","evidence_refs","evaluated_at","freshness_status","valid_until","freshness_policy_ref"],"properties":{"verifier_ref":{"$ref":"#/$defs/canonicalRef"},"verification_method_ref":{"$ref":"#/$defs/canonicalRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":128,"uniqueItems":true},"evaluated_at":{"$ref":"#/$defs/dateTime"},"freshness_status":{"enum":["current","stale","expired","unverified"]},"valid_until":{"anyOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]},"freshness_policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"known_gaps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["gap_id","description","affected_path","mitigation_ref"],"properties":{"gap_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"description":{"type":"string","minLength":1,"maxLength":1024},"affected_path":{"type":"string","minLength":1,"maxLength":512},"mitigation_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"maxItems":64,"uniqueItems":true},"limitations":{"type":"array","items":{"type":"string","minLength":1,"maxLength":1024},"maxItems":64,"uniqueItems":true},"status":{"enum":["draft","verified","stale","revoked"]}},"allOf":[{"if":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}},"required":["uncovered"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"discovered":{"$ref":"#/$defs/notTrueClaimState"},"observable":{"$ref":"#/$defs/notTrueClaimState"},"attributable":{"$ref":"#/$defs/notTrueClaimState"},"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"},"receipted":{"$ref":"#/$defs/notTrueClaimState"}}},"operating_mode":{"const":"uncovered"}}}},{"if":{"properties":{"operating_mode":{"const":"uncovered"}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}}}}}},{"if":{"properties":{"status":{"const":"verified"}},"required":["status"]},"then":{"properties":{"verification":{"type":"object","properties":{"freshness_status":{"const":"current"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"decision_source":{"type":"object","properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval"]},"decision_source_ref":{"$ref":"#/$defs/canonicalRef"}}},"final_invoker":{"type":"object","properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human"]},"invoker_ref":{"$ref":"#/$defs/canonicalRef"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"receipt":{"type":"object","properties":{"scope":{"enum":["observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"operating_mode":{"enum":["audit_only","passive_observation","receipt_ingestion_only"]}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"availability":{"type":"object","properties":{"failure_posture":{"const":"audit_only"}},"required":["failure_posture"]}},"required":["availability"]},"then":{"properties":{"claims":{"type":"object","properties":{"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"discovered":{"const":true}},"required":["discovered"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithDiscoveryRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}},"required":["observable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithObservationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithAttributionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithMediationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithPreventionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithReceiptEmissionRole"}}}}},{"if":{"properties":{"custom_os_kernel_module_required_for_claim":{"const":true}},"required":["custom_os_kernel_module_required_for_claim"]},"then":{"properties":{"required_privilege":{"const":"kernel"},"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/customOsKernelModuleMechanism"}}}}}],"$defs":{"claimState":{"anyOf":[{"type":"boolean"},{"const":"unknown"}]},"notTrueClaimState":{"anyOf":[{"const":false},{"const":"unknown"}]},"mechanismWithDiscoveryRole":{"$ref":"#/$defs/mechanismRoleDiscovery"},"mechanismWithObservationRole":{"$ref":"#/$defs/mechanismRoleObservation"},"mechanismWithAttributionRole":{"$ref":"#/$defs/mechanismRoleAttribution"},"mechanismWithMediationRole":{"$ref":"#/$defs/mechanismRoleMediation"},"mechanismWithPreventionRole":{"$ref":"#/$defs/mechanismRolePrevention"},"mechanismWithReceiptEmissionRole":{"$ref":"#/$defs/mechanismRoleReceiptEmission"},"mechanismRoleDiscovery":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"discovery"}}},"required":["roles"]},"mechanismRoleObservation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"observation"}}},"required":["roles"]},"mechanismRoleAttribution":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"attribution"}}},"required":["roles"]},"mechanismRoleMediation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"mediation"}}},"required":["roles"]},"mechanismRolePrevention":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"prevention"}}},"required":["roles"]},"mechanismRoleReceiptEmission":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"receipt_emission"}}},"required":["roles"]},"customOsKernelModuleMechanism":{"type":"object","properties":{"kind":{"const":"custom_os_kernel_module"}},"required":["kind"]},"canonicalName":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":128,"uniqueItems":true},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"availabilityBehavior":{"enum":["enforce","audit","deny","queue","allow","quarantine","not_applicable","unknown"]}}}"##),
     ("schema://ioi/components/daemon-runtime/harness-profile/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/harness-profile/v1","title":"HarnessProfile","x-ioi-schema-version":"ioi.harness-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","profile_id","revision_ref","content_hash","profile_family","profile_version","daemon_executed_or_mediated","step_resolution_contract_required","supported_normalized_boundary_contracts","completed_invocation_terminal_minimum","authority_model","state_substrate","registry_status"],"properties":{"schema_version":{"const":"ioi.harness-profile.v1"},"profile_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"profile_family":{"enum":["default_ioi","coding_step","research_step","browser_step","review_step","operator_step","custom"]},"profile_version":{"type":"string","minLength":1},"daemon_executed_or_mediated":{"const":true},"step_resolution_contract_required":{"const":true},"supported_normalized_boundary_contracts":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"completed_invocation_terminal_minimum":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"conditional_contracts_follow_task_brief":{"type":"boolean"},"authority_model":{"const":"wallet.network"},"state_substrate":{"const":"Agentgres"},"persistent_workspace_intelligence":{"type":"object"},"workflow_compositor_role":{"type":"object"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
@@ -99238,8 +102814,10 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-isolation-requirements/v1","title":"HypervisorWorkloadIsolationRequirements","x-ioi-schema-version":"ioi.components.hypervisor.workload-isolation-requirements.v1","type":"object","additionalProperties":false,"required":["schema_version","requirements_ref","requirements_hash","source_policy_refs_and_hashes","compiled_risk_classes","hostile_to_boundary_requirement","instance_policy","minimum_isolation","host_mount_policy","daemon_socket_exposed","host_pid_namespace_exposed","raw_secret_material_in_guest","capability_broker_ref","permitted_lease_classes","network_policy_ref","dependency_broker_policy_ref","output_admission","teardown","required_backend_capabilities","required_enforcement_coverage","required_evidence_and_receipt_policy_refs","compiler_ref","compiler_version"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-isolation-requirements.v1"},"requirements_ref":{"$ref":"#/$defs/ref"},"requirements_hash":{"$ref":"#/$defs/hash"},"source_policy_refs_and_hashes":{"type":"array","minItems":3,"items":{"$ref":"#/$defs/refHash"}},"compiled_risk_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"hostile_to_boundary_requirement":{"enum":["not_declared","hostile_to_guest_kernel","hostile_to_vmm_host"]},"instance_policy":{"enum":["fresh_per_workrun","fresh_per_session","admitted_reuse"]},"minimum_isolation":{"$ref":"#/$defs/name"},"host_mount_policy":{"enum":["none","explicit_read_only","explicit_scoped_read_write"]},"daemon_socket_exposed":{"const":false},"host_pid_namespace_exposed":{"const":false},"raw_secret_material_in_guest":{"const":false},"capability_broker_ref":{"$ref":"#/$defs/ref"},"permitted_lease_classes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"network_policy_ref":{"$ref":"#/$defs/ref"},"dependency_broker_policy_ref":{"$ref":"#/$defs/ref"},"output_admission":{"type":"object","additionalProperties":false,"required":["quarantine_required","policy_ref","maximum_bytes","maximum_files","archive_entry_policy_ref","evaluator_refs"],"properties":{"quarantine_required":{"const":true},"policy_ref":{"$ref":"#/$defs/ref"},"maximum_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"maximum_files":{"type":"integer","minimum":1,"maximum":9007199254740991},"archive_entry_policy_ref":{"$ref":"#/$defs/ref"},"evaluator_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}},"teardown":{"type":"object","additionalProperties":false,"required":["destruction_policy_ref","deadline_ms","verify_all_resources","cleanup_obligation_on_uncertainty"],"properties":{"destruction_policy_ref":{"$ref":"#/$defs/ref"},"deadline_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"verify_all_resources":{"const":true},"cleanup_obligation_on_uncertainty":{"const":true}}},"required_backend_capabilities":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"required_enforcement_coverage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"required_evidence_and_receipt_policy_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"compiler_ref":{"$ref":"#/$defs/ref"},"compiler_version":{"type":"string","minLength":1,"maxLength":128}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/foundations/approval-ceremony-context/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/approval-ceremony-context/v1","title":"ApprovalCeremonyContextEnvelope","x-ioi-schema-version":"ioi.foundations.approval-ceremony-context.v1","type":"object","additionalProperties":false,"required":["schema_version","approval_ceremony_context_ref","authority_request_ref","authority_request_body_hash","authority_review_ref","authority_review_body_hash","predecessor_authority_review_ref","predecessor_authority_review_body_hash","predecessor_authority_request_ref","predecessor_authority_request_body_hash","predecessor_authority_review_receipt_ref","predecessor_authority_review_receipt_hash","reviewed_representation_hash","principal_ref","acting_subject_ref","product_session_ref","origin_binding_ref","authorization_subject","presentation_surface_ref","presentation_evidence_profile_ref","principal_authority_resolution_ref","principal_authority_resolution_hash","required_auth_factor_posture_refs","required_guardian_surface_refs","posture_satisfaction_profile_ref","interaction_mode","authentication_posture","receipt_timing","policy_decision_receipt_ref","policy_decision_receipt_hash","policy_hash","risk_classes","revocation_epoch","nonce_b64url","issued_at","expires_at","single_use"],"properties":{"schema_version":{"const":"ioi.foundations.approval-ceremony-context.v1"},"approval_ceremony_context_ref":{"$ref":"#/$defs/ref"},"authority_request_ref":{"$ref":"#/$defs/ref"},"authority_request_body_hash":{"$ref":"#/$defs/hash"},"authority_review_ref":{"$ref":"#/$defs/ref"},"authority_review_body_hash":{"$ref":"#/$defs/hash"},"predecessor_authority_review_ref":{"$ref":"#/$defs/nullableRef"},"predecessor_authority_review_body_hash":{"$ref":"#/$defs/nullableHash"},"predecessor_authority_request_ref":{"$ref":"#/$defs/nullableRef"},"predecessor_authority_request_body_hash":{"$ref":"#/$defs/nullableHash"},"predecessor_authority_review_receipt_ref":{"$ref":"#/$defs/nullableRef"},"predecessor_authority_review_receipt_hash":{"$ref":"#/$defs/nullableHash"},"reviewed_representation_hash":{"$ref":"#/$defs/hash"},"principal_ref":{"$ref":"#/$defs/ref"},"acting_subject_ref":{"$ref":"#/$defs/ref"},"product_session_ref":{"$ref":"#/$defs/nullableRef"},"origin_binding_ref":{"$ref":"#/$defs/nullableRef"},"authorization_subject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}},"presentation_surface_ref":{"$ref":"#/$defs/ref"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/ref"},"principal_authority_resolution_ref":{"$ref":"#/$defs/nullableRef"},"principal_authority_resolution_hash":{"$ref":"#/$defs/nullableHash"},"required_auth_factor_posture_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"required_guardian_surface_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/ref"},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"enum":["before_effect","after_effect"]},"policy_decision_receipt_ref":{"$ref":"#/$defs/ref"},"policy_decision_receipt_hash":{"$ref":"#/$defs/hash"},"policy_hash":{"$ref":"#/$defs/hash"},"risk_classes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"nonce_b64url":{"type":"string","pattern":"^[A-Za-z0-9_-]{43,256}$"},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"single_use":{"const":true}},"allOf":[{"oneOf":[{"properties":{"predecessor_authority_review_ref":{"type":"null"},"predecessor_authority_review_body_hash":{"type":"null"},"predecessor_authority_request_ref":{"type":"null"},"predecessor_authority_request_body_hash":{"type":"null"},"predecessor_authority_review_receipt_ref":{"type":"null"},"predecessor_authority_review_receipt_hash":{"type":"null"}}},{"properties":{"predecessor_authority_review_ref":{"$ref":"#/$defs/ref"},"predecessor_authority_review_body_hash":{"$ref":"#/$defs/hash"},"predecessor_authority_request_ref":{"$ref":"#/$defs/ref"},"predecessor_authority_request_body_hash":{"$ref":"#/$defs/hash"},"predecessor_authority_review_receipt_ref":{"$ref":"#/$defs/ref"},"predecessor_authority_review_receipt_hash":{"$ref":"#/$defs/hash"}}}]},{"oneOf":[{"properties":{"principal_authority_resolution_ref":{"type":"null"},"principal_authority_resolution_hash":{"type":"null"}}},{"properties":{"principal_authority_resolution_ref":{"$ref":"#/$defs/ref"},"principal_authority_resolution_hash":{"$ref":"#/$defs/hash"}}}]}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##),
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/active-skill-set-snapshot/v1","title":"ActiveSkillSetSnapshot","x-ioi-schema-version":"ioi.active-skill-set-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","active_skill_set_snapshot_id","work_subject_ref","selected_skills","excluded_candidates","active_set_hash","resolved_runtime_tool_contracts","resolution_receipt_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.active-skill-set-snapshot.v1"},"active_skill_set_snapshot_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"selected_skills":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}},"excluded_candidates":{"type":"array","items":{"type":"object"}},"compatibility_and_evaluation_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"active_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_runtime_tool_contracts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["admitted","active","superseded","revoked"]}}}"#),
+    ("schema://ioi/foundations/authority-scope-request-envelope/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-scope-request-envelope/v2","title":"AuthorityScopeRequestEnvelope","description":"Closed exact-subject authority request that binds requested posture, capabilities, resources, destinations, risk, and policy before review.","x-ioi-schema-version":"ioi.foundations.authority-scope-request-envelope.v2","type":"object","additionalProperties":false,"required":["schema_version","authority_request_id","principal_ref","product_session_ref","origin_binding_ref","subject_id","issuer_id","requesting_runtime_ref","purpose","requested_auth_factor_posture_refs","requested_guardian_surface_refs","authorization_subject","primitive_capabilities_required","authority_scopes_requested","resource_scope","destination_refs","risk_classes","policy_hash","authority_request_body_hash","authority_grant_id","status"],"properties":{"schema_version":{"const":"ioi.foundations.authority-scope-request-envelope.v2"},"authority_request_id":{"$ref":"#/$defs/authorityRequestRef"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"subject_id":{"$ref":"#/$defs/subjectRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"requesting_runtime_ref":{"oneOf":[{"$ref":"#/$defs/runtimeRef"},{"type":"null"}]},"purpose":{"type":"string","minLength":1,"maxLength":512},"requested_auth_factor_posture_refs":{"type":"array","items":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"uniqueItems":true},"requested_guardian_surface_refs":{"type":"array","items":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"uniqueItems":true},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"primitive_capabilities_required":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes_requested":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"resource_scope":{"type":"object","additionalProperties":false,"required":["resources","constraints"],"properties":{"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expiry","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expiry":{"$ref":"#/$defs/canonicalDateTime"},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}}}},"destination_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"oneOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"status":{"enum":["requested","granted","denied","expired","revoked"]}},"$defs":{"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"subjectRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]{1,500}$"},"runtimeRef":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
     ("schema://ioi/foundations/authority-grant-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v1","title":"AuthorityGrantEnvelope","description":"Canonical IOI authority grant field envelope before the Cut 2 portable signature profile.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v1","type":"object","additionalProperties":false,"required":["authority_grant_id","request_id","issuer_id","subject_id","authority_scopes","primitive_capability_constraints","resources","constraints","revocation_epoch","status"],"properties":{"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"subject_id":{"$ref":"#/$defs/subjectRef"},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/resourceRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expires_at","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expires_at":{"$ref":"#/$defs/canonicalDateTime"},"max_calls":{"type":"integer","minimum":1,"maximum":9007199254740991},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"status":{"enum":["active","expired","revoked"]}},"$defs":{"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"subjectRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"resourceRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"}}}"##),
     ("schema://ioi/foundations/authority-grant-envelope/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v2","title":"AuthorityGrantEnvelope","description":"Portable, individually signed IOI authority grant with holder, audience, attenuation, revocation, and canonical-body bindings.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v2","type":"object","additionalProperties":false,"required":["schema_version","envelope_type","signature_domain","schema_hash","authority_grant_id","request_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","holder_id","holder_key_id","audience","issued_at","not_before","expires_at","parent_grant","authority_scopes","primitive_capability_constraints","resources","attenuating_caveats","risk_restrictions","revocation_epoch","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-grant-envelope.v2"},"envelope_type":{"const":"ioi.authority-grant"},"signature_domain":{"const":"ioi.authority-grant-envelope.v2"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"holder_id":{"$ref":"#/$defs/holderRef"},"holder_key_id":{"$ref":"#/$defs/keyRef"},"audience":{"$ref":"#/$defs/canonicalRef"},"issued_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"not_before":{"type":"integer","minimum":0,"maximum":9007199254740991},"expires_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"parent_grant":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["grant_ref","body_hash","proof_ref"],"properties":{"grant_ref":{"$ref":"#/$defs/grantRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"proof_ref":{"$ref":"#/$defs/proofRef"}}}]},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"attenuating_caveats":{"type":"array","items":{"$ref":"#/$defs/caveatRef"},"uniqueItems":true},"risk_restrictions":{"type":"object","additionalProperties":false,"required":["allowed_risk_classes","max_budget_microusd","max_calls","approval_required_for"],"properties":{"allowed_risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"minItems":1,"uniqueItems":true},"max_budget_microusd":{"type":"integer","minimum":0,"maximum":9007199254740991},"max_calls":{"type":"integer","minimum":1,"maximum":9007199254740991},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"holderRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"caveatRef":{"type":"string","pattern":"^caveat://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
+    ("schema://ioi/foundations/authority-grant-envelope/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v3","title":"AuthorityGrantEnvelope","description":"Portable signed authority grant binding the complete request-review-ceremony chain and one typed authorization subject.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v3","type":"object","additionalProperties":false,"required":["schema_version","envelope_type","signature_domain","schema_hash","authority_grant_id","request_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","holder_id","holder_key_id","audience","issued_at","not_before","expires_at","parent_grant","authority_scopes","primitive_capability_constraints","resources","attenuating_caveats","risk_restrictions","revocation_epoch","request_commitment","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-grant-envelope.v3"},"envelope_type":{"const":"ioi.authority-grant"},"signature_domain":{"const":"ioi.authority-grant-envelope.v3"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"$ref":"#/$defs/safePositiveInteger"},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"holder_id":{"$ref":"#/$defs/holderRef"},"holder_key_id":{"$ref":"#/$defs/keyRef"},"audience":{"$ref":"#/$defs/canonicalRef"},"issued_at":{"$ref":"#/$defs/safeNonNegativeInteger"},"not_before":{"$ref":"#/$defs/safeNonNegativeInteger"},"expires_at":{"$ref":"#/$defs/safeNonNegativeInteger"},"parent_grant":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["grant_ref","body_hash","proof_ref"],"properties":{"grant_ref":{"$ref":"#/$defs/grantRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"proof_ref":{"$ref":"#/$defs/proofRef"}}}]},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"attenuating_caveats":{"type":"array","items":{"$ref":"#/$defs/caveatRef"},"uniqueItems":true},"risk_restrictions":{"type":"object","additionalProperties":false,"required":["allowed_risk_classes","max_budget_microusd","max_calls","approval_required_for"],"properties":{"allowed_risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"minItems":1,"uniqueItems":true},"max_budget_microusd":{"$ref":"#/$defs/safeNonNegativeInteger"},"max_calls":{"$ref":"#/$defs/safePositiveInteger"},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"$ref":"#/$defs/safeNonNegativeInteger"},"request_commitment":{"type":"object","additionalProperties":false,"required":["authority_request_id","authority_request_body_hash","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","authorization_subject","principal_ref","product_session_ref","origin_binding_ref","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","interaction_mode","authentication_posture","receipt_timing","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","authority_review_receipt_ref","authority_review_receipt_hash","approval_evidence_profile_ref","approval_evidence_leaf_refs","approval_evidence_root"],"properties":{"authority_request_id":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"const":"satisfied"}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"minItems":1}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"minItems":1}}}}]}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"const":"before_effect"},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"authority_review_receipt_ref":{"$ref":"#/$defs/receiptRef"},"authority_review_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"approval_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"approval_evidence_leaf_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"minItems":1,"uniqueItems":true},"approval_evidence_root":{"$ref":"#/$defs/sha256Hash"}}},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"safeNonNegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"safePositiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]{1,500}$"},"holderRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime|wallet|org)://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]{1,500}$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]{1,500}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]{1,500}$"},"caveatRef":{"type":"string","pattern":"^caveat://[^\\s]{1,500}$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"guardianRef":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"authFactorRef":{"type":"string","pattern":"^auth_factor://[^\\s]{1,500}$"},"authRequirementRef":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"presentationEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|attestation)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,500}$"},"approvalEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|artifact)://[^\\s]{1,500}$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
     ("schema://ioi/foundations/standing-authority-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/standing-authority-envelope/v1","title":"StandingAuthorityEnvelope","description":"Closed facet template and aggregate bounds for unattended draw-down under a separately signed portable authority grant.","x-ioi-schema-version":"ioi.foundations.standing-authority-envelope.v1","type":"object","additionalProperties":false,"required":["schema_version","standing_envelope_ref","owner_ref","bounded_system_ref","principal_ref","audience_ref","authority_scope","facet_template","aggregate_bounds","not_before_ms","expires_at_ms","revocation_epoch","trajectory_policy_ref","trajectory_policy_hash","approval_mode","recovery_posture","body_hash"],"properties":{"schema_version":{"const":"ioi.foundations.standing-authority-envelope.v1"},"standing_envelope_ref":{"type":"string","pattern":"^standing-envelope://[^\\s]{1,460}$"},"owner_ref":{"$ref":"#/$defs/ref"},"bounded_system_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"audience_ref":{"$ref":"#/$defs/ref"},"authority_scope":{"const":"scope:hypervisor.live-route.hypervisor-provider-op"},"facet_template":{"type":"object","additionalProperties":false,"required":["provider_id","operations","provider_selector","per_operation_deposit_microusd","pricing_ceiling","sdl_hashes","image_digests","registry_hosts","result_destination_refs","result_transport_certificate_hashes","auto_topup","teardown_policy","max_duration_seconds"],"properties":{"provider_id":{"type":"string","pattern":"^pacc_[0-9a-f]{16}$"},"operations":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["create","start","logs","delete","reconcile"]}},"provider_selector":{"type":"object","additionalProperties":false,"required":["mode","provider_addresses","selection"],"properties":{"mode":{"const":"exact"},"provider_addresses":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^akash1[02-9ac-hj-np-z]{38}$"}},"selection":{"const":"only_qualified_bid_from_exact_provider"}}},"per_operation_deposit_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"pricing_ceiling":{"type":"object","additionalProperties":false,"required":["amount","denom"],"properties":{"amount":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)$"},"denom":{"const":"uact"}}},"sdl_hashes":{"$ref":"#/$defs/hashSet"},"image_digests":{"$ref":"#/$defs/hashSet"},"registry_hosts":{"type":"array","minItems":1,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9.-]+$"}},"result_destination_refs":{"$ref":"#/$defs/refSet"},"result_transport_certificate_hashes":{"$ref":"#/$defs/hashSet"},"auto_topup":{"const":false},"teardown_policy":{"const":"always_teardown_required"},"max_duration_seconds":{"type":"integer","minimum":1,"maximum":604800}}},"aggregate_bounds":{"type":"object","additionalProperties":false,"required":["max_cumulative_deposit_microusd","max_cumulative_spend_microusd","max_usages","max_concurrent_resources","max_provider_fanout","max_failures"],"properties":{"max_cumulative_deposit_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"max_cumulative_spend_microusd":{"$ref":"#/$defs/nonNegativeInteger"},"max_usages":{"type":"integer","minimum":1,"maximum":1000000},"max_concurrent_resources":{"type":"integer","minimum":1,"maximum":10000},"max_provider_fanout":{"type":"integer","minimum":1,"maximum":16},"max_failures":{"type":"integer","minimum":0,"maximum":1000000}}},"not_before_ms":{"$ref":"#/$defs/nonNegativeInteger"},"expires_at_ms":{"$ref":"#/$defs/nonNegativeInteger"},"revocation_epoch":{"$ref":"#/$defs/nonNegativeInteger"},"trajectory_policy_ref":{"$ref":"#/$defs/ref"},"trajectory_policy_hash":{"$ref":"#/$defs/hash"},"approval_mode":{"const":"standing_envelope"},"recovery_posture":{"const":"recovery_never_widens_or_resets_drawdown"},"body_hash":{"$ref":"#/$defs/hash"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nonNegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hashSet":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/hash"}},"refSet":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##),
     ("schema://ioi/foundations/authority-trajectory-state/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-trajectory-state/v1","title":"AuthorityTrajectoryState","x-ioi-schema-version":"ioi.foundations.authority-trajectory-state.v1","type":"object","additionalProperties":false,"required":["schema_version","trajectory_state_ref","trajectory_state_hash","owner_ref","bounded_system_ref","principal_ref","envelope_ancestor_refs","revocation_epoch","window_started_at","window_ends_at","cumulative_spend_usd","cumulative_deposit_usd","active_resource_refs","provider_refs","destination_refs","data_class_refs","admitted_call_count","failed_call_count","admitted_events","derived_at"],"properties":{"schema_version":{"const":"ioi.foundations.authority-trajectory-state.v1"},"trajectory_state_ref":{"$ref":"#/$defs/ref"},"trajectory_state_hash":{"$ref":"#/$defs/hash"},"owner_ref":{"$ref":"#/$defs/ref"},"bounded_system_ref":{"$ref":"#/$defs/ref"},"principal_ref":{"$ref":"#/$defs/ref"},"envelope_ancestor_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"window_started_at":{"$ref":"#/$defs/timestamp"},"window_ends_at":{"$ref":"#/$defs/timestamp"},"cumulative_spend_usd":{"type":"number","minimum":0},"cumulative_deposit_usd":{"type":"number","minimum":0},"active_resource_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"provider_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"destination_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"data_class_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"admitted_call_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"failed_call_count":{"type":"integer","minimum":0,"maximum":9007199254740991},"admitted_events":{"type":"array","items":{"$ref":"#/$defs/refHash"}},"derived_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/foundations/trajectory-admission-decision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/trajectory-admission-decision/v1","title":"TrajectoryAdmissionDecision","x-ioi-schema-version":"ioi.foundations.trajectory-admission-decision.v1","type":"object","additionalProperties":false,"required":["schema_version","decision_ref","decision_hash","candidate_operation_ref","candidate_operation_hash","state_before_ref","state_before_hash","constraint_results","semantic_risk_evidence_refs","decision","reason_codes","step_up_requirement_refs","policy_ref","policy_hash","state_after_ref","state_after_hash","policy_epoch","decided_at"],"properties":{"schema_version":{"const":"ioi.foundations.trajectory-admission-decision.v1"},"decision_ref":{"$ref":"#/$defs/ref"},"decision_hash":{"$ref":"#/$defs/hash"},"candidate_operation_ref":{"$ref":"#/$defs/ref"},"candidate_operation_hash":{"$ref":"#/$defs/hash"},"state_before_ref":{"$ref":"#/$defs/ref"},"state_before_hash":{"$ref":"#/$defs/hash"},"constraint_results":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/constraintResult"}},"semantic_risk_evidence_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"decision":{"enum":["admit","step_up_required","deny"]},"reason_codes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"step_up_requirement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"policy_ref":{"$ref":"#/$defs/ref"},"policy_hash":{"$ref":"#/$defs/hash"},"state_after_ref":{"$ref":"#/$defs/ref"},"state_after_hash":{"$ref":"#/$defs/hash"},"policy_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"decided_at":{"$ref":"#/$defs/timestamp"}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"constraintResult":{"type":"object","additionalProperties":false,"required":["constraint_id","satisfied","observed_value","limit_value","evidence_refs"],"properties":{"constraint_id":{"$ref":"#/$defs/name"},"satisfied":{"type":"boolean"},"observed_value":{"type":"string","maxLength":500},"limit_value":{"type":"string","maxLength":500},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}}}}}}"##),
@@ -99326,6 +102904,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/data-retention-disposition/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export","environment_workspace_capture"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","title":"SupportIncidentLink","x-ioi-schema-version":"ioi.hypervisor.support_incident_link.v1","description":"Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.","type":"object","additionalProperties":false,"required":["schema_version","incident_id","title","severity","status","affected","reported_by","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.support_incident_link.v1"},"incident_id":{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},"title":{"type":"string","minLength":1},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"status":{"type":"string","enum":["open","mitigated","resolved","closed"]},"affected":{"type":"object","additionalProperties":false,"required":["tenant_ref","object_refs"],"properties":{"product":{"type":"string"},"tenant_ref":{"type":"string","minLength":1},"object_refs":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"event_range":{"anyOf":[{"type":"object"},{"type":"null"}]}}},"redacted_diagnostics":{"type":"string","description":"DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."},"reported_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37)."},"assigned_owner_ref":{"type":"string"},"owner_ref":{"type":"string","minLength":1},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","title":"ConnectorCredentialGrant","x-ioi-schema-version":"ioi.hypervisor.connector_credential_grant.v1","description":"A principal's finite, declared-tools-only scope over one connector's use-only lease. The grant never carries or exposes the sealed credential; expiry is required and enforced at the single check site; the granting principal is resolved server-side (INV-37); regrant never silently rewrites an existing grant's tool set (revoke first); grant and revocation both write audit records or do not happen.","type":"object","additionalProperties":false,"required":["schema_version","id","grant_id","principal_id","connector_id","tools","granted_by","expires_at_ms","created_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.connector_credential_grant.v1"},"id":{"type":"string","minLength":1},"grant_id":{"type":"string","pattern":"^plg_[0-9a-f]+$"},"principal_id":{"type":"string","minLength":1},"connector_id":{"type":"string","minLength":1},"tools":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"description":"Declared tools only — nothing is granted by default; \"*\" is a deliberate declaration, never a fallback."},"granted_by":{"type":"string","minLength":1},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"created_at":{"type":"string"}}}"#),
+    ("schema://ioi/components/wallet-network/authority-review-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/authority-review-receipt/v1","title":"AuthorityReviewReceipt","description":"Portable wallet/policy decision receipt over one exact authority request, reviewed representation, ceremony context, and independently recorded presentation and authenticator evidence.","x-ioi-schema-version":"ioi.components.wallet-network.authority-review-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.wallet-network.authority-review-receipt.v1"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/reviewBody"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_review"},"receipt_profile_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"$ref":"#/$defs/decisionActorRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"type":"null"},"primitive_capabilities":{"type":"array","maxItems":0},"authority_scopes":{"type":"array","maxItems":0},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}},"reviewBody":{"type":"object","additionalProperties":false,"required":["authority_review_ref","authority_review_body_hash","authority_request_ref","authority_request_body_hash","principal_ref","product_session_ref","origin_binding_ref","acting_subject_ref","decision_actor_ref","authorization_subject","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","presentation_dimensions","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","auth_factor_evidence_refs","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","policy_hash","risk_classes","interaction_mode","authentication_posture","receipt_timing","decision","predecessor_authority_review_ref","predecessor_authority_review_body_hash","predecessor_authority_request_ref","predecessor_authority_request_body_hash","predecessor_authority_review_receipt_ref","predecessor_authority_review_receipt_hash","reviewed_at","expires_at"],"properties":{"authority_review_ref":{"type":"string","pattern":"^review://[^\\s]{1,500}$"},"authority_review_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_ref":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"acting_subject_ref":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"decision_actor_ref":{"$ref":"#/$defs/decisionActorRef"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"presentation_dimensions":{"type":"object","additionalProperties":false,"required":["operator_and_surface","content_binding","request_vs_effect_binding","enrollment_and_attestation","user_presence_and_verification","freshness_and_replay","proposer_independence"],"properties":{"operator_and_surface":{"$ref":"#/$defs/presentationDimension"},"content_binding":{"$ref":"#/$defs/presentationDimension"},"request_vs_effect_binding":{"$ref":"#/$defs/presentationDimension"},"enrollment_and_attestation":{"$ref":"#/$defs/presentationDimension"},"user_presence_and_verification":{"$ref":"#/$defs/presentationDimension"},"freshness_and_replay":{"$ref":"#/$defs/presentationDimension"},"proposer_independence":{"$ref":"#/$defs/presentationDimension"}}},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"$ref":"#/$defs/postureEvaluation"}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"auth_factor_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"enum":["before_effect","after_effect"]},"decision":{"enum":["approved","denied","edit_required","expired"]},"predecessor_authority_review_ref":{"oneOf":[{"type":"string","pattern":"^review://[^\\s]{1,500}$"},{"type":"null"}]},"predecessor_authority_review_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_request_ref":{"oneOf":[{"$ref":"#/$defs/authorityRequestRef"},{"type":"null"}]},"predecessor_authority_request_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_review_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"predecessor_authority_review_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"reviewed_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"decision":{"const":"approved"}}},"then":{"properties":{"posture_satisfaction_evaluations":{"type":"array","items":{"allOf":[{"$ref":"#/$defs/postureEvaluation"},{"type":"object","properties":{"decision":{"const":"satisfied"}}}]}}}}}]},"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"presentationDimension":{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}},"postureEvaluation":{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"enum":["satisfied","unsatisfied","unknown"]}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"}}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"}}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"decisionActorRef":{"type":"string","pattern":"^(?:wallet|policy|system|org)://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"guardianRef":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"authFactorRef":{"type":"string","pattern":"^auth_factor://[^\\s]{1,500}$"},"authRequirementRef":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"presentationEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|attestation)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,500}$"},"approvalEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|artifact)://[^\\s]{1,500}$"},"evidenceBundleRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1","title":"WalletAuthenticationChallenge","x-ioi-schema-version":"ioi.wallet_network.wallet_authentication_challenge.v1","description":"The server-minted, single-use, domain/chain/session-bound challenge an external wallet signs to prove account ownership (SIWx). Registered target contract for the wallet-interoperability packet (W1.6); doctrine §Wallet Interoperability and INV-40 govern. A challenge is authentication material, never authority: signing it yields a web3_wallet AuthFactor and nothing else. The nonce is single-use and consumed ATOMICALLY at verification and never lives in an eventually-consistent store; domain, uri, chain, and the bound product session must match at verification or the proof fails typed.","type":"object","additionalProperties":false,"required":["schema_version","challenge_id","siwx_profile_ref","chain_id","domain","uri","nonce","product_session_binding_hash","issued_at","expires_at","statement"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet_network.wallet_authentication_challenge.v1"},"challenge_id":{"type":"string","pattern":"^wallet-auth-challenge://[A-Za-z0-9._:-]+$"},"siwx_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$","description":"The one audited SIWx adapter profile this challenge is issued under (EVM ERC-4361 first)."},"chain_id":{"type":"string","pattern":"^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$","description":"CAIP-2 chain id; a challenge is scoped to exactly one chain."},"requested_account":{"anyOf":[{"type":"string","pattern":"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"},{"type":"null"}],"description":"The CAIP-10 account the challenge targets, or null for discover-then-bind."},"domain":{"type":"string","minLength":1,"description":"Exact relying origin; verification refuses a mismatch (anti-phishing)."},"uri":{"type":"string","minLength":1,"description":"Exact request URI; verification refuses a mismatch (anti-replay)."},"nonce":{"type":"string","minLength":8,"description":"Single-use, atomically consumed at verification. Never stored in an eventually-consistent store."},"product_session_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Binds the challenge to the exact product session that requested it."},"issued_at":{"type":"string","minLength":1},"expires_at":{"type":"string","minLength":1,"description":"Short expiry; verification refuses an expired challenge."},"statement":{"type":"string","minLength":1,"description":"Human-readable sign-in statement shown in the wallet."},"status":{"type":"string","enum":["issued","consumed","expired","invalidated"],"description":"Lifecycle. A provider-side account or chain change invalidates an in-flight challenge."}}}"#),
     ("schema://ioi/components/wallet-network/wallet-ownership-proof/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/wallet-ownership-proof/v1","title":"WalletOwnershipProof","x-ioi-schema-version":"ioi.wallet_network.wallet_ownership_proof.v1","description":"The verified proof that an external wallet controls a CAIP-10 account, produced by verifying a signature against a WalletAuthenticationChallenge. Registered target contract for the wallet-interoperability packet (W1.6); INV-40 governs. A verified proof yields a web3_wallet AuthFactor and NOTHING else — it is authentication evidence, never an AuthorityGrant, and grants no effect authority. Factor identity is chain-qualified: the same address on two chains is two factors. ERC-1271/6492 signatures record the exact contract-wallet state observed.","type":"object","additionalProperties":false,"required":["schema_version","proof_id","challenge_ref","account","signature_kind","signature","verification"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet_network.wallet_ownership_proof.v1"},"proof_id":{"type":"string","pattern":"^wallet-ownership-proof://[A-Za-z0-9._:-]+$"},"challenge_ref":{"type":"string","pattern":"^wallet-auth-challenge://[A-Za-z0-9._:-]+$","description":"The exact challenge this proof answers; its nonce is consumed atomically at verification."},"account":{"type":"string","pattern":"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$","description":"CAIP-10 account proven; the factor identity is chain-qualified."},"signature_kind":{"type":"string","enum":["eoa_secp256k1","erc1271_contract","erc6492_counterfactual"]},"signature":{"type":"string","minLength":1,"description":"Opaque signature bytes (hex/base64); never a blind-signing artifact."},"verification":{"type":"object","additionalProperties":false,"required":["verified_at","verifier_profile_ref"],"properties":{"verified_at":{"type":"string","minLength":1},"verifier_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"},"contract_wallet_state_ref":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}],"description":"Exact contract-wallet state observed for erc1271/erc6492; null for EOA."}}},"yields_factor_id":{"type":"string","description":"The web3_wallet AuthFactor id this proof produced. A proof yields a factor and NOTHING else (INV-40)."}}}"#),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/compute-session/v1","title":"ComputeSession","description":"Bounded managed-runtime compute-session readiness and terminal-close projection bound to one runtime assignment.","x-ioi-schema-version":"ioi.compute-session.v1","type":"object","additionalProperties":false,"required":["schema_version","compute_session_ref","runtime_assignment_ref","environment_ref","provider_ref","status","readiness_evidence_refs"],"properties":{"schema_version":{"const":"ioi.compute-session.v1"},"compute_session_ref":{"type":"string","pattern":"^compute://[^\\s]{1,500}$"},"runtime_assignment_ref":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"status":{"enum":["ready","ended"]},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"provider_close_receipt_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}"##),
@@ -99375,6 +102954,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", r#"[{"rule_id":"scm_publication_effect_v2.content_commitment.recomputes","description":"The publication effect hash recomputes over every field except publication_effect_hash, so the operation identity, the preparation record, the attempt fingerprint, the recovery disposition, the outcome, and both sub-effect outcomes are all committed material.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"publication_effect_id":{"path":"$.publication_effect_id"},"execution_semantics":{"path":"$.execution_semantics"},"operation":{"path":"$.operation"},"authority":{"path":"$.authority"},"preparation":{"path":"$.preparation"},"attempt":{"path":"$.attempt"},"recovery":{"path":"$.recovery"},"outcome":{"path":"$.outcome"},"effects":{"path":"$.effects"},"overall_outcome":{"path":"$.overall_outcome"},"nonclaims":{"path":"$.nonclaims"},"committed_at":{"path":"$.committed_at"}},"expected_path":"$.publication_effect_hash","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.key.recomputes","description":"The operation key recomputes over the operation identity and NOTHING else. The identity is a closed object carrying the work run, the proposal, the admitted destination binding, the target and base refs, the enumerated file set, the review intent, the frozen commit metadata, and the intended revision; it has no field for an observed remote head. An implementation that folded a head observation into the key therefore cannot produce a key that recomputes, which is what makes the operation identity observation-independent and a retry the same logical operation.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-operation-identity-jcs-sha256.v2"},"identity":{"path":"$.operation.identity"}},"expected_path":"$.operation.operation_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.file_set_digest.recomputes","description":"The file-set digest recomputes over the bound proposal, the frozen base revision, and the exact enumerated file rows, so the file set inside the operation identity is the declared set and nothing else.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-operation-file-set-jcs-sha256.v2"},"proposal_ref":{"path":"$.operation.identity.proposal_ref"},"proposal_hash":{"path":"$.operation.identity.proposal_hash"},"base_revision_id":{"path":"$.operation.identity.base_revision_id"},"files":{"path":"$.operation.identity.files"}},"expected_path":"$.operation.identity.file_set_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.commit_metadata.frozen","description":"The commit metadata digest recomputes over the message commitment, the authorship commitment, and both declared timestamps, so the commit the operation intends is frozen at preparation and cannot be re-derived on a later attempt.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-frozen-commit-metadata-jcs-sha256.v2"},"commit_message_digest":{"path":"$.operation.identity.frozen_commit_metadata.commit_message_digest"},"authorship_commitment":{"path":"$.operation.identity.frozen_commit_metadata.authorship_commitment"},"authored_at":{"path":"$.operation.identity.frozen_commit_metadata.authored_at"},"commit_timestamp":{"path":"$.operation.identity.frozen_commit_metadata.commit_timestamp"}},"expected_path":"$.operation.identity.frozen_commit_metadata.metadata_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.files.bind_proposal","description":"Every file row inside the operation identity is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.","expression":{"operator":"array_field_equals","array_path":"$.operation.identity.files","field":"proposal_ref","expected_path":"$.operation.identity.proposal_ref"}},{"rule_id":"scm_publication_effect_v2.operation.identity.files.unique_paths","description":"Each repository-relative path appears at most once in the operation's frozen file set.","expression":{"operator":"array_unique_by_fields","array_path":"$.operation.identity.files","fields":["path"]}},{"rule_id":"scm_publication_effect_v2.destination.binding_covers_repository","description":"The repository the operation names is the repository the admitted destination binding covers; the destination never resolves from free caller text.","expression":{"operator":"field_starts_with_path","path":"$.operation.identity.destination_binding_ref","expected_path":"$.operation.identity.repository_ref","prefix":"scm-destination-binding://","strip_prefix":"repository://","suffix":"/"}},{"rule_id":"scm_publication_effect_v2.preparation.precedes_remote_effect","description":"A dispatch is only describable against the Prepared record that was persisted before it: the dispatch carries the Prepared content commitment, and it must equal the persisted preparation commitment. A remote effect invoked before Prepared was persisted has no commitment to name.","expression":{"operator":"fields_equal","paths":["$.attempt.dispatch.prepared_record_hash","$.preparation.prepared_record_hash"]}},{"rule_id":"scm_publication_effect_v2.attempt.cas_fingerprint.recomputes","description":"The attempt fingerprint recomputes over the operation key, the target ref precondition, the observed expected head, and the frozen base revision. This is the only place the observed remote head is committed, which is what keeps it out of the operation identity.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-attempt-cas-jcs-sha256.v2"},"operation_key":{"path":"$.operation.operation_key"},"target_ref_precondition":{"path":"$.attempt.cas.target_ref_precondition"},"expected_target_head":{"path":"$.attempt.cas.expected_target_head"},"base_revision_id":{"path":"$.operation.identity.base_revision_id"}},"expected_path":"$.attempt.cas_fingerprint","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.attempt.cas.frozen","description":"Every attempt of one operation carries the frozen compare-and-swap: this attempt's fingerprint must equal the fingerprint frozen at preparation. A retry that re-observed the remote head and recomputed a different precondition is not an attempt of this operation and is unrepresentable; a moved head must be refused as reconciliation_required instead.","expression":{"operator":"fields_equal","paths":["$.attempt.cas_fingerprint","$.attempt.frozen_cas_fingerprint"]}},{"rule_id":"scm_publication_effect_v2.attempt.cas.expected_target_head.declared","description":"When the target ref is expected to exist, the attempt declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.","expression":{"operator":"non_empty_when_in","path":"$.attempt.cas.expected_target_head","when_path":"$.attempt.cas.target_ref_precondition","values":["expected_head"]}},{"rule_id":"scm_publication_effect_v2.recovery.replay.binds_prior_terminal","description":"A replayed terminal result names the prior terminal publication effect it replayed; a replay disposition without a prior terminal effect is unrepresentable, so a replay can never be manufactured to skip a remote effect that never happened.","expression":{"operator":"non_empty_when_in","path":"$.recovery.prior_terminal_effect_ref","when_path":"$.recovery.resolution_disposition","values":["replayed_terminal_result"]}},{"rule_id":"scm_publication_effect_v2.recovery.replay.binds_prior_hash","description":"A replay also carries the prior terminal effect's content commitment, so the replayed result is asserted against exact material rather than an identifier alone.","expression":{"operator":"non_empty_when_in","path":"$.recovery.prior_terminal_effect_hash","when_path":"$.recovery.resolution_disposition","values":["replayed_terminal_result"]}},{"rule_id":"scm_publication_effect_v2.recovery.reconciliation.code_declared","description":"A reconciliation_required resolution declares the exact reconciliation code an operator must act on; an unresolved operation is never an empty refusal.","expression":{"operator":"non_empty_when_in","path":"$.recovery.reconciliation_code","when_path":"$.recovery.resolution_disposition","values":["reconciliation_required"]}},{"rule_id":"scm_publication_effect_v2.outcome.never_fresh_child_commit","description":"Either no revision was created, or the created revision is exactly the revision the operation froze. A resulting revision that differs from intended_revision_id would be a second commit produced by a retry, and it has no representation.","expression":{"operator":"optional_field_equals","optional_object_path":"$.outcome.resulting_revision","field":"revision_id","expected_path":"$.operation.identity.intended_revision_id"}},{"rule_id":"scm_publication_effect_v2.outcome.head_binds_intended_revision","description":"When a revision exists, the remote head reported for the target ref equals that same frozen intended revision, so a remote advance can never be reported for material this operation did not freeze.","expression":{"operator":"optional_field_equals","optional_object_path":"$.outcome.resulting_revision","field":"target_head","expected_path":"$.operation.identity.intended_revision_id"}},{"rule_id":"scm_publication_effect_v2.effects.receipts.distinct","description":"The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.","expression":{"operator":"fields_not_equal","paths":["$.effects.publication.receipt_ref","$.effects.review_request.receipt_ref"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.reconciles_independently","description":"The review request reconciles as its own logical operation: its reconciliation key is derived from, and must differ from, the publication operation key. A review-request ambiguity therefore cannot be absorbed into the publication operation, and resolving one never resolves the other.","expression":{"operator":"fields_not_equal","paths":["$.effects.review_request.reconciliation.operation_key","$.operation.operation_key"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.reconciliation.key_recomputes","description":"The review-request reconciliation key recomputes over the publication operation key, the frozen review intent, and the target ref, so the review sub-effect is bound to the same publication without sharing its identity.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-review-request-operation-jcs-sha256.v2"},"publication_operation_key":{"path":"$.operation.operation_key"},"review_intent":{"path":"$.operation.identity.review_intent"},"target_ref":{"path":"$.operation.identity.target_ref"}},"expected_path":"$.effects.review_request.reconciliation.operation_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.effects.review_request.receipt_declared","description":"An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.receipt_ref","when_path":"$.effects.review_request.outcome","values":["opened","failed"]}},{"rule_id":"scm_publication_effect_v2.effects.publication.refusal_code_declared","description":"A refused, partially applied, or unresolved publication declares the exact code it failed closed on.","expression":{"operator":"non_empty_when_in","path":"$.effects.publication.refusal_code","when_path":"$.effects.publication.outcome","values":["refused","partially_applied","reconciliation_required"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.refusal_code_declared","description":"A failed, refused, or unresolved review request declares its exact code, so a review-request failure or ambiguity is never reported as an empty success.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.refusal_code","when_path":"$.effects.review_request.outcome","values":["failed","refused","reconciliation_required"]}}]"#),
     ("schema://ioi/components/daemon-runtime/agent-harness-adapter/v1", r#"[]"#),
     ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1", r#"[]"#),
+    ("schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2", r#"[{"rule_id":"authority_effect_admission.grant_hash.matches_envelope","description":"The receipt envelope input is the exact v3 authority grant body hash.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.input_hash","$.body.authority_grant_hash"]}},{"rule_id":"authority_effect_admission.body_hash.matches_envelope","description":"The receipt envelope output binds the immutable admission body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.output_hash","$.body_hash"]}},{"rule_id":"authority_effect_admission.grant_ref.matches_envelope","description":"The generic receipt envelope and admission body name the same grant.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.authority_grant_id","$.body.authority_grant_ref"]}},{"rule_id":"authority_effect_admission.policy_hash.matches_envelope","description":"The body and generic receipt envelope bind the same policy.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.policy_hash","$.body.policy_hash"]}},{"rule_id":"authority_effect_admission.pep.matches_envelope","description":"The generic receipt actor is the PEP that made the admission decision.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.actor_id","$.body.policy_enforcement_point_ref"]}},{"rule_id":"authority_effect_admission.timestamp.matches_envelope","description":"The generic receipt timestamp is the pre-invocation decision time.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.timestamp","$.body.decided_at"]}}]"#),
     ("schema://ioi/components/daemon-runtime/declassification-receipt/v1", r#"[]"#),
     ("schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1", r#"[{"rule_id":"enforcement_coverage.receipt.evidence.required_when_receipted","description":"A positive receipted claim binds at least one receipt evidence reference in addition to a non-none receipt scope.","expression":{"operator":"non_empty_when_in","path":"$.receipt.evidence_refs","when_path":"$.claims.receipted","values":[true]}},{"rule_id":"enforcement_coverage.gap.required_when_uncovered","description":"An uncovered claim identifies at least one exact known gap rather than relying on a node-wide label.","expression":{"operator":"non_empty_when_in","path":"$.known_gaps","when_path":"$.claims.uncovered","values":[true]}}]"#),
     ("schema://ioi/components/daemon-runtime/harness-profile/v1", r#"[]"#),
@@ -99431,8 +103011,10 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", r#"[]"#),
     ("schema://ioi/foundations/approval-ceremony-context/v1", r#"[]"#),
     ("schema://ioi/foundations/active-skill-set-snapshot/v1", r#"[]"#),
+    ("schema://ioi/foundations/authority-scope-request-envelope/v2", r#"[{"rule_id":"authority_request.capability.required","description":"An authority request must ask for at least one scope or primitive capability.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes_requested","$.primitive_capabilities_required"]}}]"#),
     ("schema://ioi/foundations/authority-grant-envelope/v1", r#"[{"rule_id":"authority_grant.capability.required","description":"A grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}}]"#),
     ("schema://ioi/foundations/authority-grant-envelope/v2", r#"[{"rule_id":"authority_grant.capability.required","description":"A portable grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}},{"rule_id":"authority_grant.signature_key.matches_issuer_key","description":"The signature key must be the exact issuer key named by the signed grant body.","expression":{"operator":"fields_equal","paths":["$.signature_key_id","$.issuer_key_id"]}},{"rule_id":"authority_grant.schema_hash.matches_contract","description":"The signed schema hash must match the registered immutable v2 schema.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},{"rule_id":"authority_grant.issued_at.not_after_not_before","description":"A grant cannot become valid before it is issued.","expression":{"operator":"numbers_lte","paths":["$.issued_at","$.not_before"]}},{"rule_id":"authority_grant.not_before.before_expiry","description":"A portable grant must have a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.not_before","$.expires_at"]}}]"#),
+    ("schema://ioi/foundations/authority-grant-envelope/v3", r#"[{"rule_id":"authority_grant.capability.required","description":"A portable grant must convey at least one authority scope or primitive capability constraint.","expression":{"operator":"any_non_empty","paths":["$.authority_scopes","$.primitive_capability_constraints"]}},{"rule_id":"authority_grant.signature_key.matches_issuer_key","description":"The signature key is the exact issuer key named by the signed grant body.","expression":{"operator":"fields_equal","paths":["$.signature_key_id","$.issuer_key_id"]}},{"rule_id":"authority_grant.request.matches_commitment","description":"The portable envelope and its request-review commitment name the same immutable request.","expression":{"operator":"fields_equal","paths":["$.request_id","$.request_commitment.authority_request_id"]}},{"rule_id":"authority_grant.schema_hash.matches_contract","description":"The signed schema hash matches the registered immutable v3 schema.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},{"rule_id":"authority_grant.issued_at.not_after_not_before","description":"A grant cannot become valid before it is issued.","expression":{"operator":"numbers_lte","paths":["$.issued_at","$.not_before"]}},{"rule_id":"authority_grant.not_before.before_expiry","description":"A portable grant has a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.not_before","$.expires_at"]}}]"#),
     ("schema://ioi/foundations/standing-authority-envelope/v1", r#"[{"rule_id":"standing_authority_envelope.body_hash.recomputes","description":"The standing-envelope body hash commits the exact subject, facet template, aggregate bounds, validity, revocation and trajectory policy under a domain-separated JCS profile.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.standing-authority-envelope-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"standing_envelope_ref":{"path":"$.standing_envelope_ref"},"owner_ref":{"path":"$.owner_ref"},"bounded_system_ref":{"path":"$.bounded_system_ref"},"principal_ref":{"path":"$.principal_ref"},"audience_ref":{"path":"$.audience_ref"},"authority_scope":{"path":"$.authority_scope"},"facet_template":{"path":"$.facet_template"},"aggregate_bounds":{"path":"$.aggregate_bounds"},"not_before_ms":{"path":"$.not_before_ms"},"expires_at_ms":{"path":"$.expires_at_ms"},"revocation_epoch":{"path":"$.revocation_epoch"},"trajectory_policy_ref":{"path":"$.trajectory_policy_ref"},"trajectory_policy_hash":{"path":"$.trajectory_policy_hash"},"approval_mode":{"path":"$.approval_mode"},"recovery_posture":{"path":"$.recovery_posture"}},"expected_path":"$.body_hash","expected_encoding":"sha256_string"}},{"rule_id":"standing_authority_envelope.validity.non_empty","description":"A standing envelope has a non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.not_before_ms","$.expires_at_ms"]}},{"rule_id":"standing_authority_envelope.per_operation_deposit.within_aggregate","description":"One operation cannot reserve more deposit than the whole envelope permits.","expression":{"operator":"numbers_lte","paths":["$.facet_template.per_operation_deposit_microusd","$.aggregate_bounds.max_cumulative_deposit_microusd"]}},{"rule_id":"standing_authority_envelope.spend.within_deposit","description":"The maximum reconciled spend cannot exceed the maximum deposit authority.","expression":{"operator":"numbers_lte","paths":["$.aggregate_bounds.max_cumulative_spend_microusd","$.aggregate_bounds.max_cumulative_deposit_microusd"]}}]"#),
     ("schema://ioi/foundations/authority-trajectory-state/v1", r#"[]"#),
     ("schema://ioi/foundations/trajectory-admission-decision/v1", r#"[]"#),
@@ -99519,6 +103101,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/data-retention-disposition/v1", r#"[{"rule_id":"data_retention.basis.required","description":"Every disposition names its governing policy basis; an unexplained retention posture is not auditable.","expression":{"operator":"non_empty","path":"$.policy_basis_ref"}},{"rule_id":"data_retention.subject.exact","description":"The duty binds one exact subject, never a class pattern — deletion of 'roughly these' is not a deletion anyone can verify.","expression":{"operator":"non_empty","path":"$.subject.subject_ref"}},{"rule_id":"data_retention.declarer.bound","description":"The declaring principal is recorded server-side, so retention duties have an accountable origin.","expression":{"operator":"non_empty","path":"$.declared_by"}}]"#),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"[{"rule_id":"support_incident.affected.non_empty","description":"An incident links at least one affected object — an incident that affects nothing links nothing.","expression":{"operator":"non_empty","path":"$.affected.object_refs"}},{"rule_id":"support_incident.reporter.bound","description":"The reporting principal is resolved server-side, so an incident has an accountable origin.","expression":{"operator":"non_empty","path":"$.reported_by"}}]"#),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"[{"rule_id":"connector_credential_grant.tools.declared","description":"The grant names its exact tool scope; an empty scope grants nothing and is not admissible.","expression":{"operator":"non_empty","path":"$.tools"}},{"rule_id":"connector_credential_grant.grantor.bound","description":"The granting principal is resolved server-side, so standing access has an accountable origin.","expression":{"operator":"non_empty","path":"$.granted_by"}}]"#),
+    ("schema://ioi/components/wallet-network/authority-review-receipt/v1", r#"[{"rule_id":"authority_review_receipt.request_hash.matches_envelope","description":"The receipt envelope input is the exact reviewed authority request body hash.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.input_hash","$.body.authority_request_body_hash"]}},{"rule_id":"authority_review_receipt.body_hash.matches_envelope","description":"The receipt envelope output binds the immutable review-receipt body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.output_hash","$.body_hash"]}},{"rule_id":"authority_review_receipt.policy_hash.matches_envelope","description":"The body and generic receipt envelope bind the same policy.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.policy_hash","$.body.policy_hash"]}},{"rule_id":"authority_review_receipt.actor.matches_envelope","description":"The generic receipt actor is the decision actor recorded by the profile body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.actor_id","$.body.decision_actor_ref"]}},{"rule_id":"authority_review_receipt.timestamp.matches_envelope","description":"The generic receipt timestamp is the profile decision time.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.timestamp","$.body.reviewed_at"]}}]"#),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", r#"[{"rule_id":"wallet_auth_challenge.nonce.present","description":"Every challenge carries a nonce; verification consumes it atomically and single-use, so a replayed challenge cannot re-authenticate.","expression":{"operator":"non_empty","path":"$.nonce"}},{"rule_id":"wallet_auth_challenge.session.bound","description":"The challenge binds the exact product session that requested it, so a proof cannot be replayed into another session.","expression":{"operator":"non_empty","path":"$.product_session_binding_hash"}},{"rule_id":"wallet_auth_challenge.domain.bound","description":"The challenge names the exact relying origin, so a phishing origin cannot harvest a usable proof.","expression":{"operator":"non_empty","path":"$.domain"}}]"#),
     ("schema://ioi/components/wallet-network/wallet-ownership-proof/v1", r#"[{"rule_id":"wallet_ownership_proof.challenge.bound","description":"A proof answers exactly one challenge, whose single-use nonce is consumed atomically at verification.","expression":{"operator":"non_empty","path":"$.challenge_ref"}},{"rule_id":"wallet_ownership_proof.account.chain_qualified","description":"The proven account is CAIP-10 chain-qualified, so the same address on two chains is two distinct factors.","expression":{"operator":"non_empty","path":"$.account"}},{"rule_id":"wallet_ownership_proof.verified.recorded","description":"A proof records when and under which profile it was verified; an unverified claim is not a proof.","expression":{"operator":"non_empty","path":"$.verification.verified_at"}}]"#),
     ("schema://ioi/components/daemon-runtime/compute-session/v1", r#"[]"#),
@@ -99556,6 +103139,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:(?:implementation_result|artifact|cid)://[^\s]{1,500}|encrypted_ref)$"#,
         r#"^(?:(?:implementation_result|artifact|cid)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|encrypted_ref)$"#,
+    ),
+    (
+        r#"^(?:(?:principal|wallet|org|worker|service|domain)://[^\s]{1,500}|agentgres://domain/[^\s]{1,500})$"#,
+        r#"^(?:(?:principal|wallet|org|worker|service|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|agentgres://domain/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
     ),
     (
         r#"^(?:(?:receipt|agentgres)://[^\s]{1,500}|sha256:[0-9a-f]{64})$"#,
@@ -99657,6 +103244,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:attempt|work-result|evidence|receipt)://[^\s]{1,500}$"#,
         r#"^(?:attempt|work-result|evidence|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:auth_factor|guardian)://[^\s]{1,500}$"#,
+        r#"^(?:auth_factor|guardian)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:benchmark|rubric|gate|policy)://[^\s]{1,500}$"#,
@@ -99775,8 +103366,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:evidence|assurance-evidence|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:evidence|assurance-evidence|artifact)://[^\s]{1,500}$"#,
+        r#"^(?:evidence|assurance-evidence|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:evidence|receipt)://[^\s]{1,248}$"#,
         r#"^(?:evidence|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:evidence|receipt)://[^\s]{1,500}$"#,
+        r#"^(?:evidence|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:evidence|receipt|artifact)://[^\s]{1,248}$"#,
@@ -99919,6 +103518,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:org|project|system|user)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:origin-binding|origin)://[^\s]{1,500}$"#,
+        r#"^(?:origin-binding|origin)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:outcome-room|user|org)://[^\s]{1,500}$"#,
         r#"^(?:outcome-room|user|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -99941,6 +103544,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:participation-request|proposal)://[^\s]{1,500}$"#,
         r#"^(?:participation-request|proposal)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:policy|auth_factor)://[^\s]{1,500}$"#,
+        r#"^(?:policy|auth_factor)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:policy|auth_factor|guardian)://[^\s]{1,500}$"#,
+        r#"^(?:policy|auth_factor|guardian)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:policy|budget)://[^\s]{1,500}$"#,
@@ -100027,6 +103638,18 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:receipt|evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:receipt|evidence)://[^\s]{1,500}$"#,
+        r#"^(?:receipt|evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:receipt|evidence|artifact)://[^\s]{1,500}$"#,
+        r#"^(?:receipt|evidence|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:receipt|evidence|attestation)://[^\s]{1,500}$"#,
+        r#"^(?:receipt|evidence|attestation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:receipt|heartbeat)://[^\s]{1,500}$"#,
         r#"^(?:receipt|heartbeat)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -100103,6 +103726,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:schema|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^(?:schema|policy)://[^\s]{1,500}$"#,
+        r#"^(?:schema|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:schema|profile)://[^\s]{1,500}$"#,
         r#"^(?:schema|profile)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -100127,8 +103754,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:system|agent|worker|runtime)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^(?:system|agent|worker|runtime)://[^\s]{1,500}$"#,
+        r#"^(?:system|agent|worker|runtime)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:system|agent|worker|runtime|wallet|org)://[^\s]+$"#,
         r#"^(?:system|agent|worker|runtime|wallet|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:system|agent|worker|runtime|wallet|org)://[^\s]{1,500}$"#,
+        r#"^(?:system|agent|worker|runtime|wallet|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:system|agent|worker|service|org|domain)://[^\s]{1,500}$"#,
@@ -100157,6 +103792,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:system|wallet|org|policy)://[^\s]+$"#,
         r#"^(?:system|wallet|org|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:system|wallet|org|policy)://[^\s]{1,500}$"#,
+        r#"^(?:system|wallet|org|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:system|wallet|org|project)://[^\s]{1,248}$"#,
@@ -100235,6 +103874,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:verifier_path|worker|gate|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:wallet-client|guardian|surface)://[^\s]{1,500}$"#,
+        r#"^(?:wallet-client|guardian|surface)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:wallet|org|project)://[^\s]{1,240}$"#,
         r#"^(?:wallet|org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -100249,6 +103892,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:wallet|org|project|runtime)://[^\s]{1,240}$"#,
         r#"^(?:wallet|org|project|runtime)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^(?:wallet|policy|system|org)://[^\s]{1,500}$"#,
+        r#"^(?:wallet|policy|system|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:wallet|provider|org)://[^\s]{1,248}$"#,
@@ -100559,6 +104206,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^appraiser://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^approval-ceremony-context://[^\s]{1,500}$"#,
+        r#"^approval-ceremony-context://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^approval://[A-Za-z0-9._~:/-]+$"#,
         r#"^approval://[A-Za-z0-9._~:/-]+$"#,
     ),
@@ -100620,8 +104271,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^attempt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^auth_factor://[^\s]{1,500}$"#,
+        r#"^auth_factor://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^authority-request://[^\s]+$"#,
         r#"^authority-request://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^authority-request://[^\s]{1,500}$"#,
+        r#"^authority-request://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^automation://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -100666,6 +104325,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^caveat://[^\s]+$"#,
         r#"^caveat://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^caveat://[^\s]{1,500}$"#,
+        r#"^caveat://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^chain-successor-claim://sha256:[0-9a-f]{64}$"#,
@@ -101033,8 +104696,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^grant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^grant://[^\s]{1,500}$"#,
+        r#"^grant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"#,
         r#"^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^guardian://[^\s]{1,500}$"#,
+        r#"^guardian://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^harness-profile://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -101115,6 +104786,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^keyset://[^\s]+$"#,
         r#"^keyset://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^keyset://[^\s]{1,500}$"#,
+        r#"^keyset://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^lease://[^\s]{1,248}$"#,
@@ -101381,6 +105056,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^proof://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^proof://[^\s]{1,500}$"#,
+        r#"^proof://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^proposal://[A-Za-z0-9._:/-]+$"#,
         r#"^proposal://[A-Za-z0-9._:/-]+$"#,
     ),
@@ -101501,6 +105180,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^retention-disposition://[A-Za-z0-9._:-]+$"#,
         r#"^retention-disposition://[A-Za-z0-9._:-]+$"#,
+    ),
+    (
+        r#"^review://[^\s]{1,500}$"#,
+        r#"^review://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^room-discovery://[^\s]{1,500}$"#,
@@ -101658,6 +105341,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^snapshot://[^\s]{1,248}$"#,
         r#"^snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^snapshot://[^\s]{1,500}$"#,
+        r#"^snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^staged-effect://[^\s]+$"#,
@@ -103208,6 +106895,7 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json"))),
     ("docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json"))),
@@ -103401,6 +107089,11 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json"))),
     ("docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json"))),
@@ -103413,6 +107106,7 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json"))),
     ("docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json"))),
     ("docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json"))),
@@ -103691,6 +107385,7 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json"))),
     ("docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json"))),
     ("docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json"))),
     ("docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json"))),
@@ -103892,6 +107587,11 @@ mod tests {
         },
         "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1" => {
             serde_json::from_value::<AuthorityEffectAdmissionReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2" => {
+            serde_json::from_value::<AuthorityEffectAdmissionReceiptV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -104175,6 +107875,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/authority-scope-request-envelope/v2" => {
+            serde_json::from_value::<AuthorityScopeRequestEnvelopeV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/authority-grant-envelope/v1" => {
             serde_json::from_value::<AuthorityGrantEnvelopeV1>(value.clone())
                 .map(|_| ())
@@ -104182,6 +107887,11 @@ mod tests {
         },
         "schema://ioi/foundations/authority-grant-envelope/v2" => {
             serde_json::from_value::<AuthorityGrantEnvelopeV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/authority-grant-envelope/v3" => {
+            serde_json::from_value::<AuthorityGrantEnvelopeV3>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -104615,6 +108325,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/wallet-network/authority-review-receipt/v1" => {
+            serde_json::from_value::<AuthorityReviewReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1" => {
             serde_json::from_value::<WalletAuthenticationChallengeV1>(value.clone())
                 .map(|_| ())
@@ -104848,6 +108563,11 @@ mod tests {
         },
         "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1" => {
             let projection = serde_json::from_value::<AuthorityEffectAdmissionReceiptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2" => {
+            let projection = serde_json::from_value::<AuthorityEffectAdmissionReceiptV2>(value.clone())
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
@@ -105131,6 +108851,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/authority-scope-request-envelope/v2" => {
+            let projection = serde_json::from_value::<AuthorityScopeRequestEnvelopeV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/authority-grant-envelope/v1" => {
             let projection = serde_json::from_value::<AuthorityGrantEnvelopeV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -105138,6 +108863,11 @@ mod tests {
         },
         "schema://ioi/foundations/authority-grant-envelope/v2" => {
             let projection = serde_json::from_value::<AuthorityGrantEnvelopeV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/authority-grant-envelope/v3" => {
+            let projection = serde_json::from_value::<AuthorityGrantEnvelopeV3>(value.clone())
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
@@ -105571,6 +109301,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/wallet-network/authority-review-receipt/v1" => {
+            let projection = serde_json::from_value::<AuthorityReviewReceiptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1" => {
             let projection = serde_json::from_value::<WalletAuthenticationChallengeV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -105762,8 +109497,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            666,
-            "the registered golden corpus must remain the explicit 666-fixture bar",
+            674,
+            "the registered golden corpus must remain the explicit 674-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -106005,7 +109740,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 627,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 653,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

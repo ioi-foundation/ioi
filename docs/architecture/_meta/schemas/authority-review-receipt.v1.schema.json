@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/wallet-network/authority-review-receipt/v1",
+  "title": "AuthorityReviewReceipt",
+  "description": "Portable wallet/policy decision receipt over one exact authority request, reviewed representation, ceremony context, and independently recorded presentation and authenticator evidence.",
+  "x-ioi-schema-version": "ioi.components.wallet-network.authority-review-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_envelope", "body", "body_hash", "receipt_hash"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.wallet-network.authority-review-receipt.v1" },
+    "receipt_envelope": { "$ref": "#/$defs/receiptEnvelope" },
+    "body": { "$ref": "#/$defs/reviewBody" },
+    "body_hash": { "$ref": "#/$defs/sha256Hash" },
+    "receipt_hash": { "$ref": "#/$defs/sha256Hash" }
+  },
+  "$defs": {
+    "receiptEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id", "receipt_type", "receipt_profile_ref", "attested_boundary_fact_refs",
+        "claim_scope_ref", "run_id", "task_id", "actor_id", "input_hash", "output_hash",
+        "policy_hash", "authority_grant_id", "primitive_capabilities", "authority_scopes",
+        "artifact_refs", "evidence_bundle_refs", "verification_ref", "acceptance_ref",
+        "adjudication_ref", "settlement_ref", "timestamp", "signature", "public_commitment_ref"
+      ],
+      "properties": {
+        "receipt_id": { "$ref": "#/$defs/receiptRef" },
+        "receipt_type": { "const": "authority_review" },
+        "receipt_profile_ref": { "const": "schema://ioi/components/wallet-network/authority-review-receipt/v1" },
+        "attested_boundary_fact_refs": { "type": "array", "items": { "$ref": "#/$defs/canonicalRef" }, "minItems": 1, "uniqueItems": true },
+        "claim_scope_ref": { "const": "schema://ioi/components/wallet-network/authority-review-receipt/v1" },
+        "run_id": { "type": "null" },
+        "task_id": { "type": "null" },
+        "actor_id": { "$ref": "#/$defs/decisionActorRef" },
+        "input_hash": { "$ref": "#/$defs/sha256Hash" },
+        "output_hash": { "$ref": "#/$defs/sha256Hash" },
+        "policy_hash": { "$ref": "#/$defs/sha256Hash" },
+        "authority_grant_id": { "type": "null" },
+        "primitive_capabilities": { "type": "array", "maxItems": 0 },
+        "authority_scopes": { "type": "array", "maxItems": 0 },
+        "artifact_refs": { "type": "array", "items": { "$ref": "#/$defs/artifactRef" }, "uniqueItems": true },
+        "evidence_bundle_refs": { "type": "array", "items": { "$ref": "#/$defs/evidenceBundleRef" }, "uniqueItems": true },
+        "verification_ref": { "$ref": "#/$defs/receiptRef" },
+        "acceptance_ref": { "type": "null" },
+        "adjudication_ref": { "type": "null" },
+        "settlement_ref": { "type": "null" },
+        "timestamp": { "$ref": "#/$defs/canonicalDateTime" },
+        "signature": { "type": "null" },
+        "public_commitment_ref": { "type": "null" }
+      }
+    },
+    "reviewBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_review_ref", "authority_review_body_hash", "authority_request_ref",
+        "authority_request_body_hash", "principal_ref", "product_session_ref",
+        "origin_binding_ref", "acting_subject_ref", "decision_actor_ref",
+        "authorization_subject", "reviewed_representation_hash", "presentation_surface_ref",
+        "presentation_evidence_profile_ref", "presentation_evidence_refs",
+        "presentation_dimensions", "approval_ceremony_context_ref",
+        "approval_ceremony_context_hash", "approval_ceremony_evidence_refs",
+        "required_auth_factor_posture_refs", "required_guardian_surface_refs",
+        "satisfied_auth_factor_refs", "satisfied_guardian_surface_refs",
+        "posture_satisfaction_profile_ref", "posture_satisfaction_evaluations",
+        "posture_satisfaction_root", "auth_factor_evidence_refs",
+        "principal_authority_resolution_ref", "principal_authority_resolution_hash",
+        "policy_decision_receipt_ref", "policy_decision_receipt_hash", "policy_hash",
+        "risk_classes", "interaction_mode", "authentication_posture", "receipt_timing",
+        "decision", "predecessor_authority_review_ref",
+        "predecessor_authority_review_body_hash", "predecessor_authority_request_ref",
+        "predecessor_authority_request_body_hash", "predecessor_authority_review_receipt_ref",
+        "predecessor_authority_review_receipt_hash", "reviewed_at", "expires_at"
+      ],
+      "properties": {
+        "authority_review_ref": { "type": "string", "pattern": "^review://[^\\s]{1,500}$" },
+        "authority_review_body_hash": { "$ref": "#/$defs/sha256Hash" },
+        "authority_request_ref": { "$ref": "#/$defs/authorityRequestRef" },
+        "authority_request_body_hash": { "$ref": "#/$defs/sha256Hash" },
+        "principal_ref": { "$ref": "#/$defs/principalRef" },
+        "product_session_ref": { "oneOf": [{ "$ref": "#/$defs/sessionRef" }, { "type": "null" }] },
+        "origin_binding_ref": { "oneOf": [{ "$ref": "#/$defs/originRef" }, { "type": "null" }] },
+        "acting_subject_ref": { "type": "string", "pattern": "^(?:system|agent|worker|runtime)://[^\\s]{1,500}$" },
+        "decision_actor_ref": { "$ref": "#/$defs/decisionActorRef" },
+        "authorization_subject": { "$ref": "#/$defs/authorizationSubject" },
+        "reviewed_representation_hash": { "$ref": "#/$defs/sha256Hash" },
+        "presentation_surface_ref": { "type": "string", "pattern": "^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$" },
+        "presentation_evidence_profile_ref": { "$ref": "#/$defs/schemaOrPolicyRef" },
+        "presentation_evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/presentationEvidenceRef" }, "uniqueItems": true },
+        "presentation_dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operator_and_surface", "content_binding", "request_vs_effect_binding", "enrollment_and_attestation", "user_presence_and_verification", "freshness_and_replay", "proposer_independence"],
+          "properties": {
+            "operator_and_surface": { "$ref": "#/$defs/presentationDimension" },
+            "content_binding": { "$ref": "#/$defs/presentationDimension" },
+            "request_vs_effect_binding": { "$ref": "#/$defs/presentationDimension" },
+            "enrollment_and_attestation": { "$ref": "#/$defs/presentationDimension" },
+            "user_presence_and_verification": { "$ref": "#/$defs/presentationDimension" },
+            "freshness_and_replay": { "$ref": "#/$defs/presentationDimension" },
+            "proposer_independence": { "$ref": "#/$defs/presentationDimension" }
+          }
+        },
+        "approval_ceremony_context_ref": { "type": "string", "pattern": "^approval-ceremony-context://[^\\s]{1,500}$" },
+        "approval_ceremony_context_hash": { "$ref": "#/$defs/sha256Hash" },
+        "approval_ceremony_evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/evidenceOrReceiptRef" }, "uniqueItems": true },
+        "required_auth_factor_posture_refs": { "type": "array", "items": { "$ref": "#/$defs/authRequirementRef" }, "uniqueItems": true },
+        "required_guardian_surface_refs": { "type": "array", "items": { "$ref": "#/$defs/guardianRef" }, "uniqueItems": true },
+        "satisfied_auth_factor_refs": { "type": "array", "items": { "$ref": "#/$defs/authFactorRef" }, "uniqueItems": true },
+        "satisfied_guardian_surface_refs": { "type": "array", "items": { "$ref": "#/$defs/guardianRef" }, "uniqueItems": true },
+        "posture_satisfaction_profile_ref": { "$ref": "#/$defs/schemaOrPolicyRef" },
+        "posture_satisfaction_evaluations": { "type": "array", "items": { "$ref": "#/$defs/postureEvaluation" } },
+        "posture_satisfaction_root": { "$ref": "#/$defs/sha256Hash" },
+        "auth_factor_evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/approvalEvidenceRef" }, "uniqueItems": true },
+        "principal_authority_resolution_ref": { "oneOf": [{ "$ref": "#/$defs/artifactRef" }, { "type": "null" }] },
+        "principal_authority_resolution_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "policy_decision_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+        "policy_decision_receipt_hash": { "$ref": "#/$defs/sha256Hash" },
+        "policy_hash": { "$ref": "#/$defs/sha256Hash" },
+        "risk_classes": { "type": "array", "items": { "$ref": "#/$defs/riskClass" }, "uniqueItems": true },
+        "interaction_mode": { "enum": ["interactive", "noninteractive_policy"] },
+        "authentication_posture": { "enum": ["baseline", "step_up"] },
+        "receipt_timing": { "enum": ["before_effect", "after_effect"] },
+        "decision": { "enum": ["approved", "denied", "edit_required", "expired"] },
+        "predecessor_authority_review_ref": { "oneOf": [{ "type": "string", "pattern": "^review://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "predecessor_authority_review_body_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "predecessor_authority_request_ref": { "oneOf": [{ "$ref": "#/$defs/authorityRequestRef" }, { "type": "null" }] },
+        "predecessor_authority_request_body_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "predecessor_authority_review_receipt_ref": { "oneOf": [{ "$ref": "#/$defs/receiptRef" }, { "type": "null" }] },
+        "predecessor_authority_review_receipt_hash": { "oneOf": [{ "$ref": "#/$defs/sha256Hash" }, { "type": "null" }] },
+        "reviewed_at": { "$ref": "#/$defs/canonicalDateTime" },
+        "expires_at": { "$ref": "#/$defs/canonicalDateTime" }
+      },
+      "allOf": [
+        { "if": { "properties": { "decision": { "const": "approved" } } }, "then": { "properties": { "posture_satisfaction_evaluations": { "type": "array", "items": { "allOf": [{ "$ref": "#/$defs/postureEvaluation" }, { "type": "object", "properties": { "decision": { "const": "satisfied" } } }] } } } } }
+      ]
+    },
+    "authorizationSubject": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "subject_ref", "subject_hash", "validation_profile_ref"],
+      "properties": {
+        "kind": { "enum": ["exact_effect", "batch_manifest", "standing_envelope"] },
+        "subject_ref": { "$ref": "#/$defs/canonicalRef" },
+        "subject_hash": { "$ref": "#/$defs/sha256Hash" },
+        "validation_profile_ref": { "$ref": "#/$defs/schemaOrPolicyRef" }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "exact_effect" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^effect://[^\\s]{1,500}$" } } } },
+        { "if": { "properties": { "kind": { "const": "batch_manifest" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^artifact://[^\\s]{1,500}$" } } } },
+        { "if": { "properties": { "kind": { "const": "standing_envelope" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" } } } }
+      ]
+    },
+    "presentationDimension": {
+      "type": "object", "additionalProperties": false,
+      "required": ["claim_profile_ref", "evidence_refs", "decision"],
+      "properties": {
+        "claim_profile_ref": { "$ref": "#/$defs/schemaOrPolicyRef" },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/presentationEvidenceRef" }, "uniqueItems": true },
+        "decision": { "enum": ["established", "not_established", "unknown"] }
+      }
+    },
+    "postureEvaluation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["requirement_ref", "requirement_kind", "satisfied_by_refs", "evidence_refs", "evaluation_profile_ref", "decision"],
+      "properties": {
+        "requirement_ref": { "type": "string", "pattern": "^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$" },
+        "requirement_kind": { "enum": ["auth_factor", "guardian_surface"] },
+        "satisfied_by_refs": { "type": "array", "items": { "type": "string", "pattern": "^(?:auth_factor|guardian)://[^\\s]{1,500}$" }, "uniqueItems": true },
+        "evidence_refs": { "type": "array", "items": { "$ref": "#/$defs/approvalEvidenceRef" }, "uniqueItems": true },
+        "evaluation_profile_ref": { "$ref": "#/$defs/schemaOrPolicyRef" },
+        "decision": { "enum": ["satisfied", "unsatisfied", "unknown"] }
+      },
+      "allOf": [
+        { "if": { "properties": { "requirement_kind": { "const": "auth_factor" } } }, "then": { "properties": { "requirement_ref": { "type": "string", "pattern": "^(?:policy|auth_factor)://[^\\s]{1,500}$" }, "satisfied_by_refs": { "type": "array", "items": { "$ref": "#/$defs/authFactorRef" } } } } },
+        { "if": { "properties": { "requirement_kind": { "const": "guardian_surface" } } }, "then": { "properties": { "requirement_ref": { "$ref": "#/$defs/guardianRef" }, "satisfied_by_refs": { "type": "array", "items": { "$ref": "#/$defs/guardianRef" } } } } }
+      ]
+    },
+    "canonicalDateTime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" },
+    "authorityRequestRef": { "type": "string", "pattern": "^authority-request://[^\\s]{1,500}$" },
+    "principalRef": { "type": "string", "pattern": "^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$" },
+    "sessionRef": { "type": "string", "pattern": "^session://[^\\s]{1,500}$" },
+    "originRef": { "type": "string", "pattern": "^(?:origin-binding|origin)://[^\\s]{1,500}$" },
+    "decisionActorRef": { "type": "string", "pattern": "^(?:wallet|policy|system|org)://[^\\s]{1,500}$" },
+    "schemaOrPolicyRef": { "type": "string", "pattern": "^(?:schema|policy)://[^\\s]{1,500}$" },
+    "artifactRef": { "type": "string", "pattern": "^artifact://[^\\s]{1,500}$" },
+    "guardianRef": { "type": "string", "pattern": "^guardian://[^\\s]{1,500}$" },
+    "authFactorRef": { "type": "string", "pattern": "^auth_factor://[^\\s]{1,500}$" },
+    "authRequirementRef": { "type": "string", "pattern": "^(?:policy|auth_factor)://[^\\s]{1,500}$" },
+    "presentationEvidenceRef": { "type": "string", "pattern": "^(?:receipt|evidence|attestation)://[^\\s]{1,500}$" },
+    "evidenceOrReceiptRef": { "type": "string", "pattern": "^(?:receipt|evidence)://[^\\s]{1,500}$" },
+    "approvalEvidenceRef": { "type": "string", "pattern": "^(?:receipt|evidence|artifact)://[^\\s]{1,500}$" },
+    "evidenceBundleRef": { "type": "string", "pattern": "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$" },
+    "sha256Hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "riskClass": { "enum": ["read", "draft", "external_message", "commerce", "funds", "trade", "policy_widening", "secret_export", "declassification", "identity_change", "cloud_deploy", "physical_action"] }
+  }
+}

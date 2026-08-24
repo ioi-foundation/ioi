@@ -1,0 +1,35 @@
+{
+  "schema_version": "ioi.foundations.authority-scope-request-envelope.v2",
+  "authority_request_id": "authority-request://wallet/u1/exact-001",
+  "principal_ref": "wallet://u1",
+  "product_session_ref": "session://hypervisor/u1",
+  "origin_binding_ref": "origin-binding://hypervisor/local",
+  "subject_id": "system://hypervisor/u1",
+  "issuer_id": "wallet://u1",
+  "requesting_runtime_ref": "runtime://hypervisor/daemon",
+  "purpose": "deploy one reviewed provider workload",
+  "requested_auth_factor_posture_refs": ["auth_factor://passkey/u1"],
+  "requested_guardian_surface_refs": [],
+  "authorization_subject": {
+    "kind": "exact_effect",
+    "subject_ref": "effect://hypervisor/deploy/exact-001",
+    "subject_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "validation_profile_ref": "schema://ioi/effects/hypervisor-deploy/v1"
+  },
+  "primitive_capabilities_required": ["prim:provider.deploy"],
+  "authority_scopes_requested": ["scope:hypervisor.deploy"],
+  "resource_scope": {
+    "resources": ["deployment://hypervisor/u1/exact-001"],
+    "constraints": {
+      "max_budget_usd": 1,
+      "expiry": "2026-08-24T16:00:00Z",
+      "approval_required_for": ["cloud_deploy"]
+    }
+  },
+  "destination_refs": ["provider://akash/mainnet"],
+  "risk_classes": ["cloud_deploy"],
+  "policy_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "authority_request_body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "authority_grant_id": null,
+  "status": "requested"
+}

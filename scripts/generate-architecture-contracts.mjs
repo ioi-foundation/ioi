@@ -108,6 +108,24 @@ const registryPath = safeSchemaPath(
 );
 const registry = readJson(registryPath);
 const declaredTargets = validateGeneratedTargets(registry);
+const registeredSchemaRefs = new Set(
+  registry.contracts.map((entry) => entry.schema_ref),
+);
+const orphanSchemaRefs = fs
+  .readdirSync(schemaRoot, { withFileTypes: true })
+  .filter(
+    (entry) =>
+      entry.isFile() &&
+      entry.name.endsWith(".schema.json") &&
+      !registeredSchemaRefs.has(entry.name),
+  )
+  .map((entry) => entry.name)
+  .sort(codePointCompare);
+if (orphanSchemaRefs.length > 0) {
+  throw new Error(
+    `Architecture contract schema files are absent from the registry: ${orphanSchemaRefs.join(", ")}`,
+  );
+}
 const contracts = registry.contracts.map((entry) => ({
   entry,
   schema: readJson(
