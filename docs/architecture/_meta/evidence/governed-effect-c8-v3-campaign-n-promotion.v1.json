@@ -1,0 +1,30 @@
+{
+  "evidence_format": "ioi.architecture.capstone-evidence.v1",
+  "campaign_id": "u1-aft-campaign-n-aes-phl-14d24907-20260823T195136Z",
+  "source_commit": "14d249076477e97ec0dce5cdbea069b205df7cad",
+  "predecessor_c8_v2_certificate_hash": "sha256:3bf17e7fd4a20750073f51ede2de6db8021f57e6485ee886aea8a2419d138f13",
+  "portable_bundle_hash": "sha256:9cc870a5e792c41f4698b98a2b41135e69909d500e8315296ebb0638664510f7",
+  "c8_v3_certificate_hash": "sha256:53856be907d60c4f7c1752bbdf49e9586e25aad17e87c98c11c4b0a8aa860c5f",
+  "acceptance_policy_hash": "sha256:95bb67f4a1a223d7ea66cd883c7ba77369fa0eab91e0dce1840451a333a04ca5",
+  "verifier_build_hash": "sha256:407b1a61cf3bd76b6d8e10e2a45b8f877ab2b32ee8f7e33f1076c0e86884357b",
+  "acceptance_receipt_hash": "sha256:1b924a53346f8b455061cbedb4fcec3127233e321b6bedecefe72dc46da4ed43",
+  "accepted_row_hash": "sha256:25fee807a4f98b59a4143ad5c8400f2d6685538298c82333997db4e9105563c7",
+  "registry_state_before_hash": "sha256:8a133adaf21f1dfc4164813b764e0c4af5186e373a237897d4b880462e481f15",
+  "registry_state_after_hash": "sha256:483c72117fe25c6e60ec73dc60cc6111b19833f6568df499aec453dec7c6d0ad",
+  "accepted_revision": 2,
+  "decision": "accepted",
+  "mutation_applied": true,
+  "verifier_rebuilt_since_initial_provisioning": true,
+  "environment_class": "measured_container",
+  "honesty_class": "same_provider_container_unknown_host",
+  "result_verdict": "variance_caveated",
+  "protection_profile": "trusted_host_hostile_guest",
+  "verifier_independence": "first_party_separate_binary_codegen_transport",
+  "remaining_nonclaims": [
+    "third_party_verified",
+    "provider_neutrality",
+    "bare_metal_placement",
+    "compromised_host_tcb_resistance",
+    "reproduced_within_threshold"
+  ]
+}

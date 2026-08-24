@@ -166,6 +166,14 @@
       "runtime_assertions": 7,
       "assertion_names_sha256": "5ea25e9668a35a1658a633ed9370a162e0d49e7e3ff4f34dc50c224cc7ab12ad",
       "note": "Was fail-only (empty failures array on a green run, so a count read zero). Now records one positive CHECKPOINT per invariant group; the 62 fail sites are untouched. Only the full tracked gate emits a census (--shared/--surface/--require-ready run different subsets), and a FAILING run emits nothing, which this gate reads as RED. The floor consumes the COUNT; pass/fail is carried by the verifier's exit code, so every flag in an emitted census is true by construction and is not evidence on its own."
+    },
+    {
+      "id": "governed-effect-assurance",
+      "npm_script": "check:governed-effect-assurance-floor",
+      "source": "apps/hypervisor/scripts/verify-governed-effect-assurance-floor.mjs",
+      "runtime_assertions": 4,
+      "assertion_names_sha256": "ddc37a0eca07c6aa808cc7ea13a04f1038cb8039012f2cca03354daba19e6134",
+      "note": "Promoted after the green T7 integrated capstone. Each wrapper assertion pins the child gate's exact semantic count: the complete spend-free workload fault matrix, five planted bypasses, six portable-bundle tests, and forty fully resealed C8 relying-party mutations. The owner-local real-evidence verifier remains mandatory outside public CI because its retained paid-campaign inputs are intentionally private."
     }
   ],
   "excluded": [

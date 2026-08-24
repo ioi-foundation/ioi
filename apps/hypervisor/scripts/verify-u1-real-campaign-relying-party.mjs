@@ -23,11 +23,10 @@ const evidenceRoot = process.env.IOI_U1_CAMPAIGN_EVIDENCE_ROOT || path.join(home
 const dataDir = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(home, ".ioi/hypervisor/data");
 const recordDir = process.env.IOI_C8_RELYING_PARTY_DIR
   || path.join(evidenceRoot, "campaign-o-aes-phl-14d24907/c8-v3-relying-party");
-const admissionDir = process.env.IOI_C8_REGISTRY_ADMISSION_DIR
-  || path.join(evidenceRoot, "campaign-o-aes-phl-14d24907/c8-v3-registry-admission");
+const explicitAdmissionDir = process.env.IOI_C8_REGISTRY_ADMISSION_DIR;
 const verifier = process.env.IOI_AFT_C8_VERIFIER || path.join(repo, "target/debug/aft-c8-verifier");
 const selfTest = process.argv.includes("--self-test");
-const now = "2026-08-23T23:45:00Z";
+const now = "2026-08-24T13:40:00Z";
 
 // Each mutation names the exact failure it must provoke. Without this, a
 // mutation rejected for some unrelated reason — a duplicate row, a stale
@@ -110,17 +109,31 @@ const replicaRegistry = (name, value) => {
 
 try {
   if (!fs.existsSync(verifier)) throw new Error(`verifier binary missing: ${verifier}`);
-  for (const required of [recordDir, admissionDir]) {
+  const admissionDirs = explicitAdmissionDir
+    ? [path.resolve(explicitAdmissionDir)]
+    : fs.readdirSync(evidenceRoot)
+      .map((name) => path.join(evidenceRoot, name, "c8-v3-registry-admission"))
+      .filter((directory) => fs.existsSync(path.join(directory, "admission-summary.json"))
+        && fs.existsSync(path.join(directory, "acceptance-receipt.json")));
+  for (const required of [recordDir, ...admissionDirs]) {
     if (!fs.existsSync(required)) throw new Error(`retained relying-party evidence is absent: ${required}`);
   }
+  if (admissionDirs.length === 0) throw new Error("no retained registry admissions were found");
   const registryOfRecordPath = path.join(recordDir, "registry.json");
   const retainedPolicy = read(path.join(recordDir, "policy.json"));
   const retainedProfile = read(path.join(recordDir, "verifier-profile.json"));
   const registryOfRecordBefore = fs.readFileSync(registryOfRecordPath);
   const registryOfRecord = JSON.parse(registryOfRecordBefore.toString("utf8"));
-  const recordedReceipt = read(path.join(admissionDir, "acceptance-receipt.json"));
-  const recordedSummary = read(path.join(admissionDir, "admission-summary.json"));
-  const recordedBundle = read(path.join(admissionDir, "portable-bundle/bundle.json"));
+  const recordedTransitions = admissionDirs
+    .map((directory) => ({
+      directory,
+      receipt: read(path.join(directory, "acceptance-receipt.json")),
+      summary: read(path.join(directory, "admission-summary.json")),
+      bundle: read(path.join(directory, "portable-bundle/bundle.json")),
+    }))
+    .sort((left, right) => left.receipt.accepted_revision - right.receipt.accepted_revision);
+  const recordedReceipt = recordedTransitions[0].receipt;
+  const recordedSummary = recordedTransitions[0].summary;
 
   // The verifier refuses any profile that does not name its own executable, so
   // the trust inputs are re-derived for the build under test. They must differ
@@ -162,10 +175,13 @@ try {
       fs.writeFileSync(target, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, flag: "wx" });
       return target;
     };
-    const inputs = buildCampaignBundleInputs({ campaignDir: campaign.runDir, dataDir, policy, generatedAt: now, writeTemp });
+    const campaignCertificate = read(path.join(campaign.runDir, "u1-campaign-certificate.json"));
+    const recordedTransition = recordedTransitions.find((entry) => entry.summary.campaign_id === campaignCertificate.authority.campaign_id);
+    const generatedAt = recordedTransition?.bundle.created_at || now;
+    const inputs = buildCampaignBundleInputs({ campaignDir: campaign.runDir, dataDir, policy, generatedAt, writeTemp });
     const bundleDir = path.join(temp, `bundle-${inputs.campaignId}`);
     const { certificate } = assemblePortableBundle({
-      bundle_ref: inputs.bundleRef, created_at: now, certificate_draft_path: writeTemp("certificate-draft.json", inputs.draft),
+      bundle_ref: inputs.bundleRef, created_at: generatedAt, certificate_draft_path: writeTemp("certificate-draft.json", inputs.draft),
       certificate_file: "certificate.json", objects: inputs.objects, trust_inputs: trustInputs,
     }, bundleDir);
     // Canonical schema validation plus the separate verifier, over the rebuilt
@@ -178,34 +194,58 @@ try {
     built.push({ ...campaign, inputs, bundleDir, certificate, canonicalChecks: JSON.parse(canonical.stdout).canonical_schema_checks });
   }
 
-  // 1. Reproduce the registry-of-record transition offline. Revision 0 is
-  //    reconstructed from the contract, not copied, and must hash to the
-  //    `previous_state_hash` the record itself carries.
+  // 1. Reproduce every retained registry transition offline, in revision order.
+  //    Revision 0 is reconstructed from the contract, not copied. Each later
+  //    transition must bind the exact state emitted by its predecessor.
   const admitted = built.find((entry) => entry.inputs.campaignId === recordedSummary.campaign_id);
   if (!admitted) throw new Error(`the admitted campaign ${recordedSummary.campaign_id} has no retained run directory`);
   const genesis = sealSelfHash({
     schema_version: "ioi.aft.measured-results-registry.v1", registry_ref: registryOfRecord.registry_ref,
     revision: 0, previous_state_hash: null, entries: [],
   });
-  mustEqual(genesis.state_hash, registryOfRecord.previous_state_hash, "reconstructed genesis registry state");
   mustEqual(genesis.state_hash, recordedReceipt.target_state_before_hash, "record's accepted before-state");
-  const reproducedPath = replicaRegistry("replica-genesis", genesis);
-  const reproduced = run("accept", "--bundle", admitted.bundleDir, "--policy", path.join(admitted.bundleDir, "policy.json"),
-    "--registry", reproducedPath, "--row-output", path.join(temp, "reproduced-row.json"),
-    "--receipt", path.join(temp, "reproduced-receipt.json"), "--expected-revision", "0", "--now", now);
-  if (reproduced.status !== 0) throw new Error(`offline reproduction of the record transition failed: ${reproduced.stderr || reproduced.stdout}`);
-  const reproducedReceipt = read(path.join(temp, "reproduced-receipt.json"));
-  const reproducedRegistry = read(reproducedPath);
-  mustEqual(admitted.certificate.certificate_hash, recordedReceipt.certificate_hash, "reproduced certificate hash");
-  mustEqual(reproducedReceipt.target_state_after_hash, recordedReceipt.target_state_after_hash, "reproduced registry after-state");
+  let reproducedRegistry = genesis;
+  const reproducedTransitions = [];
+  for (const [index, transition] of recordedTransitions.entries()) {
+    const expectedRevision = index + 1;
+    mustEqual(transition.receipt.accepted_revision, expectedRevision, "retained admission revision sequence");
+    mustEqual(transition.summary.accepted_revision, expectedRevision, "retained admission summary revision sequence");
+    mustEqual(transition.receipt.target_state_before_hash, reproducedRegistry.state_hash, "retained admission predecessor state");
+    const transitionCampaign = built.find((entry) => entry.inputs.campaignId === transition.summary.campaign_id);
+    if (!transitionCampaign) throw new Error(`admitted campaign ${transition.summary.campaign_id} has no retained run directory`);
+    const snapshotPath = path.join(transition.directory, "registry-before.json");
+    if (fs.existsSync(snapshotPath)) {
+      mustEqual(JSON.stringify(read(snapshotPath)), JSON.stringify(reproducedRegistry), "retained admission before-state snapshot");
+    }
+    const reproducedPath = replicaRegistry(`replica-revision-${expectedRevision}`, reproducedRegistry);
+    const receiptPath = path.join(temp, `reproduced-receipt-${expectedRevision}.json`);
+    const reproduced = run("accept", "--bundle", transitionCampaign.bundleDir, "--policy", path.join(transitionCampaign.bundleDir, "policy.json"),
+      "--registry", reproducedPath, "--row-output", path.join(temp, `reproduced-row-${expectedRevision}.json`),
+      "--receipt", receiptPath, "--expected-revision", String(expectedRevision - 1), "--now", transition.receipt.observed_at);
+    if (reproduced.status !== 0) throw new Error(`offline reproduction of revision ${expectedRevision} failed: ${reproduced.stderr || reproduced.stdout}`);
+    const reproducedReceipt = read(receiptPath);
+    reproducedRegistry = read(reproducedPath);
+    mustEqual(transitionCampaign.certificate.certificate_hash, transition.receipt.certificate_hash, "reproduced certificate hash");
+    mustEqual(reproducedReceipt.target_state_after_hash, transition.receipt.target_state_after_hash, "reproduced registry after-state");
+    mustEqual(reproducedRegistry.state_hash, transition.receipt.target_state_after_hash, "reproduced registry state");
+    mustEqual(reproducedReceipt.decision, "accepted", "reproduced decision");
+    reproducedTransitions.push({
+      campaign_id: transition.summary.campaign_id,
+      certificate_hash: reproducedReceipt.certificate_hash,
+      state_before_hash: reproducedReceipt.target_state_before_hash,
+      state_after_hash: reproducedReceipt.target_state_after_hash,
+      accepted_revision: reproducedReceipt.accepted_revision,
+    });
+  }
   mustEqual(reproducedRegistry.state_hash, registryOfRecord.state_hash, "reproduced registry of record");
   mustEqual(JSON.stringify(reproducedRegistry.entries), JSON.stringify(registryOfRecord.entries), "reproduced registry entries");
-  mustEqual(reproducedReceipt.decision, "accepted", "reproduced decision");
+  mustEqual(recordedTransitions.length, registryOfRecord.revision, "retained admission count covers registry revision");
 
   // 2. Every other retained campaign is a candidate the registry has not yet
   //    seen. Admitting it exercises compare-and-set against a NON-EMPTY
   //    registry, on a replica seeded byte-for-byte from the record.
-  const candidates = built.filter((entry) => entry.inputs.campaignId !== recordedSummary.campaign_id);
+  const recordedCampaignIds = new Set(recordedTransitions.map((entry) => entry.summary.campaign_id));
+  const candidates = built.filter((entry) => !recordedCampaignIds.has(entry.inputs.campaignId));
   const candidateAdmissions = [];
   for (const candidate of candidates) {
     const replicaPath = replicaRegistry(`replica-successor-${candidate.inputs.campaignId}`, registryOfRecord);
@@ -347,7 +387,7 @@ try {
     fs.cpSync(admitted.bundleDir, mutatedDir, { recursive: true });
     fullyResealBundle({ directory: mutatedDir, refs, objectRef, mutate, mutateCertificate });
     // The identity control is admitted against a GENESIS replica: the record's
-    // current state already holds this campaign's row, so a rev-1 replica would
+    // current state already holds this campaign's row, so a non-empty replica would
     // refuse it for duplication before semantics were ever consulted.
     const seed = expectation === "accept"
       ? genesis
@@ -392,16 +432,12 @@ try {
     ok: true,
     retained_campaigns_verified: built.map((entry) => entry.inputs.campaignId),
     canonical_schema_checks_per_bundle: built.map((entry) => entry.canonicalChecks),
-    record_transition_reproduced_offline: {
-      campaign_id: recordedSummary.campaign_id, certificate_hash: reproducedReceipt.certificate_hash,
-      state_before_hash: reproducedReceipt.target_state_before_hash, state_after_hash: reproducedReceipt.target_state_after_hash,
-      accepted_revision: reproducedReceipt.accepted_revision,
-    },
+    record_transitions_reproduced_offline: reproducedTransitions,
     successor_admissions_on_replica: candidateAdmissions,
     registry_of_record_revision: registryOfRecord.revision,
     verifier_build_hash: verifierBuildHash,
     verifier_rebuilt_since_record: rebuiltVerifier,
-    retained_bundle_ref: recordedBundle.bundle_ref,
+    retained_bundle_refs: recordedTransitions.map((entry) => entry.bundle.bundle_ref),
     registry_of_record_unchanged: true,
     resealed_identity_control_accepted: controlAccepted,
     real_evidence_semantic_mutations_rejected: Object.keys(rejectionCodes).length,

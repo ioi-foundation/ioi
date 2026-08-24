@@ -37,6 +37,7 @@
     "check:c7-c8-capstone": "node scripts/verify-c7-c8-capstone.mjs",
     "check:c8-v3-portable-bundle": "node --test scripts/lib/c8-v3-portable-bundle.test.mjs",
     "check:c8-v3-relying-party": "cargo build -p aft-c8-verifier && node scripts/verify-c8-v3-relying-party.mjs",
+    "check:governed-effect-assurance-floor": "node scripts/verify-governed-effect-assurance-floor.mjs",
     "check:c8-v3-canonical-bundle": "node scripts/verify-c8-v3-canonical-bundle.mjs",
     "check:u1-real-campaign-relying-party": "node scripts/verify-u1-real-campaign-relying-party.mjs --self-test",
     "check:governed-effect-packet": "node scripts/verify-governed-effect-packet.mjs",

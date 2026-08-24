@@ -114,3 +114,13 @@ environment, immutable image, provider, honesty class, and verdict.
 transition increments its revision, names the prior state hash, and commits the
 complete ordered row set. Rejection leaves the registry bytes unchanged and is
 represented only by a `CertificateAcceptanceReceipt`.
+
+The owner-local registry of record now contains both measured campaigns. Campaign
+O was accepted at revision 1 (`sha256:8a133ada…`); Campaign N was then accepted by
+compare-and-set at revision 2 (`sha256:483c7211…`). Campaign N retained the same
+`measured_container`, `same_provider_container_unknown_host`, and
+`variance_caveated` boundaries. The second transition used an explicitly
+re-derived first-party verifier build profile; policy drift outside that build
+lineage was forbidden. This is a second variance-caveated row, not a promotion to
+`reproduced_within_threshold`, bare metal, provider neutrality, or third-party
+verification.

@@ -423,7 +423,7 @@ console.log(
       verdict: "PASS",
       live_kvm_probe: process.argv.includes("--live") ? "passed" : "not_run",
       floor_status:
-        "not_yet_in_global_verifier_floor_pending_integrated_live_external_provider_composition",
+        "promoted_to_global_verifier_floor_after_green_t7",
       fault_matrix: {
         always_run: [
           "prelaunch_binding_and_planted_device_refusals",
@@ -444,7 +444,7 @@ console.log(
           : "not_run",
       },
       claim_boundary:
-        "The local KVM/no-NIC guest launch, canonical quota-bounded output quarantine, exact authenticated proposal, durable one-use claim, host-only authority compartment, shared full-provider final-invoker implementation, and pre-effect/post-effect/post-settlement crash behavior are enforced and mutation-tested. The full-provider seam reaches the wallet/proposal/C2/provider implementation without retaining a bearer operator session, but this check does not claim the live external-provider composition until the integrated paid capstone passes.",
+        "The local KVM/no-NIC guest launch, canonical quota-bounded output quarantine, exact authenticated proposal, durable one-use claim, host-only authority compartment, shared full-provider final-invoker implementation, and pre-effect/post-effect/post-settlement crash behavior are enforced and mutation-tested. The full-provider seam reaches the wallet/proposal/C2/provider implementation without retaining a bearer operator session. The integrated paid capstone passed on owner-local evidence; this spend-free check does not by itself reproduce that external transition.",
     },
     null,
     2,
