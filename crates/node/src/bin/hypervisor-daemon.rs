@@ -6959,7 +6959,18 @@ async fn handle_mcp_import(
     Ok(Json(json!({ "count": count, "servers": imported })))
 }
 
-/// POST /v1/model-mount/mcp/invoke — governed MCP tool call (receipt only).
+fn mcp_live_execution_unavailable(server_label: &str, tool: &str) -> AppError {
+    AppError(
+        StatusCode::NOT_IMPLEMENTED,
+        format!(
+            "mcp_live_execution_unavailable: no MCP transport invocation was attempted for '{server_label}.{tool}', so no execution receipt or executed status can be issued"
+        ),
+    )
+}
+
+/// POST /v1/model-mount/mcp/invoke — fail closed until this compatibility route is
+/// wired to the admitted RuntimeAgentService invoker. A pre-invocation authorization
+/// check is not execution evidence and must never mint an execution receipt.
 async fn handle_mcp_invoke(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -6968,30 +6979,17 @@ async fn handle_mcp_invoke(
     let server_label = body
         .get("server_label")
         .and_then(|v| v.as_str())
-        .unwrap_or("mcp")
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "server_label is required".to_string()))?
         .to_string();
     let tool = body
         .get("tool")
         .and_then(|v| v.as_str())
-        .unwrap_or("tool")
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "tool is required".to_string()))?
         .to_string();
     authorize(&st, &headers, &format!("mcp.call:{server_label}.{tool}"))?;
-    let receipt_id = format!(
-        "receipt_mcp_tool_invocation_{}",
-        short_hash(&format!("{server_label}:{tool}:{}", iso_now()))
-    );
-    let receipt = json!({
-        "id": receipt_id,
-        "kind": "mcp_tool_invocation",
-        "redaction": "redacted",
-        "createdAt": iso_now(),
-        "details": { "serverLabel": server_label, "tool": tool, "ephemeral": false },
-    });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
-    Ok(Json(json!({
-        "receipt": receipt,
-        "result": { "ok": true, "status": "executed", "serverLabel": server_label, "tool": tool },
-    })))
+    Err(mcp_live_execution_unavailable(&server_label, &tool))
 }
 
 /// GET /v1/model-mount/mcp — list registered MCP servers.
@@ -8705,6 +8703,21 @@ async fn handle_session_turn(
         }
     }
     ([(header::CONTENT_TYPE, "text/event-stream")], sse)
+}
+
+#[cfg(test)]
+mod model_mount_mcp_tests {
+    use super::*;
+
+    #[test]
+    fn unavailable_live_mcp_route_never_claims_execution() {
+        let error = mcp_live_execution_unavailable("calendar", "create_event");
+
+        assert_eq!(error.0, StatusCode::NOT_IMPLEMENTED);
+        assert!(error.1.contains("no MCP transport invocation was attempted"));
+        assert!(error.1.contains("no execution receipt or executed status"));
+        assert!(!error.1.contains("status\":\"executed"));
+    }
 }
 
 #[cfg(test)]
