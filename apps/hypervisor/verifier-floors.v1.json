@@ -132,16 +132,16 @@
       "id": "env-lease-authority",
       "npm_script": "check:env-lease-authority",
       "source": "apps/hypervisor/scripts/verify-hypervisor-env-lease-authority.mjs",
-      "runtime_assertions": 14,
-      "assertion_names_sha256": "d5392e84c8669bc4928aae707234b43c413147b18e76937c1164bd822c619e25",
-      "note": "Exercises a PROVEN-LIVE privilege escalation as its finding: a port/editor capability lease driving env-ops WriteFile/Exec, asserted refused by the ABSENCE of the side effect. Includes a named residual (defect 1a) asserted TRUE that flips when the environment owner model lands."
+      "runtime_assertions": 31,
+      "assertion_names_sha256": "303e6b96a08d5888bdd82aa558a06664a343d9e53b7378cf25b00cf82d584475",
+      "note": "Exercises the former privilege escalation as a closed property: 31 live assertions cover all seven handles, material side-effect absence, daemon-minted ids, bind-before-bytes failure ordering, owner-only enumeration, typed legacy administration, deprovisioned-owner disposal, and exact-token browser proxies. The chained source contract and 21-mutation RED-ON-TARGET battery make ADR 0035's implementation shape replayable in the same gate."
     },
     {
       "id": "environment-custody",
       "npm_script": "check:environment-custody",
       "source": "apps/hypervisor/scripts/verify-hypervisor-environment-custody.mjs",
       "runtime_assertions": 53,
-      "assertion_names_sha256": "d20a083ad9bdcaaa8aa20b1a334a22c6179316dc296676fa2465472319dd404a"
+      "assertion_names_sha256": "fb0f330aebd04b483fad7a8cd918abb561aa86a51aa4b93d910ca4e34f068236"
     },
     {
       "id": "operational-depth",

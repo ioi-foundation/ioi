@@ -900,9 +900,11 @@ pub(crate) async fn handle_guardrails_set(
 /// GET /v1/hypervisor/environments/:id/logs?kind=session|tasks — read the persisted scoped logs.
 pub(crate) async fn handle_env_logs(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Query(q): Query<std::collections::HashMap<String, String>>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
+    super::environment_routes::authorize_environment_owner(&st.data_dir, &headers, &id)?;
     let kind = q.get("kind").map(String::as_str).unwrap_or("session");
     let dir = Path::new(&st.data_dir).join("environments").join(safe(&id));
     match kind {
@@ -912,7 +914,9 @@ pub(crate) async fn handle_env_logs(
                 .lines()
                 .filter_map(|l| serde_json::from_str(l).ok())
                 .collect();
-            Json(json!({ "ok": true, "environment_id": id, "kind": "session", "entries": lines }))
+            Ok(Json(
+                json!({ "ok": true, "environment_id": id, "kind": "session", "entries": lines }),
+            ))
         }
         "tasks" => {
             let mut logs = Vec::new();
@@ -923,14 +927,20 @@ pub(crate) async fn handle_env_logs(
                     logs.push(json!({ "task": name, "bytes": content.len(), "tail": content.chars().rev().take(400).collect::<String>().chars().rev().collect::<String>() }));
                 }
             }
-            Json(json!({ "ok": true, "environment_id": id, "kind": "tasks", "logs": logs }))
+            Ok(Json(
+                json!({ "ok": true, "environment_id": id, "kind": "tasks", "logs": logs }),
+            ))
         }
-        other => Json(json!({ "ok": false, "reason": format!("unknown log kind '{other}'") })),
+        other => Ok(Json(
+            json!({ "ok": false, "reason": format!("unknown log kind '{other}'") }),
+        )),
     }
 }
 
 /// GET /v1/hypervisor/operability/metrics — aggregate from real env + incident + audit truth.
 pub(crate) async fn handle_operability_metrics(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    // ENVIRONMENT_OWNER_CENSUS: aggregate_only — emits phase counts only; no environment
+    // identifier, record, workspace coordinate, or workspace byte crosses the route.
     let envs = read_record_dir(&st.data_dir, "environments");
     let mut by_phase = serde_json::Map::new();
     for e in &envs {

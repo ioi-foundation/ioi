@@ -9338,6 +9338,8 @@ pub(crate) async fn run_host_spawn_lane(
 /// called after the execution authority gate admits `port_exposure`.
 async fn start_preview_server(
     workspace_root: String,
+    data_dir: String,
+    capability_lease_ref: String,
 ) -> std::io::Result<(
     u16,
     tokio::sync::oneshot::Sender<()>,
@@ -9348,7 +9350,11 @@ async fn start_preview_server(
     let app = axum::Router::new()
         .route("/", axum::routing::get(serve_preview_root))
         .route("/*preview_path", axum::routing::get(serve_preview_path))
-        .with_state(workspace_root);
+        .with_state(PreviewState {
+            workspace_root,
+            data_dir,
+            capability_lease_ref,
+        });
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     // Graceful shutdown so a revoke/teardown deterministically closes the socket:
     // once signalled, axum::serve stops accepting and its listener is dropped.
@@ -9362,15 +9368,43 @@ async fn start_preview_server(
     Ok((port, shutdown_tx, join))
 }
 
-async fn serve_preview_root(State(root): State<String>) -> Response {
-    serve_preview_file(&root, "index.html")
+#[derive(Clone)]
+struct PreviewState {
+    workspace_root: String,
+    data_dir: String,
+    capability_lease_ref: String,
+}
+
+fn preview_request_authorized(
+    state: &PreviewState,
+    query: &std::collections::HashMap<String, String>,
+) -> bool {
+    query.get("lease").map(String::as_str) == Some(state.capability_lease_ref.as_str())
+        && super::authority_routes::capability_lease_status(
+            &state.data_dir,
+            &state.capability_lease_ref,
+        ) == "active"
+}
+
+async fn serve_preview_root(
+    State(state): State<PreviewState>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    if !preview_request_authorized(&state, &query) {
+        return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
+    }
+    serve_preview_file(&state.workspace_root, "index.html")
 }
 
 async fn serve_preview_path(
-    State(root): State<String>,
+    State(state): State<PreviewState>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
     AxumPath(rel): AxumPath<String>,
 ) -> Response {
-    serve_preview_file(&root, &rel)
+    if !preview_request_authorized(&state, &query) {
+        return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
+    }
+    serve_preview_file(&state.workspace_root, &rel)
 }
 
 /// Serve a file from the preview workspace with a real traversal guard: the
@@ -9416,6 +9450,74 @@ fn preview_content_type(path: &std::path::Path) -> &'static str {
     }
 }
 
+#[cfg(test)]
+mod preview_authority_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn preview_listener_requires_the_exact_live_capability_on_every_request() {
+        let data = tempfile::tempdir().unwrap();
+        let workspace = tempfile::tempdir().unwrap();
+        std::fs::write(workspace.path().join("index.html"), "owner-only-preview").unwrap();
+        let grant = super::super::authority_routes::issue_capability_lease(
+            data.path().to_str().unwrap(),
+            "user://preview-owner",
+            "environment.preview.read",
+            json!(["environment://local/env_preview"]),
+            300,
+        );
+        let lease_ref = grant["grant_ref"].as_str().unwrap().to_string();
+        let (port, shutdown, join) = start_preview_server(
+            workspace.path().to_string_lossy().into_owned(),
+            data.path().to_string_lossy().into_owned(),
+            lease_ref.clone(),
+        )
+        .await
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let base = format!("http://127.0.0.1:{port}/");
+        assert_eq!(
+            client.get(&base).send().await.unwrap().status().as_u16(),
+            403
+        );
+        assert_eq!(
+            client
+                .get(format!("{base}?lease=wrong"))
+                .send()
+                .await
+                .unwrap()
+                .status()
+                .as_u16(),
+            403
+        );
+        let admitted = client
+            .get(format!("{base}?lease={lease_ref}"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(admitted.status().as_u16(), 200);
+        assert_eq!(admitted.text().await.unwrap(), "owner-only-preview");
+
+        assert!(super::super::authority_routes::revoke_lease(
+            data.path().to_str().unwrap(),
+            &lease_ref,
+        ));
+        assert_eq!(
+            client
+                .get(format!("{base}?lease={lease_ref}"))
+                .send()
+                .await
+                .unwrap()
+                .status()
+                .as_u16(),
+            403
+        );
+        let _ = shutdown.send(());
+        let _ = join.await;
+    }
+}
+
 /// Open (or replace) the session's preview listener for `workspace_root`, bound
 /// under the admitted `capability_lease_ref`, and return the canonical
 /// `HypervisorEnvironmentPort` value. Returns None if no listener could bind.
@@ -9425,10 +9527,14 @@ async fn open_session_preview_port(
     workspace_root: &str,
     capability_lease_ref: &str,
 ) -> Option<Value> {
-    let (port, shutdown, join) = start_preview_server(workspace_root.to_string())
-        .await
-        .ok()?;
-    let url = format!("http://127.0.0.1:{port}/");
+    let (port, shutdown, join) = start_preview_server(
+        workspace_root.to_string(),
+        st.data_dir.clone(),
+        capability_lease_ref.to_string(),
+    )
+    .await
+    .ok()?;
+    let url = format!("http://127.0.0.1:{port}/?lease={capability_lease_ref}");
     // Replace any prior listener for this session (signal the old one to shut down;
     // the new listener binds a fresh port, so we don't need to await the old close).
     if let Ok(mut servers) = st.preview_servers.lock() {
@@ -9637,16 +9743,19 @@ fn bind_env_workspace(
             "environment record identity does not match the requested environment_id".into(),
         );
     }
-    let environment_owner = v
-        .get("owner_ref")
-        .or_else(|| v.pointer("/spec/owner_ref"))
-        .and_then(Value::as_str);
-    let legacy_local_single_user = environment_owner.is_none()
-        && owner_ref == "user://local-operator"
-        && v.pointer("/status/tenant_posture").and_then(Value::as_str) == Some("single_user");
-    if environment_owner.is_some_and(|owner| owner != owner_ref)
-        || (environment_owner.is_none() && !legacy_local_single_user)
-    {
+    let environment_scope = super::substrate_store::read_request_scope(
+        data_dir,
+        super::environment_routes::ENVIRONMENT_SCOPE_KIND,
+        env_id,
+    )
+    .map_err(|error| {
+        format!(
+            "environment ownership substrate unavailable ({})",
+            error.code()
+        )
+    })?
+    .ok_or_else(|| "environment is unadopted; only deployment disposal is available".to_string())?;
+    if environment_scope.principal_ref != owner_ref {
         return Err("environment workspace is not owned by the resolved Session principal".into());
     }
     let workspace_root = v
@@ -15829,7 +15938,7 @@ fn verify_password(pw: &str, stored_hex: &str) -> bool {
         Err(_) => false,
     }
 }
-fn gen_opaque(prefix: &str) -> String {
+pub(crate) fn gen_opaque(prefix: &str) -> String {
     format!(
         "{prefix}_{}{}",
         uuid::Uuid::new_v4().simple(),

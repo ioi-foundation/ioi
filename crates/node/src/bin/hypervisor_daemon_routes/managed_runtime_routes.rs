@@ -25,7 +25,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use super::{persist_record, DaemonState};
+use super::{persist_record, AppError, DaemonState};
 
 const RUNTIME_NAMESPACE: &str = "managed-runtime";
 const PERSISTENCE_NAMESPACE: &str = "managed-persistence";
@@ -178,6 +178,11 @@ fn scope_refusal(error: super::substrate_store::RequestScopeRefusal) -> Reply {
         }
     };
     bad(status, error.code(), error.message())
+}
+
+fn environment_owner_refusal(error: AppError) -> Reply {
+    let AppError(status, code) = error;
+    bad(status, &code, code.clone())
 }
 
 fn request_identity(
@@ -2513,6 +2518,13 @@ fn capture_environment_backup(
     environment_id: &str,
     request: &BackupCreateRequest,
 ) -> Reply {
+    if let Err(error) = super::environment_routes::authorize_environment_owner_identity(
+        data_dir,
+        identity,
+        environment_id,
+    ) {
+        return environment_owner_refusal(error);
+    }
     if !matches!(
         request.trigger.as_str(),
         "manual" | "scheduled" | "webhook" | "pre_change" | "shutdown" | "policy"
@@ -3787,6 +3799,12 @@ fn authorized_instance_for_environment(
     identity: &super::substrate_store::RequestIdentity,
     environment_id: &str,
 ) -> Result<super::substrate_store::RequestResourceScope, Reply> {
+    super::environment_routes::authorize_environment_owner_identity(
+        data_dir,
+        identity,
+        environment_id,
+    )
+    .map_err(environment_owner_refusal)?;
     let expected = format!("environment://local/{environment_id}");
     let mut matches = Vec::new();
     for instance_ref in authorized_refs(data_dir, identity, INSTANCE_SCOPE_KIND)? {
@@ -4294,6 +4312,13 @@ fn act_on_restore_plan(
     let environment_id = current.operation.payload["target_environment_id"]
         .as_str()
         .unwrap_or_default();
+    if let Err(error) = super::environment_routes::authorize_environment_owner_identity(
+        data_dir,
+        identity,
+        environment_id,
+    ) {
+        return environment_owner_refusal(error);
+    }
     let environment = match environment_record(data_dir, environment_id) {
         Ok(environment) => environment,
         Err(reply) => return reply,
@@ -5049,7 +5074,17 @@ mod tests {
         std::fs::create_dir_all(&workspace).unwrap();
         std::fs::write(workspace.join("data.txt"), BACKED_UP_BYTES).unwrap();
 
-        // Environment record: a non-microvm workspace the backup captures and the restore targets.
+        // Mirror the production creation seam: the immutable environment-owner pin lands before
+        // the environment record whose workspace the backup captures and restore targets.
+        bind_scope(
+            &data_dir,
+            &identity,
+            crate::environment_routes::ENVIRONMENT_SCOPE_KIND,
+            &environment_id,
+            TENANT,
+            "fixture-environment-owner",
+        )
+        .unwrap();
         std::fs::create_dir_all(std::path::Path::new(&data_dir).join("environments")).unwrap();
         std::fs::write(
             std::path::Path::new(&data_dir)
@@ -5633,6 +5668,16 @@ pub(crate) mod backup_fixture {
         std::fs::create_dir_all(&workspace).unwrap();
         std::fs::write(workspace.join("data.txt"), FIXTURE_WORKSPACE_BYTES).unwrap();
 
+        // Mirror the production creation seam: bind environment ownership before its record.
+        bind_scope(
+            &data_dir,
+            &identity,
+            crate::environment_routes::ENVIRONMENT_SCOPE_KIND,
+            &environment_id,
+            FIXTURE_TENANT,
+            "dl-fixture-environment-owner",
+        )
+        .unwrap();
         std::fs::create_dir_all(std::path::Path::new(&data_dir).join("environments")).unwrap();
         std::fs::write(
             std::path::Path::new(&data_dir)

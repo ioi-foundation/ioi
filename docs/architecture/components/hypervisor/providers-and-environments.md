@@ -346,6 +346,38 @@ a named reason and receipt rather than pretending parity.
 
 ## Development Environment Substrate Doctrine
 
+### Environment ownership and the first durable byte
+
+An environment's owner is the active principal named by its immutable
+`hypervisor-environment` substrate scope pin. Ownership is never read from an
+environment record field, inferred from a shared organization, or awarded by
+first reference. The daemon mints a normalization-safe canonical environment id,
+binds that scope before persisting the environment record, and treats a surviving
+pin after an induced record-write failure as a retryable owned coordinate—not as
+permission to reassign it.
+
+`POST /v1/hypervisor/environments` is the only creation seam. GET and lifecycle
+actions on a missing environment return a typed absence and create no record, pin
+or workspace. Every route whose handler can transitively reach an environment
+workspace authorizes the caller against the same pin, including terminal,
+ops-lease, preview, workrun, conversation, editor-service, snapshot and backup
+handles. Derived handles may identify the environment, but they never create an
+alternative authority coordinate.
+
+Environment listing and reads are owner-scoped. An unpinned legacy environment is
+`environment_unadopted`: ordinary principals cannot adopt, read or mutate it. A
+deployment administrator may dispose of an unadopted, owned or stranded
+environment through the environment plane's receipted disposal path, including
+when the pinned principal is no longer active, but administrator status grants no
+workspace read or write authority. Capability consumers additionally require an
+exact action, resource and pinned subject; a port/editor token is not an
+environment-ops token, and preview access requires the exact active token minted
+for that environment request.
+
+This contract is the accepted [ADR 0035](../../../decisions/0035-an-environment-is-owned-where-its-workspace-is-materialized-by-an-authorizing-request.md).
+Its executable closed world is derived from router source rather than maintained
+as a route hand-list; unresolved or unclassified registrations fail the gate.
+
 Autonomous software work is a stateful, interactive, adversarial workload, not
 a fungible stateless application pod. Hypervisor must avoid rebuilding a
 generic application orchestrator underneath the product.

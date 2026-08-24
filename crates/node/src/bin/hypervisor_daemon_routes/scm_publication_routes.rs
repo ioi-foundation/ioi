@@ -57,7 +57,7 @@ use super::governed_authority::{
 };
 use super::lifecycle_routes::{authorize_capability_lease, CapabilityLeaseRequest};
 use super::system_activation_routes::{load_local, persist_local};
-use super::DaemonState;
+use super::{AppError, DaemonState};
 
 type VErr = (String, String);
 
@@ -2190,88 +2190,6 @@ fn authorize_publication_source_scope(
     Ok(binding_scope.owner_ref)
 }
 
-fn authorize_environment_owner(
-    identity: &super::substrate_store::RequestIdentity,
-    environment: &Value,
-    owner_ref: &str,
-) -> Result<(), (StatusCode, Json<Value>)> {
-    if !identity.authorizes_tenant(owner_ref) {
-        return Err(scope_fail(
-            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
-        ));
-    }
-    let declared_owner = environment
-        .get("owner_ref")
-        .or_else(|| environment.pointer("/spec/owner_ref"))
-        .and_then(Value::as_str);
-    if let Some(declared) = declared_owner {
-        if declared.starts_with("user://") && declared != identity.principal_ref {
-            return Err(scope_fail(
-                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
-            ));
-        }
-        if (declared.starts_with("org://") || declared.starts_with("project://"))
-            && declared != owner_ref
-        {
-            return Err(scope_fail(
-                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
-            ));
-        }
-    } else if identity.principal_ref != "user://local-operator"
-        || environment
-            .pointer("/status/tenant_posture")
-            .and_then(Value::as_str)
-            != Some("single_user")
-    {
-        // Legacy local-workspace environments have no owner coordinate. They are intentionally
-        // usable only by the authenticated bootstrap operator in their declared single-user mode.
-        return Err(scope_fail(
-            super::substrate_store::RequestScopeRefusal::ResourceScopeRequired,
-        ));
-    }
-    if let Some(project) = environment
-        .pointer("/spec/project_id")
-        .and_then(Value::as_str)
-        .filter(|value| value.starts_with("project://"))
-    {
-        if project != owner_ref {
-            return Err(scope_fail(
-                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// Resolve the single tenant that owns publication artifacts derived from an environment. A
-/// canonical project coordinate wins; legacy local workspaces may use the caller's sole tenant,
-/// but only after the environment's explicit single-user/local-operator posture is rechecked.
-pub(crate) fn publication_owner_for_environment(
-    identity: &super::substrate_store::RequestIdentity,
-    environment: &Value,
-) -> Result<String, (StatusCode, Json<Value>)> {
-    let owner_ref = if let Some(project_ref) = environment
-        .pointer("/spec/project_id")
-        .and_then(Value::as_str)
-        .filter(|value| value.starts_with("project://"))
-    {
-        project_ref.to_owned()
-    } else if identity.tenant_refs.len() == 1 {
-        identity
-            .tenant_refs
-            .iter()
-            .next()
-            .cloned()
-            .unwrap_or_default()
-    } else {
-        return Err(scope_fail(
-            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
-        ));
-    };
-    authorize_environment_owner(identity, environment, &owner_ref)?;
-    Ok(owner_ref)
-}
-
 async fn settle_prepared_authority_from_remote_truth(
     data_dir: &str,
     prepared: &Value,
@@ -2720,6 +2638,16 @@ pub(crate) async fn handle_scm_publish(
         Ok(identity) => identity,
         Err(response) => return response,
     };
+    if let Err(AppError(status, message)) = super::environment_routes::authorize_environment_owner(
+        &state.data_dir,
+        &headers,
+        &environment_id,
+    ) {
+        return (
+            status,
+            Json(json!({ "ok": false, "error": { "code": message } })),
+        );
+    }
     let Some(environment) = super::read_record_dir(&state.data_dir, "environments")
         .into_iter()
         .find(|record| record["id"].as_str() == Some(environment_id.as_str()))
@@ -2762,10 +2690,6 @@ pub(crate) async fn handle_scm_publish(
             Ok(owner_ref) => owner_ref,
             Err(response) => return response,
         };
-    if let Err(response) = authorize_environment_owner(&request_identity, &environment, &owner_ref)
-    {
-        return response;
-    }
     let caller_idempotency_key = match bounded_caller_idempotency_key(&body) {
         Ok(key) => key,
         Err(error) => return fail(error),

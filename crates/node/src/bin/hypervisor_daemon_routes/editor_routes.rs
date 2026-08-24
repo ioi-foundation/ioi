@@ -24,7 +24,7 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use super::authority_routes::{capability_lease_status, issue_capability_lease};
-use super::{iso_now, persist_record, read_record_dir, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, AppError, DaemonState};
 
 fn nanos() -> u128 {
     SystemTime::now()
@@ -77,6 +77,20 @@ fn load_by(data_dir: &str, dir: &str, key: &str, id: &str) -> Option<Value> {
     read_record_dir(data_dir, dir)
         .into_iter()
         .find(|r| r.get(key).and_then(|v| v.as_str()) == Some(id))
+}
+
+fn authorize_editor_service_owner(
+    data_dir: &str,
+    headers: &HeaderMap,
+    service: &Value,
+) -> Result<super::substrate_store::RequestIdentity, AppError> {
+    let environment_id = service["environment_id"].as_str().ok_or_else(|| {
+        AppError(
+            StatusCode::CONFLICT,
+            "editor service environment binding missing".into(),
+        )
+    })?;
+    super::environment_routes::authorize_environment_owner(data_dir, headers, environment_id)
 }
 
 // ---------------------------------------------------------------------------
@@ -349,9 +363,11 @@ pub(crate) async fn handle_provisioning_plan_get(
 /// POST /v1/hypervisor/editor-services — create an editor access service for an environment.
 pub(crate) async fn handle_editor_service_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     let env_id = s(&body, "environment_id", "");
+    super::environment_routes::authorize_environment_owner(&st.data_dir, &headers, &env_id)?;
     let target = s(&body, "target_profile", "vscode-browser");
     let id = format!("eds_{:x}", nanos());
     let receipt = editor_receipt(&st.data_dir, &id, "editor_service_created");
@@ -373,29 +389,43 @@ pub(crate) async fn handle_editor_service_create(
     // The service is read back by start/expose/stop/rebuild/status/open-url via load_by; a
     // discarded write hands the caller a service_id no later action can resolve.
     if persist_record(&st.data_dir, "editor-services", &id, &record).is_err() {
-        return (
+        return Ok((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(
                 json!({ "ok": false, "code": "editor_service_persistence_failed",
                 "message": "the editor access service did not commit — nothing was created" }),
             ),
-        );
+        ));
     }
-    (StatusCode::OK, Json(json!({ "editorService": record })))
+    Ok((StatusCode::OK, Json(json!({ "editorService": record }))))
 }
 
 /// GET /v1/hypervisor/editor-services?environment_id=… — list editor services.
 pub(crate) async fn handle_editor_services_list(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Query(q): Query<std::collections::HashMap<String, String>>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+        .map_err(super::environment_routes::environment_scope_error)?;
+    let owned = super::substrate_store::authorized_request_resource_refs(
+        &st.data_dir,
+        &identity,
+        super::environment_routes::ENVIRONMENT_SCOPE_KIND,
+    )
+    .map_err(super::environment_routes::environment_scope_error)?;
     let mut svcs = read_record_dir(&st.data_dir, "editor-services");
+    svcs.retain(|service| {
+        service["environment_id"]
+            .as_str()
+            .is_some_and(|environment_id| owned.contains(environment_id))
+    });
     if let Some(env) = q.get("environment_id") {
         svcs.retain(|s| s.get("environment_id").and_then(|v| v.as_str()) == Some(env.as_str()));
     }
-    Json(
+    Ok(Json(
         json!({ "schema_version": "ioi.hypervisor.editor-services.v1", "editorServices": svcs, "at": iso_now() }),
-    )
+    ))
 }
 
 fn save_service(data_dir: &str, svc: &Value) -> std::io::Result<()> {
@@ -411,15 +441,17 @@ fn save_service(data_dir: &str, svc: &Value) -> std::io::Result<()> {
 /// fails CLOSED with `editor_runtime_not_provisioned` (honest — never a fake ready).
 pub(crate) async fn handle_editor_service_start(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(service_id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
-        return (
+        return Ok((
             StatusCode::OK,
             Json(json!({ "ok": false, "reason": "editor service not found" })),
-        );
+        ));
     };
+    authorize_editor_service_owner(&st.data_dir, &headers, &svc)?;
     // inject binding refs (WS-6a) the editor host will surface in context envelopes.
     if let Some(sr) = body.get("session_ref").and_then(|v| v.as_str()) {
         svc["session_ref"] = json!(sr);
@@ -432,20 +464,20 @@ pub(crate) async fn handle_editor_service_start(
         svc["phase"] = json!("waiting_for_runtime");
         svc["readiness"] = json!({ "mode": "blocked", "reason": "editor_runtime_not_provisioned", "detail": "openvscode-server not pinned/installed yet (WS-2). Run scripts/provision-hypervisor-vscode-browser-host.mjs" });
         if save_service(&st.data_dir, &svc).is_err() {
-            return (
+            return Ok((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(
                     json!({ "ok": false, "code": "editor_service_persistence_failed",
                     "message": "the editor service phase update did not commit" }),
                 ),
-            );
+            ));
         }
-        return (
+        return Ok((
             StatusCode::OK,
             Json(
                 json!({ "ok": false, "editorService": svc, "reason": "editor_runtime_not_provisioned" }),
             ),
-        );
+        ));
     }
     // WS-2 present: launch + wait for /version.
     match super::editor_host::start_oss_runtime(&st, &service_id, &svc).await {
@@ -453,36 +485,36 @@ pub(crate) async fn handle_editor_service_start(
             if save_service(&st.data_dir, &updated).is_err() {
                 // The runtime is LIVE but no record knows about it — tear it down before erroring.
                 super::editor_host::stop_oss_runtime(&st, &service_id);
-                return (
+                return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(
                         json!({ "ok": false, "code": "editor_service_persistence_failed",
                         "message": "the started editor runtime did not commit — the runtime was torn down" }),
                     ),
-                );
+                ));
             }
             editor_receipt(&st.data_dir, &service_id, "editor_service_ready");
-            (
+            Ok((
                 StatusCode::OK,
                 Json(json!({ "ok": true, "editorService": updated })),
-            )
+            ))
         }
         Err(reason) => {
             svc["phase"] = json!("failed");
             svc["readiness"] = json!({ "mode": "blocked", "reason": reason });
             if save_service(&st.data_dir, &svc).is_err() {
-                return (
+                return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(
                         json!({ "ok": false, "code": "editor_service_persistence_failed",
                         "message": "the editor service failure state did not commit" }),
                     ),
-                );
+                ));
             }
-            (
+            Ok((
                 StatusCode::OK,
                 Json(json!({ "ok": false, "editorService": svc, "reason": reason })),
-            )
+            ))
         }
     }
 }
@@ -515,40 +547,42 @@ fn grant_authorizes_editor_service(grant: &Value, service_id: &str, svc_env: &st
 /// service + a lease that AUTHORIZES this service (`grant_authorizes_editor_service`).
 pub(crate) async fn handle_editor_service_expose(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(service_id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
-        return (
+        return Ok((
             StatusCode::OK,
             Json(json!({ "ok": false, "reason": "editor service not found" })),
-        );
+        ));
     };
+    authorize_editor_service_owner(&st.data_dir, &headers, &svc)?;
     if svc.get("phase").and_then(|v| v.as_str()) != Some("ready") {
-        return (
+        return Ok((
             StatusCode::OK,
             Json(
                 json!({ "ok": false, "reason": "editor service not ready (start it first)", "phase": svc.get("phase") }),
             ),
-        );
+        ));
     }
     let internal_port = match svc.get("internal_port").and_then(|v| v.as_u64()) {
         Some(p) => p as u16,
         None => {
-            return (
+            return Ok((
                 StatusCode::OK,
                 Json(json!({ "ok": false, "reason": "no internal runtime port" })),
-            )
+            ))
         }
     };
     let lease_id = s(&body, "lease_id", "");
     if capability_lease_status(&st.data_dir, &lease_id) != "active" {
-        return (
+        return Ok((
             StatusCode::OK,
             Json(
                 json!({ "ok": false, "reason": format!("capability lease not active ({})", capability_lease_status(&st.data_dir, &lease_id)), "fail_closed": true }),
             ),
-        );
+        ));
     }
     // THE LEASE MUST BE FOR THIS EDITOR SERVICE, NOT MERELY ACTIVE. This gate used to check only that
     // SOME lease was active, so any active lease in the estate — a port-forward lease, an ops lease,
@@ -566,12 +600,12 @@ pub(crate) async fn handle_editor_service_expose(
         .map(|g| grant_authorizes_editor_service(&g, &service_id, &svc_env))
         .unwrap_or(false);
     if !editor_lease_ok {
-        return (
+        return Ok((
             StatusCode::FORBIDDEN,
             Json(
                 json!({ "ok": false, "reason": "the lease does not authorize this editor service — an active lease must carry the `environment.editor.open` action and name this service (or its environment) in its resources", "fail_closed": true }),
             ),
-        );
+        ));
     }
     // replace any prior proxy for this service.
     {
@@ -588,10 +622,10 @@ pub(crate) async fn handle_editor_service_expose(
     {
         Ok(v) => v,
         Err(e) => {
-            return (
+            return Ok((
                 StatusCode::OK,
                 Json(json!({ "ok": false, "reason": format!("proxy bind failed: {e}") })),
-            )
+            ))
         }
     };
     st.editor_proxies
@@ -605,16 +639,16 @@ pub(crate) async fn handle_editor_service_expose(
         // never hand out a public URL the service record does not back.
         let mut proxies = st.editor_proxies.lock().unwrap();
         super::editor_proxy::stop_editor_proxy(&mut proxies, &service_id);
-        return (
+        return Ok((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(
                 json!({ "ok": false, "code": "editor_service_persistence_failed",
                 "message": "the editor proxy exposure did not commit — the proxy was torn down" }),
             ),
-        );
+        ));
     }
     editor_receipt(&st.data_dir, &service_id, "editor_proxy_bound");
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({
             "ok": true, "service_id": service_id,
@@ -622,20 +656,22 @@ pub(crate) async fn handle_editor_service_expose(
             "open_url": format!("http://127.0.0.1:{public_port}/?lease={lease_id}"),
             "auth_mode": "first_message_session_token", "lease_id": lease_id
         })),
-    )
+    ))
 }
 
 /// POST /v1/hypervisor/editor-services/:service_id/stop
 pub(crate) async fn handle_editor_service_stop(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(service_id): AxumPath<String>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
-        return (
+        return Ok((
             StatusCode::OK,
             Json(json!({ "ok": false, "reason": "editor service not found" })),
-        );
+        ));
     };
+    authorize_editor_service_owner(&st.data_dir, &headers, &svc)?;
     {
         let mut proxies = st.editor_proxies.lock().unwrap();
         super::editor_proxy::stop_editor_proxy(&mut proxies, &service_id);
@@ -648,72 +684,86 @@ pub(crate) async fn handle_editor_service_stop(
     // The runtime is already down; a discarded save leaves the record `ready` with live ports for
     // a dead runtime, so open-url would hand out a URL to nothing. Refuse rather than lie.
     if save_service(&st.data_dir, &svc).is_err() {
-        return (
+        return Ok((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(
                 json!({ "ok": false, "code": "editor_service_persistence_failed",
                 "message": "the editor service stop did not commit — the runtime is down but its record is stale" }),
             ),
-        );
+        ));
     }
     editor_receipt(&st.data_dir, &service_id, "editor_service_stopped");
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({ "ok": true, "editorService": svc })),
-    )
+    ))
 }
 
 /// POST /v1/hypervisor/editor-services/:service_id/rebuild — reconcile/rebuild (recipe-driven).
 pub(crate) async fn handle_editor_service_rebuild(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(service_id): AxumPath<String>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     let Some(mut svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
-        return (
+        return Ok((
             StatusCode::OK,
             Json(json!({ "ok": false, "reason": "editor service not found" })),
-        );
+        ));
     };
+    authorize_editor_service_owner(&st.data_dir, &headers, &svc)?;
     super::editor_host::stop_oss_runtime(&st, &service_id);
     svc["phase"] = json!("created");
     svc["readiness"] =
         json!({ "mode": "blocked", "reason": "rebuild requested; restart to re-provision" });
     if save_service(&st.data_dir, &svc).is_err() {
-        return (
+        return Ok((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(
                 json!({ "ok": false, "code": "editor_service_persistence_failed",
                 "message": "the editor service rebuild did not commit — the record is unchanged" }),
             ),
-        );
+        ));
     }
     let receipt = editor_receipt(&st.data_dir, &service_id, "editor_service_rebuild");
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({ "ok": true, "editorService": svc, "receipt_ref": receipt })),
-    )
+    ))
 }
 
 /// GET /v1/hypervisor/editor-services/:service_id/status
 pub(crate) async fn handle_editor_service_status(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(service_id): AxumPath<String>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
     match load_by(&st.data_dir, "editor-services", "service_id", &service_id) {
-        Some(svc) => Json(
-            json!({ "status": svc.get("readiness"), "phase": svc.get("phase"), "internal_port": svc.get("internal_port"), "public_proxy_port": svc.get("public_proxy_port"), "service": svc }),
-        ),
-        None => Json(json!({ "error": { "code": "not_found", "service": service_id } })),
+        Some(svc) => {
+            authorize_editor_service_owner(&st.data_dir, &headers, &svc)?;
+            Ok(Json(
+                json!({ "status": svc.get("readiness"), "phase": svc.get("phase"), "internal_port": svc.get("internal_port"), "public_proxy_port": svc.get("public_proxy_port"), "service": svc }),
+            ))
+        }
+        None => Ok(Json(
+            json!({ "error": { "code": "not_found", "service": service_id } }),
+        )),
     }
 }
 
 /// GET /v1/hypervisor/editor-services/:service_id/logs
 pub(crate) async fn handle_editor_service_logs(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(service_id): AxumPath<String>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
+    let service = load_by(&st.data_dir, "editor-services", "service_id", &service_id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "editor service not found".into()))?;
+    authorize_editor_service_owner(&st.data_dir, &headers, &service)?;
     let log = super::editor_host::read_runtime_log(&st.data_dir, &service_id);
-    Json(json!({ "service_id": service_id, "log": log, "at": iso_now() }))
+    Ok(Json(
+        json!({ "service_id": service_id, "log": log, "at": iso_now() }),
+    ))
 }
 
 /// GET /v1/hypervisor/editor-services/:service_id/open-url — the daemon-generated browser URL.
@@ -721,12 +771,16 @@ pub(crate) async fn handle_editor_service_logs(
 /// service is `ready` (WS-2) this returns a named not-ready reason — never a fabricated URL.
 pub(crate) async fn handle_editor_service_open_url(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(service_id): AxumPath<String>,
     Query(q): Query<std::collections::HashMap<String, String>>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
     let Some(svc) = load_by(&st.data_dir, "editor-services", "service_id", &service_id) else {
-        return Json(json!({ "ok": false, "reason": "editor service not found" }));
+        return Ok(Json(
+            json!({ "ok": false, "reason": "editor service not found" }),
+        ));
     };
+    authorize_editor_service_owner(&st.data_dir, &headers, &svc)?;
     let lease = q.get("lease_ref").cloned().unwrap_or_default();
     let lease_status = if lease.is_empty() {
         "missing"
@@ -734,29 +788,29 @@ pub(crate) async fn handle_editor_service_open_url(
         capability_lease_status(&st.data_dir, &lease)
     };
     if lease_status != "active" {
-        return Json(
+        return Ok(Json(
             json!({ "ok": false, "reason": format!("capability lease not active ({lease_status})"), "fail_closed": true }),
-        );
+        ));
     }
     if svc.get("phase").and_then(|v| v.as_str()) != Some("ready") {
-        return Json(
+        return Ok(Json(
             json!({ "ok": false, "reason": "editor service not ready", "phase": svc.get("phase"), "readiness": svc.get("readiness") }),
-        );
+        ));
     }
     // Ready runtime, but the lease-bound PUBLIC url routes through the WS proxy (WS-4). Until the
     // proxy is bound we do NOT hand out the raw internal port as a durable URL — fail closed honestly.
     let port = svc.get("public_proxy_port").and_then(|v| v.as_u64());
     let Some(p) = port else {
-        return Json(
+        return Ok(Json(
             json!({ "ok": false, "reason": "websocket_proxy_not_ready", "detail": "editor runtime is ready on its internal port; the lease-bound public URL needs the WS proxy (WS-4)", "phase": "ready" }),
-        );
+        ));
     };
-    Json(json!({
+    Ok(Json(json!({
         "ok": true, "service_id": service_id,
         "open_url": format!("http://127.0.0.1:{p}/?lease={lease}"),
         "lease_ref": lease, "websocket_only": true,
         "note": "route through the browser-IDE shell URL; the raw WS-only target is not a plain preview",
-    }))
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -772,6 +826,22 @@ pub(crate) async fn handle_editor_access_lease_create(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let env = s(&body, "environment_id", "");
+    let owner_identity = match super::environment_routes::authorize_environment_owner(
+        &st.data_dir,
+        &headers,
+        &env,
+    ) {
+        Ok(identity) => identity,
+        Err(AppError(status, message)) => {
+            return (
+                status,
+                Json(
+                    json!({ "ok": false, "code": message, "message": "environment owner authorization refused" }),
+                ),
+            )
+        }
+    };
     // INV-37 — the lease SUBJECT is resolved SERVER-SIDE, never a caller-passed constant. A
     // supplied session ref must resolve to a real session record; otherwise the authenticated
     // principal is the subject; otherwise the request is refused. The "operator" default is gone.
@@ -804,21 +874,8 @@ pub(crate) async fn handle_editor_access_lease_create(
                 );
             }
         }
-    } else if let Some(principal) =
-        super::lifecycle_routes::resolve_principal(&st.data_dir, &headers)
-    {
-        match principal.get("principal_ref").and_then(|v| v.as_str()) {
-            Some(principal_ref) => principal_ref.to_string(),
-            None => {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(
-                        json!({ "ok": false, "code": "editor_access_lease_subject_unresolved",
-                        "message": "the authenticated principal carries no principal_ref; the lease subject cannot be established" }),
-                    ),
-                );
-            }
-        }
+    } else if !owner_identity.principal_ref.is_empty() {
+        owner_identity.principal_ref.clone()
     } else {
         return (
             StatusCode::UNAUTHORIZED,
@@ -828,7 +885,6 @@ pub(crate) async fn handle_editor_access_lease_create(
             ),
         );
     };
-    let env = s(&body, "environment_id", "");
     let service = s(&body, "service_id", "");
     let expiry = body
         .get("expiry_seconds")

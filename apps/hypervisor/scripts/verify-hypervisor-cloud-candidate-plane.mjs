@@ -188,11 +188,12 @@ async function run() {
     lp.placement?.venue === "hypervisor_choose"
     && String(lp.placement?.advisory_ref || "").startsWith("placement-advisory://")
     && (lp.placement?.advisory_candidate_refs || []).length >= 2);
-  const envRes = (await jd("POST", "/v1/hypervisor/environments", { environment_id: `env-ccp-${tag}` })).j;
+  const envRes = (await jd("POST", "/v1/hypervisor/environments", { spec: {} })).j;
+  const environmentId = envRes.environment?.id;
   ok("environment create snapshots the advisory/candidate refs",
     String(envRes.environment?.spec?.placement_venue?.advisory_ref || "").startsWith("placement-advisory://")
     && (envRes.environment?.spec?.placement_venue?.advisory_candidate_refs || []).length >= 2);
-  await jd("DELETE", `/v1/hypervisor/environments/env-ccp-${tag}`);
+  if (environmentId) await jd("POST", `/v1/hypervisor/environments/${environmentId}/delete`, {});
 
   // ── 9. Pinned override still works (user choice never buried) ──
   const pinned = await jd("PUT", "/v1/hypervisor/placement/venue-policy", { venue: "pick_provider", provider_account_ref: aws.account_ref });

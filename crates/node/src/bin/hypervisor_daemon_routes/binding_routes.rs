@@ -22,14 +22,14 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     admit_isolated_execution, DeclaredIsolation, ExecutionLocus, IsolatedSubstrate,
 };
 use serde_json::{json, Value};
 
-use super::{iso_now, persist_record, read_record_dir, DaemonState};
+use super::{iso_now, persist_record, read_record_dir, AppError, DaemonState};
 
 fn nanos() -> u128 {
     SystemTime::now()
@@ -95,12 +95,20 @@ fn binding_view(data_dir: &str, mut binding: Value) -> Value {
 /// POST /v1/hypervisor/session-execution-bindings — compose one binding over existing refs.
 pub(crate) async fn handle_binding_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     let data_dir = &st.data_dir;
-    let id = format!("bind_{:x}", nanos());
     let env_ref = sstr(&body, "environment_ref").unwrap_or_default();
     let env_id = ref_id(&env_ref).to_string();
+    if env_id.is_empty() {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "session_execution_binding_environment_required".into(),
+        ));
+    }
+    super::environment_routes::authorize_environment_owner(data_dir, &headers, &env_id)?;
+    let id = format!("bind_{:x}", nanos());
     let session_ref = sstr(&body, "session_ref").unwrap_or_else(|| format!("session:{id}"));
     let thread_ref = body.get("thread_ref").cloned().unwrap_or(Value::Null);
     let work_run_ref = body.get("work_run_ref").cloned().unwrap_or(Value::Null);
@@ -135,18 +143,18 @@ pub(crate) async fn handle_binding_create(
     // The binding is read back by GET :id / events / input / lifecycle via load_binding; a
     // discarded write hands the caller a binding_ref no subsequent read can resolve.
     if persist_record(data_dir, "session-execution-bindings", &id, &record).is_err() {
-        return (
+        return Ok((
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(
                 json!({ "ok": false, "code": "session_execution_binding_persistence_failed",
                 "message": "the session execution binding did not commit — nothing was bound" }),
             ),
-        );
+        ));
     }
-    (
+    Ok((
         StatusCode::OK,
         Json(json!({ "binding": binding_view(data_dir, record) })),
-    )
+    ))
 }
 
 fn load_binding(data_dir: &str, id: &str) -> Option<Value> {
@@ -156,26 +164,61 @@ fn load_binding(data_dir: &str, id: &str) -> Option<Value> {
         .find(|b| b.get("binding_id").and_then(|v| v.as_str()) == Some(bid))
 }
 
+fn authorize_binding_owner(
+    data_dir: &str,
+    headers: &HeaderMap,
+    binding: &Value,
+) -> Result<(), AppError> {
+    let environment_id = binding
+        .get("environment_ref")
+        .and_then(Value::as_str)
+        .map(ref_id)
+        .filter(|id| !id.is_empty())
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "session_execution_binding_environment_missing".into(),
+            )
+        })?;
+    super::environment_routes::authorize_environment_owner(data_dir, headers, environment_id)?;
+    Ok(())
+}
+
+fn load_authorized_binding(
+    data_dir: &str,
+    headers: &HeaderMap,
+    id: &str,
+) -> Result<Value, AppError> {
+    let binding = load_binding(data_dir, id).ok_or_else(|| {
+        AppError(
+            StatusCode::NOT_FOUND,
+            "session_execution_binding_not_found".into(),
+        )
+    })?;
+    authorize_binding_owner(data_dir, headers, &binding)?;
+    Ok(binding)
+}
+
 /// GET /v1/hypervisor/session-execution-bindings/:id — the binding with LIVE env truth hydrated.
 pub(crate) async fn handle_binding_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    match load_binding(&st.data_dir, &id) {
-        Some(b) => Json(json!({ "binding": binding_view(&st.data_dir, b) })),
-        None => Json(json!({ "error": { "code": "not_found", "binding": id } })),
-    }
+) -> Result<Json<Value>, AppError> {
+    let binding = load_authorized_binding(&st.data_dir, &headers, &id)?;
+    Ok(Json(
+        json!({ "binding": binding_view(&st.data_dir, binding) }),
+    ))
 }
 
 /// GET /v1/hypervisor/session-execution-bindings/:id/events — composed event snapshot. Every event
 /// carries the binding_ref so the UI hydrates one screen with NO ref drift across env/thread/run.
 pub(crate) async fn handle_binding_events(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let Some(b) = load_binding(&st.data_dir, &id) else {
-        return Json(json!({ "error": { "code": "not_found", "binding": id } }));
-    };
+) -> Result<Json<Value>, AppError> {
+    let b = load_authorized_binding(&st.data_dir, &headers, &id)?;
     let binding_ref = b
         .get("binding_ref")
         .and_then(|v| v.as_str())
@@ -201,64 +244,88 @@ pub(crate) async fn handle_binding_events(
     if let Some(w) = b.get("work_run_ref").and_then(|v| v.as_str()) {
         events.push(stamp("work_run", "work_run_ref", json!(w)));
     }
-    Json(
+    Ok(Json(
         json!({ "binding_ref": binding_ref, "event_stream_refs": b.get("event_stream_refs"), "events": events, "at": iso_now() }),
-    )
+    ))
 }
 
 /// POST /v1/hypervisor/session-execution-bindings/:id/input — operator input ROUTES to the bound
 /// thread (conversation lives in /v1/threads/*; the binding never owns turns).
 pub(crate) async fn handle_binding_input(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(_body): Json<Value>,
-) -> Json<Value> {
-    let Some(b) = load_binding(&st.data_dir, &id) else {
-        return Json(json!({ "ok": false, "reason": "binding not found" }));
-    };
-    match b.get("thread_ref").and_then(|v| v.as_str()) {
+) -> Result<Json<Value>, AppError> {
+    let b = load_authorized_binding(&st.data_dir, &headers, &id)?;
+    Ok(match b.get("thread_ref").and_then(|v| v.as_str()) {
         Some(t) => Json(
             json!({ "ok": true, "routed_to": t, "route": format!("/v1/threads/{}/turns", ref_id(t)), "note": "operator input is a thread turn; the binding only resolves the owner route" }),
         ),
         None => Json(
             json!({ "ok": false, "reason": "binding has no thread_ref; bind a thread (POST /v1/threads) before sending input" }),
         ),
-    }
+    })
 }
 
-fn binding_lifecycle(data_dir: &str, id: &str, action: &str, env_route: &str) -> Json<Value> {
-    let Some(b) = load_binding(data_dir, id) else {
-        return Json(json!({ "ok": false, "reason": "binding not found" }));
-    };
+fn binding_lifecycle(
+    data_dir: &str,
+    headers: &HeaderMap,
+    id: &str,
+    action: &str,
+    env_route: &str,
+) -> Result<Json<Value>, AppError> {
+    let b = load_authorized_binding(data_dir, headers, id)?;
     let env_ref = b
         .get("environment_ref")
         .and_then(|v| v.as_str())
         .unwrap_or("");
     // CLASSIFIED — best-effort telemetry: receipt-only delegation pointer; the environment route owns lifecycle truth
     let receipt = emit_receipt(data_dir, "binding", id, action);
-    Json(
+    Ok(Json(
         json!({ "ok": true, "binding": id, "action": action, "environment_ref": env_ref,
         "delegated_route": format!("{}/{}", env_route, ref_id(env_ref)),
         "note": "the binding coordinates; the environment route owns lifecycle truth", "receipt_ref": receipt }),
-    )
+    ))
 }
 pub(crate) async fn handle_binding_stop(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    binding_lifecycle(&st.data_dir, &id, "stop", "/v1/hypervisor/environments")
+) -> Result<Json<Value>, AppError> {
+    binding_lifecycle(
+        &st.data_dir,
+        &headers,
+        &id,
+        "stop",
+        "/v1/hypervisor/environments",
+    )
 }
 pub(crate) async fn handle_binding_archive(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    binding_lifecycle(&st.data_dir, &id, "archive", "/v1/hypervisor/environments")
+) -> Result<Json<Value>, AppError> {
+    binding_lifecycle(
+        &st.data_dir,
+        &headers,
+        &id,
+        "archive",
+        "/v1/hypervisor/environments",
+    )
 }
 pub(crate) async fn handle_binding_restore(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    binding_lifecycle(&st.data_dir, &id, "restore", "/v1/hypervisor/environments")
+) -> Result<Json<Value>, AppError> {
+    binding_lifecycle(
+        &st.data_dir,
+        &headers,
+        &id,
+        "restore",
+        "/v1/hypervisor/environments",
+    )
 }
 
 // ===========================================================================
@@ -296,16 +363,18 @@ fn scoped_path(ws: &str, rel: &str) -> Result<PathBuf, String> {
 /// op ∈ list | read | write | move | delete. Scoped to the env workspace; collision-safe.
 pub(crate) async fn handle_env_files(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
     let env_id = sstr(&body, "environment_id")
         .or_else(|| sstr(&body, "environment_ref").map(|r| ref_id(&r).to_string()))
         .unwrap_or_default();
+    super::environment_routes::authorize_environment_owner(&st.data_dir, &headers, &env_id)?;
     let op = sstr(&body, "op").unwrap_or_default();
     let Some(ws) = workspace_of(&st.data_dir, &env_id) else {
-        return Json(
+        return Ok(Json(
             json!({ "ok": false, "reason": "environment not started (no scoped workspace)", "environment_id": env_id }),
-        );
+        ));
     };
     let rel = sstr(&body, "path").unwrap_or_default();
     let res: Result<Value, String> = (|| match op.as_str() {
@@ -362,12 +431,12 @@ pub(crate) async fn handle_env_files(
         other => Err(format!("unknown op '{other}'")),
     })();
     match res {
-        Ok(v) => Json(
+        Ok(v) => Ok(Json(
             json!({ "ok": true, "op": op, "environment_id": env_id, "scope_root": ws, "result": v }),
-        ),
-        Err(reason) => {
-            Json(json!({ "ok": false, "op": op, "environment_id": env_id, "reason": reason }))
-        }
+        )),
+        Err(reason) => Ok(Json(
+            json!({ "ok": false, "op": op, "environment_id": env_id, "reason": reason }),
+        )),
     }
 }
 
@@ -403,12 +472,14 @@ fn set_winsize(fd: RawFd, rows: u16, cols: u16) {
 /// Body: `{ environment_ref, shell?, cols?, rows?, cwd? }`.
 pub(crate) async fn handle_terminal_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
     let env_ref = sstr(&body, "environment_ref")
         .or_else(|| sstr(&body, "environment_id"))
         .unwrap_or_default();
     let env_id = ref_id(&env_ref).to_string();
+    super::environment_routes::authorize_environment_owner(&st.data_dir, &headers, &env_id)?;
 
     // CONTAINMENT: this route spawns an interactive HOST shell (a real PTY, caller-chosen
     // binary, no guardrail deny-list) and attributes it to an environment. When that environment
@@ -421,21 +492,21 @@ pub(crate) async fn handle_terminal_create(
             IsolatedSubstrate::observed(live),
             ExecutionLocus::Host,
         ) {
-            return Json(json!({
+            return Ok(Json(json!({
                 "ok": false,
                 "refused": true,
                 "reason": refusal.reason,
                 "detail": refusal.detail,
-            }));
+            })));
         }
     }
 
-    let cwd = match sstr(&body, "cwd").or_else(|| workspace_of(&st.data_dir, &env_id)) {
+    let cwd = match workspace_of(&st.data_dir, &env_id) {
         Some(c) => c,
         None => {
-            return Json(
+            return Ok(Json(
                 json!({ "ok": false, "reason": "environment not started (no scoped workspace) and no cwd given" }),
-            )
+            ))
         }
     };
     let shell = sstr(&body, "shell").unwrap_or_else(|| "bash".into());
@@ -460,9 +531,9 @@ pub(crate) async fn handle_terminal_create(
         )
     };
     if rc != 0 {
-        return Json(
+        return Ok(Json(
             json!({ "ok": false, "reason": format!("openpty failed: {}", std::io::Error::last_os_error()) }),
-        );
+        ));
     }
 
     // The child shell uses the slave end as its controlling terminal.
@@ -491,7 +562,9 @@ pub(crate) async fn handle_terminal_create(
             unsafe {
                 libc::close(master);
             }
-            return Json(json!({ "ok": false, "reason": format!("shell spawn failed: {e}") }));
+            return Ok(Json(
+                json!({ "ok": false, "reason": format!("shell spawn failed: {e}") }),
+            ));
         }
     };
     // (slave fds are owned by the Stdio wrappers and closed in the parent after spawn.)
@@ -554,7 +627,7 @@ pub(crate) async fn handle_terminal_create(
     };
     st.terminals.lock().unwrap().insert(id.clone(), session);
 
-    Json(json!({
+    Ok(Json(json!({
         "ok": true,
         "terminal_ref": format!("terminal:{id}"),
         "terminal_id": id,
@@ -566,16 +639,30 @@ pub(crate) async fn handle_terminal_create(
         "log_ref": log_path,
         "receipt_refs": [receipt],
         "note": "real openpty PTY bound to environment_ref; shell state persists across inputs"
-    }))
+    })))
 }
 
 /// GET /v1/hypervisor/terminals/:id/stream?since=<n> — stream the real PTY output as SSE frames
 /// (the accumulated/delta bytes from the live master). `since` returns only newer bytes.
 pub(crate) async fn handle_terminal_stream(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Query(q): Query<HashMap<String, String>>,
-) -> impl axum::response::IntoResponse {
+) -> Result<impl axum::response::IntoResponse, AppError> {
+    let environment_id = {
+        let terms = st.terminals.lock().unwrap();
+        terms
+            .get(&id)
+            .map(|terminal| ref_id(&terminal.environment_ref).to_string())
+    };
+    if let Some(environment_id) = environment_id {
+        super::environment_routes::authorize_environment_owner(
+            &st.data_dir,
+            &headers,
+            &environment_id,
+        )?;
+    }
     let since: usize = q.get("since").and_then(|s| s.parse().ok()).unwrap_or(0);
     let terms = st.terminals.lock().unwrap();
     let mut sse = String::new();
@@ -597,26 +684,40 @@ pub(crate) async fn handle_terminal_stream(
             json!({ "code": "not_found", "terminal": id })
         )),
     }
-    (
+    Ok((
         [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
         sse,
-    )
+    ))
 }
 
 /// POST /v1/hypervisor/terminals/:id/input — write real keystrokes to the PTY master.
 /// Body: `{ data: "...", "enter"?: bool }`.
 pub(crate) async fn handle_terminal_input(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
     let mut data = sstr(&body, "data").unwrap_or_default();
     if body.get("enter").and_then(|v| v.as_bool()).unwrap_or(false) && !data.ends_with('\n') {
         data.push('\n');
     }
+    let environment_id = {
+        let terms = st.terminals.lock().unwrap();
+        terms
+            .get(&id)
+            .map(|terminal| ref_id(&terminal.environment_ref).to_string())
+    };
+    if let Some(environment_id) = environment_id {
+        super::environment_routes::authorize_environment_owner(
+            &st.data_dir,
+            &headers,
+            &environment_id,
+        )?;
+    }
     let terms = st.terminals.lock().unwrap();
     let Some(t) = terms.get(&id) else {
-        return Json(json!({ "ok": false, "reason": "terminal not found" }));
+        return Ok(Json(json!({ "ok": false, "reason": "terminal not found" })));
     };
     let bytes = data.as_bytes();
     let n = unsafe {
@@ -626,18 +727,34 @@ pub(crate) async fn handle_terminal_input(
             bytes.len(),
         )
     };
-    Json(json!({ "ok": n >= 0, "terminal_id": id, "written": n.max(0) }))
+    Ok(Json(
+        json!({ "ok": n >= 0, "terminal_id": id, "written": n.max(0) }),
+    ))
 }
 
 /// POST /v1/hypervisor/terminals/:id/resize — TIOCSWINSZ the live PTY. Body `{ cols, rows }`.
 pub(crate) async fn handle_terminal_resize(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
+    let environment_id = {
+        let terms = st.terminals.lock().unwrap();
+        terms
+            .get(&id)
+            .map(|terminal| ref_id(&terminal.environment_ref).to_string())
+    };
+    if let Some(environment_id) = environment_id {
+        super::environment_routes::authorize_environment_owner(
+            &st.data_dir,
+            &headers,
+            &environment_id,
+        )?;
+    }
     let mut terms = st.terminals.lock().unwrap();
     let Some(t) = terms.get_mut(&id) else {
-        return Json(json!({ "ok": false, "reason": "terminal not found" }));
+        return Ok(Json(json!({ "ok": false, "reason": "terminal not found" })));
     };
     t.cols = body
         .get("cols")
@@ -648,16 +765,32 @@ pub(crate) async fn handle_terminal_resize(
         .and_then(|v| v.as_u64())
         .unwrap_or(t.rows as u64) as u16;
     set_winsize(t.master_fd, t.rows, t.cols);
-    Json(json!({ "ok": true, "terminal_id": id, "cols": t.cols, "rows": t.rows }))
+    Ok(Json(
+        json!({ "ok": true, "terminal_id": id, "cols": t.cols, "rows": t.rows }),
+    ))
 }
 
 /// POST /v1/hypervisor/terminals/:id/close — kill the shell + release the PTY (lifecycle obs).
 pub(crate) async fn handle_terminal_close(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
+    let environment_id = {
+        let terms = st.terminals.lock().unwrap();
+        terms
+            .get(&id)
+            .map(|terminal| ref_id(&terminal.environment_ref).to_string())
+    };
+    if let Some(environment_id) = environment_id {
+        super::environment_routes::authorize_environment_owner(
+            &st.data_dir,
+            &headers,
+            &environment_id,
+        )?;
+    }
     let mut terms = st.terminals.lock().unwrap();
-    match terms.remove(&id) {
+    Ok(match terms.remove(&id) {
         Some(mut t) => {
             let _ = t.child.kill();
             let _ = t.child.wait();
@@ -671,14 +804,25 @@ pub(crate) async fn handle_terminal_close(
             )
         }
         None => Json(json!({ "ok": false, "reason": "terminal not found" })),
-    }
+    })
 }
 
 /// GET /v1/hypervisor/terminals — list live PTY terminals (bound env, shell, geometry).
-pub(crate) async fn handle_terminals_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let terms = st.terminals.lock().unwrap();
-    let list: Vec<Value> = terms.iter().map(|(id, t)| json!({ "terminal_id": id, "terminal_ref": format!("terminal:{id}"), "environment_ref": t.environment_ref, "shell": t.shell, "cols": t.cols, "rows": t.rows, "interactive": true })).collect();
-    Json(
-        json!({ "schema_version": "ioi.hypervisor.terminals.v1", "terminals": list, "at": iso_now() }),
+pub(crate) async fn handle_terminals_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+        .map_err(super::environment_routes::environment_scope_error)?;
+    let owned = super::substrate_store::authorized_request_resource_refs(
+        &st.data_dir,
+        &identity,
+        super::environment_routes::ENVIRONMENT_SCOPE_KIND,
     )
+    .map_err(super::environment_routes::environment_scope_error)?;
+    let terms = st.terminals.lock().unwrap();
+    let list: Vec<Value> = terms.iter().filter(|(_, terminal)| owned.contains(ref_id(&terminal.environment_ref))).map(|(id, t)| json!({ "terminal_id": id, "terminal_ref": format!("terminal:{id}"), "environment_ref": t.environment_ref, "shell": t.shell, "cols": t.cols, "rows": t.rows, "interactive": true })).collect();
+    Ok(Json(
+        json!({ "schema_version": "ioi.hypervisor.terminals.v1", "terminals": list, "at": iso_now() }),
+    ))
 }

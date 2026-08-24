@@ -1499,13 +1499,14 @@ pub(crate) async fn handle_automation_webhook(
 pub(crate) async fn handle_automation_start(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-    inbound: axum::http::HeaderMap,
+    mut inbound: axum::http::HeaderMap,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
     // #237 finding closed — identity FIRST (rule E): a manual run is a write crossing; the typed
     // 401 is owed BEFORE the record load. The daemon's OWN dispatches (scheduler tick, accepted
     // webhook fire) cross with the per-boot internal dispatch token instead of a session — they
     // are the daemon acting on the stored spec, and the run's acting identity is then the spec's
     // own `executor_identity` (the delegated durable authority), never an ambient operator.
+    let internal_dispatch = internal_dispatch_authorized(&st, &inbound);
     let acting_principal_ref =
         match super::substrate_store::resolve_request_identity(&st.data_dir, &inbound) {
             Ok(identity) => Some(identity.principal_ref),
@@ -1528,6 +1529,33 @@ pub(crate) async fn handle_automation_start(
             .unwrap_or("")
             .to_string()
     });
+    if internal_dispatch {
+        let tenant_refs = super::lifecycle_routes::resolve_principal_tenant_refs(
+            &st.data_dir,
+            &acting_principal_ref,
+        )
+        .map_err(|error| AppError(StatusCode::SERVICE_UNAVAILABLE, error))?;
+        let mut organizations = tenant_refs
+            .iter()
+            .filter(|tenant_ref| tenant_ref.starts_with("org://"));
+        let (Some(owner_ref), None) = (organizations.next(), organizations.next()) else {
+            return Err(AppError(
+                StatusCode::FORBIDDEN,
+                "internal environment dispatch requires exactly one active organization tenant"
+                    .into(),
+            ));
+        };
+        inbound.insert(
+            "x-ioi-internal-principal-ref",
+            axum::http::HeaderValue::from_str(&acting_principal_ref)
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?,
+        );
+        inbound.insert(
+            "x-ioi-internal-owner-ref",
+            axum::http::HeaderValue::from_str(owner_ref)
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?,
+        );
+    }
     let base = st.base_url.clone();
     let exec_id = format!("aex_{:x}", nanos());
     let steps = automation["steps"].as_array().cloned().unwrap_or_default();
@@ -1948,6 +1976,8 @@ pub(crate) async fn handle_placement_resolve(
 /// GET /v1/hypervisor/placement/metrics — cold-start / prebuild-hit / warm-claim / cache from real
 /// env + placement truth (aggregated, not invented).
 pub(crate) async fn handle_placement_metrics(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+    // ENVIRONMENT_OWNER_CENSUS: aggregate_only — reads cache-hit booleans and emits counts; no
+    // environment identifier, record, workspace coordinate, or workspace byte crosses the route.
     let envs = read_record_dir(&st.data_dir, "environments");
     let (mut cache_hit, mut cold_start) = (0u64, 0u64);
     for e in &envs {

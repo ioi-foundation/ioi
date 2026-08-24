@@ -1,15 +1,13 @@
 #!/usr/bin/env node
-// Legacy environment custody verifier — a CAPTURE gets an owner, and the estate's one deletion
-// reaches the bytes of captures taken from this leg forward.
+// Environment owner + capture custody verifier — environment authority is pinned before durable
+// coordinates exist; captures keep their own immutable derived pin; retention deletion reaches the
+// material bytes while preserving evidence.
 //
-// WHAT THIS EXISTS TO CATCH. Next-legs XI closed the unauthenticated half of this lane and filed the
-// rest open as its own defect: `POST /v1/hypervisor/snapshots`, `POST /v1/hypervisor/backups` and
-// `POST /v1/hypervisor/snapshots/:id/restore` required a session but no OWNER, because an
-// environment had none — so every authenticated principal could archive any environment's workspace,
-// and the restore handler, which OVERWRITES a workspace, could be pointed at anyone's. Separately the
-// W1.5 retention plane's executed deletion destroyed only `managed-backup-material/<state-root>.tar`
-// while this lane writes `{snapshots,backups}/<id>/workspace.tar`, so an estate relying on erasure
-// had two custody stores and the deletion reached one.
+// WHAT THIS EXISTS TO CATCH. A session without an environment-owner pin once let every principal in
+// `org://local` capture or overwrite any workspace. The same class appeared through lifecycle,
+// workrun, terminal, AgentOps, editor, preview and managed-backup handles. Refusals here are paired
+// with durable side-effect counts; the source census separately derives the closed world across
+// router modules and transitive helper calls.
 //
 // HOW IT CHECKS, and why in this shape:
 //   - THREE REAL PRINCIPALS on one live daemon, all holding `org://local`. That precondition is
@@ -22,18 +20,12 @@
 //   - ANONYMITY IS BUILT FROM RAW TRANSPORT. A probe made by copying an authenticated client and
 //     calling its bound method goes out authenticated and performs the very act it exists to prove
 //     refused; that defect shipped once in this estate already.
-//   - THE CLOSED WORLD IS DERIVED FROM THE ROUTER, and the classification it derives OVER is itself
-//     asserted: every mutating environment-plane route is either censused custody or a NAMED
-//     residual this leg does not own, and a stale residual entry is red. A hand-written filter
-//     inside a derived census is where coverage silently shrank last time.
+//   - THE CLOSED WORLD IS DERIVED FROM ROUTER SOURCE and a transitive Rust function call graph.
+//     Every registered handler resolves, every environment/workspace sink is positively classified,
+//     and any unclassified reach is red. The three exact capture mutations are then driven live.
 //
-// WHAT IT DOES NOT PROVE, largest first. THE ENVIRONMENT HAS NO OWNER: any authenticated principal
-// can capture ANY environment's workspace and restore its capture back over it. That is XI's filed
-// defect, still open, and this gate ASSERTS both halves as facts so they cannot change unnoticed —
-// it does not close them. The environment LIFECYCLE plane (start/stop/archive/delete/exec/workruns)
-// resolves no caller and is carried as the named residual list below, asserted to be exactly that
-// list and no larger. And a capture taken BEFORE this leg carries no pin, so it is invisible to
-// listing, un-restorable, and cannot be placed under a retention duty at all.
+// Legacy captures created before ownership pins remain evidence-only: invisible to owner lists,
+// unrestorable, and ineligible for a newly invented retention authority.
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -43,6 +35,7 @@ import net from "node:net";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { deriveEnvironmentOwnerCensus } from "./lib/environment-owner-source-census.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
@@ -205,36 +198,10 @@ const countAdmittedOps = (kind) => durableBytes().split(kind).length - 1;
 
 // ------------------------------------------------------------------- the derived closed world
 
-const routerSource = () => fs.readFileSync(path.join(ROOT, "crates/node/src/bin/hypervisor-daemon.rs"), "utf8");
-
-/** Every mutating `/v1/hypervisor/*` route registered to an `environment_routes::` handler. */
-const environmentPlaneMutations = () => {
-  const found = [];
-  for (const chunk of routerSource().split(".route(")) {
-    const pathMatch = chunk.match(/^\s*"(\/v1\/hypervisor\/[^"]*)"/u);
-    if (!pathMatch) continue;
-    const body = chunk.slice(0, chunk.indexOf("\n        )"));
-    if (!/environment_routes::/u.test(body)) continue;
-    for (const method of ["post", "patch", "put", "delete"]) {
-      if (new RegExp(`(^|[^a-z_])${method}\\(`, "u").test(body)) {
-        found.push({ method: method.toUpperCase(), path: pathMatch[1] });
-      }
-    }
-  }
-  return found;
-};
-
 /**
- * The custody lane this leg owns, as EXACT method+path pairs. Every entry requires an authenticated
- * caller and is driven anonymously below. Only the CAPTURE-addressed ones authorize per PRINCIPAL —
- * `POST /snapshots` and `POST /backups` authorize nothing against the environment they read, which
- * is the leg's named open defect, asserted above.
- *
- * EXACT, NOT PREFIXED, and the first revision of this file proves why: a `/v1/hypervisor/environments`
- * PREFIX silently swallowed the lifecycle, port-exposure and pull-request-draft routes into the
- * "custody" set, which would have made the anonymous sweep below claim authorization coverage this
- * leg does not have. A family prefix is a filter, and a filter inside a derived census is exactly
- * where coverage moves without anyone deciding it should.
+ * The live custody probes are exact method+path pairs. This is not the closed-world inventory; the
+ * source call-graph census derives that above every module. These three are the byte-copy mutations
+ * this gate can pair with exact tar counts.
  */
 const CUSTODY_ROUTES = [
   { method: "POST", path: "/v1/hypervisor/snapshots", reason: "capture: reads an environment's workspace bytes" },
@@ -242,39 +209,8 @@ const CUSTODY_ROUTES = [
   { method: "POST", path: "/v1/hypervisor/backups", reason: "capture: reads an environment's workspace bytes" },
 ];
 
-/**
- * THE NAMED RESIDUAL, machine-visible rather than prose. These environment-plane mutations are NOT
- * authorized by this leg: they are the environment LIFECYCLE plane, whose ownership model is its own
- * change with its own verifier and its own blast radius. Naming them here means a new
- * environment-plane route cannot land unclassified — it is either censused custody or it is an
- * explicitly named hole — and a stale entry (a route the router no longer carries) is RED, so this
- * list cannot quietly absorb coverage by naming things that do not exist.
- *
- * This list is DERIVED-CHECKED IN BOTH DIRECTIONS below. It was hand-written and wrong on its first
- * revision — seven of its twelve entries named routes that do not exist while five real routes went
- * unclassified — and the two assertions caught every one of them.
- */
-const NAMED_UNOWNED = [
-  { method: "POST", path: "/v1/hypervisor/environments", reason: "environment create — mints NO owner pin; an environment has no owner in this estate and the model is the leg's NAMED OPEN residual" },
-  { method: "POST", path: "/v1/hypervisor/projects", reason: "registered to lifecycle_routes::handle_project_create; the projects plane is not this leg" },
-  { method: "DELETE", path: "/v1/hypervisor/projects/:id", reason: "project delete — projects plane, unowned" },
-  { method: "PATCH", path: "/v1/hypervisor/projects/:id/environment-classes", reason: "OQ-5 saga step 2 — carries its own receipted CAS admission" },
-  { method: "POST", path: "/v1/hypervisor/environments/:id/:action", reason: "start|stop|archive|restore|delete|recover — lifecycle, resolves no caller. `start` materializes a workspace and `delete` REMOVES one, both unauthenticated; this is the largest named residual and the reason an environment cannot acquire an owner here" },
-  { method: "POST", path: "/v1/hypervisor/environments/lifecycle/:op", reason: "environment transition read/op — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/environments/:id/ports/:port/expose", reason: "port exposure — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/environments/:id/ports/:port/unexpose", reason: "port exposure — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/environments/:id/pull-request-drafts", reason: "PR draft — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/workruns", reason: "work-run create — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/workruns/:id/execute", reason: "work-run execute — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/exec", reason: "scoped workspace command execution — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/env-config", reason: "environment config rebuild — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/maintenance/idle-sweep", reason: "idle sweep — lifecycle, unowned" },
-  { method: "POST", path: "/v1/hypervisor/agent-run-transcripts/:id", reason: "agent-run upsert — carries its own deployment-posture refusal" },
-];
-
 const routeKey = (r) => `${r.method} ${r.path}`;
 const CUSTODY_KEYS = new Set(CUSTODY_ROUTES.map(routeKey));
-const isCustody = (route) => CUSTODY_KEYS.has(routeKey(route));
 
 /** A concrete anonymous request for each censused custody endpoint. */
 const anonRequestFor = ({ method, path: p }, captureId) => {
@@ -305,10 +241,13 @@ async function makeMember(letter, email) {
 }
 
 /** Create + start one environment through the product routes and return its real workspace root. */
-async function provisionEnvironment(letter, environmentId) {
-  const created = await jd("POST", "/v1/hypervisor/environments", { environment_id: environmentId, spec: {} }, { as: letter });
-  const started = await jd("POST", `/v1/hypervisor/environments/${environmentId}/start`, null, { as: letter });
-  return { created, workspace: started.j?.environment?.status?.workspace_root ?? "" };
+async function provisionEnvironment(letter) {
+  const created = await jd("POST", "/v1/hypervisor/environments", { spec: {} }, { as: letter });
+  const environmentId = created.j?.environment?.id ?? "";
+  const started = environmentId
+    ? await jd("POST", `/v1/hypervisor/environments/${environmentId}/start`, null, { as: letter })
+    : { status: 0, j: {} };
+  return { created, environmentId, workspace: started.j?.environment?.status?.workspace_root ?? "" };
 }
 
 const MARKER = "owned-by-its-own-principal.txt";
@@ -347,11 +286,7 @@ async function run() {
     `${P.A.owner} / ${P.B.owner} / ${P.C.owner}`);
 
   // ------------------------------------------------------------ A owns an environment
-  // The id carries an UNDERSCORE deliberately: `safe_id` preserves `-` and rewrites `.`, so only an
-  // underscore-bearing id has a colliding alias — and every daemon-minted id is `env_{nanos:x}`, so
-  // the default create path always has one. A hyphenated fixture could never produce the failure.
-  const ENV_A = "custody_a";
-  const { created: createdA, workspace: workspaceA } = await provisionEnvironment("A", ENV_A);
+  const { created: createdA, environmentId: ENV_A, workspace: workspaceA } = await provisionEnvironment("A");
   ok("A's environment was created through the owning route and materialized a REAL workspace inside the daemon's data directory",
     createdA.status === 200 && workspaceA.length > 0 && fs.existsSync(workspaceA)
       && path.resolve(workspaceA).startsWith(path.resolve(dataDir)),
@@ -360,61 +295,62 @@ async function run() {
   ok("PRECONDITION: the workspace root is an ABSOLUTE path inside the daemon's data directory — a fixture write against an empty root lands in the process CWD, where cleanup never reaches it",
     path.isAbsolute(workspaceA) && path.resolve(workspaceA).startsWith(path.resolve(dataDir)),
     workspaceA || "(empty)");
+  if (!path.isAbsolute(workspaceA) || !path.resolve(workspaceA).startsWith(path.resolve(dataDir))) {
+    throw new Error(`unsafe fixture workspace for A: ${workspaceA || "(empty)"}`);
+  }
   fs.writeFileSync(path.join(workspaceA, MARKER), "a-owns-this\n");
   ok("PRECONDITION: the subject bytes really are inside the workspace the environment reports",
     fs.readFileSync(path.join(workspaceA, MARKER), "utf8") === "a-owns-this\n", MARKER);
 
-  // ------------------------------------------------------------ WHAT THIS LANE DOES NOT OWN
-  //
-  // AN ENVIRONMENT HAS NO OWNER, AND THAT IS ASSERTED HERE RATHER THAN LEFT AS PROSE. Next-legs XI
-  // filed it open; next-legs XIII tried four designs and a review demonstrated each one broken —
-  // pinning at create, at first reference, at workspace materialization, and gating adoption on a
-  // field an anonymous route nulls. The root cause is structural: `provision_local_workspace` is an
-  // idempotent `create_dir_all` of a deterministic path, reachable through a route that resolves no
-  // caller and never refuses, so a pin minted beside it is first-touch wearing a different hat.
-  //
-  // So the harms below are OPEN, and the assertions state them as facts rather than pretending
-  // otherwise. When the environment ownership model lands, these go RED and must be rewritten —
-  // which is the point: a known gap that changes silently is how a ledger drifts.
+  // ------------------------------------------------------------ THE ENVIRONMENT OWNER BOUNDARY
   const envRoutesSrc = fs.readFileSync(path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs"), "utf8");
-  ok("NAMED OPEN DEFECT: the daemon mints NO environment owner pin at all — the environment ownership model is absent by construction, not merely unbuilt here",
-    !/hypervisor-environment"/u.test(envRoutesSrc) && !/bind_environment_owner/u.test(envRoutesSrc),
-    "no environment scope kind, no binder");
+  ok("the environment owner model is wired at the only creation seam: daemon-minted id, immutable substrate pin, and owner authorization helpers are all present",
+    /ENVIRONMENT_SCOPE_KIND:\s*&str\s*=\s*"hypervisor-environment"/u.test(envRoutesSrc)
+      && /bind_request_resource_scope/u.test(envRoutesSrc)
+      && /authorize_environment_owner/u.test(envRoutesSrc),
+    "daemon mint + substrate pin + authorization helper");
+
+  const aSnapshot = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: ENV_A }, { as: "A" });
+  const captureId = aSnapshot.j?.snapshot?.snapshot_ref ?? "";
+  const captureRoot = aSnapshot.j?.snapshot?.state_root ?? "";
   let tarsBefore = materialTars();
   const bCapturesAEnv = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: ENV_A }, { as: "B" });
-  const foreignCapture = bCapturesAEnv.j?.snapshot?.snapshot_ref ?? "";
-  ok("NAMED OPEN DEFECT, asserted so it cannot change unnoticed: any authenticated principal can still capture ANY environment's workspace — this leg does not close XI's filed defect and must not be read as closing it",
-    bCapturesAEnv.status === 200 && foreignCapture.startsWith("snap_")
-      && materialTars().length === tarsBefore.length + 1,
-    `status ${bCapturesAEnv.status} ref ${foreignCapture}`);
+  ok("an authenticated same-tenant NON-OWNER cannot capture another principal's environment, and the refusal writes no material",
+    bCapturesAEnv.status === 403 && materialTars().length === tarsBefore.length,
+    `status ${bCapturesAEnv.status} tars ${tarsBefore.length} -> ${materialTars().length}`);
 
-  // AND THE DESTRUCTIVE HALF, which matters more than the read and was only narrated. B holds a
-  // capture of A's environment, so B can restore it back over A's later work. Asserted with the
-  // bytes counted, because a response code proves the answer and not the destruction.
+  // The destructive half: even knowing A's capture id gives B neither capture authority nor
+  // destination-environment authority.
   fs.writeFileSync(path.join(workspaceA, "a-work-after-b-captured.txt"), "work A did after B captured\n");
-  const foreignRestore = await jd("POST", `/v1/hypervisor/snapshots/${encodeURIComponent(foreignCapture)}/restore`, null, { as: "B" });
-  ok("NAMED OPEN DEFECT, the destructive half: B can restore its capture of A's environment back over A's later work, and A's work is GONE — an unowned environment is not merely readable, it is rewritable",
-    foreignRestore.status === 200 && foreignRestore.j?.restored === true
-      && !fs.existsSync(path.join(workspaceA, "a-work-after-b-captured.txt")),
+  const foreignRestore = await jd("POST", `/v1/hypervisor/snapshots/${encodeURIComponent(captureId)}/restore`, null, { as: "B" });
+  ok("an authenticated same-tenant NON-OWNER cannot restore A's capture over A's environment, and A's later bytes remain",
+    foreignRestore.status === 403
+      && fs.existsSync(path.join(workspaceA, "a-work-after-b-captured.txt")),
     `status ${foreignRestore.status} A's later work still present: ${fs.existsSync(path.join(workspaceA, "a-work-after-b-captured.txt"))}`);
 
   // ------------------------------------------------------------ WHAT IT DOES OWN: the capture
+  const { environmentId: ENV_B, workspace: workspaceB } = await provisionEnvironment("B");
+  if (!path.isAbsolute(workspaceB) || !path.resolve(workspaceB).startsWith(path.resolve(dataDir))) {
+    throw new Error(`unsafe fixture workspace for B: ${workspaceB || "(empty)"}`);
+  }
+  fs.writeFileSync(path.join(workspaceB, "b-owned.txt"), "b owns this\n");
+  const bOwnSnapshot = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: ENV_B }, { as: "B" });
+  const foreignCapture = bOwnSnapshot.j?.snapshot?.snapshot_ref ?? "";
   const aReadsForeign = await jd("POST", `/v1/hypervisor/snapshots/${encodeURIComponent(foreignCapture)}/restore`, null, { as: "A" });
-  ok("but a CAPTURE is owned by whoever took it — A cannot restore B's capture, even of A's own environment",
-    aReadsForeign.status === 403, `status ${aReadsForeign.status} code ${code(aReadsForeign.j)}`);
+  ok("a CAPTURE is independently owned by whoever took it — A cannot restore B's capture of B's environment",
+    bOwnSnapshot.status === 200 && foreignCapture.startsWith("snap_") && aReadsForeign.status === 403,
+    `capture ${bOwnSnapshot.status} restore ${aReadsForeign.status} code ${code(aReadsForeign.j)}`);
 
   // The capture RECORD must name the canonical environment, not the caller's spelling: `safe_id` is
   // many-to-one, so storing the raw id planted a record whose `environment_ref` disagreed with the
   // workspace the material actually came from.
   const aliasEnv = ENV_A.replace("_", ".");
+  tarsBefore = materialTars();
   const aliasCapture = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: aliasEnv }, { as: "A" });
-  ok("a capture taken through an ALIAS environment id records the CANONICAL environment — the record cannot disagree with the workspace its material came from",
-    aliasCapture.status === 200 && aliasCapture.j?.snapshot?.environment_ref === ENV_A,
-    `requested ${aliasEnv} recorded ${aliasCapture.j?.snapshot?.environment_ref}`);
+  ok("a non-canonical environment alias is REFUSED rather than folded onto the owner's coordinate, with no capture side effect",
+    aliasCapture.status === 400 && materialTars().length === tarsBefore.length,
+    `requested ${aliasEnv} status ${aliasCapture.status} tars ${tarsBefore.length} -> ${materialTars().length}`);
 
-  const aSnapshot = await jd("POST", "/v1/hypervisor/snapshots", { environment_id: ENV_A }, { as: "A" });
-  const captureId = aSnapshot.j?.snapshot?.snapshot_ref ?? "";
-  const captureRoot = aSnapshot.j?.snapshot?.state_root ?? "";
   ok("A's own capture is admitted and addressed by its own coordinate",
     aSnapshot.status === 200 && captureId.startsWith("snap_") && /^sha256:[0-9a-f]{64}$/u.test(captureRoot),
     `status ${aSnapshot.status} ref ${captureId}`);
@@ -717,32 +653,26 @@ async function run() {
     isolationAfterRestart.status === 403, `status ${isolationAfterRestart.status} code ${code(isolationAfterRestart.j)}`);
 
   // ------------------------------------------------------------ the derived closed world
-  const inventory = environmentPlaneMutations();
+  const sourceCensus = deriveEnvironmentOwnerCensus(ROOT);
   const key = routeKey;
-  const census = inventory.filter(isCustody);
-  const residual = inventory.filter((route) => !isCustody(route));
-  const namedKeys = new Set(NAMED_UNOWNED.map(key));
-  const unclassified = residual.filter((route) => !namedKeys.has(key(route)));
-  ok("EVERY mutating environment-plane route is either censused custody or a NAMED residual — a new route cannot land unclassified",
-    inventory.length > 0 && unclassified.length === 0,
-    unclassified.map(key).join(", ") || `${census.length} custody of ${inventory.length} mutations`);
-  const inventoryKeys = new Set(inventory.map(key));
-  const staleEntries = [...NAMED_UNOWNED, ...CUSTODY_ROUTES].filter((entry) => !inventoryKeys.has(key(entry)));
-  ok("and NEITHER list carries a stale entry — a classification that can name routes the router does not have is a classification that can absorb coverage",
-    staleEntries.length === 0, staleEntries.map(key).join(", ") || `${NAMED_UNOWNED.length} named residuals + ${CUSTODY_ROUTES.length} custody routes, all live`);
-  ok("the censused custody lane is exactly the routes this leg authorizes, and the two lists PARTITION the inventory with no overlap",
-    census.length === CUSTODY_ROUTES.length
-      && CUSTODY_ROUTES.every((route) => inventoryKeys.has(key(route)))
-      && CUSTODY_ROUTES.every((route) => !namedKeys.has(key(route)))
-      && census.length + residual.length === inventory.length,
-    `${census.length} custody + ${residual.length} residual = ${inventory.length} inventory`);
+  ok("THE ROUTER CLOSED WORLD resolves every registered handler across every module — an unresolved handler cannot disappear from the authority census",
+    sourceCensus.registered_route_handlers > 0 && sourceCensus.unresolved.length === 0,
+    sourceCensus.unresolved.map((route) => route.handler).join(", ") || `${sourceCensus.registered_route_handlers} registered handlers resolved`);
+  ok("EVERY transitively reached environment/workspace sink is positively classified — a new route cannot land as an unnamed residual",
+    sourceCensus.workspace_route_handlers > 0 && sourceCensus.unclassified.length === 0,
+    sourceCensus.unclassified.map((route) => `${key(route)} -> ${route.handler}`).join(", ") || `${sourceCensus.workspace_route_handlers} owner-authorized route handlers`);
+  const inventoryKeys = new Set(sourceCensus.routes.map(key));
+  const staleCustody = CUSTODY_ROUTES.filter((entry) => !inventoryKeys.has(key(entry)));
+  ok("the three live capture/restore probes are members of that derived call-graph census — the runtime test cannot claim coverage outside its source inventory",
+    staleCustody.length === 0,
+    staleCustody.map(key).join(", ") || `${CUSTODY_ROUTES.length} custody mutations found in the derived census`);
 
   const anonymousRefusals = [];
   // Re-snapshot HERE. This is a delta assertion and the fixtures between the previous snapshot and
   // this loop legitimately move the count; comparing against a stale baseline would fail for a
   // reason that has nothing to do with anonymous callers.
   tarsBefore = materialTars();
-  for (const endpoint of census) {
+  for (const endpoint of CUSTODY_ROUTES) {
     const request = anonRequestFor(endpoint, captureId);
     const response = await jd(request.method, request.path, request.body, { as: null });
     anonymousRefusals.push({ endpoint: key(endpoint), status: response.status });
