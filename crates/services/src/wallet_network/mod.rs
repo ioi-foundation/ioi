@@ -159,6 +159,8 @@ pub struct RecordPortableAuthorityGrantV3Params {
     pub authority_review_receipt_json: Vec<u8>,
     /// Independently resolved current authority for every issuer in the chain.
     pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
+    /// Wallet-registered client that exclusively owns the signed leaf audience.
+    pub audience_client_id: [u8; 32],
 }
 
 /// Control-plane replacement of short-lived verification evidence for one registered grant.
@@ -205,6 +207,7 @@ pub struct PortableAuthorityGrantV3State {
     pub approval_ceremony_context_json: Vec<u8>,
     pub authority_review_receipt_json: Vec<u8>,
     pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
+    pub audience_client_id: [u8; 32],
     pub max_calls: u64,
     pub uses_consumed: u64,
     pub remaining_calls: u64,

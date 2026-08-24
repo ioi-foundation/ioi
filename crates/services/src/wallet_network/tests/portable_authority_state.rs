@@ -192,6 +192,7 @@ fn record_params(
             issuer_id: grant["issuer_id"].as_str().unwrap().to_owned(),
             current_authority: binding,
         }],
+        audience_client_id: [7; 32],
     }
 }
 
@@ -269,6 +270,51 @@ fn portable_registration_consumes_ceremony_and_effect_atomically_and_idempotentl
             .to_owned(),
         actual_effect_hash: effect_hash,
     };
+    let foreign_client = WalletRegisteredClientRecord {
+        client_id: [8; 32],
+        label: "foreign portable capability client".to_owned(),
+        surface: VaultSurface::Desktop,
+        signature_suite: SignatureSuite::ED25519,
+        public_key: vec![8; 32],
+        role: WalletClientRole::Capability,
+        state: WalletClientState::Active,
+        registered_at_ms: PORTABLE_NOW_MS - 10_000,
+        updated_at_ms: PORTABLE_NOW_MS - 10_000,
+        expires_at_ms: Some(PORTABLE_NOW_MS + 60_000),
+        allowed_provider_families: Vec::new(),
+        metadata: BTreeMap::new(),
+    };
+    state
+        .insert(
+            &registered_client_key(&foreign_client.client_id),
+            &codec::to_bytes_canonical(&foreign_client).expect("encode foreign client"),
+        )
+        .expect("store foreign client");
+    with_portable_ctx(foreign_client.client_id, |ctx| {
+        let error = run_async(service.handle_service_call(
+            &mut state,
+            "consume_portable_authority_grant_v3_for_effect@v1",
+            &codec::to_bytes_canonical(&consume).expect("foreign consume bytes"),
+            ctx,
+        ))
+        .expect_err("a different capability client cannot borrow the portable audience");
+        assert!(
+            matches!(error, TransactionError::UnauthorizedByCredentials),
+            "{error}"
+        );
+    });
+    let before_owner_use: PortableAuthorityGrantV3State =
+        load_typed(&state, &portable_authority_grant_v3_state_key(&grant_hash))
+            .expect("load state")
+            .expect("portable state");
+    assert_eq!(before_owner_use.uses_consumed, 0);
+    assert_eq!(before_owner_use.remaining_calls, 1);
+    assert!(load_typed::<PortableAuthorityGrantV3ConsumptionReceipt>(
+        &state,
+        &portable_authority_effect_consumption_receipt_key(&consume.consumption_id)
+    )
+    .expect("load foreign receipt")
+    .is_none());
     with_portable_ctx([7; 32], |ctx| {
         let bytes = codec::to_bytes_canonical(&consume).expect("consume bytes");
         run_async(service.handle_service_call(

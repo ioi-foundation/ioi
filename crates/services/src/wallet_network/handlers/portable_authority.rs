@@ -4,11 +4,13 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::wallet_network::VaultAuditEventKind;
+use ioi_types::app::wallet_network::WalletClientState;
 use ioi_types::app::SignatureSuite;
 use ioi_types::error::TransactionError;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::wallet_network::handlers::client_auth::load_registered_client;
 use crate::wallet_network::handlers::principal_authority::validate_expected_principal_authority_binding;
 use crate::wallet_network::keys::{
     portable_authority_ceremony_consumption_key, portable_authority_effect_consumption_receipt_key,
@@ -354,6 +356,18 @@ pub(crate) fn record_portable_authority_grant_v3(
         .get("holder_key_id")
         .and_then(Value::as_str)
         .ok_or_else(|| invalid("leaf holder_key_id is absent"))?;
+    if params.audience_client_id == [0; 32] {
+        return Err(invalid("portable audience client id must not be zero"));
+    }
+    let audience_client = load_registered_client(state, &params.audience_client_id)?
+        .ok_or_else(|| invalid("portable audience client is not registered"))?;
+    if audience_client.state != WalletClientState::Active
+        || audience_client
+            .expires_at_ms
+            .is_some_and(|expiry| block_timestamp_ms(ctx) > expiry)
+    {
+        return Err(invalid("portable audience client is not active now"));
+    }
     let now_seconds = block_timestamp_ms(ctx) / 1_000;
     let verified = verify_portable_authority_v3(PortableAuthorityVerificationInput {
         grant_chain: &grants,
@@ -399,6 +413,7 @@ pub(crate) fn record_portable_authority_grant_v3(
             && existing.approval_ceremony_context_json == approval_ceremony_context_json
             && existing.authority_review_receipt_json == authority_review_receipt_json
             && existing.issuer_authorities == params.issuer_authorities
+            && existing.audience_client_id == params.audience_client_id
             && existing.max_calls == max_calls;
         if immutable_same {
             return Ok(());
@@ -429,6 +444,7 @@ pub(crate) fn record_portable_authority_grant_v3(
         approval_ceremony_context_json,
         authority_review_receipt_json,
         issuer_authorities: params.issuer_authorities,
+        audience_client_id: params.audience_client_id,
         max_calls,
         uses_consumed: 0,
         remaining_calls: max_calls,
@@ -698,6 +714,9 @@ pub(crate) fn consume_portable_authority_grant_v3_for_effect(
         return Err(invalid(
             "portable grant is revoked, exhausted, or has invalid counters",
         ));
+    }
+    if record.audience_client_id != ctx.signer_account_id.0 {
+        return Err(TransactionError::UnauthorizedByCredentials);
     }
     let parsed = parse_state(&record)?;
     validate_issuer_authorities(

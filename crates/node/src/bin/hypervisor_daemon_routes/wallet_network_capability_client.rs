@@ -28,7 +28,9 @@ use ioi_ipc::public::{
 use ioi_services::wallet_network::{
     verify_wallet_signature_proof, ApprovalGrantConsumptionReceipt, ApprovalGrantState,
     ConsumeApprovalGrantForEffectParams, ConsumeApprovalGrantForEffectV2Params,
-    ConsumeStandingApprovalGrantForEffectParams, SettleStandingApprovalGrantConsumptionParams,
+    ConsumePortableAuthorityGrantV3ForEffectParams, ConsumeStandingApprovalGrantForEffectParams,
+    PortableAuthorityGrantV3ConsumptionReceipt, PortableAuthorityGrantV3State,
+    PortableAuthorityGrantV3Status, SettleStandingApprovalGrantConsumptionParams,
     StandingApprovalGrantConsumptionReceipt, StandingApprovalGrantSettlementReceipt,
 };
 use ioi_types::app::wallet_network::{WalletApprovalDecision, WalletApprovalDecisionKind};
@@ -52,6 +54,9 @@ const APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"approval_grant_state::";
 const STANDING_EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
     b"standing_approval_consumption_receipt::";
 const STANDING_EFFECT_SETTLEMENT_RECEIPT_PREFIX: &[u8] = b"standing_approval_settlement_receipt::";
+const PORTABLE_AUTHORITY_GRANT_V3_STATE_PREFIX: &[u8] = b"portable_authority_grant_v3_state::";
+const PORTABLE_AUTHORITY_EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
+    b"portable_authority_effect_consumption_receipt::";
 const REVOCATION_EPOCH_KEY: &[u8] = b"revocation_epoch";
 const PANIC_FLAG_KEY: &[u8] = b"panic";
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
@@ -960,6 +965,235 @@ pub(crate) async fn recover_approval_grant_consumption_for_effect_v2(
     })?
 }
 
+fn validate_portable_effect_consumption_receipt(
+    params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+    receipt: PortableAuthorityGrantV3ConsumptionReceipt,
+) -> Result<PortableAuthorityGrantV3ConsumptionReceipt, ResolveError> {
+    let mut material = serde_json::to_value(&receipt).map_err(|error| {
+        ResolveError::Invalid(format!("portable receipt cannot be projected: {error}"))
+    })?;
+    material["receipt_hash"] = serde_json::json!(vec![0u8; 32]);
+    let canonical = serde_jcs::to_vec(&material).map_err(|error| {
+        ResolveError::Invalid(format!("portable receipt cannot be canonicalized: {error}"))
+    })?;
+    let expected_hash: [u8; 32] = Sha256::digest(canonical).into();
+    if receipt.schema_version == 1
+        && receipt.receipt_hash == expected_hash
+        && receipt.grant_hash == params.grant_hash
+        && receipt.consumption_id == params.consumption_id
+        && receipt.actual_effect_ref == params.actual_effect_ref
+        && receipt.actual_effect_hash == params.actual_effect_hash
+        && receipt.audience == params.expected_audience
+        && receipt.holder_id == params.expected_holder_id
+        && receipt.holder_key_id == params.expected_holder_key_id
+    {
+        Ok(receipt)
+    } else {
+        Err(ResolveError::Invalid(
+            "wallet.network found a foreign portable receipt in the requested consumption slot"
+                .to_string(),
+        ))
+    }
+}
+
+/// Atomically consume one exact effect from a previously registered portable v3 grant.
+pub(crate) async fn consume_portable_authority_grant_v3_for_effect(
+    params: ConsumePortableAuthorityGrantV3ForEffectParams,
+) -> Result<PortableAuthorityGrantV3ConsumptionReceipt, ResolveError> {
+    let config = load_config()?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let _transaction_guard = TRANSACTION_LOCK.lock().await;
+        #[cfg(unix)]
+        let _process_guard =
+            acquire_wallet_transaction_process_lock(&config.transaction_lock_path).await?;
+        let mut client = connect(&config).await?;
+        let encoded = codec::to_bytes_canonical(&params).map_err(|error| {
+            ResolveError::Invalid(format!(
+                "portable authority consumption encoding failed: {error}"
+            ))
+        })?;
+        submit_service_call(
+            &config,
+            &mut client,
+            "consume_portable_authority_grant_v3_for_effect@v1",
+            encoded,
+        )
+        .await?;
+        let receipt_key = namespaced_key(
+            PORTABLE_AUTHORITY_EFFECT_CONSUMPTION_RECEIPT_PREFIX,
+            &params.consumption_id,
+        );
+        let bytes = query_raw(&mut client, receipt_key).await?.ok_or_else(|| {
+            ResolveError::Invalid(
+                "committed wallet.network portable consumption emitted no receipt".to_string(),
+            )
+        })?;
+        let receipt: PortableAuthorityGrantV3ConsumptionReceipt = decode_state_value(&bytes)?;
+        validate_portable_effect_consumption_receipt(&params, receipt)
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network portable consumption exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
+/// Recover an immutable portable receipt after wallet commit without consuming another call.
+pub(crate) async fn recover_portable_authority_grant_v3_consumption_for_effect(
+    params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+) -> Result<Option<PortableAuthorityGrantV3ConsumptionReceipt>, ResolveError> {
+    let config = load_config()?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let _transaction_guard = TRANSACTION_LOCK.lock().await;
+        let mut client = connect(&config).await?;
+        let receipt_key = namespaced_key(
+            PORTABLE_AUTHORITY_EFFECT_CONSUMPTION_RECEIPT_PREFIX,
+            &params.consumption_id,
+        );
+        query_raw(&mut client, receipt_key)
+            .await?
+            .map(|bytes| {
+                decode_state_value::<PortableAuthorityGrantV3ConsumptionReceipt>(&bytes).and_then(
+                    |receipt| validate_portable_effect_consumption_receipt(params, receipt),
+                )
+            })
+            .transpose()
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network portable recovery exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
+fn validate_portable_grant_state_for_effect(
+    params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+    state: PortableAuthorityGrantV3State,
+    allow_already_consumed: bool,
+    expected_audience_client_id: [u8; 32],
+) -> Result<PortableAuthorityGrantV3State, ResolveError> {
+    let leaf_bytes = state.grant_chain_json.last().ok_or_else(|| {
+        ResolveError::Invalid("wallet.network portable grant chain is empty".to_string())
+    })?;
+    let leaf: serde_json::Value = serde_json::from_slice(leaf_bytes).map_err(|error| {
+        ResolveError::Invalid(format!(
+            "wallet.network portable leaf is malformed: {error}"
+        ))
+    })?;
+    let effect_hash_ref = format!("sha256:{}", hex::encode(params.actual_effect_hash));
+    let grant_hash_ref = format!("sha256:{}", hex::encode(params.grant_hash));
+    let usable_status = state.status == PortableAuthorityGrantV3Status::Active
+        && state.remaining_calls > 0
+        || allow_already_consumed
+            && state.status == PortableAuthorityGrantV3Status::Exhausted
+            && state.remaining_calls == 0
+            && state.uses_consumed == state.max_calls;
+    if state.schema_version != 1
+        || state.grant_hash != params.grant_hash
+        || state.audience_client_id != expected_audience_client_id
+        || !usable_status
+        || state.uses_consumed.saturating_add(state.remaining_calls) != state.max_calls
+        || leaf.get("body_hash").and_then(serde_json::Value::as_str)
+            != Some(grant_hash_ref.as_str())
+        || leaf.get("audience").and_then(serde_json::Value::as_str)
+            != Some(params.expected_audience.as_str())
+        || leaf.get("holder_id").and_then(serde_json::Value::as_str)
+            != Some(params.expected_holder_id.as_str())
+        || leaf
+            .get("holder_key_id")
+            .and_then(serde_json::Value::as_str)
+            != Some(params.expected_holder_key_id.as_str())
+        || leaf
+            .pointer("/request_commitment/authorization_subject/kind")
+            .and_then(serde_json::Value::as_str)
+            != Some("exact_effect")
+        || leaf
+            .pointer("/request_commitment/authorization_subject/subject_ref")
+            .and_then(serde_json::Value::as_str)
+            != Some(params.actual_effect_ref.as_str())
+        || leaf
+            .pointer("/request_commitment/authorization_subject/subject_hash")
+            .and_then(serde_json::Value::as_str)
+            != Some(effect_hash_ref.as_str())
+    {
+        return Err(ResolveError::Refused(
+            "wallet.network preflight refused the portable grant, exact effect, audience, holder, status, or call budget"
+                .to_string(),
+        ));
+    }
+    Ok(state)
+}
+
+/// Read the wallet-owned portable state and reject structural mismatches before preparing the
+/// daemon writer slot. Consensus time, signatures, current authority, and revocation remain the
+/// responsibility of the later atomic wallet transaction.
+pub(crate) async fn preflight_portable_authority_grant_v3_for_effect(
+    params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+) -> Result<PortableAuthorityGrantV3State, ResolveError> {
+    let config = load_config()?;
+    let audience_client_id = account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &config.client_key.public_key().to_bytes(),
+    )
+    .map_err(|error| {
+        ResolveError::NotConfigured(format!(
+            "Hypervisor capability signer id could not be derived: {error}"
+        ))
+    })?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let _transaction_guard = TRANSACTION_LOCK.lock().await;
+        let mut client = connect(&config).await?;
+
+        let already_consumed = if let Some(bytes) = query_raw(
+            &mut client,
+            namespaced_key(
+                PORTABLE_AUTHORITY_EFFECT_CONSUMPTION_RECEIPT_PREFIX,
+                &params.consumption_id,
+            ),
+        )
+        .await?
+        {
+            let receipt: PortableAuthorityGrantV3ConsumptionReceipt = decode_state_value(&bytes)?;
+            validate_portable_effect_consumption_receipt(params, receipt)?;
+            true
+        } else {
+            false
+        };
+
+        let bytes = query_raw(
+            &mut client,
+            namespaced_key(PORTABLE_AUTHORITY_GRANT_V3_STATE_PREFIX, &params.grant_hash),
+        )
+        .await?
+        .ok_or_else(|| {
+            ResolveError::Refused(
+                "wallet.network preflight found no state for the portable grant".to_string(),
+            )
+        })?;
+        let state: PortableAuthorityGrantV3State = decode_state_value(&bytes)?;
+        validate_portable_grant_state_for_effect(
+            params,
+            state,
+            already_consumed,
+            audience_client_id,
+        )
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network portable preflight exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
 /// Read-only fail-fast validation for every wallet-owned precondition that can be established
 /// before a daemon claims the unique chain-writer reservation. The later consume transaction is
 /// still authoritative and atomic; this check exists so an already wrong-target, exhausted,
@@ -1058,4 +1292,64 @@ pub(crate) async fn preflight_approval_grant_for_effect_v2(
             timeout.as_millis()
         ))
     })?
+}
+
+#[cfg(test)]
+mod portable_authority_client_tests {
+    use super::*;
+
+    fn params() -> ConsumePortableAuthorityGrantV3ForEffectParams {
+        ConsumePortableAuthorityGrantV3ForEffectParams {
+            grant_hash: [0x31; 32],
+            consumption_id: [0x32; 32],
+            expected_audience: "pep://tests/daemon".to_string(),
+            expected_holder_id: "worker://tests/holder".to_string(),
+            expected_holder_key_id: "key://tests/holder/1".to_string(),
+            actual_effect_ref: "effect://tests/1".to_string(),
+            actual_effect_hash: [0x33; 32],
+        }
+    }
+
+    fn receipt(
+        params: &ConsumePortableAuthorityGrantV3ForEffectParams,
+    ) -> PortableAuthorityGrantV3ConsumptionReceipt {
+        let mut receipt = PortableAuthorityGrantV3ConsumptionReceipt {
+            schema_version: 1,
+            receipt_hash: [0; 32],
+            grant_hash: params.grant_hash,
+            consumption_id: params.consumption_id,
+            authority_grant_ref: "authority-grant://tests/portable/1".to_string(),
+            actual_effect_ref: params.actual_effect_ref.clone(),
+            actual_effect_hash: params.actual_effect_hash,
+            audience: params.expected_audience.clone(),
+            holder_id: params.expected_holder_id.clone(),
+            holder_key_id: params.expected_holder_key_id.clone(),
+            consumed_at_ms: 1_787_587_300_000,
+            usage_ordinal: 1,
+            remaining_calls: 0,
+        };
+        let mut material = serde_json::to_value(&receipt).expect("receipt value");
+        material["receipt_hash"] = serde_json::json!(vec![0u8; 32]);
+        receipt.receipt_hash =
+            Sha256::digest(serde_jcs::to_vec(&material).expect("canonical receipt")).into();
+        receipt
+    }
+
+    #[test]
+    fn portable_receipt_validation_binds_the_exact_effect_and_idempotency_slot() {
+        let params = params();
+        let receipt = receipt(&params);
+        assert_eq!(
+            validate_portable_effect_consumption_receipt(&params, receipt.clone())
+                .expect("exact receipt"),
+            receipt
+        );
+
+        let mut substituted = params.clone();
+        substituted.actual_effect_hash = [0x34; 32];
+        assert!(matches!(
+            validate_portable_effect_consumption_receipt(&substituted, receipt),
+            Err(ResolveError::Invalid(_))
+        ));
+    }
 }
