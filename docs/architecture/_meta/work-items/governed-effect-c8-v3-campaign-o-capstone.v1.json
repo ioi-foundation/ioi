@@ -1,0 +1,48 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "governed-effect-c8-v3-campaign-o-capstone",
+  "stage_id": "C8",
+  "required_work": [
+    "C8 v3 portable evidence",
+    "U1 relying-party admission"
+  ],
+  "status": "verified",
+  "objective": "Admit retained Campaign O evidence through a separately provisioned first-party AFT relying party: preserve native authority and trajectory hash domains, carry the exact C8 v2 predecessor, bind the scoped hostile-guest secret-non-possession probe and authenticated workload result, and mutate the measured-results registry exactly once under a policy that explicitly admits the observed environment, honesty class, and variance-caveated verdict.",
+  "falsifiable_claim": "Unknown evidence schemas, a summarized or substituted predecessor, invalid native self-hashes, altered authority or trajectory state, an unaccepted honesty class or verdict, stale or widened policy, registry revision conflict, or any of forty resealed semantic mutations cannot produce the accepted revision-one state.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/foundations/objects/authority-and-access.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/admit-u1-campaign-o-c8-v3.mjs",
+      "must_contain": "IOI_C8_RELYING_PARTY_DIR",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/provision-u1-c8-relying-party.mjs",
+      "must_contain": "accepted_result_verdicts",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/aft-c8-verifier/src/main.rs",
+      "must_contain": "predecessor_certificate_not_complete",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/governed-effect-c8-v3-campaign-o-capstone.v1.json"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The separate Rust verifier accepts the retained Campaign O bundle, rejects forty fully resealed semantic mutations, requires the complete native C8 v2 predecessor, enforces a closed schema-ref allowlist, verifies native hash profiles, and performs one compare-and-set registry transition from revision 0 to revision 1. The registered canonical core of the retained bundle passes Ajv 2020-12 validation.",
+  "remaining_nonclaims": [
+    "The verifier and producer remain maintained by IOI; this is not third-party verification.",
+    "The hostile-guest result does not establish resistance to a compromised host kernel, VMM, daemon, firmware, or hardware.",
+    "The provider placement is measured-container, not attested bare metal.",
+    "The result remains variance-caveated and is not promoted to reproduced-within-threshold.",
+    "The evidence covers one exact Akash provider and does not prove provider neutrality."
+  ],
+  "source_provenance": "Retained Campaign O artifacts were reassembled and re-admitted offline on 2026-08-23 without a provider rerun or additional spend.",
+  "last_status_transaction": "2026-08-23"
+}

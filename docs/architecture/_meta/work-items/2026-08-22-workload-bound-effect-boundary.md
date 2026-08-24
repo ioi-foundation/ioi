@@ -3,6 +3,7 @@
 Status: spend-free local T2 implementation slice; real KVM and static-provider composition passed; global floor not yet promoted.
 Canonical owner: `docs/architecture/components/hypervisor/providers-and-environments.md#local-hostile-guest-enforcement-profile`.
 Doctrine status: reference
+Superseded by: `governed-effect-c8-v3-campaign-o-capstone.v1.json` for the composed Campaign O evidence; this file remains the spend-free local-slice record and does not itself acquire stronger claims.
 Implementation status: partial
 Implementation refs:
   - `docs/decisions/0027-require-workload-bound-isolation-for-autonomous-execution.md`

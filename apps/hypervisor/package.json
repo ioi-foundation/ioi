@@ -37,6 +37,7 @@
     "check:c7-c8-capstone": "node scripts/verify-c7-c8-capstone.mjs",
     "check:c8-v3-portable-bundle": "node --test scripts/lib/c8-v3-portable-bundle.test.mjs",
     "check:c8-v3-relying-party": "cargo build -p aft-c8-verifier && node scripts/verify-c8-v3-relying-party.mjs",
+    "check:c8-v3-canonical-bundle": "node scripts/verify-c8-v3-canonical-bundle.mjs",
     "capture:u1-provider-preflight": "node scripts/capture-u1-provider-preflight.mjs",
     "check:standing-authority-broker-contract": "node scripts/verify-standing-authority-broker-contract.mjs",
     "assemble:c8-v3-portable-bundle": "node scripts/assemble-c8-v3-portable-bundle.mjs",

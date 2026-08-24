@@ -90,6 +90,7 @@ try {
     maximum_certificate_age_seconds: 86400, revocation_check_required: false,
     required_claim_ids: ["governed_infrastructure_lifecycle", "workload_readiness", "workload_result_binding", "logical_policy_mediation", "workload_bound_isolation_enforced", "worker_secret_non_possession_tested", "separate_verifier", "independently_reproduced"],
     tolerated_nonclaim_ids: ["third_party_verified", "provider_neutrality", "bare_metal_placement"], accepted_environment_classes: ["measured_container"],
+    accepted_honesty_classes: ["same_provider_container_unknown_host"], accepted_result_verdicts: ["reproduced_within_threshold"],
     verifier_profile_ref: profile.profile_ref, verifier_profile_hash: profile.profile_hash,
     target_transition: { target_registry_ref: "registry://aft/measured-results", mutation_kind: "aft_measured_result_promote", target_schema_ref: "schema://ioi/aft/measured-result-row/v1" },
     valid_from: "2026-08-22T00:00:00Z", valid_until: later,
@@ -106,13 +107,17 @@ try {
     secret: "evidence://secret-probe/corpus", settlement: "receipt://provider/settlement-corpus", terminal: "receipt://provider/terminal-corpus",
   };
   const objects = [
-    generic("predecessor", refs.predecessor, "schema://ioi/components/hypervisor/c8-certificate/v2"),
+    object("predecessor", refs.predecessor, "schema://ioi/components/hypervisor/c8-certificate/v2", {
+      schema_version: "ioi.hypervisor.c7-c8-certificate.v2", ok: true,
+      journal: { intent_root: h("1"), outcome_predecessor_root: h("1"), outcome_root: h("2") },
+      provider: { provider_address: providerAddress },
+    }),
     object("source", refs.source, "schema://ioi/foundations/source-basis/v1", { commit: sourceCommit }),
     object("request", refs.request, "schema://ioi/components/hypervisor/provider-operation/v1", requestValue),
     object("claims", refs.claims, "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", claimManifest),
     generic("isolation-requirements", refs.isolationRequirements, "schema://ioi/components/hypervisor/workload-isolation-requirements/v1", {
       requirements_ref: refs.isolationRequirements,
-      source_policy_refs_and_hashes: [{ ref: "policy://isolation/corpus", hash: h("1") }],
+      source_policy_refs_and_hashes: [{ ref: "policy://isolation/corpus", hash: h("1") }, { ref: "policy://network/corpus", hash: h("2") }, { ref: "policy://output/corpus", hash: h("3") }],
       compiled_risk_classes: ["untrusted_code", "mutating"], hostile_to_boundary_requirement: "hostile_to_guest_kernel",
       instance_policy: "fresh_per_workrun", minimum_isolation: "vm_kernel", host_mount_policy: "none",
       daemon_socket_exposed: false, host_pid_namespace_exposed: false, raw_secret_material_in_guest: false,

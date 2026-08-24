@@ -5,7 +5,7 @@
   "x-ioi-schema-version": "ioi.foundations.relying-party-acceptance-policy.v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "policy_ref", "policy_hash", "audience_ref", "accepted_certificate_schema_refs", "accepted_result_schema_refs", "trust_roots", "maximum_certificate_age_seconds", "revocation_check_required", "required_claim_ids", "tolerated_nonclaim_ids", "accepted_environment_classes", "verifier_profile_ref", "verifier_profile_hash", "target_transition", "valid_from", "valid_until"],
+  "required": ["schema_version", "policy_ref", "policy_hash", "audience_ref", "accepted_certificate_schema_refs", "accepted_result_schema_refs", "trust_roots", "maximum_certificate_age_seconds", "revocation_check_required", "required_claim_ids", "tolerated_nonclaim_ids", "accepted_environment_classes", "accepted_honesty_classes", "accepted_result_verdicts", "verifier_profile_ref", "verifier_profile_hash", "target_transition", "valid_from", "valid_until"],
   "properties": {
     "schema_version": { "const": "ioi.foundations.relying-party-acceptance-policy.v1" },
     "policy_ref": { "$ref": "#/$defs/ref" },
@@ -19,6 +19,8 @@
     "required_claim_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/claimId" } },
     "tolerated_nonclaim_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/claimId" } },
     "accepted_environment_classes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "accepted_honesty_classes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["same_provider_container_unknown_host", "attested_pinned_bare_metal", "variance_caveated"] } },
+    "accepted_result_verdicts": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["reproduced_within_threshold", "variance_caveated"] } },
     "verifier_profile_ref": { "$ref": "#/$defs/ref" },
     "verifier_profile_hash": { "$ref": "#/$defs/hash" },
     "target_transition": { "$ref": "#/$defs/targetTransition" },

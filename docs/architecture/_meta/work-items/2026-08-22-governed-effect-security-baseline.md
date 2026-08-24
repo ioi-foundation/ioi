@@ -3,6 +3,7 @@
 Status: re-derived T0 baseline; spend-free; no provider mutation performed.
 Canonical owner: this record for the 2026-08-22 governed-effect T0 audit basis.
 Doctrine status: reference
+Superseded by: `governed-effect-c8-v3-campaign-o-capstone.v1.json` for implementation status after the retained Campaign O admission; this file remains the immutable T0 audit basis.
 Implementation status: partial
 Implementation refs:
   - `docs/architecture/_meta/schemas/architecture-contract-registry.v1.json`

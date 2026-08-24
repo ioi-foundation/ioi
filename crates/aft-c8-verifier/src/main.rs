@@ -93,6 +93,8 @@ struct Policy {
     required_claim_ids: Vec<String>,
     tolerated_nonclaim_ids: Vec<String>,
     accepted_environment_classes: Vec<String>,
+    accepted_honesty_classes: Vec<String>,
+    accepted_result_verdicts: Vec<String>,
     verifier_profile_ref: String,
     verifier_profile_hash: String,
     target_transition: TargetTransition,
@@ -380,6 +382,33 @@ fn verify_bundle(bundle_dir: &Path, policy_path: &Path, now: OffsetDateTime) -> 
         ensure_eq(&entry.hash, &binding.hash, "bound_object_hash")?;
     }
 
+    let predecessor_ref = required_str(&certificate, "predecessor_certificate_ref")?;
+    let predecessor_hash = required_str(&certificate, "predecessor_certificate_hash")?;
+    let predecessor = object_value_bound(
+        &all,
+        predecessor_ref,
+        predecessor_hash,
+        "predecessor_certificate_missing",
+    )?;
+    ensure_value_str(
+        predecessor,
+        "schema_version",
+        required_str(&certificate, "predecessor_certificate_schema_version")?,
+    )?;
+    ensure_value_str(predecessor, "certificate_hash", predecessor_hash)?;
+    if predecessor.get("ok").and_then(Value::as_bool) != Some(true)
+        || predecessor
+            .get("journal")
+            .and_then(Value::as_object)
+            .is_none()
+        || predecessor
+            .get("provider")
+            .and_then(Value::as_object)
+            .is_none()
+    {
+        bail!("predecessor_certificate_not_complete")
+    }
+
     let manifest_ref = required_str(&certificate, "claim_manifest_ref")?;
     let manifest: ClaimManifest = object_as(&all, manifest_ref, "claim manifest")?;
     ensure_eq(
@@ -475,7 +504,22 @@ fn verify_bundle(bundle_dir: &Path, policy_path: &Path, now: OffsetDateTime) -> 
     {
         bail!("environment_class_not_accepted")
     }
-    if required_str(&certificate, "honesty_class")? == "attested_pinned_bare_metal"
+    let honesty_class = required_str(&certificate, "honesty_class")?;
+    if !policy
+        .accepted_honesty_classes
+        .iter()
+        .any(|v| v == honesty_class)
+    {
+        bail!("honesty_class_not_accepted")
+    }
+    if !policy
+        .accepted_result_verdicts
+        .iter()
+        .any(|v| v == &result.verdict)
+    {
+        bail!("result_verdict_not_accepted")
+    }
+    if honesty_class == "attested_pinned_bare_metal"
         && environment_class != "attested_pinned_bare_metal"
     {
         bail!("bare_metal_claim_inflated")
@@ -1587,6 +1631,7 @@ fn index_objects<'a>(
     let canonical_dir = fs::canonicalize(bundle_dir)?;
     let mut out = BTreeMap::new();
     for entry in objects {
+        validate_supported_schema(entry)?;
         validate_file_name(&entry.file)?;
         let key = object_binding_key(&entry.r#ref, &entry.hash);
         if out.contains_key(&key) {
@@ -1611,6 +1656,43 @@ fn index_objects<'a>(
         out.insert(key, (entry.clone(), value));
     }
     Ok(out)
+}
+
+fn validate_supported_schema(entry: &BundleObject) -> Result<()> {
+    const SUPPORTED: &[&str] = &[
+        "schema://ioi/aft/campaign-variance/v1",
+        "schema://ioi/aft/environment-manifest/v1",
+        "schema://ioi/aft/u1-campaign-result/v1",
+        "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
+        "schema://ioi/components/hypervisor/c8-certificate/v2",
+        "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
+        "schema://ioi/components/hypervisor/provider-readiness/v1",
+        "schema://ioi/components/hypervisor/provider-operation/v1",
+        "schema://ioi/components/hypervisor/provider-settlement/v1",
+        "schema://ioi/components/hypervisor/result-retrieval-receipt/v1",
+        "schema://ioi/components/hypervisor/terminal-acceptance-prerequisite/v1",
+        "schema://ioi/components/hypervisor/u1-campaign-certificate/v1",
+        "schema://ioi/components/hypervisor/worker-secret-non-possession/v1",
+        "schema://ioi/components/hypervisor/workload-boundary-enforcement-evidence/v1",
+        "schema://ioi/components/hypervisor/workload-effect-consumption/v1",
+        "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
+        "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
+        "schema://ioi/foundations/authority-trajectory-state/v1",
+        "schema://ioi/foundations/canonical-json-preimage/v1",
+        "schema://ioi/foundations/relying-party-acceptance-policy/v1",
+        "schema://ioi/foundations/source-basis/v1",
+        "schema://ioi/foundations/standing-authority-consumption/v1",
+        "schema://ioi/foundations/standing-authority-draw-request/v1",
+        "schema://ioi/foundations/standing-authority-envelope/v1",
+        "schema://ioi/foundations/trajectory-admission-decision/v1",
+        "schema://ioi/foundations/verifier-independence-profile/v1",
+        "schema://ioi/hypervisor/workload-bound-effect-boundary-live-probe/v2",
+        "schema://json-schema/draft-2020-12",
+    ];
+    if !SUPPORTED.contains(&entry.schema_ref.as_str()) {
+        bail!("unsupported_bundle_schema:{}", entry.schema_ref)
+    }
+    Ok(())
 }
 
 fn object_binding_key(reference: &str, hash: &str) -> String {
@@ -1893,6 +1975,27 @@ fn content_hash(value: &Value) -> Result<String> {
             hex::encode(Sha256::digest(canonical_json.as_bytes()))
         ));
     }
+    if schema == "ioi.foundations.standing-authority-envelope.v1" {
+        let mut material = value.clone();
+        let object = material
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("hash_subject_not_object"))?;
+        object.remove("body_hash");
+        object.insert(
+            "domain".into(),
+            Value::String("ioi.standing-authority-envelope-jcs-sha256.v1".into()),
+        );
+        return hash_value(&material);
+    }
+    if schema == "ioi.foundations.trajectory-admission-decision.v1" {
+        let mut material = value.clone();
+        let object = material
+            .as_object_mut()
+            .ok_or_else(|| anyhow!("hash_subject_not_object"))?;
+        object.remove("decision_hash");
+        object.remove("decision_ref");
+        return hash_value(&material);
+    }
     let self_hash_field = match schema {
         C8_V3 => Some("certificate_hash"),
         BUNDLE_V1 => Some("bundle_hash"),
@@ -1901,12 +2004,11 @@ fn content_hash(value: &Value) -> Result<String> {
         REGISTRY_V1 => Some("state_hash"),
         ROW_V1 => Some("row_hash"),
         RECEIPT_V1 => Some("receipt_hash"),
+        "ioi.hypervisor.c7-c8-certificate.v2" => Some("certificate_hash"),
         "ioi.components.hypervisor.governed-effect-claim-manifest.v1" => Some("manifest_hash"),
         "ioi.components.hypervisor.workload-isolation-binding.v1" => Some("binding_hash"),
         "ioi.components.hypervisor.workload-isolation-requirements.v1" => Some("requirements_hash"),
-        "ioi.foundations.standing-authority-envelope.v1" => Some("body_hash"),
         "ioi.foundations.authority-trajectory-state.v1" => Some("trajectory_state_hash"),
-        "ioi.foundations.trajectory-admission-decision.v1" => Some("decision_hash"),
         "ioi.hypervisor.auth-factor-receipt.v1" => Some("receipt_hash"),
         _ => None,
     };
@@ -2170,13 +2272,13 @@ mod tests {
             BundleObject {
                 r#ref: reference.clone(),
                 hash: before_hash.clone(),
-                schema_ref: "schema://test/state/v1".to_string(),
+                schema_ref: "schema://ioi/foundations/source-basis/v1".to_string(),
                 file: "before.json".to_string(),
             },
             BundleObject {
                 r#ref: reference.clone(),
                 hash: after_hash.clone(),
-                schema_ref: "schema://test/state/v1".to_string(),
+                schema_ref: "schema://ioi/foundations/source-basis/v1".to_string(),
                 file: "after.json".to_string(),
             },
         ];

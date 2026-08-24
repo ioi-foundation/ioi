@@ -2093,6 +2093,8 @@ export type RelyingPartyAcceptancePolicyV1 = {
   required_claim_ids: Array<"governed_infrastructure_lifecycle" | "workload_readiness" | "workload_result_binding" | "logical_policy_mediation" | "workload_bound_isolation_enforced" | "worker_secret_non_possession_tested" | "separate_verifier" | "independently_reproduced" | "third_party_verified" | "provider_neutrality" | "bare_metal_placement">;
   tolerated_nonclaim_ids: Array<"governed_infrastructure_lifecycle" | "workload_readiness" | "workload_result_binding" | "logical_policy_mediation" | "workload_bound_isolation_enforced" | "worker_secret_non_possession_tested" | "separate_verifier" | "independently_reproduced" | "third_party_verified" | "provider_neutrality" | "bare_metal_placement">;
   accepted_environment_classes: Array<string>;
+  accepted_honesty_classes: Array<"same_provider_container_unknown_host" | "attested_pinned_bare_metal" | "variance_caveated">;
+  accepted_result_verdicts: Array<"reproduced_within_threshold" | "variance_caveated">;
   verifier_profile_ref: string;
   verifier_profile_hash: string;
   target_transition: {
@@ -21878,7 +21880,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/aft/measured-results-registry/v1": "sha256:0516efc32f6e4bf54217bed7fc2327de56abd34b43cb2b7ffaf51ca30ecd607f",
   "schema://ioi/foundations/verifier-independence-profile/v1": "sha256:79dcd6f4d215d9bf4f37f602a9187cfee07b968b66ede46418aab0bbd84af0d9",
   "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1": "sha256:89b2fdfcdefc25a65cd223e28857541a90e23dd12221393017c3b11118fa04bb",
-  "schema://ioi/foundations/relying-party-acceptance-policy/v1": "sha256:64705441cf760d415ded81428fcf9acae5f7a1c73b6b357167cde52d083570fe",
+  "schema://ioi/foundations/relying-party-acceptance-policy/v1": "sha256:50dd23e3064321ec77fc4204fefb233058197ac00093a1be6467360643646e07",
   "schema://ioi/foundations/certificate-acceptance-receipt/v1": "sha256:8a241d88eb5e1406847ffcf1a410b8ee578198875301b322f6110c71ff67ef90",
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": "sha256:272fed9f39075b80d523e895f65815be3103e5266d75b59b759564dc028cd40a",
   "schema://ioi/components/hypervisor/harness-session-binding/v1": "sha256:89e0cd13c371d30221e73f6af8b656f2a19af2aa55657e53ddeb65ee200499f6",
@@ -38026,6 +38028,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "required_claim_ids",
       "tolerated_nonclaim_ids",
       "accepted_environment_classes",
+      "accepted_honesty_classes",
+      "accepted_result_verdicts",
       "verifier_profile_ref",
       "verifier_profile_hash",
       "target_transition",
@@ -38097,6 +38101,29 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "uniqueItems": true,
         "items": {
           "$ref": "#/$defs/name"
+        }
+      },
+      "accepted_honesty_classes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "same_provider_container_unknown_host",
+            "attested_pinned_bare_metal",
+            "variance_caveated"
+          ]
+        }
+      },
+      "accepted_result_verdicts": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "reproduced_within_threshold",
+            "variance_caveated"
+          ]
         }
       },
       "verifier_profile_ref": {

@@ -4,13 +4,13 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI's alignment-security thesis, verifiable bounded agency, and execution-boundary alignment doctrine.
 Supersedes: the retired docs/specs/verifiable_bounded_agency.md (removed 2026-08-12) and product prose that claims IOI solves alignment by model cognition, prompt compliance, or one required proof backend.
 Superseded by: none.
-Last alignment pass: 2026-08-12.
+Last alignment pass: 2026-08-23.
 Doctrine status: canonical
 Implementation status: mixed (execution-boundary gating built in the daemon;
 the inference-computation-proof subsection is durable claim hygiene with no
 product profile or path admitted, and broader proof/zk continuity remains
 speculative)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-08-23 (offline Campaign O C8 v3 admission reached AFT measured-results registry revision 1)
 
 ## Canonical Definition
 
@@ -515,6 +515,17 @@ state-before and state-after hashes. The receipt also binds the certificate,
 policy, verifier identity/build, exact trust-input hashes, observation time,
 and validity horizon. A producer cannot self-declare registry acceptance by
 embedding an `accepted` field in its own certificate.
+
+The acceptance policy separately enumerates admitted environment classes,
+honesty classes, and result verdicts. A variance-caveated result therefore
+cannot enter through a policy that admits only reproduced-within-threshold
+results, even when every other claim passes. For the offline first-party
+profile, the relying party provisions the policy, verifier profile, and
+revision-zero registry before the producer assembles a bundle. The producer
+supplies evidence; it does not create or widen the accepting policy or initialize
+the target registry inside the admission transaction. This demonstrates a real
+first-party relying-party decision and state transition, not organizationally
+independent or third-party verification.
 
 `AftU1CampaignResult` is the closed aggregate emitted by the fixed U1
 measurement protocol. `AftMeasuredResultRow` is the promoted object binding

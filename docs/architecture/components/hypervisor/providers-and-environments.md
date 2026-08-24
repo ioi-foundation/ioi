@@ -8,15 +8,15 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-08-06.
+Last alignment pass: 2026-08-23.
 Doctrine status: canonical
-Implementation status: partial (env lifecycle, providers, readiness, warm pools, and placement built; DePIN/storage posture families vary)
+Implementation status: partial (env lifecycle, providers, readiness, warm pools, placement, the local hostile-guest provider path, and offline C8 v3 AFT admission built; DePIN/storage posture families vary)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/hypervisor_environment_routes.rs`
   - `crates/types/src/app/hypervisor_environment_lifecycle.rs`
-Last implementation audit: 2026-08-06
+Last implementation audit: 2026-08-23 (Campaign O retained evidence admitted offline through the separate AFT verifier; see the governed-effect-capstone work-item record)
 
 ## Canonical Definition
 
@@ -1443,6 +1443,23 @@ certificate binds distinct committed versions, such as the before and after
 images of a trajectory state. Filenames and exact ref/hash pairs remain unique;
 a reference without its hash is rejected as ambiguous whenever multiple
 versions are present.
+
+Portable hashing preserves each admitted object's native content-addressing
+domain. Ordinary JCS objects exclude only their named self-hash field; the
+standing-envelope domain additionally injects its registered domain separator;
+trajectory decisions exclude their derived `decision_ref` as well as
+`decision_hash`; a canonical-JSON preimage hashes its exact retained bytes; and
+the C8 v2 predecessor uses its native certificate preimage. A portable producer
+MUST NOT rewrite a native object into a lookalike carrying `native_*` fields
+under the original schema version. The verifier recomputes the applicable
+native hash and rejects an unsupported schema ref before interpreting evidence.
+
+The 2026-08-23 Campaign O admission is the first retained implementation of
+this framing. Its bundle carries the complete C8 v2 predecessor, not a summary
+projection, and its registered C8 v3 core objects validate against the same
+architecture schemas used to generate Rust and TypeScript projections. Evidence
+schemas owned by the named verifier profile remain a closed verifier allowlist;
+they are not silently treated as globally registered architecture contracts.
 
 ### Typed virtual-machine target and observation payloads
 

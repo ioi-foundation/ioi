@@ -13,6 +13,8 @@ const campaignDir = process.env.IOI_U1_CAMPAIGN_EVIDENCE
   || path.join(home, ".ioi/hypervisor/evidence/u1/campaign-o-aes-phl-14d24907/run");
 const dataDir = process.env.IOI_HYPERVISOR_DATA_DIR || path.join(home, ".ioi/hypervisor/data");
 const output = path.resolve(process.argv[2] || path.join(path.dirname(campaignDir), "c8-v3-registry-admission"));
+const relyingPartyDir = process.env.IOI_C8_RELYING_PARTY_DIR;
+if (!relyingPartyDir) throw new Error("IOI_C8_RELYING_PARTY_DIR is required; provision relying-party policy and registry separately");
 const verifier = process.env.IOI_AFT_C8_VERIFIER || path.join(repo, "target/debug/aft-c8-verifier");
 const acceptedAt = "2026-08-23T23:45:00Z";
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-u1-c8-v3-real-"));
@@ -133,31 +135,6 @@ try {
     terminal: `receipt://provider/terminal/${campaignId}`,
   };
 
-  const portableEnvelope = structuredClone(envelope);
-  portableEnvelope.native_body_hash = portableEnvelope.body_hash;
-  delete portableEnvelope.body_hash;
-  Object.assign(portableEnvelope, sealSelfHash(portableEnvelope));
-  const portableFactor = structuredClone(factor);
-  portableFactor.native_receipt_hash = portableFactor.receipt_hash;
-  delete portableFactor.receipt_hash;
-  Object.assign(portableFactor, sealSelfHash(portableFactor));
-  const portableTrajectoryBefore = structuredClone(trajectoryBefore);
-  portableTrajectoryBefore.native_trajectory_state_hash = portableTrajectoryBefore.trajectory_state_hash;
-  delete portableTrajectoryBefore.trajectory_state_hash;
-  Object.assign(portableTrajectoryBefore, sealSelfHash(portableTrajectoryBefore));
-  const portableTrajectoryAfter = structuredClone(trajectoryAfter);
-  portableTrajectoryAfter.native_trajectory_state_hash = portableTrajectoryAfter.trajectory_state_hash;
-  delete portableTrajectoryAfter.trajectory_state_hash;
-  Object.assign(portableTrajectoryAfter, sealSelfHash(portableTrajectoryAfter));
-  const portableTrajectoryDecision = structuredClone(trajectoryDecision);
-  portableTrajectoryDecision.native_decision_hash = portableTrajectoryDecision.decision_hash;
-  portableTrajectoryDecision.native_state_before_hash = portableTrajectoryDecision.state_before_hash;
-  portableTrajectoryDecision.native_state_after_hash = portableTrajectoryDecision.state_after_hash;
-  portableTrajectoryDecision.state_before_hash = portableTrajectoryBefore.trajectory_state_hash;
-  portableTrajectoryDecision.state_after_hash = portableTrajectoryAfter.trajectory_state_hash;
-  delete portableTrajectoryDecision.decision_hash;
-  Object.assign(portableTrajectoryDecision, sealSelfHash(portableTrajectoryDecision));
-
   const sourceBasis = { schema_version: "ioi.foundations.source-basis.v1", commit: sourceCommit, image_digest: imageDigest };
   const daemonSourceBasis = { schema_version: "ioi.foundations.source-basis.v1", commit: lifecycle.source.commit, daemon_binary_sha256: lifecycle.source.daemon_binary_sha256, dirty_state_declaration: "clean" };
   const result = structuredClone(campaign.measurement.aggregate);
@@ -174,12 +151,16 @@ try {
   };
   const isolationRequirements = sealSelfHash({
     schema_version: "ioi.components.hypervisor.workload-isolation-requirements.v1",
-    requirements_ref: refs.isolationRequirements, source_policy_refs_and_hashes: [{ ref: "policy://u1/hostile-guest", hash: isolationProbe.enforcement_declaration.isolation_binding_hash }],
+    requirements_ref: refs.isolationRequirements, source_policy_refs_and_hashes: [
+      { ref: "policy://u1/hostile-guest", hash: isolationProbe.enforcement_declaration.isolation_binding_hash },
+      { ref: "policy://network/deny-default", hash: contentHash({ policy: isolationProbe.enforcement_declaration.network_policy }) },
+      { ref: "policy://output/quarantine", hash: contentHash({ policy: isolationProbe.enforcement_declaration.output_policy }) },
+    ],
     compiled_risk_classes: ["untrusted_code", "provider_operation"], hostile_to_boundary_requirement: "hostile_to_guest_kernel",
     instance_policy: "fresh_per_workrun", minimum_isolation: "vm_kernel", host_mount_policy: "none", daemon_socket_exposed: false,
     host_pid_namespace_exposed: false, raw_secret_material_in_guest: false, capability_broker_ref: "broker://hypervisor/final-invoker",
     permitted_lease_classes: ["proposal_write"], network_policy_ref: "policy://network/deny-default", dependency_broker_policy_ref: "policy://dependency/none",
-    output_admission: { quarantine_required: true, policy_ref: "policy://output/quarantine", maximum_bytes: 65536, maximum_files: 4 },
+    output_admission: { quarantine_required: true, policy_ref: "policy://output/quarantine", maximum_bytes: 65536, maximum_files: 4, archive_entry_policy_ref: "policy://archive/regular-files-and-directories", evaluator_refs: ["evaluator://hypervisor/output-quarantine/v1"] },
     teardown: { destruction_policy_ref: "policy://cleanup/workrun", deadline_ms: 60000, verify_all_resources: true, cleanup_obligation_on_uncertainty: true },
     required_backend_capabilities: ["kernel_initramfs_boot", "guest_agent", "no_nic"], required_enforcement_coverage: ["preventable", "receipted"],
     required_evidence_and_receipt_policy_refs: ["policy://receipt/workrun-isolation"], compiler_ref: "compiler://workload-isolation/v1", compiler_version: "1.0.0",
@@ -201,7 +182,11 @@ try {
     failure_domain_ref: "failure-domain://owner/local-kvm", backend_capability_declaration_ref: "capability://backend/cloud-hypervisor/no-nic",
     backend_capability_declaration_hash: isolationProbe.enforcement_declaration.isolation_binding_hash,
     enforcement_coverage_refs_and_hashes: [{ ref: refs.isolationEvidence, hash: contentHash(isolationEvidence) }],
-    immutable_component_refs_and_hashes: [{ ref: "oci://ghcr.io/ioi-foundation/ioi-aft-bench", hash: imageDigest }],
+    immutable_component_refs_and_hashes: [
+      { ref: "oci://ghcr.io/ioi-foundation/ioi-aft-bench", hash: imageDigest },
+      { ref: "component://cloud-hypervisor", hash: hashBytes("cloud-hypervisor:v52.0") },
+      { ref: "component://u1/guest-boundary", hash: isolationProbe.enforcement_declaration.isolation_binding_hash },
+    ],
     exact_input_and_mount_closure_hash: isolationProbe.enforcement_declaration.isolation_binding_hash,
     guest_network_identity_ref: `network-identity://workrun/no-nic/${campaignId}`, route_policy_ref: "policy://network/deny-default",
     dependency_broker_ref: "broker://dependency/none", dependency_broker_policy_hash: isolationProbe.enforcement_declaration.isolation_binding_hash,
@@ -223,7 +208,7 @@ try {
   };
 
   const objects = [
-    generic("predecessor", refs.predecessor, "schema://ioi/components/hypervisor/c8-certificate/v2", { certificate_hash: lifecycle.certificate_hash, verification_ok: true, mutation_count: 22 }),
+    object("predecessor", refs.predecessor, "schema://ioi/components/hypervisor/c8-certificate/v2", lifecycle),
     object("source", refs.source, "schema://ioi/foundations/source-basis/v1", sourceBasis),
     object("daemon-source", refs.daemonSource, "schema://ioi/foundations/source-basis/v1", daemonSourceBasis),
     object("request", refs.request, "schema://ioi/foundations/canonical-json-preimage/v1", requestPreimage),
@@ -237,13 +222,13 @@ try {
     object("result", refs.result, "schema://ioi/aft/u1-campaign-result/v1", result),
     generic("environment", refs.environment, "schema://ioi/aft/environment-manifest/v1", environment),
     generic("variance", refs.variance, "schema://ioi/aft/campaign-variance/v1", { campaign_id: campaignId, verdict: result.verdict, threshold_policy: result.threshold_policy, all_rows_within_threshold: result.all_rows_within_threshold }),
-    object("envelope", refs.envelope, "schema://ioi/foundations/standing-authority-envelope/v1", portableEnvelope),
-    object("auth-factor", refs.factor, "schema://ioi/hypervisor/auth-factor-receipt/v1", portableFactor),
-    generic("draw-request", refs.drawRequest, "schema://ioi/foundations/standing-authority-draw-request/v1", { standing_envelope_ref: refs.envelope, candidate_operation_ref: refs.request, candidate_operation_hash: requestHash, auth_factor_receipt_ref: refs.factor, auth_factor_receipt_hash: portableFactor.receipt_hash }),
+    object("envelope", refs.envelope, "schema://ioi/foundations/standing-authority-envelope/v1", envelope),
+    object("auth-factor", refs.factor, "schema://ioi/components/hypervisor/auth-factor-receipt/v1", factor),
+    generic("draw-request", refs.drawRequest, "schema://ioi/foundations/standing-authority-draw-request/v1", { standing_envelope_ref: refs.envelope, candidate_operation_ref: refs.request, candidate_operation_hash: requestHash, auth_factor_receipt_ref: refs.factor, auth_factor_receipt_hash: factor.receipt_hash }),
     generic("draw-receipt", refs.drawReceipt, "schema://ioi/foundations/standing-authority-consumption/v1", { standing_envelope_ref: refs.envelope, draw_request_ref: refs.drawRequest, candidate_operation_hash: requestHash, decision: "consumed", atomic_consumption: true, revoked: false, consumption_id: admission.consumption_id, wallet_receipt_hash: hashBytes(JSON.stringify(admission.wallet_consumption_receipt)) }),
-    object("trajectory-before", refs.before, "schema://ioi/foundations/authority-trajectory-state/v1", portableTrajectoryBefore),
-    object("trajectory-decision", refs.decision, "schema://ioi/foundations/trajectory-admission-decision/v1", portableTrajectoryDecision),
-    object("trajectory-after", refs.after, "schema://ioi/foundations/authority-trajectory-state/v1", portableTrajectoryAfter),
+    object("trajectory-before", refs.before, "schema://ioi/foundations/authority-trajectory-state/v1", trajectoryBefore),
+    object("trajectory-decision", refs.decision, "schema://ioi/foundations/trajectory-admission-decision/v1", trajectoryDecision),
+    object("trajectory-after", refs.after, "schema://ioi/foundations/authority-trajectory-state/v1", trajectoryAfter),
     object("secret-evidence", refs.secret, "schema://ioi/components/hypervisor/worker-secret-non-possession/v1", secretEvidence),
     object("settlement", refs.settlement, "schema://ioi/components/hypervisor/provider-settlement/v1", settlement),
     generic("terminal", refs.terminal, "schema://ioi/components/hypervisor/terminal-acceptance-prerequisite/v1", { campaign_id: campaignId, terminal: true, cleanup_verified: true, result_verified: true }),
@@ -288,28 +273,17 @@ try {
   });
   objects.push(object("claims", refs.claims, "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1", claimManifest));
 
-  const binaryHash = hashBytes(fs.readFileSync(verifier));
-  const profile = sealSelfHash({
-    schema_version: "ioi.foundations.verifier-independence-profile.v1", profile_ref: "verifier-profile://aft/c8-v3/real-u1",
-    verifier_identity_ref: "verifier://ioi/aft-c8-verifier", verifier_build_hash: binaryHash,
-    contract_schema_refs: ["schema://ioi/components/hypervisor/c8-certificate/v3", "schema://ioi/aft/u1-campaign-result/v1"],
-    separate_binary: true, separate_codegen: true, separate_transport: true, separate_authoring_party: false,
-    accountable_authoring_party_ref: "principal://ioi/aft-verifier-maintainers",
-    evidence_refs: ["evidence://verifier/separate-rust-binary", "evidence://verifier/manual-types", "evidence://verifier/portable-filesystem-transport"],
-  });
-  const policy = sealSelfHash({
-    schema_version: "ioi.foundations.relying-party-acceptance-policy.v1", policy_ref: "acceptance-policy://aft/measured-results/variance-caveated-v1",
-    audience_ref: "relying-party://aft/measured-results-registry", accepted_certificate_schema_refs: ["schema://ioi/components/hypervisor/c8-certificate/v3"],
-    accepted_result_schema_refs: ["schema://ioi/aft/u1-campaign-result/v1"], trust_roots: [{ ref: refs.source, hash: contentHash(sourceBasis) }],
-    maximum_certificate_age_seconds: 604800, revocation_check_required: false,
-    required_claim_ids: ["governed_infrastructure_lifecycle", "workload_readiness", "workload_result_binding", "logical_policy_mediation", "workload_bound_isolation_enforced", "worker_secret_non_possession_tested", "separate_verifier"],
-    tolerated_nonclaim_ids: ["independently_reproduced", "third_party_verified", "provider_neutrality", "bare_metal_placement"],
-    accepted_environment_classes: ["measured_container"], verifier_profile_ref: profile.profile_ref, verifier_profile_hash: profile.profile_hash,
-    target_transition: { target_registry_ref: "registry://aft/measured-results", mutation_kind: "aft_measured_result_promote", target_schema_ref: "schema://ioi/aft/measured-result-row/v1" },
-    valid_from: "2026-08-23T00:00:00Z", valid_until: "2026-08-30T23:59:59Z",
-  });
-  const policyPath = write("source-policy.json", policy);
-  const profilePath = write("source-profile.json", profile);
+  const policyPath = path.join(relyingPartyDir, "policy.json");
+  const profilePath = path.join(relyingPartyDir, "verifier-profile.json");
+  const registryPath = path.join(relyingPartyDir, "registry.json");
+  const policy = read(policyPath);
+  const profile = read(profilePath);
+  const registryBefore = read(registryPath);
+  mustEqual(profile.verifier_build_hash, hashBytes(fs.readFileSync(verifier)), "pre-provisioned verifier build");
+  mustEqual(policy.verifier_profile_hash, contentHash(profile), "pre-provisioned verifier profile");
+  mustEqual(policy.trust_roots[0]?.ref, refs.source, "pre-provisioned source trust root ref");
+  mustEqual(policy.trust_roots[0]?.hash, contentHash(sourceBasis), "pre-provisioned source trust root hash");
+  mustEqual(registryBefore.revision, 0, "pre-provisioned registry revision");
   const draft = {
     certificate_ref: `certificate://c8/v3/${campaignId}`, predecessor_certificate_schema_version: lifecycle.schema_version,
     predecessor_certificate_ref: refs.predecessor, source_basis_refs: [refs.source, refs.daemonSource], operator_principal_ref: lifecycle.operator.principal_ref,
@@ -320,7 +294,7 @@ try {
     result_retrieval_receipt_ref: refs.retrieval, environment_ref: refs.environment, variance_evidence_ref: refs.variance,
     environment_class: "measured_container", honesty_class: campaign.placement.classification,
     authority_draw: { standing_envelope_ref: refs.envelope, draw_request_ref: refs.drawRequest, draw_receipt_ref: refs.drawReceipt },
-    trajectory_binding: { state_before_ref: refs.before, state_before_hash: portableTrajectoryBefore.trajectory_state_hash, decision_ref: refs.decision, state_after_ref: refs.after, state_after_hash: portableTrajectoryAfter.trajectory_state_hash },
+    trajectory_binding: { state_before_ref: refs.before, state_before_hash: trajectoryBefore.trajectory_state_hash, decision_ref: refs.decision, state_after_ref: refs.after, state_after_hash: trajectoryAfter.trajectory_state_hash },
     brokered_secret_use_posture: "opaque_handle_final_invoker", secret_use_evidence: [refs.secret], relying_party_audience_ref: policy.audience_ref,
     terminal_acceptance_prerequisites: [refs.terminal],
     journal_binding: { intent_root: lifecycle.journal.workload_result_predecessor_root, outcome_predecessor_root: lifecycle.journal.workload_result_predecessor_root, outcome_root: lifecycle.journal.workload_result_outcome_root },
@@ -337,9 +311,6 @@ try {
       { ref: profile.profile_ref, schema_ref: "schema://ioi/foundations/verifier-independence-profile/v1", file: "verifier-profile.json", path: profilePath },
     ],
   }, bundleDir);
-  const registry = sealSelfHash({ schema_version: "ioi.aft.measured-results-registry.v1", registry_ref: "registry://aft/measured-results", revision: 0, previous_state_hash: null, entries: [] });
-  const registryPath = path.join(output, "registry.json");
-  fs.writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`, { mode: 0o600, flag: "wx" });
   const rowPath = path.join(output, "accepted-row.json");
   const receiptPath = path.join(output, "acceptance-receipt.json");
   const accepted = spawnSync(verifier, ["accept", "--bundle", bundleDir, "--policy", path.join(bundleDir, "policy.json"), "--registry", registryPath, "--row-output", rowPath, "--receipt", receiptPath, "--expected-revision", "0", "--now", acceptedAt], { cwd: repo, encoding: "utf8" });
@@ -347,6 +318,8 @@ try {
   const after = read(registryPath);
   const receipt = read(receiptPath);
   if (after.revision !== 1 || after.entries.length !== 1 || receipt.decision !== "accepted" || receipt.mutation_applied !== true) throw new Error("registry did not perform exactly one accepted state transition");
+  fs.copyFileSync(registryPath, path.join(output, "registry.json"), fs.constants.COPYFILE_EXCL);
+  fs.copyFileSync(path.join(relyingPartyDir, "provisioning.json"), path.join(output, "relying-party-provisioning.json"), fs.constants.COPYFILE_EXCL);
   const summary = {
     schema_version: "ioi.aft.c8-v3-offline-registry-admission-summary.v1", campaign_id: campaignId,
     bundle_ref: read(path.join(bundleDir, "bundle.json")).bundle_ref, certificate_ref: receipt.certificate_ref,

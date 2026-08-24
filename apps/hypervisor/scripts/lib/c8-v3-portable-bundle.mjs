@@ -7,6 +7,7 @@ export const C8_V3_SCHEMA = "ioi.components.hypervisor.c8-certificate.v3";
 export const BUNDLE_V1_SCHEMA = "ioi.components.hypervisor.c8-portable-evidence-bundle.v1";
 
 const SELF_HASH_FIELDS = new Map([
+  ["ioi.hypervisor.c7-c8-certificate.v2", "certificate_hash"],
   [C8_V3_SCHEMA, "certificate_hash"],
   [BUNDLE_V1_SCHEMA, "bundle_hash"],
   ["ioi.foundations.relying-party-acceptance-policy.v1", "policy_hash"],
@@ -30,6 +31,8 @@ const refPattern = /^[a-z][a-z0-9+.-]*:\/\/\S{1,500}$/u;
 const filePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$/u;
 const bindingKey = (ref, hash) => `${ref}\u0000${hash}`;
 const CANONICAL_JSON_PREIMAGE_V1 = "ioi.foundations.canonical-json-preimage.v1";
+const STANDING_ENVELOPE_V1 = "ioi.foundations.standing-authority-envelope.v1";
+const TRAJECTORY_DECISION_V1 = "ioi.foundations.trajectory-admission-decision.v1";
 
 export function hashWithout(value, field) {
   const copy = clone(value);
@@ -43,6 +46,17 @@ export function contentHash(value) {
     JSON.parse(value.canonical_json);
     return sha256(value.canonical_json);
   }
+  if (value?.schema_version === STANDING_ENVELOPE_V1) {
+    const copy = clone(value);
+    delete copy.body_hash;
+    return sha256(stableStringify({ ...copy, domain: "ioi.standing-authority-envelope-jcs-sha256.v1" }));
+  }
+  if (value?.schema_version === TRAJECTORY_DECISION_V1) {
+    const copy = clone(value);
+    delete copy.decision_hash;
+    delete copy.decision_ref;
+    return sha256(stableStringify(copy));
+  }
   const field = SELF_HASH_FIELDS.get(value?.schema_version);
   return field ? hashWithout(value, field) : sha256(stableStringify(value));
 }
@@ -51,7 +65,8 @@ export function sealSelfHash(value) {
   const copy = clone(value);
   const field = SELF_HASH_FIELDS.get(copy?.schema_version);
   if (!field) throw new Error(`object schema has no registered self-hash field: ${copy?.schema_version}`);
-  copy[field] = hashWithout(copy, field);
+  delete copy[field];
+  copy[field] = contentHash(copy);
   return copy;
 }
 
@@ -149,7 +164,11 @@ function safeArtifact(spec, kind) {
   const stat = fs.lstatSync(source);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 16 * 1024 * 1024) throw new Error(`${kind}.path is unsafe`);
   let value = JSON.parse(fs.readFileSync(source, "utf8"));
-  if (SELF_HASH_FIELDS.has(value?.schema_version)) value = sealSelfHash(value);
+  const selfHashField = SELF_HASH_FIELDS.get(value?.schema_version);
+  if (selfHashField) {
+    if (value[selfHashField] === undefined) value = sealSelfHash(value);
+    else if (value[selfHashField] !== contentHash(value)) throw new Error(`${kind} carries an invalid native ${selfHashField}`);
+  }
   return { ref: spec.ref, file: spec.file, schema_ref: spec.schema_ref, value, hash: contentHash(value) };
 }
 
