@@ -421,27 +421,33 @@ their agents already run must be paid for in contracts, not slogans. Four
 debts, each a named target (none is claimed built; see
 [`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)):
 
-- **Admission.** `ActionRequestEnvelope` is the canonical target object for a
+- **Admission.** `ActionRequestEnvelope` is the canonical object for a
   gateway-mediated proposed action. It binds the adapter identity and
   revision, the proposed action and risk class, required primitive
   capabilities and authority scopes, the policy decision and hash, and — so
   attached work joins the work spine rather than living beside it — optional
   typed subject refs (`session://`, `goal://`, `work_run://`,
-  `work_item://`). The API sketch in [`api.md`](./api.md) carrying only legacy
-  `run_id`/`thread_id` identities is wire compatibility, not the contract.
+  `work_item://`). The authenticated live attach route admits the immutable
+  request only after resolving one current owner profile, its exact active
+  surface, and current verified coverage for every declared scope. It emits a
+  pre-dispatch `requires_approval` decision and invokes nothing. The API sketch
+  in [`api.md`](./api.md) carrying only legacy `run_id`/`thread_id` identities
+  is wire compatibility, not the contract.
 - **Receipts.** Each `receipt_obligations` entry on an action request uses the
   shared `ReceiptObligation` element
   ([`evidence-and-delivery.md`](../../foundations/objects/evidence-and-delivery.md)),
   and the gateway decision/execution/artifact receipt types must be registered
   in [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md)
-  before any adapter claims receipted mediation. Today no gateway receipt
-  type is registered; that is a recorded gap, not a wording problem.
+  before any adapter claims receipted mediation. All three v1 receipt types are
+  registered. The decision receipt has a live producer; the execution and
+  artifact receipts do not yet, so no end-to-end mediation claim is made.
 - **Evidence.** `AuthorityGatewayProfile` is the canonical target object that
   declares one adapter deployment's action surfaces, scopes, and posture — the
   subject its `EnforcementCoverageDeclaration` evidence describes. Canon has
   referenced this profile for some time without defining it anywhere; it is
-  owned here. No profile may advertise coverage its current, verified
-  declaration does not support.
+  owned here. The authenticated profile route enforces immutable successor
+  lineage with one current owner leaf. No profile may advertise coverage its
+  current, verified declaration does not support.
 - **Migration.** Graduation from the attach lane into the run-on lane is
   contracted, not vibes: the external agent is admitted as an
   `AgentHarnessAdapter` revision

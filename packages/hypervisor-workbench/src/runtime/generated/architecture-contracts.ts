@@ -22620,7 +22620,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1": "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c",
   "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1": "sha256:99085cc128366a4ea81fda228061df69b2143aed1f9df299b84e7ca6f7a5e6fa",
   "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1": "sha256:fec252ed291f7f244d5802da4bf9e3e85fa8a20865c44edd6fadf54e7d9c2ff1",
-  "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1": "sha256:6460c1e31813b8979662dd0817d7e15a2c1b6e37be6e9de88239f7cc754876bc",
+  "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1": "sha256:884bf6361845b529e9c36a681a010d1899fb683ab6d523abf7d1260e2e393ee8",
   "schema://ioi/components/daemon-runtime/harness-profile/v1": "sha256:755016efbf5fb6e51f010dac5431b1bc2ac25eff5a0670f03646cb388305e6ad",
   "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1": "sha256:daa7cb792f264a6897511d2f9a9e5f41c42d3aec64e020903fbf5e242c5f92b0",
   "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1": "sha256:f1d287f6f041a84b845de4bd0fd12faaf9157e0195d1f89200ed0dac8bce7335",
@@ -36962,12 +36962,6 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         },
         "then": {
           "properties": {
-            "authority_effect_admission_receipt_ref": {
-              "$ref": "#/$defs/receiptRef"
-            },
-            "authority_effect_admission_receipt_hash": {
-              "$ref": "#/$defs/hash"
-            },
             "actual_effect_ref": {
               "type": "string",
               "pattern": "^effect://[^\\s]{1,500}$"
@@ -36990,6 +36984,37 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             },
             "actual_effect_hash": {
               "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "external_effect": {
+              "const": true
+            },
+            "outcome": {
+              "enum": [
+                "succeeded",
+                "failed",
+                "unknown",
+                "reconciliation_required"
+              ]
+            }
+          },
+          "required": [
+            "external_effect",
+            "outcome"
+          ]
+        },
+        "then": {
+          "properties": {
+            "authority_effect_admission_receipt_ref": {
+              "$ref": "#/$defs/receiptRef"
+            },
+            "authority_effect_admission_receipt_hash": {
+              "$ref": "#/$defs/hash"
             }
           }
         }

@@ -34,6 +34,8 @@ mod agentops_routes;
 mod akash_candidate_source;
 #[path = "hypervisor_daemon_routes/attempt_finding_routes.rs"]
 mod attempt_finding_routes;
+#[path = "hypervisor_daemon_routes/authority_gateway_routes.rs"]
+mod authority_gateway_routes;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
 mod authority_routes;
 #[path = "hypervisor_daemon_routes/aws_candidate_source.rs"]
@@ -671,6 +673,18 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/authority-evidence",
             get(lifecycle_routes::handle_authority_evidence),
+        )
+        .route(
+            "/v1/authority-gateway/profiles",
+            post(authority_gateway_routes::handle_profile_register),
+        )
+        .route(
+            "/v1/action-requests",
+            post(authority_gateway_routes::handle_action_request_create),
+        )
+        .route(
+            "/v1/action-requests/:id",
+            get(authority_gateway_routes::handle_action_request_get),
         )
         .route(
             "/v1/workflow-capability-preflights",

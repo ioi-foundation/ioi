@@ -38,8 +38,6 @@
       "if": { "properties": { "external_effect": { "const": true } }, "required": ["external_effect"] },
       "then": {
         "properties": {
-          "authority_effect_admission_receipt_ref": { "$ref": "#/$defs/receiptRef" },
-          "authority_effect_admission_receipt_hash": { "$ref": "#/$defs/hash" },
           "actual_effect_ref": { "type": "string", "pattern": "^effect://[^\\s]{1,500}$" },
           "actual_effect_hash": { "$ref": "#/$defs/hash" }
         }
@@ -50,6 +48,21 @@
           "authority_effect_admission_receipt_hash": { "type": "null" },
           "actual_effect_ref": { "type": "null" },
           "actual_effect_hash": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "external_effect": { "const": true },
+          "outcome": { "enum": ["succeeded", "failed", "unknown", "reconciliation_required"] }
+        },
+        "required": ["external_effect", "outcome"]
+      },
+      "then": {
+        "properties": {
+          "authority_effect_admission_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+          "authority_effect_admission_receipt_hash": { "$ref": "#/$defs/hash" }
         }
       }
     }
