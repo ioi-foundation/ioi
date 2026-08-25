@@ -288,6 +288,28 @@ jobs:
           npm run check:named-gap-truth --workspace=@ioi/hypervisor-app
           npm run check:governed-effect-assurance-floor --workspace=@ioi/hypervisor-app
 
+      - name: Verify the product-shell safety and native-container contracts
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: |
+          product_data_dir=$(mktemp -d)
+          IOI_HYPERVISOR_DATA_DIR="$product_data_dir" target/debug/hypervisor-daemon > /tmp/ioi-product-daemon.log 2>&1 &
+          product_daemon_pid=$!
+          npm run serve:product-ui --workspace=@ioi/hypervisor-app > /tmp/ioi-product-ui.log 2>&1 &
+          product_ui_pid=$!
+          trap 'kill "$product_ui_pid" "$product_daemon_pid" 2>/dev/null || true; rm -r "$product_data_dir"' EXIT
+          for attempt in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:4173/__ioi/applications >/dev/null && break
+            if [ "$attempt" -eq 60 ]; then
+              cat /tmp/ioi-product-daemon.log
+              cat /tmp/ioi-product-ui.log
+              exit 1
+            fi
+            sleep 1
+          done
+          npm run check:app-runtime-safety --workspace=@ioi/hypervisor-app
+          npm run check:native-shell --workspace=@ioi/hypervisor-app
+
       # The floor the verifier family never had. Every verifier above is pinned at the number of
       # assertions it actually EXECUTED; deleting assertions from any of them was silently green
       # before this gate existed. Runs after the journeys because it reads their census artifacts.

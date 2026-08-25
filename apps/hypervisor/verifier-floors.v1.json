@@ -4,7 +4,7 @@
   "governing_check": "apps/hypervisor/scripts/check-verifier-floors.mjs",
   "purpose": "The floor the verifier family never had. A verifier that asserts less still passes, so deleting assertions from any CI-gated verifier was silently green: the deleted assertion stopped being checked, the survivors passed, and CI reported success. Each row below pins the number of assertions a verifier actually EXECUTED. The count is runtime, never a source grep \u2014 a commented-out assertion does not execute, so it does not count, which is precisely the case a grep would miss.",
   "rules": {
-    "closed_world": "The set of verifiers this manifest must cover is re-derived on every run from .github/workflows/ci.yml \u2014 every `npm run check:* --workspace=@ioi/hypervisor-app` invocation resolving to a scripts/verify-*.mjs file. A CI-gated verifier with no row here is RED. This is an allowlist derived from the enforcing artifact, not a hand list that can silently omit a verifier.",
+    "closed_world": "The set of verifiers this manifest must cover is re-derived on every run from .github/workflows/ci.yml \u2014 every `npm run check:* --workspace=@ioi/hypervisor-app` invocation resolving to a scripts/verify-*.mjs file, plus the historical check-landing-designations.mjs audit whose filename predates that convention. A CI-gated verifier with no row here is RED. This is an allowlist derived from the enforcing artifact, not a hand list that can silently omit a verifier.",
     "reverse_edge": "A pinned floor whose verifier CI does not run is RED. A floor over a verifier that gates nothing is decorative.",
     "exact_pin": "runtime_assertions is an exact pin, not a minimum. Below it means assertions were deleted. ABOVE it is also RED \u2014 the floor is stale and must be raised in the same commit that adds the assertions. Slack is where a later deletion hides.",
     "evidence": "Counts come from the verifier's own completed run via apps/hypervisor/scripts/lib/verifier-census.mjs, which binds the verifier's source sha256. A census never certifies a revision it did not run: an artifact whose digest disagrees with the file on disk is RED.",
@@ -18,6 +18,30 @@
       "source": "apps/hypervisor/scripts/verify-hypervisor-shell-parity.mjs",
       "runtime_assertions": 6,
       "assertion_names_sha256": "0bc72110665ccc4855bb79e8aec8aa8e076b550c2ae23e1cec2b5cb6d4d847d1"
+    },
+    {
+      "id": "landing-designations",
+      "npm_script": "check:landing-designations",
+      "source": "apps/hypervisor/scripts/check-landing-designations.mjs",
+      "runtime_assertions": 10,
+      "assertion_names_sha256": "738da4a693a6d6f133cadb2f65be43fec15c6e0928fe23d5ca6d4a041726f2a5",
+      "note": "M08.1/M08.2 closure: seven designation-structure assertions, two ledger-self-consistency assertions, and the zero-LATER exit gate now emit a source-bound runtime census. Live status counts remain run output rather than a stale second copy in the ledger."
+    },
+    {
+      "id": "app-runtime-safety",
+      "npm_script": "check:app-runtime-safety",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-app-runtime-safety.mjs",
+      "runtime_assertions": 30,
+      "assertion_names_sha256": "4387b79f64638da1e4b7b25aa15a42801603e4ec10b80e40b7bc3adb3310343f",
+      "note": "M08.2 closure: registry admission, route-fault isolation, dead-daemon posture, bounded Operations degradation, and no-undef teeth now emit a source-bound runtime census."
+    },
+    {
+      "id": "native-shell",
+      "npm_script": "check:native-shell",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-native-shell-integration.mjs",
+      "runtime_assertions": 117,
+      "assertion_names_sha256": "ed13d10e13588379feea9e7511a7459c39faf3821402d7aa318f6c278a5c0509",
+      "note": "M08.2 closure: the complete 35-surface standalone, embedded, two-hop reachability, and real-browser single-slot navigation contract now emits a source-bound runtime census."
     },
     {
       "id": "ontology-journey",
@@ -180,8 +204,8 @@
       "npm_script": "check:operational-depth",
       "source": "apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs",
       "runtime_assertions": 147,
-      "assertion_names_sha256": "6e093c66d1a2dc19443e95eddfe4efbc1cd3cf1547a7282b39a94fa467bbbdae",
-      "note": "E7 cockpit retirement (2026-08-20): 154 -> 147. The per-registry-surface state-invariant loop emits one assertion per row, and eight rows left the registry (seven of them in that loop; `applications` was read_only_by_contract and emitted none there). The eight matching entries were also removed from REFERENCELESS_SURFACES, because this file's own stale-name assertion rejects a list that can name a surface the registry lacks. PRE-EXISTING PIN DRIFT recorded rather than hidden: this row read 136 while the branch's measured run was 154 \u2014 the remediation program added registry rows without raising the pin; 147 is measured. This verifier also carries ONE PRE-EXISTING FAILURE unrelated to this cut (18 remediation rows unclassified in the atlas, recorded in the ledger's found_defects)."
+      "assertion_names_sha256": "292ea67a00dcb0a03544982151db2d3e718b9edef9c21ee252fd5945c22155e5",
+      "note": "E7 cockpit retirement (2026-08-20): 154 -> 147. The per-registry-surface state-invariant loop emits one assertion per row, and eight rows left the registry (seven of them in that loop; `applications` was read_only_by_contract and emitted none there). The eight matching entries were also removed from REFERENCELESS_SURFACES, because this file's own stale-name assertion rejects a list that can name a surface the registry lacks. PRE-EXISTING PIN DRIFT recorded rather than hidden: this row read 136 while the branch's measured run was 154 \u2014 the remediation program added registry rows without raising the pin; 147 is measured. M08.2 re-derivation replaced the stale claim that ProvenanceAssertion was unstarted with the tracked bounded registered-contract truth while retaining explicit checks for the missing graph, challenge, and verifier-resolution lifecycles."
     },
     {
       "id": "ported-seed",

@@ -117,7 +117,7 @@
       {
         "id": "EVA-3",
         "title": "quiver adjudication",
-        "status": "queued",
+        "status": "done",
         "evidence": "AUDIT CORRECTION (iteration 27): this action was ledger-claimed done in the W1 close but NEVER EXECUTED \u2014 caught by the E3 audit. Executed now: atlas REFUTED the expected absence (splash alias 5 facet groups); SHIPPED as an I-4 typed-absent landing at /__ioi/evaluations/quiver (46/46)."
       },
       {
@@ -377,7 +377,7 @@
           "E5": "GREEN \u2014 every daemon_wired seed has recorded atlas coverage (pipeline via its own interaction atlas; schema/models/listings recorded this iteration)",
           "E6": "GREEN \u2014 the exemplar pattern (tabs\u2192live lanes) realized on AUT-1, DAT-1, FOU-1, EVA-2, PRO-1",
           "E7": "GREEN, residual CLOSED 2026-08-20 \u2014 one designated surface per click, and the legacy cockpit lanes no longer exist to be reached by direct URL: the E7-1 code-removal leg deleted the eight registry rows, their six modules and their four dedicated verifiers, and deleted BOTH named E7 exclusion lists (native-shell reachability, app-runtime-safety registry additions) with them. Seed action lanes stay by design.",
-          "E8": "GREEN \u2014 designation exit-gate 8/8, zero LATER (NOW=21 \u00b7 TERMINAL=4 \u00b7 GRE=8)",
+          "E8": "GREEN \u2014 the designation exit gate reports zero LATER targets; current counts are derived at run time by check-landing-designations.mjs rather than copied into this ledger",
           "E9": "GREEN \u2014 DOC-1 executed (supersession annotations + index notice + ratchet re-aim; 25/25)"
         }
       },
@@ -405,10 +405,10 @@
         "title": "greenfield chrome ruling",
         "status": "done",
         "gate": "GRE-1",
-        "evidence": "RULING RECORDED under the owner go: ADOPT \u2014 the greenfield cockpits (Work/Home/Systems/Applications/Operations/Packages/Settings) adopt the dark-rail+light-body chrome contract. IMPLEMENTATION = a scoped follow-up program (body-theme re-skins over unchanged truth bindings), NOT executed in this pass \u2014 IMPLEMENTATION BACKLOG CLOSED FOR THE SERVE/SURFACES-OWNED SUBJECTS by GRE-1a (iteration 56): /__ioi/operations \u00b7 /__ioi/environments \u00b7 /__ioi/applications \u00b7 /__ioi/marketplace \u00b7 /__ioi/packages/registry + /__ioi/packages/marketplace \u00b7 /__ioi/systems and every /__ioi/systems/* page all serve the light body over byte-identical truth bindings (adjudication reference-seed-adjudications.v1.json#gre1a-light-body). GRE-1b REMAINS OPEN: the SPA-side targets \u2014 /settings and the /ai home \u2014 plus the augmentation theming, none of which GRE-1a touched. /__ioi/work-ledger was EXCLUDED with recorded evidence (surface-compiler.mjs:48 resolves /work's open_today to /__ioi/missions, so the ledger is not the designated /work landing) and stays dark.",
+        "evidence": "RULING RECORDED under the owner go: ADOPT \u2014 the greenfield cockpits (Work/Home/Systems/Applications/Operations/Packages/Settings) adopt the dark-rail+light-body chrome contract. IMPLEMENTATION CLOSED by GRE-1a (iteration 56), its responsive and marketplace follow-ups (iteration 57), and GRE-1b (iteration 58). The investigation found the /ai SPA already conformant; the remaining v2 canonical shell and work-ledger surfaces were re-skinned without changing truth bindings. The iteration records retain the earlier exclusions and overturned assumptions as history.",
         "implementation": {
           "serve_owned_subjects": "closed (GRE-1a, iteration 56)",
-          "spa_side": "open \u2014 GRE-1b: /settings, the /ai home, augmentation theming",
+          "spa_side": "closed (GRE-1b, iteration 58; /ai already conformant, v2 canonical shell repaired)",
           "adjudication": "reference-seed-adjudications.v1.json#gre1a-light-body"
         }
       }
@@ -848,7 +848,7 @@
       "found": "2026-08-20",
       "found_by": "ING-1 (while confirming the new /__ioi/data/ingest row against the re-aimed native-shell contract)",
       "what": "ELEVEN registry surfaces are UNREACHABLE from the native shell within two link hops \u2014 the contract verify-hypervisor-native-shell-integration.mjs now asserts. Measured on a full run at 2026-08-20 (128/129 passed, EXIT=1), the named routes are: /__ioi/domain-apps/logic \u00b7 /__ioi/domain-apps/contour \u00b7 /__ioi/domain-apps/fusion \u00b7 /__ioi/environments/map \u00b7 /__ioi/marketplace/artifacts \u00b7 /__ioi/missions/builds \u00b7 /__ioi/missions/schedules \u00b7 /__ioi/evaluations/insight \u00b7 /__ioi/evaluations/quiver \u00b7 /__ioi/packages/registry \u00b7 /__ioi/packages/marketplace. FIVE of these are the shipped live-tenant port legs themselves (FUS-1 fusion, MAP-1 map, REG-1 artifacts, JOB-1 builds, SCH-1 schedules): each registered a surface and a route but never added the row to its owner family's landing, so the port ships behind a URL nobody can click to. A surface that passes its own parity gate and cannot be reached from the shell is ported but not DELIVERED \u2014 the same class as a certified port whose reference lane was never origin-aligned. NOT caused by ING-1: this leg ADDED one surface (/__ioi/data/ingest) and it is reachable (Applications \u2192 /data \u2192 the ingest row), and it is absent from the unreachable list; the gate's other 128 assertions pass, including this surface's railless bare and embedded deliveries.",
-      "fix": "NOT taken here \u2014 deliberately out of ING-1's scope. Each of the eleven needs a row on ITS OWN owner family's landing (domain-apps \u00b7 environments \u00b7 marketplace/packages \u00b7 missions \u00b7 evaluations), and that is an IA decision belonging to the owning leg, with its own verifier coverage; rewriting six other families' landings from this leg would be an unrequested cross-family edit that could break those legs' gates. Queued as a named follow-up. The one-row-on-the-family-landing pattern ING-1 used for /data is the template. NOTE for the remaining live-tenant legs (dataset \u00b7 objecteditor \u00b7 modelstudio \u00b7 inference): LINK YOUR SURFACE FROM ITS FAMILY LANDING IN THE SAME CUT \u2014 registering a route is not delivering a surface, and this gate is where that gap surfaces.",
+      "fix": "Taken in the reachability-links cut: all eleven surfaces were linked from their owning family landings and covered by the native-shell reachability verifier (commit 88c56e760).",
       "status": "closed",
       "closed": "2026-08-20",
       "closure": "all 11 delivered onto family landings/documents in the reachability-links cut (commit 88c56e760); native-shell reachability green since."

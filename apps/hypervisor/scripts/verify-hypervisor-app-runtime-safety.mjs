@@ -24,6 +24,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { SURFACES, boundSurface } from "./surface-registry.mjs";
 import { buildAppCatalog, contractCatalogAdmission } from "./app-catalog.mjs";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -399,6 +400,7 @@ run().then(() => {
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
+  emitVerifierCensus({ verifierId: "app-runtime-safety", sourceUrl: import.meta.url, results });
   if (fails.length) process.exit(1);
   console.log("app-runtime safety: OK");
 }).catch((e) => {

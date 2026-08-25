@@ -414,9 +414,16 @@ async function run() {
       row(name).length > 0 && promoted.length === 0,
       promoted.map(String).join(" | ") || "no promotion language");
   }
-  for (const obj of ["OntologyVersion", "SemanticMappingDecision", "ProvenanceAssertion"]) {
+  for (const obj of ["OntologyVersion", "SemanticMappingDecision"]) {
     ok(`\`${obj}\` row: not started with an explicitly LABELED implementation precedent (a precedent is never partial)`, row(obj).includes("not started") && !/\| partial/.test(row(obj)) && /implementation precedent/i.test(row(obj)));
   }
+  const provenanceAssertion = row("ProvenanceAssertion");
+  ok("`ProvenanceAssertion` row records the bounded registered assertion-as-object slice without promoting its missing graph, challenge, or verifier-resolution lifecycles",
+    provenanceAssertion.includes("registered contract")
+      && provenanceAssertion.includes("durable assertion-as-object")
+      && provenanceAssertion.includes("bounded backend slice")
+      && provenanceAssertion.includes("challenge workflow")
+      && provenanceAssertion.includes("verifier-receipt resolution"));
   const estateRecord = `${deltaDoc}\n${JSON.stringify(atlas)}`;
   ok("merged estate work is no longer described as held or unlanded (delta doc + atlas)", !/already-landed|shipped state|held stack|not yet\s+merged(?:\s+to master)?/i.test(estateRecord));
 

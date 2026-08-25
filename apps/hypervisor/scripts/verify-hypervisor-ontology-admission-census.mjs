@@ -249,12 +249,12 @@ const RECORDED_TEST_WRITES = {
  * stops reaching a construct weakens all of them at once without failing any of them.
  */
 const PINNED = {
-  modules: 90,
+  modules: 95,
   familyMentions: 284,
-  tokenMentions: 111826,
+  tokenMentions: 116505,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 58, nonFamilyLiteral: 224, runtimeParameter: 297 },
-  productionFsCalls: 233,
+  productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 300 },
+  productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
    *
@@ -272,17 +272,17 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3655,
-    "opaque-initialiser": 1605,
-    "bare-undeclared": 526,
+    "foreign-qualified": 3828,
+    "opaque-initialiser": 1627,
+    "bare-undeclared": 527,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 32, dataBytes: 0, dataOpaqueArg: 7 },
+  includes: { splicedCode: 0, dataStr: 33, dataBytes: 0, dataOpaqueArg: 8 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
-  compileAssembly: { production: 0, test: 9 },
+  compileAssembly: { production: 0, test: 10 },
 };
 
 /**
