@@ -7799,6 +7799,129 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/ontology-assertion/v1",
+      "canonical_name": "OntologyAssertion",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologyassertionenvelope",
+      "schema_version": "ioi.ontology-assertion.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-assertion.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OntologyAssertionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OntologyAssertionV1"
+        }
+      ],
+      "positive_fixture_refs": ["fixtures/ontology-assertion-v1/positive-proposed.json"],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/ontology-assertion-admission-receipt/v1",
+      "canonical_name": "OntologyAssertionAdmissionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#ontology-assertion-admission-receipt",
+      "schema_version": "ioi.ontology-assertion-admission-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-assertion-admission-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OntologyAssertionAdmissionReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OntologyAssertionAdmissionReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": ["fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json"],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-assertion-admission-receipt-v1/negative-admitted-without-oracle.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
+      "canonical_name": "OracleEvidenceAdmissionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#oracle-evidence-admission-receipt",
+      "schema_version": "ioi.oracle-evidence-admission-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "oracle-evidence-admission-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OracleEvidenceAdmissionReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OracleEvidenceAdmissionReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": ["fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json"],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
       "canonical_name": "OracleEvidenceProfile",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#oracleevidenceprofileenvelope",
