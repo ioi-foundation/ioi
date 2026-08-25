@@ -23,6 +23,7 @@
     "check:m3-goalrun-plane": "node scripts/verify-m3-goalrun-plane.mjs",
     "check:m4-goalrun-activation-plane": "node scripts/verify-m4-goalrun-activation-plane.mjs",
     "check:m4-outcome-room-system-spine": "node scripts/verify-m4-outcome-room-system-spine.mjs",
+    "check:m4-work-lifecycle-plane": "node scripts/verify-m4-work-lifecycle-plane.mjs",
     "check:launch-chain": "node scripts/verify-hypervisor-launch-chain.mjs",
     "check:session-authority": "node scripts/verify-hypervisor-session-authority.mjs",
     "check:projects-saga": "node scripts/verify-hypervisor-projects-saga.mjs",

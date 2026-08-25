@@ -154,7 +154,7 @@ try {
         && count("canonical-active-skill-set-resolution-receipts") === 1
         && count("active-skill-set-snapshots") === 0
         && count("goal-run-profile-resolution-receipts") === 1
-        && count("work-lifecycle-records") === 2);
+        && count("work-lifecycle-records") === 0);
     const canonicalSkillSnapshot = onlyRecord("canonical-active-skill-set-snapshots");
     const canonicalSkillReceipt = onlyRecord("canonical-active-skill-set-resolution-receipts");
     const canonicalSkillMaterial = {
@@ -192,7 +192,7 @@ try {
       `${admittedState.state_root_ref ?? "missing"}`);
     check("direct admission retains exact lifecycle and typed receipt obligations",
       String(run?.lifecycle_head).startsWith("sha256:")
-        && run?.lifecycle_record_refs?.length === 2
+        && run?.lifecycle_record_refs?.length === 3
         && run?.receipt_obligations?.length === 2
         && run?.source_context_binding?.target_session_ref === null
         && run?.source_context_binding?.project_ref === null

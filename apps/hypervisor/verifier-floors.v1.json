@@ -143,6 +143,14 @@
       "note": "M04.5 live execution closure: the retained M4 room/System spine now proves that one successful bounded GoalRun invocation consumes the exact daemon-owned launch predecessor chain and thread/fork/managed-session facts, persists one byte-identical binding across invocation, receipt, and candidate, resolves it back to the launch owner record, and keeps GoalRun identity invocation-ref-only."
     },
     {
+      "id": "m4-work-lifecycle-plane",
+      "npm_script": "check:m4-work-lifecycle-plane",
+      "source": "apps/hypervisor/scripts/verify-m4-work-lifecycle-plane.mjs",
+      "runtime_assertions": 17,
+      "assertion_names_sha256": "a37137ab9d7e4a2ba1e76028057faff6a04c1d5ab5f95158a833c7ae343ad940",
+      "note": "M04.6 shared lifecycle closure: a fresh-process GoalRun proves exact executable application-plan, selection-receipt, and topology-less ContextCell persistence; the three-edge shared record chain and active projection; all five durable lifecycle families; principal-or-tenant owner scope; requester-derived cancellation planning without completion claims; archive-first compaction with retained hot logs; tamper refusal; and restart reconstruction without acquiring Session, launch, thread, or HarnessInvocation truth."
+    },
+    {
       "id": "command-execution-guardrails",
       "npm_script": "check:command-execution-guardrails",
       "source": "apps/hypervisor/scripts/verify-command-execution-guardrail-coverage.mjs",

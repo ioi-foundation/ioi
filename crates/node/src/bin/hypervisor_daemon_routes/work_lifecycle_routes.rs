@@ -901,8 +901,9 @@ fn text<'a>(value: &'a Value, key: &str) -> &'a str {
 /// Owner-scope one object read/action.
 ///
 /// The caller states the `owner_ref` it claims; the authenticated principal
-/// must be bound to that owner tenant BEFORE any read, so an unauthorized
-/// caller gets no cross-tenant existence oracle. The durable projection's own
+/// must either be that principal owner or be bound to that owner tenant BEFORE
+/// any read, so an unauthorized caller gets no cross-owner existence oracle.
+/// The durable projection's own
 /// `owner_ref` must then match the claim, or the object is reported absent —
 /// the caller can only probe objects under an owner it belongs to, and the
 /// durable owner truth is never overridden by the request.
@@ -919,11 +920,12 @@ fn owner_scoped_projection(
             "an owner-scoped work-lifecycle request names the owner_ref it claims",
         ));
     }
-    if !identity.authorizes_tenant(claimed_owner_ref) {
+    if claimed_owner_ref != identity.principal_ref && !identity.authorizes_tenant(claimed_owner_ref)
+    {
         return Err(bad(
             StatusCode::FORBIDDEN,
             "work_lifecycle_owner_forbidden",
-            "the authenticated principal is not bound to the claimed owner tenant",
+            "the authenticated principal is neither the claimed principal owner nor bound to the claimed owner tenant",
         ));
     }
     let projection = store.read_projection(object_ref).map_err(store_refused)?;
@@ -1232,6 +1234,24 @@ mod tests {
         substrate_store::reset_handle_for_test();
         let store = WorkLifecycleStore::new(dir.path().to_str().unwrap());
         (dir, store)
+    }
+
+    #[test]
+    fn owner_scope_accepts_the_exact_principal_or_an_authorized_tenant() {
+        let (_dir, store) = fresh_store();
+        store.append(&genesis()).expect("genesis");
+
+        let principal_owner = substrate_store::request_identity_for_test(OWNER, []);
+        assert!(owner_scoped_projection(&store, &principal_owner, OBJECT, OWNER).is_ok());
+
+        let tenant_member =
+            substrate_store::request_identity_for_test("user://member", [OWNER.to_string()]);
+        assert!(owner_scoped_projection(&store, &tenant_member, OBJECT, OWNER).is_ok());
+
+        let stranger = substrate_store::request_identity_for_test("user://stranger", []);
+        let refusal = owner_scoped_projection(&store, &stranger, OBJECT, OWNER)
+            .expect_err("unrelated principal must be refused");
+        assert_eq!(refusal.0, StatusCode::FORBIDDEN);
     }
 
     #[test]

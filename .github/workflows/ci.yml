@@ -273,6 +273,7 @@ jobs:
           npm run check:m3-goalrun-plane --workspace=@ioi/hypervisor-app
           npm run check:m4-goalrun-activation-plane --workspace=@ioi/hypervisor-app
           npm run check:m4-outcome-room-system-spine --workspace=@ioi/hypervisor-app
+          npm run check:m4-work-lifecycle-plane --workspace=@ioi/hypervisor-app
           npm run check:launch-chain --workspace=@ioi/hypervisor-app
           npm run check:session-authority --workspace=@ioi/hypervisor-app
           npm run check:landing-designations --workspace=@ioi/hypervisor-app
