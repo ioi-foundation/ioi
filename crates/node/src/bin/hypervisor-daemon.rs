@@ -168,6 +168,8 @@ mod room_participation_routes;
 mod runpod_candidate_source;
 #[path = "hypervisor_daemon_routes/scm_publication_routes.rs"]
 mod scm_publication_routes;
+#[path = "hypervisor_daemon_routes/skill_contract_routes.rs"]
+mod skill_contract_routes;
 #[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
 mod state_machine_routes;
 #[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
@@ -2157,6 +2159,35 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/memory-entries/:id",
             get(ioi_intelligence_routes::handle_entries_get)
                 .patch(ioi_intelligence_routes::handle_entries_patch),
+        )
+        // M04.3 canonical reusable-skill family. `/skill-bindings` is intentionally distinct
+        // from the retained mutable intelligence predecessor mounted at `/skill-entries` below.
+        .route(
+            "/v1/hypervisor/skill-manifests",
+            get(skill_contract_routes::list_skill_manifests)
+                .post(skill_contract_routes::create_skill_manifest),
+        )
+        .route(
+            "/v1/hypervisor/skill-manifests/:id/revisions",
+            post(skill_contract_routes::create_skill_manifest_successor),
+        )
+        .route(
+            "/v1/hypervisor/skill-bindings",
+            get(skill_contract_routes::list_skill_bindings)
+                .post(skill_contract_routes::create_skill_binding),
+        )
+        .route(
+            "/v1/hypervisor/skill-bindings/:id/revisions",
+            post(skill_contract_routes::create_skill_binding_successor),
+        )
+        .route(
+            "/v1/hypervisor/active-skill-set-snapshots",
+            get(skill_contract_routes::list_active_skill_set_snapshots)
+                .post(skill_contract_routes::create_active_skill_set_snapshot),
+        )
+        .route(
+            "/v1/hypervisor/active-skill-set-snapshots/:hash",
+            get(skill_contract_routes::get_active_skill_set_snapshot),
         )
         .route(
             "/v1/hypervisor/skill-entries",

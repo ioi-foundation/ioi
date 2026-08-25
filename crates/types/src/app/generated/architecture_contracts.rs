@@ -139,7 +139,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/workload-isolation-binding/v1", "sha256:57099f54fe5e9de26028f4910be956ee4f3ce585a67698b68d0bcc1e31371899"),
     ("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", "sha256:718d9c35d0e969108feb391bb83e0a1b8029f24e0cb2272de15b3fb261a64fd1"),
     ("schema://ioi/foundations/approval-ceremony-context/v1", "sha256:79ab3938ba4f148bddecb4ed29107f72f709d2339d20977b2dbb0cbae6703c98"),
-    ("schema://ioi/foundations/active-skill-set-snapshot/v1", "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6"),
+    ("schema://ioi/foundations/active-skill-set-snapshot/v1", "sha256:c004e65f5c5b6762dd01fba3b866c08a3ff25b3438226df08d492455f92f987c"),
     ("schema://ioi/foundations/authority-scope-request-envelope/v2", "sha256:e0cd0303ea58a4a3388fe3c8473da7c3e38c7cf20d26095d4663a524b3e7dd5f"),
     ("schema://ioi/foundations/authority-grant-envelope/v1", "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796"),
     ("schema://ioi/foundations/authority-grant-envelope/v2", "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e"),
@@ -211,8 +211,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/receipt-checkpoint/v1", "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b"),
     ("schema://ioi/foundations/receipt-envelope/v1", "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc"),
     ("schema://ioi/foundations/receipt-proof-bundle/v1", "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034"),
-    ("schema://ioi/foundations/skill-entry/v1", "sha256:3f1bc8b58d8604b5b1bd0562aac17e55f961ee3d3061e5321224161901861a2a"),
-    ("schema://ioi/foundations/skill-manifest/v1", "sha256:cf1ca7a5711a784e57adef9c17d12d4495f22d4c17930847c6ec2061c50b2995"),
+    ("schema://ioi/foundations/skill-entry/v1", "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699"),
+    ("schema://ioi/foundations/skill-manifest/v1", "sha256:ef38326ea2082a928b2ff7c86f8a27c5b4e885c81eaf58615d8446c1a46df403"),
     ("schema://ioi/foundations/system-scoped-object-binding/v1", "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917"),
     ("schema://ioi/foundations/work-lifecycle-record/v1", "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd"),
     ("schema://ioi/foundations/work-result/v3", "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4"),
@@ -35356,16 +35356,13 @@ pub struct ActiveSkillSetSnapshotV1 {
     pub active_skill_set_snapshot_id: String,
     pub work_subject_ref: String,
     pub selected_skills: Vec<ActiveSkillSetSnapshotV1SelectedSkillsItem>,
-    pub excluded_candidates: Vec<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub compatibility_and_evaluation_result_refs: Option<Vec<String>>,
+    pub excluded_candidates: Vec<ActiveSkillSetSnapshotV1ExcludedCandidatesItem>,
+    pub compatibility_and_evaluation_result_refs: Vec<String>,
     pub active_set_hash: String,
     pub resolved_runtime_tool_contracts:
         Vec<ActiveSkillSetSnapshotV1ResolvedRuntimeToolContractsItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub context_lease_refs: Option<Vec<String>>,
+    pub context_lease_refs: Vec<String>,
     pub resolution_receipt_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub registry_lifecycle_ref: Option<String>,
     pub registry_status: ActiveSkillSetSnapshotV1RegistryStatus,
 }
@@ -35378,7 +35375,7 @@ impl<'de> serde::Deserialize<'de> for ActiveSkillSetSnapshotV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/active-skill-set-snapshot/v1"#,
-            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/active-skill-set-snapshot/v1","title":"ActiveSkillSetSnapshot","x-ioi-schema-version":"ioi.active-skill-set-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","active_skill_set_snapshot_id","work_subject_ref","selected_skills","excluded_candidates","active_set_hash","resolved_runtime_tool_contracts","resolution_receipt_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.active-skill-set-snapshot.v1"},"active_skill_set_snapshot_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"selected_skills":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}},"excluded_candidates":{"type":"array","items":{"type":"object"}},"compatibility_and_evaluation_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"active_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_runtime_tool_contracts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["admitted","active","superseded","revoked"]}}}"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/active-skill-set-snapshot/v1","title":"ActiveSkillSetSnapshot","x-ioi-schema-version":"ioi.active-skill-set-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","active_skill_set_snapshot_id","work_subject_ref","selected_skills","excluded_candidates","compatibility_and_evaluation_result_refs","active_set_hash","resolved_runtime_tool_contracts","context_lease_refs","resolution_receipt_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.active-skill-set-snapshot.v1"},"active_skill_set_snapshot_id":{"type":"string","pattern":"^active-skill-set://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"},"selected_skills":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^skill-entry://[^\\s/?#\\\\]{1,160}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}},"excluded_candidates":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["candidate_ref","reason_code","decision_ref"],"properties":{"candidate_ref":{"type":"string","pattern":"^(?:skill|skill-entry)://[^\\s]{1,500}$"},"reason_code":{"enum":["incompatible","policy_blocked","revoked","superseded","not_required","budget_blocked","other"]},"decision_ref":{"type":"string","pattern":"^(?:decision|receipt)://[^\\s]{1,500}$"}}}},"compatibility_and_evaluation_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"active_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_runtime_tool_contracts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["admitted","active","superseded","revoked"]}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -35415,19 +35412,24 @@ impl<'de> serde::Deserialize<'de> for ActiveSkillSetSnapshotV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"selected_skills"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            excluded_candidates: serde_json::from_value::<Vec<serde_json::Value>>(
+            excluded_candidates: serde_json::from_value::<
+                Vec<ActiveSkillSetSnapshotV1ExcludedCandidatesItem>,
+            >(
                 object
                     .remove(r#"excluded_candidates"#)
                     .ok_or_else(|| serde::de::Error::missing_field(r#"excluded_candidates"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            compatibility_and_evaluation_result_refs: match object
-                .remove(r#"compatibility_and_evaluation_result_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            compatibility_and_evaluation_result_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"compatibility_and_evaluation_result_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"compatibility_and_evaluation_result_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
             active_set_hash: serde_json::from_value::<String>(
                 object
                     .remove(r#"active_set_hash"#)
@@ -35444,22 +35446,24 @@ impl<'de> serde::Deserialize<'de> for ActiveSkillSetSnapshotV1 {
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
-            context_lease_refs: match object.remove(r#"context_lease_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            context_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"context_lease_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"context_lease_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             resolution_receipt_ref: serde_json::from_value::<String>(
                 object
                     .remove(r#"resolution_receipt_ref"#)
                     .ok_or_else(|| serde::de::Error::missing_field(r#"resolution_receipt_ref"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            registry_lifecycle_ref: match object.remove(r#"registry_lifecycle_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            registry_lifecycle_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"registry_lifecycle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_lifecycle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             registry_status: serde_json::from_value::<ActiveSkillSetSnapshotV1RegistryStatus>(
                 object
                     .remove(r#"registry_status"#)
@@ -35495,7 +35499,7 @@ impl<'de> serde::Deserialize<'de> for ActiveSkillSetSnapshotV1SelectedSkillsItem
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/active-skill-set-snapshot/v1"#,
-            r#"{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}"#,
+            r#"{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^skill-entry://[^\\s/?#\\\\]{1,160}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -35545,6 +35549,72 @@ impl<'de> serde::Deserialize<'de> for ActiveSkillSetSnapshotV1SelectedSkillsItem
             },
         })
     }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ActiveSkillSetSnapshotV1ExcludedCandidatesItem {
+    pub candidate_ref: String,
+    pub reason_code: ActiveSkillSetSnapshotV1ExcludedCandidatesItemReasonCode,
+    pub decision_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ActiveSkillSetSnapshotV1ExcludedCandidatesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/active-skill-set-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["candidate_ref","reason_code","decision_ref"],"properties":{"candidate_ref":{"type":"string","pattern":"^(?:skill|skill-entry)://[^\\s]{1,500}$"},"reason_code":{"enum":["incompatible","policy_blocked","revoked","superseded","not_required","budget_blocked","other"]},"decision_ref":{"type":"string","pattern":"^(?:decision|receipt)://[^\\s]{1,500}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            candidate_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"candidate_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"candidate_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_code: serde_json::from_value::<
+                ActiveSkillSetSnapshotV1ExcludedCandidatesItemReasonCode,
+            >(
+                object
+                    .remove(r#"reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ActiveSkillSetSnapshotV1ExcludedCandidatesItemReasonCode {
+    #[serde(rename = r#"incompatible"#)]
+    Incompatible,
+    #[serde(rename = r#"policy_blocked"#)]
+    PolicyBlocked,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"not_required"#)]
+    NotRequired,
+    #[serde(rename = r#"budget_blocked"#)]
+    BudgetBlocked,
+    #[serde(rename = r#"other"#)]
+    Other,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -75674,26 +75744,19 @@ pub struct SkillEntryV1 {
     pub schema_version: SkillEntryV1SchemaVersion,
     pub skill_entry_id: String,
     pub binding_revision_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub predecessor_binding_revision_ref: Option<String>,
     pub binding_hash: String,
     pub skill_revision_ref: String,
     pub skill_manifest_content_hash: String,
     pub owner_scope_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub memory_space_ref: Option<String>,
     pub compatibility_decision_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub configuration_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub allowed_goal_run_profile_revision_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy_refs: Option<Vec<String>>,
+    pub allowed_goal_run_profile_revision_refs: Vec<String>,
+    pub policy_refs: Vec<String>,
     pub admitted_by_ref: String,
     pub admission_receipt_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub revocation_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub registry_lifecycle_ref: Option<String>,
     pub registry_status: SkillEntryV1RegistryStatus,
 }
@@ -75706,7 +75769,7 @@ impl<'de> serde::Deserialize<'de> for SkillEntryV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/skill-entry/v1"#,
-            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-entry/v1","title":"SkillEntry","x-ioi-schema-version":"ioi.skill-entry.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_entry_id","binding_revision_ref","binding_hash","skill_revision_ref","skill_manifest_content_hash","owner_scope_ref","compatibility_decision_ref","admitted_by_ref","admission_receipt_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-entry.v1"},"skill_entry_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"binding_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"predecessor_binding_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"memory_space_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"compatibility_decision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"configuration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"allowed_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"admitted_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"admission_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revocation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["proposed","active","suspended","archived","revoked"]}}}"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-entry/v1","title":"SkillEntry","x-ioi-schema-version":"ioi.skill-entry.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_entry_id","binding_revision_ref","predecessor_binding_revision_ref","binding_hash","skill_revision_ref","skill_manifest_content_hash","owner_scope_ref","memory_space_ref","compatibility_decision_ref","configuration_ref","allowed_goal_run_profile_revision_refs","policy_refs","admitted_by_ref","admission_receipt_ref","revocation_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-entry.v1"},"skill_entry_id":{"type":"string","pattern":"^skill-entry://[^\\s/?#\\\\]{1,160}$"},"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"predecessor_binding_revision_ref":{"anyOf":[{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_scope_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"memory_space_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"compatibility_decision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"configuration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"allowed_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"admitted_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"admission_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revocation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["proposed","active","suspended","archived","revoked"]}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -75733,13 +75796,14 @@ impl<'de> serde::Deserialize<'de> for SkillEntryV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"binding_revision_ref"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            predecessor_binding_revision_ref: match object
-                .remove(r#"predecessor_binding_revision_ref"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            predecessor_binding_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_binding_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_binding_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
             binding_hash: serde_json::from_value::<String>(
                 object
                     .remove(r#"binding_hash"#)
@@ -75766,11 +75830,12 @@ impl<'de> serde::Deserialize<'de> for SkillEntryV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"owner_scope_ref"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            memory_space_ref: match object.remove(r#"memory_space_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            memory_space_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"memory_space_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"memory_space_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             compatibility_decision_ref: serde_json::from_value::<String>(
                 object
                     .remove(r#"compatibility_decision_ref"#)
@@ -75779,23 +75844,26 @@ impl<'de> serde::Deserialize<'de> for SkillEntryV1 {
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
-            configuration_ref: match object.remove(r#"configuration_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            allowed_goal_run_profile_revision_refs: match object
-                .remove(r#"allowed_goal_run_profile_revision_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            policy_refs: match object.remove(r#"policy_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            configuration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"configuration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"configuration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            allowed_goal_run_profile_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"allowed_goal_run_profile_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"allowed_goal_run_profile_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             admitted_by_ref: serde_json::from_value::<String>(
                 object
                     .remove(r#"admitted_by_ref"#)
@@ -75808,16 +75876,18 @@ impl<'de> serde::Deserialize<'de> for SkillEntryV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"admission_receipt_ref"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            revocation_ref: match object.remove(r#"revocation_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            registry_lifecycle_ref: match object.remove(r#"registry_lifecycle_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            revocation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"revocation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_lifecycle_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"registry_lifecycle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_lifecycle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             registry_status: serde_json::from_value::<SkillEntryV1RegistryStatus>(
                 object
                     .remove(r#"registry_status"#)
@@ -75853,49 +75923,29 @@ pub struct SkillManifestV1 {
     pub schema_version: SkillManifestV1SchemaVersion,
     pub skill_id: String,
     pub revision_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: String,
     pub predecessor_revision_ref: Option<String>,
     pub content_hash: String,
     pub owner_ref: String,
     pub display_name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    pub description: String,
     pub instruction_entrypoint_ref: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub procedure_and_reference_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub example_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub support_asset_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dependency_skill_revision_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub runtime_tool_contract_requirement_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub capability_requirement_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub input_and_output_contract_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub context_requirement_profile_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub compatible_goal_run_profile_revision_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub compatible_harness_profile_revision_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub compatible_runtime_and_kernel_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub provenance_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_rights_and_license_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub evaluation_and_benchmark_refs: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub procedure_and_reference_refs: Vec<String>,
+    pub example_refs: Vec<String>,
+    pub support_asset_refs: Vec<String>,
+    pub dependency_skill_revision_refs: Vec<String>,
+    pub runtime_tool_contract_requirement_refs: Vec<String>,
+    pub capability_requirement_refs: Vec<String>,
+    pub input_and_output_contract_refs: Vec<String>,
+    pub context_requirement_profile_refs: Vec<String>,
+    pub compatible_goal_run_profile_revision_refs: Vec<String>,
+    pub compatible_harness_profile_revision_refs: Vec<String>,
+    pub compatible_runtime_and_kernel_refs: Vec<String>,
+    pub provenance_refs: Vec<String>,
+    pub source_rights_and_license_refs: Vec<String>,
+    pub evaluation_and_benchmark_refs: Vec<String>,
     pub promotion_policy_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub revocation_and_recall_policy_ref: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub registry_lifecycle_ref: Option<String>,
     pub registry_status: SkillManifestV1RegistryStatus,
 }
@@ -75908,7 +75958,7 @@ impl<'de> serde::Deserialize<'de> for SkillManifestV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/skill-manifest/v1"#,
-            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-manifest/v1","title":"SkillManifest","x-ioi-schema-version":"ioi.skill-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_id","revision_ref","content_hash","owner_ref","display_name","instruction_entrypoint_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-manifest.v1"},"skill_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"version":{"type":"string"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"instruction_entrypoint_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"procedure_and_reference_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"example_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"support_asset_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"dependency_skill_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_tool_contract_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"capability_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"input_and_output_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_requirement_profile_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_harness_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_runtime_and_kernel_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"source_rights_and_license_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"evaluation_and_benchmark_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"promotion_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_and_recall_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-manifest/v1","title":"SkillManifest","x-ioi-schema-version":"ioi.skill-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_id","revision_ref","version","predecessor_revision_ref","content_hash","owner_ref","display_name","description","instruction_entrypoint_ref","procedure_and_reference_refs","example_refs","support_asset_refs","dependency_skill_revision_refs","runtime_tool_contract_requirement_refs","capability_requirement_refs","input_and_output_contract_refs","context_requirement_profile_refs","compatible_goal_run_profile_revision_refs","compatible_harness_profile_revision_refs","compatible_runtime_and_kernel_refs","provenance_refs","source_rights_and_license_refs","evaluation_and_benchmark_refs","promotion_policy_ref","revocation_and_recall_policy_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-manifest.v1"},"skill_id":{"type":"string","pattern":"^skill://[^\\s/?#\\\\]{1,160}$"},"revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"version":{"type":"string"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project|system|user|ioi)://[^\\s]{1,500}$"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"instruction_entrypoint_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,500}$"},"procedure_and_reference_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"}},"example_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"support_asset_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"dependency_skill_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_tool_contract_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"capability_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"input_and_output_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_requirement_profile_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_harness_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_runtime_and_kernel_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"source_rights_and_license_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"evaluation_and_benchmark_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"promotion_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_and_recall_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -75935,16 +75985,20 @@ impl<'de> serde::Deserialize<'de> for SkillManifestV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            version: match object.remove(r#"version"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            predecessor_revision_ref: match object.remove(r#"predecessor_revision_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
             content_hash: serde_json::from_value::<String>(
                 object
                     .remove(r#"content_hash"#)
@@ -75963,11 +76017,12 @@ impl<'de> serde::Deserialize<'de> for SkillManifestV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            description: match object.remove(r#"description"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             instruction_entrypoint_ref: serde_json::from_value::<String>(
                 object
                     .remove(r#"instruction_entrypoint_ref"#)
@@ -75976,106 +76031,136 @@ impl<'de> serde::Deserialize<'de> for SkillManifestV1 {
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
-            procedure_and_reference_refs: match object.remove(r#"procedure_and_reference_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            example_refs: match object.remove(r#"example_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            support_asset_refs: match object.remove(r#"support_asset_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            dependency_skill_revision_refs: match object.remove(r#"dependency_skill_revision_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            runtime_tool_contract_requirement_refs: match object
-                .remove(r#"runtime_tool_contract_requirement_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            capability_requirement_refs: match object.remove(r#"capability_requirement_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            input_and_output_contract_refs: match object.remove(r#"input_and_output_contract_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            context_requirement_profile_refs: match object
-                .remove(r#"context_requirement_profile_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            compatible_goal_run_profile_revision_refs: match object
-                .remove(r#"compatible_goal_run_profile_revision_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            compatible_harness_profile_revision_refs: match object
-                .remove(r#"compatible_harness_profile_revision_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            compatible_runtime_and_kernel_refs: match object
-                .remove(r#"compatible_runtime_and_kernel_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            provenance_refs: match object.remove(r#"provenance_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            source_rights_and_license_refs: match object.remove(r#"source_rights_and_license_refs"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            evaluation_and_benchmark_refs: match object.remove(r#"evaluation_and_benchmark_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            promotion_policy_ref: match object.remove(r#"promotion_policy_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            revocation_and_recall_policy_ref: match object
-                .remove(r#"revocation_and_recall_policy_ref"#)
-            {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            registry_lifecycle_ref: match object.remove(r#"registry_lifecycle_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            procedure_and_reference_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"procedure_and_reference_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"procedure_and_reference_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            example_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"example_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"example_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            support_asset_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"support_asset_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"support_asset_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependency_skill_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"dependency_skill_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"dependency_skill_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_tool_contract_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"runtime_tool_contract_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"runtime_tool_contract_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"capability_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_and_output_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"input_and_output_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"input_and_output_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context_requirement_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"context_requirement_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"context_requirement_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatible_goal_run_profile_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"compatible_goal_run_profile_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"compatible_goal_run_profile_revision_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatible_harness_profile_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"compatible_harness_profile_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"compatible_harness_profile_revision_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatible_runtime_and_kernel_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"compatible_runtime_and_kernel_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compatible_runtime_and_kernel_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provenance_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"provenance_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provenance_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_rights_and_license_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_rights_and_license_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_rights_and_license_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_and_benchmark_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evaluation_and_benchmark_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evaluation_and_benchmark_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            promotion_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"promotion_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"promotion_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_and_recall_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"revocation_and_recall_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"revocation_and_recall_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_lifecycle_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"registry_lifecycle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_lifecycle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             registry_status: serde_json::from_value::<SkillManifestV1RegistryStatus>(
                 object
                     .remove(r#"registry_status"#)
@@ -107118,7 +107203,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/workload-isolation-binding/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-isolation-binding/v1","title":"HypervisorWorkloadIsolationBinding","x-ioi-schema-version":"ioi.components.hypervisor.workload-isolation-binding.v1","type":"object","additionalProperties":false,"required":["schema_version","binding_ref","binding_hash","requirements_ref","requirements_hash","workrun_ref","runtime_assignment_ref","environment_ref","startup_plan_ref","startup_plan_hash","boundary_instance_ref","compute_host_ref","failure_domain_ref","backend_capability_declaration_ref","backend_capability_declaration_hash","enforcement_coverage_refs_and_hashes","immutable_component_refs_and_hashes","exact_input_and_mount_closure_hash","guest_network_identity_ref","route_policy_ref","dependency_broker_ref","dependency_broker_policy_hash","brokered_lease_refs","pep_ref","final_invoker_ref","governed_action_classes","output_quarantine_ref","output_policy_ref","cleanup_obligation_ref","required_terminal_disposition","readiness_evidence_refs","currentness_evaluation_refs"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-isolation-binding.v1"},"binding_ref":{"$ref":"#/$defs/ref"},"binding_hash":{"$ref":"#/$defs/hash"},"requirements_ref":{"$ref":"#/$defs/ref"},"requirements_hash":{"$ref":"#/$defs/hash"},"workrun_ref":{"$ref":"#/$defs/ref"},"runtime_assignment_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"startup_plan_ref":{"$ref":"#/$defs/ref"},"startup_plan_hash":{"$ref":"#/$defs/hash"},"boundary_instance_ref":{"$ref":"#/$defs/ref"},"compute_host_ref":{"$ref":"#/$defs/ref"},"failure_domain_ref":{"$ref":"#/$defs/ref"},"backend_capability_declaration_ref":{"$ref":"#/$defs/ref"},"backend_capability_declaration_hash":{"$ref":"#/$defs/hash"},"enforcement_coverage_refs_and_hashes":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/refHash"}},"immutable_component_refs_and_hashes":{"type":"array","minItems":3,"items":{"$ref":"#/$defs/refHash"}},"exact_input_and_mount_closure_hash":{"$ref":"#/$defs/hash"},"guest_network_identity_ref":{"$ref":"#/$defs/ref"},"route_policy_ref":{"$ref":"#/$defs/ref"},"dependency_broker_ref":{"$ref":"#/$defs/ref"},"dependency_broker_policy_hash":{"$ref":"#/$defs/hash"},"brokered_lease_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"pep_ref":{"$ref":"#/$defs/ref"},"final_invoker_ref":{"$ref":"#/$defs/ref"},"governed_action_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"output_quarantine_ref":{"$ref":"#/$defs/ref"},"output_policy_ref":{"$ref":"#/$defs/ref"},"cleanup_obligation_ref":{"$ref":"#/$defs/ref"},"required_terminal_disposition":{"enum":["destroyed_verified","quarantined_with_obligation"]},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"currentness_evaluation_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/components/hypervisor/workload-isolation-requirements/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/workload-isolation-requirements/v1","title":"HypervisorWorkloadIsolationRequirements","x-ioi-schema-version":"ioi.components.hypervisor.workload-isolation-requirements.v1","type":"object","additionalProperties":false,"required":["schema_version","requirements_ref","requirements_hash","source_policy_refs_and_hashes","compiled_risk_classes","hostile_to_boundary_requirement","instance_policy","minimum_isolation","host_mount_policy","daemon_socket_exposed","host_pid_namespace_exposed","raw_secret_material_in_guest","capability_broker_ref","permitted_lease_classes","network_policy_ref","dependency_broker_policy_ref","output_admission","teardown","required_backend_capabilities","required_enforcement_coverage","required_evidence_and_receipt_policy_refs","compiler_ref","compiler_version"],"properties":{"schema_version":{"const":"ioi.components.hypervisor.workload-isolation-requirements.v1"},"requirements_ref":{"$ref":"#/$defs/ref"},"requirements_hash":{"$ref":"#/$defs/hash"},"source_policy_refs_and_hashes":{"type":"array","minItems":3,"items":{"$ref":"#/$defs/refHash"}},"compiled_risk_classes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"hostile_to_boundary_requirement":{"enum":["not_declared","hostile_to_guest_kernel","hostile_to_vmm_host"]},"instance_policy":{"enum":["fresh_per_workrun","fresh_per_session","admitted_reuse"]},"minimum_isolation":{"$ref":"#/$defs/name"},"host_mount_policy":{"enum":["none","explicit_read_only","explicit_scoped_read_write"]},"daemon_socket_exposed":{"const":false},"host_pid_namespace_exposed":{"const":false},"raw_secret_material_in_guest":{"const":false},"capability_broker_ref":{"$ref":"#/$defs/ref"},"permitted_lease_classes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"network_policy_ref":{"$ref":"#/$defs/ref"},"dependency_broker_policy_ref":{"$ref":"#/$defs/ref"},"output_admission":{"type":"object","additionalProperties":false,"required":["quarantine_required","policy_ref","maximum_bytes","maximum_files","archive_entry_policy_ref","evaluator_refs"],"properties":{"quarantine_required":{"const":true},"policy_ref":{"$ref":"#/$defs/ref"},"maximum_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"maximum_files":{"type":"integer","minimum":1,"maximum":9007199254740991},"archive_entry_policy_ref":{"$ref":"#/$defs/ref"},"evaluator_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}},"teardown":{"type":"object","additionalProperties":false,"required":["destruction_policy_ref","deadline_ms","verify_all_resources","cleanup_obligation_on_uncertainty"],"properties":{"destruction_policy_ref":{"$ref":"#/$defs/ref"},"deadline_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"verify_all_resources":{"const":true},"cleanup_obligation_on_uncertainty":{"const":true}}},"required_backend_capabilities":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"required_enforcement_coverage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"required_evidence_and_receipt_policy_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"compiler_ref":{"$ref":"#/$defs/ref"},"compiler_version":{"type":"string","minLength":1,"maxLength":128}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"refHash":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/foundations/approval-ceremony-context/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/approval-ceremony-context/v1","title":"ApprovalCeremonyContextEnvelope","x-ioi-schema-version":"ioi.foundations.approval-ceremony-context.v1","type":"object","additionalProperties":false,"required":["schema_version","approval_ceremony_context_ref","authority_request_ref","authority_request_body_hash","authority_review_ref","authority_review_body_hash","predecessor_authority_review_ref","predecessor_authority_review_body_hash","predecessor_authority_request_ref","predecessor_authority_request_body_hash","predecessor_authority_review_receipt_ref","predecessor_authority_review_receipt_hash","reviewed_representation_hash","principal_ref","acting_subject_ref","product_session_ref","origin_binding_ref","authorization_subject","presentation_surface_ref","presentation_evidence_profile_ref","principal_authority_resolution_ref","principal_authority_resolution_hash","required_auth_factor_posture_refs","required_guardian_surface_refs","posture_satisfaction_profile_ref","interaction_mode","authentication_posture","receipt_timing","policy_decision_receipt_ref","policy_decision_receipt_hash","policy_hash","risk_classes","revocation_epoch","nonce_b64url","issued_at","expires_at","single_use"],"properties":{"schema_version":{"const":"ioi.foundations.approval-ceremony-context.v1"},"approval_ceremony_context_ref":{"$ref":"#/$defs/ref"},"authority_request_ref":{"$ref":"#/$defs/ref"},"authority_request_body_hash":{"$ref":"#/$defs/hash"},"authority_review_ref":{"$ref":"#/$defs/ref"},"authority_review_body_hash":{"$ref":"#/$defs/hash"},"predecessor_authority_review_ref":{"$ref":"#/$defs/nullableRef"},"predecessor_authority_review_body_hash":{"$ref":"#/$defs/nullableHash"},"predecessor_authority_request_ref":{"$ref":"#/$defs/nullableRef"},"predecessor_authority_request_body_hash":{"$ref":"#/$defs/nullableHash"},"predecessor_authority_review_receipt_ref":{"$ref":"#/$defs/nullableRef"},"predecessor_authority_review_receipt_hash":{"$ref":"#/$defs/nullableHash"},"reviewed_representation_hash":{"$ref":"#/$defs/hash"},"principal_ref":{"$ref":"#/$defs/ref"},"acting_subject_ref":{"$ref":"#/$defs/ref"},"product_session_ref":{"$ref":"#/$defs/nullableRef"},"origin_binding_ref":{"$ref":"#/$defs/nullableRef"},"authorization_subject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/ref"},"subject_hash":{"$ref":"#/$defs/hash"},"validation_profile_ref":{"$ref":"#/$defs/ref"}}},"presentation_surface_ref":{"$ref":"#/$defs/ref"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/ref"},"principal_authority_resolution_ref":{"$ref":"#/$defs/nullableRef"},"principal_authority_resolution_hash":{"$ref":"#/$defs/nullableHash"},"required_auth_factor_posture_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"required_guardian_surface_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/ref"},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"enum":["before_effect","after_effect"]},"policy_decision_receipt_ref":{"$ref":"#/$defs/ref"},"policy_decision_receipt_hash":{"$ref":"#/$defs/hash"},"policy_hash":{"$ref":"#/$defs/hash"},"risk_classes":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/name"}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"nonce_b64url":{"type":"string","pattern":"^[A-Za-z0-9_-]{43,256}$"},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"single_use":{"const":true}},"allOf":[{"oneOf":[{"properties":{"predecessor_authority_review_ref":{"type":"null"},"predecessor_authority_review_body_hash":{"type":"null"},"predecessor_authority_request_ref":{"type":"null"},"predecessor_authority_request_body_hash":{"type":"null"},"predecessor_authority_review_receipt_ref":{"type":"null"},"predecessor_authority_review_receipt_hash":{"type":"null"}}},{"properties":{"predecessor_authority_review_ref":{"$ref":"#/$defs/ref"},"predecessor_authority_review_body_hash":{"$ref":"#/$defs/hash"},"predecessor_authority_request_ref":{"$ref":"#/$defs/ref"},"predecessor_authority_request_body_hash":{"$ref":"#/$defs/hash"},"predecessor_authority_review_receipt_ref":{"$ref":"#/$defs/ref"},"predecessor_authority_review_receipt_hash":{"$ref":"#/$defs/hash"}}}]},{"oneOf":[{"properties":{"principal_authority_resolution_ref":{"type":"null"},"principal_authority_resolution_hash":{"type":"null"}}},{"properties":{"principal_authority_resolution_ref":{"$ref":"#/$defs/ref"},"principal_authority_resolution_hash":{"$ref":"#/$defs/hash"}}}]}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"name":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##),
-    ("schema://ioi/foundations/active-skill-set-snapshot/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/active-skill-set-snapshot/v1","title":"ActiveSkillSetSnapshot","x-ioi-schema-version":"ioi.active-skill-set-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","active_skill_set_snapshot_id","work_subject_ref","selected_skills","excluded_candidates","active_set_hash","resolved_runtime_tool_contracts","resolution_receipt_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.active-skill-set-snapshot.v1"},"active_skill_set_snapshot_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"selected_skills":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}},"excluded_candidates":{"type":"array","items":{"type":"object"}},"compatibility_and_evaluation_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"active_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_runtime_tool_contracts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["admitted","active","superseded","revoked"]}}}"#),
+    ("schema://ioi/foundations/active-skill-set-snapshot/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/active-skill-set-snapshot/v1","title":"ActiveSkillSetSnapshot","x-ioi-schema-version":"ioi.active-skill-set-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","active_skill_set_snapshot_id","work_subject_ref","selected_skills","excluded_candidates","compatibility_and_evaluation_result_refs","active_set_hash","resolved_runtime_tool_contracts","context_lease_refs","resolution_receipt_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.active-skill-set-snapshot.v1"},"active_skill_set_snapshot_id":{"type":"string","pattern":"^active-skill-set://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"},"selected_skills":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["skill_entry_ref","skill_entry_binding_revision_ref","skill_entry_binding_hash","skill_revision_ref","manifest_content_hash"],"properties":{"skill_entry_ref":{"type":"string","pattern":"^skill-entry://[^\\s/?#\\\\]{1,160}$"},"skill_entry_binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_entry_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"inclusion_basis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}},"excluded_candidates":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["candidate_ref","reason_code","decision_ref"],"properties":{"candidate_ref":{"type":"string","pattern":"^(?:skill|skill-entry)://[^\\s]{1,500}$"},"reason_code":{"enum":["incompatible","policy_blocked","revoked","superseded","not_required","budget_blocked","other"]},"decision_ref":{"type":"string","pattern":"^(?:decision|receipt)://[^\\s]{1,500}$"}}}},"compatibility_and_evaluation_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"active_set_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_runtime_tool_contracts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["admitted","active","superseded","revoked"]}}}"#),
     ("schema://ioi/foundations/authority-scope-request-envelope/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-scope-request-envelope/v2","title":"AuthorityScopeRequestEnvelope","description":"Closed exact-subject authority request that binds requested posture, capabilities, resources, destinations, risk, and policy before review.","x-ioi-schema-version":"ioi.foundations.authority-scope-request-envelope.v2","type":"object","additionalProperties":false,"required":["schema_version","authority_request_id","principal_ref","product_session_ref","origin_binding_ref","subject_id","issuer_id","requesting_runtime_ref","purpose","requested_auth_factor_posture_refs","requested_guardian_surface_refs","authorization_subject","primitive_capabilities_required","authority_scopes_requested","resource_scope","destination_refs","risk_classes","policy_hash","authority_request_body_hash","authority_grant_id","status"],"properties":{"schema_version":{"const":"ioi.foundations.authority-scope-request-envelope.v2"},"authority_request_id":{"$ref":"#/$defs/authorityRequestRef"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"subject_id":{"$ref":"#/$defs/subjectRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"requesting_runtime_ref":{"oneOf":[{"$ref":"#/$defs/runtimeRef"},{"type":"null"}]},"purpose":{"type":"string","minLength":1,"maxLength":512},"requested_auth_factor_posture_refs":{"type":"array","items":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"uniqueItems":true},"requested_guardian_surface_refs":{"type":"array","items":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"uniqueItems":true},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"primitive_capabilities_required":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes_requested":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"resource_scope":{"type":"object","additionalProperties":false,"required":["resources","constraints"],"properties":{"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expiry","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expiry":{"$ref":"#/$defs/canonicalDateTime"},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}}}},"destination_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"oneOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"status":{"enum":["requested","granted","denied","expired","revoked"]}},"$defs":{"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"subjectRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]{1,500}$"},"runtimeRef":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
     ("schema://ioi/foundations/authority-grant-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v1","title":"AuthorityGrantEnvelope","description":"Canonical IOI authority grant field envelope before the Cut 2 portable signature profile.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v1","type":"object","additionalProperties":false,"required":["authority_grant_id","request_id","issuer_id","subject_id","authority_scopes","primitive_capability_constraints","resources","constraints","revocation_epoch","status"],"properties":{"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"subject_id":{"$ref":"#/$defs/subjectRef"},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/resourceRef"},"minItems":1,"uniqueItems":true},"constraints":{"type":"object","additionalProperties":false,"required":["max_budget_usd","expires_at","approval_required_for"],"properties":{"max_budget_usd":{"type":"number","minimum":0},"expires_at":{"$ref":"#/$defs/canonicalDateTime"},"max_calls":{"type":"integer","minimum":1,"maximum":9007199254740991},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"status":{"enum":["active","expired","revoked"]}},"$defs":{"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"subjectRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"resourceRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"}}}"##),
     ("schema://ioi/foundations/authority-grant-envelope/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/authority-grant-envelope/v2","title":"AuthorityGrantEnvelope","description":"Portable, individually signed IOI authority grant with holder, audience, attenuation, revocation, and canonical-body bindings.","x-ioi-schema-version":"ioi.foundations.authority-grant-envelope.v2","type":"object","additionalProperties":false,"required":["schema_version","envelope_type","signature_domain","schema_hash","authority_grant_id","request_id","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","holder_id","holder_key_id","audience","issued_at","not_before","expires_at","parent_grant","authority_scopes","primitive_capability_constraints","resources","attenuating_caveats","risk_restrictions","revocation_epoch","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.authority-grant-envelope.v2"},"envelope_type":{"const":"ioi.authority-grant"},"signature_domain":{"const":"ioi.authority-grant-envelope.v2"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"$ref":"#/$defs/grantRef"},"request_id":{"$ref":"#/$defs/authorityRequestRef"},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"holder_id":{"$ref":"#/$defs/holderRef"},"holder_key_id":{"$ref":"#/$defs/keyRef"},"audience":{"$ref":"#/$defs/canonicalRef"},"issued_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"not_before":{"type":"integer","minimum":0,"maximum":9007199254740991},"expires_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"parent_grant":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["grant_ref","body_hash","proof_ref"],"properties":{"grant_ref":{"$ref":"#/$defs/grantRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"proof_ref":{"$ref":"#/$defs/proofRef"}}}]},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"primitive_capability_constraints":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"resources":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"attenuating_caveats":{"type":"array","items":{"$ref":"#/$defs/caveatRef"},"uniqueItems":true},"risk_restrictions":{"type":"object","additionalProperties":false,"required":["allowed_risk_classes","max_budget_microusd","max_calls","approval_required_for"],"properties":{"allowed_risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"minItems":1,"uniqueItems":true},"max_budget_microusd":{"type":"integer","minimum":0,"maximum":9007199254740991},"max_calls":{"type":"integer","minimum":1,"maximum":9007199254740991},"approval_required_for":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9._-]*$"},"uniqueItems":true}}},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"holderRef":{"type":"string","pattern":"^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"caveatRef":{"type":"string","pattern":"^caveat://[^\\s]+$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]+$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
@@ -107190,8 +107275,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/receipt-checkpoint/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v1","title":"ReceiptCheckpoint","description":"Signed checkpoint over one versioned append-only receipt hash-chain accumulator.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v1","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","signature_domain","schema_hash","checkpoint_id","receipt_log_id","accumulator_algorithm","receipt_body_hash_profile","receipt_contract_id","receipt_schema_hash","accumulator_size","accumulator_root","previous_checkpoint_ref","previous_checkpoint_hash","previous_accumulator_size","previous_accumulator_root","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","issued_at","build_identity_ref","policy_posture_ref","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v1"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"signature_domain":{"const":"ioi.receipt-checkpoint.v1"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"receipt_log_id":{"$ref":"#/$defs/logRef"},"accumulator_algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"accumulator_size":{"type":"integer","minimum":1,"maximum":9007199254740991},"accumulator_root":{"$ref":"#/$defs/sha256Hash"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"previous_accumulator_size":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"previous_accumulator_root":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"issued_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"build_identity_ref":{"$ref":"#/$defs/buildRef"},"policy_posture_ref":{"$ref":"#/$defs/policyRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]+$"},"logRef":{"type":"string","pattern":"^receipt-log://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"buildRef":{"type":"string","pattern":"^build://[^\\s]+$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"##),
     ("schema://ioi/foundations/receipt-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-envelope/v1","title":"ReceiptEnvelope","description":"Portable base envelope shared by registered IOI receipt profiles.","x-ioi-schema-version":"ioi.foundations.receipt-envelope.v1","type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"},"receipt_profile_ref":{"$ref":"#/$defs/schemaRef"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"claim_scope_ref":{"anyOf":[{"$ref":"#/$defs/schemaOrPolicyRef"},{"type":"null"}]},"run_id":{"anyOf":[{"$ref":"#/$defs/runRef"},{"type":"null"}]},"task_id":{"anyOf":[{"$ref":"#/$defs/taskRef"},{"type":"null"}]},"actor_id":{"$ref":"#/$defs/protocolPrincipalOrRuntimeRef"},"input_hash":{"$ref":"#/$defs/hash"},"output_hash":{"$ref":"#/$defs/hash"},"policy_hash":{"$ref":"#/$defs/hash"},"authority_grant_id":{"anyOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"uniqueItems":true},"verification_ref":{"anyOf":[{"$ref":"#/$defs/verificationRef"},{"type":"null"}]},"acceptance_ref":{"anyOf":[{"$ref":"#/$defs/acceptanceRef"},{"type":"null"}]},"adjudication_ref":{"anyOf":[{"$ref":"#/$defs/adjudicationRef"},{"type":"null"}]},"settlement_ref":{"anyOf":[{"$ref":"#/$defs/settlementRef"},{"type":"null"}]},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"description":"Legacy opaque signature string. Cut 2 owns a future portable signing envelope.","anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"$ref":"#/$defs/publicCommitmentRef"},{"type":"null"}]}},"$defs":{"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]+$"},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]+$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]+$"},"runRef":{"type":"string","pattern":"^run://[^\\s]+$"},"taskRef":{"type":"string","pattern":"^task://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"protocolPrincipalOrRuntimeRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]+$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"},"verificationRef":{"type":"string","pattern":"^(?:verifier-path|verification|receipt)://[^\\s]+$"},"acceptanceRef":{"type":"string","pattern":"^acceptance://[^\\s]+$"},"adjudicationRef":{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]+$"},"settlementRef":{"type":"string","pattern":"^settlement://[^\\s]+$"},"publicCommitmentRef":{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]+$"},"hash":{"type":"string","minLength":1}}}"##),
     ("schema://ioi/foundations/receipt-proof-bundle/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-proof-bundle/v1","title":"ReceiptProofBundle","description":"Offline export of one exact receipt, its hash-chain inclusion witness, and signed checkpoint consistency material.","x-ioi-schema-version":"ioi.foundations.receipt-proof-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_type","manifest_domain","bundle_schema_hash","manifest_hash","manifest_signature_suite","manifest_signature_key_id","manifest_signature","bundle_id","receipt_contract_id","receipt_schema_hash","receipt_body_hash_profile","receipt","receipt_body_hash","leaf","inclusion_proof","checkpoint","previous_checkpoint","consistency_proof","trusted_input_refs","verification_instructions"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-proof-bundle.v1"},"bundle_type":{"const":"ioi.receipt-proof-bundle"},"manifest_domain":{"const":"ioi.receipt-proof-bundle-manifest.v1"},"bundle_schema_hash":{"$ref":"#/$defs/sha256Hash"},"manifest_hash":{"$ref":"#/$defs/sha256Hash"},"manifest_signature_suite":{"const":"ed25519"},"manifest_signature_key_id":{"$ref":"#/$defs/keyRef"},"manifest_signature":{"$ref":"#/$defs/ed25519Signature"},"bundle_id":{"$ref":"#/$defs/proofRef"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt":{"type":"object"},"receipt_body_hash":{"$ref":"#/$defs/sha256Hash"},"leaf":{"type":"object","additionalProperties":false,"required":["algorithm","domain","leaf_index","leaf_hash"],"properties":{"algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"domain":{"const":"ioi.receipt-accumulator-leaf.v1"},"leaf_index":{"type":"integer","minimum":0,"maximum":9007199254740991},"leaf_hash":{"$ref":"#/$defs/sha256Hash"}}},"inclusion_proof":{"type":"object","additionalProperties":false,"required":["profile","leaf_index","prefix_root","suffix_leaf_hashes"],"properties":{"profile":{"const":"ioi.receipt-hash-chain-inclusion.v1"},"leaf_index":{"type":"integer","minimum":0,"maximum":9007199254740991},"prefix_root":{"$ref":"#/$defs/sha256Hash"},"suffix_leaf_hashes":{"type":"array","items":{"$ref":"#/$defs/sha256Hash"}}}},"checkpoint":{"type":"object"},"previous_checkpoint":{"anyOf":[{"type":"object"},{"type":"null"}]},"consistency_proof":{"type":"object","additionalProperties":false,"required":["profile","from_size","from_root","extension_leaf_hashes"],"properties":{"profile":{"const":"ioi.receipt-hash-chain-consistency.v1"},"from_size":{"type":"integer","minimum":0,"maximum":9007199254740991},"from_root":{"$ref":"#/$defs/sha256Hash"},"extension_leaf_hashes":{"type":"array","items":{"$ref":"#/$defs/sha256Hash"}}}},"trusted_input_refs":{"type":"object","additionalProperties":false,"required":["key_set_ref","key_set_version","revocation_snapshot_ref","revocation_epoch"],"properties":{"key_set_ref":{"$ref":"#/$defs/keySetRef"},"key_set_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"revocation_snapshot_ref":{"$ref":"#/$defs/snapshotRef"},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"verification_instructions":{"type":"object","additionalProperties":false,"required":["profile","steps","offline_required_inputs"],"properties":{"profile":{"const":"ioi.receipt-proof-verification.v1"},"steps":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"offline_required_inputs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["trusted_key_set","signed_revocation_snapshot","trusted_time"]}}}}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"snapshotRef":{"type":"string","pattern":"^snapshot://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"##),
-    ("schema://ioi/foundations/skill-entry/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-entry/v1","title":"SkillEntry","x-ioi-schema-version":"ioi.skill-entry.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_entry_id","binding_revision_ref","binding_hash","skill_revision_ref","skill_manifest_content_hash","owner_scope_ref","compatibility_decision_ref","admitted_by_ref","admission_receipt_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-entry.v1"},"skill_entry_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"binding_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"predecessor_binding_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"skill_manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"memory_space_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"compatibility_decision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"configuration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"allowed_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"admitted_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"admission_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revocation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["proposed","active","suspended","archived","revoked"]}}}"#),
-    ("schema://ioi/foundations/skill-manifest/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-manifest/v1","title":"SkillManifest","x-ioi-schema-version":"ioi.skill-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_id","revision_ref","content_hash","owner_ref","display_name","instruction_entrypoint_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-manifest.v1"},"skill_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"version":{"type":"string"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"instruction_entrypoint_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"procedure_and_reference_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"example_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"support_asset_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"dependency_skill_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_tool_contract_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"capability_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"input_and_output_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_requirement_profile_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_harness_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_runtime_and_kernel_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"source_rights_and_license_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"evaluation_and_benchmark_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"promotion_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_and_recall_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
+    ("schema://ioi/foundations/skill-entry/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-entry/v1","title":"SkillEntry","x-ioi-schema-version":"ioi.skill-entry.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_entry_id","binding_revision_ref","predecessor_binding_revision_ref","binding_hash","skill_revision_ref","skill_manifest_content_hash","owner_scope_ref","memory_space_ref","compatibility_decision_ref","configuration_ref","allowed_goal_run_profile_revision_refs","policy_refs","admitted_by_ref","admission_receipt_ref","revocation_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-entry.v1"},"skill_entry_id":{"type":"string","pattern":"^skill-entry://[^\\s/?#\\\\]{1,160}$"},"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"predecessor_binding_revision_ref":{"anyOf":[{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_scope_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"memory_space_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"compatibility_decision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"configuration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"allowed_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"admitted_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"admission_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revocation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["proposed","active","suspended","archived","revoked"]}}}"#),
+    ("schema://ioi/foundations/skill-manifest/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-manifest/v1","title":"SkillManifest","x-ioi-schema-version":"ioi.skill-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_id","revision_ref","version","predecessor_revision_ref","content_hash","owner_ref","display_name","description","instruction_entrypoint_ref","procedure_and_reference_refs","example_refs","support_asset_refs","dependency_skill_revision_refs","runtime_tool_contract_requirement_refs","capability_requirement_refs","input_and_output_contract_refs","context_requirement_profile_refs","compatible_goal_run_profile_revision_refs","compatible_harness_profile_revision_refs","compatible_runtime_and_kernel_refs","provenance_refs","source_rights_and_license_refs","evaluation_and_benchmark_refs","promotion_policy_ref","revocation_and_recall_policy_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-manifest.v1"},"skill_id":{"type":"string","pattern":"^skill://[^\\s/?#\\\\]{1,160}$"},"revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"version":{"type":"string"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project|system|user|ioi)://[^\\s]{1,500}$"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"instruction_entrypoint_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,500}$"},"procedure_and_reference_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"}},"example_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"support_asset_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"dependency_skill_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_tool_contract_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"capability_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"input_and_output_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_requirement_profile_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_harness_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_runtime_and_kernel_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"source_rights_and_license_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"evaluation_and_benchmark_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"promotion_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_and_recall_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
     ("schema://ioi/foundations/system-scoped-object-binding/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/system-scoped-object-binding/v1","title":"SystemScopedObjectBinding","x-ioi-schema-version":"ioi.foundations.system-scoped-object-binding.v1","type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#),
     ("schema://ioi/foundations/work-lifecycle-record/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-record/v1","title":"WorkLifecycleRecord","x-ioi-schema-version":"ioi.work-lifecycle-record.v1","type":"object","additionalProperties":false,"required":["schema_version","record_id","record_hash","record_type","object_kind","object_ref","expected_head","resulting_head","idempotency_key","authority_class","authority_ref","evidence_refs","receipt_refs","phase_transition","child_reference","occurred_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-record.v1"},"record_id":{"type":"string","pattern":"^work-lifecycle://[^\\s]+$"},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"record_type":{"enum":["phase_transition","child_reference"]},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"expected_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"authority_class":{"enum":["owner","goal_kernel","conductor","verifier","daemon","operator","reviewer","automation_controller","harness_adapter","external_protocol_adapter","reconciler","governance"]},"authority_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"phase_transition":{"anyOf":[{"type":"object"},{"type":"null"}]},"child_reference":{"anyOf":[{"type":"object"},{"type":"null"}]},"occurred_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#),
     ("schema://ioi/foundations/work-result/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-result/v3","title":"WorkResult","x-ioi-schema-version":"ioi.foundations.work-result.v3","type":"object","additionalProperties":false,"required":["schema_version","work_result_id","work_subject_ref","system_binding","produced_by_ref","submitted_by_ref","operator_and_affiliation_refs","invocation_or_run_ref","result_profile","result_profile_ref","result_payload_ref","producer_component_resolution","declared_method_and_lineage_refs","information_flow_label_refs","outcome_class","status","claim_refs","uncertainty","supporting_evidence_refs","contradicting_evidence_refs","artifact_receipt_and_trace_refs","resource_and_cost_refs","authority_and_policy_refs","blocker_and_decision_request_refs","verifier_refs","license_disclosure_retention_and_export_refs","reproduction_state","reproduction_refs","acceptance_ref","supersedes_work_result_ref","superseded_by_ref","summary_ref","next_action","outcome_delta_refs","observation_refs","review_refs"],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},"producerResolution":{"type":"object","additionalProperties":false,"required":["resolved_component_set_snapshot_ref","resolved_component_set_hash","component_resolution_receipt_ref","resolver_kind","resolver_revision_ref","resolver_content_hash"],"properties":{"resolved_component_set_snapshot_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},{"type":"null"}]},"resolved_component_set_hash":{"$ref":"#/$defs/nullableHash"},"component_resolution_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}/revision/[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"$ref":"#/$defs/nullableHash"}}}},"properties":{"schema_version":{"const":"ioi.foundations.work-result.v3"},"work_result_id":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"produced_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"submitted_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"operator_and_affiliation_refs":{"$ref":"#/$defs/refs"},"invocation_or_run_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"result_profile":{"enum":["software_implementation","research","ontology_mutation","incident_resolution","service_delivery","physical_mission","review","evaluation","custom"]},"result_profile_ref":{"anyOf":[{"type":"string","pattern":"^(?:schema|profile)://[^\\s]{1,500}$"},{"type":"null"}]},"result_payload_ref":{"anyOf":[{"type":"string","pattern":"^(?:(?:implementation-result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},{"type":"null"}]},"producer_component_resolution":{"$ref":"#/$defs/producerResolution"},"declared_method_and_lineage_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"information_flow_label_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"}},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"outcome_delta_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"}},"claim_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"}},"uncertainty":{"anyOf":[{"type":"number"},{"type":"string"},{"type":"object"},{"type":"null"}]},"supporting_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"}},"artifact_receipt_and_trace_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"}},"resource_and_cost_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"}},"authority_and_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"blocker_and_decision_request_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"}},"verifier_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|worker|gate|receipt)://[^\\s]{1,500}$"}},"license_disclosure_retention_and_export_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$"}},"reproduction_state":{"anyOf":[{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},{"type":"null"}]},"reproduction_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"}},"acceptance_ref":{"anyOf":[{"type":"string","pattern":"^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"supersedes_work_result_ref":{"anyOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"superseded_by_ref":{"anyOf":[{"type":"string","pattern":"^(?:work-result|outcome-delta)://[^\\s]{1,500}$"},{"type":"null"}]},"summary_ref":{"anyOf":[{"type":"string","pattern":"^(?:message|artifact)://[^\\s]{1,500}$"},{"type":"null"}]},"next_action":{"enum":["none","repair","review","verify","replicate","synthesize","ask_user","escalate","update_work_queue"]},"observation_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"review_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##),
@@ -107526,6 +107611,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:artifact|cid)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:artifact|cid)://[^\s]{1,500}$"#,
+        r#"^(?:artifact|cid)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:artifact|evidence|receipt|ledger)://[^\s]{1,500}$"#,
         r#"^(?:artifact|evidence|receipt|ledger)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -107662,6 +107751,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:decision|dispute)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:decision|receipt)://[^\s]{1,500}$"#,
+        r#"^(?:decision|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:decision|work-claim|receipt)://[^\s]{1,500}$"#,
         r#"^(?:decision|work-claim|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -107756,6 +107849,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\s]{1,500}$"#,
         r#"^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\s]{1,500}$"#,
+        r#"^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:goal|task|service)://[^\s]{1,500}$"#,
@@ -107860,6 +107957,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:org|project|system|user)://[^\s]{1,500}$"#,
         r#"^(?:org|project|system|user)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:org|project|system|user|ioi)://[^\s]{1,500}$"#,
+        r#"^(?:org|project|system|user|ioi)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:origin-binding|origin)://[^\s]{1,500}$"#,
@@ -108084,6 +108185,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:sha256:[0-9a-f]{64}|commitment://[^\s]{1,400})$"#,
         r#"^(?:sha256:[0-9a-f]{64}|commitment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400})$"#,
+    ),
+    (
+        r#"^(?:skill|skill-entry)://[^\s]{1,500}$"#,
+        r#"^(?:skill|skill-entry)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:state|environment|worktree|dataset)://[^\s]{1,500}$"#,
@@ -108451,6 +108556,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^active-profile-set://[^\s]{1,248}$"#,
         r#"^active-profile-set://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^active-skill-set://[^\s]{1,500}$"#,
+        r#"^active-skill-set://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^actuator://[^\s]+$"#,
@@ -109743,8 +109852,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$"#,
     ),
     (
+        r#"^skill-entry://[^\s/?#\\]{1,160}$"#,
+        r#"^skill-entry://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]{1,160}$"#,
+    ),
+    (
         r#"^skill-entry://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^skill-entry://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^skill://[^\s/?#\\]{1,160}$"#,
+        r#"^skill://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]{1,160}$"#,
     ),
     (
         r#"^skill://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -114318,7 +114435,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 681,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 689,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

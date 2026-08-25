@@ -9,13 +9,20 @@
     "schema_version",
     "skill_entry_id",
     "binding_revision_ref",
+    "predecessor_binding_revision_ref",
     "binding_hash",
     "skill_revision_ref",
     "skill_manifest_content_hash",
     "owner_scope_ref",
+    "memory_space_ref",
     "compatibility_decision_ref",
+    "configuration_ref",
+    "allowed_goal_run_profile_revision_refs",
+    "policy_refs",
     "admitted_by_ref",
     "admission_receipt_ref",
+    "revocation_ref",
+    "registry_lifecycle_ref",
     "registry_status"
   ],
   "properties": {
@@ -24,17 +31,17 @@
     },
     "skill_entry_id": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^skill-entry://[^\\s/?#\\\\]{1,160}$"
     },
     "binding_revision_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
     },
     "predecessor_binding_revision_ref": {
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
         },
         {
           "type": "null"
@@ -47,7 +54,7 @@
     },
     "skill_revision_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
     },
     "skill_manifest_content_hash": {
       "type": "string",
@@ -55,7 +62,7 @@
     },
     "owner_scope_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^(?:org|project|system|user)://[^\\s]{1,500}$"
     },
     "memory_space_ref": {
       "anyOf": [

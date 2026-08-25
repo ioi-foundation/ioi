@@ -103,6 +103,14 @@
       "note": "M04.2 closure: the 34-assertion live predecessor journey remains intact and twelve runtime assertions prove the canonical four-lifetime family — server-owned template identity, exact owner-scoped template/spec/binding resolution, identity-first reads, hash-substitution refusal, generated-contract validation, frozen run receipt, template-successor immutability, honest empty Agentgres/lease claims, successor-only disablement, stale-binding refusal, and restart persistence."
     },
     {
+      "id": "skill-contracts",
+      "npm_script": "check:skill-contracts",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-skill-contracts.mjs",
+      "runtime_assertions": 17,
+      "assertion_names_sha256": "067e175f2eab2598759b4c898b4343068c0f2b3528762ff8c9898de56fd4fe60",
+      "note": "M04.3 closure: an isolated live daemon proves the immutable SkillManifest, successor-versioned owner SkillEntry binding, and exact run-scoped ActiveSkillSetSnapshot lifetimes; explicit legacy import, identity-first reads, admitted owner-scoped work-subject resolution, hash substitution, generated contracts, receipt honesty, stale/suspended bindings, and restart replay are all exercised."
+    },
+    {
       "id": "command-execution-guardrails",
       "npm_script": "check:command-execution-guardrails",
       "source": "apps/hypervisor/scripts/verify-command-execution-guardrail-coverage.mjs",

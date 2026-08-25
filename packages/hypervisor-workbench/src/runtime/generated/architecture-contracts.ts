@@ -3301,16 +3301,20 @@ export type ActiveSkillSetSnapshotV1 = {
         manifest_content_hash: string;
         inclusion_basis_refs?: Array<string>;
       }>;
-  excluded_candidates: Array<Record<string, unknown>>;
-  compatibility_and_evaluation_result_refs?: Array<string>;
+  excluded_candidates: Array<{
+        candidate_ref: string;
+        reason_code: "incompatible" | "policy_blocked" | "revoked" | "superseded" | "not_required" | "budget_blocked" | "other";
+        decision_ref: string;
+      }>;
+  compatibility_and_evaluation_result_refs: Array<string>;
   active_set_hash: string;
   resolved_runtime_tool_contracts: Array<{
         revision_ref: string;
         content_hash: string;
       }>;
-  context_lease_refs?: Array<string>;
+  context_lease_refs: Array<string>;
   resolution_receipt_ref: string;
-  registry_lifecycle_ref?: string | null;
+  registry_lifecycle_ref: string | null;
   registry_status: "admitted" | "active" | "superseded" | "revoked";
 };
 
@@ -7047,20 +7051,20 @@ export type SkillEntryV1 = {
   schema_version: "ioi.skill-entry.v1";
   skill_entry_id: string;
   binding_revision_ref: string;
-  predecessor_binding_revision_ref?: string | null;
+  predecessor_binding_revision_ref: string | null;
   binding_hash: string;
   skill_revision_ref: string;
   skill_manifest_content_hash: string;
   owner_scope_ref: string;
-  memory_space_ref?: string | null;
+  memory_space_ref: string | null;
   compatibility_decision_ref: string;
-  configuration_ref?: string | null;
-  allowed_goal_run_profile_revision_refs?: Array<string>;
-  policy_refs?: Array<string>;
+  configuration_ref: string | null;
+  allowed_goal_run_profile_revision_refs: Array<string>;
+  policy_refs: Array<string>;
   admitted_by_ref: string;
   admission_receipt_ref: string;
-  revocation_ref?: string | null;
-  registry_lifecycle_ref?: string | null;
+  revocation_ref: string | null;
+  registry_lifecycle_ref: string | null;
   registry_status: "proposed" | "active" | "suspended" | "archived" | "revoked";
 };
 
@@ -7068,30 +7072,30 @@ export type SkillManifestV1 = {
   schema_version: "ioi.skill-manifest.v1";
   skill_id: string;
   revision_ref: string;
-  version?: string;
-  predecessor_revision_ref?: string | null;
+  version: string;
+  predecessor_revision_ref: string | null;
   content_hash: string;
   owner_ref: string;
   display_name: string;
-  description?: string;
+  description: string;
   instruction_entrypoint_ref: string;
-  procedure_and_reference_refs?: Array<string>;
-  example_refs?: Array<string>;
-  support_asset_refs?: Array<string>;
-  dependency_skill_revision_refs?: Array<string>;
-  runtime_tool_contract_requirement_refs?: Array<string>;
-  capability_requirement_refs?: Array<string>;
-  input_and_output_contract_refs?: Array<string>;
-  context_requirement_profile_refs?: Array<string>;
-  compatible_goal_run_profile_revision_refs?: Array<string>;
-  compatible_harness_profile_revision_refs?: Array<string>;
-  compatible_runtime_and_kernel_refs?: Array<string>;
-  provenance_refs?: Array<string>;
-  source_rights_and_license_refs?: Array<string>;
-  evaluation_and_benchmark_refs?: Array<string>;
-  promotion_policy_ref?: string | null;
-  revocation_and_recall_policy_ref?: string | null;
-  registry_lifecycle_ref?: string | null;
+  procedure_and_reference_refs: Array<string>;
+  example_refs: Array<string>;
+  support_asset_refs: Array<string>;
+  dependency_skill_revision_refs: Array<string>;
+  runtime_tool_contract_requirement_refs: Array<string>;
+  capability_requirement_refs: Array<string>;
+  input_and_output_contract_refs: Array<string>;
+  context_requirement_profile_refs: Array<string>;
+  compatible_goal_run_profile_revision_refs: Array<string>;
+  compatible_harness_profile_revision_refs: Array<string>;
+  compatible_runtime_and_kernel_refs: Array<string>;
+  provenance_refs: Array<string>;
+  source_rights_and_license_refs: Array<string>;
+  evaluation_and_benchmark_refs: Array<string>;
+  promotion_policy_ref: string | null;
+  revocation_and_recall_policy_ref: string | null;
+  registry_lifecycle_ref: string | null;
   registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
 };
 
@@ -22357,6 +22361,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:agentgres|wallet|service)://[^\\s]{1,248}$",
   "^(?:agent|worker)://[^\\s]{1,248}$",
   "^(?:artifact|cid)://[^\\s]{1,248}$",
+  "^(?:artifact|cid)://[^\\s]{1,500}$",
   "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$",
   "^(?:artifact|finding)://[^\\s]{1,248}$",
   "^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$",
@@ -22391,6 +22396,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:dataset|program)[.][0-9a-f]{64}$",
   "^(?:decision|dispute)://[^\\s]+$",
   "^(?:decision|dispute)://[^\\s]{1,500}$",
+  "^(?:decision|receipt)://[^\\s]{1,500}$",
   "^(?:decision|work-claim|receipt)://[^\\s]{1,500}$",
   "^(?:domain|system|agentgres)://[^\\s]{1,500}$",
   "^(?:event|receipt)://[^\\s]{1,248}$",
@@ -22415,6 +22421,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:gate|policy)://[^\\s]{1,240}$",
   "^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\\s]{1,500}$",
   "^(?:goal|automation-run|work_run|run|invocation|work-claim)://[^\\s]{1,500}$",
+  "^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$",
   "^(?:goal|task|service)://[^\\s]{1,500}$",
   "^(?:grant|approval)://[^\\s]{1,500}$",
   "^(?:grant|lease)://[^\\s]{1,248}$",
@@ -22441,6 +22448,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
+  "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$",
   "^(?:origin-binding|origin)://[^\\s]{1,500}$",
   "^(?:outcome-room|user|org)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
@@ -22497,6 +22505,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:schema|policy)://[^\\s]{1,500}$",
   "^(?:schema|profile)://[^\\s]{1,500}$",
   "^(?:sha256:[0-9a-f]{64}|commitment://[^\\s]{1,400})$",
+  "^(?:skill|skill-entry)://[^\\s]{1,500}$",
   "^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$",
   "^(?:surface|hypervisor-workspace)://\\S*$",
   "^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$",
@@ -22603,6 +22612,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^action://goal-run/activate/[^\\s]{1,500}$",
   "^active-profile-set://[A-Za-z0-9._:/-]+$",
   "^active-profile-set://[^\\s]{1,248}$",
+  "^active-skill-set://[^\\s]{1,500}$",
   "^actuator://[^\\s]+$",
   "^adapter://[^\\s]{1,500}$",
   "^afr_[a-z0-9]{8,64}$",
@@ -22936,7 +22946,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^sha256:[0-9a-f]{64}$",
   "^sha256:[a-f0-9]{64}$",
   "^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$",
+  "^skill-entry://[^\\s/?#\\\\]{1,160}$",
   "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^skill://[^\\s/?#\\\\]{1,160}$",
   "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
   "^snapshot://[^\\s]{1,248}$",
@@ -23115,7 +23127,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/workload-isolation-binding/v1": "sha256:57099f54fe5e9de26028f4910be956ee4f3ce585a67698b68d0bcc1e31371899",
   "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": "sha256:718d9c35d0e969108feb391bb83e0a1b8029f24e0cb2272de15b3fb261a64fd1",
   "schema://ioi/foundations/approval-ceremony-context/v1": "sha256:79ab3938ba4f148bddecb4ed29107f72f709d2339d20977b2dbb0cbae6703c98",
-  "schema://ioi/foundations/active-skill-set-snapshot/v1": "sha256:c62f6d794bf48172de77fa72cb71ea86dd1ed07944abf70d92aa8e82a97f87d6",
+  "schema://ioi/foundations/active-skill-set-snapshot/v1": "sha256:c004e65f5c5b6762dd01fba3b866c08a3ff25b3438226df08d492455f92f987c",
   "schema://ioi/foundations/authority-scope-request-envelope/v2": "sha256:e0cd0303ea58a4a3388fe3c8473da7c3e38c7cf20d26095d4663a524b3e7dd5f",
   "schema://ioi/foundations/authority-grant-envelope/v1": "sha256:9f8a2e183e7bb02cdb02274c59b06c0dda1abe293e4c377c80aaccbf9fee5796",
   "schema://ioi/foundations/authority-grant-envelope/v2": "sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e",
@@ -23187,8 +23199,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b",
   "schema://ioi/foundations/receipt-envelope/v1": "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc",
   "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034",
-  "schema://ioi/foundations/skill-entry/v1": "sha256:3f1bc8b58d8604b5b1bd0562aac17e55f961ee3d3061e5321224161901861a2a",
-  "schema://ioi/foundations/skill-manifest/v1": "sha256:cf1ca7a5711a784e57adef9c17d12d4495f22d4c17930847c6ec2061c50b2995",
+  "schema://ioi/foundations/skill-entry/v1": "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699",
+  "schema://ioi/foundations/skill-manifest/v1": "sha256:ef38326ea2082a928b2ff7c86f8a27c5b4e885c81eaf58615d8446c1a46df403",
   "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
   "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd",
   "schema://ioi/foundations/work-result/v3": "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4",
@@ -48323,9 +48335,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "work_subject_ref",
       "selected_skills",
       "excluded_candidates",
+      "compatibility_and_evaluation_result_refs",
       "active_set_hash",
       "resolved_runtime_tool_contracts",
+      "context_lease_refs",
       "resolution_receipt_ref",
+      "registry_lifecycle_ref",
       "registry_status"
     ],
     "properties": {
@@ -48334,11 +48349,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "active_skill_set_snapshot_id": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^active-skill-set://[^\\s]{1,500}$"
       },
       "work_subject_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"
       },
       "selected_skills": {
         "type": "array",
@@ -48355,11 +48370,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "properties": {
             "skill_entry_ref": {
               "type": "string",
-              "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+              "pattern": "^skill-entry://[^\\s/?#\\\\]{1,160}$"
             },
             "skill_entry_binding_revision_ref": {
               "type": "string",
-              "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+              "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
             },
             "skill_entry_binding_hash": {
               "type": "string",
@@ -48367,7 +48382,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             },
             "skill_revision_ref": {
               "type": "string",
-              "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+              "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
             },
             "manifest_content_hash": {
               "type": "string",
@@ -48387,7 +48402,34 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "excluded_candidates": {
         "type": "array",
         "items": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "candidate_ref",
+            "reason_code",
+            "decision_ref"
+          ],
+          "properties": {
+            "candidate_ref": {
+              "type": "string",
+              "pattern": "^(?:skill|skill-entry)://[^\\s]{1,500}$"
+            },
+            "reason_code": {
+              "enum": [
+                "incompatible",
+                "policy_blocked",
+                "revoked",
+                "superseded",
+                "not_required",
+                "budget_blocked",
+                "other"
+              ]
+            },
+            "decision_ref": {
+              "type": "string",
+              "pattern": "^(?:decision|receipt)://[^\\s]{1,500}$"
+            }
+          }
         }
       },
       "compatibility_and_evaluation_result_refs": {
@@ -77576,13 +77618,20 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "schema_version",
       "skill_entry_id",
       "binding_revision_ref",
+      "predecessor_binding_revision_ref",
       "binding_hash",
       "skill_revision_ref",
       "skill_manifest_content_hash",
       "owner_scope_ref",
+      "memory_space_ref",
       "compatibility_decision_ref",
+      "configuration_ref",
+      "allowed_goal_run_profile_revision_refs",
+      "policy_refs",
       "admitted_by_ref",
       "admission_receipt_ref",
+      "revocation_ref",
+      "registry_lifecycle_ref",
       "registry_status"
     ],
     "properties": {
@@ -77591,17 +77640,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "skill_entry_id": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^skill-entry://[^\\s/?#\\\\]{1,160}$"
       },
       "binding_revision_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       },
       "predecessor_binding_revision_ref": {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           {
             "type": "null"
@@ -77614,7 +77663,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "skill_revision_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       },
       "skill_manifest_content_hash": {
         "type": "string",
@@ -77622,7 +77671,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "owner_scope_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^(?:org|project|system|user)://[^\\s]{1,500}$"
       },
       "memory_space_ref": {
         "anyOf": [
@@ -77718,10 +77767,30 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "schema_version",
       "skill_id",
       "revision_ref",
+      "version",
+      "predecessor_revision_ref",
       "content_hash",
       "owner_ref",
       "display_name",
+      "description",
       "instruction_entrypoint_ref",
+      "procedure_and_reference_refs",
+      "example_refs",
+      "support_asset_refs",
+      "dependency_skill_revision_refs",
+      "runtime_tool_contract_requirement_refs",
+      "capability_requirement_refs",
+      "input_and_output_contract_refs",
+      "context_requirement_profile_refs",
+      "compatible_goal_run_profile_revision_refs",
+      "compatible_harness_profile_revision_refs",
+      "compatible_runtime_and_kernel_refs",
+      "provenance_refs",
+      "source_rights_and_license_refs",
+      "evaluation_and_benchmark_refs",
+      "promotion_policy_ref",
+      "revocation_and_recall_policy_ref",
+      "registry_lifecycle_ref",
       "registry_status"
     ],
     "properties": {
@@ -77730,11 +77799,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "skill_id": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^skill://[^\\s/?#\\\\]{1,160}$"
       },
       "revision_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       },
       "version": {
         "type": "string"
@@ -77743,7 +77812,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           {
             "type": "null"
@@ -77756,7 +77825,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "owner_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$"
       },
       "display_name": {
         "type": "string",
@@ -77767,14 +77836,14 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "instruction_entrypoint_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^(?:artifact|cid)://[^\\s]{1,500}$"
       },
       "procedure_and_reference_refs": {
         "type": "array",
         "uniqueItems": true,
         "items": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
         }
       },
       "example_refs": {

@@ -18,6 +18,7 @@
     "check:studio-journey": "node scripts/verify-hypervisor-studio-journey.mjs",
     "check:packages-journey": "node scripts/verify-hypervisor-packages-journey.mjs",
     "check:automations-journey": "node scripts/verify-hypervisor-automations-journey.mjs",
+    "check:skill-contracts": "node scripts/verify-hypervisor-skill-contracts.mjs",
     "check:launch-chain": "node scripts/verify-hypervisor-launch-chain.mjs",
     "check:session-authority": "node scripts/verify-hypervisor-session-authority.mjs",
     "check:projects-saga": "node scripts/verify-hypervisor-projects-saga.mjs",
