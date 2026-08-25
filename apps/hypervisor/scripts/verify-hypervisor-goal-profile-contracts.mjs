@@ -123,7 +123,13 @@ function routeInventory(index) {
     .sort((left, right) => left.path.localeCompare(right.path));
 }
 
-const profileBody = (ownerRef, version, description, workflowTemplateRevisionRefs = []) => ({
+const profileBody = (
+  ownerRef,
+  version,
+  description,
+  workflowTemplateRevisionRefs = [],
+  skillRequirementRefs = [],
+) => ({
   owner_ref: ownerRef,
   display_name: "Portable bounded pursuit",
   description,
@@ -133,6 +139,7 @@ const profileBody = (ownerRef, version, description, workflowTemplateRevisionRef
   orchestration_policy_ref: "orchestration-policy://bounded-general",
   workflow_template_revision_refs: workflowTemplateRevisionRefs,
   harness_requirement_refs: ["harness://hypervisor_worker"],
+  skill_requirement_refs: skillRequirementRefs,
   runtime_tool_contract_requirement_refs: ["tool://ioi/runtime/file__read"],
   input_contract_ref: "schema://ioi/ioi-ai/goal-draft/v1",
   output_contract_ref: "schema://ioi/foundations/work-result/v3",
@@ -186,6 +193,59 @@ async function run() {
       && workflowTemplate.revision_ref === `${workflowTemplate.workflow_template_id}/revision/${workflowTemplate.content_hash}`,
     `${workflowResponse.status}/${workflowTemplate.revision_ref ?? ""}`);
 
+  const skillDependencyManifestResponse = await jd("/v1/hypervisor/skill-manifests", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Goal profile evidence inventory dependency",
+      instruction_entrypoint_ref: "artifact://skill/goal-profile-evidence-inventory/instructions",
+      runtime_tool_contract_requirement_refs: ["tool://ioi/runtime/file__list"],
+      registry_status: "released",
+    }),
+  });
+  const skillDependencyManifest = skillDependencyManifestResponse.body?.skill_manifest ?? {};
+  const skillDependencyBindingResponse = await jd("/v1/hypervisor/skill-bindings", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_scope_ref: principalRef,
+      skill_revision_ref: skillDependencyManifest.revision_ref,
+      skill_manifest_content_hash: skillDependencyManifest.content_hash,
+      compatibility_decision_ref: "decision://skill/goal-profile-evidence-inventory/compatible",
+      registry_status: "active",
+    }),
+  });
+  const skillDependencyBinding = skillDependencyBindingResponse.body?.skill_entry ?? {};
+  const skillManifestResponse = await jd("/v1/hypervisor/skill-manifests", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Goal profile evidence reader",
+      instruction_entrypoint_ref: "artifact://skill/goal-profile-evidence-reader/instructions",
+      dependency_skill_revision_refs: [skillDependencyManifest.revision_ref],
+      registry_status: "released",
+    }),
+  });
+  const skillManifest = skillManifestResponse.body?.skill_manifest ?? {};
+  const skillBindingResponse = await jd("/v1/hypervisor/skill-bindings", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_scope_ref: principalRef,
+      skill_revision_ref: skillManifest.revision_ref,
+      skill_manifest_content_hash: skillManifest.content_hash,
+      compatibility_decision_ref: "decision://skill/goal-profile-evidence-reader/compatible",
+      registry_status: "active",
+    }),
+  });
+  const skillBinding = skillBindingResponse.body?.skill_entry ?? {};
+  ok("the skill owner admits released dependency closure and current active bindings for profile resolution",
+    skillDependencyManifestResponse.status === 201
+      && skillDependencyBindingResponse.status === 201
+      && skillManifestResponse.status === 201
+      && skillBindingResponse.status === 201
+      && skillDependencyBinding.skill_revision_ref === skillDependencyManifest.revision_ref
+      && skillBinding.skill_revision_ref === skillManifest.revision_ref,
+    `${skillDependencyManifestResponse.status}/${skillDependencyBindingResponse.status}/${skillManifestResponse.status}/${skillBindingResponse.status}`);
+
   const index = await jd("/v1");
   const actual = routeInventory(index.body);
   const expected = [
@@ -206,14 +266,14 @@ async function run() {
 
   const forged = await jd("/v1/goal-orchestration/goal-run-profiles", {
     method: "POST",
-    body: JSON.stringify({ ...profileBody(principalRef, "1.0.0", "forged", [workflowTemplate.revision_ref]), content_hash: `sha256:${"f".repeat(64)}` }),
+    body: JSON.stringify({ ...profileBody(principalRef, "1.0.0", "forged", [workflowTemplate.revision_ref], [skillManifest.skill_id]), content_hash: `sha256:${"f".repeat(64)}` }),
   });
   ok("GATE: profile identity and content hash are daemon-owned",
     forged.status === 400 && forged.body?.error?.code === "goal_profile_unknown_field",
     `${forged.status}/${forged.body?.error?.code}`);
 
   const createdProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
-    method: "POST", body: JSON.stringify(profileBody(principalRef, "1.0.0", "first immutable revision", [workflowTemplate.revision_ref])),
+    method: "POST", body: JSON.stringify(profileBody(principalRef, "1.0.0", "first immutable revision", [workflowTemplate.revision_ref], [skillManifest.skill_id])),
   });
   const profileV1 = createdProfileResponse.body?.goal_run_profile ?? {};
   const profileTail = String(profileV1.goal_run_profile_id ?? "").replace("goal-run-profile://", "");
@@ -241,7 +301,7 @@ async function run() {
     [profileV1, adapterV1].every((record) => ["goal_ref", "execution_ref", "authority_grant_ref", "credential_ref", "receipt_ref"].every((field) => !Object.hasOwn(record, field))));
 
   const profileV2Response = await jd(`/v1/goal-orchestration/goal-run-profiles/${encodeURIComponent(profileTail)}/revisions`, {
-    method: "POST", body: JSON.stringify(profileBody(principalRef, "2.0.0", "successor revision", [workflowTemplate.revision_ref])),
+    method: "POST", body: JSON.stringify(profileBody(principalRef, "2.0.0", "successor revision", [workflowTemplate.revision_ref], [skillManifest.skill_id])),
   });
   const profileV2 = profileV2Response.body?.goal_run_profile ?? {};
   const adapterV2Response = await jd(`/v1/hypervisor/agent-harness-adapters/${encodeURIComponent(adapterTail)}/revisions`, {
@@ -353,22 +413,11 @@ async function run() {
 
   const definitionResolution = {
     workflow_template_revision_refs: [workflowTemplate.revision_ref],
-    skill_manifest_revision_refs: ["skill://literature/revision/2"],
-    active_skill_entry_refs: ["skill-entry://literature/search"],
     effective_constraint_envelope_ref: "constraint://research",
     effective_constraint_envelope_hash: H2,
     orchestration_policy_ref: "orchestration-policy://bounded",
     orchestration_policy_version_or_hash: "1",
-    resolved_skill_bindings: [{
-      skill_entry_ref: "skill-entry://literature/search",
-      skill_entry_binding_revision_ref: "skill-entry://literature/search/revision/1",
-      skill_entry_binding_hash: H1,
-      skill_manifest_revision_ref: "skill://literature/revision/2",
-      skill_manifest_content_hash: H2,
-    }],
-    component_hashes: {
-      "skill://literature/revision/2": H2,
-    },
+    component_hashes: {},
   };
   const pathRequest = {
     requested_path: "direct_non_system",
@@ -384,7 +433,7 @@ async function run() {
   const unresolvedToolProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
     method: "POST",
     body: JSON.stringify({
-      ...profileBody(principalRef, "1.0.0", "unresolvable runtime-tool requirement", [workflowTemplate.revision_ref]),
+      ...profileBody(principalRef, "1.0.0", "unresolvable runtime-tool requirement", [workflowTemplate.revision_ref], [skillManifest.skill_id]),
       runtime_tool_contract_requirement_refs: ["tool://ioi/runtime/unregistered_goal_profile_tool"],
     }),
   });
@@ -408,6 +457,63 @@ async function run() {
       && unresolvedTool.body?.error?.code === "goal_run_runtime_tool_resolution_unavailable"
       && familyCount("goal-runs") === goalRunsBefore,
     `${unresolvedTool.status}/${unresolvedTool.body?.error?.code}`);
+
+  const unresolvedSkillProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
+    method: "POST",
+    body: JSON.stringify({
+      ...profileBody(principalRef, "1.0.0", "unresolvable skill requirement", [workflowTemplate.revision_ref]),
+      skill_requirement_refs: ["skill://unregistered_goal_profile_skill"],
+    }),
+  });
+  const unresolvedSkillProfile = unresolvedSkillProfileResponse.body?.goal_run_profile ?? {};
+  const unresolvedSkillPath = {
+    ...pathRequest,
+    goal_run_profile_revision_ref: unresolvedSkillProfile.revision_ref,
+    goal_run_profile_content_hash: unresolvedSkillProfile.content_hash,
+  };
+  const unresolvedSkill = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse an unresolvable skill requirement",
+      admission_path_request: unresolvedSkillPath,
+      definition_resolution: definitionResolution,
+    }),
+  });
+  ok("GATE: a profile skill requirement must resolve through a current active owner binding before persistence",
+    unresolvedSkillProfileResponse.status === 201
+      && unresolvedSkill.status === 409
+      && unresolvedSkill.body?.error?.code === "goal_run_skill_resolution_unavailable"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${unresolvedSkill.status}/${unresolvedSkill.body?.error?.code}`);
+
+  const skillManifestTail = String(skillManifest.skill_id ?? "").replace("skill://", "");
+  const skillManifestSlot = path.join(
+    dataDir,
+    "canonical-skill-manifest-revisions",
+    `${skillManifestTail}--${String(skillManifest.content_hash).replace("sha256:", "")}.json`,
+  );
+  const skillManifestBytes = fs.readFileSync(skillManifestSlot);
+  const changedSkillManifest = JSON.parse(skillManifestBytes.toString("utf8"));
+  changedSkillManifest.description = "changed without a successor revision";
+  fs.writeFileSync(skillManifestSlot, JSON.stringify(changedSkillManifest));
+  const changedSkill = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse changed skill-manifest bytes",
+      admission_path_request: {
+        ...pathRequest,
+        goal_run_profile_revision_ref: profileV2.revision_ref,
+        goal_run_profile_content_hash: profileV2.content_hash,
+      },
+      definition_resolution: definitionResolution,
+    }),
+  });
+  fs.writeFileSync(skillManifestSlot, skillManifestBytes);
+  ok("GATE: changed canonical SkillManifest bytes refuse before GoalRun persistence",
+    changedSkill.status === 409
+      && changedSkill.body?.error?.code === "goal_run_skill_resolution_unavailable"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${changedSkill.status}/${changedSkill.body?.error?.code}`);
 
   const forgedGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
     method: "POST",
@@ -481,6 +587,24 @@ async function run() {
       && familyCount("goal-runs") === goalRunsBefore,
     `${substitutedHarness.status}/${substitutedHarness.body?.error?.code}`);
 
+  const substitutedSkillResolution = structuredClone(definitionResolution);
+  const substitutedSkillRef = "skill://substituted/revision/sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  substitutedSkillResolution.skill_manifest_revision_refs = [substitutedSkillRef];
+  substitutedSkillResolution.component_hashes[substitutedSkillRef] = H1;
+  const substitutedSkill = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse a substituted skill selection",
+      admission_path_request: pathRequest,
+      definition_resolution: substitutedSkillResolution,
+    }),
+  });
+  ok("GATE: general GoalRun admission refuses caller-substituted skill bindings before persistence",
+    substitutedSkill.status === 409
+      && substitutedSkill.body?.error?.code === "goal_run_skill_resolution_substitution"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${substitutedSkill.status}/${substitutedSkill.body?.error?.code}`);
+
   const substitutedToolResolution = structuredClone(definitionResolution);
   const substitutedToolRef = "tool://substituted/revision/sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   substitutedToolResolution.runtime_tool_contract_refs = [substitutedToolRef];
@@ -507,7 +631,7 @@ async function run() {
       definition_resolution: definitionResolution,
     }),
   });
-  ok("the general GoalRun surface consumes the exact profile plus daemon-resolved workflow, harness, and runtime-tool tuples",
+  ok("the general GoalRun surface consumes exact daemon-resolved workflow, harness, skill, and transitive runtime-tool tuples",
     exactGoalRun.status === 201
       && exactGoalRun.body?.goal_run?.goal_run_profile_revision_ref === profileV2.revision_ref
       && exactGoalRun.body?.goal_run?.goal_run_profile_content_hash === profileV2.content_hash
@@ -516,8 +640,11 @@ async function run() {
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.workflow_template_resolutions?.[0]?.content_hash === workflowTemplate.content_hash
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_harness_profile_revisions?.[0]?.revision_ref?.startsWith("harness-profile://daemon-resolved/hypervisor_worker/revision/sha256:")
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_harness_profile_revisions?.[0]?.content_hash?.startsWith("sha256:")
-      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.[0]?.revision_ref?.startsWith("tool://ioi/runtime/file__read/revision/")
-      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.[0]?.content_hash?.startsWith("sha256:"),
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_skill_bindings?.length === 2
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_skill_bindings?.some((binding) => binding.skill_manifest_revision_ref === skillManifest.revision_ref && binding.skill_entry_binding_revision_ref === skillBinding.binding_revision_ref)
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_skill_bindings?.some((binding) => binding.skill_manifest_revision_ref === skillDependencyManifest.revision_ref && binding.skill_entry_binding_revision_ref === skillDependencyBinding.binding_revision_ref)
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.some((contract) => contract.revision_ref?.startsWith("tool://ioi/runtime/file__read/revision/") && contract.content_hash?.startsWith("sha256:"))
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.some((contract) => contract.revision_ref?.startsWith("tool://ioi/runtime/file__list/revision/") && contract.content_hash?.startsWith("sha256:")),
     `${exactGoalRun.status}/${exactGoalRun.body?.error?.code ?? ""}`);
 }
 

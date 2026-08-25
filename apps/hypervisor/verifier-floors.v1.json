@@ -114,9 +114,9 @@
       "id": "goal-profile-contracts",
       "npm_script": "check:goal-profile-contracts",
       "source": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
-      "runtime_assertions": 24,
-      "assertion_names_sha256": "dde0cd570cdd2b7a65941d4277e5c40220215dbf272512c297c82c1393a5ed49",
-      "note": "M04.4 definition, gateway-binding, and general-profile substrate: an isolated daemon proves separate immutable GoalRunProfile and AgentHarnessAdapter revision families, server-owned JCS identities, generated-contract validity, identity-first reads, exact content-addressed slots and read-time hash recomputation, successor-only lineage, definition-only non-grants, tenant-owner admission, restart replay, hash-substitution refusal, durable AuthorityGatewayProfile selection of one exact released adapter with no ambient authority carryover, pre-write exact-profile resolution on the general GoalRun surface, strict owner-registry resolution of the profile-selected released WorkflowTemplate tuple, strict active harness-requirement resolution into a daemon-derived immutable component tuple, and exact current released RuntimeToolContract resolution with unavailable and caller-substitution refusal."
+      "runtime_assertions": 28,
+      "assertion_names_sha256": "9e94a323724eee7cb71f29abc1225838d17f641aafd5591cf04dc31d347f03e7",
+      "note": "M04.4 definition, gateway-binding, and general-profile substrate: an isolated daemon proves separate immutable GoalRunProfile and AgentHarnessAdapter revision families, server-owned JCS identities, generated-contract validity, identity-first reads, exact content-addressed slots and read-time hash recomputation, successor-only lineage, definition-only non-grants, tenant-owner admission, restart replay, hash-substitution refusal, durable AuthorityGatewayProfile selection of one exact released adapter with no ambient authority carryover, pre-write exact-profile resolution on the general GoalRun surface, strict owner-registry resolution of the profile-selected released WorkflowTemplate tuple, strict active harness-requirement resolution into a daemon-derived immutable component tuple, exact current released SkillManifest dependency closure through owner-scoped active bindings, and direct plus transitive current released RuntimeToolContract resolution with unavailable, changed-byte, and caller-substitution refusal."
     },
     {
       "id": "command-execution-guardrails",

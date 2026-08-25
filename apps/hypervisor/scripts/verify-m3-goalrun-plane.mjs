@@ -38,22 +38,12 @@ const pathRequest = {
 
 const definitionResolution = {
   workflow_template_revision_refs: ["workflow-template://research/revision/1"],
-  skill_manifest_revision_refs: ["skill://literature/revision/2"],
-  active_skill_entry_refs: ["skill-entry://literature/search"],
   effective_constraint_envelope_ref: "constraint://research",
   effective_constraint_envelope_hash: H2,
   orchestration_policy_ref: "orchestration-policy://bounded",
   orchestration_policy_version_or_hash: "1",
-  resolved_skill_bindings: [{
-    skill_entry_ref: "skill-entry://literature/search",
-    skill_entry_binding_revision_ref: "skill-entry://literature/search/revision/1",
-    skill_entry_binding_hash: H1,
-    skill_manifest_revision_ref: "skill://literature/revision/2",
-    skill_manifest_content_hash: H2,
-  }],
   component_hashes: {
     "workflow-template://research/revision/1": H1,
-    "skill://literature/revision/2": H2,
   },
 };
 

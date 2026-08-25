@@ -2980,12 +2980,178 @@ fn install_profile_harness_resolution(
     Ok(())
 }
 
+fn install_profile_skill_resolution(
+    st: &DaemonState,
+    owner_ref: &str,
+    profile: &Value,
+    body: &mut Value,
+) -> Result<Vec<String>, HttpRefusal> {
+    let profile_refs = |field: &str| -> Result<Vec<String>, HttpRefusal> {
+        profile
+            .get(field)
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_profile_skill_selection_invalid",
+                    &format!("The selected GoalRunProfile has no canonical `{field}` set."),
+                )
+            })?
+            .iter()
+            .map(|value| {
+                value.as_str().map(str::to_owned).ok_or_else(|| {
+                    bad(
+                        StatusCode::CONFLICT,
+                        "goal_run_profile_skill_selection_invalid",
+                        &format!("Every `{field}` entry must be a reference string."),
+                    )
+                })
+            })
+            .collect()
+    };
+    let requirement_refs = profile_refs("skill_requirement_refs")?;
+    let pinned_refs = profile_refs("pinned_skill_manifest_revision_refs")?;
+    if requirement_refs
+        .iter()
+        .any(|reference| !reference.starts_with("skill://"))
+        || pinned_refs.iter().any(|reference| {
+            !reference.starts_with("skill://") || !reference.contains("/revision/")
+        })
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_skill_requirement_unsupported",
+            "Skill requirements must be exact skill-family references and pinned skills must name exact manifest revisions.",
+        ));
+    }
+    let profile_revision_ref = profile
+        .get("revision_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let resolved = super::skill_contract_routes::resolve_goal_run_skills_strict(
+        &st.data_dir,
+        owner_ref,
+        profile_revision_ref,
+        &requirement_refs,
+        &pinned_refs,
+    )
+    .map_err(|detail| {
+        bad_with_details(
+            StatusCode::CONFLICT,
+            "goal_run_skill_resolution_unavailable",
+            "The complete canonical skill registry cannot resolve the selected GoalRunProfile.",
+            json!({ "detail": detail }),
+        )
+    })?;
+    let manifest_refs = resolved
+        .bindings
+        .iter()
+        .filter_map(|binding| {
+            binding
+                .get("skill_manifest_revision_ref")
+                .and_then(Value::as_str)
+        })
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let active_entry_refs = resolved
+        .bindings
+        .iter()
+        .filter_map(|binding| binding.get("skill_entry_ref").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let manifest_ref_values =
+        Value::Array(manifest_refs.iter().cloned().map(Value::String).collect());
+    let active_entry_ref_values = Value::Array(
+        active_entry_refs
+            .iter()
+            .cloned()
+            .map(Value::String)
+            .collect(),
+    );
+    let binding_values = Value::Array(resolved.bindings.clone());
+    let definition = body
+        .get_mut("definition_resolution")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_definition_resolution_required",
+                "Direct admission requires a definition-resolution object for the remaining component families.",
+            )
+        })?;
+    let substituted = [
+        ("skill_manifest_revision_refs", &manifest_ref_values),
+        ("active_skill_entry_refs", &active_entry_ref_values),
+        ("resolved_skill_bindings", &binding_values),
+    ]
+    .into_iter()
+    .any(|(field, derived)| {
+        definition
+            .get(field)
+            .is_some_and(|caller_value| caller_value != derived)
+    });
+    if substituted {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_skill_resolution_substitution",
+            "A caller skill selection differs from the daemon-resolved profile requirements.",
+        ));
+    }
+    let component_hashes = definition
+        .entry("component_hashes")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_component_hashes_invalid",
+                "component_hashes must be an object when remaining component families are supplied.",
+            )
+        })?;
+    if component_hashes
+        .keys()
+        .any(|reference| reference.starts_with("skill://") && !manifest_refs.contains(reference))
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_skill_resolution_substitution",
+            "component_hashes contains a skill-manifest revision outside the daemon-resolved set.",
+        ));
+    }
+    for binding in &resolved.bindings {
+        let revision_ref = binding
+            .get("skill_manifest_revision_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let content_hash = binding
+            .get("skill_manifest_content_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if component_hashes
+            .get(revision_ref)
+            .is_some_and(|caller_hash| caller_hash.as_str() != Some(content_hash))
+        {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_skill_resolution_substitution",
+                "A caller skill-manifest hash differs from the daemon-resolved immutable manifest.",
+            ));
+        }
+        component_hashes.insert(revision_ref.to_string(), json!(content_hash));
+    }
+    definition.insert("skill_manifest_revision_refs".into(), manifest_ref_values);
+    definition.insert("active_skill_entry_refs".into(), active_entry_ref_values);
+    definition.insert("resolved_skill_bindings".into(), binding_values);
+    Ok(resolved.runtime_tool_requirement_refs)
+}
+
 fn install_profile_runtime_tool_resolution(
     st: &DaemonState,
     profile: &Value,
+    transitive_requirement_refs: &[String],
     body: &mut Value,
 ) -> Result<(), HttpRefusal> {
-    let requirement_refs = profile
+    let mut requirement_refs = profile
         .get("runtime_tool_contract_requirement_refs")
         .and_then(Value::as_array)
         .ok_or_else(|| {
@@ -3006,6 +3172,9 @@ fn install_profile_runtime_tool_resolution(
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
+    requirement_refs.extend(transitive_requirement_refs.iter().cloned());
+    requirement_refs.sort();
+    requirement_refs.dedup();
     if requirement_refs
         .iter()
         .any(|reference| !reference.starts_with("tool://"))
@@ -3334,9 +3503,21 @@ pub(crate) async fn handle_goal_runs_create(
             {
                 return response;
             }
-            if let Err(response) =
-                install_profile_runtime_tool_resolution(&st, &selected_profile, &mut direct_body)
-            {
+            let skill_tool_requirements = match install_profile_skill_resolution(
+                &st,
+                &owner_ref,
+                &selected_profile,
+                &mut direct_body,
+            ) {
+                Ok(requirements) => requirements,
+                Err(response) => return response,
+            };
+            if let Err(response) = install_profile_runtime_tool_resolution(
+                &st,
+                &selected_profile,
+                &skill_tool_requirements,
+                &mut direct_body,
+            ) {
                 return response;
             }
             return create_direct_goal_run(

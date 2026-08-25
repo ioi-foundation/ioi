@@ -787,6 +787,346 @@ fn work_subject_ref(
     Ok(reference)
 }
 
+pub(crate) struct GoalRunSkillResolution {
+    pub(crate) bindings: Vec<Value>,
+    pub(crate) runtime_tool_requirement_refs: Vec<String>,
+}
+
+fn strict_skill_records(
+    data_dir: &str,
+    family: &str,
+    contract: &str,
+) -> Result<Vec<Value>, String> {
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.to_string()),
+    };
+    let mut names =
+        super::durable_fs::enumerate_pinned(&directory).map_err(|error| error.to_string())?;
+    names.sort();
+    let mut records = Vec::with_capacity(names.len());
+    for name in names {
+        if !name.ends_with(".json") {
+            return Err(format!(
+                "unexpected canonical skill-registry occupant: {name}"
+            ));
+        }
+        let bytes = super::durable_fs::read_slot_strict(&directory, &name)
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| format!("canonical skill-registry occupant vanished: {name}"))?
+            .1;
+        let record: Value = serde_json::from_slice(&bytes).map_err(|error| {
+            format!("malformed canonical skill-registry occupant {name}: {error}")
+        })?;
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            contract, &record,
+        )
+        .map_err(|error| {
+            format!("contract-invalid canonical skill-registry occupant {name}: {error}")
+        })?;
+        let (identity_field, hash_field, revision_field, prefix, excluded) =
+            if family == MANIFEST_DIR {
+                (
+                    "skill_id",
+                    "content_hash",
+                    "revision_ref",
+                    "skill://",
+                    &[
+                        "content_hash",
+                        "revision_ref",
+                        "registry_lifecycle_ref",
+                        "registry_status",
+                    ][..],
+                )
+            } else {
+                (
+                    "skill_entry_id",
+                    "binding_hash",
+                    "binding_revision_ref",
+                    "skill-entry://",
+                    &[
+                        "binding_hash",
+                        "binding_revision_ref",
+                        "compatibility_decision_ref",
+                        "admitted_by_ref",
+                        "admission_receipt_ref",
+                        "revocation_ref",
+                        "registry_lifecycle_ref",
+                        "registry_status",
+                    ][..],
+                )
+            };
+        let identity = record
+            .get(identity_field)
+            .and_then(Value::as_str)
+            .and_then(|value| value.strip_prefix(prefix))
+            .filter(|value| !value.is_empty() && !value.contains('/'))
+            .ok_or_else(|| {
+                format!("canonical skill-registry occupant {name} has an invalid identity")
+            })?;
+        let declared_hash = record
+            .get(hash_field)
+            .and_then(Value::as_str)
+            .and_then(|value| value.strip_prefix("sha256:"))
+            .filter(|value| {
+                value.len() == 64
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+            })
+            .ok_or_else(|| {
+                format!("canonical skill-registry occupant {name} has an invalid hash")
+            })?;
+        let mut hash_material = record.clone();
+        let object = hash_material
+            .as_object_mut()
+            .ok_or_else(|| format!("canonical skill-registry occupant {name} is not an object"))?;
+        for field in excluded {
+            object.remove(*field);
+        }
+        let recomputed = serde_jcs::to_vec(&hash_material)
+            .map(|bytes| format!("{:x}", Sha256::digest(bytes)))
+            .map_err(|error| {
+                format!("canonical skill-registry occupant {name} is not canonicalizable: {error}")
+            })?;
+        if recomputed != declared_hash {
+            return Err(format!(
+                "canonical skill-registry occupant {name} does not reproduce its hash"
+            ));
+        }
+        let expected_revision = format!("{prefix}{identity}/revision/sha256:{declared_hash}");
+        if record.get(revision_field).and_then(Value::as_str) != Some(expected_revision.as_str()) {
+            return Err(format!(
+                "canonical skill-registry occupant {name} has a mismatched revision"
+            ));
+        }
+        let expected_name = format!("{identity}--{declared_hash}.json");
+        if name != expected_name {
+            return Err(format!(
+                "canonical skill-registry occupant {name} belongs at {expected_name}"
+            ));
+        }
+        records.push(record);
+    }
+    Ok(records)
+}
+
+/// Resolve a GoalRunProfile's skill requirements through the canonical skill owner without
+/// creating a snapshot or claiming execution. The GoalRun owner supplies the predetermined
+/// subject/profile coordinates and freezes the returned exact binding/manifest closure.
+pub(crate) fn resolve_goal_run_skills_strict(
+    data_dir: &str,
+    owner_ref: &str,
+    profile_revision_ref: &str,
+    requirement_refs: &[String],
+    pinned_manifest_refs: &[String],
+) -> Result<GoalRunSkillResolution, String> {
+    if requirement_refs.is_empty() && pinned_manifest_refs.is_empty() {
+        return Ok(GoalRunSkillResolution {
+            bindings: Vec::new(),
+            runtime_tool_requirement_refs: Vec::new(),
+        });
+    }
+    let manifests = strict_skill_records(
+        data_dir,
+        MANIFEST_DIR,
+        "schema://ioi/foundations/skill-manifest/v1",
+    )?;
+    let entries = strict_skill_records(
+        data_dir,
+        ENTRY_DIR,
+        "schema://ioi/foundations/skill-entry/v1",
+    )?;
+    let owner_entries = entries
+        .iter()
+        .filter(|entry| entry.get("owner_scope_ref").and_then(Value::as_str) == Some(owner_ref))
+        .collect::<Vec<_>>();
+    let entry_ids = owner_entries
+        .iter()
+        .filter_map(|entry| entry.get("skill_entry_id").and_then(Value::as_str))
+        .collect::<BTreeSet<_>>();
+    let mut eligible = Vec::new();
+    for entry_id in entry_ids {
+        let lineage = owner_entries
+            .iter()
+            .filter(|entry| entry.get("skill_entry_id").and_then(Value::as_str) == Some(entry_id))
+            .map(|entry| (*entry).clone())
+            .collect::<Vec<_>>();
+        let head = chain_head(
+            &lineage,
+            "binding_revision_ref",
+            "predecessor_binding_revision_ref",
+        )
+        .ok_or_else(|| format!("skill binding {entry_id} has no single current head"))?;
+        if head.get("registry_status").and_then(Value::as_str) != Some("active")
+            || !head.get("revocation_ref").is_some_and(Value::is_null)
+        {
+            continue;
+        }
+        let allowed_profiles = head
+            .get("allowed_goal_run_profile_revision_refs")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("skill binding {entry_id} has no profile-compatibility set"))?;
+        if !allowed_profiles.is_empty()
+            && !allowed_profiles
+                .iter()
+                .any(|value| value.as_str() == Some(profile_revision_ref))
+        {
+            continue;
+        }
+        let manifest_ref = head
+            .get("skill_revision_ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("skill binding {entry_id} has no manifest revision"))?;
+        let mut matches = manifests.iter().filter(|manifest| {
+            manifest.get("revision_ref").and_then(Value::as_str) == Some(manifest_ref)
+                && manifest.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
+        });
+        let manifest = matches
+            .next()
+            .ok_or_else(|| format!("skill binding {entry_id} has no exact owner manifest"))?;
+        if matches.next().is_some() {
+            return Err(format!(
+                "skill binding {entry_id} has an ambiguous owner manifest"
+            ));
+        }
+        if manifest.get("content_hash") != head.get("skill_manifest_content_hash")
+            || manifest.get("registry_status").and_then(Value::as_str) != Some("released")
+        {
+            return Err(format!(
+                "skill binding {entry_id} names an ineligible manifest"
+            ));
+        }
+        eligible.push((head.clone(), manifest.clone()));
+    }
+    let mut selected: Vec<(Value, Value)> = Vec::new();
+    let initial = if pinned_manifest_refs.is_empty() {
+        requirement_refs
+    } else {
+        pinned_manifest_refs
+    };
+    for selection_ref in initial {
+        let exact_revision = selection_ref.contains("/revision/");
+        let mut matches = eligible.iter().filter(|(_, manifest)| {
+            if exact_revision {
+                manifest.get("revision_ref").and_then(Value::as_str) == Some(selection_ref.as_str())
+            } else {
+                manifest.get("skill_id").and_then(Value::as_str) == Some(selection_ref.as_str())
+            }
+        });
+        let pair = matches.next().ok_or_else(|| {
+            format!("skill requirement {selection_ref} has no eligible current binding")
+        })?;
+        if matches.next().is_some() {
+            return Err(format!(
+                "skill requirement {selection_ref} has more than one eligible binding"
+            ));
+        }
+        if !selected.iter().any(|(entry, _)| {
+            entry.get("binding_revision_ref") == pair.0.get("binding_revision_ref")
+        }) {
+            selected.push(pair.clone());
+        }
+    }
+    if !pinned_manifest_refs.is_empty() {
+        for requirement_ref in requirement_refs {
+            let exact_revision = requirement_ref.contains("/revision/");
+            if !selected.iter().any(|(_, manifest)| {
+                let field = if exact_revision {
+                    "revision_ref"
+                } else {
+                    "skill_id"
+                };
+                manifest.get(field).and_then(Value::as_str) == Some(requirement_ref.as_str())
+            }) {
+                return Err(format!(
+                    "pinned skill manifests do not satisfy requirement {requirement_ref}"
+                ));
+            }
+        }
+    }
+    let mut cursor = 0;
+    while cursor < selected.len() {
+        let dependencies = selected[cursor]
+            .1
+            .get("dependency_skill_revision_refs")
+            .and_then(Value::as_array)
+            .ok_or_else(|| "selected skill manifest has no dependency set".to_string())?
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .filter(|reference| {
+                        reference.starts_with("skill://") && reference.contains("/revision/")
+                    })
+                    .map(str::to_owned)
+                    .ok_or_else(|| {
+                        "skill dependencies must name exact manifest revisions".to_string()
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        for dependency_ref in dependencies {
+            if selected.iter().any(|(_, manifest)| {
+                manifest.get("revision_ref").and_then(Value::as_str)
+                    == Some(dependency_ref.as_str())
+            }) {
+                continue;
+            }
+            let mut matches = eligible.iter().filter(|(_, manifest)| {
+                manifest.get("revision_ref").and_then(Value::as_str)
+                    == Some(dependency_ref.as_str())
+            });
+            let pair = matches.next().ok_or_else(|| {
+                format!("skill dependency {dependency_ref} has no eligible current binding")
+            })?;
+            if matches.next().is_some() {
+                return Err(format!(
+                    "skill dependency {dependency_ref} has more than one eligible binding"
+                ));
+            }
+            selected.push(pair.clone());
+        }
+        cursor += 1;
+    }
+    selected.sort_by(|left, right| {
+        left.0
+            .get("binding_revision_ref")
+            .and_then(Value::as_str)
+            .cmp(&right.0.get("binding_revision_ref").and_then(Value::as_str))
+    });
+    let bindings = selected
+        .iter()
+        .map(|(entry, manifest)| {
+            json!({
+                "skill_entry_ref": entry.get("skill_entry_id"),
+                "skill_entry_binding_revision_ref": entry.get("binding_revision_ref"),
+                "skill_entry_binding_hash": entry.get("binding_hash"),
+                "skill_manifest_revision_ref": manifest.get("revision_ref"),
+                "skill_manifest_content_hash": manifest.get("content_hash"),
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut runtime_tools = selected
+        .iter()
+        .flat_map(|(_, manifest)| {
+            manifest
+                .get("runtime_tool_contract_requirement_refs")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+        })
+        .collect::<Vec<_>>();
+    runtime_tools.sort();
+    runtime_tools.dedup();
+    Ok(GoalRunSkillResolution {
+        bindings,
+        runtime_tool_requirement_refs: runtime_tools,
+    })
+}
+
 fn resolve_selected_skills(
     st: &DaemonState,
     body: &Map<String, Value>,
