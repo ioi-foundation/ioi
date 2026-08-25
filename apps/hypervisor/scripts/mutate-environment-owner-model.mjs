@@ -27,7 +27,7 @@ const runGate = (root, gate = path.join(root, SOURCE_GATE_REL)) => spawnSync("no
 });
 const failures = (run) => `${run.stdout || ""}\n${run.stderr || ""}`.split("\n").filter((line) => line.startsWith("FAIL"));
 
-if (manifest.expected_mutations !== 22 || manifest.anchors?.length !== manifest.expected_mutations) {
+if (manifest.expected_mutations !== 23 || manifest.anchors?.length !== manifest.expected_mutations) {
   console.error(`BLOCKED — mutation manifest count ${manifest.anchors?.length ?? 0} != expected ${manifest.expected_mutations}`);
   process.exit(2);
 }

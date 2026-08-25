@@ -8614,6 +8614,9 @@ fn provider_workrun_guardrail_refusal(
     env_ref: &str,
     command: &str,
 ) -> Option<Value> {
+    // ENVIRONMENT_OWNER_CENSUS: policy_context_only — this strict projection read feeds only the
+    // shared command-policy decision below. It returns no environment or workspace coordinates;
+    // provider effect authority is enforced independently by the provider admission lane.
     // Static provider fixtures can address a provider-local environment before a Hypervisor
     // environment projection exists. The global policy still applies in that case; when the
     // environment record exists its local declarations compose monotonically as usual.

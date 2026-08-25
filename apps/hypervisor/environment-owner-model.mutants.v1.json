@@ -1,6 +1,6 @@
 {
   "schema_version": "ioi.hypervisor.environment-owner-model-mutants.v1",
-  "expected_mutations": 22,
+  "expected_mutations": 23,
   "anchors": [
     {
       "id": "r1-qualified-route-registration-blind-spot",
@@ -124,8 +124,8 @@
     {
       "id": "v18-mutation-floor-can-shrink",
       "anchor_file": "apps/hypervisor/environment-owner-model.mutants.v1.json",
-      "find": "\"expected_mutations\": 22",
-      "replace": "\"expected_mutations\": 21",
+      "find": "\"expected_mutations\": 23",
+      "replace": "\"expected_mutations\": 22",
       "red_on": "V18_MUTATION_FLOOR"
     },
     {
@@ -140,6 +140,13 @@
       "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs",
       "find": "// ENVIRONMENT_OWNER_CENSUS: aggregate_only",
       "replace": "// ENVIRONMENT_OWNER_CENSUS: aggregate_only\n    let _workspace_root = \"forbidden aggregate leak\";",
+      "red_on": "R1_DERIVED_CLOSED_WORLD"
+    },
+    {
+      "id": "r1-policy-context-marker-masks-workspace-field",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+      "find": "// ENVIRONMENT_OWNER_CENSUS: policy_context_only",
+      "replace": "// ENVIRONMENT_OWNER_CENSUS: policy_context_only\n    let _workspace_root = \"forbidden policy-context leak\";",
       "red_on": "R1_DERIVED_CLOSED_WORLD"
     },
     {

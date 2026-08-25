@@ -25,6 +25,7 @@ const AGGREGATE_ONLY_HANDLERS = new Set([
   "operability_routes::handle_operability_metrics",
   "orchestration_routes::handle_placement_metrics",
 ]);
+const POLICY_CONTEXT_FUNCTION = "provider_routes::provider_workrun_guardrail_refusal";
 
 function matching(source, start, open, close) {
   let depth = 0;
@@ -261,25 +262,45 @@ export function deriveEnvironmentOwnerCensus(root) {
       : [];
     const invalidAggregateMarker = reached.some((fn) => fn.body.includes("ENVIRONMENT_OWNER_CENSUS: aggregate_only"))
       && aggregateOnly.length === 0;
+    // Provider workrun admission reads an environment projection only as INPUT to the shared
+    // command-policy decision. It does not return the projection or touch workspace bytes. Keep
+    // this exception structural: the closure must reach exactly the strict policy loader as its
+    // sole environment sink, and the marked helper must neither inspect nor project workspace
+    // coordinates. A second sink or a workspace-shaped field therefore goes red automatically.
+    const policyContextFn = reached.find((fn) => fn.key === POLICY_CONTEXT_FUNCTION);
+    const policyContextOnly = sinks.length === 1
+      && sinks[0] === "environment_routes::load_env_guardrail_context"
+      && policyContextFn?.body.includes("ENVIRONMENT_OWNER_CENSUS: policy_context_only")
+      && policyContextFn.body.includes("load_env_guardrail_context")
+      && policyContextFn.body.includes("guardrail_refusal_response")
+      && !policyContextFn.body.includes("workspace_root")
+      && !policyContextFn.body.includes("material_path")
+      ? [POLICY_CONTEXT_FUNCTION]
+      : [];
+    const invalidPolicyContextMarker = reached.some((fn) => fn.body.includes("ENVIRONMENT_OWNER_CENSUS: policy_context_only"))
+      && policyContextOnly.length === 0;
     const authorities = reached
       .filter((fn) => AUTHORITY_MARKERS.some((marker) => fn.body.includes(marker)))
       .map((fn) => fn.key)
       .sort();
     return {
       ...route,
-      reaches_environment_workspace: sinks.length > 0 && aggregateOnly.length === 0,
-      classification: invalidAggregateMarker
+      reaches_environment_workspace: sinks.length > 0 && aggregateOnly.length === 0 && policyContextOnly.length === 0,
+      classification: invalidAggregateMarker || invalidPolicyContextMarker
         ? "unclassified"
         : sinks.length === 0
         ? "does_not_reach_environment_workspace"
         : aggregateOnly.length > 0
           ? "aggregate_only"
+          : policyContextOnly.length > 0
+            ? "policy_context_only"
           : authorities.length > 0
             ? "owner_authorized"
             : "unclassified",
       sinks,
       authorities,
       aggregate_only_markers: aggregateOnly,
+      policy_context_only_markers: policyContextOnly,
     };
   });
   const environmentCandidates = classified.filter((route) => route.sinks.length > 0);

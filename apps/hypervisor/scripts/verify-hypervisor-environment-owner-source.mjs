@@ -102,6 +102,10 @@ const aggregateRoutes = census.routes
   .filter((item) => item.classification === "aggregate_only")
   .map((item) => item.handler)
   .sort();
+const policyContextRoutes = census.routes
+  .filter((item) => item.classification === "policy_context_only")
+  .map((item) => item.handler)
+  .sort();
 
 const create = body(src.env, "handle_environment_create");
 const get = body(src.env, "handle_environment_get");
@@ -125,11 +129,17 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
-  census.registered_route_handlers === 979 && census.workspace_route_handlers === 37
-    && census.routes.length === 39 && census.unresolved.length === 0 && census.unclassified.length === 0
+  census.registered_route_handlers === 1003 && census.workspace_route_handlers === 38
+    && census.routes.length === 44 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
-    && hasAll(src.census, ["rawStringHashes", "if (here === \"r\"", "if (here === \"'\")", "AGGREGATE_ONLY_HANDLERS", "invalidAggregateMarker"]),
+    && policyContextRoutes.join(",") === [
+      "placement_failover_routes::handle_failover_evaluate",
+      "placement_failover_routes::handle_failover_run",
+      "provider_routes::handle_provider_op",
+      "workload_effect_boundary::handle_governed_capability_consume",
+    ].join(",")
+    && hasAll(src.census, ["rawStringHashes", "if (here === \"r\"", "if (here === \"'\")", "AGGREGATE_ONLY_HANDLERS", "invalidAggregateMarker", "POLICY_CONTEXT_FUNCTION", "invalidPolicyContextMarker"]),
   `registered=${census.registered_route_handlers} workspace=${census.workspace_route_handlers} candidates=${census.routes.length} unresolved=${census.unresolved.length} unclassified=${census.unclassified.length}`);
 
 check("R2_ONE_CREATE_SEAM",
@@ -244,10 +254,10 @@ let mutationManifest = null;
 try { mutationManifest = JSON.parse(read("apps/hypervisor/environment-owner-model.mutants.v1.json")); } catch { /* reported below */ }
 check("V18_MUTATION_FLOOR",
   mutationManifest?.schema_version === "ioi.hypervisor.environment-owner-model-mutants.v1"
-    && mutationManifest?.expected_mutations === 22 && mutationManifest?.anchors?.length === 22
-    && new Set(mutationManifest?.anchors?.map((anchor) => anchor.id)).size === 22
+    && mutationManifest?.expected_mutations === 23 && mutationManifest?.anchors?.length === 23
+    && new Set(mutationManifest?.anchors?.map((anchor) => anchor.id)).size === 23
     && mutationManifest?.anchors?.every((anchor) => anchor.red_on && anchor.find && anchor.replace && anchor.anchor_file),
-  `expected=22 actual=${mutationManifest?.anchors?.length ?? 0}`);
+  `expected=23 actual=${mutationManifest?.anchors?.length ?? 0}`);
 
 for (const result of results) {
   console.log(`${result.pass ? "PASS" : "FAIL"} [${result.code}] ${result.detail}`);
