@@ -143,7 +143,7 @@ static GOAL_RUN_ACTIVATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::co
 /// have OPPOSITE truthful handling and must never be conflated.
 // The typed atomic-replacement writer and its outcome now live in the SHARED durable-fs
 // core (#73) — extracted verbatim from this plane (#72 rounds 6-8).
-use super::durable_fs::{persist_record_durable, PersistFailure};
+use super::durable_fs::{persist_receipt_no_clobber, persist_record_durable, PersistFailure};
 
 /// ATOMIC-DURABLE replacement for the mutable goal-run record — the durable helper over the
 /// goal-run family (reservations, recovery intents, and releases order-depend on durability).
@@ -5577,10 +5577,10 @@ fn persist_goal_run_definition_resolution_records(
 // fails the append closed when it refuses.
 // ---------------------------------------------------------------------------
 
-/// GoalRun children this plane may index in the shared lifecycle. Only the
-/// context_cell relation is minted in this cut; the lease relation is admitted so
-/// a later owner can index a ContextLease without widening the table.
-const GOAL_RUN_CHILD_RELATIONS: [&str; 2] = ["context_cell", "context_lease"];
+/// The only GoalRun child edge implemented in this cut. Later child kinds and
+/// detach semantics require their own owner-side admission rather than being
+/// pre-authorized here.
+const GOAL_RUN_CHILD_RELATION: &str = "context_cell";
 
 fn goal_run_phase_edge_legal(from: Option<&str>, to: &str) -> bool {
     matches!(
@@ -5693,44 +5693,30 @@ impl LegalEdgeGate for GoalRunLegalEdgeGate {
                 Ok(())
             }
             (None, Some(cr)) => {
-                if prior.is_none() {
-                    return Err(
-                        "a goal_run child reference requires an existing goal_run genesis"
-                            .to_string(),
-                    );
-                }
                 let operation = cr
                     .get("operation")
                     .and_then(Value::as_str)
                     .unwrap_or_default();
-                if !matches!(operation, "attach" | "detach") {
-                    return Err(format!(
-                        "unknown goal_run child_reference operation {operation}"
-                    ));
+                if operation != "attach" {
+                    return Err("this GoalRun cut admits child attach only".to_string());
                 }
                 let relation = cr
                     .get("relation_kind")
                     .and_then(Value::as_str)
                     .unwrap_or_default();
-                if !GOAL_RUN_CHILD_RELATIONS.contains(&relation) {
+                if relation != GOAL_RUN_CHILD_RELATION {
                     return Err(format!(
                         "relation_kind {relation} is not a governed goal_run child relation"
                     ));
                 }
-                if !matches!(authority_class, "goal_kernel" | "conductor") {
-                    return Err(format!(
-                        "authority_class {authority_class} may not {operation} a goal_run child"
-                    ));
+                if authority_class != "goal_kernel" {
+                    return Err("only goal_kernel may attach the GoalRun ContextCell".to_string());
                 }
-                if !prior_is_child {
-                    match prior_phase.as_deref() {
-                        Some("draft") | Some("active") => {}
-                        other => {
-                            return Err(format!(
-                                "a goal_run child may not be {operation}ed while the phase is {other:?}"
-                            ))
-                        }
-                    }
+                if prior_is_child || prior_phase.as_deref() != Some("draft") {
+                    return Err(
+                        "the one GoalRun ContextCell must attach immediately while draft"
+                            .to_string(),
+                    );
                 }
                 Ok(())
             }
@@ -5774,7 +5760,9 @@ fn build_orchestration_plan(
     goal_run_id: &str,
     goal_ref: &str,
     profile_revision_ref: &Value,
+    workflow_template_revision_refs: &Value,
     constraint_envelope_ref: &Value,
+    profile_resolution_receipt_ref: &Value,
     decision_receipt_ref: &str,
     max_total_invocations: u64,
 ) -> (Value, String, String, String) {
@@ -5785,6 +5773,11 @@ fn build_orchestration_plan(
     } else {
         "no_execution"
     };
+    let evidence_basis_refs: Vec<&str> = profile_resolution_receipt_ref
+        .as_str()
+        .filter(|reference| !reference.is_empty())
+        .into_iter()
+        .collect();
     // The immutable, content-addressed body (no hash/selection/registry fields yet).
     let mut body = json!({
         "schema_version": ORCHESTRATION_PLAN_SCHEMA_VERSION,
@@ -5792,7 +5785,7 @@ fn build_orchestration_plan(
         "predecessor_revision_ref": Value::Null,
         "goal_ref": goal_ref,
         "goal_run_profile_revision_ref": profile_revision_ref,
-        "workflow_template_revision_refs": [],
+        "workflow_template_revision_refs": workflow_template_revision_refs,
         "constraint_envelope_ref": constraint_envelope_ref,
         "materialization": "single_path",
         "goal_execution_policy": "pinned",
@@ -5810,7 +5803,7 @@ fn build_orchestration_plan(
         "proposed_coordination_topology": "none",
         "expected_cost_ref": Value::Null,
         "expected_latency_class": "background",
-        "evidence_basis_refs": [],
+        "evidence_basis_refs": evidence_basis_refs,
     });
     let content_hash = orchestration_plan_content_hash(&body);
     let revision_ref = format!("{plan_id}/revision/{content_hash}");
@@ -5972,7 +5965,9 @@ fn persist_canonical_goal_run_lifecycle(
     goal_ref: &str,
     owner_ref: &str,
     profile_revision_ref: &Value,
+    workflow_template_revision_refs: &Value,
     constraint_envelope_ref: &Value,
+    profile_resolution_receipt_ref: &Value,
     max_total_invocations: u64,
     decision: &Value,
     genesis_evidence_refs: &[Value],
@@ -5990,7 +5985,9 @@ fn persist_canonical_goal_run_lifecycle(
         goal_run_id,
         goal_ref,
         profile_revision_ref,
+        workflow_template_revision_refs,
         constraint_envelope_ref,
+        profile_resolution_receipt_ref,
         &decision_receipt_ref,
         max_total_invocations,
     );
@@ -6004,14 +6001,14 @@ fn persist_canonical_goal_run_lifecycle(
         &decision.get("decision_ref").cloned().unwrap_or(Value::Null),
         now,
     );
-    if persist_record_durable(data_dir, ORCHESTRATION_PLAN_KIND, goal_run_id, &plan).is_err() {
+    if persist_receipt_no_clobber(data_dir, ORCHESTRATION_PLAN_KIND, goal_run_id, &plan).is_err() {
         return Err(bad(
             StatusCode::INTERNAL_SERVER_ERROR,
             "goal_run_orchestration_plan_persist_failed",
             "The immutable OrchestrationPlan revision did not durably persist.",
         ));
     }
-    if persist_record_durable(
+    if persist_receipt_no_clobber(
         data_dir,
         ORCHESTRATION_PLAN_SELECTION_RECEIPT_KIND,
         goal_run_id,
@@ -6318,36 +6315,78 @@ fn readback_verify_canonical_goal_run(data_dir: &str, run: &Value) -> Result<(),
         ));
     }
 
+    let component_snapshot = readback_slot(data_dir, "goal-run-component-snapshots", goal_run_id)?;
+    if plan.get("workflow_template_revision_refs")
+        != component_snapshot.get("workflow_template_revision_refs")
+    {
+        return Err(readback_conflict(
+            "goal_run_orchestration_plan_workflow_tuple_changed",
+            "The selected plan no longer carries the exact resolved workflow-template tuple.",
+        ));
+    }
+    let profile_resolution_receipt_ref = run
+        .get("goal_run_profile_resolution_receipt_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let expected_evidence_basis_refs: Vec<&str> = (!profile_resolution_receipt_ref.is_empty())
+        .then_some(profile_resolution_receipt_ref)
+        .into_iter()
+        .collect();
+    if plan.get("evidence_basis_refs") != Some(&json!(expected_evidence_basis_refs)) {
+        return Err(readback_conflict(
+            "goal_run_orchestration_plan_evidence_basis_changed",
+            "The selected plan no longer binds its profile-resolution receipt evidence.",
+        ));
+    }
+
+    let max_total = run
+        .pointer("/declared_invocation_budget/max_total_invocations")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let expected_topology = if max_total > 0 {
+        "single_session"
+    } else {
+        "no_execution"
+    };
+
     let receipt = readback_slot(
         data_dir,
         ORCHESTRATION_PLAN_SELECTION_RECEIPT_KIND,
         goal_run_id,
     )?;
-    if receipt
-        .get("selection_decision_receipt_id")
-        .and_then(Value::as_str)
-        != Some(decision_receipt_ref)
-        || receipt
-            .get("selected_orchestration_plan_revision_ref")
-            .and_then(Value::as_str)
-            != Some(selected_ref)
-        || receipt
-            .get("selected_orchestration_plan_content_hash")
-            .and_then(Value::as_str)
-            != Some(selected_hash)
-        || receipt.get("goal_ref").and_then(Value::as_str) != Some(goal_ref)
-    {
+    let expected_receipt = build_orchestration_selection_receipt(
+        goal_run_id,
+        goal_ref,
+        decision_receipt_ref,
+        selected_ref,
+        selected_hash,
+        expected_topology,
+        &run.pointer("/admission_path_decision/decision_ref")
+            .cloned()
+            .unwrap_or(Value::Null),
+        text(run, "created_at"),
+    );
+    if receipt != expected_receipt {
         return Err(readback_conflict(
             "goal_run_orchestration_selection_receipt_binding_changed",
-            "The durable plan-selection decision receipt no longer binds the selected plan identity/hash.",
+            "The durable plan-selection decision receipt bytes no longer match the GoalRun selection.",
+        ));
+    }
+    if !run
+        .get("receipt_refs")
+        .and_then(Value::as_array)
+        .is_some_and(|refs| {
+            refs.iter()
+                .any(|reference| reference.as_str() == Some(decision_receipt_ref))
+        })
+    {
+        return Err(readback_conflict(
+            "goal_run_orchestration_receipt_lineage_missing",
+            "The GoalRun receipt lineage omits its orchestration decision receipt.",
         ));
     }
 
     // --- 2. ContextCell slot/subject/owner + execution-posture cardinality ---
-    let max_total = run
-        .pointer("/declared_invocation_budget/max_total_invocations")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
     let cell_refs: Vec<String> = run
         .get("context_cell_refs")
         .and_then(Value::as_array)
@@ -6356,11 +6395,6 @@ fn readback_verify_canonical_goal_run(data_dir: &str, run: &Value) -> Result<(),
         .filter_map(Value::as_str)
         .map(str::to_string)
         .collect();
-    let expected_topology = if max_total > 0 {
-        "single_session"
-    } else {
-        "no_execution"
-    };
     if plan
         .get("proposed_session_topology")
         .and_then(Value::as_str)
@@ -6386,17 +6420,12 @@ fn readback_verify_canonical_goal_run(data_dir: &str, run: &Value) -> Result<(),
             ));
         }
         let cell = readback_slot(data_dir, GOAL_RUN_CONTEXT_CELL_KIND, goal_run_id)?;
-        if cell.get("context_cell_id").and_then(Value::as_str) != Some(cell_refs[0].as_str())
-            || cell.get("work_subject_ref").and_then(Value::as_str) != Some(goal_ref)
-            || cell.get("accountable_actor_ref").and_then(Value::as_str)
-                != Some(GOAL_RUN_APPLICATION_ACTOR_REF)
-            || !cell
-                .get("role_topology_revision_ref")
-                .map_or(true, Value::is_null)
-        {
+        let (expected_cell_ref, expected_cell) =
+            build_implementer_context_cell(goal_run_id, goal_ref);
+        if cell_refs[0] != expected_cell_ref || cell != expected_cell {
             return Err(readback_conflict(
                 "goal_run_context_cell_binding_changed",
-                "The durable ContextCell no longer binds its GoalRun subject/owner or is not topology-less.",
+                "The durable ContextCell bytes no longer match the topology-less GoalRun-owned cell.",
             ));
         }
     }
@@ -6492,6 +6521,17 @@ fn readback_verify_canonical_goal_run(data_dir: &str, run: &Value) -> Result<(),
     }
 
     Ok(())
+}
+
+/// Resolve the one application owner before any shared lifecycle append. An
+/// activation's retained source owner is authoritative; the direct lane uses
+/// the daemon-derived owner already present on its body.
+fn canonical_goal_run_owner(body: &Value, activation_owner: Option<&str>) -> String {
+    activation_owner
+        .filter(|owner| !owner.is_empty())
+        .or_else(|| body.get("owner_ref").and_then(Value::as_str))
+        .unwrap_or("user://current")
+        .to_string()
 }
 
 fn create_direct_goal_run(
@@ -6724,11 +6764,10 @@ fn create_direct_goal_run(
         .filter(|value| !value.is_null())
         .cloned()
         .unwrap_or_else(|| json!({"max_total_invocations":1,"max_parallel_invocations":1}));
-    let owner_ref = body
-        .get("owner_ref")
-        .and_then(Value::as_str)
-        .unwrap_or("user://current")
-        .to_string();
+    let owner_ref = canonical_goal_run_owner(
+        body,
+        activation.map(|binding| binding.source_owner_ref.as_str()),
+    );
     // The GoalRun application binds itself to the shared WorkLifecycle owner here:
     // resolve+persist the immutable OrchestrationPlan revision and its selection
     // receipt, the topology-less implementer ContextCell (only when execution is
@@ -6743,6 +6782,14 @@ fn create_direct_goal_run(
         .pointer("/resolution_receipt/effective_constraint_envelope_ref")
         .cloned()
         .unwrap_or(Value::Null);
+    let workflow_template_revision_refs = resolution
+        .pointer("/resolved_component_set/workflow_template_revision_refs")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let profile_resolution_receipt_ref = resolution
+        .get("resolution_receipt_ref")
+        .cloned()
+        .unwrap_or(Value::Null);
     let lifecycle = match persist_canonical_goal_run_lifecycle(
         &st.data_dir,
         goal_run_id,
@@ -6752,7 +6799,9 @@ fn create_direct_goal_run(
             .get("goal_run_profile_revision_ref")
             .cloned()
             .unwrap_or(Value::Null),
+        &workflow_template_revision_refs,
         &constraint_envelope_ref,
+        &profile_resolution_receipt_ref,
         max_total_invocations,
         decision,
         &genesis_evidence_refs,
@@ -6764,6 +6813,10 @@ fn create_direct_goal_run(
         Ok(lifecycle) => lifecycle,
         Err(response) => return response,
     };
+    let orchestration_receipt = json!(lifecycle.orchestration_decision_receipt_ref.clone());
+    if !record_receipt_refs.contains(&orchestration_receipt) {
+        record_receipt_refs.push(orchestration_receipt);
+    }
     let admitted_state_root_ref = match activation {
         Some(binding) => binding.admitted_state_root_ref.clone(),
         None => {
@@ -6868,7 +6921,6 @@ fn create_direct_goal_run(
         "runtimeTruthSource":"daemon-runtime"
     });
     if let Some(binding) = activation {
-        record["owner_ref"] = json!(binding.source_owner_ref.clone());
         // An attach-lane graduation is a programmatic crossing, NOT an ioi.ai chat draft, so
         // `ioi_goal_chat` would both misname it and borrow the chat lane's zero-execution
         // posture. The honest tag for it is `authority_gateway`, but the registered
@@ -18654,7 +18706,9 @@ mod work_lifecycle_goalrun_m046_tests {
     ) -> (Value, CanonicalGoalRunLifecycle) {
         let decision = test_decision();
         let profile_ref = json!("goal-run-profile://generic/revision/1");
+        let workflow_refs = json!(["workflow-template://test/revision/1"]);
         let constraint_ref = json!("constraint://test");
+        let profile_resolution_receipt_ref = json!("receipt://goal-run/test/profile-resolution");
         let genesis_ev = vec![json!("decision://goal-run/test-admission")];
         let genesis_rc = vec![json!("receipt://goal-run/test-admission")];
         let active_ev = vec![
@@ -18671,7 +18725,9 @@ mod work_lifecycle_goalrun_m046_tests {
             goal_ref,
             owner_ref,
             &profile_ref,
+            &workflow_refs,
             &constraint_ref,
+            &profile_resolution_receipt_ref,
             max_total,
             &decision,
             &genesis_ev,
@@ -18681,6 +18737,13 @@ mod work_lifecycle_goalrun_m046_tests {
             "2026-08-25T00:00:00Z",
         )
         .expect("canonical lifecycle binding");
+        persist_record_durable(
+            data_dir,
+            "goal-run-component-snapshots",
+            goal_run_id,
+            &json!({"workflow_template_revision_refs": workflow_refs}),
+        )
+        .expect("component snapshot");
         let parallel = if max_total > 0 { 1 } else { 0 };
         let run = json!({
             "schema_version": CANONICAL_GOAL_RUN_SCHEMA_VERSION,
@@ -18688,6 +18751,8 @@ mod work_lifecycle_goalrun_m046_tests {
             "goal_ref": goal_ref,
             "owner_ref": owner_ref,
             "admission_path_status": "direct_non_system",
+            "admission_path_decision": decision,
+            "goal_run_profile_resolution_receipt_ref": profile_resolution_receipt_ref,
             "declared_invocation_budget": {
                 "max_total_invocations": max_total,
                 "max_parallel_invocations": parallel,
@@ -18697,8 +18762,10 @@ mod work_lifecycle_goalrun_m046_tests {
             "selected_orchestration_plan_revision_ref": lifecycle.selected_orchestration_plan_revision_ref.clone(),
             "selected_orchestration_plan_content_hash": lifecycle.selected_orchestration_plan_content_hash.clone(),
             "orchestration_decision_receipt_ref": lifecycle.orchestration_decision_receipt_ref.clone(),
+            "receipt_refs": [lifecycle.orchestration_decision_receipt_ref.clone()],
             "lifecycle_head": lifecycle.lifecycle_head.clone(),
             "lifecycle_record_refs": lifecycle.lifecycle_record_refs.clone(),
+            "created_at": "2026-08-25T00:00:00Z",
         });
         (run, lifecycle)
     }
@@ -18723,12 +18790,16 @@ mod work_lifecycle_goalrun_m046_tests {
     }
 
     fn child_candidate(relation: &str, authority: &str) -> Value {
+        child_candidate_with_operation("attach", relation, authority)
+    }
+
+    fn child_candidate_with_operation(operation: &str, relation: &str, authority: &str) -> Value {
         json!({
             "object_kind": "goal_run",
             "authority_class": authority,
             "phase_transition": Value::Null,
             "child_reference": {
-                "operation": "attach",
+                "operation": operation,
                 "relation_kind": relation,
                 "child_ref": "context-cell://x",
                 "effect_recovery_class": "reversible",
@@ -18786,6 +18857,31 @@ mod work_lifecycle_goalrun_m046_tests {
                 &child_candidate("context_cell", "goal_kernel")
             )
             .is_err());
+        assert!(gate
+            .authorize(
+                Some(&genesis_prior("active")),
+                &child_candidate("context_cell", "goal_kernel")
+            )
+            .is_err());
+        assert!(gate
+            .authorize(
+                Some(&genesis_prior("draft")),
+                &child_candidate("context_lease", "goal_kernel")
+            )
+            .is_err());
+        assert!(gate
+            .authorize(
+                Some(&genesis_prior("draft")),
+                &child_candidate_with_operation("detach", "context_cell", "goal_kernel")
+            )
+            .is_err());
+        let prior_child = child_candidate("context_cell", "goal_kernel");
+        assert!(gate
+            .authorize(
+                Some(&prior_child),
+                &child_candidate("context_cell", "goal_kernel")
+            )
+            .is_err());
 
         // draft->active is goal_kernel authority; daemon is refused; from must match prior.
         assert!(gate
@@ -18800,6 +18896,16 @@ mod work_lifecycle_goalrun_m046_tests {
                 &phase_candidate(json!("draft"), "active", "daemon")
             )
             .is_err());
+
+        let direct_body = json!({"owner_ref": "user://direct"});
+        assert_eq!(
+            canonical_goal_run_owner(&direct_body, None),
+            "user://direct"
+        );
+        assert_eq!(
+            canonical_goal_run_owner(&direct_body, Some("org://activation-owner")),
+            "org://activation-owner"
+        );
         assert!(gate
             .authorize(
                 Some(&genesis_prior("active")),
@@ -18846,6 +18952,14 @@ mod work_lifecycle_goalrun_m046_tests {
         assert_eq!(lifecycle.lifecycle_record_refs.len(), 3);
         let plan = readback_slot(data_dir, ORCHESTRATION_PLAN_KIND, "gr_pos").unwrap();
         assert_eq!(plan["proposed_session_topology"], json!("single_session"));
+        assert_eq!(
+            plan["workflow_template_revision_refs"],
+            json!(["workflow-template://test/revision/1"])
+        );
+        assert_eq!(
+            plan["evidence_basis_refs"],
+            json!(["receipt://goal-run/test/profile-resolution"])
+        );
         // The durable topology-less implementer cell binds its subject/owner.
         let cell = readback_slot(data_dir, GOAL_RUN_CONTEXT_CELL_KIND, "gr_pos").unwrap();
         assert_eq!(cell["work_subject_ref"], json!("goal://gr_pos"));
@@ -18857,6 +18971,7 @@ mod work_lifecycle_goalrun_m046_tests {
         // The projected active typed child equals context_cell_refs.
         let store = WorkLifecycleStore::new(data_dir);
         let projection = store.read_projection("goal://gr_pos").unwrap();
+        assert_eq!(projection["owner_ref"], json!("user://alice"));
         assert_eq!(
             projection.pointer("/active_children/context_cell/0/child_ref"),
             Some(&json!("context-cell://cc_gr_pos_implementer"))
@@ -18881,6 +18996,48 @@ mod work_lifecycle_goalrun_m046_tests {
         // No new records were written by the retry.
         let store = WorkLifecycleStore::new(data_dir);
         assert_eq!(store.read_records("goal://gr_idem").unwrap().len(), 3);
+
+        // A changed immutable occupant under the same application slot refuses
+        // without replacing the already-selected plan or receipt.
+        let plan_before = readback_slot(data_dir, ORCHESTRATION_PLAN_KIND, "gr_idem").unwrap();
+        let receipt_before = readback_slot(
+            data_dir,
+            ORCHESTRATION_PLAN_SELECTION_RECEIPT_KIND,
+            "gr_idem",
+        )
+        .unwrap();
+        let decision = test_decision();
+        let refused = persist_canonical_goal_run_lifecycle(
+            data_dir,
+            "gr_idem",
+            "goal://changed",
+            "user://alice",
+            &json!("goal-run-profile://generic/revision/1"),
+            &json!(["workflow-template://changed/revision/1"]),
+            &json!("constraint://test"),
+            &json!("receipt://goal-run/test/profile-resolution"),
+            1,
+            &decision,
+            &[json!("decision://goal-run/test-admission")],
+            &[json!("receipt://goal-run/test-admission")],
+            &[json!("artifact://goal-run/test/resolved-components")],
+            &[json!("receipt://goal-run/test/profile-resolution")],
+            "2026-08-25T00:00:00Z",
+        );
+        assert!(refused.is_err());
+        assert_eq!(
+            readback_slot(data_dir, ORCHESTRATION_PLAN_KIND, "gr_idem").unwrap(),
+            plan_before
+        );
+        assert_eq!(
+            readback_slot(
+                data_dir,
+                ORCHESTRATION_PLAN_SELECTION_RECEIPT_KIND,
+                "gr_idem"
+            )
+            .unwrap(),
+            receipt_before
+        );
     }
 
     // ---- strict readback fails closed -----------------------------------------
@@ -18908,6 +19065,39 @@ mod work_lifecycle_goalrun_m046_tests {
         let mut drifted = run.clone();
         drifted["owner_ref"] = json!("user://mallory");
         assert!(readback_verify_canonical_goal_run(data_dir, &drifted).is_err());
+
+        // Any selection-receipt byte substitution is refused, even when its
+        // identity/hash fields remain unchanged.
+        let receipt =
+            readback_slot(data_dir, ORCHESTRATION_PLAN_SELECTION_RECEIPT_KIND, "gr_rb").unwrap();
+        let mut changed_receipt = receipt.clone();
+        changed_receipt["selection_source"] = json!("user");
+        persist_record_durable(
+            data_dir,
+            ORCHESTRATION_PLAN_SELECTION_RECEIPT_KIND,
+            "gr_rb",
+            &changed_receipt,
+        )
+        .unwrap();
+        assert!(readback_verify_canonical_goal_run(data_dir, &run).is_err());
+        persist_record_durable(
+            data_dir,
+            ORCHESTRATION_PLAN_SELECTION_RECEIPT_KIND,
+            "gr_rb",
+            &receipt,
+        )
+        .unwrap();
+
+        // ContextCell convenience projections cannot be used to fabricate
+        // kernel-owned resolver/model/runtime truth.
+        let cell = readback_slot(data_dir, GOAL_RUN_CONTEXT_CELL_KIND, "gr_rb").unwrap();
+        let mut changed_cell = cell.clone();
+        changed_cell["model_route_ref"] = json!("model-route://forged");
+        persist_record_durable(data_dir, GOAL_RUN_CONTEXT_CELL_KIND, "gr_rb", &changed_cell)
+            .unwrap();
+        assert!(readback_verify_canonical_goal_run(data_dir, &run).is_err());
+        persist_record_durable(data_dir, GOAL_RUN_CONTEXT_CELL_KIND, "gr_rb", &cell).unwrap();
+        readback_verify_canonical_goal_run(data_dir, &run).expect("restored readback");
 
         // Missing evidence: delete the durable OrchestrationPlan revision.
         let plan_path = dir.path().join(ORCHESTRATION_PLAN_KIND).join("gr_rb.json");
