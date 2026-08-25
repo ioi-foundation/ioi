@@ -104,6 +104,10 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-oracle-admission-receipts",
     "autonomous-system-ontology-assertion-admission-receipts",
     "autonomous-system-ontology-assertions",
+    "autonomous-system-ordering-recovery-votes",
+    "autonomous-system-ordering-recovery-receipts",
+    "autonomous-system-ordering-recoveries",
+    "autonomous-system-state-transition-commitments",
     "hypervisoros-boot-profiles",
     "hypervisoros-temporal-profiles",
     "hypervisoros-node-records",
@@ -494,6 +498,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-oracle-admission-receipts"
         | "autonomous-system-ontology-assertion-admission-receipts"
         | "autonomous-system-ontology-assertions"
+        | "autonomous-system-ordering-recovery-votes"
+        | "autonomous-system-ordering-recovery-receipts"
+        | "autonomous-system-ordering-recoveries"
+        | "autonomous-system-state-transition-commitments"
         | "hypervisor-environment-route-bindings"
         | "hypervisor-environment-backups"
         | "hypervisor-change-plans"
@@ -847,6 +855,10 @@ fn validate_required_identity(
         "autonomous-system-oracle-admission-receipts" => "asoea_",
         "autonomous-system-ontology-assertion-admission-receipts" => "asoaa_",
         "autonomous-system-ontology-assertions" => "asoa_",
+        "autonomous-system-ordering-recovery-votes" => "asorv_",
+        "autonomous-system-ordering-recovery-receipts" => "asorr_",
+        "autonomous-system-ordering-recoveries" => "asor_",
+        "autonomous-system-state-transition-commitments" => "astc_",
         "hypervisoros-boot-profiles" => "hvbp_",
         "hypervisoros-temporal-profiles" => "hvtp_",
         "hypervisoros-node-records" => "hvnr_",
@@ -1479,6 +1491,86 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres approval authority evidence root does not recompute",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "autonomous-system-ordering-recovery-votes"
+            | "autonomous-system-ordering-recovery-receipts"
+            | "autonomous-system-ordering-recoveries"
+    ) {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let material = match record_dir {
+            "autonomous-system-ordering-recovery-votes" => json!({
+                "domain":"ioi.ordering-recovery-vote-record-jcs-sha256.v1",
+                "record":record,
+            }),
+            "autonomous-system-ordering-recovery-receipts" => json!({
+                "domain":"ioi.ordering-recovery-receipt-record-jcs-sha256.v1",
+                "record":record,
+            }),
+            "autonomous-system-ordering-recoveries" => json!({
+                "domain":"ioi.ordering-finality-recovery-record-jcs-sha256.v1",
+                "recovery":record,
+            }),
+            _ => unreachable!("ordering recovery families are exhaustively matched"),
+        };
+        if jcs_root(&material)? != format!("sha256:{encoded}") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres ordering-recovery key does not bind its exact record bytes",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-state-transition-commitments" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let expected_hash = format!("sha256:{encoded}");
+        if record
+            .get("state_transition_commitment_id")
+            .and_then(Value::as_str)
+            != Some(format!("transition://state-transition/{expected_hash}").as_str())
+            || record
+                .get("resulting_transition_commitment_ref")
+                .and_then(Value::as_str)
+                != Some(format!("commitment://state-transition/{expected_hash}").as_str())
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres state-transition key does not bind both commitment identities",
+            ));
+        }
+        let material = json!({
+            "domain":"ioi.state-transition-commitment-jcs-sha256.v1",
+            "system_id":record["system_id"],
+            "hypervisor_node_id":record["hypervisor_node_id"],
+            "acting_node_membership_ref":record["acting_node_membership_ref"],
+            "ordering_admission_finality_profile_ref":record["ordering_admission_finality_profile_ref"],
+            "authority_mode":record["authority_mode"],
+            "writer_epoch":record["writer_epoch"],
+            "ordering_or_finality_proof_ref":record["ordering_or_finality_proof_ref"],
+            "sequence":record["sequence"],
+            "expected_predecessor_commitment_ref":record["expected_predecessor_commitment_ref"],
+            "operation_or_batch_commitment":record["operation_or_batch_commitment"],
+            "admission_proof_ref":record["admission_proof_ref"],
+            "transition_kind":record["transition_kind"],
+            "operation_ref":record["operation_ref"],
+            "predecessor_state_root":record["predecessor_state_root"],
+            "resulting_state_root":record["resulting_state_root"],
+            "receipt_root":record["receipt_root"],
+            "ordering_recovery_ref":record["ordering_recovery_ref"],
+            "external_settlement_ref":record["external_settlement_ref"],
+        });
+        if jcs_root(&material)? != expected_hash {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres state-transition key does not recompute from exact commitment material",
             ));
         }
         return Ok(());
