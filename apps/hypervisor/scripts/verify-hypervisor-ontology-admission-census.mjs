@@ -282,11 +282,15 @@ const PINNED = {
   // M04.4 RuntimeToolContract consumption re-derivation (2026-08-25): exact current released
   // registry resolution and direct GoalRun integration add 56 source tokens and twelve
   // foreign-qualified names. No ODK, writer, filesystem, or owner edge changes.
+  // M04.4 direct admission-policy/constraint closure re-derivation (2026-08-25): the bounded
+  // policy release, derived constraint, and snapshot closure add 192 source tokens and fifteen
+  // foreign-qualified names; replacing the plain GoalRun writer with the durable atomic owner
+  // removes one non-ODK literal writer. No ODK, filesystem, or owner edge changes.
   modules: 98,
   familyMentions: 284,
-  tokenMentions: 118616,
+  tokenMentions: 118808,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 303 },
+  productionWriterCalls: { family: 58, nonFamilyLiteral: 236, runtimeParameter: 303 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -305,7 +309,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4033,
+    "foreign-qualified": 4048,
     "opaque-initialiser": 1662,
     "bare-undeclared": 529,
     "ambiguous-module": 0,

@@ -75,6 +75,7 @@ const GOAL_RUN_ACTIVATION_RECEIPT_TYPE: &str = "goal_run_activation";
 const GOAL_RUN_ACTIVATION_RECEIPT_PROFILE: &str =
     "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1";
 const GOAL_RUN_CREATE_AUTHORITY_SCOPE: &str = "scope:goal.run.create";
+const DIRECT_BOUNDED_POLICY_FAMILY_REF: &str = "orchestration-policy://bounded-general";
 const M4_HOSTED_COLLECTIVE_POLICY_REF: &str = "policy://ioi/m4/hosted-only";
 const OUTCOME_ROOM_PACKAGE_REF: &str = "package://ioi/outcome-room";
 const ADMISSION_FACT_RESOLUTION_SCHEMA: &str = "ioi.goal-run-admission-runtime-fact-resolution.v1";
@@ -3318,6 +3319,359 @@ fn install_profile_runtime_tool_resolution(
     Ok(())
 }
 
+fn profile_string_values(profile: &Value, field: &str) -> Result<Vec<String>, HttpRefusal> {
+    profile
+        .get(field)
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_profile_requirement_set_invalid",
+                &format!("The selected GoalRunProfile has no canonical `{field}` set."),
+            )
+        })?
+        .iter()
+        .map(|value| {
+            value.as_str().map(str::to_owned).ok_or_else(|| {
+                bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_profile_requirement_set_invalid",
+                    &format!("Every `{field}` entry must be a reference string."),
+                )
+            })
+        })
+        .collect()
+}
+
+fn direct_profile_policy(profile: &Value, definition: &Value) -> Result<Value, HttpRefusal> {
+    if text(profile, "orchestration_policy_ref") != DIRECT_BOUNDED_POLICY_FAMILY_REF {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_orchestration_policy_resolution_unavailable",
+            "General direct admission currently resolves only the daemon-owned bounded policy family.",
+        ));
+    }
+    let component_refs = definition
+        .get("harness_profile_revision_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let mut record = json!({
+        "schema_version": "ioi.goal-run-admission-policy.v1",
+        "policy_family_ref": DIRECT_BOUNDED_POLICY_FAMILY_REF,
+        "allowed_source_kinds": ["direct_api"],
+        "allowed_result_profiles": [
+            "software_implementation",
+            "research",
+            "ontology_mutation",
+            "incident_resolution",
+            "service_delivery",
+            "physical_mission",
+            "review",
+            "evaluation",
+            "custom"
+        ],
+        "allowed_authority_scopes": [],
+        "allowed_primitive_capability_refs": [],
+        "direct_path_requirements": {
+            "requires_system_membership": false,
+            "requires_shared_frontier": false,
+            "requires_outcome_room": false,
+            "requires_collective_scheduling": false,
+            "policy_requires_system_path": false
+        },
+        "resolved_component_revision_refs": component_refs,
+        "registry_lifecycle_ref": Value::Null,
+        "registry_status": "released"
+    });
+    let hash = sha256_canonical(&release_material(
+        &record,
+        "ioi.goal-run-admission-policy-jcs-sha256.v1",
+        "goal_run_admission",
+    )?);
+    record["content_hash"] = json!(hash);
+    record["policy_ref"] = json!(format!(
+        "{DIRECT_BOUNDED_POLICY_FAMILY_REF}/revision/{}",
+        text(&record, "content_hash")
+    ));
+    Ok(record)
+}
+
+fn install_profile_admission_resolution(
+    st: &DaemonState,
+    owner_ref: &str,
+    goal_ref: &str,
+    normalized_goal: &str,
+    profile: &Value,
+    path_request: &mut Value,
+    body: &mut Value,
+) -> Result<(), HttpRefusal> {
+    for field in [
+        "constraint_derivation_policy_refs",
+        "role_topology_requirement_refs",
+        "worker_requirement_refs",
+        "model_route_requirement_refs",
+        "service_requirement_refs",
+        "primitive_capability_requirements",
+        "context_requirement_profile_refs",
+        "acceptance_contract_refs",
+        "verifier_requirement_refs",
+        "budget_time_and_resource_ceiling_refs",
+    ] {
+        if !profile_string_values(profile, field)?.is_empty() {
+            return Err(bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_profile_requirement_resolution_unavailable",
+                "A selected GoalRunProfile requirement family has no canonical direct-admission owner yet.",
+                json!({ "field": field }),
+            ));
+        }
+    }
+    for field in [
+        "learning_boundary_requirement_ref",
+        "pinned_learning_boundary_profile_ref",
+        "allowed_override_schema_ref",
+        "promotion_policy_ref",
+        "revocation_and_recall_policy_ref",
+    ] {
+        if profile.get(field).is_some_and(|value| !value.is_null()) {
+            return Err(bad_with_details(
+                StatusCode::CONFLICT,
+                if field == "allowed_override_schema_ref" {
+                    "goal_run_profile_override_schema_unresolvable"
+                } else {
+                    "goal_run_profile_policy_resolution_unavailable"
+                },
+                "A selected GoalRunProfile names a policy or override owner that this direct lane cannot resolve.",
+                json!({ "field": field }),
+            ));
+        }
+    }
+    for (field, expected) in [
+        ("stop_policy_ref", "policy://ioi/goal-run/bounded-stop/v1"),
+        (
+            "recovery_policy_ref",
+            "policy://ioi/goal-run/bounded-recovery/v1",
+        ),
+        (
+            "escalation_policy_ref",
+            "policy://ioi/goal-run/bounded-escalation/v1",
+        ),
+    ] {
+        if text(profile, field) != expected {
+            return Err(bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_profile_policy_resolution_unavailable",
+                "The selected GoalRunProfile names an unsupported direct-lane policy.",
+                json!({ "field": field }),
+            ));
+        }
+    }
+    if body
+        .get("constraint_refs")
+        .is_some_and(|value| !value.is_null() && value != &json!([]))
+        || body
+            .get("authority_scope_refs")
+            .is_some_and(|value| !value.is_null() && value != &json!([]))
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_direct_authority_or_constraint_unresolved",
+            "Direct admission cannot accept caller-authored constraints or authority scopes.",
+        ));
+    }
+    let definition = body
+        .get_mut("definition_resolution")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_definition_resolution_required",
+                "Direct admission requires a definition-resolution object.",
+            )
+        })?;
+    for field in ["admitted_override_set_ref", "admitted_override_set_hash"] {
+        if definition.get(field).is_some_and(|value| !value.is_null()) {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_override_substitution",
+                "The selected profile permits no direct GoalRun override set.",
+            ));
+        }
+    }
+    for field in [
+        "effective_constraint_envelope",
+        "initial_role_topology_revision_ref",
+        "initial_role_topology_content_hash",
+        "initial_role_topology_decision_ref",
+        "effective_learning_boundary_profile_ref",
+        "effective_learning_policy_hash",
+    ] {
+        if definition.get(field).is_some_and(|value| !value.is_null()) {
+            return Err(bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_admission_material_substitution",
+                "Caller-owned definition material cannot enter the daemon-resolved direct closure.",
+                json!({ "field": field }),
+            ));
+        }
+    }
+    for field in [
+        "role_topology_requirement_refs",
+        "worker_model_service_and_verifier_requirement_refs",
+        "primitive_capability_requirement_refs",
+        "unresolved_late_binding_requirement_refs",
+        "compatibility_revocation_and_admission_decision_refs",
+        "agentgres_operation_refs",
+    ] {
+        if definition
+            .get(field)
+            .is_some_and(|value| !value.is_null() && value != &json!([]))
+        {
+            return Err(bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_admission_material_substitution",
+                "Caller-owned requirement or receipt material cannot enter the daemon-resolved direct closure.",
+                json!({ "field": field }),
+            ));
+        }
+    }
+    let policy = direct_profile_policy(profile, &Value::Object(definition.clone()))?;
+    let policy_hash = text(&policy, "content_hash");
+    let policy_key = format!(
+        "direct_{}",
+        policy_hash.strip_prefix("sha256:").unwrap_or(policy_hash)
+    );
+    persist_immutable_activation_record(
+        &st.data_dir,
+        GOAL_RUN_ADMISSION_POLICY_REVISION_KIND,
+        &policy_key,
+        &policy,
+    )?;
+    let result_profile = text(path_request, "result_profile");
+    if !policy
+        .get("allowed_result_profiles")
+        .and_then(Value::as_array)
+        .is_some_and(|profiles| {
+            profiles
+                .iter()
+                .any(|value| value.as_str() == Some(result_profile))
+        })
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_result_profile_policy_refused",
+            "The daemon-owned direct policy does not admit the requested result profile.",
+        ));
+    }
+    let constraint_material = json!({
+        "schema_version": "ioi.goal-run-effective-constraint.v1",
+        "goal_run_ref": goal_ref,
+        "requester_ref": owner_ref,
+        "normalized_goal": normalized_goal,
+        "goal_run_profile_revision_ref": profile.get("revision_ref"),
+        "goal_run_profile_content_hash": profile.get("content_hash"),
+        "orchestration_policy_ref": policy.get("policy_ref"),
+        "orchestration_policy_content_hash": policy.get("content_hash"),
+        "result_profile": result_profile,
+        "constraint_derivation_policy_refs": [],
+        "authority_posture_refs": [],
+        "primitive_capability_requirement_refs": [],
+        "status": "active"
+    });
+    let constraint_hash = sha256_canonical(&json!({
+        "domain": "ioi.goal-run-effective-constraint-jcs-sha256.v1",
+        "material": constraint_material
+    }));
+    let constraint_ref = format!(
+        "constraint://goal-run/{}/{}",
+        safe(goal_ref),
+        constraint_hash
+    );
+    if path_request
+        .get("effective_constraint_hash")
+        .is_some_and(|value| !value.is_null() && value.as_str() != Some(constraint_hash.as_str()))
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_constraint_resolution_substitution",
+            "A caller effective-constraint hash differs from the daemon-derived material.",
+        ));
+    }
+    let policy_ref = policy.get("policy_ref").cloned().unwrap_or(Value::Null);
+    let expected_policy_refs = json!([policy_ref.clone()]);
+    if path_request.get("policy_refs").is_some_and(|value| {
+        !value.is_null()
+            && value != &json!([])
+            && value != &json!([DIRECT_BOUNDED_POLICY_FAMILY_REF])
+            && value != &expected_policy_refs
+    }) || path_request
+        .get("authority_refs")
+        .is_some_and(|value| !value.is_null() && value != &json!([]))
+        || path_request
+            .get("capability_requirement_refs")
+            .is_some_and(|value| !value.is_null() && value != &json!([]))
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_admission_material_substitution",
+            "Caller policy, authority, or capability material differs from the daemon-owned direct closure.",
+        ));
+    }
+    let definition_value = Value::Object(definition.clone());
+    for (field, expected) in [
+        ("effective_constraint_envelope_ref", json!(constraint_ref)),
+        ("effective_constraint_envelope_hash", json!(constraint_hash)),
+        ("orchestration_policy_ref", policy_ref),
+        (
+            "orchestration_policy_version_or_hash",
+            policy.get("content_hash").cloned().unwrap_or(Value::Null),
+        ),
+    ] {
+        if definition_value
+            .get(field)
+            .is_some_and(|value| !value.is_null() && value != &expected)
+        {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_admission_material_substitution",
+                "Caller policy or constraint material differs from the daemon-owned direct closure.",
+            ));
+        }
+        definition.insert(field.into(), expected);
+    }
+    definition.insert("effective_constraint_envelope".into(), constraint_material);
+    definition.insert("admitted_override_set_ref".into(), Value::Null);
+    definition.insert("admitted_override_set_hash".into(), Value::Null);
+    definition.insert("role_topology_requirement_refs".into(), json!([]));
+    definition.insert(
+        "worker_model_service_and_verifier_requirement_refs".into(),
+        json!([]),
+    );
+    definition.insert("primitive_capability_requirement_refs".into(), json!([]));
+    definition.insert("unresolved_late_binding_requirement_refs".into(), json!([]));
+    definition.insert(
+        "compatibility_revocation_and_admission_decision_refs".into(),
+        json!([]),
+    );
+    definition.insert("agentgres_operation_refs".into(), json!([]));
+    definition.insert("initial_role_topology_revision_ref".into(), Value::Null);
+    definition.insert("initial_role_topology_content_hash".into(), Value::Null);
+    definition.insert("initial_role_topology_decision_ref".into(), Value::Null);
+    definition.insert(
+        "effective_learning_boundary_profile_ref".into(),
+        Value::Null,
+    );
+    definition.insert("effective_learning_policy_hash".into(), Value::Null);
+    path_request["effective_constraint_hash"] = json!(constraint_hash);
+    path_request["policy_refs"] = expected_policy_refs;
+    path_request["authority_refs"] = json!([]);
+    path_request["capability_requirement_refs"] = json!([]);
+    body["constraint_refs"] = json!([constraint_ref]);
+    body["authority_scope_refs"] = json!([]);
+    Ok(())
+}
+
 pub(crate) async fn handle_goal_runs_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -3464,31 +3818,6 @@ pub(crate) async fn handle_goal_runs_create(
         if requested_system_path {
             deferred_system_path_request = Some(path_request);
         } else {
-            let facts = direct_runtime_facts(&path_request);
-            if let Err(response) = install_daemon_runtime_facts(&mut path_request, &facts) {
-                return response;
-            }
-            let decided_at = iso_now();
-            let resolution = admission_fact_resolution(
-                None,
-                None,
-                None,
-                &admission_policy_refs(&path_request),
-                &facts,
-                &decided_at,
-            );
-            let decision = match kernel.select_goal_run_admission_path(&path_request, &decided_at) {
-                Ok(decision) => decision,
-                Err(error) => return kernel_err(error),
-            };
-            if text(&decision, "decision") != "direct_non_system" {
-                return (
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    Json(
-                        json!({"ok":false,"error":{"code":"goal_run_admission_refused","message":"The daemon-derived direct-path facts did not admit a direct GoalRun.","details":decision}}),
-                    ),
-                );
-            }
             let mut direct_body = body.clone();
             if let Err(response) = install_profile_workflow_resolution(
                 &st.data_dir,
@@ -3519,6 +3848,42 @@ pub(crate) async fn handle_goal_runs_create(
                 &mut direct_body,
             ) {
                 return response;
+            }
+            if let Err(response) = install_profile_admission_resolution(
+                &st,
+                &owner_ref,
+                &goal_ref,
+                &goal,
+                &selected_profile,
+                &mut path_request,
+                &mut direct_body,
+            ) {
+                return response;
+            }
+            let facts = direct_runtime_facts(&path_request);
+            if let Err(response) = install_daemon_runtime_facts(&mut path_request, &facts) {
+                return response;
+            }
+            let decided_at = iso_now();
+            let resolution = admission_fact_resolution(
+                None,
+                None,
+                None,
+                &admission_policy_refs(&path_request),
+                &facts,
+                &decided_at,
+            );
+            let decision = match kernel.select_goal_run_admission_path(&path_request, &decided_at) {
+                Ok(decision) => decision,
+                Err(error) => return kernel_err(error),
+            };
+            if text(&decision, "decision") != "direct_non_system" {
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(
+                        json!({"ok":false,"error":{"code":"goal_run_admission_refused","message":"The daemon-derived direct-path facts did not admit a direct GoalRun.","details":decision}}),
+                    ),
+                );
             }
             return create_direct_goal_run(
                 &st,
@@ -4304,6 +4669,14 @@ fn create_direct_goal_run(
         "active_skill_set_snapshot_ref": resolution.get("active_skill_set_snapshot_ref"),
         "active_skill_set_hash": resolution.get("active_skill_set_hash"),
         "goal_run_profile_resolution_receipt_ref": resolution.get("resolution_receipt_ref"),
+        "admitted_override_set_ref": resolution
+            .pointer("/resolution_receipt/admitted_override_set_ref")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "admitted_override_set_hash": resolution
+            .pointer("/resolution_receipt/admitted_override_set_hash")
+            .cloned()
+            .unwrap_or(Value::Null),
         "admission_path_decision": decision,
         "admission_path_fact_resolution": fact_resolution.cloned().unwrap_or(Value::Null),
         "admission_path_status": "direct_non_system",
@@ -4368,28 +4741,21 @@ fn create_direct_goal_run(
             .cloned()
             .unwrap_or(Value::Null);
     }
-    if activation.is_some() {
-        if let Err(error) =
-            ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-                "schema://ioi/applications/ioi-ai/goal-run/v1",
-                &record,
-            )
-        {
-            return bad_with_details(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "goal_run_contract_invalid",
-                "The generated activation-backed GoalRun does not satisfy its registered contract.",
-                json!({ "error": error }),
-            );
-        }
+    if let Err(error) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            "schema://ioi/applications/ioi-ai/goal-run/v1",
+            &record,
+        )
+    {
+        return bad_with_details(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_contract_invalid",
+            "The generated direct GoalRun does not satisfy its registered contract.",
+            json!({ "error": error }),
+        );
     }
-    let persisted = if activation.is_some() {
-        persist_goal_run_atomic(&st.data_dir, goal_run_id, &record)
-            .map_err(|error| format!("{error:?}"))
-    } else {
-        persist_record(&st.data_dir, GOAL_RUN_KIND, goal_run_id, &record)
-            .map_err(|error| error.to_string())
-    };
+    let persisted = persist_goal_run_atomic(&st.data_dir, goal_run_id, &record)
+        .map_err(|error| format!("{error:?}"));
     if persisted.is_err() {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,

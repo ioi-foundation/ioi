@@ -16,10 +16,7 @@ const pathRequest = {
   requested_path: "direct_non_system",
   goal_run_profile_revision_ref: "",
   goal_run_profile_content_hash: "",
-  effective_constraint_hash: H2,
   result_profile: "research",
-  policy_refs: ["policy://bounded-research"],
-  authority_refs: ["grant://research"],
   capability_requirement_refs: [],
   runtime_facts: {
     single_bounded_work_subject: true,
@@ -38,10 +35,6 @@ const pathRequest = {
 
 const definitionResolution = {
   workflow_template_revision_refs: ["workflow-template://research/revision/1"],
-  effective_constraint_envelope_ref: "constraint://research",
-  effective_constraint_envelope_hash: H2,
-  orchestration_policy_ref: "orchestration-policy://bounded",
-  orchestration_policy_version_or_hash: "1",
   component_hashes: {
     "workflow-template://research/revision/1": H1,
   },
@@ -136,7 +129,6 @@ try {
     const created = await request(plane.daemonUrl, "POST", "/v1/goal-orchestration/goal-runs", {
       goal: "Research the bounded selected profile",
       origin_surface: "api",
-      authority_scope_refs: ["scope:goal.run.orchestrate"],
       admission_path_request: pathRequest,
       definition_resolution: definitionResolution,
     });

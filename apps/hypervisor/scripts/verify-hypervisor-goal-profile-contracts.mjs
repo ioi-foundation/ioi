@@ -413,20 +413,13 @@ async function run() {
 
   const definitionResolution = {
     workflow_template_revision_refs: [workflowTemplate.revision_ref],
-    effective_constraint_envelope_ref: "constraint://research",
-    effective_constraint_envelope_hash: H2,
-    orchestration_policy_ref: "orchestration-policy://bounded",
-    orchestration_policy_version_or_hash: "1",
     component_hashes: {},
   };
   const pathRequest = {
     requested_path: "direct_non_system",
     goal_run_profile_revision_ref: profileV2.revision_ref,
     goal_run_profile_content_hash: `sha256:${"f".repeat(64)}`,
-    effective_constraint_hash: H2,
     result_profile: "research",
-    policy_refs: ["policy://bounded-research"],
-    authority_refs: ["grant://research"],
     capability_requirement_refs: [],
   };
   const goalRunsBefore = familyCount("goal-runs");
@@ -485,6 +478,121 @@ async function run() {
       && unresolvedSkill.body?.error?.code === "goal_run_skill_resolution_unavailable"
       && familyCount("goal-runs") === goalRunsBefore,
     `${unresolvedSkill.status}/${unresolvedSkill.body?.error?.code}`);
+
+  const unsupportedPolicyProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
+    method: "POST",
+    body: JSON.stringify({
+      ...profileBody(principalRef, "1.0.0", "unsupported orchestration policy", [workflowTemplate.revision_ref], [skillManifest.skill_id]),
+      orchestration_policy_ref: "orchestration-policy://unregistered-portable-policy",
+    }),
+  });
+  const unsupportedPolicyProfile = unsupportedPolicyProfileResponse.body?.goal_run_profile ?? {};
+  const unsupportedPolicy = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse an unowned orchestration policy",
+      admission_path_request: {
+        ...pathRequest,
+        goal_run_profile_revision_ref: unsupportedPolicyProfile.revision_ref,
+        goal_run_profile_content_hash: unsupportedPolicyProfile.content_hash,
+      },
+      definition_resolution: definitionResolution,
+    }),
+  });
+  ok("GATE: general admission refuses a profile policy with no canonical runtime owner",
+    unsupportedPolicyProfileResponse.status === 201
+      && unsupportedPolicy.status === 409
+      && unsupportedPolicy.body?.error?.code === "goal_run_orchestration_policy_resolution_unavailable"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${unsupportedPolicy.status}/${unsupportedPolicy.body?.error?.code}`);
+
+  const unsupportedRequirementProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
+    method: "POST",
+    body: JSON.stringify({
+      ...profileBody(principalRef, "1.0.0", "unsupported primitive requirement", [workflowTemplate.revision_ref], [skillManifest.skill_id]),
+      primitive_capability_requirements: ["prim:network.egress"],
+    }),
+  });
+  const unsupportedRequirementProfile = unsupportedRequirementProfileResponse.body?.goal_run_profile ?? {};
+  const unsupportedRequirement = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse an unresolved primitive requirement",
+      admission_path_request: {
+        ...pathRequest,
+        goal_run_profile_revision_ref: unsupportedRequirementProfile.revision_ref,
+        goal_run_profile_content_hash: unsupportedRequirementProfile.content_hash,
+      },
+      definition_resolution: definitionResolution,
+    }),
+  });
+  ok("GATE: unsupported nonempty profile requirement families fail closed before persistence",
+    unsupportedRequirementProfileResponse.status === 201
+      && unsupportedRequirement.status === 409
+      && unsupportedRequirement.body?.error?.code === "goal_run_profile_requirement_resolution_unavailable"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${unsupportedRequirement.status}/${unsupportedRequirement.body?.error?.code}`);
+
+  const substitutedConstraintResolution = structuredClone(definitionResolution);
+  substitutedConstraintResolution.effective_constraint_envelope_hash = H2;
+  const substitutedConstraint = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse a caller constraint commitment",
+      admission_path_request: {
+        ...pathRequest,
+        goal_run_profile_revision_ref: profileV2.revision_ref,
+        goal_run_profile_content_hash: profileV2.content_hash,
+      },
+      definition_resolution: substitutedConstraintResolution,
+    }),
+  });
+  ok("GATE: caller-substituted effective constraints refuse before GoalRun persistence",
+    substitutedConstraint.status === 409
+      && substitutedConstraint.body?.error?.code === "goal_run_admission_material_substitution"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${substitutedConstraint.status}/${substitutedConstraint.body?.error?.code}`);
+
+  const substitutedLateBindingResolution = structuredClone(definitionResolution);
+  substitutedLateBindingResolution.unresolved_late_binding_requirement_refs = ["worker://caller-forged"];
+  const substitutedLateBinding = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse caller late-binding material",
+      admission_path_request: {
+        ...pathRequest,
+        goal_run_profile_revision_ref: profileV2.revision_ref,
+        goal_run_profile_content_hash: profileV2.content_hash,
+      },
+      definition_resolution: substitutedLateBindingResolution,
+    }),
+  });
+  ok("GATE: caller-authored late-binding requirements refuse before GoalRun persistence",
+    substitutedLateBinding.status === 409
+      && substitutedLateBinding.body?.error?.code === "goal_run_admission_material_substitution"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${substitutedLateBinding.status}/${substitutedLateBinding.body?.error?.code}`);
+
+  const substitutedOverrideResolution = structuredClone(definitionResolution);
+  substitutedOverrideResolution.admitted_override_set_ref = "artifact://caller/override-set";
+  substitutedOverrideResolution.admitted_override_set_hash = H1;
+  const substitutedOverride = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse a caller override set",
+      admission_path_request: {
+        ...pathRequest,
+        goal_run_profile_revision_ref: profileV2.revision_ref,
+        goal_run_profile_content_hash: profileV2.content_hash,
+      },
+      definition_resolution: substitutedOverrideResolution,
+    }),
+  });
+  ok("GATE: a null-override profile refuses caller-authored override coordinates",
+    substitutedOverride.status === 409
+      && substitutedOverride.body?.error?.code === "goal_run_override_substitution"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${substitutedOverride.status}/${substitutedOverride.body?.error?.code}`);
 
   const skillManifestTail = String(skillManifest.skill_id ?? "").replace("skill://", "");
   const skillManifestSlot = path.join(
@@ -623,6 +731,30 @@ async function run() {
       && familyCount("goal-runs") === goalRunsBefore,
     `${substitutedTool.status}/${substitutedTool.body?.error?.code}`);
 
+  const directPolicyDir = path.join(dataDir, "goal-run-admission-policy-revisions");
+  const directPolicySlot = path.join(
+    directPolicyDir,
+    fs.readdirSync(directPolicyDir).find((name) => name.startsWith("direct_") && name.endsWith(".json")),
+  );
+  const directPolicyBytes = fs.readFileSync(directPolicySlot);
+  const changedDirectPolicy = JSON.parse(directPolicyBytes.toString("utf8"));
+  changedDirectPolicy.allowed_result_profiles = ["custom"];
+  fs.writeFileSync(directPolicySlot, JSON.stringify(changedDirectPolicy));
+  const changedDirectPolicyRun = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse changed direct policy registry bytes",
+      admission_path_request: pathRequest,
+      definition_resolution: definitionResolution,
+    }),
+  });
+  fs.writeFileSync(directPolicySlot, directPolicyBytes);
+  ok("GATE: changed daemon-owned direct policy bytes refuse before GoalRun persistence",
+    changedDirectPolicyRun.status === 409
+      && changedDirectPolicyRun.body?.error?.code === "goal_run_activation_immutable_release_conflict"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${changedDirectPolicyRun.status}/${changedDirectPolicyRun.body?.error?.code}`);
+
   const exactGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
     method: "POST",
     body: JSON.stringify({
@@ -631,6 +763,9 @@ async function run() {
       definition_resolution: definitionResolution,
     }),
   });
+  const exactResolution = exactGoalRun.body?.definition_resolution ?? {};
+  const exactReceipt = exactResolution.resolution_receipt ?? {};
+  const exactSnapshot = exactResolution.resolved_component_set ?? {};
   ok("the general GoalRun surface consumes exact daemon-resolved workflow, harness, skill, and transitive runtime-tool tuples",
     exactGoalRun.status === 201
       && exactGoalRun.body?.goal_run?.goal_run_profile_revision_ref === profileV2.revision_ref
@@ -646,6 +781,22 @@ async function run() {
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.some((contract) => contract.revision_ref?.startsWith("tool://ioi/runtime/file__read/revision/") && contract.content_hash?.startsWith("sha256:"))
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.some((contract) => contract.revision_ref?.startsWith("tool://ioi/runtime/file__list/revision/") && contract.content_hash?.startsWith("sha256:")),
     `${exactGoalRun.status}/${exactGoalRun.body?.error?.code ?? ""}`);
+  ok("the direct closure freezes daemon-owned policy, constraints, null overrides, and empty unresolved requirements into the snapshot hash",
+    exactReceipt.orchestration_policy_ref?.startsWith("orchestration-policy://bounded-general/revision/sha256:")
+      && exactReceipt.orchestration_policy_version_or_hash?.startsWith("sha256:")
+      && exactReceipt.effective_constraint_envelope_ref?.startsWith("constraint://goal-run/")
+      && exactReceipt.effective_constraint_envelope_hash?.startsWith("sha256:")
+      && exactReceipt.admitted_override_set_ref === null
+      && exactReceipt.admitted_override_set_hash === null
+      && exactReceipt.unresolved_late_binding_requirement_refs?.length === 0
+      && exactSnapshot.orchestration_policy_ref === exactReceipt.orchestration_policy_ref
+      && exactSnapshot.effective_constraint_envelope_hash === exactReceipt.effective_constraint_envelope_hash
+      && exactSnapshot.effective_constraint_envelope?.requester_ref === principalRef
+      && exactSnapshot.admitted_override_set_ref === null
+      && exactGoalRun.body?.goal_run?.constraint_refs?.[0] === exactReceipt.effective_constraint_envelope_ref
+      && exactGoalRun.body?.goal_run?.authority_scope_refs?.length === 0
+      && familyCount("goal-run-admission-policy-revisions") === 1,
+    `${exactGoalRun.status}/${exactReceipt.orchestration_policy_ref ?? ""}`);
 }
 
 try {
