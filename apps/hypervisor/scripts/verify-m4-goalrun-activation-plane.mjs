@@ -128,6 +128,10 @@ function canonicalJson(value) {
   return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
 }
 
+function sha256(value) {
+  return `sha256:${createHash("sha256").update(canonicalJson(value)).digest("hex")}`;
+}
+
 function receiptRoot(record) {
   const material = structuredClone(record);
   delete material.receipt_root;
@@ -233,7 +237,7 @@ const unknownReceiptDataDir = mkdtempSync(
   join(tmpdir(), "ioi-m4-goalrun-activation-unknown-receipt-"),
 );
 const checks = [];
-const EXPECTED_CHECKS = 44;
+const EXPECTED_CHECKS = 45;
 const check = (name, pass, detail = "") => checks.push({ name, pass: Boolean(pass), detail });
 const familyCount = (family, root = dataDir) => {
   try {
@@ -241,6 +245,13 @@ const familyCount = (family, root = dataDir) => {
   } catch {
     return 0;
   }
+};
+const onlyFamilyRecord = (family, root = dataDir) => {
+  const files = readdirSync(join(root, family)).filter((name) => name.endsWith(".json"));
+  if (files.length !== 1) {
+    throw new Error(`expected one ${family} record, found ${files.length}`);
+  }
+  return JSON.parse(readFileSync(join(root, family, files[0]), "utf8"));
 };
 
 async function request(base, method, path, body, headers = {}) {
@@ -411,6 +422,27 @@ try {
     console.error("BLOCKED: build target/debug/hypervisor-daemon first");
     process.exitCode = 2;
   } else {
+    const bootstrapLog = readdirSync(dataDir)
+      .filter(isIsolatedDaemonLogName)
+      .map((name) => readFileSync(join(dataDir, name), "utf8"))
+      .join("\n");
+    const bootstrapToken = bootstrapLog.match(/\b(ioi_bootstrap_[0-9a-f]+)\b/u)?.[1];
+    if (!bootstrapToken) {
+      throw new Error("isolated activation verifier could not acquire its one-boot operator token");
+    }
+    const operatorBootstrap = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/hypervisor/auth/bootstrap",
+      { token: bootstrapToken, password: "m4-activation-operator-password" },
+    );
+    const operatorSessionToken = operatorBootstrap.body?.session_token;
+    if (operatorBootstrap.status !== 200 || !operatorSessionToken) {
+      throw new Error(
+        `isolated activation verifier could not authenticate its operator (${operatorBootstrap.status})`,
+      );
+    }
+    const operatorHeaders = { authorization: `Bearer ${operatorSessionToken}` };
     // Clean-slate strengthening: 77117ecd6 deleted the superseded work-result v1/v2 schemas
     // AND migrate_legacy_goal_run_work_results — the retired assertion expected startup to
     // fold legacy bytes into the canonical registry, which is exactly the resurrection the
@@ -466,6 +498,7 @@ try {
         origin_surface: "ioi_goal_chat",
         activation_evidence: { claimed: true },
       },
+      operatorHeaders,
     );
     const directOriginMutationAfter = durableTreeByteSnapshot(dataDir);
     check(
@@ -805,6 +838,45 @@ try {
         join(dataDir, "goal-run-profile-resolution-receipts", `${goalRunId}.json`),
         "utf8",
       ),
+    );
+    const canonicalSkillSnapshot = onlyFamilyRecord("canonical-active-skill-set-snapshots");
+    const canonicalSkillReceipt = onlyFamilyRecord(
+      "canonical-active-skill-set-resolution-receipts",
+    );
+    const componentSnapshot = onlyFamilyRecord("goal-run-component-snapshots");
+    const canonicalSkillMaterial = {
+      domain: "ioi.active-skill-set-jcs-sha256.v1",
+      work_subject_ref: canonicalSkillSnapshot.work_subject_ref,
+      selected_skills: canonicalSkillSnapshot.selected_skills,
+      excluded_candidates: canonicalSkillSnapshot.excluded_candidates,
+      compatibility_and_evaluation_result_refs:
+        canonicalSkillSnapshot.compatibility_and_evaluation_result_refs,
+      resolved_runtime_tool_contracts: canonicalSkillSnapshot.resolved_runtime_tool_contracts,
+      context_lease_refs: canonicalSkillSnapshot.context_lease_refs,
+    };
+    check(
+      "activation consumes one reproducible canonical skill-owner snapshot and receipt without a legacy duplicate",
+      familyCount("canonical-active-skill-set-snapshots") === 1 &&
+        familyCount("canonical-active-skill-set-resolution-receipts") === 1 &&
+        familyCount("active-skill-set-snapshots") === 0 &&
+        canonicalSkillSnapshot.work_subject_ref === goalRun.goal_ref &&
+        canonicalSkillSnapshot.selected_skills?.length === 0 &&
+        canonicalSkillSnapshot.active_set_hash === sha256(canonicalSkillMaterial) &&
+        canonicalSkillSnapshot.active_skill_set_snapshot_id ===
+          `active-skill-set://snapshot/${canonicalSkillSnapshot.active_set_hash}` &&
+        canonicalSkillSnapshot.resolution_receipt_ref === canonicalSkillReceipt.receipt_ref &&
+        canonicalSkillReceipt.receipt_hash === sha256(canonicalSkillReceipt.material) &&
+        goalRun.active_skill_set_snapshot_ref ===
+          canonicalSkillSnapshot.active_skill_set_snapshot_id &&
+        goalRun.active_skill_set_hash === canonicalSkillSnapshot.active_set_hash &&
+        profileResolutionReceipt.active_skill_set_snapshot_ref ===
+          canonicalSkillSnapshot.active_skill_set_snapshot_id &&
+        profileResolutionReceipt.active_skill_set_hash === canonicalSkillSnapshot.active_set_hash &&
+        componentSnapshot.active_skill_set_snapshot_ref ===
+          canonicalSkillSnapshot.active_skill_set_snapshot_id &&
+        componentSnapshot.active_skill_set_hash === canonicalSkillSnapshot.active_set_hash &&
+        goalRun.receipt_refs?.includes(canonicalSkillReceipt.receipt_ref),
+      canonicalSkillSnapshot.active_skill_set_snapshot_id,
     );
     check(
       "activation retains root, lifecycle head, exact zero-execution profile closure, and three receipt classes",
@@ -1214,6 +1286,8 @@ try {
       declaredInvocationBudget: goalRun.declared_invocation_budget,
       admittedOverrideSetRef: goalRun.admitted_override_set_ref,
       admittedOverrideSetHash: goalRun.admitted_override_set_hash,
+      canonicalSkillSnapshot: canonicalJson(canonicalSkillSnapshot),
+      canonicalSkillReceipt: canonicalJson(canonicalSkillReceipt),
       resultCount: familyCount("work-result-registry"),
       deltaCount: familyCount("outcome-delta-registry"),
     };
@@ -1244,6 +1318,10 @@ try {
           beforeRestart.admittedOverrideSetRef &&
         afterRestart.body?.goal_run?.admitted_override_set_hash ===
           beforeRestart.admittedOverrideSetHash &&
+        canonicalJson(onlyFamilyRecord("canonical-active-skill-set-snapshots")) ===
+          beforeRestart.canonicalSkillSnapshot &&
+        canonicalJson(onlyFamilyRecord("canonical-active-skill-set-resolution-receipts")) ===
+          beforeRestart.canonicalSkillReceipt &&
         afterRestart.body?.goal_run_execution_ceiling?.revision_ref ===
           beforeRestart.executionCeilingRevisionRef &&
         JSON.stringify(afterRestart.body?.goal_run?.receipt_refs) ===
@@ -1374,12 +1452,14 @@ try {
       "POST",
       "/v1/hypervisor/principals",
       ownerPrincipal,
+      operatorHeaders,
     );
     await request(
       plane.daemonUrl,
       "POST",
       "/v1/hypervisor/principals",
       outsiderPrincipal,
+      operatorHeaders,
     );
     const ownerLogin = await request(
       plane.daemonUrl,

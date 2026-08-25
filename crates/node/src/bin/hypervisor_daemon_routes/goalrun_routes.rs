@@ -1750,6 +1750,63 @@ fn policy_bool(policy: &Value, field: &str) -> Result<bool, HttpRefusal> {
         })
 }
 
+fn activation_definition_resolution_material(
+    resolved: &ActivationProfileResolution,
+    goal_ref: &str,
+    activation_id: &str,
+    effective_constraint_hash: &str,
+) -> Value {
+    let component_ref = resolved
+        .component
+        .get("revision_ref")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let component_hash = resolved
+        .component
+        .get("content_hash")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let component_ref_text = component_ref.as_str().unwrap_or("");
+    let mut component_hashes = serde_json::Map::new();
+    component_hashes.insert(component_ref_text.to_string(), component_hash);
+    component_hashes.insert(
+        text(&resolved.execution_ceiling, "revision_ref").to_string(),
+        resolved
+            .execution_ceiling
+            .get("content_hash")
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    json!({
+        "goal_run_ref": goal_ref,
+        "goal_run_profile_revision_ref": resolved.profile.get("revision_ref"),
+        "goal_run_profile_content_hash": resolved.profile.get("content_hash"),
+        "goal_run_execution_ceiling_revision_ref": resolved.execution_ceiling.get("revision_ref"),
+        "goal_run_execution_ceiling_content_hash": resolved.execution_ceiling.get("content_hash"),
+        "declared_invocation_budget": {
+            "max_total_invocations": 0,
+            "max_parallel_invocations": 0
+        },
+        "admitted_override_set_ref": Value::Null,
+        "admitted_override_set_hash": Value::Null,
+        "workflow_template_revision_refs": [],
+        "skill_manifest_revision_refs": [],
+        "active_skill_entry_refs": [],
+        "harness_profile_revision_refs": [component_ref],
+        "runtime_tool_contract_refs": [],
+        "effective_constraint_envelope_ref": format!("constraint://goal-run-activation/{activation_id}"),
+        "effective_constraint_envelope_hash": effective_constraint_hash,
+        "orchestration_policy_ref": resolved.policy.get("policy_ref"),
+        "orchestration_policy_version_or_hash": resolved.policy.get("content_hash"),
+        "resolved_skill_bindings": [],
+        "component_hashes": component_hashes,
+        "role_topology_requirement_refs": resolved.profile.get("role_topology_requirement_refs"),
+        "worker_model_service_and_verifier_requirement_refs": [],
+        "primitive_capability_requirement_refs": resolved.profile.get("primitive_capability_requirements"),
+        "unresolved_late_binding_requirement_refs": []
+    })
+}
+
 fn activation_admission_material(
     data_dir: &str,
     resolved: &ActivationProfileResolution,
@@ -1757,9 +1814,8 @@ fn activation_admission_material(
     goal_draft: &Value,
     authority_decision: &Value,
     goal_ref: &str,
-    activation_id: &str,
     effective_constraint_hash: &str,
-) -> Result<(Value, Value), HttpRefusal> {
+) -> Result<Value, HttpRefusal> {
     let source_kind = activation
         .pointer("/source_context/source_kind")
         .and_then(Value::as_str)
@@ -1864,56 +1920,7 @@ fn activation_admission_material(
             "system_path_available": system_path_available
         }
     });
-    let component_ref = resolved
-        .component
-        .get("revision_ref")
-        .cloned()
-        .unwrap_or(Value::Null);
-    let component_hash = resolved
-        .component
-        .get("content_hash")
-        .cloned()
-        .unwrap_or(Value::Null);
-    let component_ref_text = component_ref.as_str().unwrap_or("");
-    let mut component_hashes = serde_json::Map::new();
-    component_hashes.insert(component_ref_text.to_string(), component_hash);
-    component_hashes.insert(
-        text(&resolved.execution_ceiling, "revision_ref").to_string(),
-        resolved
-            .execution_ceiling
-            .get("content_hash")
-            .cloned()
-            .unwrap_or(Value::Null),
-    );
-    let definition_resolution = json!({
-        "goal_run_ref": goal_ref,
-        "goal_run_profile_revision_ref": resolved.profile.get("revision_ref"),
-        "goal_run_profile_content_hash": resolved.profile.get("content_hash"),
-        "goal_run_execution_ceiling_revision_ref": resolved.execution_ceiling.get("revision_ref"),
-        "goal_run_execution_ceiling_content_hash": resolved.execution_ceiling.get("content_hash"),
-        "declared_invocation_budget": {
-            "max_total_invocations": 0,
-            "max_parallel_invocations": 0
-        },
-        "admitted_override_set_ref": Value::Null,
-        "admitted_override_set_hash": Value::Null,
-        "workflow_template_revision_refs": [],
-        "skill_manifest_revision_refs": [],
-        "active_skill_entry_refs": [],
-        "harness_profile_revision_refs": [component_ref.clone()],
-        "runtime_tool_contract_refs": [],
-        "effective_constraint_envelope_ref": format!("constraint://goal-run-activation/{activation_id}"),
-        "effective_constraint_envelope_hash": effective_constraint_hash,
-        "orchestration_policy_ref": resolved.policy.get("policy_ref"),
-        "orchestration_policy_version_or_hash": resolved.policy.get("content_hash"),
-        "resolved_skill_bindings": [],
-        "component_hashes": component_hashes,
-        "role_topology_requirement_refs": resolved.profile.get("role_topology_requirement_refs"),
-        "worker_model_service_and_verifier_requirement_refs": [],
-        "primitive_capability_requirement_refs": resolved.profile.get("primitive_capability_requirements"),
-        "unresolved_late_binding_requirement_refs": []
-    });
-    Ok((path_request, definition_resolution))
+    Ok(path_request)
 }
 
 fn activation_receipt_obligations(
@@ -3444,6 +3451,21 @@ fn install_canonical_goal_run_skill_snapshot(
     Ok(())
 }
 
+fn install_profile_reusable_definition_resolution(
+    st: &DaemonState,
+    identity: &super::substrate_store::RequestIdentity,
+    owner_ref: &str,
+    goal_ref: &str,
+    profile: &Value,
+    body: &mut Value,
+) -> Result<(), HttpRefusal> {
+    install_profile_workflow_resolution(&st.data_dir, identity, profile, body)?;
+    install_profile_harness_resolution(st, profile, body)?;
+    let skill_tool_requirements = install_profile_skill_resolution(st, owner_ref, profile, body)?;
+    install_profile_runtime_tool_resolution(st, profile, &skill_tool_requirements, body)?;
+    install_canonical_goal_run_skill_snapshot(owner_ref, goal_ref, profile, body)
+}
+
 fn profile_string_values(profile: &Value, field: &str) -> Result<Vec<String>, HttpRefusal> {
     profile
         .get(field)
@@ -3944,37 +3966,9 @@ pub(crate) async fn handle_goal_runs_create(
             deferred_system_path_request = Some(path_request);
         } else {
             let mut direct_body = body.clone();
-            if let Err(response) = install_profile_workflow_resolution(
-                &st.data_dir,
+            if let Err(response) = install_profile_reusable_definition_resolution(
+                &st,
                 &request_identity,
-                &selected_profile,
-                &mut direct_body,
-            ) {
-                return response;
-            }
-            if let Err(response) =
-                install_profile_harness_resolution(&st, &selected_profile, &mut direct_body)
-            {
-                return response;
-            }
-            let skill_tool_requirements = match install_profile_skill_resolution(
-                &st,
-                &owner_ref,
-                &selected_profile,
-                &mut direct_body,
-            ) {
-                Ok(requirements) => requirements,
-                Err(response) => return response,
-            };
-            if let Err(response) = install_profile_runtime_tool_resolution(
-                &st,
-                &selected_profile,
-                &skill_tool_requirements,
-                &mut direct_body,
-            ) {
-                return response;
-            }
-            if let Err(response) = install_canonical_goal_run_skill_snapshot(
                 &owner_ref,
                 &goal_ref,
                 &selected_profile,
@@ -5846,6 +5840,21 @@ pub(crate) async fn handle_goal_run_activation_submit(
         Ok(value) => value,
         Err(response) => return response,
     };
+    let request_identity =
+        match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+            Ok(identity) if identity.principal_ref == principal_ref => identity,
+            Err(_) if principal_resolution_source == "local_development_operator" => {
+                super::substrate_store::RequestIdentity::local_development_operator(&principal_ref)
+            }
+            Ok(_) => {
+                return bad(
+                    StatusCode::UNAUTHORIZED,
+                    "goal_run_activation_principal_inconsistent",
+                    "The activation principal and tenant-scoped request identity disagree.",
+                )
+            }
+            Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+        };
     let reference = activation_ref(&id);
     if activation_key_from_ref(&reference).is_none() {
         return bad(
@@ -6085,6 +6094,65 @@ pub(crate) async fn handle_goal_run_activation_submit(
             "The source constraints no longer resolve to the retained daemon commitment.",
         );
     }
+    let goal_run_id = format!("gr_{}", id.trim_start_matches("gra_"));
+    let goal_ref = format!("goal://{goal_run_id}");
+    let mut reusable_definition_body = json!({
+        "definition_resolution": activation_definition_resolution_material(
+            &resolved_profile,
+            &goal_ref,
+            &id,
+            &effective_constraint_hash,
+        ),
+    });
+    if let Err(response) = install_profile_reusable_definition_resolution(
+        &st,
+        &request_identity,
+        &principal_ref,
+        &goal_ref,
+        &resolved_profile.profile,
+        &mut reusable_definition_body,
+    ) {
+        return response;
+    }
+    let definition_resolution_request = reusable_definition_body
+        .get("definition_resolution")
+        .cloned()
+        .expect("reusable definition installer retains its request object");
+    let prepared_definition_resolution_hash = sha256_canonical(&json!({
+        "domain": "ioi.goal-run-activation-prepared-definition-resolution-jcs-sha256.v1",
+        "definition_resolution_request": definition_resolution_request,
+    }));
+    match (
+        control.get("prepared_definition_resolution_request"),
+        control
+            .get("prepared_definition_resolution_hash")
+            .and_then(Value::as_str),
+    ) {
+        (None, None) => {
+            control["prepared_definition_resolution_request"] =
+                definition_resolution_request.clone();
+            control["prepared_definition_resolution_hash"] =
+                json!(prepared_definition_resolution_hash);
+            if let Err(response) = durable_write(
+                &st.data_dir,
+                GOAL_RUN_ACTIVATION_CONTROL_KIND,
+                &id,
+                &control,
+            ) {
+                return response;
+            }
+        }
+        (Some(retained), Some(retained_hash))
+            if retained == &definition_resolution_request
+                && retained_hash == prepared_definition_resolution_hash => {}
+        _ => {
+            return bad(
+                StatusCode::CONFLICT,
+                "goal_run_activation_definition_resolution_changed",
+                "The current reusable-definition closure does not match the exact request prepared before wallet authorization.",
+            )
+        }
+    }
     let authority_policy_hash = sha256_canonical(&json!({
         "domain": "ioi.goal-run-activation-authority-policy.v1",
         "activation_ref": reference,
@@ -6093,7 +6161,8 @@ pub(crate) async fn handle_goal_run_activation_submit(
         "goal_run_profile_revision_ref": resolved_profile.profile.get("revision_ref"),
         "goal_run_profile_content_hash": resolved_profile.profile.get("content_hash"),
         "admission_policy_ref": resolved_profile.policy.get("policy_ref"),
-        "admission_policy_content_hash": resolved_profile.policy.get("content_hash")
+        "admission_policy_content_hash": resolved_profile.policy.get("content_hash"),
+        "prepared_definition_resolution_hash": prepared_definition_resolution_hash
     }));
     let authority_request_hash = sha256_canonical(&json!({
         "domain": "ioi.goal-run-activation-authority-request.v1",
@@ -6102,7 +6171,8 @@ pub(crate) async fn handle_goal_run_activation_submit(
         "source_context_hash": sha256_canonical(&goal_draft),
         "effective_constraint_hash": effective_constraint_hash,
         "principal_ref": principal_ref,
-        "required_scope": GOAL_RUN_CREATE_AUTHORITY_SCOPE
+        "required_scope": GOAL_RUN_CREATE_AUTHORITY_SCOPE,
+        "prepared_definition_resolution_hash": prepared_definition_resolution_hash
     }));
     let authority_effect = json!({
         "activation_ref": reference,
@@ -6114,7 +6184,8 @@ pub(crate) async fn handle_goal_run_activation_submit(
         "required_scope": GOAL_RUN_CREATE_AUTHORITY_SCOPE,
         "goal_run_profile_revision_ref": resolved_profile.profile.get("revision_ref").cloned().unwrap_or(Value::Null),
         "goal_run_profile_content_hash": resolved_profile.profile.get("content_hash").cloned().unwrap_or(Value::Null),
-        "effective_constraint_hash": effective_constraint_hash
+        "effective_constraint_hash": effective_constraint_hash,
+        "prepared_definition_resolution_hash": prepared_definition_resolution_hash
     });
     let grant_value = body
         .get("wallet_approval_grant")
@@ -6267,16 +6338,13 @@ pub(crate) async fn handle_goal_run_activation_submit(
         .get("authority_admission_intent_ref")
         .cloned()
         .unwrap_or(Value::Null);
-    let goal_run_id = format!("gr_{}", id.trim_start_matches("gra_"));
-    let goal_ref = format!("goal://{goal_run_id}");
-    let (path_request, definition_resolution_request) = match activation_admission_material(
+    let path_request = match activation_admission_material(
         &st.data_dir,
         &resolved_profile,
         &activation,
         &goal_draft,
         &authority_decision,
         &goal_ref,
-        &id,
         &effective_constraint_hash,
     ) {
         Ok(value) => value,

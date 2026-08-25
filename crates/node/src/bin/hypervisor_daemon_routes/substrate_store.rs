@@ -2884,6 +2884,14 @@ impl RequestIdentity {
     pub(crate) fn authorizes_tenant(&self, tenant_ref: &str) -> bool {
         self.tenant_refs.contains(tenant_ref)
     }
+
+    pub(crate) fn local_development_operator(principal_ref: &str) -> Self {
+        Self {
+            principal_ref: principal_ref.to_owned(),
+            tenant_refs: BTreeSet::new(),
+            correlation_seed: scoped_digest(principal_ref),
+        }
+    }
 }
 
 #[cfg(test)]

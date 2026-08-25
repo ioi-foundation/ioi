@@ -290,9 +290,13 @@ const PINNED = {
   // shared canonical builder, predetermined GoalRun preparation/persistence seam, and exact
   // resolution cross-check add 105 source tokens, fourteen foreign-qualified names, and one
   // opaque mutation-lock reference. No ODK mention, writer, filesystem, or owner edge changes.
+  // M04.4 selected-activation reusable-definition convergence re-derivation (2026-08-25):
+  // pre-wallet preparation through the shared workflow/harness/skill/tool owner chain plus the
+  // local-development request-identity constructor add 21 source tokens and two
+  // foreign-qualified names. No ODK mention, writer, filesystem, or owner edge changes.
   modules: 98,
   familyMentions: 284,
-  tokenMentions: 118913,
+  tokenMentions: 118934,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 236, runtimeParameter: 303 },
   productionFsCalls: 234,
@@ -313,7 +317,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4062,
+    "foreign-qualified": 4064,
     "opaque-initialiser": 1663,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
