@@ -22917,9 +22917,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/lifecycle-transition/v1": "sha256:8ba0b1d0a026d44d9738ad024e467b62557c421f576e98447eb8ab4b0a476ea5",
   "schema://ioi/foundations/lost-suffix-record/v1": "sha256:1ded4482cebaa8bec1f16059aa88fab34dd15ca7bfb8faa185c5547d695123c6",
   "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1": "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2",
-  "schema://ioi/foundations/ontology-assertion/v1": "sha256:eabedabb89976173c9e46e94eeadefaf63ff79ce34cdb28a2d08161a448e93f8",
+  "schema://ioi/foundations/ontology-assertion/v1": "sha256:b8d08e5d17982fd3c458c260c3c6ad2470864880e6a5960a4cbae0551a863095",
   "schema://ioi/foundations/ontology-assertion-admission-receipt/v1": "sha256:520168cb04de8dd898ca9a038066ec8e64ca98c10ea74673ce0c745bf168792e",
-  "schema://ioi/foundations/oracle-evidence-admission-receipt/v1": "sha256:3f51fad29e77a9eb8dd58cd73273f2e92ad5cb5e9aaeda770b6fa2448ad06b34",
+  "schema://ioi/foundations/oracle-evidence-admission-receipt/v1": "sha256:0c429e3ae06b9f6058054245a887800ce4033132ff77556693ae643cd3104734",
   "schema://ioi/foundations/oracle-evidence-profile/v1": "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1",
   "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3",
   "schema://ioi/foundations/ordering-finality-recovery/v1": "sha256:46db62b15166a669c4da0be29b85dbb60b14965fd64a56d1239dab71d2e0108c",
@@ -73530,10 +73530,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "if": {
           "properties": {
             "status": {
-              "enum": [
-                "proposed",
-                "evidence_pending"
-              ]
+              "const": "proposed"
             }
           },
           "required": [
@@ -73910,7 +73907,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/hash"
       },
       "source_independence_evidence_refs": {
-        "$ref": "#/$defs/evidenceRefs"
+        "$ref": "#/$defs/optionalEvidenceRefs"
       },
       "verifier_path_refs": {
         "$ref": "#/$defs/canonicalRefs"
@@ -74098,6 +74095,15 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "evidenceRefs": {
         "type": "array",
         "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"
+        }
+      },
+      "optionalEvidenceRefs": {
+        "type": "array",
         "maxItems": 128,
         "uniqueItems": true,
         "items": {

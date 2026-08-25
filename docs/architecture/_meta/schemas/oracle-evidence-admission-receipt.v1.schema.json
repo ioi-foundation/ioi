@@ -22,7 +22,7 @@
     "evidence_root": { "$ref": "#/$defs/hash" },
     "evidence_dependency_graph_ref": { "type": "string", "pattern": "^(?:evidence|artifact)://[^\\s]{1,248}$" },
     "evidence_dependency_graph_root": { "$ref": "#/$defs/hash" },
-    "source_independence_evidence_refs": { "$ref": "#/$defs/evidenceRefs" },
+    "source_independence_evidence_refs": { "$ref": "#/$defs/optionalEvidenceRefs" },
     "verifier_path_refs": { "$ref": "#/$defs/canonicalRefs" },
     "verification_receipt_refs": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "$ref": "#/$defs/receiptRef" } },
     "freshness_and_uncertainty_assessment_ref": { "type": "string", "pattern": "^evidence://[^\\s]{1,248}$" },
@@ -57,6 +57,7 @@
     "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$" },
     "canonicalRefs": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "$ref": "#/$defs/canonicalRef" } },
     "evidenceRefs": { "type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$" } },
+    "optionalEvidenceRefs": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$" } },
     "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
     "assertionRef": { "type": "string", "pattern": "^ontology-assertion://[^\\s]{1,248}$" }
   }

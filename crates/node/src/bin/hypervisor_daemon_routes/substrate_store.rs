@@ -101,6 +101,9 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-writer-receipts",
     "autonomous-system-writer-successor-claims",
     "autonomous-system-lost-suffix-records",
+    "autonomous-system-oracle-admission-receipts",
+    "autonomous-system-ontology-assertion-admission-receipts",
+    "autonomous-system-ontology-assertions",
     "hypervisoros-boot-profiles",
     "hypervisoros-temporal-profiles",
     "hypervisoros-node-records",
@@ -488,6 +491,9 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-writer-epoch-transitions"
         | "autonomous-system-writer-receipts"
         | "autonomous-system-lost-suffix-records"
+        | "autonomous-system-oracle-admission-receipts"
+        | "autonomous-system-ontology-assertion-admission-receipts"
+        | "autonomous-system-ontology-assertions"
         | "hypervisor-environment-route-bindings"
         | "hypervisor-environment-backups"
         | "hypervisor-change-plans"
@@ -838,6 +844,9 @@ fn validate_required_identity(
         "autonomous-system-writer-receipts" => "aswr_",
         "autonomous-system-writer-successor-claims" => "aswsc_",
         "autonomous-system-lost-suffix-records" => "aslsr_",
+        "autonomous-system-oracle-admission-receipts" => "asoea_",
+        "autonomous-system-ontology-assertion-admission-receipts" => "asoaa_",
+        "autonomous-system-ontology-assertions" => "asoa_",
         "hypervisoros-boot-profiles" => "hvbp_",
         "hypervisoros-temporal-profiles" => "hvtp_",
         "hypervisoros-node-records" => "hvnr_",
@@ -1470,6 +1479,87 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres approval authority evidence root does not recompute",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "autonomous-system-oracle-admission-receipts"
+            | "autonomous-system-ontology-assertion-admission-receipts"
+    ) {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let (head_field, receipt_prefix, material) =
+            if record_dir == "autonomous-system-oracle-admission-receipts" {
+                (
+                    "resulting_admission_head_hash",
+                    "receipt://oracle-evidence-admission/",
+                    json!({
+                        "domain":"ioi.oracle-evidence-admission-head-jcs-sha256.v1",
+                        "system_id":record["system_id"],
+                        "assertion_commitment":record["assertion_commitment"],
+                        "profile_body_hash":record["oracle_evidence_profile_body_hash"],
+                        "evidence_root":record["evidence_root"],
+                        "decision":record["decision"],
+                        "applicability_scope_ref":record["applicability_scope_ref"],
+                        "permitted_consequence_scope_refs":record["permitted_consequence_scope_refs"],
+                        "valid_until":record["valid_until"],
+                        "predecessor_head":record["expected_predecessor_admission_head_hash"],
+                    }),
+                )
+            } else {
+                (
+                    "resulting_assertion_head_hash",
+                    "receipt://ontology-assertion-admission/",
+                    json!({
+                        "domain":"ioi.ontology-assertion-admission-head-jcs-sha256.v1",
+                        "system_id":record["system_id"],
+                        "assertion_commitment":record["assertion_commitment"],
+                        "oracle_receipt_ref":record["oracle_evidence_admission_receipt_ref"],
+                        "decision":record["decision"],
+                        "applicability_scope_ref":record["applicability_scope_ref"],
+                        "permitted_consequence_scope_refs":record["permitted_consequence_scope_refs"],
+                        "predecessor_head":record["expected_predecessor_assertion_head_hash"],
+                    }),
+                )
+            };
+        let expected_hash = format!("sha256:{encoded}");
+        if record.get(head_field).and_then(Value::as_str) != Some(expected_hash.as_str())
+            || record
+                .get("receipt_id")
+                .and_then(Value::as_str)
+                .and_then(|value| value.strip_prefix(receipt_prefix))
+                != Some(encoded)
+            || jcs_root(&material)? != expected_hash
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres oracle/assertion receipt key does not bind its receipt identity, resulting head, and exact decision material",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-ontology-assertions" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record.get("assertion_id").and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres ontology assertion lacks 'assertion_id'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain":"ioi.ontology-assertion-projection-jcs-sha256.v1",
+            "assertion":record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the ontology assertion projection root",
             ));
         }
         return Ok(());

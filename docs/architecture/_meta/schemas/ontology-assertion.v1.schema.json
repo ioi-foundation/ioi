@@ -76,7 +76,7 @@
       }
     },
     {
-      "if": { "properties": { "status": { "enum": ["proposed", "evidence_pending"] } }, "required": ["status"] },
+      "if": { "properties": { "status": { "const": "proposed" } }, "required": ["status"] },
       "then": {
         "properties": {
           "oracle_evidence_admission_receipt_ref": { "type": "null" },

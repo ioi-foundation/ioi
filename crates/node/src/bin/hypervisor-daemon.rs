@@ -186,6 +186,8 @@ mod system_continuity_routes;
 mod system_genesis_routes;
 #[path = "hypervisor_daemon_routes/system_membership_routes.rs"]
 mod system_membership_routes;
+#[path = "hypervisor_daemon_routes/system_oracle_routes.rs"]
+mod system_oracle_routes;
 #[path = "hypervisor_daemon_routes/system_policy_routes.rs"]
 mod system_policy_routes;
 #[path = "hypervisor_daemon_routes/system_projection_routes.rs"]
@@ -2676,6 +2678,12 @@ async fn async_main() -> anyhow::Result<()> {
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/oracle-evidence/admissions",
+            post(system_oracle_routes::handle_admission).layer(DefaultBodyLimit::max(
+                system_activation_routes::MAX_REQUEST_BYTES,
+            )),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/transitions/:op",
