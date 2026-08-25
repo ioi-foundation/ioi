@@ -22479,6 +22479,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:policy|room-discovery|aiip)://[^\\s]{1,500}$",
   "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$",
   "^(?:policy|storage-policy)(?:://|:)[^\\s]{1,500}$",
+  "^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\\s]{1,500})$",
   "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$",
   "^(?:profile|environment-profile)://[^\\s]{1,500}$",
   "^(?:projection|message)://[^\\s]{1,500}$",
@@ -23051,7 +23052,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1": "sha256:a38a908eb1ecf0ee91162b8d7b24d642cc440903e774d027123c25bd6901c1e4",
   "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1": "sha256:0746542d7754a88b937e10d7336f94c561b8e7a8d8a57246d8a8193de5049f10",
   "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1": "sha256:ede0138bfe5d32d8bffec8c085e51356aa53f4c8c44f6c3313d6fa143fd1b8cb",
-  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": "sha256:1e602da131d868d3421be3c7715f366dc7f422d980a5fd33371d0c5fe5037fa1",
+  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": "sha256:3fdb75b4dafd762e4124ec9afb4d85835732f028eb4cd7547080fdc53e70e896",
   "schema://ioi/applications/ioi-ai/goal-run-profile/v1": "sha256:fbdd558781430936a00565c6edcb6c14962ab95664981514864556c2d44fa4a0",
   "schema://ioi/applications/ioi-ai/goal-run/v1": "sha256:03f2aa66af2424ebb30b6adb4c605d8a22fa50816b0f939d62c868a799c16cb5",
   "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1": "sha256:d98eec6115a535ad4a53cdffbefccf6e6b19302502b8e86bdf9db5c5fd4710f0",
@@ -26457,7 +26458,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "uniqueItems": true,
         "items": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          "pattern": "^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\\s]{1,500})$"
         }
       },
       "initial_role_topology_revision_ref": {
