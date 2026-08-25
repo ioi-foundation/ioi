@@ -11,9 +11,12 @@
     "work_subject_ref",
     "selected_skills",
     "excluded_candidates",
+    "compatibility_and_evaluation_result_refs",
     "active_set_hash",
     "resolved_runtime_tool_contracts",
+    "context_lease_refs",
     "resolution_receipt_ref",
+    "registry_lifecycle_ref",
     "registry_status"
   ],
   "properties": {
@@ -22,11 +25,11 @@
     },
     "active_skill_set_snapshot_id": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^active-skill-set://[^\\s]{1,500}$"
     },
     "work_subject_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^(?:goal|automation-run|work_run|run|invocation|work-claim|attempt)://[^\\s]{1,500}$"
     },
     "selected_skills": {
       "type": "array",
@@ -43,11 +46,11 @@
         "properties": {
           "skill_entry_ref": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            "pattern": "^skill-entry://[^\\s/?#\\\\]{1,160}$"
           },
           "skill_entry_binding_revision_ref": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           "skill_entry_binding_hash": {
             "type": "string",
@@ -55,7 +58,7 @@
           },
           "skill_revision_ref": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           "manifest_content_hash": {
             "type": "string",
@@ -75,7 +78,34 @@
     "excluded_candidates": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_ref",
+          "reason_code",
+          "decision_ref"
+        ],
+        "properties": {
+          "candidate_ref": {
+            "type": "string",
+            "pattern": "^(?:skill|skill-entry)://[^\\s]{1,500}$"
+          },
+          "reason_code": {
+            "enum": [
+              "incompatible",
+              "policy_blocked",
+              "revoked",
+              "superseded",
+              "not_required",
+              "budget_blocked",
+              "other"
+            ]
+          },
+          "decision_ref": {
+            "type": "string",
+            "pattern": "^(?:decision|receipt)://[^\\s]{1,500}$"
+          }
+        }
       }
     },
     "compatibility_and_evaluation_result_refs": {

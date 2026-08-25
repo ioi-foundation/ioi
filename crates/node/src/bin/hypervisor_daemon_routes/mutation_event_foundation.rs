@@ -897,6 +897,7 @@ mod tests {
 // =================================================================================================
 
 /// What a caller must present before any owner-scoped write.
+#[derive(Clone)]
 pub(crate) struct WriteCaller {
     pub(crate) identity: RequestIdentity,
     pub(crate) owner_ref: String,

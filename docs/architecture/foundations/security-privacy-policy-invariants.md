@@ -123,7 +123,7 @@ These exact-action invariants are release gates for the successor ceremony,
 review-receipt, context-bound grant, effect-admission receipt, and WalletReceipt
 contracts. They are not a claim that current registered v1/v2 authority or
 receipt schemas already implement the complete chain. Final admission requires
-typed `AuthorityEffectAdmissionReceiptV1` evidence; a generic tool or execution
+typed `AuthorityEffectAdmissionReceiptV2` evidence; a generic tool or execution
 receipt does not substitute for it.
 
 ## Temporal Verification Invariants

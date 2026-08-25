@@ -1597,6 +1597,39 @@ pub(crate) fn authorize_session_route_binding(
     authorize_route_owner(data_dir, &caller, &route_id, route, "bind_session")
 }
 
+/// Resolve one exact route for a daemon-owned internal Session dispatch.
+///
+/// The per-boot dispatch token is verified by the Session owner before this helper is called; this
+/// branch therefore does not impersonate a principal or weaken the public route-owner gate. It
+/// proves that the exact route retained by the already-admitted orchestration still exists in the
+/// complete strict registry before the recoverable Session binding write begins.
+pub(crate) fn authorize_internal_session_route_binding(
+    data_dir: &str,
+    route_ref: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let routes = strict_routes_seeded(data_dir).map_err(|detail| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "error": {
+                "code": "model_route_registry_unreadable",
+                "message": "the model-route registry could not be read to authorize this internal binding",
+                "details": { "detail": detail }
+            } })),
+        )
+    })?;
+    unique_route(&routes, Some(route_ref)).map_err(|detail| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": {
+                "code": "not_found",
+                "message": "no unique model route resolves this internally retained ref",
+                "details": { "detail": detail }
+            } })),
+        )
+    })?;
+    Ok(())
+}
+
 /// `select-default` is DEPLOYMENT-GLOBAL state, not owner state: exactly one route is the default,
 /// and setting it DEMOTES whichever route held it — a record the caller may not own. A tenant owner
 /// able to seize the default would be reaching across an ownership boundary through a mutation
@@ -2668,6 +2701,7 @@ pub(crate) async fn handle_model_route_credential_bind(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let custody_lease =
         match super::lifecycle_routes::authorize_capability_lease(&st, &lease_request).await {

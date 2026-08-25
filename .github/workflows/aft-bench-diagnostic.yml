@@ -1,0 +1,75 @@
+name: Diagnose private AFT benchmark image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: Immutable private ioi-aft-bench sha256 digest
+        required: true
+        type: string
+      scenario:
+        description: Canonical scenario name, or empty for the full matrix
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - name: Validate immutable diagnostic inputs
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          set -euo pipefail
+          printf '%s' "${IMAGE_DIGEST}" | grep -Eq '^sha256:[0-9a-f]{64}$'
+          case "${SCENARIO}" in
+            ""|paper_guardian_majority_4v|paper_guardian_majority_7v|paper_asymptote_4v|paper_asymptote_7v) ;;
+            *) echo 'unsupported diagnostic scenario' >&2; exit 2 ;;
+          esac
+
+      - name: Authenticate to private GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run the baked benchmark executable once
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          set -o pipefail
+          image="ghcr.io/ioi-foundation/ioi-aft-bench@${IMAGE_DIGEST}"
+          docker pull "${image}" >/dev/null
+          docker run --rm \
+            --entrypoint cargo \
+            --env IOI_AFT_BENCH_REBUILD_NODE=0 \
+            --env IOI_TEST_BUILD_PROFILE=release \
+            --env IOI_AFT_BENCH_TRACE=1 \
+            --env "IOI_AFT_BENCH_SCENARIO=${SCENARIO}" \
+            "${image}" \
+            test --release \
+              -p ioi-cli \
+              --features consensus-aft,vm-wasm,state-jellyfish \
+              -- \
+              --ignored --nocapture test_aft_paper_benchmark_matrix \
+            2>&1 | tee aft-bench-diagnostic.raw
+
+      - name: Retain diagnostic output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: aft-bench-diagnostic-${{ github.run_id }}
+          path: aft-bench-diagnostic.raw
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,15 @@
+{
+  "$id": "invariant://ioi/foundations/authority-scope-request-envelope/exact-request/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
+  "rules": [
+    {
+      "rule_id": "authority_request.capability.required",
+      "description": "An authority request must ask for at least one scope or primitive capability.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": ["$.authority_scopes_requested", "$.primitive_capabilities_required"]
+      }
+    }
+  ]
+}

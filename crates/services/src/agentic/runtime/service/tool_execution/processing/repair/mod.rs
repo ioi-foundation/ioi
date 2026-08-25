@@ -7,7 +7,7 @@ use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
 use crate::agentic::runtime::service::recovery::anti_loop::{latest_failure_class, FailureClass};
 use crate::agentic::runtime::service::tool_execution::execution_evidence_value;
 use crate::agentic::runtime::service::RuntimeAgentService;
-use crate::agentic::runtime::tools::discover_tools;
+use crate::agentic::runtime::tools::discover_tools_with_registry;
 use crate::agentic::runtime::types::{AgentState, ToolCallStatus, WorkerAssignment};
 use crate::agentic::runtime::worker_context::{
     collect_goal_literals, extract_worker_context_field, matches_command_literal,

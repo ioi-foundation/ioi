@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// REMEDIATION-v2 SUPERSESSION (2026-08-19, DOC-1): this sweep's verdicts are LANDING-ONLY and
+// were never valid port blockers (the matrix pixel_rule excludes the live-data body by design;
+// plan §3.2 — the valid test is whether the empty state EXPRESSES the IA). Per-seed current truth
+// lives in the matrix remediation fields + reference-seed-adjudications.v1.json; this instrument
+// and its artifact are kept as recorded history.
 // ---------------------------------------------------------------------------
 // PR #44 — REFERENCE CLEAN-SWEEP VERIFIER.
 // Asserts the committed estate sweep (reference-clean-sweep.json) is complete,
@@ -108,14 +113,27 @@ ok("control 'pipeline' evidences the ORIGIN-ALIGNMENT pattern (classified on its
   // certification evidence over a data_clean reference (#45 incidents is the first). Any
   // other drift vs the sweep-time snapshot is an unsanctioned promotion and fails here.
   const parityDrift = rows.filter((m) => bySlug[m.slug] && m.parity_class !== bySlug[m.slug].parity_class);
+  // RE-AIMED (remediation v2, DOC-1): a SECOND sanctioned promotion class exists — adjudicated
+  // reference_ported ports. Sanction contract: the row must carry port_surface (candidate_surface
+  // invariant), reference_url_override (origin-aligned or donor lane), AND adjudication_ref into
+  // the committed adjudication artifacts. The generator FATALs candidate-surface-less port rows,
+  // and the models-port verifier asserts every reference_ported row carries adjudication evidence
+  // — this gate now recognizes the same contract instead of failing every non-pixel promotion.
   const unsanctioned = parityDrift.filter((m) => {
-    if (m.parity_class !== "daemon_wired") return true;                         // only certified-port promotions are sanctioned
+    if (m.parity_class === "reference_ported") {
+      // Origin/donor lane, TWO recognized mechanisms: a mirror lane URL (reference_url_override,
+      // the pre-live-tenant ports) OR a recorded live-tenant atlas ref (reference-live-tenant-*.json#slug
+      // in adjudication_ref) — the live tenant IS the origin, rank above the mirror on the D2 axis.
+      const originLane = m.reference_url_override || /reference-live-tenant(-deep)?-atlas\.v1\.json#/.test(m.adjudication_ref || "");
+      return !(m.candidate_surface && originLane && /reference-(seed-adjudications|gap-adjudication)/.test(m.adjudication_ref || ""));
+    }
+    if (m.parity_class !== "daemon_wired") return true;                         // certified-port promotions
     if (m.reference_clean_state !== "data_clean" || m.shell_pixel_certified !== true) return true;
     let cert = null;
     try { cert = JSON.parse(readFileSync(path.join(appRoot, m.shell_pixel_certification_artifact), "utf8")); } catch { return true; }
     return !(cert && cert.slug === m.slug && cert.shell_pixel_certified === true && cert.viewports_pinned === false);
   });
-  ok("NO UNSANCTIONED PROMOTIONS: any parity drift vs the sweep snapshot is a CERTIFIED port over a data_clean reference (committed non-pinned evidence), nothing else", unsanctioned.length === 0, parityDrift.length ? parityDrift.map((m) => `${m.slug}: ${bySlug[m.slug].parity_class}→${m.parity_class}${unsanctioned.includes(m) ? " (UNSANCTIONED)" : " (certified)"}`).join(", ") : "no drift");
+  ok("NO UNSANCTIONED PROMOTIONS: parity drift vs the sweep snapshot is a CERTIFIED port (pixel evidence) or an ADJUDICATED reference_ported port (candidate surface + origin/donor lane + adjudication_ref), nothing else", unsanctioned.length === 0, parityDrift.length ? parityDrift.map((m) => `${m.slug}: ${bySlug[m.slug].parity_class}→${m.parity_class}${unsanctioned.includes(m) ? " (UNSANCTIONED)" : " (sanctioned)"}`).join(", ") : "no drift");
   const dist = matrix && matrix.by_parity_class;
   const counts = { substrate_bound: 0, reference_capture: 0, daemon_wired: 0, reference_ported: 0 };
   for (const m of rows) counts[m.parity_class] = (counts[m.parity_class] || 0) + 1;

@@ -161,7 +161,7 @@
         "let _ = persist_record(",
         "let _ = super::persist_record("
       ],
-      "gap": "67 direct persist_record results remain explicitly discarded across 25 daemon source files (was 269/40, and 304/41 before that). This remains a SOURCE INDICATOR, not a defect count: W1.2 classified the entire both-tests candidate set (every discarded write reaching a read-back success) to zero, so each remaining occurrence is a checked-elsewhere, rollback/cleanup, bootstrap-seed, or best-effort-telemetry write recorded at its own site.",
+      "gap": "52 direct persist_record results remain explicitly discarded across 23 daemon source files (was 67/25, 269/40, and 304/41 before that). M03.4 removed thirteen indicators: twelve connector-execution writes now cross the MaterializingRun/OntologyProjection owner seams, and the MaterializingRun receipt owner now exposes a checked writer for success paths instead of discarding its own persistence result. The merged Akash two-stage recovery lane removes its four discarded writes by making funded-deposit, compensation, and lease-acceptance persistence fail closed. This remains a SOURCE INDICATOR, not a defect count: W1.2 classified the entire both-tests candidate set (every discarded write reaching a read-back success) to zero, so each remaining occurrence is a checked-elsewhere, rollback/cleanup, bootstrap-seed, or best-effort-telemetry write recorded at its own site.",
       "acceptance": [
         "classify every indicator as canonical mutation, derived projection, rollback cleanup, or intentionally best-effort telemetry",
         "migrate canonical mutations to the shared admission boundary or record an owner-approved equivalent",
@@ -383,22 +383,21 @@
         "SEPARATE AND LARGER, FOUND 2026-08-07 AND NOT CLAIMED FIXED — CapabilityLease plan revocation is unenforced. `handle_plan_revoke` now durably records status=revoked, but NO downstream consumer refuses on it: connector_execution_routes, connector_session_routes and materializing_run_routes contain zero references to `revoked`, while connector_execution_routes re-reads the plan at the moment of execution specifically to re-check the ladder. Revocation is therefore cosmetic even when the write lands. This is an authorization-semantics change, not a mutation-admission fix, and it is the same shape as the authority_routes residue (writes fail closed, routes remain unauthenticated). Fix before any claim that lease revocation works.",
         "provider_routes is only PARTLY closed. The account plane is done; handle_provider_op remains, and 19 discarded persists remain in the file across the per-kind adapter paths (vast, runpod, lambda, gcp, k8s, azure, aws, akash instance/lease/bid/endpoint records). Those are outward-effect paths where a provider resource may already exist, so they need the already-happened-effect classification rather than a reflexive fail-closed."
       ],
-      "status_note": "both-tests defect class CLOSED by W1.2; the gap's remaining acceptance is the standing per-route owner registry and the zero-unclassified-indicator target — the census is now 67 all-classified leads (from 223), and the handler-level classifier resolves them to zero both-tests handlers."
+      "status_note": "both-tests defect class CLOSED by W1.2; the gap's remaining acceptance is the standing per-route owner registry and the zero-unclassified-indicator target — the census is now 52 all-classified leads (from 223), and the handler-level classifier resolves them to zero both-tests handlers."
     }
   ],
   "direct_persistence_indicator_census": {
     "indicator": "explicitly discarded direct persist_record result",
-    "total_occurrences": 71,
-    "source_files": 26,
+    "total_occurrences": 52,
+    "source_files": 23,
     "classification": "audit indicator only; includes possible projections, cleanup, fixtures, and compatibility paths until individually classified",
     "regenerator": "node scripts/audit-daemon-mutation-foundation.mjs",
     "by_source": {
-      "crates/node/src/bin/hypervisor-daemon.rs": 28,
+      "crates/node/src/bin/hypervisor-daemon.rs": 26,
       "crates/node/src/bin/hypervisor_daemon_routes/akash_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/aws_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/azure_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/binding_routes.rs": 1,
-      "crates/node/src/bin/hypervisor_daemon_routes/connector_execution_routes.rs": 12,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_mapping_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/connector_session_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs": 1,
@@ -412,15 +411,13 @@
       "crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/k8s_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/lambda_candidate_source.rs": 1,
-      "crates/node/src/bin/hypervisor_daemon_routes/materializing_run_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/model_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs": 3,
-      "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs": 4,
       "crates/node/src/bin/hypervisor_daemon_routes/runpod_candidate_source.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs": 1,
       "crates/node/src/bin/hypervisor_daemon_routes/vast_candidate_source.rs": 1
     },
-    "census_note": "67 occurrences across 25 files, regenerated 2026-08-08 after W1.2/MEF-GAP-008 closed the entire both-tests candidate set (was 223/35): every discarded persist that reached a success and was read back as state now fails closed with a typed 500 or carries a CLASSIFIED disposition. The remaining 67 are leads the handler-level classifier resolves to ZERO both-tests handlers; each surviving indicator is a checked-elsewhere, rollback/cleanup, bootstrap-seed, or best-effort-telemetry write."
+    "census_note": "52 occurrences across 23 files, regenerated 2026-08-25 after merging the Akash two-stage recovery lane with M03/M04 owner-seam evolution: every discarded persist that reached a success and was read back as state now fails closed with a typed 500 or carries a CLASSIFIED disposition. The Akash path now checks all funded-deposit, compensation, restart-recovery, and lease-acceptance writes. The remaining 52 are leads the handler-level classifier resolves to ZERO both-tests handlers; each surviving indicator is a checked-elsewhere, rollback/cleanup, bootstrap-seed, or best-effort-telemetry write."
   },
   "verification": {
     "foundation_tests": "cargo test -p ioi-node --bin hypervisor-daemon mutation_event_foundation::tests -- --test-threads=1",

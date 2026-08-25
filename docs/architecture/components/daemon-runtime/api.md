@@ -6,7 +6,7 @@ streaming, run lifecycle, OutcomeRoom/GoalRun execution APIs, structured errors,
 and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-31.
+Last alignment pass: 2026-08-20.
 Doctrine status: reference
 Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, but its room-owned transition/receipt/root spine is nonconforming migration input under ADR 0030. The v3 typed room-binding and ordinary Agentgres/System admission successor is target-only, as are generalized artifact/discussion resolution and production-wide propagation/enforcement. The shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
 Implementation refs:
@@ -128,19 +128,39 @@ Hypervisor App, Hypervisor Web, and CLI/headless clients render Core
 projections from daemon/public runtime APIs. These endpoints are read models for
 clients; they do not move runtime truth into the client.
 
+> **Superseded 2026-08-20 — `GET /v1/hypervisor/home-cockpit` was never
+> built. Implementation status: n/a.** No daemon route by this name has ever
+> existed: `home_cockpit`/`home-cockpit` appears nowhere under `crates/`, and a
+> live daemon answers `404` at this path. The only artifact that ever carried
+> the `ioi.hypervisor.home_cockpit_projection.v1` shape is the client-side dev
+> replay fixture (`scripts/hypervisor-app-dev-replay-server.mjs`), which is
+> fixture material and never admitted runtime truth. The serve-lane cockpit
+> this projection presupposed — the `home` registry row mounted at
+> `/__ioi/home-cockpit` — was retired by the E7-1 cockpit retirement on
+> 2026-08-20
+> (`apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement`),
+> so the projection has no consumer either. Home's live readout composes
+> ordinary daemon reads inside the serve lane (`renderHome` in
+> `apps/hypervisor/scripts/serve-product-ui.mjs`, served at `/__ioi/home`); it
+> never called this endpoint. The block below is retained as the record of a
+> proposed contract no cut ever admitted. The reference-wall notice above does
+> **not** apply to it: this is not a committed surface, and nothing may cite it
+> as one.
+
 ```http
 GET /v1/hypervisor/home-cockpit
 ```
 
-`GET /v1/hypervisor/home-cockpit` dispatches through the daemon runtime
-lifecycle projection boundary with:
+`GET /v1/hypervisor/home-cockpit` was specified to dispatch through the daemon
+runtime lifecycle projection boundary with:
 
 ```text
 operation_kind = runtime.lifecycle_projection.hypervisor_home_cockpit
 projection_kind = hypervisor_home_cockpit
 ```
 
-The response is an `ioi.hypervisor.home_cockpit_projection.v1` projection:
+The specified response was an `ioi.hypervisor.home_cockpit_projection.v1`
+projection:
 
 ```json
 {
@@ -2555,6 +2575,20 @@ GET  /v1/threads/{thread_id}/action-requests
 POST /v1/threads/{thread_id}/action-requests
 ```
 
+The live bounded subset is `POST /v1/authority-gateway/profiles`,
+`POST /v1/action-requests`, `GET /v1/action-requests/{id}`, and
+`POST /v1/action-requests/{id}/execute`. Execution currently supports the SCM
+`advance_target_ref` adapter only. Its body contains one `invocation_payload`
+whose JCS commitment equals `proposed_action.input_commitment`; it binds the
+exact environment, admitted proposal and destination binding, review-request
+choice, portable-v3 grant-hash locator, native scopes, and request-derived
+idempotency key. The daemon persists a prepared Agentgres successor before
+delegating to the existing SCM route, which independently derives and compares
+the portable authority effect before consumption. Terminal gateway execution
+and explicit no-artifact receipts are persisted once and replayed verbatim.
+The listed approve, deny, receipts, and thread projections remain target API
+surface rather than implemented routes.
+
 Action request shape:
 
 ```json
@@ -2644,12 +2678,10 @@ MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
 tool invocation to Hypervisor App, Hypervisor Web, CLI/headless clients,
 optional TUI views, SDK, ADK, Developer Workspace, Workflow Compositor, Foundry
 surfaces, other application surfaces, and Environments views.
-Thread-scoped MCP routes are the canonical target protocol APIs. Current master
-still mounts top-level `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`,
-`/v1/mcp/resources`, and `/v1/mcp/prompts` routes. They are live
-implementation drift/compatibility surfaces pending explicit classification or
-retirement; their presence does not make them the canonical thread-scoped
-contract.
+Thread-scoped MCP routes are the canonical protocol APIs. Top-level `/v1/mcp`,
+`/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/resources`, and `/v1/mcp/prompts`
+remain explicitly classified compatibility projections; their presence does
+not make them canonical runtime truth.
 
 ```http
 GET  /v1/threads/{thread_id}/mcp/status
@@ -2700,12 +2732,20 @@ never authority approval. An MCP Task never supplies GoalRun, AutomationRun,
 WorkRun, or receipt identity. An MCP App descriptor never authorizes direct
 host or provider mutation.
 
-Implementation status: the audited live slice remains tool-centric and has
-protocol-version/session-assumption drift across transports. Resource, prompt,
-elicitation, external-task, and App normalization routes above are target
-contract. Until implemented, they fail typed-unavailable; clients must not use
-the live top-level `/v1/mcp*` compatibility surfaces or private state to
-simulate the missing thread-scoped semantics.
+Implementation status: the audited live tool slice admits namespaced descriptors
+as immutable `RuntimeToolContract` revisions and routes canonical and legacy
+model-mount invocation through `RuntimeAgentService.handle_action_execution`.
+Canonical import/add starts only explicitly live configurations and records
+daemon-produced revision bindings on the owning thread. Search, detail, and
+invoke refuse an unbound or disabled revision; disable/remove terminate the
+subprocess and clear routing caches, while enable restarts retained live config.
+Stdio and Streamable HTTP enforce MCP `2025-06-18`; the SDK, CLI, and docs name
+the thread-scoped routes. All 36 MCP-bearing public routes have one startup-fatal
+classification. Resource, prompt, elicitation, external-task, App, and serve
+routes are mounted but return typed-unavailable with no authority or receipt
+identity until their canonical owners are implemented. Top-level `/v1/mcp*`
+routes remain explicitly classified compatibility projections, not canonical
+runtime truth.
 
 ## Memory API
 

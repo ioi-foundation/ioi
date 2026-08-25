@@ -9,10 +9,30 @@
     "schema_version",
     "skill_id",
     "revision_ref",
+    "version",
+    "predecessor_revision_ref",
     "content_hash",
     "owner_ref",
     "display_name",
+    "description",
     "instruction_entrypoint_ref",
+    "procedure_and_reference_refs",
+    "example_refs",
+    "support_asset_refs",
+    "dependency_skill_revision_refs",
+    "runtime_tool_contract_requirement_refs",
+    "capability_requirement_refs",
+    "input_and_output_contract_refs",
+    "context_requirement_profile_refs",
+    "compatible_goal_run_profile_revision_refs",
+    "compatible_harness_profile_revision_refs",
+    "compatible_runtime_and_kernel_refs",
+    "provenance_refs",
+    "source_rights_and_license_refs",
+    "evaluation_and_benchmark_refs",
+    "promotion_policy_ref",
+    "revocation_and_recall_policy_ref",
+    "registry_lifecycle_ref",
     "registry_status"
   ],
   "properties": {
@@ -21,11 +41,11 @@
     },
     "skill_id": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^skill://[^\\s/?#\\\\]{1,160}$"
     },
     "revision_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
     },
     "version": {
       "type": "string"
@@ -34,7 +54,7 @@
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
         },
         {
           "type": "null"
@@ -47,7 +67,7 @@
     },
     "owner_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$"
     },
     "display_name": {
       "type": "string",
@@ -58,14 +78,14 @@
     },
     "instruction_entrypoint_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^(?:artifact|cid)://[^\\s]{1,500}$"
     },
     "procedure_and_reference_refs": {
       "type": "array",
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       }
     },
     "example_refs": {

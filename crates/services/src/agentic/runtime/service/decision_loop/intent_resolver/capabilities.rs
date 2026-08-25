@@ -754,6 +754,9 @@ pub(super) fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
     if is_mail_connector_tool(&normalized) {
         return vec![capability("conversation.reply")];
     }
+    if normalized.contains("__") {
+        return vec![capability("extension.invoke")];
+    }
     vec![]
 }
 

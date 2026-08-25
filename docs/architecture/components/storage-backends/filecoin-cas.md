@@ -10,6 +10,7 @@ Doctrine status: canonical
 Implementation status: built (sealed archive custody with preflight probes and done-bar)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
+  - `apps/hypervisor/scripts/verify-hypervisor-filecoin-cas-archive-custody.mjs`
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition

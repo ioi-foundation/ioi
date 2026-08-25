@@ -51,11 +51,9 @@ export const V2_ROUTE_TABLE = [
     kind: "one-click action (Work)",
     rule: "remains a one-click action",
     waves: "W0.1 · W1",
-    build_state: "W2.1 partial pre-W3 cockpit slice landed (next-legs IV Leg 3) — the bound Work surface module serves this canonical route: create exactly ONE admitted session via POST /v1/hypervisor/sessions on the identity-carrying action lane (202 + provision receipt), NO subject input (subject_attachments is hardcoded empty at the daemon — the typed W3 C-1 absence is stated on the form; project_ref stays a session field, never a subject attachment). NOT Work completion: W3.1 owns the launch/run chain and SURF-work remains open",
+    build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The admitted-session create itself is daemon truth and is proven by check:launch-chain (POST /v1/hypervisor/sessions → 202 + provision receipt, subject_attachments EXACTLY [] at create) and check:session-authority — the surface that used to expose it is gone, the authority is not",
     serving_today: [
-      { href: "/work/new-session", label: "New Session (canonical)", note: "bound Work surface module — the one-click admitted create; typed W3 absences stated" },
-      { href: "/__ioi/work-new-session", label: "New Session (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
-      { href: "/ai#new-session", label: "New Session composer", note: "the live composer with the governed launcher — keeps serving untouched until the Work cutover" },
+      { href: "/ai#new-session", label: "New Session composer", note: "the live composer with the governed launcher — the one entry that serves this action today" },
     ],
   },
   {
@@ -64,11 +62,9 @@ export const V2_ROUTE_TABLE = [
     kind: "core workspace",
     rule: "no fabricated System rows before honest read models",
     waves: "W1 · W3 (interface-binding plane)",
-    build_state: "W2.1 greenfield workspace landed (next-legs III Leg 4) — the bound surface module serves this canonical route: inventory + detail over the daemon's autonomous-system read projection VERBATIM (honest_empty and the fail-closed system_projection_source_incomplete stop pass through untouched — the route rule holds by construction); genesis compose and sequence-zero cross through the shared CapabilityLease client (403 challenge commitments, 428 credential lane, receipted crossings); the remaining family verbs are read-first or disabled with a named reason; Interfaces stays the OQ-9 disabled named gap until the W3 interface-binding plane lands. Greenfield-authorized non-parity lane (seed-ux-provenance.v1.json)",
+    build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The autonomous-system read projection and the genesis crossings are daemon truth and keep their own surface: the M1.6/M1.7 genesis cockpit below, proven by check:system-genesis-product-journey",
     serving_today: [
-      { href: "/systems", label: "Systems workspace (canonical)", note: "bound surface module — projection truth verbatim, lease-client crossings, typed refusal ladder" },
-      { href: "/__ioi/systems-workspace", label: "Systems workspace (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
-      { href: "/__ioi/systems", label: "Systems genesis readout", note: "the M1.6/M1.7 system-genesis cockpit over daemon truth; keeps serving untouched until the W4 cutover" },
+      { href: "/__ioi/systems", label: "Systems genesis readout", note: "the M1.6/M1.7 system-genesis cockpit over daemon truth — the live Systems surface" },
     ],
   },
   {
@@ -89,11 +85,9 @@ export const V2_ROUTE_TABLE = [
     kind: "core workspace",
     rule: "one catalog/compiler projection",
     waves: "W0.2 · W1",
-    build_state: "W2.1 greenfield launcher landed (next-legs III Leg 3) — the bound surface module serves this canonical route: a READ-ONLY launcher over the one compiled product-surface projection joined live with the package registry (typed ineligibility verbatim, reserved registrations declared nonlaunchable, recall removes rows by derivation on every read). Greenfield-authorized non-parity lane (seed-ux-provenance.v1.json); the W0.2 compiled navigation band keeps feeding the shell pages",
+    build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The one catalog/compiler projection keeps its live readouts below — the W0.2 compiled navigation band still feeds the shell pages and the native shell's own launcher modal",
     serving_today: [
-      { href: "/applications", label: "Applications launcher (canonical)", note: "bound surface module — compiler+registry truth only; launch is navigation, never a mutation" },
-      { href: "/__ioi/applications-launcher", label: "Applications launcher (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
-      { href: "/__ioi/applications", label: "Applications estate readout", note: "renders the compiled product-surface projection (W0.2); keeps serving untouched until the W4 cutover" },
+      { href: "/__ioi/applications", label: "Applications estate readout", note: "renders the compiled product-surface projection (W0.2) — the live Applications surface" },
       { href: "/__ioi/home", label: "Estate launcher", note: "the owned launcher lanes — fed by the same compiled projection as of W0.2" },
     ],
   },
@@ -103,13 +97,11 @@ export const V2_ROUTE_TABLE = [
     kind: "core workspace",
     rule: "typed views only; Sessions is /work/sessions",
     waves: "W0.6 · W1 · W3 (lineage) · W4 (Cut #2)",
-    build_state: "W2.1 partial pre-W3 cockpit slice landed (next-legs IV Leg 3) — the bound Work surface module serves this canonical route: the jobs/incidents cockpit grammar rehomed READ-FIRST (rows link to the protected seeds, which keep serving untouched — seed-preservation invariant) plus the sessions rollup. NOT Work completion: W3.1 owns the admission→harness→run→events/receipts→stop/archive/recovery/replay chain; the other typed views stay honest shell pages (SURF-work remains open)",
+    build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The Work grammar the retired slice had rehomed lives on its protected seeds below; bare /sessions is still retired with a typed 410 pointing at /work/sessions",
     serving_today: [
-      { href: "/work", label: "Work cockpit (canonical)", note: "bound Work surface module — partial pre-W3 cockpit slice; read-first rehomed cockpit grammar, typed W3 absences" },
-      { href: "/__ioi/work-cockpit", label: "Work cockpit (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
-      { href: "/work/sessions", label: "Sessions (typed Work view)", note: "module-served; bare /sessions is retired with a typed 410" },
       { href: "/__ioi/missions", label: "Jobs readout", note: "protected seed — goal-orchestration run queue (absorbed into Work); keeps serving untouched" },
       { href: "/__ioi/missions/incidents", label: "Incidents inbox", note: "protected seed — run-failure + goal-blocker inbox (absorbed into Work); keeps serving untouched" },
+      { href: "/__ioi/sessions", label: "Sessions root readout", note: "the T2 sessions readout — the live Sessions surface; bare /sessions is retired with a typed 410" },
       { href: "/__ioi/work-ledger", label: "Work Ledger", note: "the owned proof stream" },
       { href: "/__ioi/run-timeline", label: "Run Timeline", note: "owned governed-work timeline" },
     ],
@@ -120,11 +112,9 @@ export const V2_ROUTE_TABLE = [
     kind: "typed Work view (core workspace: Work)",
     rule: "Sessions is a Work view, never a peer application; bare /sessions is retired with a typed 410 (no redirect alias)",
     waves: "W0.6 (sessions/overview) · W1 · W4 (execution loop Cut #2)",
-    build_state: "W2.1 partial pre-W3 cockpit slice landed (next-legs IV Leg 3) — the bound Work surface module serves this canonical route: sessions list + the W0.6 counts-first overview (owner-filtered before counts) + per-session lifecycle facts with the ADMITTED harness binding rendered as session truth recorded at create, never UI state. Typed W3 absences pinned: subject_attachments hardcoded empty (C-1), no session-level stop/archive route, no typed HarnessSessionLaunch producer (launch/terminal/replay/recovery disabled with the machine-readable reason). NOT Work completion — W3.1 owns the execution chain; lineage family stays the Wave 3 backend build",
+    build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. This route stays the canonical replacement bare /sessions is retired ONTO (the typed 410 names it), and the session plane itself is daemon truth proven by check:launch-chain + check:session-authority",
     serving_today: [
-      { href: "/work/sessions", label: "Work / Sessions (canonical)", note: "bound Work surface module — lifecycle facts + admitted bindings over daemon truth; typed W3 absences" },
-      { href: "/__ioi/work-sessions", label: "Work / Sessions (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
-      { href: "/__ioi/sessions", label: "Sessions root readout", note: "the T2 readout this view's grammar was rehomed from; keeps serving untouched until the W4 cutover" },
+      { href: "/__ioi/sessions", label: "Sessions root readout", note: "the T2 readout the retired view's grammar was rehomed from — the live Sessions surface" },
       { href: "/__ioi/run-timeline", label: "Run Timeline", note: "per-run governed-work timeline" },
     ],
   },
@@ -171,11 +161,10 @@ export const V2_ROUTE_TABLE = [
     kind: "owner application",
     rule: "shell placement and application identity resolve to the same registration",
     waves: "W0.6 (scheduler read) · W1 · W2",
-    build_state: "W2.1 rehome landed — the bound surface module serves this canonical route (spec list/detail/new read-first over the shared read client; daemon-owned verbs through the seed cockpit lanes; receipts are the W2 lease-client wave per surfaces/automations.md §5). Legacy lanes keep serving until the W4 cutover",
+    build_state: "GRE-2 AUT-3 (owner go 2026-08-20): this canonical route 302-TRANSFERS to the designated Automate landing — this shell row is never reached from the serve layer. E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that also served here was retired with its registry row and its /__ioi/automations-cockpit legacy lane; the family's own action lanes stay on the T2 readout below",
     serving_today: [
-      { href: "/automations", label: "Automations (canonical)", note: "rehomed module at the canonical route — read-first cockpit over the daemon automations family" },
-      { href: "/__ioi/automations", label: "Automations readout (legacy lane)", note: "keeps serving untouched until the W4 cutover" },
-      { href: "/__ioi/automations/monitors", label: "Automate / monitors", note: "protected ported seed (daemon-wired)" },
+      { href: "/__ioi/automations/monitors", label: "Automate / monitors", note: "the GRE-2 transfer target — protected ported seed (daemon-wired), the designated Automations landing" },
+      { href: "/__ioi/automations", label: "Automations readout", note: "the T2 cockpit and the family's own wired create/patch/delete/run/webhook-rotate action lanes" },
     ],
   },
   {
@@ -334,11 +323,9 @@ export const V2_ROUTE_TABLE = [
     kind: "substrate",
     rule: "—",
     waves: "W1 · W2",
-    build_state: "W2.1 partial pre-W3 cockpit slice landed (next-legs V Leg 4) — the bound Operations surface module serves this canonical route: a read-first cockpit over the existing runtime/failover truth (scheduler health, execution health, cross-provider failover posture, environment incidents/recovery, provider health + customer-borne spend, storage custody, substrate status). NOT Operations completion: SURF-operations stays open — full acceptance needs the W3.2/W3.3 fault-injection/remediation matrix and the scheduler seed residual; the unified infrastructure-jobs projection, RPO/RTO rollup, and capacity overview stay Wave 3 backend builds (typed route-missing absences on the page)",
+    build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The runtime/failover truth the retired slice composed keeps its own surface: the T2 Operations readout below, which the estate's provider/custody/failover verifiers drive directly",
     serving_today: [
-      { href: "/operations", label: "Operations cockpit (canonical)", note: "bound Operations surface module — partial pre-W3 cockpit slice; read-first over eleven daemon read families, typed W3.2/W3.3 gaps" },
-      { href: "/__ioi/operations-cockpit", label: "Operations cockpit (legacy lane)", note: "same module on the fresh legacy lane; keeps serving until the W4 cutover" },
-      { href: "/__ioi/operations", label: "Operations readout", note: "protected T2 rehome source — runs / failures / failover posture over daemon truth; keeps serving untouched" },
+      { href: "/__ioi/operations", label: "Operations readout", note: "the T2 rehome source — runs / failures / failover posture over daemon truth; the live Operations surface" },
     ],
   },
   {
@@ -427,29 +414,29 @@ export function retiredUiRouteRefusal(requested, replacement) {
 }
 
 const PAGE_CSS = `
-  :root{color-scheme:dark}
-  body{margin:0;background:#0c0d10;color:#e6e7ea;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
+  :root{color-scheme:light}
+  body{margin:0;background:#fff;color:#1c2127;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}
   .wrap{max-width:820px;margin:0 auto;padding:48px 24px 80px}
-  a{color:#8ab4ff}
-  .brand{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6f7280;margin-bottom:8px}
+  a{color:#215db0}
+  .brand{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5f6b7c;margin-bottom:8px}
   h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
-  .sub{color:#9a9da6;margin:0 0 22px;max-width:680px}
-  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#878a93;margin:26px 0 10px;font-weight:600}
-  .grid{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;padding:16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin:0 0 18px}
-  .grid dt{color:#878a93;font-size:12.5px}
-  .grid dd{margin:0;min-width:0;color:#e6e7ea;overflow-wrap:anywhere}
-  .card{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #24262d;border-radius:12px;background:#15171c;margin-bottom:8px;text-decoration:none;color:inherit}
-  a.card:hover{border-color:#3a82f6;background:#191b21}
+  .sub{color:#5f6b7c;margin:0 0 22px;max-width:680px}
+  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;margin:26px 0 10px;font-weight:600}
+  .grid{display:grid;grid-template-columns:170px 1fr;gap:8px 16px;padding:16px;border:1px solid #e5e8eb;border-radius:12px;background:#fafbfc;margin:0 0 18px}
+  .grid dt{color:#5f6b7c;font-size:12.5px}
+  .grid dd{margin:0;min-width:0;color:#1c2127;overflow-wrap:anywhere}
+  .card{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #e5e8eb;border-radius:12px;background:#fff;margin-bottom:8px;text-decoration:none;color:inherit}
+  a.card:hover{border-color:#215db0;background:#f6f8fa}
   .card .main{flex:1;min-width:0}
-  .card .name{font-weight:600;color:#fff}
-  .card .meta{color:#878a93;font-size:12.5px;margin-top:3px}
+  .card .name{font-weight:600;color:#1c2127}
+  .card .meta{color:#5f6b7c;font-size:12.5px;margin-top:3px}
   .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;border:1px solid;white-space:nowrap;margin-left:8px;vertical-align:2px}
-  .muted{color:#9a9da6;border-color:#2a2c33}
-  .warn{color:#d6a13a;border-color:#5c4a23;background:#28220f}
-  .empty{color:#6f7280;padding:18px;border:1px dashed #24262d;border-radius:12px}
-  code{font-size:11.5px;color:#aab;background:#0e0f13;padding:1px 5px;border-radius:4px}
-  pre{background:#0e0f13;border:1px solid #24262d;border-radius:8px;padding:12px;overflow:auto;font:11.5px/1.5 ui-monospace,monospace;color:#cdd1d8;white-space:pre-wrap;word-break:break-all}
-  .foot{color:#6f7280;font-size:12.5px;margin-top:28px;border-top:1px solid #1b1d23;padding-top:14px}
+  .muted{color:#5f6b7c;border-color:#d1d5da}
+  .warn{color:#946638;border-color:#f0dca6;background:#fff8e6}
+  .empty{color:#5f6b7c;padding:18px;border:1px dashed #d1d5da;border-radius:12px}
+  code{font-size:11.5px;color:#3b4450;background:#f2f4f6;padding:1px 5px;border-radius:4px}
+  pre{background:#f6f8fa;border:1px solid #e5e8eb;border-radius:8px;padding:12px;overflow:auto;font:11.5px/1.5 ui-monospace,monospace;color:#3b4450;white-space:pre-wrap;word-break:break-all}
+  .foot{color:#5f6b7c;font-size:12.5px;margin-top:28px;border-top:1px solid #e5e8eb;padding-top:14px}
   @media(max-width:700px){
     .wrap{padding:28px 16px 56px}
     .grid{grid-template-columns:minmax(0,1fr);gap:3px;padding:14px}

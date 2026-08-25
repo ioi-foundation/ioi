@@ -19,13 +19,13 @@ use ioi_types::config::{
 };
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::{identity, Multiaddr, PeerId};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex as StdMutex, OnceLock};
+use std::sync::Arc;
 use tempfile::TempDir;
 use tokio::process::Command as TokioCommand;
 use tokio::sync::{broadcast, Mutex};
@@ -184,9 +184,95 @@ fn append_benchmark_trace_line(path: &Path, line: &str) {
     }
 }
 
-fn built_node_profiles() -> &'static StdMutex<HashSet<String>> {
-    static BUILT_NODE_PROFILES: OnceLock<StdMutex<HashSet<String>>> = OnceLock::new();
-    BUILT_NODE_PROFILES.get_or_init(|| StdMutex::new(HashSet::new()))
+const NODE_PROFILE_SOURCE_REVISION_MARKER: &str = ".ioi-source-revision";
+
+fn git_stdout(args: &[&str]) -> Option<Vec<u8>> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(super::build::workspace_root())
+        .output()
+        .ok()?;
+    output.status.success().then_some(output.stdout)
+}
+
+/// The identity of the SOURCE these cached node binaries were built from — not
+/// merely the commit they were built at. A commit-only marker silently reuses
+/// binaries built before an uncommitted change to the very services under test,
+/// so a green chain gate on a dirty tree would be evidence about the previous
+/// commit. An uncommitted change therefore yields a distinct revision, which
+/// forces one rebuild per distinct working tree and still reuses across repeated
+/// runs of the same tree.
+fn checkout_source_revision() -> Option<String> {
+    let head = String::from_utf8(git_stdout(&["rev-parse", "HEAD"])?)
+        .ok()?
+        .trim()
+        .to_owned();
+    if head.len() != 40 || !head.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return None;
+    }
+    let mut worktree = git_stdout(&["diff", "HEAD", "--binary"])?;
+    // Untracked files can carry a whole module; `--porcelain` names them, and
+    // naming them is enough to invalidate a reused binary set.
+    worktree.extend_from_slice(&git_stdout(&["status", "--porcelain"])?);
+    if worktree.is_empty() {
+        return Some(head);
+    }
+    let digest =
+        <dcrypt::algorithms::hash::Sha256 as dcrypt::algorithms::hash::HashFunction>::digest(
+            &worktree,
+        )
+        .ok()?;
+    Some(format!("{head}-worktree:{}", hex::encode(digest.as_ref())))
+}
+
+fn node_profile_needs_build(node_target_dir: &Path, binaries_present: bool) -> bool {
+    if !binaries_present {
+        return true;
+    }
+    let Some(revision) = checkout_source_revision() else {
+        // A binary with no resolvable source identity is not reusable evidence.
+        return true;
+    };
+    std::fs::read_to_string(node_target_dir.join(NODE_PROFILE_SOURCE_REVISION_MARKER))
+        .map(|recorded| recorded.trim() != revision)
+        .unwrap_or(true)
+}
+
+fn record_node_profile_source_revision(node_target_dir: &Path) -> Result<()> {
+    let revision = checkout_source_revision()
+        .ok_or_else(|| anyhow!("cannot resolve source revision for test-node build"))?;
+    std::fs::create_dir_all(node_target_dir)?;
+    std::fs::write(
+        node_target_dir.join(NODE_PROFILE_SOURCE_REVISION_MARKER),
+        format!("{revision}\n"),
+    )?;
+    Ok(())
+}
+
+fn refresh_fixture_wall_clock_after_node_build() -> Result<()> {
+    if std::env::var("IOI_HYPERVISOR_WALLET_FIXTURE_WALL_CLOCK").as_deref() != Ok("1") {
+        return Ok(());
+    }
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now_ms: u64 = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| anyhow!("test fixture wall clock predates the Unix epoch: {error}"))?
+        .as_millis()
+        .try_into()
+        .map_err(|_| anyhow!("test fixture wall clock does not fit in u64"))?;
+    // Keep the first ordinary block strictly after its synthetic parent while remaining in the
+    // same clock domain as a WebAuthn ceremony emitted immediately after readiness.
+    std::env::set_var(
+        "IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS",
+        now_ms.saturating_sub(1_000).to_string(),
+    );
+    Ok(())
+}
+
+fn node_profile_build_forbidden() -> bool {
+    std::env::var("IOI_TEST_FORBID_NODE_BUILD")
+        .ok()
+        .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
 }
 
 // BinaryFeatureConfig helps resolve the feature string for building the node binary.
@@ -440,16 +526,13 @@ impl TestValidator {
             .iter()
             .all(|bin| node_binary_dir.join(bin).exists());
 
-        let build_cache_key = format!("{build_profile}|{features}");
-        let needs_build = {
-            let mut built = built_node_profiles()
-                .lock()
-                .expect("build profile cache poisoned");
-            // Cache once per unique profile+feature combination in this process, and rebuild if the
-            // feature-isolated binary directory has not been materialized yet.
-            built.insert(build_cache_key) || !binaries_present
-        };
+        let needs_build = node_profile_needs_build(&node_target_dir, binaries_present);
         if needs_build {
+            if node_profile_build_forbidden() {
+                return Err(anyhow!(
+                    "test node profile {build_profile}|{features} is absent but IOI_TEST_FORBID_NODE_BUILD=1"
+                ));
+            }
             println!(
                 "--- Building node binaries with profile={} features: {} ---",
                 build_profile, features
@@ -489,7 +572,12 @@ impl TestValidator {
             if !status_node.success() {
                 panic!("Node binary build failed for features: {}", features);
             }
+            record_node_profile_source_revision(&node_target_dir)?;
         }
+        // A cold profile build can take minutes. Refresh only the explicit wallet-fixture clock
+        // after compilation and before spawning the validator so signed wall-clock evidence is
+        // never rejected merely because compilation aged the initial test seed.
+        refresh_fixture_wall_clock_after_node_build()?;
 
         let peer_id = keypair.public().to_peer_id();
         let state_dir = match stable_state_dir {
@@ -1080,5 +1168,36 @@ impl TestValidator {
             log_drain_handles: Arc::new(Mutex::new(log_drain_handles)),
             signing_oracle_guard,
         }))
+    }
+}
+
+#[cfg(test)]
+mod node_profile_build_tests {
+    use super::{
+        checkout_source_revision, node_profile_needs_build, NODE_PROFILE_SOURCE_REVISION_MARKER,
+    };
+
+    #[test]
+    fn a_prebuilt_profile_without_source_identity_requires_a_build() {
+        let dir = tempfile::tempdir().expect("profile dir");
+        assert!(node_profile_needs_build(dir.path(), true));
+    }
+
+    #[test]
+    fn a_prebuilt_profile_from_the_current_revision_is_reused() {
+        let dir = tempfile::tempdir().expect("profile dir");
+        let revision = checkout_source_revision().expect("checkout revision");
+        std::fs::write(
+            dir.path().join(NODE_PROFILE_SOURCE_REVISION_MARKER),
+            format!("{revision}\n"),
+        )
+        .expect("source marker");
+        assert!(!node_profile_needs_build(dir.path(), true));
+    }
+
+    #[test]
+    fn an_absent_profile_requires_a_build() {
+        let dir = tempfile::tempdir().expect("profile dir");
+        assert!(node_profile_needs_build(dir.path(), false));
     }
 }

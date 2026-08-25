@@ -13,7 +13,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-08-12.
+Last alignment pass: 2026-08-20.
 Doctrine status: canonical
 Implementation status: mixed (the existing Home, New Session, Projects,
 Automations, Applications, Sessions, owner-application, environment, and
@@ -40,7 +40,7 @@ contract, and older mapping documents remain archived historical evidence.
 Implementation refs:
   - `apps/hypervisor/`
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-08-08 (scope: core-workspace enumeration sections only, re-derived under repair unit R2 against the v2 route table and surface compiler; all other sections carry the 2026-07-05 basis and need re-derivation before citing)
+Last implementation audit: 2026-08-20 (scope: the Application Surfaces implementation-status block, the New Session block, and the Hypervisor Home block, re-derived against the running estate under the Reference-UX Remediation correction; core-workspace enumeration sections carry the 2026-08-08 R2 basis against the v2 route table and surface compiler; all other sections carry the 2026-07-05 basis and need re-derivation before citing)
 
 ## Canonical Definition
 
@@ -1444,7 +1444,8 @@ Application surfaces are major product modes inside one or more first-class
 clients.
 
 Implementation status — ported-seed ownership program (reconfirmed
-2026-07-30): the product shell and its ported applications are owned by
+2026-07-30; acceptance re-aimed 2026-08-20): the product shell and its
+ported applications are owned by
 ADOPTION, not recreation, so no "current version vs recreated version" gap
 may be introduced. The running bundle is vendored as an editable source tree
 (`apps/hypervisor/product-ui/owned/public`, built by
@@ -1463,14 +1464,45 @@ first fold (the augmentation script tag moving into the owned index.html) is
 in. Serve-time code transforms must stay formatting-tolerant — they apply to
 both the minified original and the beautified owned source.
 
-This adopted estate is the executable seed, not merely comparative evidence.
-Migration proceeds per application by admitting the owner contract, rebinding
-the ported implementation, proving parity and negative no-fallback behavior,
-then retiring only that application's superseded reference or adapter path.
-No whole-estate bundle or server deletion is valid while any live ported app
-lacks an individually proved successor. A separate first-party client is valid
-for a canonical journey with no applicable seed, but remains a protocol client
-and cannot silently replace the Hypervisor estate or own its truth.
+**Adoption is the ownership MECHANISM; it is never the acceptance test.**
+Superseded 2026-08-20 by the Reference-UX Remediation correction: the prose
+this paragraph replaces called the adopted estate "the executable seed, not
+merely comparative evidence" and made per-application migration acceptance
+"proving parity and negative no-fallback behavior" — landing-level parity as
+the done-bar. That is the program-level conflation the correction closed. A
+captured reference ROOT is not the application, and a landing that matches a
+capture has been compared, not accepted. Non-Negotiable 36 governs.
+
+A surface is accepted when three conditions hold together, none of which a
+capture can satisfy:
+
+- **Designated landing grammar.** The landing is the one designated for that
+  click target under the D-rules — grammar fit to the job, evidence rank,
+  richer IA breaking ties, exactly one designation per target, losers
+  preserved rather than deleted, and terminal absence recorded with its
+  adjudication rather than implied.
+- **Daemon-truth binding.** Every body claim resolves to an owner's daemon
+  projection, with no fallthrough and no client-local substitute.
+- **Unified gap contract.** Everything not built is a typed, named, disabled
+  absence carrying its reason. Coverage counts are live-counted against the
+  running estate, never read off a capture inventory.
+
+Designation authority is machine-recorded, not prose: the D-rules doctrine and
+the per-target designations live in
+`apps/hypervisor/landing-designations.v1.json`, the per-seed evidence and
+rulings in `apps/hypervisor/reference-seed-adjudications.v1.json`, and the
+run's iterations and owner gos in
+`apps/hypervisor/reference-remediation-ledger.v1.json`. Parity matrices and
+pixel certifications stay in force as EVIDENCE — they establish that an
+adoption is faithful to what it adopted, and nothing beyond that.
+
+Migration still proceeds per application: admit the owner contract, rebind the
+ported implementation onto daemon truth at its designated landing, then retire
+only that application's superseded reference or adapter path. No whole-estate
+bundle or server deletion is valid while any live ported app lacks an
+individually proved successor. A separate first-party client is valid for a
+canonical journey with no applicable seed, but remains a protocol client and
+cannot silently replace the Hypervisor estate or own its truth.
 
 ### The Autonomous-Systems Owner Applications
 
@@ -1713,12 +1745,26 @@ bundle is a daemon-admitted launch recipe, not a client-local chat setting.
 Creating durable intent or standing behavior remains an explicit New Goal or
 New Automation action even when a Session is attached immediately afterward.
 
-Implementation status: live — New Session IS the product shell's polished
-composer page (goal prompt, agent picker, project/URL/scratch intake), at
-`/ai#new-session`; the rail's `+ New Session` action and Ctrl+O land there.
-An Advanced-launch affordance on the composer opens the owned governed
-launcher modal (registry-fed harness/model with disabled-reasons, venue
-picker, placement preview) — one daemon-backed launch lane, no forked truth.
+Implementation status: partial (the composer lane is live; the canonical
+`/work/new-session` route is an honest shell page). Last implementation audit:
+2026-08-20. New Session IS the product shell's polished composer page (goal
+prompt, agent picker, project/URL/scratch intake), at `/ai#new-session`; the
+rail's `+ New Session` action and Ctrl+O land there. An Advanced-launch
+affordance on the composer opens the owned governed launcher modal
+(registry-fed harness/model with disabled-reasons, venue picker, placement
+preview) — one daemon-backed launch lane, no forked truth.
+
+> **Superseded 2026-08-20 (E7-1 cockpit retirement).** The canonical
+> `/work/new-session` route no longer has a bound surface module: the
+> `work-new-session` registry row and its `/__ioi/work-new-session` legacy lane
+> were retired, and the route renders the honest v2 route-shell page naming the
+> live lanes. The composer above is unaffected and remains the New Session
+> surface. The admitted-session create is daemon truth — proven by
+> `check:launch-chain` and `check:session-authority` — not a property of the
+> retired page. `/work` stays designated `GRE` in
+> `apps/hypervisor/landing-designations.v1.json`, the greenfield lane governed
+> by the GRE-1 chrome ruling. Record:
+> `apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement`.
 
 The composer is one visual seed with two explicit semantic acts; sharing its
 layout does not merge their contracts. Ordinary prompt submission and Enter
@@ -1739,21 +1785,36 @@ rebind under ADR 0028, not a replacement Home, route migration, or new client.
 
 **Hypervisor Home** is the default command and resume surface.
 
-Implementation status: live — Home is an owned EXPLORER rendered over the
-shell at `/ai` (the rail's Home destination and default view), built from the
-shell's own design tokens (`renderExplorer`/`applyAiViews` in
-`apps/hypervisor/scripts/augmentation/` (modular `00-core.js`…`80-automations.js`), owns no truth): welcome hero
-with a live summary; get-started actions (New Session / Applications /
-Automations); first-class governed-work rows (approvals waiting, runs parked
-at a wallet gate incl. `awaiting_authority_*` failover runs, failed runs —
-each opening the OWNING surface in the Open Application slot, collapsing to
-one all-clear line when quiet, naming a daemon outage rather than papering
-over it); Recent tabs (sessions / projects / runs) with honest empty states;
-and the Applications estate grid. It expands into the owned full readout
-`/__ioi/home` (`renderHome` in `serve-product-ui.mjs`: decisions / blocked /
-resume / newest-proof strips with honest empty + degraded states). The
-composer is deliberately NOT the home page — it is New Session — and there is
-no second "Home" entry in the Applications launcher.
+Implementation status: partial (the explorer and the full readout are live;
+the canonical `/home` route is an honest shell page). Last implementation
+audit: 2026-08-20. Home is an owned EXPLORER rendered over the shell at `/ai`
+(the rail's Home destination and default view), built from the shell's own
+design tokens (`renderExplorer`/`applyAiViews` in
+`apps/hypervisor/scripts/augmentation/`, modular `00-core.js`…`90-mount.js`;
+owns no truth): welcome hero with a live summary; get-started actions (New
+Session / Applications / Automations); first-class governed-work rows
+(approvals waiting, runs parked at a wallet gate incl.
+`awaiting_authority_*` failover runs, failed runs — each opening the OWNING
+surface in the Open Application slot, collapsing to one all-clear line when
+quiet, naming a daemon outage rather than papering over it); Recent tabs
+(sessions / projects / runs) with honest empty states; and the Applications
+estate grid. It expands into the owned full readout `/__ioi/home`
+(`renderHome` in `serve-product-ui.mjs`: decisions / blocked / resume /
+newest-proof strips with honest empty + degraded states). The composer is
+deliberately NOT the home page — it is New Session.
+
+> **Superseded 2026-08-20 (E7-1 cockpit retirement).** The `home` registry row
+> and its `/__ioi/home-cockpit` legacy lane are retired, together with
+> `surfaces/home/index.mjs` and `verify-hypervisor-home-cockpit.mjs` — whose
+> live claims over `/ai` and `/__ioi/home` were first proven independently
+> covered by the shell gates. The canonical `/home` route renders the honest
+> v2 route-shell page, light-bodied under the GRE-1 chrome ruling, and names
+> `/ai` and `/__ioi/home` as the lanes serving Home today; `/home` stays
+> designated `GRE` in `apps/hypervisor/landing-designations.v1.json`. The
+> sentence that there is "no second Home entry in the Applications launcher"
+> is no longer a design choice held by convention — the second entry does not
+> exist to remove. Record:
+> `apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement`.
 
 Home may accept goal prompts, show recent typed Work subjects, surface waiting
 approvals, and route the user into a System, Project, Automation, Application,

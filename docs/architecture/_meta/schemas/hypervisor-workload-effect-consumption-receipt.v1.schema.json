@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1",
+  "title": "HypervisorWorkloadEffectConsumptionReceipt",
+  "x-ioi-schema-version": "ioi.components.hypervisor.workload-effect-consumption-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "capability_ref", "isolation_binding_ref", "principal_ref", "request_hash", "effect_receipt_hash", "final_invoker_calls", "status"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.hypervisor.workload-effect-consumption-receipt.v1" },
+    "capability_ref": { "$ref": "#/$defs/ref" },
+    "isolation_binding_ref": { "$ref": "#/$defs/ref" },
+    "principal_ref": { "$ref": "#/$defs/ref" },
+    "request_hash": { "$ref": "#/$defs/hash" },
+    "effect_receipt_hash": { "$ref": "#/$defs/hash" },
+    "final_invoker_calls": { "enum": [1] },
+    "status": { "const": "consumed" }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

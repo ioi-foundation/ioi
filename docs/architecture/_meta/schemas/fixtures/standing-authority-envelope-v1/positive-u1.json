@@ -1,0 +1,44 @@
+{
+  "schema_version": "ioi.foundations.standing-authority-envelope.v1",
+  "standing_envelope_ref": "standing-envelope://acme/aft-u1/1",
+  "owner_ref": "org://local",
+  "bounded_system_ref": "system://acme/aft-bench",
+  "principal_ref": "agentgres://domain/acme/research",
+  "audience_ref": "runtime://acme/hypervisor/node-1",
+  "authority_scope": "scope:hypervisor.live-route.hypervisor-provider-op",
+  "facet_template": {
+    "provider_id": "pacc_18cd245812ad55b9",
+    "operations": ["create", "start", "logs", "delete", "reconcile"],
+    "provider_selector": {
+      "mode": "exact",
+      "provider_addresses": ["akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8"],
+      "selection": "only_qualified_bid_from_exact_provider"
+    },
+    "per_operation_deposit_microusd": 1000000,
+    "pricing_ceiling": { "amount": "1000", "denom": "uact" },
+    "sdl_hashes": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"],
+    "image_digests": ["sha256:2222222222222222222222222222222222222222222222222222222222222222"],
+    "registry_hosts": ["ghcr.io"],
+    "result_destination_refs": ["connector://conn_eee2dfac02809de0"],
+    "result_transport_certificate_hashes": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+    "auto_topup": false,
+    "teardown_policy": "always_teardown_required",
+    "max_duration_seconds": 3600
+  },
+  "aggregate_bounds": {
+    "max_cumulative_deposit_microusd": 2000000,
+    "max_cumulative_spend_microusd": 2000000,
+    "max_usages": 2,
+    "max_concurrent_resources": 1,
+    "max_provider_fanout": 1,
+    "max_failures": 2
+  },
+  "not_before_ms": 1787385600000,
+  "expires_at_ms": 1787472000000,
+  "revocation_epoch": 1,
+  "trajectory_policy_ref": "policy://acme/aft-u1/trajectory/1",
+  "trajectory_policy_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "approval_mode": "standing_envelope",
+  "recovery_posture": "recovery_never_widens_or_resets_drawdown",
+  "body_hash": "sha256:2a1d8054d087668a8c985596d24da9c87f7c0c0e0e80ded648c2fbfe519664d4"
+}

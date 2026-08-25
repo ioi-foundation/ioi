@@ -65,8 +65,6 @@ pub(crate) const NODE_EVIDENCE_DIR: &str = "hypervisoros-node-evidence";
 const RECEIPT_CONTRACT: &str = "schema://ioi/foundations/receipt-envelope/v1";
 const TRANSITION_ARTIFACT_DOMAIN: &str = "ioi.hypervisoros-node-transition-jcs-sha256.v1";
 const RECEIPT_ARTIFACT_DOMAIN: &str = "ioi.hypervisoros-node-attestation-receipt-jcs-sha256.v1";
-const ENFORCEMENT_COVERAGE_SCHEMA_VERSION: &str =
-    "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1";
 const DECLARE_BOOT_PROFILE_OP: &str = "declare_boot_profile";
 const DECLARE_BOOT_PROFILE_SCOPE: &str = "scope:hypervisoros.node.declare_boot_profile";
 const DECLARE_TEMPORAL_PROFILE_OP: &str = "declare_temporal_profile";
@@ -377,24 +375,14 @@ fn load_node_evidence(data_dir: &str, ref_pointer: &str, reference: &str) -> Res
 /// declared enforcement profile (`INV-37`: refs derive from resolved
 /// declarations, never the caller).
 fn load_enforcement_declarations(
-    data_dir: &str,
+    registry: &ioi_services::agentic::runtime::enforcement_coverage::EnforcementCoverageRegistry,
     node_enforcement_profile_ref: Option<&str>,
 ) -> Result<Vec<Value>, VErr> {
     let Some(profile_ref) = node_enforcement_profile_ref else {
         return Ok(Vec::new());
     };
-    Ok(scan_local_family(data_dir, NODE_EVIDENCE_DIR)?
-        .into_iter()
-        .filter_map(|(_, value)| {
-            (value.get("schema_version").and_then(Value::as_str)
-                == Some(ENFORCEMENT_COVERAGE_SCHEMA_VERSION)
-                && value
-                    .pointer("/subject/profile_or_adapter_ref")
-                    .and_then(Value::as_str)
-                    == Some(profile_ref))
-            .then_some(value)
-        })
-        .collect())
+    super::enforcement_coverage_routes::resolve_node_profile(registry, profile_ref)
+        .map_err(|reason| verr("hypervisoros_node_enforcement_coverage_unverified", reason))
 }
 
 pub(crate) fn compile_from_source(
@@ -780,28 +768,42 @@ pub(crate) fn ensure_no_pending_node_attestation_intent(data_dir: &str) -> Resul
 }
 
 fn resolve_trusted_inputs(
-    data_dir: &str,
+    state: &DaemonState,
     op: NodeAttestationOp,
     declaration: &NodeAttestationDeclaration,
 ) -> Result<(Option<Value>, Option<Value>, Vec<Value>), VErr> {
     let receipt = match (op, declaration.boot_receipt_ref.as_deref()) {
-        (NodeAttestationOp::SubmitBootReceipt, Some(reference)) => {
-            Some(load_node_evidence(data_dir, "/receipt_id", reference)?)
-        }
+        (NodeAttestationOp::SubmitBootReceipt, Some(reference)) => Some(load_node_evidence(
+            &state.data_dir,
+            "/receipt_id",
+            reference,
+        )?),
         _ => None,
     };
     let evaluation = match (op, declaration.temporal_validity_evaluation_ref.as_deref()) {
         (
             NodeAttestationOp::SubmitBootReceipt | NodeAttestationOp::MarkNodeReady,
             Some(reference),
-        ) => Some(load_node_evidence(data_dir, "/evaluation_id", reference)?),
+        ) => Some(load_node_evidence(
+            &state.data_dir,
+            "/evaluation_id",
+            reference,
+        )?),
         _ => None,
     };
     let enforcement = match op {
-        NodeAttestationOp::AdmitNodeIdentity => load_enforcement_declarations(
-            data_dir,
-            declaration.node_enforcement_profile_ref.as_deref(),
-        )?,
+        NodeAttestationOp::AdmitNodeIdentity => {
+            let registry = state.enforcement_coverage_registry.lock().map_err(|_| {
+                verr(
+                    "hypervisoros_node_enforcement_coverage_unavailable",
+                    "the enforcement-coverage lifecycle registry is unavailable",
+                )
+            })?;
+            load_enforcement_declarations(
+                &registry,
+                declaration.node_enforcement_profile_ref.as_deref(),
+            )?
+        }
         _ => Vec::new(),
     };
     Ok((receipt, evaluation, enforcement))
@@ -855,7 +857,7 @@ pub(crate) async fn handle_node_transition(
         Err(error) => return classify(error),
     };
     let (mut receipt_input, evaluation, enforcement) =
-        match resolve_trusted_inputs(&state.data_dir, op, &declaration) {
+        match resolve_trusted_inputs(&state, op, &declaration) {
             Ok(value) => value,
             Err(error) => return classify(error),
         };

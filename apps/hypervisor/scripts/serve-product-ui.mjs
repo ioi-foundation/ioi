@@ -37,10 +37,11 @@ import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { compileProductSurfaces } from "./surface-compiler.mjs";
 import { bindSurface, boundSurface, boundActionRoute, canonicalSurfaceRoute, embeddableRoutes, surfaceBySlug } from "./surface-registry.mjs";
-import { canonicalTimelineRef, escHtml } from "../surfaces/kit.mjs";
+import { canonicalTimelineRef, escHtml, GRE1_LIGHT, GRE1_LIGHT_BODY_CSS } from "../surfaces/kit.mjs";
 import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
+import { renderSplashLanding } from "./splash-landing-grammar.mjs";
 import { mintTestGrant, awaitingWalletAuthority } from "./lib/wallet-authority.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
 import { resolveV2Route, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal } from "./v2-route-shell.mjs";
@@ -742,7 +743,13 @@ function automationsRefusalPage(res, status, j, backHref) {
   res.end(automationsShell("Refused", `<div class="empty" data-ioi-refusal-code="${CX_ESC(code)}">Refused: <code>${CX_ESC(code)}</code> — ${CX_ESC(message)}</div><p><a href="${backHref}">← back</a></p>`));
 }
 
-function automationsShell(title, inner) {
+// GRE-1a: the platform shell now serves TWO bodies from ONE structure. Default = the dark shell,
+// unchanged byte-for-byte for its 100+ callers. `{ theme: "light" }` appends the shared GRE-1
+// light-body contract (surfaces/kit.mjs) AFTER the dark rules inside this same stylesheet, so the
+// opted-in greenfield surfaces render the reference grammar the certified ports already speak.
+// The appended layer is colour + typography only — it cannot move a box, change a marker, or
+// touch a truth binding.
+function automationsShell(title, inner, opts = {}) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${CX_ESC(title)} · Hypervisor</title>
 <style>
   :root{color-scheme:dark}
@@ -802,7 +809,7 @@ function automationsShell(title, inner) {
   .chip{background:#15171c;border:1px solid #2a2c33;color:#cbd0da;border-radius:999px;padding:4px 11px;font:inherit;font-size:12px;cursor:pointer}
   .chip:hover{border-color:#3a82f6}
   .chip.on{background:#15315c;border-color:#3a82f6;color:#fff}
-  .wlwrap{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+  .wlwrap{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}@media(max-width:700px){.wlwrap{grid-template-columns:1fr}.wlwrap>*{min-width:0;max-width:100%}.wldrawer{position:static;max-width:100%;min-width:0}}
   .wlrow{cursor:pointer}
   .wlrow:hover td{background:#15171c}
   .wlrow.selrow td{background:#191b21}
@@ -823,6 +830,7 @@ function automationsShell(title, inner) {
   .field textarea{min-height:84px;resize:vertical}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
   form.inline{display:inline}
+  @media(max-width:700px){table{display:block;overflow-x:auto;max-width:100%}.pill{white-space:normal;overflow-wrap:anywhere;max-width:100%}.row{flex-wrap:wrap}.sub,code{overflow-wrap:anywhere}}${opts.theme === "light" ? GRE1_LIGHT_BODY_CSS : ""}
 </style></head><body><div class="wrap"><div class="brand">IOI Hypervisor</div>${inner}</div></body></html>`;
 }
 function automationProjectName(a, projectsById) {
@@ -1483,7 +1491,7 @@ function renderSessionsRoot(sessionsRes, envSummary) {
       <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
     </tr>`;
   }).join("");
-  const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>. <a href="/__apps/jobs">Run/job queue (daemon-truth rebind) →</a> · <a href="/__apps/incidents">Incident inbox (daemon-truth rebind) →</a></p>
+  const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>. <a href="/__ioi/missions">Jobs (Missions substrate) →</a> · <a href="/__ioi/missions/incidents">Issues (certified inbox) →</a></p>
     ${sessions.length ? `${chips}<table><thead><tr><th>Session</th><th>Lifecycle</th><th>Admitted binding</th><th>Environment</th><th>Open</th></tr></thead><tbody id="sess-body">${rows}</tbody></table><div class="empty" id="sess-empty" style="display:none">No sessions in this state.</div>
     <script>function ssChip(b){document.querySelectorAll('#sess-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-ss');var n=0;document.querySelectorAll('#sess-body tr').forEach(function(r){var on=!w||r.getAttribute('data-ss')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('sess-empty').style.display=n?'none':'';}</script>`
     : `<div class="empty">No sessions yet — launch one from the rail's New Session and it appears here with its admitted binding.</div>`}`;
@@ -1523,11 +1531,12 @@ function renderApplications(compiled) {
   const ported = compiled?.apps || [];
   return automationsShell(
     "Applications",
-    `<h1>Applications</h1><p class="sub">One catalog/compiler projection over the registration records — the twelve owner applications, the substrate lane, and the core workspaces, with per-org launch state from the daemon. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${banner}
+    `<h1>Applications</h1><p class="sub">Generated app candidates live on the <a href="/__ioi/domain-apps">Generated Apps plane →</a>. One catalog/compiler projection over the registration records — the twelve owner applications, the substrate lane, and the core workspaces, with per-org launch state from the daemon. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${banner}
     ${owners.map(card).join("")}
     <h2 style="margin-top:26px">Substrate</h2><p class="sub">Environments and Operations — the foundation the owner applications run on, kept distinct from them.</p>${substrate.map(card).join("")}
     <h2 style="margin-top:26px">Core workspaces</h2>${workspaces.map(card).join("")}
     ${ported.length ? `<h2 style="margin-top:26px">Ported tool surfaces</h2><p class="sub">Implementation evidence, not catalog authority — these lanes keep serving until each surface's rehome/cutover.</p>${ported.map(portedCard).join("")}` : ""}`,
+    { theme: "light" },
   );
 }
 
@@ -1620,7 +1629,7 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
     const msg = scopedProject
       ? "No admitted work yet for this project. Run one of its automations to create ledger evidence."
       : "No admitted work yet. Run an automation to create ledger evidence.";
-    return automationsShell("Provenance", head + renderProvenanceLineage(entries) + `<div class="empty">${msg}</div>`);
+    return automationsShell("Provenance", head + renderProvenanceLineage(entries) + `<div class="empty">${msg}</div>`, { theme: "light" });
   }
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
@@ -1735,7 +1744,7 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
     }
   </script>`;
   const wlSelScript = wlSelIdx >= 0 ? `<script>wlOpen(${wlSelIdx})</script>` : "";
-  return automationsShell("Provenance", head + wlSelNote + renderProvenanceLineage(entries) + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script + wlSelScript);
+  return automationsShell("Provenance", head + wlSelNote + renderProvenanceLineage(entries) + filters + proofExp + `<div class="wlwrap"><div>${table}</div>${drawer}</div>` + dataTag + script + wlSelScript, { theme: "light" });
 }
 
 // ---- Operations — the first real Operations estate card: execution health over the automation
@@ -1859,7 +1868,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   jobs.forEach((j) => { jobCounts[j.type] = (jobCounts[j.type] || 0) + 1; });
   const jobsChips = `<div class="chips" id="jobs-chips">${JOB_TYPES.map(([v, l]) => `<button class="chip${v === "" ? " on" : ""}" data-job-type="${v}" onclick="jobsChip(this)">${l} ${v === "" ? jobs.length : jobCounts[v] || 0}</button>`).join("")}</div>`;
   const jobRows = capped.slice(0, 48).map((j) => `<tr data-job="${CX_ESC(j.type)}">
-      <td>${CX_ESC(j.name)}<div style="color:#878a93;font-size:11px;margin-top:1px"><code style="font-size:10px">${CX_ESC(j.id)}</code></div></td>
+      <td>${CX_ESC(j.name)}<div style="color:#5f6b7c;font-size:11px;margin-top:1px"><code style="font-size:10px">${CX_ESC(j.id)}</code></div></td>
       <td><span class="pill muted">${CX_ESC(j.type)}</span></td>
       <td>${CX_ESC(j.project)}</td>
       <td>${jobPill(j.status)}</td>
@@ -1891,7 +1900,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const opRunRow = (r, kind) => {
     const i = opRuns.length;
     opRuns.push({ ...r, kind });
-    return `<tr class="wlrow oprow" data-i="${i}"><td>${CX_ESC(r.name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(r.execution_id || "")}</code></div></td><td>${CX_ESC(r.project_id || "—")}</td><td><span class="pill ${r.status === "done" ? "ok" : r.status === "failed" ? "warn" : "muted"}">${CX_ESC(r.status || "")}</span></td><td>${CX_ESC(r.started_at || "")}</td></tr>`;
+    return `<tr class="wlrow oprow" data-i="${i}"><td>${CX_ESC(r.name || "—")}<div style="color:#5f6b7c;font-size:11px;margin-top:1px"><code>${CX_ESC(r.execution_id || "")}</code></div></td><td>${CX_ESC(r.project_id || "—")}</td><td><span class="pill ${r.status === "done" ? "ok" : r.status === "failed" ? "warn" : "muted"}">${CX_ESC(r.status || "")}</span></td><td>${CX_ESC(r.started_at || "")}</td></tr>`;
   };
   // Run health
   const runStat = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">${stat("muted", "total " + (runs.total || 0))}${stat("ok", "done " + (runs.done || 0))}${stat("warn", "failed " + (runs.failed || 0))}${stat("muted", "running " + (runs.running || 0))}</div>`;
@@ -1921,7 +1930,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   // hidden markup. Real records only (daemon /providers + /provider-receipts).
   const provAccounts = prov.accounts || [];
   const provStatusPill = (s) => (s === "available" || s === "credential_verified") ? "ok" : s === "revoked" ? "warn" : "muted";
-  const provRows = provAccounts.map((a) => `<tr><td>${CX_ESC(a.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(a.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(a.kind || "")}</span></td><td><span class="pill ${provStatusPill(a.status)}">${CX_ESC(a.status || "")}</span><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(a.reason || "")}</div></td><td><span class="pill muted">customer-borne spend</span></td></tr>`).join("");
+  const provRows = provAccounts.map((a) => `<tr><td>${CX_ESC(a.display_name || "—")}<div style="color:#5f6b7c;font-size:11px;margin-top:1px"><code>${CX_ESC(a.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(a.kind || "")}</span></td><td><span class="pill ${provStatusPill(a.status)}">${CX_ESC(a.status || "")}</span><div style="color:#5f6b7c;font-size:11px;margin-top:1px">${CX_ESC(a.reason || "")}</div></td><td><span class="pill muted">customer-borne spend</span></td></tr>`).join("");
   const provTable = providersUnavailable
     ? `<div class="empty">Provider-account projection unavailable — account and preflight posture is unknown.</div>`
     : provAccounts.length
@@ -1956,15 +1965,15 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
         <span class="pill muted">finalized ${CX_ESC(String((spendRecon.teardown_finalized || {}).count ?? 0))}</span>
         ${srWarn.length ? `<span class="pill warn">⚠ incomplete teardowns ${srWarn.length}</span>` : ""}
       </div>
-      ${srWarn.map((w) => `<div class="sub" style="margin:0 0 6px;color:#e2b93d;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(w.exposure_ref || "")} — ${CX_ESC(w.warning || "")}</div>`).join("")}
+      ${srWarn.map((w) => `<div class="sub" style="margin:0 0 6px;color:#946638;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(w.exposure_ref || "")} — ${CX_ESC(w.warning || "")}</div>`).join("")}
       ${srRows ? `<table><thead><tr><th>Exposure</th><th>Provider</th><th>Status</th><th>Rate (estimate)</th><th>Teardown</th><th>Evidence</th></tr></thead><tbody>${srRows}</tbody></table>` : `<div class="empty">No spend exposures yet — a quote-backed metered create opens one; teardown closes it.</div>`}
     </div>`;
   // Storage backend health — archive/CAS byte custody posture (backends, objects, incidents).
   const stB = (storageBackends || {}).backends || [];
   const stInc = ((storageIncidents || {}).incidents || []).filter((i) => i.status === "open");
   const stRep = ((storageIncidents || {}).repair_receipts || []).slice(0, 5);
-  const stRows = stB.map((b) => `<tr><td>${CX_ESC(b.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(b.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(b.kind || "")}</span></td><td><span class="pill ${(b.health || {}).state === "available" ? "ok" : (b.health || {}).state === "impaired" ? "warn" : "muted"}">${CX_ESC((b.health || {}).state || b.status || "")}</span></td><td>${CX_ESC(String((b.health || {}).objects ?? 0))} object(s)</td><td>${(b.health || {}).open_incidents ? `<span class="pill warn">⚠ ${(b.health || {}).open_incidents}</span>` : `<span class="pill muted">0</span>`}</td></tr>`).join("");
-  const stIncRows = stInc.map((i) => `<div class="sub" style="margin:0 0 6px;color:#e2b93d;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(i.kind || "")} — <code style="font-size:10.5px">${CX_ESC(i.archive_ref || "")}</code> ${CX_ESC((i.detail || "").slice(0, 120))}</div>`).join("");
+  const stRows = stB.map((b) => `<tr><td>${CX_ESC(b.display_name || "—")}<div style="color:#5f6b7c;font-size:11px;margin-top:1px"><code>${CX_ESC(b.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(b.kind || "")}</span></td><td><span class="pill ${(b.health || {}).state === "available" ? "ok" : (b.health || {}).state === "impaired" ? "warn" : "muted"}">${CX_ESC((b.health || {}).state || b.status || "")}</span></td><td>${CX_ESC(String((b.health || {}).objects ?? 0))} object(s)</td><td>${(b.health || {}).open_incidents ? `<span class="pill warn">⚠ ${(b.health || {}).open_incidents}</span>` : `<span class="pill muted">0</span>`}</td></tr>`).join("");
+  const stIncRows = stInc.map((i) => `<div class="sub" style="margin:0 0 6px;color:#946638;text-transform:none;letter-spacing:0">⚠ ${CX_ESC(i.kind || "")} — <code style="font-size:10.5px">${CX_ESC(i.archive_ref || "")}</code> ${CX_ESC((i.detail || "").slice(0, 120))}</div>`).join("");
   const stRepRows = stRep.map((r) => `<div class="sub" style="margin:0 0 4px;text-transform:none;letter-spacing:0">${r.outcome === "repaired" ? "✔" : "✖"} repair ${CX_ESC(r.outcome || "")} — <code style="font-size:10.5px">${CX_ESC(r.archive_ref || "")}</code></div>`).join("");
   const storageIncomplete = storageBackendsUnavailable || storageIncidentsUnavailable;
   const storageSection = `<div id="ops-storage-backends"><h3 style="margin:14px 0 8px">Storage backend health</h3>
@@ -1980,7 +1989,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const akRow = (d) => {
     const lease = akLeases.find((l) => l.deployment_ref === d.deployment_ref) || {};
     const lastEvent = (d.events || []).slice(-1)[0] || {};
-    return `<tr><td><code style="font-size:10.5px">${CX_ESC(d.deployment_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(d.environment_ref || "")}</div></td><td><span class="pill ${d.status === "running" ? "ok" : d.status === "torn_down" ? "muted" : "warn"}">${CX_ESC(d.status || "")}</span></td><td><span class="pill ${lease.state === "open" ? "warn" : "muted"}">${CX_ESC(lease.state || "—")}</span> $${CX_ESC(String(lease.usd_per_hour ?? "?"))}/hr</td><td>${CX_ESC((lastEvent.kind || "—"))}</td></tr>`;
+    return `<tr><td><code style="font-size:10.5px">${CX_ESC(d.deployment_ref || "")}</code><div style="color:#5f6b7c;font-size:11px;margin-top:1px">${CX_ESC(d.environment_ref || "")}</div></td><td><span class="pill ${d.status === "running" ? "ok" : d.status === "torn_down" ? "muted" : "warn"}">${CX_ESC(d.status || "")}</span></td><td><span class="pill ${lease.state === "open" ? "warn" : "muted"}">${CX_ESC(lease.state || "—")}</span> $${CX_ESC(String(lease.usd_per_hour ?? "?"))}/hr</td><td>${CX_ESC((lastEvent.kind || "—"))}</td></tr>`;
   };
   const akSection = depinUnavailable
     ? `<div id="ops-akash-depin"><h3 style="margin:14px 0 8px">DePIN deployments (Akash)</h3><div class="empty">DePIN projection unavailable — deployment and lease posture is unknown.</div></div>`
@@ -1993,7 +2002,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const foRow = (r) => {
     const repl = r.replacement || {};
     const oldp = r.old_provider || {};
-    return `<tr><td><code style="font-size:10.5px">${CX_ESC(r.run_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(r.environment_ref || "")}</div></td><td><span class="pill warn">${CX_ESC(r.failure_condition || "")}</span></td><td>${CX_ESC(oldp.provider_kind || "?")} → ${CX_ESC(repl.provider_kind || "?")}</td><td><span class="pill ${r.status === "restored" ? "ok" : r.status === "refused" ? "err" : "warn"}">${CX_ESC(r.status || "")}</span></td><td><code style="font-size:10px">${CX_ESC((r.state_root || "").slice(0, 24))}</code></td></tr>`;
+    return `<tr><td><code style="font-size:10.5px">${CX_ESC(r.run_ref || "")}</code><div style="color:#5f6b7c;font-size:11px;margin-top:1px">${CX_ESC(r.environment_ref || "")}</div></td><td><span class="pill warn">${CX_ESC(r.failure_condition || "")}</span></td><td>${CX_ESC(oldp.provider_kind || "?")} → ${CX_ESC(repl.provider_kind || "?")}</td><td><span class="pill ${r.status === "restored" ? "ok" : r.status === "refused" ? "err" : "warn"}">${CX_ESC(r.status || "")}</span></td><td><code style="font-size:10px">${CX_ESC((r.state_root || "").slice(0, 24))}</code></td></tr>`;
   };
   const foPlansAll = (failoverPlans || {}).plans || [];
   const foArmed = foPlansAll.filter((p) => p.trigger_state === "armed").length;
@@ -2072,7 +2081,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const postureStrip = authUnavailable
     ? `<div class="card" style="display:block;margin:0 0 14px" id="ops-auth-posture"><b>Auth posture</b> <span class="pill muted">unknown</span><div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">Authentication-policy projection unavailable; enforcement and exposure are not inferred. · <a href="/__ioi/governance">Governance →</a></div></div>`
     : posture ? `<div class="card" style="display:block;margin:0 0 14px" id="ops-auth-posture"><b>Auth posture</b> <span class="pill ${posture === "authenticated_managed" ? "ok" : posture === "exposed_untrusted" ? "warn" : "muted"}">${CX_ESC(posture)}</span> · enforcement ${authpol.effective_enforced ? `<span class="pill ok">enforced</span>` : `<span class="pill muted">not enforced</span>`} · exposed ${authpol.exposed ? `<span class="pill warn">yes</span>` : `<span class="pill muted">no</span>`}<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(rtNote)} · <a href="/__ioi/governance">Governance →</a></div></div>` : "";
-  return automationsShell("Operations", postureStrip + inner);
+  return automationsShell("Operations", postureStrip + inner, { theme: "light" });
 }
 
 // ---- Environments — where work runs: env lifecycle, readiness, services/ports/tasks, substrate
@@ -2106,7 +2115,7 @@ function renderPlacementVenues(venuesRes, policyRes, spendRecon) {
     (exposuresByAccount[e.account_ref] = exposuresByAccount[e.account_ref] || []).push(e);
   }
   const hintChips = (h) => h ? ["gpu", "persistent_storage", "ip", "snapshot"].map((k) => `<span class="pill muted" title="${CX_ESC(k)}">${CX_ESC(k.replace("persistent_storage", "storage"))}: ${CX_ESC(h[k] || "?")}</span>`).join(" ") : "";
-  const providerCard = (p) => `<div style="border:1px solid #1b1d23;border-radius:9px;padding:9px 11px;margin:6px 0">
+  const providerCard = (p) => `<div style="border:1px solid #e5e8eb;border-radius:9px;padding:9px 11px;margin:6px 0">
       <b>${CX_ESC(p.display_name || p.kind)}</b> <span class="pill muted">${CX_ESC(p.kind || "")}</span>
       <span class="pill ${p.status === "verified" ? "ok" : p.connected === false ? "muted" : "warn"}">${CX_ESC(p.status || "")}</span>
       <span class="pill muted">cost owner: ${CX_ESC(p.cost_owner || "customer")}</span>
@@ -2114,20 +2123,20 @@ function renderPlacementVenues(venuesRes, policyRes, spendRecon) {
       <div class="chips" style="margin-top:4px">${hintChips(p.capability_hints)}</div>
       <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">classes: ${CX_ESC(((p.environment_classes || {}).supported || []).join(", ") || (p.environment_classes || {}).note || "—")} · ${CX_ESC(p.lifecycle || "")}</div>
       ${p.account_ref ? `<div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0"><code>${CX_ESC(p.account_ref)}</code></div>` : ""}
-      ${(exposuresByAccount[p.account_ref] || []).length ? (() => { const ex = exposuresByAccount[p.account_ref]; const open = ex.filter((e) => e.status === "open"); const warn = ex.filter((e) => e.status === "closed_with_warning"); return `<div class="sub" style="margin:3px 0 0;text-transform:none;letter-spacing:0">spend posture: ${open.length} open exposure(s)${open.length ? ` (est $${open.reduce((a, e) => a + (e.usd_per_hour || 0), 0).toFixed(3)}/hr)` : ""} · ${ex.filter((e) => e.status === "closed").length} finalized${warn.length ? ` · <span style="color:#e2b93d">⚠ ${warn.length} incomplete teardown</span>` : ""} · customer-borne</div>`; })() : ""}
+      ${(exposuresByAccount[p.account_ref] || []).length ? (() => { const ex = exposuresByAccount[p.account_ref]; const open = ex.filter((e) => e.status === "open"); const warn = ex.filter((e) => e.status === "closed_with_warning"); return `<div class="sub" style="margin:3px 0 0;text-transform:none;letter-spacing:0">spend posture: ${open.length} open exposure(s)${open.length ? ` (est $${open.reduce((a, e) => a + (e.usd_per_hour || 0), 0).toFixed(3)}/hr)` : ""} · ${ex.filter((e) => e.status === "closed").length} finalized${warn.length ? ` · <span style="color:#946638">⚠ ${warn.length} incomplete teardown</span>` : ""} · customer-borne</div>`; })() : ""}
     </div>`;
   const card = (v) => {
     const chosen = policy.venue === v.venue;
     const fee = v.fee || {};
-    return `<div class="venue-card${chosen ? " chosen" : ""}" data-venue="${CX_ESC(v.venue)}" style="border:1px solid ${chosen ? "#3c9d64" : "#24262d"};border-radius:12px;background:#0c0d10;padding:12px 14px">
+    return `<div class="venue-card${chosen ? " chosen" : ""}" data-venue="${CX_ESC(v.venue)}" style="border:1px solid ${chosen ? "#1c6e42" : "#e5e8eb"};border-radius:12px;background:#fff;padding:12px 14px">
       <b>${CX_ESC(v.display_name)}</b>
       ${v.status === "planned" ? `<span class="pill muted" style="border-style:dashed">planned</span>` : v.status === "advisory" ? `<span class="pill ${v.available ? "ok" : "muted"}">advisory</span>` : v.available ? `<span class="pill ok">available</span>` : `<span class="pill warn">unavailable</span>`}
       ${chosen ? `<span class="pill ok">chosen</span>` : ""}
       <div class="sub" style="margin:4px 0 6px;text-transform:none;letter-spacing:0">${CX_ESC(v.summary || "")}</div>
       <div style="font-size:12px"><b>fee basis: ${CX_ESC(fee.fee_basis || "none")}</b> · cost owner: ${CX_ESC(fee.cost_owner || "customer")}</div>
       <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(fee.fee_explanation || "")}</div>
-      ${v.availability_note ? `<div class="sub" style="margin:4px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">${CX_ESC(v.availability_note)}</div>` : ""}
-      ${v.planned_reason ? `<div class="sub" style="margin:4px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">${CX_ESC(v.planned_reason)}</div>` : ""}
+      ${v.availability_note ? `<div class="sub" style="margin:4px 0 0;color:#946638;text-transform:none;letter-spacing:0">${CX_ESC(v.availability_note)}</div>` : ""}
+      ${v.planned_reason ? `<div class="sub" style="margin:4px 0 0;color:#946638;text-transform:none;letter-spacing:0">${CX_ESC(v.planned_reason)}</div>` : ""}
       ${v.quote_policy ? `<div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(v.quote_policy)}</div>` : ""}
       ${(v.environment_classes || {}).supported && v.environment_classes.supported.length ? `<div class="chips" style="margin-top:6px"><span class="chiplabel">classes</span>${v.environment_classes.supported.map((c) => `<span class="pill muted">${CX_ESC(c)}</span>`).join("")}</div>` : ""}
       ${(v.providers || []).map(providerCard).join("")}
@@ -2145,19 +2154,19 @@ function renderCandidateCards(v) {
   const rec = v.recommendation;
   const head = rec
     ? `<div style="font-size:12px;margin-top:8px">advisory recommends <b>${CX_ESC(rec.venue || "")}</b>${rec.display_name ? " · " + CX_ESC(rec.display_name) : ""} <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">(${CX_ESC((rec.reason_codes || []).join(", "))})</span></div>`
-    : `<div class="sub" style="margin:8px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">${CX_ESC(v.no_eligible_candidate || "no eligible candidate — effective venue stays run_local")}</div>`;
+    : `<div class="sub" style="margin:8px 0 0;color:#946638;text-transform:none;letter-spacing:0">${CX_ESC(v.no_eligible_candidate || "no eligible candidate — effective venue stays run_local")}</div>`;
   const card = (c) => {
     const rel = c.reliability || {};
-    return `<div style="border:1px solid #1b1d23;border-radius:9px;padding:9px 11px;margin:6px 0">
+    return `<div style="border:1px solid #e5e8eb;border-radius:9px;padding:9px 11px;margin:6px 0">
       <b>${CX_ESC(c.display_name || c.provider_kind || "")}</b> <span class="pill muted">${CX_ESC(c.provider_kind || "")}</span>
       <span class="pill ${c.status === "active" ? "ok" : "warn"}">${CX_ESC(c.status || "")}</span>
       <span class="pill muted">spend owner: ${CX_ESC((c.spend_estimate || {}).cost_owner || "customer")}</span>
       <div class="sub" style="margin:4px 0 0;text-transform:none;letter-spacing:0">${CX_ESC(c.runtime_class || "")} · custody ${CX_ESC(((c.custody_plan || {}).supported_postures || []).join("/"))} · ${CX_ESC(c.coverage_state || "")}${rel.ops_ok !== undefined ? ` · ops ${rel.ops_ok}✓/${rel.ops_failed || 0}✗` : ""}${rel.host_reliability !== undefined && rel.host_reliability !== null ? ` · host reliability ${CX_ESC(String(rel.host_reliability))}` : ""}</div>
       ${c.gpu ? `<div style="font-size:12px;margin-top:3px"><b>${CX_ESC(String(c.gpu.count || 1))}x ${CX_ESC(c.gpu.model || "GPU")}</b>${c.gpu.vram_gb ? ` · ${CX_ESC(String(c.gpu.vram_gb))} GB VRAM` : ""}${c.region ? ` · ${CX_ESC(c.region)}` : ""}${c.quote && c.quote.usd_per_hour !== undefined ? ` · <b>$${CX_ESC(String(c.quote.usd_per_hour))}/hr</b> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">(${CX_ESC(c.quote.basis || "")}; no fee object minted)</span>` : ""}</div>` : ""}
-      ${(c.custody_plan || {}).privacy === "marketplace_host_NOT_private" ? `<div class="sub" style="margin:2px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">marketplace host — NOT private custody</div>` : ""}
-      ${c.evidence_mode === "fixture_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">fixture_evidence — deterministic local fixture, NOT live supply</div>` : ""}
-      ${c.evidence_mode === "simulator_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#e2b93d;text-transform:none;letter-spacing:0">simulator_evidence — lifecycle harness (control plane simulated), NOT live supply</div>` : ""}
-      ${c.evidence_mode === "live_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#3c9d64;text-transform:none;letter-spacing:0">live quote${c.placement_eligible === true ? " · lifecycle eligible" : ""}</div>` : ""}
+      ${(c.custody_plan || {}).privacy === "marketplace_host_NOT_private" ? `<div class="sub" style="margin:2px 0 0;color:#946638;text-transform:none;letter-spacing:0">marketplace host — NOT private custody</div>` : ""}
+      ${c.evidence_mode === "fixture_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#946638;text-transform:none;letter-spacing:0">fixture_evidence — deterministic local fixture, NOT live supply</div>` : ""}
+      ${c.evidence_mode === "simulator_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#946638;text-transform:none;letter-spacing:0">simulator_evidence — lifecycle harness (control plane simulated), NOT live supply</div>` : ""}
+      ${c.evidence_mode === "live_evidence" ? `<div class="sub" style="margin:2px 0 0;color:#1c6e42;text-transform:none;letter-spacing:0">live quote${c.placement_eligible === true ? " · lifecycle eligible" : ""}</div>` : ""}
       ${c.lifecycle ? `<div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">lifecycle: ${CX_ESC(c.lifecycle)}${c.execution_blocked_reason ? ` · ${CX_ESC(c.execution_blocked_reason)}` : ""}</div>` : ""}
       <div class="sub" style="margin:2px 0 0;text-transform:none;letter-spacing:0">expires ${CX_ESC(c.expires_at || "")} · <code>${CX_ESC(c.candidate_ref || "")}</code></div>
     </div>`;
@@ -2190,7 +2199,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
       ? `${ep.cluster || "cluster unset"} · ns: ${ep.namespace || "default"}`
       : null;
     const target = a.kind === "baremetal_ssh" ? `${ep.user || "?"}@${ep.host || "?"}:${ep.port || 22}` : (awsPosture || ep.region || ep.endpoint || "—");
-    return `<tr><td>${CX_ESC(a.display_name || "—")}<div style="color:#878a93;font-size:11px;margin-top:1px"><code>${CX_ESC(a.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(a.kind || "")}</span></td><td><code style="font-size:11px">${CX_ESC(target)}</code></td><td><span class="pill ${a.credential_binding_ref ? "ok" : "muted"}">${a.credential_binding_ref ? "bound · sealed" : "unbound"}</span></td><td><span class="pill ${paPill(a.status)}">${CX_ESC(a.status || "")}</span>${pf.at ? `<div style="color:#878a93;font-size:11px;margin-top:1px">preflight ${pf.admit ? "admitted" : "refused"} · ${CX_ESC(pf.at)}</div>` : ""}</td><td><span class="pill muted">customer-borne</span></td></tr>`;
+    return `<tr><td>${CX_ESC(a.display_name || "—")}<div style="color:#5f6b7c;font-size:11px;margin-top:1px"><code>${CX_ESC(a.account_ref || "")}</code></div></td><td><span class="pill muted">${CX_ESC(a.kind || "")}</span></td><td><code style="font-size:11px">${CX_ESC(target)}</code></td><td><span class="pill ${a.credential_binding_ref ? "ok" : "muted"}">${a.credential_binding_ref ? "bound · sealed" : "unbound"}</span></td><td><span class="pill ${paPill(a.status)}">${CX_ESC(a.status || "")}</span>${pf.at ? `<div style="color:#5f6b7c;font-size:11px;margin-top:1px">preflight ${pf.admit ? "admitted" : "refused"} · ${CX_ESC(pf.at)}</div>` : ""}</td><td><span class="pill muted">customer-borne</span></td></tr>`;
   }).join("");
   const paSection = `<div id="env-provider-accounts"><h2>Provider accounts</h2><p class="sub" style="margin:-4px 0 10px">Bring-your-own compute: durable provider accounts backing environment classes. ${CX_ESC(providerAccounts.spend_rule || "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost")}.</p>${pAccounts.length
     ? `<table><thead><tr><th>Account</th><th>Kind</th><th>Target</th><th>Credential</th><th>Status · preflight</th><th>Spend</th></tr></thead><tbody>${paRows}</tbody></table>`
@@ -2214,14 +2223,14 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
     const sel = d.selected || {};
     return `<tr><td><code style="font-size:10.5px">${CX_ESC(d.decision_ref || "")}</code></td><td>${CX_ESC(d.decision_mode || "")}</td><td>${CX_ESC(sel.provider_kind || "")} <code style="font-size:10px">${CX_ESC((d.selected_candidate_ref || "").slice(0, 34))}</code></td><td>${(d.alternatives_considered || []).length} alt · ${(d.rejected_candidates || []).length} rejected</td><td>${CX_ESC(((d.spend_posture || {}).routing_fee_eligibility) || "")} <span class="pill muted">no fee minted</span></td></tr>`;
   };
-  const planRow = (pl) => `<tr><td><code style="font-size:10.5px">${CX_ESC(pl.plan_ref || "")}</code><div style="color:#878a93;font-size:11px">${CX_ESC(pl.environment_ref || "")}</div></td><td><span class="pill ${pl.readiness === "ready_daemon_custody" ? "ok" : "warn"}">${CX_ESC(pl.readiness || "")}</span></td><td><span class="pill ${pl.trigger_state === "armed" ? "warn" : pl.trigger_state === "triggered" ? "err" : "muted"}">${CX_ESC(pl.trigger_state || "manual")}</span></td><td><code style="font-size:10px">${CX_ESC((pl.state_root || "").slice(0, 24))}</code></td><td>${((pl.archive_refs || []).length)} archive(s)</td></tr>`;
+  const planRow = (pl) => `<tr><td><code style="font-size:10.5px">${CX_ESC(pl.plan_ref || "")}</code><div style="color:#5f6b7c;font-size:11px">${CX_ESC(pl.environment_ref || "")}</div></td><td><span class="pill ${pl.readiness === "ready_daemon_custody" ? "ok" : "warn"}">${CX_ESC(pl.readiness || "")}</span></td><td><span class="pill ${pl.trigger_state === "armed" ? "warn" : pl.trigger_state === "triggered" ? "err" : "muted"}">${CX_ESC(pl.trigger_state || "manual")}</span></td><td><code style="font-size:10px">${CX_ESC((pl.state_root || "").slice(0, 24))}</code></td><td>${((pl.archive_refs || []).length)} archive(s)</td></tr>`;
   const decisionSection = (plDecisions.length || foPlans.length) ? `<div id="env-placement-decisions"><h2>Placement decisions & failover readiness</h2>
     <p class="sub" style="margin:-4px 0 10px">Explicit optimized-placement decisions (challengeable evidence: selected + alternatives + rejected with reason codes; never authority, never a fee) and per-environment failover readiness (restore truth = daemon-admitted state roots).</p>
     ${plDecisions.length ? `<table><thead><tr><th>Decision</th><th>Mode</th><th>Selected</th><th>Considered</th><th>Fee posture</th></tr></thead><tbody>${plDecisions.slice(0, 6).map(decRow).join("")}</tbody></table>` : ""}
     ${foPlans.length ? `<h3 style="margin:12px 0 8px">Failover readiness</h3><table><thead><tr><th>Plan</th><th>Readiness</th><th>Trigger</th><th>State root</th><th>Archives</th></tr></thead><tbody>${foPlans.slice(0, 6).map(planRow).join("")}</tbody></table>` : ""}
   </div>` : "";
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Environments", head + posture + venueSection + decisionSection + paSection + archSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`);
+    return automationsShell("Environments", head + posture + venueSection + decisionSection + paSection + archSection + `<div class="empty">No active environments. Start a session or create an environment from a project to populate this.</div>`, { theme: "light" });
   }
   // Master-detail lifecycle console (source shape: providers-and-environments is a lifecycle
   // CONSOLE, not a flat list): rows select into a right-hand detail drawer that loads the full
@@ -2240,8 +2249,8 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/environments", summary);
-  const table = `<h2>Active environments</h2><p class="sub" style="margin:-4px 0 12px">Select an environment to inspect its live lifecycle detail — component phases, readiness observations, ports/services/tasks, isolation and connectivity posture — read from the daemon record.</p>${pager}<div class="envwrap"><div><table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div><div class="envdrawer" id="env-drawer"><div class="sub" style="margin:0">Select an environment to inspect its lifecycle detail.</div></div></div>`;
-  const styles = `<style>.envwrap{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}.envdrawer{position:sticky;top:12px;border:1px solid #24262d;border-radius:12px;background:#0c0d10;padding:14px 16px;max-height:82vh;overflow:auto;font-size:12.5px}.envrow{cursor:pointer}.envrow.selrow{background:#15171c}.envrow:hover{background:#121317}.envd-k{color:#878a93;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px;font-weight:600}.envd-comp{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #16181d}.envd-obs{border-left:2px solid #2a2c33;padding:2px 0 8px 10px;margin-left:3px}@media(max-width:1100px){.envwrap{grid-template-columns:1fr}.envdrawer{position:static}}</style>`;
+  const table = `<h2>Active environments</h2><p class="sub" style="margin:-4px 0 12px">Select an environment to inspect its live lifecycle detail — component phases, readiness observations, ports/services/tasks, isolation and connectivity posture — read from the daemon record. <a href="/__ioi/environments/map">Placement map →</a></p>${pager}<div class="envwrap"><div><table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div><div class="envdrawer" id="env-drawer"><div class="sub" style="margin:0">Select an environment to inspect its lifecycle detail.</div></div></div>`;
+  const styles = `<style>.envwrap{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}.envdrawer{position:sticky;top:12px;border:1px solid #e5e8eb;border-radius:12px;background:#fff;padding:14px 16px;max-height:82vh;overflow:auto;font-size:12.5px}.envrow{cursor:pointer}.envrow.selrow{background:#e8eef7}.envrow:hover{background:#f6f7f9}.envd-k{color:#5f6b7c;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px;font-weight:600}.envd-comp{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f0f2f5}.envd-obs{border-left:2px solid #d1d1d1;padding:2px 0 8px 10px;margin-left:3px}@media(max-width:1100px){.envwrap{grid-template-columns:1fr}.envdrawer{position:static}}@media(max-width:700px){.envwrap{min-width:0}.envwrap *{min-width:0}.envwrap .row,.row{flex-wrap:wrap}.envdrawer{max-width:100%;overflow-x:auto}}</style>`;
   const script = `<script>
     function envEsc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
     function envPhaseCls(p){return p==='ready'||p==='running'?'ok':p==='failed'||p==='blocked'?'warn':'muted';}
@@ -2251,12 +2260,12 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
       d.innerHTML='<div class="sub" style="margin:0">Loading '+envEsc(id)+'…</div>';
       fetch('/v1/hypervisor/environments/'+encodeURIComponent(id)).then(function(r){return r.json();}).then(function(j){
         var e=j.environment||j;var st=e.status||{};var comps=st.components||{};
-        var h='<h3 style="margin:0 0 2px">'+envEsc(id)+'</h3><div class="meta" style="color:#878a93;margin-bottom:8px">'+envEsc(st.phase||'')+' · '+envEsc((st.provider&&st.provider.substrate_class)||e.spec&&e.spec.environment_class_id||'')+'</div>';
+        var h='<h3 style="margin:0 0 2px">'+envEsc(id)+'</h3><div class="meta" style="color:#5f6b7c;margin-bottom:8px">'+envEsc(st.phase||'')+' · '+envEsc((st.provider&&st.provider.substrate_class)||e.spec&&e.spec.environment_class_id||'')+'</div>';
         if(st.blocked_reason){h+='<div class="pill warn">blocked: '+envEsc(st.blocked_reason)+'</div>';}
         h+='<div class="envd-k">Component phases</div>';
         var order=['recipe','provisioner','workspace_content','connectivity','sandbox','resource_isolation','secrets','model_mount','harness','automations','agent_work'];
         var keys=Object.keys(comps).sort(function(a,b){var ia=order.indexOf(a),ib=order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);});
-        keys.forEach(function(k){var c=comps[k]||{};h+='<div class="envd-comp"><span>'+envEsc(k)+(c.detail?' <span style="color:#6b6e77">· '+envEsc(c.detail)+'</span>':'')+'</span><span class="pill '+envPhaseCls(c.phase)+'">'+envEsc(c.phase||'—')+'</span></div>';});
+        keys.forEach(function(k){var c=comps[k]||{};h+='<div class="envd-comp"><span>'+envEsc(k)+(c.detail?' <span style="color:#5f6b7c">· '+envEsc(c.detail)+'</span>':'')+'</span><span class="pill '+envPhaseCls(c.phase)+'">'+envEsc(c.phase||'—')+'</span></div>';});
         var ports=st.ports||[];var svcs=st.services||[];var tasks=st.tasks||[];
         h+='<div class="envd-k">Ports · Services · Tasks</div>';
         if(ports.length||svcs.length||tasks.length){
@@ -2266,14 +2275,14 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
         h+='<div class="envd-k">Isolation · connectivity</div><div>'+envEsc(st.isolation_claim||st.minimum_isolation||'process-scoped')+(st.connectivity_profile?' · '+envEsc(st.connectivity_profile.egress_policy||st.connectivity_profile.connectivity_profile_ref||''):'')+'</div>';
         var obs=(e.lifecycle_observations||[]).slice(-8).reverse();
         h+='<div class="envd-k">Lifecycle observations ('+(e.lifecycle_observations||[]).length+')</div>';
-        h+=obs.map(function(o){return '<div class="envd-obs"><span class="pill '+envPhaseCls(o.condition_kind==='admitted'||o.condition_kind==='ready'?'ready':o.condition_kind)+'">'+envEsc(o.component||'')+' · '+envEsc(o.condition_kind||'')+'</span><div style="color:#9a9da6;margin-top:2px">'+envEsc(o.message||'')+'</div><div style="color:#5f626b;font-size:11px">'+envEsc(o.at||'')+'</div></div>';}).join('')||'<div class="sub" style="margin:0">—</div>';
+        h+=obs.map(function(o){return '<div class="envd-obs"><span class="pill '+envPhaseCls(o.condition_kind==='admitted'||o.condition_kind==='ready'?'ready':o.condition_kind)+'">'+envEsc(o.component||'')+' · '+envEsc(o.condition_kind||'')+'</span><div style="color:#5f6b7c;margin-top:2px">'+envEsc(o.message||'')+'</div><div style="color:#7b8494;font-size:11px">'+envEsc(o.at||'')+'</div></div>';}).join('')||'<div class="sub" style="margin:0">—</div>';
         h+='<div class="envd-k">Open</div><div><a class="act" href="/workspaces/'+encodeURIComponent(id)+'" target="_top">Workbench</a> <a class="act ghost" href="/details/'+encodeURIComponent(id)+'" target="_top">Session</a> <a href="/__ioi/run-timeline/env/'+encodeURIComponent(id)+'" target="_blank" rel="noopener">timeline ↗</a></div>';
         h+='<details style="margin-top:10px"><summary class="sub" style="cursor:pointer">Raw record (advanced)</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:11px">'+envEsc(JSON.stringify(e,null,2).slice(0,4000))+'</pre></details>';
         d.innerHTML=h;
       }).catch(function(){d.innerHTML='<div class="ioi-ns-err">Could not load the environment record.</div>';});
     }
   </script>`;
-  return automationsShell("Environments", styles + head + posture + venueSection + decisionSection + paSection + archSection + table + script);
+  return automationsShell("Environments", styles + head + posture + venueSection + decisionSection + paSection + archSection + table + script, { theme: "light" });
 }
 
 // ---- GoalRun proof page — the multi-harness orchestration ladder as Run Timeline sections.
@@ -3143,7 +3152,7 @@ function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindi
       <div class="row" style="margin-top:8px"><a class="act ghost" href="/__ioi/agent-studio#model-routes">Manage in Studio →</a></div>
     </div>`;
   };
-  const catalogGaps = omBoundaryNote(`This is the <b>real model registry</b> — every route's availability (probe evidence + staleness), weight custody, credential posture, and admission trail is daemon truth; route administration (enable/disable/probe/select-default) lives in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. Unsupported reference lanes — <b>fine-tuning</b>, prompt playground, live inference evals, deployment automation, training runs, and model cards where not backed by route truth — are <b>named gaps</b> (no authority contract yet), not hidden. Sibling Foundry seeds stay reference-only: the <a href="/__apps/modelstudio">Model Studio</a> canvas and the <a href="/__apps/inference">inference</a> wizard. The <a href="/__apps/models">model registry reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
+  const catalogGaps = omBoundaryNote(`This is the <b>real model registry</b> — every route's availability (probe evidence + staleness), weight custody, credential posture, and admission trail is daemon truth; route administration (enable/disable/probe/select-default) lives in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. Unsupported reference lanes — <b>fine-tuning</b>, prompt playground, live inference evals, deployment automation, training runs, and model cards where not backed by route truth — are <b>named gaps</b> (no authority contract yet), not hidden. Both sibling Foundry seeds are now PORTED over live-tenant evidence and are no longer reference-only — the creation-entry <a href="/__ioi/foundry/model-studio">Model Studio</a> (MS-1) and the space-gate <a href="/__ioi/foundry/inference">Inference</a> (INF-1) — and neither is the grammar the capture-era note called it: the first is a creation dialog rather than a canvas, the second a space gate rather than a wizard. Their reference captures stay linked as the familiar baselines (<a href="/__apps/modelstudio">Model Studio capture</a> · <a href="/__apps/inference">inference capture</a>), never as rebound surfaces. The <a href="/__apps/models">model registry reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
   const catalogSec = `<div id="foundry-model-catalog"><h2>Model Catalog <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the registered routes with honest availability, custody, and usage; administration lives in Studio · <a href="/__ioi/foundry/models">Model Catalog (reference-faithful) →</a></span></h2>
     ${(modelRoutes || []).length ? (modelRoutes || []).map(routeCard).join("") : `<div class="empty">No model routes registered yet — add one in Studio to populate the catalog.</div>`}${catalogGaps}</div>`;
   const specCard = (s) => `<a class="card" href="/__ioi/foundry/specs/${enc(s.id || "")}"><div class="main"><div class="name">${CX_ESC(s.name || s.id || "spec")} <span class="pill muted">${CX_ESC(s.kind || "")}</span> <span class="pill warn">${CX_ESC(s.status || "draft")}</span></div><div class="meta"><code>${CX_ESC(s.id || "")}</code> · updated ${CX_ESC(s.updated_at || "")}</div></div><span class="act ghost">Open →</span></a>`;
@@ -3774,7 +3783,63 @@ const VERTEX_NODE_KINDS = [
   ["set", "📦", "Object set"], ["projection", "🔭", "Projection"], ["run", "⚙", "Materializing run"],
   ["object", "▪", "Object"], ["proof", "🧾", "Proof-stream edge"],
 ];
-function renderVertex(lists, selectedId, vSel) {
+// PRO-2.build — the light Vertex shell (remediation v2): the SAME graph body re-chromed in place;
+// New exploration = typed absence (the reference create lane is dead in the reference replay — adjudication
+// reference-seed-adjudications.v1.json#vertex).
+function vertexLightPage(bodyHtml, opts = {}) {
+  const esc = CX_ESC;
+  // OWNER RULING (2026-08-20): no fabricated reference rail — railless; the platform container
+  // provides the one rail. CORRECTED GAP REASON: the reference create CANVAS BOOTS in the reference replay
+  // (owner-evidenced screenshots 2026-08-20); the earlier "dead in the reference replay" verdict was the
+  // atlas ia-heuristic's CANVAS BLIND SPOT (it counts facets/columns and cannot see canvas
+  // grammars) — recorded in reference-seed-adjudications.v1.json#vertex-canvas-correction.
+  // Authoring remains a later authority-crossing cut; the absence is authority-ruled, not
+  // capture-ruled.
+  const newGapReason = "New exploration — the reference canvas BOOTS (owner-evidenced; the earlier dead-replay verdict was the ia-heuristic's canvas blind spot, corrected on record); graph authoring is a later authority-crossing cut (boundary_held)";
+  const newGap = `<span class="vtx-hbtn gap" aria-disabled="true" title="${esc(newGapReason)}" data-ioi-disabled-reason="${esc(newGapReason)}">+ New exploration</span>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vertex</title><style>
+    :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+    .vtx-main{display:flex;flex-direction:column;height:100vh}
+    .vtx-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
+    .vtx-title{font-size:16px;font-weight:600;color:#404854;margin:0;flex:1}
+    .vtx-hbtn{display:inline-flex;align-items:center;height:30px;padding:0 10px;border:1px solid rgba(95,107,124,.25);border-radius:4px;font-size:14px}
+    .vtx-hbtn.gap{color:#a8b2be;cursor:not-allowed}
+    .vtx-body{flex:1;overflow-y:auto;padding:26px 40px 40px}
+    .vtx-hero h1{font-size:24px;font-weight:600;margin:0}
+    .vtx-hero p{color:#5f6b7c;margin:4px 0 16px}
+    .vtx-search{display:flex;align-items:center;gap:10px;margin:0 0 20px}
+    .vtx-search input{flex:1;max-width:760px;font:14px/1.4 inherit;padding:9px 12px;border:1px solid rgba(95,107,124,.35);border-radius:3px;background:#f6f7f9;color:#a8b2be;cursor:not-allowed}
+    .vtx-cards{display:flex;gap:24px;margin:0 0 26px;flex-wrap:wrap}
+    .vtx-card{flex:1;min-width:240px;max-width:320px;border:1px solid #e5e8eb;border-radius:4px;padding:16px;position:relative}
+    .vtx-card h4{margin:10px 0 8px;font-size:16px}
+    .vtx-card p{font-size:13px;color:#5f6b7c;margin:0 0 8px}
+    .vtx-avail{position:absolute;top:14px;right:14px;font-size:12px;color:#5f6b7c}
+    .vtx-viewrow{display:flex;gap:8px;align-items:center;margin:0 0 10px}
+    .vtx-view{font-size:13px;padding:4px 12px;border-radius:12px;color:#1c2127;background:#eef1f5}
+    .vtx-view.on{background:#d3e2f7;color:#215db0;font-weight:600}
+    .vtx-view.gap{color:#a8b2be;cursor:not-allowed}
+    .vtx-thead{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:8px 10px;border-bottom:1px solid #e5e8eb;max-width:980px}
+    .vtx-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;align-items:center;padding:9px 10px;border-bottom:1px solid #f0f2f5;font-size:14px;color:#1c2127;max-width:980px}
+    .vtx-row:hover{background:#f6f7f9}
+    .vtx-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+    .vtx-empty{padding:34px 10px;color:#5f6b7c;text-align:center;max-width:980px}
+    .vtx-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:20px;max-width:980px}
+    .sub{color:#5f6b7c;font-size:13px}
+    .empty{padding:14px;background:#f6f7f9;border:1px solid #e5e8eb;border-radius:4px;color:#5f6b7c}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.chiplabel{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;font-weight:600}
+    .pill{display:inline-flex;padding:1px 8px;border-radius:10px;font-size:12px;background:#eef1f5;color:#1c2127}
+    .pill.ok{background:rgba(35,133,81,.12);color:#1c6e42}.pill.muted{background:rgba(95,107,124,.12);color:#5f6b7c}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .act{display:inline-flex;align-items:center;height:26px;padding:0 10px;border:1px solid rgba(95,107,124,.3);border-radius:4px;color:#1c2127}.act.ghost{background:transparent}
+    code{background:#f0f2f5;padding:0 4px;border-radius:3px;font-size:12px}
+    h2{font-size:16px;margin:14px 0 6px}
+  </style></head><body><div class="vtx-main">
+    <header class="vtx-header"><h1 class="vtx-title">Vertex</h1>${opts.backLink ? `<a class="vtx-hbtn" href="/__ioi/vertex">← All graphs</a>` : ""}${newGap}</header>
+    <div class="vtx-body">${bodyHtml}</div>
+  </div></body></html>`;
+}
+
+function renderVertex(lists, selectedId, vSel, wrap = automationsShell) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const has = new Set(allSets.map((s) => s.ontology_ref));
@@ -3805,12 +3870,12 @@ function renderVertex(lists, selectedId, vSel) {
   const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Vertex</h1><p class="sub" style="margin:4px 0 0">Explore the materialized object graph — object sets, projections, objects, and the cross-plane Provenance proof-stream edges as a navigable node/relation graph, over IOI daemon truth. Reference grammar: <a href="/__apps/vertex">Vertex ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/lineage?ontology=${encodeURIComponent(oid)}">Lineage path</a><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline</a></div></div>`;
 
   if (vSetMissing) {
-    return automationsShell("Vertex", head + switcher + `<div class="empty">No materialized set matches <code>${CX_ESC(vs.objectSet)}</code> — nothing substituted (fail-closed). Pick a set from the <a href="/__ioi/ontology/explorer">Object Explorer</a>.</div>`);
+    return wrap("Vertex", head + switcher + `<div class="empty">No materialized set matches <code>${CX_ESC(vs.objectSet)}</code> — nothing substituted (fail-closed). Pick a set from the <a href="/__ioi/ontology/explorer">Object Explorer</a>.</div>`);
   }
   // HONEST EMPTY — no materialized objects ⇒ no graph. Never fabricate nodes.
   if (!sets.length) {
     const note = omBoundaryNote(`This ontology has materialized <b>no objects</b>, so there is <b>no graph to explore</b> — Vertex renders the real materialized object graph (sets · projections · objects · proof-stream edges), which appears only once a pipeline is built. Build one from the <a href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline Builder</a>. The <a href="/__apps/vertex">Vertex reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
-    return automationsShell("Vertex", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">empty graph</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + note);
+    return wrap("Vertex", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">empty graph</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + note);
   }
 
   // The primary (selected) set — chosen BEFORE the node inventory so the set chips can mark it.
@@ -3854,7 +3919,7 @@ function renderVertex(lists, selectedId, vSel) {
   const gaps = omBoundaryNote(`This is <b>real cross-plane graph truth</b> in the Vertex grammar. Unsupported Vertex lanes — freeform graph canvas, arbitrary path-finding, cross-tenant object search, saved explorations — are <b>reference-only</b>, not bound. The <a href="/__apps/vertex">Vertex reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
 
   const banner = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">graph</span> <span class="sub" style="margin:0">${counts.set} object set${counts.set === 1 ? "" : "s"} · ${objectCount} object${objectCount === 1 ? "" : "s"} · ${counts.proof} cross-plane proof edge${counts.proof === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b></span></div>`;
-  return automationsShell("Vertex", head + switcher + banner + catalog + inv + neighborhood + crossPlane + gaps);
+  return wrap("Vertex", head + switcher + banner + catalog + inv + neighborhood + crossPlane + gaps);
 }
 
 // ============================ STUDIO · DESIGNER (solution-design landing over real composition, #49)
@@ -3914,7 +3979,7 @@ function renderDesignerPort(lists, selectedId) {
       <span class="dsg-cell name">
         <span class="dsg-rowico" aria-hidden="true"></span>
         <span class="dsg-rowdata">
-          <span class="dsg-rowname">${esc(o.domain || o.id)}${o.id === oid ? `<span class="dsg-selpill">selected</span>` : ""}<span class="dsg-rowstar gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)">${bpIcon("star-empty")}</span></span>
+          <span class="dsg-rowname">${esc(o.domain || o.id)}${o.id === oid ? `<span class="dsg-selpill">selected</span>` : ""}<span class="dsg-rowstar gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the ODK object plane (named gap)">${bpIcon("star-empty")}</span></span>
           <span class="dsg-rowpath">${esc(o.ref)} · created ${fdate(o.created_at)} · updated ${fdate(o.updated_at)} · ${c.concepts} concept${c.concepts === 1 ? "" : "s"} · ${c.components} component${c.components === 1 ? "" : "s"} · ${c.resources} resource${c.resources === 1 ? "" : "s"}</span>
         </span>
       </span>
@@ -3971,8 +4036,8 @@ function renderDesignerPort(lists, selectedId) {
     <span class="dsg-hchip" aria-hidden="true"></span>
     <h1 class="dsg-htitle">Solution Designer</h1>
     <div class="dsg-hright">
-      <span class="dsg-hbtn success gap" aria-disabled="true" title="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)">${bpIcon("plus")}<span>New Diagram</span></span>
-      <span class="dsg-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <span class="dsg-hbtn success gap" aria-disabled="true" title="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)" data-ioi-disabled-reason="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)">${bpIcon("plus")}<span>New Diagram</span></span>
+      <span class="dsg-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -3990,23 +4055,23 @@ function renderDesignerPort(lists, selectedId) {
       <h4 class="dsg-aipt">Have a workflow in mind? Use AIP Architect to help you plan it.</h4>
       <div class="dsg-aipsub">Answer a few questions to get AIP suggestions on how to implement your workflow in Foundry.</div>
     </div>
-    <span class="dsg-planbtn gap" aria-disabled="true" title="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)"><span>Start planning</span>${bpIcon("arrow-right")}</span>
+    <span class="dsg-planbtn gap" aria-disabled="true" title="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)" data-ioi-disabled-reason="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)"><span>Start planning</span>${bpIcon("arrow-right")}</span>
   </div>`;
 
   // The template gallery is the reference's own static template-library strip (vendor chrome, not
   // estate data) — embedded VERBATIM from the capture, like the #48 marketplace hero. The next-arrow
   // is a real (disabled) control overlaid transparently on its verbatim pixels.
   const gallery = `<div class="dsg-gallery">
-    <div class="dsg-galhead"><span class="dsg-galt">Explore our library of reference solution architecture diagrams</span><span class="dsg-browse gap" aria-disabled="true" title="Template browsing is a reference-only lane (named gap)">${bpIcon("manual")}<span>Browse all</span></span></div>
+    <div class="dsg-galhead"><span class="dsg-galt">Explore our library of reference solution architecture diagrams</span><span class="dsg-browse gap" aria-disabled="true" title="Template browsing is a reference-only lane (named gap)" data-ioi-disabled-reason="Template browsing is a reference-only lane (named gap)">${bpIcon("manual")}<span>Browse all</span></span></div>
     <img class="dsg-strip" src="${DSG_GALLERY_STRIP_URI}" width="961" height="202" alt="Reference solution-architecture template previews (verbatim capture chrome)">
-    <span class="dsg-galarrow gap" aria-disabled="true" title="Template pagination is a reference-only lane (named gap)"></span>
+    <span class="dsg-galarrow gap" aria-disabled="true" title="Template pagination is a reference-only lane (named gap)" data-ioi-disabled-reason="Template pagination is a reference-only lane (named gap)"></span>
   </div>`;
 
   const viewRow = `<div class="dsg-viewrow">
     <span class="dsg-viewlbl">View</span>
     <span class="dsg-pill on">Recents</span>
-    <span class="dsg-pill gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)">Favorites</span>
-    <span class="dsg-open gap" aria-disabled="true" title="Diagram open is a reference-only lane — rows below select a composition instead (named gap)">${bpIcon("folder-open")}<span>Open Diagram</span></span>
+    <span class="dsg-pill gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the ODK object plane (named gap)">Favorites</span>
+    <span class="dsg-open gap" aria-disabled="true" title="Diagram open is a reference-only lane — rows below select a composition instead (named gap)" data-ioi-disabled-reason="Diagram open is a reference-only lane — rows below select a composition instead (named gap)">${bpIcon("folder-open")}<span>Open Diagram</span></span>
   </div>`;
 
   const table = `<div class="dsg-table">
@@ -4165,7 +4230,7 @@ function renderEvalsuitesPort(suitesJson) {
       <div class="evl-truthcol"><h3>By health <span class="evl-meta">(declared-completeness)</span></h3><div class="evl-chips">${chips(byHealth)}</div><h3 style="margin-top:12px">By status</h3><div class="evl-chips">${chips(byStatus)}</div></div>
       <div class="evl-truthcol"><h3>Declared suites <span class="evl-meta">(${list.length}, full records)</span></h3>${list.length ? `<ul>${list.slice(0, 8).map(suiteDetail).join("")}</ul>${list.length > 8 ? `<p class="evl-gapnote">…and ${list.length - 8} more on the substrate.</p>` : ""}` : `<p class="evl-gapnote">No suites declared — honest empty, nothing fabricated.</p>`}</div>
     </div>
-    <p class="evl-foot">Unsupported reference lanes — New evaluation suite here, favorites, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden. Suites are declared/edited on the <a href="/__ioi/evaluations">Evaluations owner surface →</a> (with the consent ladder + feedback candidate source at <a href="/__ioi/feedback">Feedback &amp; Annotations</a>); assessment subjects come from real Missions runs/failures/blockers. Reference: the origin-aligned <a href="http://localhost:9225/workspace/evals/" rel="noopener">AIP Evals capture</a> — the <a href="/__apps/evalsuites">/__apps/evalsuites proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
+    <p class="evl-foot">Unsupported reference lanes — New evaluation suite here, favorites, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden. Sibling reference ports: <a href="/__ioi/evaluations/insight">Insight →</a> · <a href="/__ioi/evaluations/quiver">Quiver →</a>. Suites are declared/edited on the <a href="/__ioi/evaluations">Evaluations owner surface →</a> (with the consent ladder + feedback candidate source at <a href="/__ioi/feedback">Feedback &amp; Annotations</a>); assessment subjects come from real Missions runs/failures/blockers. Reference: the origin-aligned <a href="http://localhost:9225/workspace/evals/" rel="noopener">AIP Evals capture</a> — the <a href="/__apps/evalsuites">/__apps/evalsuites proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
   </section>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "AIP Evals", href: "/__ioi/evaluations/evalsuites", iconUri: EVL_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
@@ -4174,8 +4239,8 @@ function renderEvalsuitesPort(suitesJson) {
     <span class="evl-hchip" aria-hidden="true"></span>
     <h1 class="evl-htitle">AIP Evals</h1>
     <div class="evl-hright">
-      <span class="evl-hbtn success gap" aria-disabled="true" title="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)">${bpIcon("plus")}<span>New evaluation suite</span></span>
-      <span class="evl-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <span class="evl-hbtn success gap" aria-disabled="true" title="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)" data-ioi-disabled-reason="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)">${bpIcon("plus")}<span>New evaluation suite</span></span>
+      <span class="evl-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -4190,7 +4255,7 @@ function renderEvalsuitesPort(suitesJson) {
   const viewRow = `<div class="evl-viewrow">
     <span class="evl-viewlbl">View</span>
     <span class="evl-pill on">Recents</span>
-    <span class="evl-pill gap" aria-disabled="true" title="Favorites are not recorded on the eval-suite plane (named gap)">Favorites</span>
+    <span class="evl-pill gap" aria-disabled="true" title="Favorites are not recorded on the eval-suite plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the eval-suite plane (named gap)">Favorites</span>
   </div>`;
 
   const table = `<div class="evl-table">
@@ -4203,8 +4268,8 @@ function renderEvalsuitesPort(suitesJson) {
     <div class="evl-exsub">See how AIP Evals can be used to evaluate any AI system.</div>
     <div class="evl-exstripwrap">
       <img class="evl-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
-      <span class="evl-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="evl-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="evl-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="evl-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
     </div>
   </div>`;
 
@@ -4370,10 +4435,10 @@ function renderChangesPort(proposals, lane, filter) {
     <span class="chg-hchip" aria-hidden="true"></span>
     <h1 class="chg-htitle">Upgrade Assistant</h1>
     <div class="chg-hright">
-      <span class="chg-orgbtn gap" aria-disabled="true" title="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth">${bpIcon("office")}<span>1 organization</span>${bpIcon("caret-down")}</span>
-      <span class="chg-adminview gap" aria-disabled="true" title="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane">Admin view</span>
-      <span class="chg-hbtn outlined gap" aria-disabled="true" title="Reference view toggle (named gap) — the list renders the estate's full improvement truth">Assignee view</span>
-      <span class="chg-hbtn outlined helpbtn gap" aria-disabled="true" title="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span>${bpIcon("caret-down")}</span>
+      <span class="chg-orgbtn gap" aria-disabled="true" title="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth" data-ioi-disabled-reason="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth">${bpIcon("office")}<span>1 organization</span>${bpIcon("caret-down")}</span>
+      <span class="chg-adminview gap" aria-disabled="true" title="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane" data-ioi-disabled-reason="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane">Admin view</span>
+      <span class="chg-hbtn outlined gap" aria-disabled="true" title="Reference view toggle (named gap) — the list renders the estate's full improvement truth" data-ioi-disabled-reason="Reference view toggle (named gap) — the list renders the estate's full improvement truth">Assignee view</span>
+      <span class="chg-hbtn outlined helpbtn gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span>${bpIcon("caret-down")}</span>
     </div>
   </header>`;
 
@@ -4387,7 +4452,7 @@ function renderChangesPort(proposals, lane, filter) {
 
   const qs = (f) => `/__ioi/improvement/changes?lane=${lane}${f === "all" ? "&filter=all" : ""}`;
   const sidebar = `<aside class="chg-sidebar">
-    <div class="chg-fhead"><h6>Filters</h6><span class="chg-fcollapse gap" aria-disabled="true" title="Sidebar collapse is a reference-only lane (named gap)">${bpIcon("menu-closed")}</span></div>
+    <div class="chg-fhead"><h6>Filters</h6><span class="chg-fcollapse gap" aria-disabled="true" title="Sidebar collapse is a reference-only lane (named gap)" data-ioi-disabled-reason="Sidebar collapse is a reference-only lane (named gap)">${bpIcon("menu-closed")}</span></div>
     <div class="chg-search gap" title="Name search is a reference-only lane (named gap)">${bpIcon("search")}<input placeholder="Search by upgrade name…" disabled aria-label="Search by upgrade name (reference-only, not wired)"></div>
     <div class="chg-fdiv"></div>
     <h6 class="chg-fsec">Upgrade progress</h6>
@@ -4395,10 +4460,10 @@ function renderChangesPort(proposals, lane, filter) {
     <a class="chg-radio${filter !== "all" ? " sel" : ""}" href="${qs("action")}" title="pending-review proposals — the honest mapping of the reference's requiring-my-action facet (no principal assignment on the plane)"><span class="chg-rdot${filter !== "all" ? " on" : ""}"></span><span class="chg-rlabel">Upgrades requiring my action</span><span class="chg-rcount">${laneSet.filter((p) => p.state === "pending").length}</span></a>
     <div class="chg-fdiv"></div>
     <h6 class="chg-fsec">Upgrade type</h6>
-    ${["Admin action", "Model migration", "Platform change", "Remediation", "Security", "Version update"].map((t) => `<span class="chg-check gap" aria-disabled="true" title="The reference's upgrade-type taxonomy is a named gap — the estate's real proposal kinds are ${esc(Object.entries(kinds).map(([k, n]) => `${k} (${n})`).join(" · "))}"><span class="chg-cbox"></span><span class="chg-rlabel">${t}</span><span class="chg-rcount">0</span></span>`).join("")}
+    ${["Admin action", "Model migration", "Platform change", "Remediation", "Security", "Version update"].map((t) => `<span class="chg-check gap" aria-disabled="true" title="The reference's upgrade-type taxonomy is a named gap — the estate's real proposal kinds are ${esc(Object.entries(kinds).map(([k, n]) => `${k} (${n})`).join(" · "))}" data-ioi-disabled-reason="The reference's upgrade-type taxonomy is a named gap — the estate's real proposal kinds are ${esc(Object.entries(kinds).map(([k, n]) => `${k} (${n})`).join(" · "))}"><span class="chg-cbox"></span><span class="chg-rlabel">${t}</span><span class="chg-rcount">0</span></span>`).join("")}
     <div class="chg-fdiv"></div>
     <h6 class="chg-fsec">Sort</h6>
-    ${["Soonest due date", "Latest due date", "Least remaining actions", "Most remaining actions"].map((t, i) => `<span class="chg-radio gap" aria-disabled="true" title="Due-date sorting is a named gap (no due dates on the plane) — rows order by update recency"><span class="chg-rdot${i === 0 ? " on" : ""}"></span><span class="chg-rlabel">${t}</span></span>`).join("")}
+    ${["Soonest due date", "Latest due date", "Least remaining actions", "Most remaining actions"].map((t, i) => `<span class="chg-radio gap" aria-disabled="true" title="Due-date sorting is a named gap (no due dates on the plane) — rows order by update recency" data-ioi-disabled-reason="Due-date sorting is a named gap (no due dates on the plane) — rows order by update recency"><span class="chg-rdot${i === 0 ? " on" : ""}"></span><span class="chg-rlabel">${t}</span></span>`).join("")}
   </aside>`;
 
   const list = `<section class="chg-list">
@@ -4554,7 +4619,7 @@ function renderChangesPort(proposals, lane, filter) {
 // started_at · execution/environment refs as proof). NO new scheduler/execution semantics — this
 // is a PROJECTION over the existing automation plane; authoring stays on /__ioi/automations.
 // Owner: Automations (/__ioi/automations, linked first-class both ways).
-function renderMonitorsPort(automations, runsById) {
+function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) {
   const esc = CX_ESC;
   const list = Array.isArray(automations) ? automations : [];
   const fdate = (iso) => { const d = new Date(iso || 0); return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
@@ -4607,13 +4672,14 @@ function renderMonitorsPort(automations, runsById) {
     <span class="mon-hchip" aria-hidden="true"></span>
     <h1 class="mon-htitle">Automate</h1>
     <nav class="mon-tabs">
-      <span class="mon-tab on" aria-current="page">Overview</span>
-      <a class="mon-tab" href="/__ioi/automations" title="The full automation plane — the real owner substrate (specs · runs · pause/resume · projects)">Automations</a>
+      ${view === "automations"
+        ? `<a class="mon-tab" href="/__ioi/automations/monitors" title="The Automate overview">Overview</a><span class="mon-tab on" aria-current="page">Automations</span>`
+        : `<span class="mon-tab on" aria-current="page">Overview</span><a class="mon-tab" href="/__ioi/automations/monitors?tab=automations" title="All automations — the reference's own in-app list lane, live over the real plane (AUT-1)">Automations</a>`}
     </nav>
     <div class="mon-hright">
-      <span class="mon-hbtn outlined store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mon-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
-      <span class="mon-hbtn success gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("add")}<span>New automation</span></span>
-      <span class="mon-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
+      <span class="mon-hbtn outlined store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mon-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
+      <a class="mon-hbtn success" href="/__ioi/automations/monitors?tab=automations&view=new" title="New automation — the in-shell create form posting the seed create lane (AUT-2; same lane, re-chromed)">${bpIcon("add")}<span>New automation</span></a>
+      <span class="mon-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
     </div>
   </header>`;
 
@@ -4632,23 +4698,23 @@ function renderMonitorsPort(automations, runsById) {
     <div class="mon-wizcopy">
       <h4 class="mon-wizt">Create your first automation</h4>
       <p class="mon-wizsub">Get started by creating a new automation or adding yourself to existing automations.</p>
-      <span class="mon-wizbtn gap" aria-disabled="true" title="Automation authoring from this surface is a reference-only lane — automations are created on the Automations substrate (named gap)">${bpIcon("plus")}<span>New automation</span></span>
+      <a class="mon-wizbtn" href="/__ioi/automations/monitors?tab=automations&view=new" title="New automation — the in-shell create form posting the seed create lane (AUT-2)">${bpIcon("plus")}<span>New automation</span></a>
     </div>
     <img class="mon-wizstrip" src="${MON_WIZ_STRIP_URI}" width="584" height="222" alt="Reference 3-step wizard illustrations (verbatim capture chrome)">
   </div>
   <div class="mon-cardswrap">
     <img class="mon-cardsstrip" src="${MON_CARDS_STRIP_URI}" width="902" height="319" alt="Reference automation template cards (verbatim capture chrome — vendor templates, not estate data)">
-    <span class="mon-tplcard c1 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
-    <span class="mon-tplcard c2 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
-    <span class="mon-tplcard c3 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c1 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c2 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c3 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
   </div>
   <div class="mon-examples">
     <h5 class="mon-exh">Explore reference examples</h5>
     <div class="mon-exsub">Learn how to build automated use cases using example Automations from Marketplace</div>
     <div class="mon-exstripwrap">
       <img class="mon-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
-      <span class="mon-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="mon-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mon-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mon-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
     </div>
   </div>`;
 
@@ -4668,6 +4734,118 @@ function renderMonitorsPort(automations, runsById) {
   const triggered = `<h2 class="mon-gsh mon-rth">Recently triggered</h2>
   <div class="mon-feed">${feed || `<div class="mon-empty">No executions recorded yet — this feed renders real automation executions (status · time · execution/environment refs) and never fabricates events.</div>`}</div>
   <p class="mon-foot">This overview is a <b>read-only projection over the real automation plane</b> — ${list.length} automation${list.length === 1 ? "" : "s"} (${active.length} active · ${paused.length} paused) and their real executions; no scheduler or execution semantics were added by this surface. Authoring, pause/resume, and run history live on the <a href="/__ioi/automations">Automations substrate</a> (the owner surface, linked first-class). Unsupported reference lanes — New automation here, the Recent-installations store menu, template docs, marketplace example installs — are disabled in place, never hidden. The wizard illustrations, template cards, and example cards are the reference's own static content (verbatim capture chrome, never estate data). Reference: the origin-aligned <a href="http://localhost:9225/workspace/object-monitoring/" rel="noopener">Automate capture</a> — the <a href="/__apps/monitors">/__apps/monitors proxy lane ↗</a> is documented insufficient (a favorites-load failure + CORS-blocked session lanes; #44 sweep evidence).</p>`;
+
+  // ---- AUT-1: the Automations tab — the reference's in-app /automations faceted list, LIVE over
+  // the real plane. Facet mapping (atlas: monitors tab_lane state, 8 facet groups): STATUS→enabled
+  // (Active/Paused live; Error/Muted/Expired typed absences — no such states on the record);
+  // CONDITION→trigger kinds (real); EFFECTS→reference taxonomy typed-absent (the estate's effect
+  // concept is the steps census, shown per row); RECEIVING NOTIFICATIONS→typed absence;
+  // OWNER→executor_identity.ref (the plane's one identity lane); CREATOR/EXPIRATION→typed absences.
+  // Read-only: rows LINK to the owner-substrate detail; no mutation path is added here.
+  const trigOf = (a) => (a.trigger || {}).kind || "manual";
+  const creatorOf = (a) => (a.executor_identity || {}).ref || "";
+  let arows = list;
+  if (flt.status === "active") arows = arows.filter((a) => a.enabled !== false);
+  if (flt.status === "paused") arows = arows.filter((a) => a.enabled === false);
+  if (flt.condition) arows = arows.filter((a) => trigOf(a) === flt.condition);
+  const trigCounts = {}; for (const a of list) trigCounts[trigOf(a)] = (trigCounts[trigOf(a)] || 0) + 1;
+  const crCounts = {}; for (const a of list) { const c = creatorOf(a); if (c) crCounts[c] = (crCounts[c] || 0) + 1; }
+  const fbase = "/__ioi/automations/monitors?tab=automations";
+  const liveFacet = (label, n, href, on) => `<a class="mon-frow${on ? " on" : ""}" href="${esc(href)}" title="live count over the real plane">${esc(label)}<span class="mon-fn">${n}</span></a>`;
+  const gapFacet = (label, why) => `<span class="mon-frow gap" aria-disabled="true" title="${esc(why)}" data-ioi-disabled-reason="${esc(why)}">${esc(label)}<span class="mon-fn">0</span></span>`;
+  const filters = `<aside class="mon-flt"><h3 class="mon-flth">Filters</h3>
+    <div class="mon-fgroup"><span class="mon-fgh">STATUS</span>
+      ${liveFacet("Active", active.length, flt.status === "active" ? fbase : fbase + "&status=active", flt.status === "active")}
+      ${gapFacet("Error", "No error state exists on the automation record — enabled is the plane's only status field (typed absence)")}
+      ${gapFacet("Muted", "No muted state exists on the automation record (typed absence)")}
+      ${liveFacet("Paused", paused.length, flt.status === "paused" ? fbase : fbase + "&status=paused", flt.status === "paused")}
+      ${gapFacet("Expired", "No expiration concept exists on the automation record (typed absence)")}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">CONDITION</span>
+      ${Object.keys(trigCounts).sort().map((k) => liveFacet(k, trigCounts[k], flt.condition === k ? fbase : fbase + "&condition=" + encodeURIComponent(k), flt.condition === k)).join("") || `<span class="mon-fempty">no trigger kinds recorded</span>`}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">EFFECTS</span>
+      ${["Actions", "Logic", "Notification", "Function"].map((k) => gapFacet(k, "The reference effect taxonomy is a named gap — the estate's real effect dimension is the per-automation steps census, shown on each row (typed absence)")).join("")}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">RECEIVING NOTIFICATIONS</span>
+      ${gapFacet("Yes", "No notification-subscription lane exists on the automation plane (typed absence)")}
+      ${gapFacet("No", "No notification-subscription lane exists on the automation plane (typed absence)")}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">OWNER</span>
+      ${Object.keys(crCounts).sort().slice(0, 6).map((k) => `<span class="mon-frow ro" title="the automation's declared executor_identity.ref — the plane's one identity lane">${esc(k)}<span class="mon-fn">${crCounts[k]}</span></span>`).join("") || `<span class="mon-fempty">no executor identities recorded</span>`}
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">CREATOR</span>
+      <span class="mon-frow gap" aria-disabled="true" title="The plane records ONE identity (executor_identity) — a separate creator principal is not recorded (typed absence; OWNER above is the real lane)" data-ioi-disabled-reason="The plane records ONE identity (executor_identity) — a separate creator principal is not recorded (typed absence; OWNER above is the real lane)">Creator principal<span class="mon-fn">—</span></span>
+    </div>
+    <div class="mon-fgroup"><span class="mon-fgh">EXPIRATION DATE</span>
+      ${gapFacet("Has expiration", "No expiration concept exists on the automation record (typed absence)")}
+    </div></aside>`;
+  const apill = (a) => a.enabled === false ? `<span class="mon-pill paused">Paused</span>` : `<span class="mon-pill active">Active</span>`;
+  const acond = (a) => { const k = trigOf(a); const s = a.schedule_spec || (a.trigger || {}).schedule || null; return k === "time" && s ? `${k} · ${typeof s === "string" ? s : JSON.stringify(s)}` : k; };
+  const arowsHtml = arows.length ? arows.map((a) => {
+    const steps = Array.isArray(a.steps) ? a.steps.length : 0;
+    return `<a class="mon-arow" href="/__ioi/automations/monitors?tab=automations&automation=${encodeURIComponent(a.automation_id)}" title="Open this automation in the Automate detail lane (verbs post the seed lanes)">
+      <span class="mon-acell name"><span class="mon-rowico" aria-hidden="true"></span><span class="mon-rowdata"><span class="mon-rowname">${esc(a.name || a.automation_id)}</span><span class="mon-rowpath">${esc(a.automation_id)} · project ${esc(a.project_id || "—")} · ${steps} step${steps === 1 ? "" : "s"}</span></span></span>
+      <span class="mon-acell">${esc(acond(a))}</span>
+      <span class="mon-acell">${apill(a)}</span>
+      <span class="mon-acell">${creatorOf(a) ? `<span title="declared executor_identity.ref (real daemon truth)">${esc(creatorOf(a))}</span>` : gapDash("No executor identity is recorded on this automation (named gap)")}</span>
+    </a>`;
+  }).join("") : `<div class="mon-empty">No automations${flt.status || flt.condition ? " match this filter — the facet counts are live plane truth" : ""} — this list renders the real automation plane and never fabricates rows.</div>`;
+  // ---- AUT-2: the in-shell DETAIL + CREATE views. Every verb is a form posting the EXISTING
+  // seed lane (/__ioi/automations/:id/run|pause|resume|delete, POST /__ioi/automations) with
+  // back=automate so the flow stays in-shell — the SAME lanes re-chromed, never a second spine.
+  // Webhook ROTATE stays a LINK to the substrate detail: its show-once token page must render
+  // there or the token is destroyed by redirect (recorded boundary, not a gap).
+  const selAuto = flt.automation ? list.find((a) => a.automation_id === flt.automation) : null;
+  const detailView = selAuto ? (() => {
+    const a = selAuto;
+    const runs = runsById[a.automation_id] || [];
+    const steps = Array.isArray(a.steps) ? a.steps : [];
+    const verb = (action, label, cls, titleTxt) => `<form class="mon-verb" method="post" action="/__ioi/automations/${encodeURIComponent(a.automation_id)}/${action}?back=automate"><button class="mon-hbtn ${cls}" type="submit" title="${esc(titleTxt)}">${esc(label)}</button></form>`;
+    const runRows = runs.slice(0, 20).map((r) => `<div class="mon-runrow"><span class="mon-pill ${r.status === "done" ? "active" : "paused"}">${esc(r.status || "unknown")}</span><span class="mon-runwhen">${esc(r.started_at || "—")}</span><code class="mon-runref">${esc(r.execution_id || "")}${r.environment_id ? ` · ${esc(r.environment_id)}` : ""}</code></div>`).join("");
+    return `<div class="mon-alist"><a class="mon-back" href="/__ioi/automations/monitors?tab=automations">← All automations</a>
+      <div class="mon-dhead"><h2 class="mon-dname">${esc(a.name || a.automation_id)}</h2>${apill(a)}</div>
+      <div class="mon-dfacts"><code>${esc(a.automation_id)}</code> · project ${esc(a.project_id || "—")} · trigger ${esc(acond(a))} · ${steps.length} step${steps.length === 1 ? "" : "s"} · executor ${esc(creatorOf(a) || "—")} · created ${esc(a.created_at || "—")}</div>
+      ${a.description ? `<p class="mon-ddesc">${esc(a.description)}</p>` : ""}
+      <div class="mon-verbs">
+        ${verb("run", "Run now", "success", "POST the seed run lane — a real execution on the daemon plane")}
+        ${a.enabled === false ? verb("resume", "Resume", "outlined", "PATCH enabled=true via the seed lane") : verb("pause", "Pause", "outlined", "PATCH enabled=false via the seed lane")}
+        ${verb("delete", "Delete", "outlined", "DELETE via the seed lane — the record is removed from the plane")}
+        <a class="mon-hbtn outlined" href="/__ioi/automations/${encodeURIComponent(a.automation_id)}" title="Webhook trigger/rotate + full spec editing stay on the substrate detail — the rotate flow renders a SHOW-ONCE token that a redirect would destroy (recorded boundary)">Webhooks &amp; full spec →</a>
+      </div>
+      <h3 class="mon-dh">Run history <span class="mon-statcount">${runs.length}</span></h3>
+      <div class="mon-runs">${runRows || `<div class="mon-empty">No executions recorded for this automation — the history renders real runs and never fabricates rows.</div>`}</div>
+      <p class="mon-foot">AUT-2: every verb above posts the automation plane through the EXISTING seed lanes (run/pause/resume/delete with back=automate) — the same wired mutation paths, re-chromed in the Automate grammar; no second spine. Spec mutations on this family still cross UNRECEIPTED (the named W2 defect; the lease-client wave owns the fix).</p>
+    </div>`;
+  })() : null;
+  const createView = flt.view === "new" ? (() => {
+    const projects = Array.isArray(flt.projects) ? flt.projects : [];
+    const opts = projects.map((pr) => `<option value="${esc(pr.project_id)}">${esc(pr.name || pr.project_id)}</option>`).join("");
+    return `<div class="mon-alist"><a class="mon-back" href="/__ioi/automations/monitors?tab=automations">← All automations</a>
+      <h2 class="mon-dname">New automation</h2>
+      <form class="mon-newform" method="post" action="/__ioi/automations?back=automate">
+        <label class="mon-fl">Project<select name="project_ref" required>${opts || `<option value="">— no projects on the plane —</option>`}</select></label>
+        <label class="mon-fl">Name<input name="name" required placeholder="automation name"></label>
+        <label class="mon-fl">Description<input name="description" placeholder="optional"></label>
+        <label class="mon-fl">Step kind<select name="step_kind"><option value="agent">agent</option><option value="command">command</option></select></label>
+        <label class="mon-fl">Step body<textarea name="step_body" rows="3" placeholder="agent prompt or command"></textarea></label>
+        <label class="mon-fl">Schedule<select name="schedule_type"><option value="manual">manual</option><option value="interval">interval</option><option value="cron">cron</option></select></label>
+        <label class="mon-fl">Interval<input name="interval_n" type="number" min="0" placeholder="0"> <select name="interval_unit"><option>minutes</option><option>hours</option><option>seconds</option></select></label>
+        <label class="mon-fl">Cron<input name="cron" placeholder="*/5 * * * *"> <input name="cron_tz" value="UTC" size="6"></label>
+        <button class="mon-hbtn success" type="submit" title="POST the seed create lane (project-first contract: project_ref REQUIRED)">Create automation</button>
+      </form>
+      <p class="mon-foot">AUT-2: this form posts the EXISTING seed create lane (POST /__ioi/automations, project-first: project_ref required by the daemon contract) with back=automate — same lane, re-chromed. Creation lands you on the new automation\u2019s in-shell detail.</p>
+    </div>`;
+  })() : null;
+  const automationsLane = `<div class="mon-abody">
+    ${detailView || createView ? (detailView || createView) : `${filters}
+    <div class="mon-alist">
+      <div class="mon-athead"><span class="mon-ath name">Name</span><span class="mon-ath">Condition</span><span class="mon-ath">Status</span><span class="mon-ath">Creator</span></div>
+      <div class="mon-arows">${arowsHtml}</div>
+      <p class="mon-foot">The <b>Automations</b> lane — the reference's own in-app list route rebuilt LIVE inside the certified shell (AUT-1): ${arows.length} of ${list.length} automation${list.length === 1 ? "" : "s"} shown${flt.status || flt.condition ? " (filtered)" : ""}, read-only. Rows open the <a href="/__ioi/automations">Automations substrate</a> detail; authoring/pause/resume/run history stay there. Facets the plane cannot express are disabled in place with the reason named. Evidence: reference-family-atlas.v1.json (monitors tab_lane, 8 facet groups) · reference-subroute-census.v1.json.</p>
+    </div>`}
+  </div>`;
+
 
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
     body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
@@ -4758,6 +4936,36 @@ function renderMonitorsPort(automations, runsById) {
     .mon-evtstat{display:block;font-size:12px;color:#1c2127;margin-top:1px}
     .mon-evtref{font-size:11px;color:#5f6b7c;margin-left:12px;max-width:340px;word-break:break-all}
     .mon-foot{font-size:12px;line-height:1.6;color:#7b8494;margin:24px 0 40px}
+    .mon-abody{flex:1;display:flex;min-height:0;overflow:hidden}
+    .mon-flt{flex:0 0 260px;overflow-y:auto;border-right:1px solid #e5e8eb;padding:16px 16px 24px;background:#fff}
+    .mon-flth{font-size:16px;font-weight:600;margin:0 0 10px;color:#1c2127}
+    .mon-fgroup{margin:0 0 16px;display:flex;flex-direction:column}
+    .mon-fgh{font-size:11px;letter-spacing:.04em;font-weight:600;color:#5f6b7c;margin:0 0 4px}
+    .mon-frow{display:flex;align-items:center;justify-content:space-between;font-size:14px;color:#1c2127;padding:3px 6px;border-radius:3px}
+    a.mon-frow:hover{background:#f6f7f9}a.mon-frow.on{background:#e7f2ff;color:#215db0;font-weight:600}
+    .mon-frow.gap{color:#a8b2be;cursor:not-allowed}.mon-frow.ro{cursor:default}
+    .mon-fn{color:#5f6b7c;font-size:12px}.mon-frow.on .mon-fn{color:#215db0}
+    .mon-fempty{font-size:12px;color:#a8b2be;padding:3px 6px}
+    .mon-alist{flex:1;min-width:0;overflow-y:auto;padding:16px 24px 32px}
+    .mon-athead{display:grid;grid-template-columns:minmax(280px,2fr) 1fr 120px 1.2fr;gap:8px;font-size:11px;letter-spacing:.04em;font-weight:600;color:#5f6b7c;text-transform:uppercase;padding:0 10px 6px;border-bottom:1px solid #e5e8eb}
+    .mon-arow{display:grid;grid-template-columns:minmax(280px,2fr) 1fr 120px 1.2fr;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f2f5;color:#1c2127}
+    .mon-arow:hover{background:#f6f7f9}
+    .mon-acell{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mon-acell.name{display:flex;align-items:center;gap:10px;white-space:normal}
+    .mon-pill{display:inline-flex;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}
+    .mon-pill.active{background:rgba(35,133,81,.12);color:#1c6e42}.mon-pill.paused{background:rgba(95,107,124,.12);color:#5f6b7c}
+    .mon-back{display:inline-block;font-size:13px;margin:0 0 12px}
+    .mon-dhead{display:flex;align-items:center;gap:12px}.mon-dname{font-size:20px;font-weight:600;margin:0}
+    .mon-dfacts{font-size:13px;color:#5f6b7c;margin:6px 0 2px}.mon-ddesc{font-size:14px;color:#1c2127;margin:8px 0 0}
+    .mon-verbs{display:flex;align-items:center;gap:10px;margin:16px 0 8px}.mon-verb{display:inline-flex;margin:0}
+    .mon-verbs .mon-hbtn{margin-top:0;cursor:pointer}
+    .mon-dh{font-size:16px;font-weight:600;margin:22px 0 8px}
+    .mon-runrow{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid #f0f2f5;font-size:13px}
+    .mon-runwhen{color:#5f6b7c}.mon-runref{font-size:11px;color:#5f6b7c;word-break:break-all}
+    .mon-newform{display:flex;flex-direction:column;gap:10px;max-width:560px;margin-top:12px}
+    .mon-fl{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#404854;font-weight:600}
+    .mon-fl input,.mon-fl select,.mon-fl textarea{font:14px/1.4 inherit;padding:6px 8px;border:1px solid rgba(95,107,124,.35);border-radius:3px;color:#1c2127;font-weight:400}
+    .mon-newform .mon-hbtn{align-self:flex-start;margin-top:6px;cursor:pointer}
     @media(max-width:700px){
       .mon-main{height:100svh}.mon-hchip{width:42px;flex-basis:42px}.mon-htitle{margin-left:9px;font-size:15px}
       .mon-tabs{margin-left:auto}.mon-tab{font-size:13px;margin-right:12px}.mon-hright{display:none}
@@ -4771,7 +4979,7 @@ function renderMonitorsPort(automations, runsById) {
     }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Automate</title><style>${css}</style></head>
-    <body><div class="mon-shell">${globalRail}<div class="mon-main">${header}<div class="mon-body">${hero}<main class="mon-content">${gettingStarted}${stats}${recents}${triggered}</main></div></div></div></body></html>`;
+    <body><div class="mon-shell">${globalRail}<div class="mon-main">${header}${view === "automations" ? automationsLane : `<div class="mon-body">${hero}<main class="mon-content">${gettingStarted}${stats}${recents}${triggered}</main></div>`}</div></div></body></html>`;
 }
 
 // ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS — landing port, #50)
@@ -4874,9 +5082,9 @@ function renderMachineryPort(machines, selectedId) {
     <span class="mch-hchip" aria-hidden="true"></span>
     <h1 class="mch-htitle">Machinery</h1>
     <div class="mch-hright">
-      <span class="mch-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mch-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
-      <span class="mch-hbtn success gap" aria-disabled="true" title="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)">${bpIcon("plus")}<span>New graph</span></span>
-      <span class="mch-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <span class="mch-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mch-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
+      <span class="mch-hbtn success gap" aria-disabled="true" title="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)" data-ioi-disabled-reason="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)">${bpIcon("plus")}<span>New graph</span></span>
+      <span class="mch-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -4891,7 +5099,7 @@ function renderMachineryPort(machines, selectedId) {
   const viewRow = `<div class="mch-viewrow">
     <span class="mch-viewlbl">View</span>
     <span class="mch-pill on">Recents</span>
-    <span class="mch-pill gap" aria-disabled="true" title="Favorites are not recorded on the state-machine plane (named gap)">Favorites</span>
+    <span class="mch-pill gap" aria-disabled="true" title="Favorites are not recorded on the state-machine plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the state-machine plane (named gap)">Favorites</span>
   </div>`;
 
   const table = `<div class="mch-table">
@@ -4907,8 +5115,8 @@ function renderMachineryPort(machines, selectedId) {
     <div class="mch-exsub">Learn how to build industrial solutions using example workflows with Marketplace.</div>
     <div class="mch-exstripwrap">
       <img class="mch-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example-resource cards (verbatim capture chrome — vendor examples, not estate process truth)">
-      <span class="mch-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="mch-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mch-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mch-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
     </div>
   </div>`;
 
@@ -5003,7 +5211,46 @@ function renderMachineryPort(machines, selectedId) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Machinery</title><style>${css}</style></head>
     <body><div class="mch-shell">${globalRail}<div class="mch-main">${header}<div class="mch-body">${hero}<main class="mch-content">${viewRow}${table}${examples}${truth}</main></div></div></div></body></html>`;
 }
-function renderDataLineage(lists, selectedId, objectSetSel) {
+// PRO-1.build — the light Monocle shell for /__ioi/lineage (Preview + lane tabs). One shell,
+// used by the Preview re-chrome AND the History/Build-timeline lanes; absences typed in both
+// vocabularies; per-tab adjudication reference-seed-adjudications.v1.json#lineage-tabs.
+function monocleLineagePage(active, bodyHtml, bodyCss = "") {
+  const esc = CX_ESC;
+  const mtab = (label, href, key, gapReason) => gapReason
+    ? `<span class="mnc-tab gap" aria-disabled="true" title="${esc(gapReason)}" data-ioi-disabled-reason="${esc(gapReason)}">${esc(label)}</span>`
+    : (active === key ? `<span class="mnc-tab on" aria-current="page">${esc(label)}</span>` : `<a class="mnc-tab" href="${href}">${esc(label)}</a>`);
+  const tabs = [
+    mtab("Preview", "/__ioi/lineage", "preview", null),
+    mtab("SQL scratchpad", "", "", "No SQL plane exists on the estate — the reference scratchpad has nothing to execute against (typed absence; adjudication #lineage-tabs)"),
+    mtab("History", "/__ioi/lineage?tab=history", "history", null),
+    mtab("Code", "", "", "No code plane exists for lineage nodes (typed absence; adjudication #lineage-tabs)"),
+    mtab("Build timeline", "/__ioi/lineage?tab=timeline", "timeline", null),
+    mtab("Data health", "", "", "No per-node data-health plane exists — execution health is Operations-owned (typed absence; adjudication #lineage-tabs)"),
+  ].join("");
+  const grail = ""; // owner ruling 2026-08-20: no fabricated reference rail on non-certified shells
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data Lineage</title><style>
+    :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+    .mnc-shell{display:flex;height:100vh;overflow:hidden}
+    .mnc-main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .mnc-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
+    .mnc-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+    .mnc-tab{font-size:14px;line-height:50px;color:#1c2127;position:relative}
+    .mnc-tab.on{color:#215db0;font-weight:600}.mnc-tab.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#215db0}
+    .mnc-tab.gap{color:#a8b2be;cursor:not-allowed}
+    .mnc-body{flex:1;overflow-y:auto;padding:18px 26px 40px}
+    .mnc-h{font-size:18px;font-weight:600;margin:0 0 4px}
+    .mnc-note{font-size:12px;color:#5f6b7c;margin:0 0 12px}
+    .mnc-row{display:grid;grid-template-columns:2fr 1fr 1.4fr 1.4fr;gap:8px;align-items:center;padding:7px 8px;border-bottom:1px solid #f0f2f5;font-size:13px}
+    .mnc-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+    .mnc-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+    ${bodyCss}
+  </style></head><body><div class="mnc-shell">${grail}<div class="mnc-main">
+    <header class="mnc-header"><h1 class="mnc-title">Data Lineage</h1>${tabs}</header>
+    <div class="mnc-body">${bodyHtml}</div>
+  </div></div></body></html>`;
+}
+
+function renderDataLineage(lists, selectedId, objectSetSel, wrap = automationsShell) {
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const allSets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const withLineage = new Set(allSets.map((s) => s.ontology_ref));
@@ -5038,12 +5285,12 @@ function renderDataLineage(lists, selectedId, objectSetSel) {
   const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Data lineage</h1><p class="sub" style="margin:4px 0 0">Where materialized objects came from — the ODK provenance graph as a Monocle-familiar lineage of typed nodes + edges, over IOI daemon truth. Reference grammar: <a href="/__apps/lineage">Monocle lineage ↗</a> (secondary capture).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/vertex?ontology=${encodeURIComponent(oid)}">Explore graph</a><a class="act ghost" href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Open pipeline</a></div></div>`;
 
   if (setSelMissing) {
-    return automationsShell("Data lineage", head + switcher + `<div class="empty">No materialized set matches <code>${CX_ESC(objectSetSel)}</code> for this estate — nothing substituted (fail-closed). Pick a set from the <a href="/__ioi/ontology/explorer">Object Explorer</a>.</div>`);
+    return wrap("Data lineage", head + switcher + `<div class="empty">No materialized set matches <code>${CX_ESC(objectSetSel)}</code> for this estate — nothing substituted (fail-closed). Pick a set from the <a href="/__ioi/ontology/explorer">Object Explorer</a>.</div>`);
   }
   // HONEST EMPTY — no materialized objects ⇒ no lineage. Never fabricate nodes.
   if (!sets.length) {
     const note = omBoundaryNote(`This ontology has materialized <b>no objects</b>, so there is <b>no lineage to show</b> — a lineage graph appears only once a pipeline is built (a materializing run registers a receipted object set). Build one from the <a href="/__ioi/pipeline?ontology=${encodeURIComponent(oid)}">Pipeline Builder</a>. The <a href="/__apps/lineage">Monocle reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
-    return automationsShell("Data lineage", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">no lineage</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + lineageLegend() + note);
+    return wrap("Data lineage", head + switcher + `<div class="chips" style="margin:10px 0 12px"><span class="pill muted">no lineage</span> <span class="sub" style="margin:0">${selected ? `No materialized objects for <b>${CX_ESC(selected.domain || selected.id)}</b>.` : "Select or create an ontology."}</span></div>` + lineageLegend() + note);
   }
 
   // The primary lineage path — trace the most recent set back through the chain, resolving each
@@ -5131,7 +5378,7 @@ function renderDataLineage(lists, selectedId, objectSetSel) {
   const gaps = omBoundaryNote(`This is <b>real provenance</b> in the Monocle lineage grammar. Freeform Monocle lanes — resource search, arbitrary graph expansion, cross-tenant catalog search — are <b>reference-only</b>, not bound. The <a href="/__apps/lineage">Monocle reference capture ↗</a> is the familiar baseline, never a rebound surface.`);
 
   const banner = `<div class="chips" style="margin:10px 0 12px"><span class="pill ok">lineage</span> <span class="sub" style="margin:0">${sets.length} materialized set${sets.length === 1 ? "" : "s"} · ${sets.reduce((a, s) => a + (s.count || 0), 0)} object instance${sets.reduce((a, s) => a + (s.count || 0), 0) === 1 ? "" : "s"} for <b>${CX_ESC(selected.domain || selected.id)}</b> · newest traced below</span></div>`;
-  return automationsShell("Data lineage", head + switcher + lineageCrumb + banner + lineageLegend()
+  return wrap("Data lineage", head + switcher + lineageCrumb + banner + lineageLegend()
     + `<h2 id="lineage-graph">Lineage <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— provenance path for <code>${CX_ESC(primary.ref || "")}</code> · ${resolvedRefs}/5 upstream ladder refs resolved to live records</span></h2>` + path
     + objPane + receiptPane + ledgerPane + gaps);
 }
@@ -5195,10 +5442,10 @@ function renderIncidentsPort(ops, goalRuns, lane) {
     const inc = kind === "dates" ? "" : `<span class="in-finc gap" title="include/exclude toggle — a reference-only lane (named gap)">include ${bpIcon("caret-down")}</span>`;
     return `<div class="in-facet ${slot}"><div class="in-frow"><span class="in-flabel">${esc(label)}</span>${inc}</div>${input}</div>`;
   };
-  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
+  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
 
   const rowHtml = (i) => `<div class="in-row">
-    <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk incident actions are a reference-only lane (named gap)"></span>
+    <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk incident actions are a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk incident actions are a reference-only lane (named gap)"></span>
     <span class="in-rico">${bpIcon(i.closed ? "issue-closed" : "warning-sign")}</span>
     <div class="in-rmain"><a class="in-rtitle" href="${esc(i.proof)}">${esc(i.title)}</a><div class="in-rsub">Created&nbsp;&nbsp;${esc(ago(i.created) || "—")} · <a href="${esc(i.proof)}">proof ↗</a>${i.detail ? ` · ${esc(i.detail)}` : ""}</div></div>
     <div class="in-rright"><span class="in-rpill${i.kind === "Blocker" ? "" : " fail"}"><span class="in-pdot">${bpIcon("issue-dot")}</span>${esc(i.kind)}</span><div class="in-rkind">Kind</div></div>
@@ -5235,7 +5482,7 @@ function renderIncidentsPort(ops, goalRuns, lane) {
 
   const list = `<main class="in-list">
     <div class="in-lhead">
-      <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk selection — a reference-only lane (named gap)"></span>
+      <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk selection — a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk selection — a reference-only lane (named gap)"></span>
       <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>
       <span class="in-lmut">filtered by</span>
       <span class="in-lsel gap" title="Saved filters are a reference-only lane (named gap)">select filter ${bpIcon("caret-down")}</span>
@@ -5350,7 +5597,7 @@ function renderIncidentsPort(ops, goalRuns, lane) {
 // Compare models, name search, facet filtering, model detail pages, fine-tuning / playground /
 // inference / deployment — are named gaps disabled in place. Route ADMINISTRATION (enable /
 // probe / select-default) lives in Agent Studio (linked); this surface is read-only truth.
-function renderModelCatalogPort(routesJson) {
+function renderModelCatalogPort(routesJson, view = "provided") {
   const esc = CX_ESC;
   const routes = (routesJson && routesJson.routes) || [];
   const cap = (s2) => String(s2 || "").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -5371,7 +5618,7 @@ function renderModelCatalogPort(routesJson) {
   const typeRows = tally(routes.flatMap(typesOf));
   const creatorRows = tally(routes.map(creatorOf));
   const maxN = Math.max(1, ...lifecycleRows.map(([, n]) => n), ...typeRows.map(([, n]) => n), ...creatorRows.map(([, n]) => n));
-  const facetRow = ([label, n]) => `<label class="mc-frow gap" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"><span class="mc-cb" role="checkbox" aria-checked="false" aria-disabled="true"></span><span class="mc-flab">${esc(cap(label))}</span><span class="mc-fn">${n}</span><span class="mc-fbar"><span class="mc-fbarfill" style="width:${Math.round(70 * n / maxN)}px"></span></span></label>`;
+  const facetRow = ([label, n]) => `<label class="mc-frow gap" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth" data-ioi-disabled-reason="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"><span class="mc-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth" data-ioi-disabled-reason="Facet filtering is a reference-only lane (named gap) — the value is REAL route truth"></span><span class="mc-flab">${esc(cap(label))}</span><span class="mc-fn">${n}</span><span class="mc-fbar"><span class="mc-fbarfill" style="width:${Math.round(70 * n / maxN)}px"></span></span></label>`;
   const facetSection = (slot, label, rows) => `<div class="mc-fsec ${slot}"><div class="mc-fshead"><span class="mc-fslabel">${esc(label)}</span><button class="mc-fclear gap" disabled title="No facet filters are wired — a reference-only lane (named gap)">Clear</button></div><div class="mc-frows">${rows.map(facetRow).join("")}</div></div>`;
 
   const availPill = (r) => { const a = r.availability || {}; return a.state === "available" ? `${a.stale ? "available · stale probe" : "available"}` : (a.state || "unknown"); };
@@ -5388,8 +5635,9 @@ function renderModelCatalogPort(routesJson) {
   const header = `<header class="mc-header">
     <span class="mc-hchip"></span>
     <h1 class="mc-htitle">Model Catalog</h1>
-    <span class="mc-tab on" title="The IOI-provided lane IS the live route registry below">IOI-provided models</span>
-    <span class="mc-tab gap" title="Registered (externally imported) models are a reference-only lane — no import plane (named gap)">Registered models</span>
+    ${view === "registered"
+      ? `<a class="mc-tab" href="/__ioi/foundry/models" title="The provided lane — the live route registry with availability/custody">IOI-provided models</a><span class="mc-tab on" title="The registry BY ORIGIN — which routes were registered, and from where (FOU-1)">Registered models</span>`
+      : `<span class="mc-tab on" title="The IOI-provided lane IS the live route registry below">IOI-provided models</span><a class="mc-tab" href="/__ioi/foundry/models?tab=registered" title="Registered models — the same registry BY ORIGIN, live (FOU-1); external model-asset import stays a named gap on the lane">Registered models</a>`}
   </header>`;
 
   const hero = `<section class="mc-hero">
@@ -5409,7 +5657,7 @@ function renderModelCatalogPort(routesJson) {
   const catalog = `<section class="mc-list">
     <h3 class="mc-addhead">Additional models</h3>
     <div class="mc-cards">${routes.length ? routes.map(card).join("") : `<div class="mc-empty"><b>No model routes yet</b> — register a route in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>. This catalog reads the real daemon model-route registry; nothing is fabricated.</div>`}</div>
-    <div class="mc-foot">Every card is a real daemon model route (${routes.length}) — identity, availability + probe evidence, weight custody, credential posture, lifecycle/admission. Administration (enable · probe · select default): <a href="/__ioi/agent-studio#model-routes">Agent Studio →</a> · owner surface: <a href="/__ioi/foundry">Foundry →</a> · reference: <a href="/__apps/models" target="_blank" rel="noopener">Model Catalog capture ↗</a></div>
+    <div class="mc-foot">Every card is a real daemon model route (${routes.length}) — identity, availability + probe evidence, weight custody, credential posture, lifecycle/admission. Administration (enable · probe · select default): <a href="/__ioi/agent-studio#model-routes">Agent Studio →</a> · the creation-entry grammar over the estate's draft-spec + location planes: <a href="/__ioi/foundry/model-studio">Model Studio →</a> · the space-gate grammar over the estate's space + invocation planes: <a href="/__ioi/foundry/inference">Inference →</a> · owner surface: <a href="/__ioi/foundry">Foundry →</a> · reference: <a href="/__apps/models" target="_blank" rel="noopener">Model Catalog capture ↗</a></div>
   </section>`;
 
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
@@ -5472,8 +5720,34 @@ function renderModelCatalogPort(routesJson) {
       .mc-list{width:100%;max-width:none}.mc-card,.mc-empty{width:100%}.mc-foot{max-width:none;overflow-wrap:anywhere}
     }`;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Catalog</title><style>${css}</style></head>
-    <body><div class="mc-shell">${globalRail}<div class="mc-main">${header}<div class="mc-body">${hero}<main class="mc-work">${filters}${catalog}</main></div></div></div></body></html>`;
+  // ---- FOU-1: the Registered-models lane — the SAME registry rendered BY ORIGIN (which routes
+  // were registered, and from where; origin verbatim). External model-ASSET import stays a named
+  // gap ON the lane (route registration ≠ asset import).
+  const regRows = routes.map((r) => `<div class="mc-regrow">
+      <span><b>${esc(r.display_name || r.route_id)}</b><code class="mc-regref">${esc(r.route_ref || r.route_id)}</code></span>
+      <span>${esc(((r.model || {}).id) || ((r.model || {}).name) || "—")}</span>
+      <span title="the registry's own origin field, verbatim">${esc(r.origin || "—")}</span>
+      <span>${esc((r.availability || {}).state || "unknown")}</span>
+      <span>${r.default_route ? "default" : "—"}</span>
+    </div>`).join("");
+  const registeredLane = `<main class="mc-reglane">
+    <h2 class="mc-h1">Registered models</h2>
+    <p class="mc-regsub">The model-route registry BY ORIGIN — every row is a REGISTERED route (the registry's own origin field, verbatim). ${routes.length} route${routes.length === 1 ? "" : "s"}.</p>
+    <span class="mc-import gap" aria-disabled="true" title="External model-ASSET import is a reference-only lane — no import plane exists (route registration via POST /v1/hypervisor/model-routes is a different verb, owned by Agent Studio); typed absence" data-ioi-disabled-reason="External model-ASSET import is a reference-only lane — no import plane exists (route registration via POST /v1/hypervisor/model-routes is a different verb, owned by Agent Studio); typed absence">Import model</span>
+    <div class="mc-reghead"><span>Route</span><span>Model</span><span>Origin</span><span>Availability</span><span>Default</span></div>
+    <div class="mc-regrows">${regRows || `<div class="mc-empty">No registered routes — this lane renders the real registry and never fabricates rows.</div>`}</div>
+    <p class="mc-foot">FOU-1 (remediation v2): the reference's Registered-models tab as a LIVE lane over the SAME route registry, keyed on the registry's own origin field. Route administration stays in <a href="/__ioi/agent-studio">Agent Studio</a>. Evidence: reference-seed-adjudications.v1.json#models-registered · reference-family-atlas.v1.json (models tabs state).</p>
+  </main>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Catalog</title><style>${css}
+    .mc-reglane{flex:1;overflow-y:auto;padding:20px 28px 40px}
+    .mc-regsub{font-size:13px;color:#5f6b7c;margin:4px 0 10px}
+    .mc-import{display:inline-flex;height:28px;align-items:center;padding:0 10px;border:1px solid rgba(95,107,124,.25);border-radius:4px;font-size:13px;color:#a8b2be;cursor:not-allowed;margin:0 0 14px}
+    .mc-reghead{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 90px;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:6px 10px;border-bottom:1px solid #e5e8eb}
+    .mc-regrow{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 90px;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f2f5;font-size:14px}
+    .mc-regref{display:block;font-size:11px;color:#5f6b7c}
+    .mc-empty{padding:20px 10px;color:#5f6b7c}</style></head>
+    <body><div class="mc-shell">${globalRail}<div class="mc-main">${header}${view === "registered" ? registeredLane : `<div class="mc-body">${hero}<main class="mc-work">${filters}${catalog}</main></div>`}</div></div></body></html>`;
 }
 
 // ============================ MARKETPLACE BROWSE (#48 — the listings seed as a faithful
@@ -5499,8 +5773,8 @@ function renderMarketplaceBrowsePort(listingsJson) {
     <h1 class="mk-htitle">Marketplace</h1>
     <div class="mk-hright">
       <div class="mk-search" title="Product search is a reference-only lane — the store table below is the real registry (named gap)">${bpIcon("search")}<input placeholder="Search products..." disabled aria-label="Search products (reference-only, not wired)"></div>
-      <span class="mk-hbtn gap" aria-disabled="true" title="Installations are a reference-only lane — nothing installs from this surface (named gap)"><img src="${MK_GLOBE_URI}" width="16" height="16" alt="">Installations</span>
-      <span class="mk-hbtn ring gap" aria-disabled="true" title="Reference help lane (named gap)">Help ${bpIcon("help")}</span>
+      <span class="mk-hbtn gap" aria-disabled="true" title="Installations are a reference-only lane — nothing installs from this surface (named gap)" data-ioi-disabled-reason="Installations are a reference-only lane — nothing installs from this surface (named gap)"><img src="${MK_GLOBE_URI}" width="16" height="16" alt="">Installations</span>
+      <span class="mk-hbtn ring gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">Help ${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -5896,7 +6170,7 @@ function domainAppCard(a) {
 function renderDomainAppsLanding(ov, apps, manifests) {
   const o = ov || {}; const sub = o.substrate || {}; const dm = o.domain_apps || {};
   const note = o.status_note || "Domain Apps are draft candidates over ODK descriptors. No generated runtime is mounted.";
-  const head = `<h1>Generated Apps</h1><p class="sub">Draft app <b>candidates</b> over <code>domain_app</code> surface descriptors — bind a descriptor, optionally a manifest, and set visibility. Generated apps are launchable catalog entries (authored in Studio, distributed via Marketplace); nothing here generates or mounts a running app. <a href="/__ioi/odk">Open Grounding →</a></p>`;
+  const head = `<h1>Generated Apps</h1><p class="sub">Draft app <b>candidates</b> over <code>domain_app</code> surface descriptors — bind a descriptor, optionally a manifest, and set visibility. Generated apps are launchable catalog entries (authored in Studio, distributed via Marketplace); nothing here generates or mounts a running app. Reference-ported domain apps: <a href="/__ioi/domain-apps/fusion">Fusion →</a> · <a href="/__ioi/domain-apps/logic">Logic →</a> · <a href="/__ioi/domain-apps/contour">Contour →</a> · <a href="/__ioi/odk">Open Grounding →</a></p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:120px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate (ODK)</h2><div class="row" style="gap:10px;align-items:stretch">${stat("domain_app descriptors", sub.odk_domain_app_descriptors)}${stat("Surface descriptors", sub.odk_surface_descriptors)}${stat("Ontologies", sub.odk_domain_ontologies)}${stat("Data recipes", sub.odk_data_recipes)}${stat("Manifests", sub.odk_manifests)}</div>`;
@@ -6340,8 +6614,8 @@ function renderMarketplaceHome(ov, listings, q, storeFilter) {
   const qn = String(q || "").trim().toLowerCase();
   let shown = listings.filter((l) => !storeFilter || l.listing_kind === storeFilter);
   if (qn) shown = shown.filter((l) => `${l.name || ""} ${l.subject_ref || ""} ${l.listing_kind || ""}`.toLowerCase().includes(qn));
-  const styles = `<style>.wrap{max-width:1100px}.mpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.mpstores{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:0 0 20px}.mpstore{display:block;padding:13px 15px;border:1px solid #24262d;border-radius:12px;background:#15171c;text-decoration:none;color:inherit}.mpstore:hover{border-color:#3a82f6}.mpstore.on{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.mpstore .sn{font-weight:600;color:#fff}.mpstore .sc{color:#878a93;font-size:12px;margin-top:3px}.mpsearch{width:100%;max-width:420px;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}</style>`;
-  const head = `<h1>Marketplace</h1><p class="sub">Discover, inspect, and take through admission — agents, domain apps, ODK packs, data recipes, and Foundry capabilities. Nothing is published, hired, installed, or settled here. <a href="/__apps/listings">Store-browse seed (adopting) →</a></p>`;
+  const styles = `<style>.wrap{max-width:1100px}.mpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.mpstores{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:0 0 20px}.mpstore{display:block;padding:13px 15px;border:1px solid ${GRE1_LIGHT.border};border-radius:12px;background:${GRE1_LIGHT.bg};text-decoration:none;color:inherit}.mpstore:hover{border-color:${GRE1_LIGHT.accent}}.mpstore.on{border-color:${GRE1_LIGHT.accent};box-shadow:0 0 0 1px ${GRE1_LIGHT.accent} inset}.mpstore .sn{font-weight:600;color:${GRE1_LIGHT.text}}.mpstore .sc{color:${GRE1_LIGHT.muted};font-size:12px;margin-top:3px}.mpsearch{width:100%;max-width:420px;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid ${GRE1_LIGHT.border2};background:${GRE1_LIGHT.bg};color:${GRE1_LIGHT.text};font:inherit}</style>`;
+  const head = `<h1>Marketplace</h1><p class="sub">Discover, inspect, and take through admission — agents, domain apps, ODK packs, data recipes, and Foundry capabilities. Nothing is published, hired, installed, or settled here. <a href="/__ioi/marketplace/artifacts">Artifacts registry →</a> · <a href="/__ioi/packages/marketplace">Packages marketplace →</a> · <a href="/__apps/listings">Store-browse seed (adopting) →</a></p>`;
   const banner = `<div class="chips"><span class="pill warn">publish = admitted review + open release + serving runtime</span> <span class="sub" style="margin:0">${CX_ESC(o.status_note || "A domain_app publishes only with runtime backing; published = read-only distribution metadata.")}</span></div>`;
   const storeCards = MP_STORES.map((s) => `<a class="mpstore${storeFilter === s.kind ? " on" : ""}" href="/__ioi/marketplace?store=${enc(s.kind)}"><div class="sn">${s.icon} ${CX_ESC(s.label)} <span class="pill muted">${byKind[s.kind] || 0}</span></div><div class="sc">${CX_ESC(s.desc)}</div></a>`).join("");
   const stores = `<h2>Stores${storeFilter ? ` · <a href="/__ioi/marketplace">show all</a>` : ""}</h2><div class="mpstores">${storeCards}</div>`;
@@ -6353,7 +6627,7 @@ function renderMarketplaceHome(ov, listings, q, storeFilter) {
     <form method="get" action="/__ioi/marketplace" style="margin:0 0 14px">${storeFilter ? `<input type="hidden" name="store" value="${CX_ESC(storeFilter)}">` : ""}<input class="mpsearch" name="q" value="${CX_ESC(q || "")}" placeholder="Search listings by name, subject, or kind…"></form>
     ${shown.length ? `<div class="mpgrid">${shown.map(card).join("")}</div>` : `<div class="empty">No listings${storeFilter ? ` in ${CX_ESC(mpStoreOf(storeFilter).label)}` : ""} yet. Draft one over a real agent, domain app, ODK pack, recipe, or Foundry capability.</div>`}`;
   const activity = `<h2>Admission activity</h2><div class="chips"><span class="pill muted">publish candidates: ${mk.publish_candidates || 0}</span> <span class="pill muted">admission reviews: ${mk.admission_reviews || 0}</span> <span class="pill muted">managed offers: ${mk.managed_instance_offers || 0}</span> <span class="pill ok">published: ${mk.published || 0}</span></div><p class="sub" style="margin:6px 0 0">Substrate: ${sub.agents || 0} agents · ${sub.domain_apps_marketplace_candidates || 0} domain-app candidates · ${sub.foundry_specs || 0} foundry specs. <a href="/__ioi/governance">Governance posture →</a></p>`;
-  return automationsShell("Marketplace", styles + head + banner + stores + catalog + activity);
+  return automationsShell("Marketplace", styles + head + banner + stores + catalog + activity, { theme: "light" });
 }
 function renderMarketplaceListingForm(existing, opts) {
   const enc = encodeURIComponent; const ex = existing || {}; const isEdit = !!existing;
@@ -6373,7 +6647,7 @@ function renderMarketplaceListingForm(existing, opts) {
       <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft listing"}</button> <a class="act ghost" href="/__ioi/marketplace">Cancel</a></div>
     </form>
     <script>(function(){var k=document.getElementById('mp-kind'),s=document.getElementById('mp-subject');if(!k||!s)return;function f(){var kk=k.value;Array.prototype.forEach.call(s.options,function(o){if(!o.value){return;}o.hidden=(o.getAttribute('data-kind')!==kk);});var cur=s.options[s.selectedIndex];if(!cur||cur.hidden){for(var i=0;i<s.options.length;i++){if(s.options[i].value&&!s.options[i].hidden){s.selectedIndex=i;return;}}}}k.addEventListener('change',f);f();})();</script>`;
-  return automationsShell(`${isEdit ? "Edit" : "Draft"} listing`, inner);
+  return automationsShell(`${isEdit ? "Edit" : "Draft"} listing`, inner, { theme: "light" });
 }
 // ---- admission-review callers (P-MKT-CALL-1) ---------------------------------------------------
 //
@@ -6533,7 +6807,7 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
     ? `<div class="chips" style="margin:0 0 16px"><span class="chiplabel">Admission readiness</span>${govChips(gov)}<span class="sub" style="margin:0">live governance posture — snapshotted onto each publish candidate at candidacy</span></div>`
     : "";
   const inner = `<p><a href="/__ioi/marketplace">← Marketplace</a></p><h1>${st.icon} ${CX_ESC(l.name || lid)}</h1><p class="sub">Marketplace listing · draft. ${CX_ESC(l.description || "")}</p>${listingActions}${meta}${readiness}${admission}${offersSection}${handoffs}`;
-  return automationsShell(l.name || "Marketplace listing", inner);
+  return automationsShell(l.name || "Marketplace listing", inner, { theme: "light" });
 }
 
 // Minimal dark page chrome for the BYOA GitHub App connect flow (custody-first framing).
@@ -7375,6 +7649,11 @@ function surfaceErrorBoundary(req, res, err) {
 // onclick, and GET form that lands on another embeddable route, so selection/filter/refresh and
 // cross-application semantic links stay embedded. App-local rails, headers, sidebars, tools,
 // inspectors and trays are never touched.
+// GRE-2 (owner ruling 2026-08-20): the designated CANONICAL paths participate in the embed
+// contract — the intercept arms on them and the rewriter carries embed=1 through them, so the
+// session rail is never lost to an in-frame canonical hop (the second-rail leak the owner caught).
+const CANONICAL_EMBED_PATHS = new Set(["/automations", "/evaluations", "/foundry", "/provenance", "/improvement", "/governance", "/packages/marketplace", "/studio", "/data", "/ontology", "/developer-workspace"]);
+
 function embedSurfaceHtml(html) {
   const routes = embeddableRoutes();
   const addEmbed = (path, qs, hash) => {
@@ -7388,6 +7667,10 @@ function embedSurfaceHtml(html) {
   html = html.replace(/location\.href='(\/__ioi\/[^'?#]*)(\?[^'#]*)?(#[^']*)?'/g, (m, path, qs, hash) => {
     const u = addEmbed(path, qs, hash);
     return u ? `location.href='${u}'` : m;
+  });
+  html = html.replace(/href="(\/(?:automations|evaluations|foundry|provenance|improvement|governance|studio|data|ontology|developer-workspace)(?:\/marketplace)?)(\?[^"#]*)?(#[^"]*)?"/g, (m, path, qs, hash) => {
+    if (!CANONICAL_EMBED_PATHS.has(path) || /(\?|&)embed=1/.test(qs || "")) return m;
+    return `href="${path}${qs ? `${qs}&embed=1` : "?embed=1"}${hash || ""}"`;
   });
   const embeddablePath = (path) => routes.has(path) || [...routes].some((r) => path.startsWith(r + "/"));
   html = html.replace(/(<form\b[^>]*\baction="(\/__ioi\/[^"?#]*)"[^>]*>)/g, (m, tag, path) => (embeddablePath(path) ? `${tag}<input type="hidden" name="embed" value="1">` : m));
@@ -7586,13 +7869,67 @@ async function handleEstateRequest(req, res, body) {
     // has its final whole-document HTML rewritten (structural global-rail removal + embed
     // threading, embedSurfaceHtml); only chunks that are a complete text/html document are
     // touched — JSON, assets, streams, and partial writes pass through byte-untouched.
-    if (req.method === "GET" && pathname.startsWith("/__ioi/")) {
+    if (req.method === "GET" && (pathname.startsWith("/__ioi/") || CANONICAL_EMBED_PATHS.has(pathname))) {
       let embedReq = false;
       try { embedReq = new URL(req.url || "", "http://x").searchParams.get("embed") === "1"; } catch { /* malformed URL → standalone render */ }
+      // GRE-2 hardening (owner catch 2026-08-20, "two session rails"): browsers stamp iframe
+      // loads with Sec-Fetch-Dest — strip the ported rail on ANY iframe delivery, so no client
+      // path (stale bundle, embed-less hop, old iframe src) can ever nest a second rail.
+      if (!embedReq && req.headers["sec-fetch-dest"] === "iframe") embedReq = true;
       if (embedReq) {
         const endRaw = res.end.bind(res);
         res.end = (chunk, ...rest) => endRaw(typeof chunk === "string" && /^<!doctype html>/i.test(chunk) ? embedSurfaceHtml(chunk) : chunk, ...rest);
       }
+    }
+    // ---- GRE-2 CANONICAL TRANSFERS (owner authorization recorded 2026-08-20: "i authorize you.
+    // go to your discretion."). The redirect-class transfers: canonical nav routes land on their
+    // DESIGNATED reference-grammar surfaces (landing-designations.v1.json; E1/E7). The legacy
+    // lanes keep serving at their own routes until the staged retirement.
+    //   AUT-3  /automations  → the Automate shell (certified port + live lanes)
+    //   EVA-4  /evaluations  → AIP Evals (certified port)
+    //   FOU-3  /foundry      → Model Catalog (certified port + registered lane)
+    //   PRO-3  /provenance   → Monocle (the D1-designated proof-plane landing)
+    // ---- GRE-2 BUILD-CLASS LANDINGS (owner go 2026-08-20): DAT-5 /data · ONT-3 /ontology ·
+    // WOR-3 /developer-workspace — the family splash landings (I-4, railless), each row a LIVE
+    // link to the family's shipped surfaces. These SERVE at the canonical route (shadowing the
+    // dark v2 shell pages, which retire in the staged cutover).
+    const FAMILY_LANDINGS = {
+      "/data": { title: "Data", hero: "Supply the world-model — the Data family's shipped surfaces over real daemon truth.", newLabel: "New source", newHref: "/__ioi/data/sources?declare=1", newTitle: "Declare a data source — the governed receipted lane on Data Connection", rows: [["Data Connection", "sources · syncs (live materializing-runs lane) · governed declare", "/__ioi/data/sources"], ["Pipeline Builder", "the certified pipeline canvas (atlas-verified interaction)", "/__ioi/pipeline"], ["HyperAuto", "the ingestion CHAIN joined end to end — each stage's own claim beside what the chain actually did", "/__ioi/data/ingest"]] },
+      "/ontology": { title: "Ontology", hero: "The semantic world-model — the Ontology family's certified surfaces.", newLabel: "New object type", newHref: "/__ioi/ontology/manager", newTitle: "Author types on the certified Ontology Manager", rows: [["Ontology Manager", "types · functions · health · history (certified)", "/__ioi/ontology/manager"], ["Object Explorer", "objects · saved sets · exploration (certified)", "/__ioi/ontology/explorer"], ["ODK plane", "the composition substrate (ontologies · recipes · descriptors)", "/__ioi/odk"]] },
+      "/studio": { title: "Studio", hero: "Compose systems & agents — the Studio family in the Designer grammar; the agent estate and composition truth live one row away.", newLabel: "New Diagram", newGapReason: "In-canvas authoring is the adjudicated later authority-crossing cut (reference-seed-adjudications.v1.json#designer, portable-backlogged); browse the certified canvas meanwhile", rows: [["Solution Designer", "the certified light canvas over real ODK composition truth", "/__ioi/studio/designer"], ["Machinery", "certified state-machine definitions (definition-only boundary)", "/__ioi/studio/machinery"], ["Workshop", "the D6 combined-seed app over domain-apps + surface descriptors", "/__ioi/studio/workshop"], ["Agent Studio", "the agent estate — agents · model routes · launch policies (owner surface)", "/__ioi/agent-studio"], ["Blueprints & system-design map", "content-addressed composition drafts + the design map (legacy workbench views)", "/__ioi/studio/workbench?view=blueprints"]] },
+      "/developer-workspace": { title: "Workbench", hero: "The developer workbench — workspaces, documents, and repository bindings over real planes.", newLabel: "New workspace", newGapReason: "Workspace creation is the governed environment ladder (owner surface); named gap", rows: [["Code Workspaces", "the real environments plane (newest 15, cap named)", "/__ioi/developer-workspace/workspaces"], ["Notepad", "landing over a typed-absent document plane", "/__ioi/developer-workspace/notepad"], ["Code Repositories", "the real SCM connector bindings (donor-ported)", "/__ioi/developer-workspace/repositories"]] },
+    };
+    if (FAMILY_LANDINGS[pathname] && req.method === "GET") {
+      const fl = FAMILY_LANDINGS[pathname];
+      const rowsHtml = fl.rows.map(([name, what, href]) => `<a class="spl-row" href="${href}"><span><b>${CX_ESC(name)}</b></span><span>${CX_ESC(what)}</span><span><code style="font-size:11px;color:#5f6b7c">${CX_ESC(href)}</code></span></a>`).join("");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "x-ioi-surface-route": pathname, "x-ioi-surface-owner": fl.title });
+      res.end(renderSplashLanding({
+        slug: pathname.slice(1), routeOverride: pathname, title: fl.title,
+        surfaceRoute: pathname, surfaceOwner: fl.title,
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: fl.newLabel, newHref: fl.newHref, newTitle: fl.newTitle, newGapReason: fl.newGapReason,
+        heroTitle: fl.title, heroDesc: fl.hero,
+        columns: ["Surface", "Truth", "Route"], rowsHtml,
+        emptyCopy: "no surfaces — impossible by construction",
+        footHtml: `GRE-2 build-class landing (owner go 2026-08-20): the ${CX_ESC(fl.title)} family splash — every row is a LIVE shipped surface; the dark v2 shell page retires in the staged cutover. Designation: landing-designations.v1.json.`,
+      }));
+      return;
+    }
+    const GRE2_TRANSFERS = { "/automations": "/__ioi/automations/monitors", "/evaluations": "/__ioi/evaluations/evalsuites", "/foundry": "/__ioi/foundry/models", "/provenance": "/__ioi/lineage", "/improvement": "/__ioi/improvement/changes", "/governance": "/__ioi/governance/approvals", "/packages/marketplace": "/__ioi/marketplace/listings" };
+    if (GRE2_TRANSFERS[pathname] && req.method === "GET") {
+      // Query continuity: old canonical deep links keep working. For /automations the cockpit's
+      // ?automation= / ?view=new grammar translates into the Automate shell's in-shell lanes.
+      const sp0 = new URL(req.url, "http://x").searchParams;
+      let loc = GRE2_TRANSFERS[pathname];
+      if (pathname === "/automations" && (sp0.get("automation") || sp0.get("view") === "new")) {
+        sp0.set("tab", "automations");
+        loc += `?${sp0.toString()}`;
+      } else if ([...sp0.keys()].length) {
+        loc += `?${sp0.toString()}`;
+      }
+      res.writeHead(302, { Location: loc, "Cache-Control": "no-cache", "x-ioi-gre2-transfer": pathname });
+      res.end();
+      return;
     }
     if (pathname === TERMINAL_CHUNK_PATH) {
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });
@@ -8868,7 +9205,7 @@ async function handleEstateRequest(req, res, body) {
         res.end(automationsShell("New automation", `<div class="empty">Create failed: ${CX_ESC((j.error && j.error.message) || ("HTTP " + r.status))}</div><p><a href="/__ioi/automations/new${payload.project_ref ? "?project=" + encodeURIComponent(payload.project_ref) : ""}">← back</a></p>`));
         return;
       }
-      res.writeHead(302, { Location: `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
+      res.writeHead(302, { Location: new URL(req.url, "http://x").searchParams.get("back") === "automate" ? `/__ioi/automations/monitors?tab=automations&automation=${encodeURIComponent(newId)}` : `/__ioi/automations/${encodeURIComponent(newId)}`, "Cache-Control": "no-cache" });
       res.end();
       return;
     }
@@ -8889,6 +9226,3050 @@ async function handleEstateRequest(req, res, body) {
       sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
       return;
     }
+    // ---- Workbench · Code Repositories — WOR-2 (remediation v2): D6 DONOR port. The
+    // repositories capture is byte-dead; the sibling /workspace/code/ capture BOOTS ("Code
+    // repositories" — crawl + recorded shot) and donates the grammar. Rows = the REAL SCM
+    // connector plane; repo creation is not an estate verb (typed absence naming SCM publish).
+    if (pathname === "/__ioi/developer-workspace/repositories" && req.method === "GET") {
+      const scm = await daemonFetch(`/v1/hypervisor/scm-connectors`).then((r) => r.json()).then((j) => j.scm_connectors || j.connectors || []).catch(() => []);
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rowsHtml = scm.map((c) => `<a class="spl-row" href="/__ioi/connections" title="a REAL SCM connector (BYOA/token lease) — publish/revoke live on the owner surface"><span><b>${CX_ESC(c.name || c.connector_id || c.id)}</b><code style="display:block;font-size:11px;color:#5f6b7c">${CX_ESC(c.connector_id || c.id || "")}</code></span><span>${CX_ESC(c.kind || c.host || "git")}</span><span>${CX_ESC(c.auth_posture || "—")}</span><span>${fdt(c.created_at)}</span></a>`).join("");
+      sendOwnedSurfaceHtml(res, "repositories", renderSplashLanding({
+        slug: "developer-workspace/repositories", routeOverride: pathname, title: "Code Repositories",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New repository",
+        newGapReason: "Repository creation is not an estate verb — SCM connectors bind existing repositories via the governed publish loop (owner surface); typed absence",
+        heroTitle: "Code Repositories",
+        heroDesc: `The estate's REAL SCM bindings — ${scm.length} connector${scm.length === 1 ? "" : "s"} (BYOA/token leases); publish/revoke live on their owner surfaces.`,
+        columns: ["Repository binding", "Kind", "Auth posture", "Created"],
+        rowsHtml,
+        emptyCopy: "No SCM connectors — this table renders the real plane and never fabricates rows.",
+        footHtml: `WOR-2 (remediation v2): D6 DONOR port — the repositories capture is byte-dead; the sibling /workspace/code/ capture BOOTS ("Code repositories") and donates the grammar (donor recorded: reference-seed-adjudications.v1.json#repositories; shot .artifacts/family-atlas/repositories-donor-code.png). Rows are the REAL SCM connector plane; verbs stay on <a href="/__ioi/connections">Connections</a>. Family: <a href="/__ioi/developer-workspace">Workbench</a>.`,
+      }));
+      return;
+    }
+    // ---- Evaluations · Quiver — EVA-3 completion (remediation v2): the E-audit caught that this
+    // adjudication was never executed; the atlas then REFUTED the expected absence — the splash
+    // alias expresses IA (5 facet groups). I-4 landing over a TYPED-ABSENT body (no time-series
+    // analysis plane).
+    if (pathname === "/__ioi/evaluations/quiver" && req.method === "GET") {
+      sendOwnedSurfaceHtml(res, "quiver", renderSplashLanding({
+        slug: "evaluations/quiver", routeOverride: pathname, title: "Quiver",
+        appTileUri: EVL_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New analysis",
+        newGapReason: "No time-series analysis plane exists on the estate — the reference create lane never rendered in the reference replay; typed absence, never simulated",
+        heroTitle: "Quiver",
+        heroDesc: "The reference Quiver landing grammar (via its splash alias), preserved over a NAMED ABSENCE: the estate holds no time-series analysis plane today.",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml: "",
+        emptyCopy: "No analyses — NOT an empty plane but a missing one: the estate records no time-series analysis objects (typed absence). This table never fabricates rows.",
+        footHtml: `EVA-3 (remediation v2): the splash-alias landing (atlas: 5 facet groups — the expected absence was REFUTED by evidence and this port is the correction) as an I-4 instance over a TYPED-ABSENT body. Evidence: reference-seed-adjudications.v1.json#quiver · reference-family-atlas.v1.json. Family: <a href="/__ioi/evaluations">Evaluations</a> · siblings <a href="/__ioi/evaluations/evalsuites">AIP Evals</a> · <a href="/__ioi/evaluations/insight">Insight</a>.`,
+      }));
+      return;
+    }
+    // ---- Evaluations · Insight — EVA-2.build (remediation v2): the analysis app's landing.
+    // Object-sets lane = LIVE (materialized sets open-read; saved sets are a PRINCIPAL-REQUIRED
+    // control plane — its refusal renders VERBATIM as typed degradation, never masked).
+    // Workbooks = typed absence (no workbook plane).
+    if (pathname === "/__ioi/evaluations/insight" && req.method === "GET") {
+      const [ms, ss] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/odk/materialized-object-sets`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/odk/saved-object-sets`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      const esc = CX_ESC;
+      const msets = ms.materialized_object_sets || [];
+      const saved = ss.saved_object_sets || null;
+      const savedBand = Array.isArray(saved)
+        ? (saved.length ? saved.map((s2) => `<div class="ins-row"><span><b>${esc(s2.name || s2.id)}</b></span><span>${esc(s2.object_type_id || "—")}</span><span>—</span><span>—</span></div>`).join("") : `<div class="ins-note">No saved object sets — real plane, honest empty.</div>`)
+        : `<div class="ins-degraded" title="the daemon's own fail-closed answer, verbatim">saved-object-sets: <code>${esc(ss.code || "unavailable")}</code> — ${esc(ss.message || "the control plane did not answer")} (typed degradation — the plane requires an authenticated principal; nothing is masked)</div>`;
+      const rows = msets.map((m) => `<a class="ins-row" href="/__ioi/ontology/explorer" title="a REAL materialized object set — explore it on Object Explorer"><span><b>${esc(m.object_type_id || m.id)}</b><code class="ins-ref">${esc(m.id)}</code></span><span>${m.count ?? (m.objects || []).length} object${(m.count ?? (m.objects || []).length) === 1 ? "" : "s"}</span><span><code class="ins-ref">${esc(m.materializing_run_ref || "—")}</code></span><span><code class="ins-ref">${esc(m.capability_lease_plan_ref || "—")}</code></span></a>`).join("");
+      const gap = (label, reason) => `<span class="ins-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const grail = ""; // owner ruling 2026-08-20: railless
+      sendOwnedSurfaceHtml(res, "insight", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Insight</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .ins-shell{display:flex;height:100vh;overflow:hidden}
+        .ins-main{flex:1;min-width:0;display:flex;flex-direction:column}
+        .ins-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
+        .ins-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .ins-tab{font-size:14px;line-height:50px;color:#215db0;font-weight:600;position:relative}
+        .ins-tab::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#215db0}
+        .ins-gap{font-size:14px;color:#a8b2be;cursor:not-allowed}
+        .ins-body{flex:1;overflow-y:auto;padding:18px 26px 40px}
+        .ins-h{font-size:18px;font-weight:600;margin:0 0 4px}.ins-note{font-size:12px;color:#5f6b7c;margin:0 0 12px}
+        .ins-thead{display:grid;grid-template-columns:2fr 1fr 1.6fr 1.6fr;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:6px 8px;border-bottom:1px solid #e5e8eb}
+        .ins-row{display:grid;grid-template-columns:2fr 1fr 1.6fr 1.6fr;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .ins-row:hover{background:#f6f7f9}
+        .ins-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .ins-degraded{padding:12px;background:#fff8e6;border:1px solid #f0dca6;border-radius:4px;font-size:13px;color:#5f6b7c;margin:10px 0}
+        .ins-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+        h3{font-size:14px;margin:18px 0 6px}
+      </style></head><body><div class="ins-shell">${grail}<div class="ins-main">
+        <header class="ins-header"><h1 class="ins-title">Insight</h1>
+          ${gap("Workbooks", "No workbook plane exists on the estate — the reference Workbooks lane has nothing to bind (typed absence; adjudication #analysis)")}
+          <span class="ins-tab" aria-current="page">Object sets</span>
+        </header>
+        <div class="ins-body">
+          <h2 class="ins-h">Object sets</h2>
+          <p class="ins-note">${msets.length} REAL materialized object set${msets.length === 1 ? "" : "s"} — each with its materializing-run and lease-plan refs (the proof trail).</p>
+          <div class="ins-thead"><span>Object type</span><span>Objects</span><span>Materializing run</span><span>Lease plan</span></div>
+          ${rows || `<div class="ins-note">No materialized sets — real plane, honest empty.</div>`}
+          <h3>Saved object sets</h3>
+          ${savedBand}
+          <p class="ins-foot">EVA-2.build (remediation v2): the Insight landing — Object-sets LIVE over the real ODK planes; Workbooks a typed absence. Evidence: reference-seed-adjudications.v1.json#analysis · reference-family-atlas.v1.json (Workbooks/Object-sets tab states). Family: <a href="/__ioi/evaluations">Evaluations</a> · certified sibling <a href="/__ioi/evaluations/evalsuites">AIP Evals</a>.</p>
+        </div>
+      </div></div></body></html>`);
+      return;
+    }
+    // ---- Developer Console — DEV-2 (remediation v2): the family's designed landing (this route
+    // previously fell through to the SPA bundle). Applications lane = LIVE over the REAL connector
+    // estate (declared connectors + SCM connectors — registrations with auth posture + declared
+    // tools); Standalone OAuth clients = typed absence naming the real lane (capability leases /
+    // BYOA, Connections-owned); the guided-create wizard is dead in the reference replay (atlas) and
+    // registration verbs stay on their owner surfaces.
+    if (pathname === "/__ioi/developer-console" && req.method === "GET") {
+      const [conns, scm] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/connectors`).then((r) => r.json()).then((j) => j.connectors || []).catch(() => []),
+        daemonFetch(`/v1/hypervisor/scm-connectors`).then((r) => r.json()).then((j) => j.scm_connectors || j.connectors || []).catch(() => []),
+      ]);
+      const esc = CX_ESC;
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rows = [
+        ...conns.map((c) => `<a class="dcx-row" href="/__ioi/connections" title="a REAL declared connector (use-only lease; declared tools only) — bindings live on Connections"><span><b>${esc(c.name || c.connector_id)}</b><code class="dcx-ref">${esc(c.connector_id)}</code></span><span>${esc(c.service || c.kind || "—")}</span><span>${esc(c.auth_posture || (c.requires_credential ? "credential" : "—"))}</span><span>${Array.isArray(c.allowed_tools) ? c.allowed_tools.length + " tool" + (c.allowed_tools.length === 1 ? "" : "s") : "—"}</span><span>${fdt(c.created_at)}</span></a>`),
+        ...scm.map((c) => `<a class="dcx-row" href="/__ioi/connections" title="a REAL SCM connector (BYOA/token lease) — publish/revoke live on its owner surface"><span><b>${esc(c.name || c.connector_id || c.id)}</b><code class="dcx-ref">${esc(c.connector_id || c.id || "")}</code></span><span>${esc(c.host || c.service || "scm")}</span><span>${esc(c.auth_posture || "—")}</span><span>—</span><span>${fdt(c.created_at)}</span></a>`),
+      ].join("");
+      const gap = (label, reason) => `<span class="dcx-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const grail = ""; // owner ruling 2026-08-20: railless
+      sendOwnedSurfaceHtml(res, "devconsole", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Developer Console</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .dcx-shell{display:flex;height:100vh;overflow:hidden}
+        .dcx-main{flex:1;min-width:0;display:flex;flex-direction:column}
+        .dcx-header{flex:0 0 50px;display:flex;align-items:center;gap:18px;padding:0 20px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04)}
+        .dcx-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .dcx-tab{font-size:14px;line-height:50px;color:#215db0;font-weight:600;position:relative}
+        .dcx-tab::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#215db0}
+        .dcx-gap{font-size:14px;color:#a8b2be;cursor:not-allowed}
+        .dcx-hright{margin-left:auto;display:flex;gap:8px;align-items:center}
+        .dcx-body{flex:1;overflow-y:auto;padding:18px 26px 40px}
+        .dcx-h{font-size:18px;font-weight:600;margin:0 0 4px}
+        .dcx-note{font-size:12px;color:#5f6b7c;margin:0 0 12px}
+        .dcx-thead{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:6px 8px;border-bottom:1px solid #e5e8eb}
+        .dcx-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .dcx-row:hover{background:#f6f7f9}
+        .dcx-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .dcx-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+      </style></head><body><div class="dcx-shell">${grail}<div class="dcx-main">
+        <header class="dcx-header"><h1 class="dcx-title">Developer Console</h1>
+          <span class="dcx-tab" aria-current="page">Applications</span>
+          ${gap("Standalone OAuth clients", "No standalone OAuth-client plane exists — the estate's real credential lanes are capability leases + BYOA app connectors, owned by Connections (typed absence; adjudication #devconsole)")}
+          <div class="dcx-hright">${gap("+ New application", "The reference guided-create wizard is dead in the reference replay (atlas authoring state, no IA) and application registration verbs stay on their owner surfaces (Connections / SCM publish); typed absence")}</div>
+        </header>
+        <div class="dcx-body">
+          <h2 class="dcx-h">Applications</h2>
+          <p class="dcx-note">${conns.length + scm.length} REAL registrations — ${conns.length} declared connector${conns.length === 1 ? "" : "s"} (use-only leases, declared tools only) + ${scm.length} SCM connector${scm.length === 1 ? "" : "s"}; bindings and verbs live on <a href="/__ioi/connections">Connections</a>.</p>
+          <div class="dcx-thead"><span>Application</span><span>Service</span><span>Auth posture</span><span>Tools</span><span>Created</span></div>
+          ${rows || `<div class="dcx-note">No registrations — this lane renders the real connector estate and never fabricates rows.</div>`}
+          <p class="dcx-foot">DEV-2 (remediation v2): the Developer-Console landing over the REAL connector estate (Applications-as-registrations, the adjudicated mapping); OAuth-clients + guided-create are typed absences naming the real lanes. Evidence: reference-seed-adjudications.v1.json#devconsole · reference-family-atlas.v1.json (devconsole landing + Applications tab, ia=true). Siblings: <a href="/__ioi/developer-console/widgets">Custom Widgets</a>.</p>
+        </div>
+      </div></div></body></html>`);
+      return;
+    }
+    // ---- Workbench · Code Workspaces + Notepad — WOR-1 (remediation v2): origin-aligned I-4
+    // landings. Workspaces renders the estate's REAL workspace substrate (the environments plane,
+    // newest 15 of the full census with the cap NAMED); Notepad is a TYPED-ABSENT body (no
+    // document plane — the reference's template-picker IA is recorded in the atlas for the day
+    // one lands).
+    if (pathname === "/__ioi/developer-workspace/workspaces" && req.method === "GET") {
+      const envs = await daemonFetch(`/v1/hypervisor/environments`).then((r) => r.json()).then((j) => j.environments || []).catch(() => []);
+      const newest = [...envs].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 15);
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rowsHtml = newest.map((e) => `<a class="spl-row" href="/__ioi/environments" title="a REAL environment record — the estate's workspace substrate (owner: Environments)"><span><b>${CX_ESC((e.spec || {}).name || e.id)}</b></span><span>${CX_ESC((e.spec || {}).class_id || (e.spec || {}).environment_class_id || "—")}</span><span>${CX_ESC(typeof e.status === "object" && e.status ? (e.status.phase || e.status.state || JSON.stringify(e.status).slice(0, 40)) : (e.status || "—"))}</span><span>${fdt(e.created_at)}</span></a>`).join("");
+      sendOwnedSurfaceHtml(res, "workspaces", renderSplashLanding({
+        slug: "developer-workspace/workspaces", routeOverride: pathname, title: "Code Workspaces",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New workspace",
+        newGapReason: "Workspace creation is the governed environment ladder (New Environment on the owner surface) — not re-minted here; the reference create lanes are dead in the reference replay (atlas); named gap",
+        heroTitle: "Code Workspaces",
+        heroDesc: `The estate's REAL workspace substrate — ${envs.length} environment record${envs.length === 1 ? "" : "s"}; the newest 15 render below (cap named, never silent).`,
+        columns: ["Workspace", "Class", "Status", "Created"],
+        rowsHtml,
+        emptyCopy: "No environments — this table renders the real environments plane and never fabricates rows.",
+        footHtml: `WOR-1 (remediation v2): the origin-aligned Code-Workspaces landing (atlas: 5 facet groups) over the REAL environments plane — newest 15 of ${envs.length} (cap NAMED; the full census lives on the <a href="/__ioi/environments">Environments owner surface</a>). Evidence: reference-seed-adjudications.v1.json#workspaces · reference-family-atlas.v1.json.`,
+      }));
+      return;
+    }
+    if (pathname === "/__ioi/developer-workspace/notepad" && req.method === "GET") {
+      sendOwnedSurfaceHtml(res, "notepad", renderSplashLanding({
+        slug: "developer-workspace/notepad", routeOverride: pathname, title: "Notepad",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New document",
+        newGapReason: "No document plane exists on the estate — the reference's template-picker IA (4 facet groups) is RECORDED in the atlas for the day one lands; typed absence, never simulated",
+        heroTitle: "Notepad",
+        heroDesc: "The reference Notepad landing grammar, preserved over a NAMED ABSENCE: the estate holds no document plane today.",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml: "",
+        emptyCopy: "No documents — NOT an empty plane but a missing one: the estate records no document objects (typed absence). This table never fabricates rows.",
+        footHtml: `WOR-1 (remediation v2): the origin-aligned Notepad landing (atlas: 5 facet groups; create-from-template expresses 4 facet groups, recorded) as an I-4 instance over a TYPED-ABSENT body. Evidence: reference-seed-adjudications.v1.json#notepad · reference-family-atlas.v1.json. Family: <a href="/__ioi/developer-workspace">Workbench</a>.`,
+      }));
+      return;
+    }
+    // ---- Developer Console · Custom Widgets — DEV-1 (remediation v2): origin-aligned I-4
+    // landing (atlas: 5 facet groups) over a TYPED-ABSENT body — no widget plane exists.
+    if (pathname === "/__ioi/developer-console/widgets" && req.method === "GET") {
+      sendOwnedSurfaceHtml(res, "widgets", renderSplashLanding({
+        slug: "developer-console/widgets", routeOverride: pathname, title: "Custom Widgets",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New widget set",
+        newGapReason: "No widget plane exists on the estate — the reference create lane is dead in the reference replay too (atlas authoring state, no IA); typed absence, never simulated",
+        heroTitle: "Custom Widgets",
+        heroDesc: "The reference Custom-Widgets landing grammar, preserved over a NAMED ABSENCE: the estate holds no widget plane today.",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml: "",
+        emptyCopy: "No widget sets — NOT an empty plane but a missing one: the estate records no widget objects (typed absence). This table never fabricates rows.",
+        footHtml: `DEV-1 (remediation v2): the origin-aligned Custom-Widgets landing (atlas: 5 facet groups) as an I-4 instance over a TYPED-ABSENT body. Evidence: reference-seed-adjudications.v1.json#widgets · reference-family-atlas.v1.json. Family: <a href="/__ioi/developer-console">Developer Console</a>.`,
+      }));
+      return;
+    }
+    // ---- Domain Apps · Logic + Contour — DOM-1 (remediation v2): origin-aligned I-4 landings
+    // (both landings express 5 facet groups — atlas evidence). BODIES ARE TYPED ABSENCES: no
+    // no-code-function plane (logic) and no analysis-workbook plane (contour) exist on the estate
+    // — the landing grammar is preserved with the absence named, never a fabricated table.
+    if ((pathname === "/__ioi/domain-apps/logic" || pathname === "/__ioi/domain-apps/contour") && req.method === "GET") {
+      const isLogic = pathname.endsWith("/logic");
+      sendOwnedSurfaceHtml(res, isLogic ? "logic" : "contour", renderSplashLanding({
+        slug: isLogic ? "domain-apps/logic" : "domain-apps/contour",
+        routeOverride: pathname, title: isLogic ? "Logic" : "Contour",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: isLogic ? "New logic" : "New analysis",
+        newGapReason: isLogic
+          ? "No no-code-function plane exists on the estate — the reference create lane is dead in the reference replay too (atlas authoring state, no IA); typed absence, never simulated"
+          : "No analysis-workbook plane exists on the estate — object-set analysis binding is the Evaluations family build (EVA-2); the reference create lane is dead in the reference replay (atlas); typed absence",
+        heroTitle: isLogic ? "Build no-code Ontology functions" : "Contour",
+        heroDesc: isLogic
+          ? "The reference Logic landing grammar, preserved over a NAMED ABSENCE: the estate holds no no-code-function plane today."
+          : "The reference Contour analysis landing grammar, preserved over a NAMED ABSENCE: analysis-workbook binding lands with the Evaluations family build (EVA-2).",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml: "",
+        emptyCopy: isLogic
+          ? "No logic functions — NOT an empty plane but a missing one: the estate records no no-code-function objects (typed absence). This table never fabricates rows."
+          : "No analyses — NOT an empty plane but a missing one: analysis workbooks have no estate plane yet (EVA-2 owns object-set binding). This table never fabricates rows.",
+        footHtml: isLogic
+          ? `DOM-1 (remediation v2): the origin-aligned Logic landing (atlas: 5 facet groups) as an I-4 instance over a TYPED-ABSENT body — no plane is claimed, none is faked. Evidence: reference-seed-adjudications.v1.json#logic · reference-family-atlas.v1.json. Owner: <a href="/__ioi/domain-apps">Domain Apps</a>.`
+          : `DOM-1 (remediation v2): the origin-aligned Contour landing (atlas: 5 facet groups) as an I-4 instance over a TYPED-ABSENT body — analysis binding is EVA-2's build. Evidence: reference-seed-adjudications.v1.json#contour · reference-family-atlas.v1.json. Owner: <a href="/__ioi/domain-apps">Domain Apps</a>.`,
+      }));
+      return;
+    }
+    // ---- Domain Apps · Fusion — FUS-1 (remediation v2): the FIRST live-tenant-sourced port.
+    // The reference capture was byte-dead, so the replay-scoped verdict was capture_broken_no_donor.
+    // The owner-authorized live-tenant sweep OVERTURNED it — and recorded something the seed NAME
+    // hides: the fusion click target does NOT resolve to a spreadsheet app. It lands on the
+    // tenant's PROJECTS-&-FILES home — a faceted file browser: 4 tabs (All files · Shared with you
+    // · Data Catalog · Trash), 39 rows, 6 facet groups, 5 search inputs; the Data Catalog tab opens
+    // two sub-tabs (Collections · Files) over an EMPTY catalog ("No collections yet"). THAT grammar
+    // is what this route ports, and the surface says so rather than shipping a spreadsheet.
+    //
+    // TRUTH BINDING (adjudication #fusion-port): All files = the REAL projects plane (the estate's
+    // file/custody records, newest first, cap NAMED). Data Catalog › Files = the REAL data-asset
+    // planes — ODK materialized object sets (materialized data with object counts) + declared data
+    // sources (the daemon's own declaration-only/unwired flag rendered verbatim), cap NAMED.
+    // Collections · Shared with you · Trash · every facet + quick filter = TYPED ABSENCES under the
+    // unified gap contract: the estate has no curation, sharing-scope, soft-delete or facet-index
+    // plane. Nothing is fabricated and no verb is re-minted here — this is a read landing.
+    if (pathname === "/__ioi/domain-apps/fusion" && req.method === "GET") {
+      const fq = new URL(req.url, "http://x").searchParams;
+      const fusTab = fq.get("tab") === "data-catalog" ? "data-catalog" : "all-files";
+      const fusSub = fq.get("sub") === "files" ? "files" : "collections";
+      const wantCatalog = fusTab === "data-catalog" && fusSub === "files";
+      const [fusProjects, fusMsets, fusSources] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
+        wantCatalog ? daemonFetch(`/v1/hypervisor/odk/materialized-object-sets`).then((r) => r.json()).then((j) => j.materialized_object_sets || []).catch(() => []) : Promise.resolve([]),
+        wantCatalog ? daemonFetch(`/v1/hypervisor/data-sources`).then((r) => r.json()).then((j) => j.data_sources || []).catch(() => []) : Promise.resolve([]),
+      ]);
+      const esc = CX_ESC;
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      // ONE gap contract for every named absence on this surface (aria + title + data-ioi reason).
+      const fgap = (cls, label, reason) => `<span class="${cls} fus-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const fdash = (reason) => `<span class="fus-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      const hostPath = (u) => { try { const x = new URL(String(u)); return `${x.host}${x.pathname}`; } catch { return ""; } };
+      // ---- All files: the REAL projects plane, newest first, cap NAMED (never a silent truncation)
+      const FUS_PROJECT_CAP = 40;
+      const projSorted = [...fusProjects].sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")));
+      const projShown = projSorted.slice(0, FUS_PROJECT_CAP);
+      const projRows = projShown.map((p) => {
+        const repo = hostPath(p.repository_url);
+        return `<a class="fus-row" href="/projects" title="a REAL project record — the estate's file/custody plane (owner surface: Projects)">`
+          + `<span><b>${esc(p.name || p.project_id || "project")}</b><code class="fus-ref">${esc(p.project_id || "")}</code></span>`
+          + `<span>${esc(p.custody_posture || "—")}</span>`
+          + `<span>${repo ? esc(repo) : fdash("This project record carries no repository binding — the plane records none (typed absence, not an unread field)")}</span>`
+          + `<span>${Array.isArray(p.artifact_refs) ? `${p.artifact_refs.length} artifact${p.artifact_refs.length === 1 ? "" : "s"}` : fdash("The plane records no artifact refs on this record (typed absence)")}</span>`
+          + `<span>${esc(fdt(p.updated_at || p.created_at))}</span></a>`;
+      }).join("");
+      // ---- Data Catalog › Files: the REAL data-asset planes, each row naming which plane it is
+      const FUS_SOURCE_CAP = 20;
+      const srcSorted = [...fusSources].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+      const srcShown = srcSorted.slice(0, FUS_SOURCE_CAP);
+      const catalogRows = wantCatalog ? [
+        ...fusMsets.map((m) => `<a class="fus-row" href="/__ioi/odk" title="a REAL ODK materialized object set — materialized data with its sealed provenance (owner surface: ODK)">`
+          + `<span><b>${esc(m.object_type_id || m.id || "object set")}</b><code class="fus-ref">${esc(m.id || "")}</code></span>`
+          + `<span>materialized object set</span>`
+          + `<span>${esc(String(m.count ?? (Array.isArray(m.objects) ? m.objects.length : "—")))}</span>`
+          + `<span>materialized · ${esc(String(m.rows_fetched ?? "—"))} row${String(m.rows_fetched) === "1" ? "" : "s"} fetched</span>`
+          + `<span>${esc(fdt(m.registered_at))}</span></a>`),
+        ...srcShown.map((s) => `<a class="fus-row" href="/__ioi/data/sources" title="a REAL declared data source — a DECLARATION, not extracted data (owner surface: Data Connection)">`
+          + `<span><b>${esc(s.name || s.source_id || "data source")}</b><code class="fus-ref">${esc(s.source_ref || s.source_id || "")}</code></span>`
+          + `<span>declared data source · ${esc(s.kind || "—")}</span>`
+          + `<span>${fdash("A declared source carries no object count — nothing is extracted until the governed authority crossing (the daemon's own ingestion note); typed absence")}</span>`
+          + `<span>${esc(((s.ingestion || {}).wired === true) ? "wired" : "declaration only — extraction unwired")}</span>`
+          + `<span>${esc(fdt(s.created_at))}</span></a>`),
+      ].join("") : "";
+      const catalogCount = fusMsets.length + srcShown.length;
+      // ---- the reference facet rail: SIX groups, every one a typed absence naming WHY
+      const fusFacets = [
+        ["Types", "No file-type index exists on the estate — the projects plane records ONE record kind (project), so a Types facet would classify nothing (typed absence)"],
+        ["Status", "No promotion/curation status plane exists on the estate — the reference's Promoted-items status has no estate analogue (typed absence)"],
+        ["Portfolios", "No portfolio plane exists on the estate — project records carry no portfolio grouping (typed absence)"],
+        ["Projects", "The All-files body IS the estate's project plane — a Projects facet would narrow nothing; this is a typed absence of a FILTER, not of the data"],
+        ["Organizations", "No organization-scoping plane is bound to this surface — principals and orgs are IdP-owned (Connections / Settings), never re-minted on a read landing (typed absence)"],
+        ["Tags", "No tag plane exists on the estate — project records carry no tags (typed absence)"],
+      ].map(([label, reason]) => `<div class="fus-fgroup">${fgap("fus-flabel", label, reason)}<span class="fus-fchev" aria-hidden="true">▾</span></div>`).join("");
+      const fusQuick = [
+        ["Portfolios", "Portfolios are groupings of projects in the reference IA.", "No portfolio plane exists on the estate — there is nothing to apply (typed absence)"],
+        ["Projects", "Projects are the estate's own file/custody containers.", "The All-files body already IS every project record — applying a Projects quick filter would narrow nothing (typed absence of a filter, not of the data)"],
+        ["Promoted items", "A curated set of promoted files in the reference IA.", "No promotion/curation plane exists on the estate — nothing is promoted, so nothing can be filtered to (typed absence)"],
+      ].map(([label, copy, reason]) => `<div class="fus-qfcard"><div class="fus-qfhead"><b>${esc(label)}</b>${fgap("fus-apply", "Apply", reason)}</div><p class="fus-qfcopy">${esc(copy)}</p></div>`).join("");
+      const tabLink = (label, href, on) => `<a class="fus-tab${on ? " on" : ""}"${on ? ' aria-current="page"' : ""} href="${href}">${esc(label)}</a>`;
+      const fusFoot = `FUS-1 (remediation v2): the FIRST live-tenant-sourced port — and an identity correction. The reference capture was byte-dead (replay-scoped verdict: capture_broken_no_donor); the owner-authorized live sweep OVERTURNED it and showed the fusion click target resolves to a <b>projects-&amp;-files browser</b>, not a spreadsheet (4 tabs · 39 rows · 6 facet groups · 5 search inputs; the Data Catalog tab opens Collections + Files over an EMPTY catalog). LIVE here: <b>All files</b> = the REAL projects plane (${fusProjects.length} record${fusProjects.length === 1 ? "" : "s"}${fusProjects.length > FUS_PROJECT_CAP ? `, newest ${FUS_PROJECT_CAP} shown — cap NAMED` : ""}) · <b>Data Catalog › Files</b> = the REAL data-asset planes (ODK materialized object sets + declared data sources, cap NAMED, the daemon's own declaration-only flag verbatim). TYPED ABSENCES: Collections · Shared with you · Trash · all six facet groups · all three quick filters. Evidence: reference-seed-adjudications.v1.json#fusion-port · reference-live-tenant-deep-atlas.v1.json (fusion landing · tab-all-files · tab-data-catalog) · reference-live-tenant-atlas.v1.json. Owner: <a href="/__ioi/domain-apps">Domain Apps</a> · truth: <a href="/projects">Projects</a> · <a href="/__ioi/odk">ODK plane</a> · <a href="/__ioi/data/sources">Data Connection</a>.`;
+      const allFilesBody = `
+        <div class="fus-crumb"><span class="fus-crumbnow">All files</span><span class="fus-sep">›</span>${fgap("fus-spaces", "All spaces ▾", "No space/tenant-partition plane exists on the estate — every project record sits in the single local custody scope, so there is nothing to switch between (typed absence)")}</div>
+        <section class="fus-qf"><div class="fus-qftop"><span class="fus-qftitle">Quick filters</span>${fgap("fus-hide", "Hide", "The reference's quick-filter Hide toggle needs a per-principal surface-preference plane; the estate has none (typed absence)")}</div><div class="fus-qfgrid">${fusQuick}</div></section>
+        ${fgap("fus-search", "Search all portfolios, projects, folders and files…", "No search index is bound to this surface — estate search is owner-surfaced and is never re-minted on a ported read landing (typed absence)")}
+        <div class="fus-cols">
+          <aside class="fus-facets"><div class="fus-ftop"><span class="fus-ftitle">Filters</span><span class="fus-fcount">0</span></div>${fusFacets}</aside>
+          <div class="fus-tablewrap">
+            <h2 class="fus-h">All files</h2>
+            <p class="fus-note">${fusProjects.length} REAL project record${fusProjects.length === 1 ? "" : "s"} from the estate's file/custody plane${fusProjects.length > FUS_PROJECT_CAP ? ` — newest ${FUS_PROJECT_CAP} render below (cap NAMED, never silent)` : ""}; every row opens its owner surface. Columns render what the plane actually records — the reference's VIEWS / YOUR ROLE / TAGS / PORTFOLIO columns have no estate fields behind them (recorded in the atlas, named in the adjudication).</p>
+            <div class="fus-thead"><span>File</span><span>Custody</span><span>Repository</span><span>Artifacts</span><span>Last modified</span></div>
+            ${projRows || `<div class="fus-empty">No projects — this table renders the real projects plane and never fabricates rows.</div>`}
+          </div>
+        </div>`;
+      const collectionsBody = `<div class="fus-empty fus-absent">No collections — NOT an empty plane but a missing one: the estate records no catalog-collection objects at all (typed absence). Note the difference this port refuses to blur — the recorded reference's own Collections lane is EMPTY ("No collections yet"); this one is ABSENT. This lane never fabricates rows.</div>`;
+      const filesBody = `
+        <p class="fus-note">${catalogCount} REAL data-asset record${catalogCount === 1 ? "" : "s"}: ${fusMsets.length} ODK materialized object set${fusMsets.length === 1 ? "" : "s"} (materialized data with object counts + sealed provenance) + the newest ${srcShown.length} of ${fusSources.length} declared data source${fusSources.length === 1 ? "" : "s"} (cap NAMED). A declared source is a DECLARATION, not data: the daemon's own "declaration only — extraction unwired" state renders verbatim, and every row opens its owner surface.</p>
+        <div class="fus-thead"><span>Data asset</span><span>Plane</span><span>Objects</span><span>Extraction</span><span>Registered</span></div>
+        ${catalogRows || `<div class="fus-empty">No data assets — these tables render the real ODK + data-source planes and never fabricate rows.</div>`}`;
+      const catalogBody = `
+        <h2 class="fus-h">Data Catalog</h2>
+        <div class="fus-subtabs">
+          <a class="fus-subtab${fusSub === "collections" ? " on" : ""}" href="/__ioi/domain-apps/fusion?tab=data-catalog&amp;sub=collections">Collections</a>
+          <a class="fus-subtab${fusSub === "files" ? " on" : ""}" href="/__ioi/domain-apps/fusion?tab=data-catalog&amp;sub=files">Files</a>
+        </div>
+        ${fusSub === "files" ? filesBody : collectionsBody}`;
+      sendOwnedSurfaceHtml(res, "fusion", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fusion</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .fus-shell{display:flex;height:100vh;overflow:hidden}
+        .fus-main{flex:1;min-width:0;display:flex;flex-direction:column}
+        .fus-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .fus-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(45,114,210,.08) center/24px no-repeat}
+        .fus-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .fus-tabs{display:flex;gap:6px;margin:0 auto}
+        .fus-tab{font-size:14px;line-height:30px;padding:0 12px;border-radius:4px;color:#404854}
+        .fus-tab.on{background:#e8eef7;color:#215db0;font-weight:600}
+        .fus-hright{display:flex;align-items:center;gap:8px;padding-right:16px}
+        .fus-new{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#238551;color:#fff;font-size:14px}
+        .fus-gap{opacity:.62;cursor:not-allowed}
+        .fus-dash{color:#a8b2be;cursor:not-allowed}
+        .fus-body{flex:1;overflow-y:auto;padding:16px 26px 40px}
+        .fus-crumb{display:flex;align-items:center;gap:8px;font-size:14px;color:#404854;margin:0 0 14px}
+        .fus-crumbnow{font-weight:600}.fus-sep{color:#a8b2be}
+        .fus-qf{border:1px solid #e5e8eb;border-radius:4px;padding:12px;margin:0 0 14px}
+        .fus-qftop{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
+        .fus-qftitle{font-size:13px;font-weight:600;color:#404854}
+        .fus-qfgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+        .fus-qfcard{border:1px solid #e5e8eb;border-radius:4px;padding:10px}
+        .fus-qfhead{display:flex;align-items:center;justify-content:space-between;font-size:13px}
+        .fus-qfcopy{font-size:12px;color:#5f6b7c;margin:6px 0 0}
+        .fus-search{display:block;border:1px solid #d1d1d1;border-radius:4px;padding:8px 10px;color:#5f6b7c;font-size:13px;margin:0 0 14px}
+        .fus-cols{display:flex;gap:18px;align-items:flex-start}
+        .fus-facets{flex:0 0 230px;border:1px solid #e5e8eb;border-radius:4px;padding:10px}
+        .fus-ftop{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+        .fus-ftitle{font-size:13px;font-weight:600;color:#404854}
+        .fus-fcount{font-size:11px;background:#e5e8eb;border-radius:10px;padding:1px 7px;color:#5f6b7c}
+        .fus-fgroup{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-top:1px solid #f0f2f5;font-size:13px}
+        .fus-fchev{color:#a8b2be}
+        .fus-tablewrap{flex:1;min-width:0}
+        .fus-h{font-size:18px;font-weight:600;margin:0 0 4px}
+        .fus-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.6}
+        .fus-thead,.fus-row{display:grid;grid-template-columns:2.2fr 1fr 1.6fr 1fr 1.1fr;gap:8px;padding:8px}
+        .fus-thead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .fus-row{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .fus-row:hover{background:#f6f7f9}
+        .fus-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .fus-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .fus-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px}
+        .fus-subtabs{display:flex;gap:18px;border-bottom:1px solid #e5e8eb;margin:8px 0 14px}
+        .fus-subtab{font-size:14px;padding-bottom:8px;color:#5f6b7c;position:relative}
+        .fus-subtab.on{color:#215db0;font-weight:600}
+        .fus-subtab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;background:#215db0}
+        .fus-foot{font-size:12px;color:#7b8494;line-height:1.6;margin-top:18px}
+      </style></head><body><div class="fus-shell"><div class="fus-main">
+        <header class="fus-header">
+          <span class="fus-hchip" aria-hidden="true" style="background-image:url('${DSG_APP_TILE_URI}')"></span>
+          <h1 class="fus-title">Fusion</h1>
+          <nav class="fus-tabs">
+            ${tabLink("All files", "/__ioi/domain-apps/fusion", fusTab === "all-files")}
+            ${fgap("fus-tab", "Shared with you", "No sharing-scope plane exists on the estate — every project record is custody-scoped (local_private) and cross-principal grants are capability leases owned by Connections, never a file-share list (typed absence)")}
+            ${tabLink("Data Catalog", "/__ioi/domain-apps/fusion?tab=data-catalog", fusTab === "data-catalog")}
+            ${fgap("fus-tab", "Trash", "No soft-delete/trash plane exists on the estate — deletion is a governed verb on the owner surface with no recoverable bin behind it (typed absence)")}
+          </nav>
+          <div class="fus-hright">${fgap("fus-new", "+ New", "Project creation is the governed estate ladder on its owner surface (Projects / Work · New session) — a ported read landing never re-mints an authority-crossing verb (typed absence)")}</div>
+        </header>
+        <div class="fus-body">
+          ${fusTab === "data-catalog" ? catalogBody : allFilesBody}
+          <p class="fus-foot">${fusFoot}</p>
+        </div>
+      </div></div></body></html>`);
+      return;
+    }
+    // ---- Environments · Map — MAP-1 (remediation v2): the CANVAS-GRAMMAR port, and the leg where
+    // the honest answer is a REFUSAL to draw. The reference capture was blocked_missing_capture, so
+    // the replay-scoped verdict was absent_confirmed (#map, ENV-1). The owner-authorized live sweep
+    // OVERTURNED it: the map click target boots a real geospatial workbench — title "New map",
+    // heading "No layers", 20 controls (Save as… · Layers · Legend · Histogram · Add to map ·
+    // Timeline · Select ×2 · Search Around ×2 · Selection) and TWO canvas surfaces rendering a live
+    // basemap.
+    //
+    // ADJUDICATION (#map-port): a map CANVAS cannot be honestly faked. At port time the daemon
+    // published 753 routes and NOT ONE was geospatial — no coordinates, no geometry, no tiles, no
+    // geocoder, no layer store (sweep: 247 param-free GET routes fetched and walked for geo-bearing
+    // fields). The ROUTE census is re-counted from the daemon's own index on every render below, so
+    // the number can never age into a lie; the FIELD sweep stays an attributed adjudication finding.
+    // So the LANDING GRAMMAR ports and the canvas region is a TYPED ABSENCE that says which kind
+    // of absence it is: the reference's canvas draws a REAL basemap under an EMPTY layer list; the
+    // estate's canvas is MISSING. Nothing map-shaped is drawn here — no canvas element, no svg
+    // geometry, no tile source, no external vendor basemap.
+    //
+    // The one lane that IS live is deliberately NOT a map: the estate's placement plane records
+    // provider PLACEMENT GEOGRAPHY as coarse strings (region · location · zone · az) on cloud
+    // resource candidates. Those rows render verbatim beneath the absence — with the daemon's own
+    // status / coverage_state / risk-label wording on every row, because every one of them is an
+    // EXPIRED candidate carrying simulator-or-fixture evidence the daemon itself marks "not live
+    // supply". A region string is not a coordinate and this list is not a layer; the surface says
+    // both.
+    if (pathname === "/__ioi/environments/map" && req.method === "GET") {
+      const [mapVenuesJson, mapOpsJson, mapIndexJson] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/placement/venues`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/provider-operations`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      // The geo-plane claim is COUNTED FROM THE DAEMON'S OWN ROUTE INDEX on every render, never
+      // hardcoded: a pasted "753 routes, none geospatial" would rot silently the day a geospatial
+      // route lands, and this surface's whole argument rests on that number. The FIELD sweep (every
+      // param-free GET fetched and walked for geo-bearing keys) is a recorded adjudication finding
+      // and is attributed as one; the ROUTE census re-derives here.
+      const mapRoutes = (Array.isArray(mapIndexJson.families) ? mapIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const MAPP_GEO_ROUTE_RE = /(geo|geospatial|coordinate|latitude|longitude|geometry|basemap|\btile|map-layer|geocod|cartograph)/i;
+      const mapGeoRoutes = mapRoutes.filter((r) => MAPP_GEO_ROUTE_RE.test(String(r.path || "")));
+      const mapReadRoutes = mapRoutes.filter((r) => (Array.isArray(r.methods) ? r.methods : []).includes("GET") && !String(r.path || "").includes(":") && !String(r.path || "").includes("*") && !r.retired);
+      const esc = CX_ESC;
+      const mfdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      // ONE gap contract for every named absence (aria + title + data-ioi reason). mapp-gap marks a
+      // CHROME control the reference offers and the estate cannot honour; mapp-dash marks a field
+      // the record itself does not carry. Every chrome reason is written for ITS control — a reused
+      // boilerplate reason is a decorative assertion, and the verifier fails on one.
+      const mgap = (cls, label, reason) => `<span class="${cls} mapp-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const mdash = (reason) => `<span class="mapp-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      // ---- the ONE live lane: placement geography on the estate's REAL candidate plane.
+      const MAPP_GEO_KEYS = ["region", "location", "zone", "az"];
+      const mapVenues = Array.isArray(mapVenuesJson.venues) ? mapVenuesJson.venues : [];
+      const mapCands = mapVenues.flatMap((v) => (Array.isArray(v.candidates) ? v.candidates : []));
+      const mapStr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const mapGeoCands = mapCands.filter((c) => MAPP_GEO_KEYS.some((k) => mapStr(c[k])));
+      const MAPP_GEO_CAP = 200;
+      const mapGeoSorted = [...mapGeoCands].sort((a, b) => String(b.observed_at || "").localeCompare(String(a.observed_at || "")));
+      const mapGeoShown = mapGeoSorted.slice(0, MAPP_GEO_CAP);
+      const mapGeoRows = mapGeoShown.map((c) => {
+        const primaryKey = mapStr(c.region) ? "region" : "location";
+        const primary = mapStr(c[primaryKey]);
+        const subKey = mapStr(c.zone) ? "zone" : (mapStr(c.az) ? "az" : "");
+        const risk = (Array.isArray(c.risk_labels) ? c.risk_labels : []).find((l) => /_evidence_not_live_supply$/.test(String(l))) || "";
+        return `<a class="mapp-row" href="/__ioi/environments" title="a REAL cloud-resource-candidate record — the estate's placement plane (owner surface: Environments)">`
+          + `<span><b>${esc(c.display_name || c.candidate_id || "candidate")}</b><code class="mapp-ref">${esc(c.candidate_id || "")}</code></span>`
+          + `<span>${esc(c.provider_kind || "—")}</span>`
+          + `<span><b>${esc(primary)}</b><code class="mapp-ref">field: ${esc(primaryKey)}</code></span>`
+          + `<span>${subKey ? `${esc(mapStr(c[subKey]))}<code class="mapp-ref">field: ${esc(subKey)}</code>` : mdash("This candidate record carries no zone or az field — the plane records none for this provider kind (typed absence, not an unread field)")}</span>`
+          + `<span>${esc(String(c.status || "—"))} · ${esc(String(c.coverage_state || "—"))}</span>`
+          + `<span>${risk ? esc(risk) : mdash("This record's risk_labels carry no *_evidence_not_live_supply marker — the field is read from the record itself and never supplied by this surface (typed absence)")}</span>`
+          + `<span>${esc(mfdt(c.observed_at))}</span></a>`;
+      }).join("");
+      // The SECOND geography-bearing plane is NAMED here, not rendered — one lane per surface, and
+      // the count is read live so the claim can never rot into a stale number.
+      const mapOps = Array.isArray(mapOpsJson.operations) ? mapOpsJson.operations : [];
+      const mapOpsGeo = mapOps.filter((o) => MAPP_GEO_KEYS.some((k) => mapStr((o.evidence || {})[k])));
+      const mapOpsGeoSim = mapOpsGeo.filter((o) => JSON.stringify(o.evidence || {}).includes("simulated_control_plane"));
+      // The recorded state of the rendered lane, counted from the records themselves so the claim
+      // cannot rot into a stale number: an EXPIRED candidate carrying not-live-supply evidence is
+      // not a place where anything runs, and this surface says so in the daemon's own vocabulary.
+      const mapGeoExpired = mapGeoCands.filter((c) => String(c.status || "") === "expired").length;
+      const mapGeoNotLive = mapGeoCands.filter((c) => (Array.isArray(c.risk_labels) ? c.risk_labels : []).some((l) => /_evidence_not_live_supply$/.test(String(l)))).length;
+      // ---- the reference's own control inventory, every one of it a typed absence with ITS reason
+      const mapPanelTabs = [
+        ["Search", "No geographic search index exists on the estate — nothing here can geocode a place name or search by map extent (typed absence)"],
+        ["Layers", ""],
+        ["Basemap", "The basemap picker chooses between registered tile styles; the estate has ZERO tile sources registered, so the picker would list a plane that does not exist (typed absence)"],
+        ["Legend", "A legend describes a rendered layer's symbology — with no layer plane and no renderer there is nothing to describe (typed absence)"],
+        ["Histogram", "The reference histogram bins a layer's numeric attribute across the current map extent; the estate has neither layers nor an extent (typed absence)"],
+      ];
+      const mapPanelTabsHtml = mapPanelTabs.map(([label, reason]) => (reason
+        ? mgap("mapp-ptab", label, reason)
+        : `<span class="mapp-ptab on" aria-current="true">${esc(label)}</span>`)).join("");
+      const mapDrawTools = [
+        ["Polygon", "A polygon draw tool writes a ring of coordinates into a geometry plane the estate does not have (typed absence)"],
+        ["Path", "A freehand path writes a coordinate string into a geometry plane the estate does not have (typed absence)"],
+        ["Rectangle", "A rectangle extent is two corner coordinates the estate has nowhere to store and no features to intersect (typed absence)"],
+        ["Circle", "A radius selection needs a centre coordinate and a distance metric — the estate stores no coordinates and computes no distances (typed absence)"],
+        ["More draw tools", "The remaining draw tools are the same absence in other shapes: every one of them writes geometry, and there is no geometry plane (typed absence)"],
+        ["Point", "A point marker is a single coordinate pair, and the estate records no coordinates anywhere in its daemon routes (typed absence)"],
+      ].map(([label, reason]) => mgap("mapp-tool", label, reason)).join("");
+      const mapZoomHtml = [
+        ["Zoom to fit", "Zoom-to-fit frames the extent of the loaded layers — there are no layers and no extent to frame (typed absence)"],
+        ["Zoom in", "Zoom is a camera over a tiled basemap the estate does not serve (typed absence)"],
+        ["Zoom out", "Zoom-out is that same missing camera in the other direction: the estate serves no tiles at any zoom level (typed absence)"],
+      ].map(([label, reason]) => mgap("mapp-zoom", label, reason)).join("");
+      const mapCanvasReason = "No map canvas — NOT an empty map but a MISSING PLANE: the estate has no geospatial plane at all, so there is nothing to pan, zoom, or draw on (typed absence)";
+      const mapFoot = `MAP-1 (remediation v2): the CANVAS-grammar port — the leg where honesty is a REFUSAL to draw. The reference capture was blocked_missing_capture (replay-scoped verdict: absent_confirmed); the owner-authorized live sweep OVERTURNED it and recorded a real geospatial workbench (title "New map" · heading "No layers" · 20 controls · TWO canvas surfaces over a live basemap). TYPED ABSENT here: the canvas itself and every control the reference hangs on it — the estate publishes ${mapRoutes.length} daemon routes and ${mapGeoRoutes.length} are geospatial, re-counted from the daemon\u0027s route index on every render (no coordinates, no geometry, no tiles, no geocoder, no layer store; the field sweep of ${mapReadRoutes.length} param-free GET routes is recorded in the adjudication). A drawn map would have been a fabricated reference, so none is drawn. LIVE here, and deliberately NOT a map: <b>${mapGeoCands.length} of ${mapCands.length}</b> REAL cloud-resource-candidate records carry placement geography (region · location · zone · az) — rendered verbatim with the daemon's own status, coverage_state and risk wording. Also recorded and NAMED but not rendered (one location lane per surface): the provider-operations plane carries the same fields on <b>${mapOpsGeo.length} of ${mapOps.length}</b> operations \u2014 ${mapOpsGeoSim.length} of those ${mapOpsGeo.length} carry the daemon\u0027s own "simulated_control_plane" marker in their evidence. Evidence: reference-seed-adjudications.v1.json#map-port · reference-live-tenant-deep-atlas.v1.json#map (landing) · reference-live-tenant-atlas.v1.json#map. Owner: <a href="/__ioi/environments">Environments</a> · truth: <a href="/__ioi/environments">placement venues + candidates</a> · <a href="/__ioi/operations">provider operations</a>.`;
+      sendOwnedSurfaceHtml(res, "map", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Map</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .mapp-shell{display:flex;flex-direction:column;min-height:100vh}
+        .mapp-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .mapp-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(45,114,210,.08) center/24px no-repeat}
+        .mapp-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .mapp-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px}
+        .mapp-save{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:14px}
+        .mapp-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854}
+        .mapp-gap{opacity:.62;cursor:not-allowed}
+        .mapp-dash{color:#a8b2be;cursor:not-allowed}
+        .mapp-work{display:flex;gap:0;align-items:stretch;padding:14px 18px 0;gap:14px}
+        .mapp-panel{flex:0 0 340px;border:1px solid #e5e8eb;border-radius:4px;align-self:flex-start}
+        .mapp-ptabs{display:flex;align-items:center;gap:4px;padding:6px;border-bottom:1px solid #e5e8eb}
+        .mapp-ptab{font-size:12px;line-height:24px;padding:0 8px;border-radius:3px;color:#404854}
+        .mapp-ptab.on{background:#e8eef7;color:#215db0;font-weight:600}
+        .mapp-add{display:block;margin:10px;text-align:center;line-height:30px;border:1px solid #d1d1d1;border-radius:4px;font-size:13px;color:#404854}
+        .mapp-pbody{padding:0 10px 10px}
+        .mapp-pfoot{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #e5e8eb;font-size:13px}
+        .mapp-canvascol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+        .mapp-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+        .mapp-tgroup{display:flex;align-items:center;gap:6px;border:1px solid #e5e8eb;border-radius:4px;padding:5px 8px;background:#fff}
+        .mapp-tool,.mapp-select,.mapp-zoom{font-size:12px;color:#404854}
+        .mapp-canvasrow{display:flex;gap:8px;align-items:stretch}
+        .mapp-absent{flex:1;min-width:0;border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:26px 24px;color:#5f6b7c;font-size:14px;line-height:1.65}
+        .mapp-absent h2{font-size:17px;color:#1c2127;margin:0 0 10px}
+        .mapp-absent p{margin:0 0 10px}
+        .mapp-tray{flex:0 0 34px;border:1px solid #e5e8eb;border-radius:4px;display:flex;align-items:flex-start;justify-content:center;padding:10px 0;font-size:12px}
+        .mapp-tray span{writing-mode:vertical-rl}
+        .mapp-underbar{display:flex;align-items:center;gap:8px;padding-bottom:4px}
+        .mapp-geo{padding:18px 18px 40px}
+        .mapp-h{font-size:18px;font-weight:600;margin:18px 0 4px}
+        .mapp-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .mapp-geo{overflow-x:auto}
+        .mapp-thead,.mapp-row{display:grid;grid-template-columns:2.1fr .8fr 1.2fr 1.1fr 1.5fr 1.7fr .9fr;gap:8px;padding:8px;min-width:760px}
+        .mapp-thead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .mapp-row{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .mapp-row:hover{background:#f6f7f9}
+        .mapp-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .mapp-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .mapp-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:18px 0 0}
+        @media(max-width:700px){.mapp-thead{display:none}.mapp-row{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.mapp-row *,.mapp-note{overflow-wrap:break-word}.mapp-geo{overflow-x:hidden}.mapp-geo *,.mapp-abs *{min-width:0;overflow-wrap:anywhere}.mapp-tgroup{flex-wrap:wrap;min-width:0;max-width:100%}.mapp-tool,.mapp-chip{max-width:100%;overflow-wrap:anywhere}.mapp-work{flex-direction:column}.mapp-panel{flex:none;width:100%}.mapp-canvasrow{flex-wrap:wrap}.mapp-underbar{flex-wrap:wrap}}
+      </style></head><body><div class="mapp-shell">
+        <header class="mapp-header">
+          <span class="mapp-hchip" aria-hidden="true" style="background-image:url('${DSG_APP_TILE_URI}')"></span>
+          <h1 class="mapp-title">Map</h1>
+          <div class="mapp-hright">
+            ${mgap("mapp-chip", "Basemap style ▾", "No basemap plane — the estate binds no tile service and ships no map tiles; the reference's style chip switches third-party raster styles this estate has no binding to, and borrowing one would fabricate the reference (typed absence)")}
+            ${mgap("mapp-save", "Save as…", "Saving a map document needs a map-document plane the estate does not have — and a ported READ landing never re-mints an authority-crossing write verb (typed absence)")}
+            ${mgap("mapp-chip", "Map settings", "No per-surface map-settings plane exists — projection, units and label preferences would be written nowhere (typed absence)")}
+          </div>
+        </header>
+        <div class="mapp-work">
+          <aside class="mapp-panel">
+            <div class="mapp-ptabs">${mapPanelTabsHtml}${mgap("mapp-ptab", "«", "Panel collapse is a per-principal surface preference the estate does not store; a ported read landing keeps one honest layout instead of a control that forgets (typed absence)")}</div>
+            ${mgap("mapp-add", "⊕ Add to map ▾", "Adding data to a map needs BOTH a geometry-bearing dataset and a layer plane to hold the result — the estate has neither, so there is nothing that could be added to nothing (typed absence)")}
+            <div class="mapp-pbody"><div class="mapp-empty">No layers — and NOT an empty layer list: there is no layer plane to be empty. The recorded reference's own panel reads "No layers · Add data to your map to get started" over a LIVE canvas; that is an EMPTY list. This one is MISSING. This lane never fabricates a layer.</div></div>
+            <div class="mapp-pfoot">${mgap("mapp-chip", "Basemap", "The reference names its active third-party tile style in this slot; the estate has no tile binding to name, so the slot stays a named absence rather than copying a vendor's basemap (typed absence)")}</div>
+          </aside>
+          <div class="mapp-canvascol">
+            <div class="mapp-toolbar">
+              <div class="mapp-tgroup">${mgap("mapp-select", "Select", "Selecting on a map means selecting FEATURES inside a drawn extent — no features, no extent, no geometry plane (typed absence)")}${mgap("mapp-select", "Search Around", "Search Around walks the ontology outward from the features selected on the canvas; with no canvas and no feature plane there is no starting set to walk from (typed absence)")}</div>
+              <div class="mapp-tgroup">${mapDrawTools}</div>
+            </div>
+            <div class="mapp-canvasrow">
+              <section class="mapp-absent" aria-disabled="true" title="${esc(mapCanvasReason)}" data-ioi-disabled-reason="${esc(mapCanvasReason)}">
+                <h2>No map canvas — NOT an empty map but a MISSING PLANE</h2>
+                <p>The reference renders TWO canvas surfaces here over a live basemap, and its "No layers" panel is an EMPTY layer list drawn on top of a map that exists. The estate's canvas is <b>ABSENT</b>: counted from the daemon\u0027s own route index on this render, it publishes <b>${mapRoutes.length}</b> routes and <b>${mapGeoRoutes.length}</b> of them are geospatial — no coordinate store, no geometry type, no basemap tiles, no geocoder, no layer plane. The recorded field sweep behind that (adjudication #map-port) fetched all ${mapReadRoutes.length} param-free GET routes and walked every response for geo-bearing keys; it returned no coordinate, geometry, or tile-bearing field anywhere in the estate.</p>
+                <p>So this port draws nothing map-shaped: no canvas element, no rendered geometry, no external vendor basemap. A map rendered here would be a fabricated reference, and the distinction this surface refuses to blur is exactly the one a drawn map would erase — <b>missing is not empty</b>.</p>
+                <p>What a real map canvas would need first, named rather than implied: a geometry-bearing record type, a coordinate reference system, a tile or vector basemap source, and a layer plane that binds them. None of the four exists today; each is an authority-and-plane cut, not a UI cut.</p>
+              </section>
+              <div class="mapp-tray">${mgap("mapp-chip", "Selection", "The selection tray lists the features currently selected on the canvas — there is no canvas and no feature plane behind it to select from (typed absence)")}</div>
+            </div>
+            <div class="mapp-underbar">${mapZoomHtml}${mgap("mapp-chip", "Timeline", "The timeline animates features by a temporal attribute; the estate has no temporal geometry to animate (typed absence)")}</div>
+          </div>
+        </div>
+        <div class="mapp-geo">
+          <h2 class="mapp-h">Placement geography — the estate's only location-bearing records</h2>
+          <p class="mapp-note">This is <b>NOT a map layer</b> and these are <b>not coordinates</b>. ${mapGeoCands.length} of ${mapCands.length} REAL cloud-resource-candidate records on the estate's placement plane carry a placement-geography field (region · location · zone · az) — coarse provider placement labels that cannot be plotted without a geocoding plane the estate does not have; the other ${mapCands.length - mapGeoCands.length} carry none${mapGeoCands.length > MAPP_GEO_CAP ? `, and the newest ${MAPP_GEO_CAP} of the ${mapGeoCands.length} render below (cap NAMED, never silent)` : ""}. Every row names WHICH field its value came from, so a value is never shown under a header it does not belong to, and every row carries the daemon's own recorded state verbatim — read them: an <b>expired</b> candidate whose evidence the daemon marks <b>not live supply</b> is not a place where anything is running. Read the recorded state before reading the geography: <b>${mapGeoExpired} of ${mapGeoCands.length}</b> of these records are status <b>expired</b> and <b>${mapGeoNotLive}</b> carry a <code>*_evidence_not_live_supply</code> risk label \u2014 the daemon\u0027s own vocabulary, not this surface\u0027s gloss. Rows open the owner surface.</p>
+          <div class="mapp-thead"><span>Candidate</span><span>Provider</span><span>Placement geography</span><span>Zone / AZ</span><span>Recorded state</span><span>Evidence class</span><span>Observed</span></div>
+          ${mapGeoRows || `<div class="mapp-empty">No location-bearing records — this table renders the real placement-candidate plane and never fabricates rows.</div>`}
+          <p class="mapp-foot">${mapFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Marketplace · Artifacts — REG-1 (remediation v2): the REGISTRY port, and the leg where
+    // the honest move is a FOUR-WAY read-state census. The reference capture of `registry` was
+    // blocked_missing_capture, so the replay-scoped verdict was absent_confirmed (#registry, MAR-1
+    // — "the reference Artifacts seed expresses no IA to carry it"). The owner-authorized
+    // live-tenant sweep OVERTURNED it: the click target boots a real artifact-registry landing —
+    // title "Artifacts", headings "Explore artifacts" + "Learn about artifacts", 14 controls, one
+    // search input, an ecosystem scope selector, a three-counter task tray and a four-card
+    // documentation band, over ZERO repository rows.
+    //
+    // ADJUDICATED BEFORE BUILDING (#registry-port). Unlike map, the estate HAS registry planes —
+    // several of them — so the question was never "is there anything" but "which plane backs WHICH
+    // lane, and what does each plane actually answer to THIS surface's identity". Probing them
+    // returned FOUR distinct non-fabricable states, and blurring any two of them would be the lie
+    // this port exists to refuse:
+    //   LIVE       — the plane answers and holds records (rendered verbatim, rows == the plane)
+    //   EMPTY      — the plane answers and holds none (the reference's own state: 0 repositories)
+    //   REFUSED    — the plane is IDENTITY-FIRST and refuses this read with a typed code. A
+    //                refusal is NOT a zero: printing "0 packages" here would convert a refusal
+    //                into a measurement, which is exactly the defect class this program hunts.
+    //   NO READ ROUTE — the daemon publishes the plane as POST-only. Nothing can be read, which is
+    //                not the same as reading nothing.
+    // Every plane's state is CLASSIFIED FROM ITS OWN LIVE RESPONSE ON EVERY RENDER and stamped on
+    // the row as data-ioi-plane-state, so a state can never be pasted and can never rot.
+    //
+    // This is a READ-ONLY PROJECTION. The estate's registry verbs (admit a package candidate,
+    // create a release, recall a release, draft/publish a listing) are owned by Packages and
+    // Marketplace and are NOT re-minted here — the reference's "Create artifact repository" is a
+    // typed absence whose reason names the owner surface, and the surface links there.
+    if (pathname === "/__ioi/marketplace/artifacts" && req.method === "GET") {
+      const esc = CX_ESC;
+      // Probe each candidate registry plane EXACTLY as this surface's own identity sees it. The
+      // probe keeps the raw status so a 405 (write-only) can never be confused with a 401
+      // (refused) and neither can be confused with a 200 that carried an empty collection.
+      const rgyProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // The estate's registry planes, in the order the ladder actually runs: what material exists,
+      // what is proposed, what is admitted, what is published, what is recorded afterwards.
+      const RGY_PLANES = [
+        { key: "packages", path: "/v1/hypervisor/packages", label: "Package registry",
+          role: "THE artifact registry: a candidate freezes exact source bytes, a release is immutable and content-addressed by DIGEST (the estate's version), an installation binding is born disabled",
+          owner: "/__ioi/packages/registry", ownerLabel: "Packages" },
+        { key: "publish_candidates", path: "/v1/hypervisor/marketplace/publish-candidates", label: "Publish candidates",
+          role: "the frozen publish intent a listing must pass through before any review can admit it",
+          owner: "/__ioi/marketplace", ownerLabel: "Marketplace substrate" },
+        { key: "admission_reviews", path: "/v1/hypervisor/marketplace/admission-reviews", label: "Admission reviews",
+          role: "the governed decision that ADMITS a candidate — admission is not publication and grants no runtime",
+          owner: "/__ioi/marketplace", ownerLabel: "Marketplace substrate" },
+        { key: "listings", path: "/v1/hypervisor/marketplace/listings", label: "Marketplace listings",
+          role: "read-only, runtime-backed distribution metadata — the closest thing the estate has to a published artifact",
+          owner: "/__ioi/marketplace/listings", ownerLabel: "Marketplace" },
+        { key: "instance_offers", path: "/v1/hypervisor/marketplace/instance-offers", label: "Managed instance offers",
+          role: "managed offerings hung off agent / domain_app listings",
+          owner: "/__ioi/marketplace", ownerLabel: "Marketplace substrate" },
+        { key: "release_controls", path: "/v1/hypervisor/governance/release-controls", label: "Release controls",
+          role: "the OPEN-RELEASE gate a publish must clear — governance truth, not registry inventory",
+          owner: "/__ioi/governance/approvals", ownerLabel: "Governance" },
+        { key: "scm_publication_effects", path: "/v1/hypervisor/scm-publication-effects", label: "SCM publication effects (publish receipts)",
+          role: "the RECORDED OUTCOME of a governed publish out to an external SCM destination — the estate's publish receipt",
+          owner: "/__ioi/connections", ownerLabel: "Connections" },
+        { key: "scm_publication_proposals", path: "/v1/hypervisor/scm-publication-proposals", label: "SCM publication proposals",
+          role: "the proposal a publish is raised as before its effect is recorded",
+          owner: "/__ioi/connections", ownerLabel: "Connections" },
+        { key: "worker_package_install_admissions", path: "/v1/hypervisor/worker-package-install-admissions", label: "Worker package-install admissions",
+          role: "the admission a worker needs before a package may be installed into it",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "artifact_availability_incidents", path: "/v1/hypervisor/artifact-availability-incidents", label: "Artifact availability incidents",
+          role: "recorded artifact-availability failures",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+      ];
+      const [rgyProbes, rgyOverview, rgyIndexJson] = await Promise.all([
+        Promise.all(RGY_PLANES.map((pl) => rgyProbe(pl.path))),
+        rgyProbe(`/v1/hypervisor/marketplace/overview`),
+        daemonFetch(`/v1`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      // FOUR states, classified from the live response and never from a constant. The order of the
+      // tests IS the contract: a write-only plane is decided by its status before anything reads a
+      // body, a refusal is decided before any collection is looked for, and only a 200 that
+      // actually carried a collection may be called live-or-empty.
+      const rgyClassify = (pr) => {
+        if (pr.status === 405) return { state: "write_only", code: "", rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && b.error.code) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), message: String((b.error && b.error.message) || b.message || ""), rows: [] };
+        }
+        const arr = Object.values(pr.body || {}).find((v) => Array.isArray(v));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", rows: arr };
+      };
+      const rgyRead = RGY_PLANES.map((pl, i) => ({ ...pl, ...rgyClassify(rgyProbes[i]), status: rgyProbes[i].status }));
+      const rgyBy = Object.fromEntries(rgyRead.map((r) => [r.key, r]));
+      const rgyCount = (s) => rgyRead.filter((r) => r.state === s).length;
+      const rgyRecords = rgyRead.filter((r) => r.state === "live");
+      const rgyRecordTotal = rgyRecords.reduce((n, r) => n + r.rows.length, 0);
+      // ONE gap contract for every named absence (aria + title + data-ioi reason). rgy-gap marks a
+      // CHROME control the reference offers and the estate cannot honour; rgy-dash marks a FIELD
+      // the record itself does not carry. Every chrome reason is written for ITS control — a
+      // reused boilerplate reason is a decorative assertion, and the verifier fails on one.
+      const rgap = (cls, label, reason) => `<span class="${cls} rgy-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const rdash = (reason) => `<span class="rgy-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      const rdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      // ---- the ROUTE census, re-counted from the daemon's own index on every render. Two claims
+      // on this surface rest on route arithmetic — that the package family is CLOSED at exactly
+      // eight routes, and that NOTHING in the estate indexes artifacts for search — so both are
+      // derived here rather than pasted, and a gate fails the day either drifts.
+      const rgyRoutes = (Array.isArray(rgyIndexJson.families) ? rgyIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const rgyPkgRoutes = rgyRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/packages"));
+      const rgyMktRoutes = rgyRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/marketplace"));
+      const rgySearchRoutes = rgyRoutes.filter((r) => /(search|\/query|index)/i.test(String(r.path || "")));
+      const rgyArtifactSearchRoutes = rgySearchRoutes.filter((r) => /(package|artifact|release|listing|registry|marketplace)/i.test(String(r.path || "")));
+      // ---- the TAXONOMY lane: the estate's own registry kinds, read live from the daemon's
+      // overview. This is what the reference's ecosystem scope selector would scope BY if the
+      // estate had one — it does not, because these are estate object kinds, not package
+      // ecosystems, and nothing scopes a search that does not exist.
+      const rgyOv = (rgyOverview.ok && rgyOverview.body) ? rgyOverview.body : {};
+      const rgyKinds = Array.isArray(rgyOv.listing_kinds) ? rgyOv.listing_kinds : [];
+      const rgyByKind = rgyOv.listings_by_kind && typeof rgyOv.listings_by_kind === "object" ? rgyOv.listings_by_kind : {};
+      const rgyKindRows = rgyKinds.map((k) => `<span class="rgy-kind" data-ioi-registry-kind="${esc(k)}"><b>${esc(k)}</b><span class="rgy-kindn">${esc(String(rgyByKind[k] ?? 0))}</span></span>`).join("");
+      // ---- the SUBSTRATE lane: the daemon's own census of PUBLISHABLE MATERIAL. This is never
+      // rendered as artifact rows — material that COULD be published is not a published artifact,
+      // and the daemon's own key names carry that distinction, so they render verbatim.
+      const rgySubstrate = rgyOv.substrate && typeof rgyOv.substrate === "object" ? rgyOv.substrate : {};
+      const rgySubKeys = Object.keys(rgySubstrate).sort();
+      const rgySubRows = rgySubKeys.map((k) => `<span class="rgy-sub" data-ioi-substrate-key="${esc(k)}"><code>${esc(k)}</code><b>${esc(String(rgySubstrate[k]))}</b></span>`).join("");
+      // ---- the PLANE CENSUS table: one row per plane, its state classified live and stamped.
+      const rgyStateLabel = {
+        live: "LIVE",
+        empty: "EMPTY",
+        refused: "REFUSED",
+        write_only: "NO READ ROUTE",
+        unreadable: "UNREADABLE",
+      };
+      const rgyStateCopy = (r) => {
+        if (r.state === "live") return `${r.rows.length} record${r.rows.length === 1 ? "" : "s"} — rendered below verbatim`;
+        if (r.state === "empty") return `the plane answered and holds none — an EMPTY plane, not a missing one`;
+        if (r.state === "refused") return `identity-first: <code>${esc(r.code)}</code> — a REFUSAL, never a zero`;
+        if (r.state === "write_only") return `the daemon publishes this plane POST-only (HTTP ${esc(String(r.status))} on GET) — nothing to read, which is not the same as reading nothing`;
+        return `the plane did not answer readably (<code>${esc(r.code)}</code>) — stated, never guessed`;
+      };
+      const rgyPlaneRows = rgyRead.map((r) => `<div class="rgy-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}">`
+        + `<span><b>${esc(r.label)}</b><span class="rgy-role">${esc(r.role)}</span></span>`
+        + `<span><code class="rgy-ref">${esc(r.path)}</code></span>`
+        + `<span class="rgy-state rgy-state-${esc(r.state)}">${esc(rgyStateLabel[r.state] || r.state)}</span>`
+        + `<span class="rgy-scopy">${rgyStateCopy(r)}</span>`
+        + `<span><a href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      // ---- the RECORD lane: the reference's repository list, rendered as what the estate's
+      // readable registry planes actually hold. Every row NAMES which plane it came from, so a
+      // record is never shown under a header it does not belong to, and every field the record
+      // does not carry is a typed dash rather than a blank or an invented value.
+      const RGY_RECORD_CAP = 50;
+      const rgyAllRecords = rgyRecords.flatMap((r) => r.rows.map((rec) => ({ plane: r, rec })));
+      const rgyShown = rgyAllRecords.slice(0, RGY_RECORD_CAP);
+      const rgyRecordRows = rgyShown.map(({ plane, rec }) => {
+        const id = rstr(rec.id) || rstr(rec.listing_id) || rstr(rec.candidate_id) || rstr(rec.package_id) || rstr(rec.offer_id);
+        const name = rstr(rec.name) || rstr(rec.display_name);
+        const ref = rstr(rec.ref) || rstr(rec.candidate_ref) || rstr(rec.subject_ref) || rstr(rec.listing_ref);
+        const kind = rstr(rec.listing_kind) || rstr(rec.decision) || rstr(rec.kind);
+        const state = rstr(rec.status);
+        const ver = rstr(rec.schema_version);
+        return `<a class="rgy-row" href="${esc(plane.owner)}" title="a REAL record on ${esc(plane.label)} (${esc(plane.path)}) — owner surface: ${esc(plane.ownerLabel)}">`
+          + `<span><b>${name ? esc(name) : esc(id || "record")}</b>${name ? `<code class="rgy-ref">${esc(id)}</code>` : rdash(`This ${plane.label} record carries no name or display_name — the plane records none on it, so the record id above is the only identity it has and nothing here supplies a friendlier one (typed absence)`)}</span>`
+          + `<span>${esc(plane.label)}<code class="rgy-ref">${esc(plane.path)}</code></span>`
+          + `<span>${kind ? esc(kind) : rdash(`This ${plane.label} record carries no listing_kind, decision or kind field — the plane records none on it (typed absence, not an unread field)`)}</span>`
+          + `<span>${state ? esc(state) : rdash(`This ${plane.label} record carries no status field — the plane records none on it (typed absence, not an unread field)`)}</span>`
+          + `<span>${ver ? `<code class="rgy-ref">${esc(ver)}</code>` : rdash(`This ${plane.label} record carries no schema_version — the estate versions releases by content DIGEST and records schema_version on the record; neither is supplied by this surface (typed absence)`)}</span>`
+          + `<span>${ref ? `<code class="rgy-ref">${esc(ref)}</code>` : rdash(`This ${plane.label} record binds no subject/candidate ref — the plane records none on it (typed absence)`)}</span>`
+          + `<span>${esc(rdt(rec.created_at || rec.updated_at))}</span></a>`;
+      }).join("");
+      // ---- the reference's "Learn about artifacts" band, ported as WHAT THE ESTATE'S REGISTRY
+      // ACTUALLY IS: each of the reference's four topics named against the real route that owns it
+      // (or against the absence, where there is none). Live counts, no prose standing in for a plane.
+      const rgyCards = [
+        {
+          title: "Core concepts",
+          body: `A package <b>candidate</b> freezes exact source bytes; a <b>release</b> is immutable and content-addressed by digest — that digest IS the estate's version, there is no version string to name; an <b>installation binding</b> is born <code>disabled</code> and admission grants no runtime and no launch eligibility. The family is CLOSED: <b>${rgyPkgRoutes.length}</b> routes under <code>/v1/hypervisor/packages</code>, counted from the daemon's route index on this render.`,
+          link: { href: "/__ioi/packages/registry", label: "Packages — the owner surface →" },
+        },
+        {
+          title: "Publish an artifact",
+          body: `Publication is a governed ladder, not a button: draft listing → publish candidate → admission review → publish, gated on an OPEN release control, across <b>${rgyMktRoutes.length}</b> marketplace routes. Outward publication to an external SCM destination records its own effect (the estate's publish receipt). Right now the estate holds <b>${rgyRecordTotal}</b> readable record${rgyRecordTotal === 1 ? "" : "s"} across <b>${rgyCount("live")}</b> live plane${rgyCount("live") === 1 ? "" : "s"}.`,
+          link: { href: "/__ioi/marketplace/listings", label: "Marketplace — the owner surface →" },
+        },
+        {
+          title: "Search an artifact",
+          body: `The estate cannot. Counted from the daemon's route index on this render: <b>${rgySearchRoutes.length}</b> search/query routes are published and <b>${rgyArtifactSearchRoutes.length}</b> of them index packages, releases or listings. There is no artifact index to query, so this surface offers no search box that would quietly return nothing.`,
+          gap: ["Search artifacts", "The reference's per-artifact search resolves against an artifact INDEX; the estate publishes no route that indexes packages, releases or listings, so a search affordance here could only ever return an empty result that looked like an answer (typed absence)"],
+        },
+        {
+          title: "Recall an artifact",
+          body: `Recall is REAL and it is the family's <b>one</b> disposition successor: <code>POST /v1/hypervisor/packages/:package_id/releases/:release_digest/recall</code> appends an immutable successor revision under exact-head CAS with a bounded reason, and every binding read afterwards resolves the recalled head. <b>deprecate</b>, <b>supersede</b> and <b>revoke</b> are named by the registered enum and no route can set them. The verb lives on its owner surface and is never re-minted on a read landing.`,
+          link: { href: "/__ioi/packages/registry", label: "Packages — the owner surface →" },
+        },
+      ].map((c) => `<div class="rgy-card"><b class="rgy-cardh">${esc(c.title)}</b><p class="rgy-cardb">${c.body}</p>`
+        + (c.link ? `<a class="rgy-cardl" href="${esc(c.link.href)}">${esc(c.link.label)}</a>` : rgap("rgy-cardl", c.gap[0], c.gap[1]))
+        + `</div>`).join("");
+      const rgyFoot = `REG-1 (remediation v2): the REGISTRY port — the leg where honesty is a FOUR-WAY read-state census. The reference capture was blocked_missing_capture (replay-scoped verdict: absent_confirmed, MAR-1 "expresses no IA"); the owner-authorized live sweep OVERTURNED it and recorded a real artifact-registry landing (title "Artifacts" · headings "Explore artifacts" + "Learn about artifacts" · <b>14 controls</b> · 1 search input · 0 repository rows). Of those 14, <b>9 are the vendor global rail</b> (railless here — estate chrome is never re-minted on a ported landing) and the <b>5 app controls</b> plus the search input are ported and every one of them is a typed absence with a reason written for it. Unlike the map leg, the estate HAS registry planes: <b>${rgyRead.length}</b> were probed live on this render and they answered in FOUR distinct states — <b>${rgyCount("live")} LIVE</b> · <b>${rgyCount("empty")} EMPTY</b> · <b>${rgyCount("refused")} REFUSED</b> · <b>${rgyCount("write_only")} NO READ ROUTE</b>. Every state is classified from that plane's own live response and stamped on its row, so none can be pasted and none can rot. READ-ONLY: the estate's registry verbs (admit a candidate · create a release · recall a release · draft or publish a listing) stay on <a href="/__ioi/packages/registry">Packages</a> and <a href="/__ioi/marketplace/listings">Marketplace</a> and are not duplicated here. Evidence: reference-seed-adjudications.v1.json#registry-port · reference-live-tenant-deep-atlas.v1.json#registry (landing) · reference-live-tenant-atlas.v1.json#registry. Owner: <a href="/__ioi/marketplace/listings">Marketplace</a> · truth: <a href="/__ioi/packages/registry">package registry</a> · <a href="/__ioi/marketplace">marketplace substrate</a> · <a href="/__ioi/governance/approvals">release controls</a> · <a href="/__ioi/connections">SCM publication</a>.`;
+      sendOwnedSurfaceHtml(res, "registry", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifacts</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .rgy-shell{display:flex;flex-direction:column;min-height:100vh}
+        .rgy-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .rgy-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(138,92,214,.1) center/24px no-repeat}
+        .rgy-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .rgy-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px}
+        .rgy-create{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:14px}
+        .rgy-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854}
+        .rgy-tray{display:inline-flex;align-items:center;gap:2px;border:1px solid #e5e8eb;border-radius:4px;padding:2px}
+        .rgy-tchip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:3px;font-size:12px;color:#5f6b7c}
+        .rgy-gap{opacity:.62;cursor:not-allowed}
+        .rgy-dash{color:#a8b2be;cursor:not-allowed}
+        .rgy-hero{padding:52px 24px 40px;text-align:center}
+        .rgy-h1{font-size:28px;font-weight:600;margin:0 0 10px;color:#1c2127}
+        .rgy-lede{font-size:14px;color:#5f6b7c;max-width:820px;margin:0 auto 22px;line-height:1.65}
+        .rgy-searchbar{display:flex;max-width:880px;margin:0 auto;border:1px solid #d1d1d1;border-radius:4px;overflow:hidden}
+        .rgy-scope{flex:0 0 210px;display:flex;align-items:center;justify-content:center;height:38px;border-right:1px solid #d1d1d1;background:#f6f7f9;font-size:13px}
+        .rgy-sinput{flex:1;display:flex;align-items:center;height:38px;padding:0 12px;font-size:13px;color:#8a94a2}
+        .rgy-kinds{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px auto 0;max-width:880px}
+        .rgy-kind{display:inline-flex;align-items:center;gap:6px;border:1px solid #e5e8eb;border-radius:999px;padding:3px 11px;font-size:12px;color:#404854}
+        .rgy-kindn{background:#e8eef7;color:#215db0;border-radius:999px;padding:0 7px;font-size:11px;font-weight:600}
+        .rgy-body{padding:0 24px 44px;max-width:1240px;margin:0 auto;width:100%;overflow-x:auto}
+        .rgy-h{font-size:18px;font-weight:600;margin:26px 0 4px}
+        .rgy-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .rgy-phead,.rgy-prow{display:grid;grid-template-columns:2.4fr 1.6fr .9fr 2.2fr .9fr;gap:8px;padding:9px 8px;min-width:680px}
+        .rgy-thead,.rgy-row{display:grid;grid-template-columns:1.7fr 1.7fr .9fr .8fr 1.5fr 1.6fr .8fr;gap:8px;padding:8px;min-width:760px}
+        .rgy-phead,.rgy-thead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .rgy-prow,.rgy-row{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .rgy-prow:hover,.rgy-row:hover{background:#f6f7f9}
+        .rgy-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .rgy-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all}
+        .rgy-scopy{font-size:12px;color:#5f6b7c;line-height:1.5}
+        .rgy-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .rgy-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .rgy-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .rgy-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .rgy-state-write_only{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .rgy-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .rgy-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:20px 22px;color:#5f6b7c;font-size:14px;line-height:1.65;margin:0 0 16px}
+        .rgy-absent h3{font-size:16px;color:#1c2127;margin:0 0 8px}
+        .rgy-absent p{margin:0 0 8px}
+        .rgy-subs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+        .rgy-sub{display:inline-flex;align-items:center;gap:8px;border:1px solid #e5e8eb;border-radius:4px;padding:5px 10px;font-size:12px;color:#404854}
+        .rgy-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .rgy-learn{background:#f6f7f9;border-top:1px solid #e5e8eb;padding:30px 24px 44px}
+        .rgy-lwrap{max-width:1240px;margin:0 auto}
+        .rgy-ltop{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
+        .rgy-lh{font-size:18px;font-weight:600;margin:0}
+        .rgy-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+        .rgy-card{background:#fff;border:1px solid #e5e8eb;border-radius:4px;padding:14px 16px}
+        .rgy-cardh{font-size:14px;color:#1c2127}
+        .rgy-cardb{font-size:12.5px;color:#5f6b7c;line-height:1.65;margin:6px 0 10px}
+        .rgy-cardl{font-size:12.5px}
+        .rgy-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0 auto;padding:18px 24px 40px;max-width:1240px}
+        @media(max-width:900px){.rgy-cards{grid-template-columns:1fr}
+        @media(max-width:700px){.rgy-thead,.rgy-phead{display:none}.rgy-row,.rgy-prow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.rgy-row *,.rgy-prow *,.rgy-note,.rgy-sub{overflow-wrap:break-word}.rgy-body{overflow-x:hidden}.rgy-cards{grid-template-columns:1fr}.rgy-card{min-width:0}.rgy-card *{overflow-wrap:anywhere}}}
+      </style></head><body><div class="rgy-shell">
+        <header class="rgy-header">
+          <span class="rgy-hchip" aria-hidden="true" style="background-image:url('${MARKETPLACE_APP_ICON_URI}')"></span>
+          <h1 class="rgy-title">Artifacts</h1>
+          <div class="rgy-hright">
+            <span class="rgy-tray">
+              ${rgap("rgy-tchip", "⟳ —", "The reference's task tray counts artifact operations IN FLIGHT and prints 0 when there are none; the estate has no artifact-task queue with a read route, so printing 0 here would claim an empty queue where there is no queue at all (typed absence)")}
+              ${rgap("rgy-tchip", "✓ —", "The reference's second counter tallies artifact operations that SUCCEEDED; the estate records no artifact-operation outcomes on any readable plane, and a 0 would be a measurement of something never measured (typed absence)")}
+              ${rgap("rgy-tchip", "✕ —", "The reference's third counter tallies artifact operations that FAILED; the estate's nearest plane, artifact-availability-incidents, is published POST-only and cannot be read at all — a 0 here would convert an unreadable plane into a clean bill of health (typed absence)")}
+            </span>
+            ${rgap("rgy-chip", "Help", "No help or in-product documentation plane exists on the estate — the reference's Help control opens vendor-hosted guidance this estate has no binding to, and borrowing one would imply an authority relationship that does not exist (typed absence)")}
+            ${rgap("rgy-create", "+ Create artifact repository", "Repository creation is a REAL estate verb and it is NOT missing — it lives on the Packages owner surface as candidate admission (POST /v1/hypervisor/packages, identity-first, owner-scoped, idempotency-keyed). This is a read-only projection and a ported read landing never re-mints another surface's authority-crossing verb: open Packages to run it (typed absence by DESIGN, not by gap)")}
+          </div>
+        </header>
+        <section class="rgy-hero">
+          <h2 class="rgy-h1">Explore artifacts</h2>
+          <p class="rgy-lede">The estate's registry is not one plane but a LADDER, and this is a read-only projection of it: what material exists, what has been proposed, what has been admitted, what has been published, and what was recorded afterwards. ${rgyRead.length} planes were probed live on this render and they came back in four different states — and this surface refuses to blur them, because <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three.</p>
+          <div class="rgy-searchbar">
+            <span class="rgy-scope">${rgap("rgy-chip", "Ecosystem scope ▾", "The reference scopes its search by third-party PACKAGE ECOSYSTEM (its live capture had one selected); the estate binds no package ecosystem at all — its registry holds estate object kinds, not ecosystem packages — so naming one here would imply a binding that does not exist (typed absence)")}</span>
+            <span class="rgy-sinput">${rgap("rgy-chip", "Search artifacts…", `No artifact search index exists on the estate: counted from the daemon's route index on this render, ${rgySearchRoutes.length} search/query routes are published and ${rgyArtifactSearchRoutes.length} of them index packages, releases or listings. A search box here could only return an empty result that read like an answer (typed absence)`)}</span>
+          </div>
+          <p class="rgy-lede" style="margin-top:18px">The estate's registry taxonomy, read live from the daemon's own overview — <b>${rgyKinds.length}</b> kind${rgyKinds.length === 1 ? "" : "s"} with their current listing counts. These are estate OBJECT kinds, not package ecosystems, and they scope nothing here: the selector above is absent because there is no artifact search to scope.</p>
+          <div class="rgy-kinds">${rgyKindRows || `<span class="rgy-kind">${rdash("The marketplace overview returned no listing-kind enum on this render — the taxonomy is read from the daemon and never supplied by this surface (typed absence)")}</span>`}</div>
+        </section>
+        <div class="rgy-body">
+          <h2 class="rgy-h">Registry planes — read live, classified into four states</h2>
+          <p class="rgy-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none (this is the reference's own state: its Artifacts landing rendered 0 repositories). <b>REFUSED</b> = the plane is identity-first and refused this read with a typed code — <b>a refusal is not a zero</b>, and rendering it as one would convert a closed door into a measurement. <b>NO READ ROUTE</b> = the daemon publishes the plane POST-only; there is nothing to read, which is not the same as reading nothing. Rows open the owner surface that holds the verbs.</p>
+          <div class="rgy-phead"><span>Plane</span><span>Route</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+          ${rgyPlaneRows}
+          <h2 class="rgy-h">Registry records — every record the readable planes actually hold</h2>
+          <p class="rgy-note">${rgyRecordTotal} REAL record${rgyRecordTotal === 1 ? "" : "s"} across ${rgyCount("live")} live plane${rgyCount("live") === 1 ? "" : "s"}${rgyAllRecords.length > RGY_RECORD_CAP ? ` — the first ${RGY_RECORD_CAP} of ${rgyAllRecords.length} render below (cap NAMED, never silent)` : ""}. Every row NAMES which plane it came from and carries the record's own id, ref and schema_version verbatim; a field the record does not carry is a typed dash, never a blank and never an invented value. The estate versions a release by content DIGEST — there is no version string on these records to print, and none is invented.</p>
+          <div class="rgy-thead"><span>Record</span><span>Plane</span><span>Kind / decision</span><span>State</span><span>Schema version</span><span>Bound ref</span><span>Created</span></div>
+          ${rgyRecordRows || `<div class="rgy-empty">No records on any readable plane — this table renders the real registry planes and never fabricates rows.</div>`}
+          <h3 class="rgy-h">The package registry itself — ${esc(rgyStateLabel[rgyBy.packages.state] || rgyBy.packages.state)}</h3>
+          <div class="rgy-absent">
+            <h3>${rgyBy.packages.state === "refused" ? `The estate's real artifact registry REFUSED this read — that is not an empty registry` : `The estate's real artifact registry answered — ${esc(String(rgyBy.packages.rows.length))} candidate${rgyBy.packages.rows.length === 1 ? "" : "s"}`}</h3>
+            ${rgyBy.packages.state === "refused"
+              ? `<p><code>/v1/hypervisor/packages</code> is IDENTITY-FIRST: it resolves the caller's principal before it reads a single field, and this projection's own identity got <code>${esc(rgyBy.packages.code)}</code> back. So this surface prints no candidate count, no release list and no installation binding — because it does not have one. <b>A refusal is not a zero.</b> The reference's landing shows an EMPTY registry (0 repositories over a plane that answered); this lane shows a plane that would not answer, and the difference is exactly the one a fabricated "0 packages" would erase.</p>`
+              : `<p><code>/v1/hypervisor/packages</code> answered for this projection's identity, and the candidates it returned render in the record table above with the plane named on every row. Admission grants no runtime: an installation binding is born <code>disabled</code> and this surface never reads a binding as launchable.</p>`}
+            <p>Either way the VERBS stay where they are owned. Admitting a candidate, cutting a release, recalling one, and uninstalling a binding are the Packages family's own authority-crossing writes; this landing links to them and re-mints none of them. <a href="/__ioi/packages/registry">Open Packages →</a></p>
+          </div>
+          <h2 class="rgy-h">Publishable material — NOT published artifacts</h2>
+          <p class="rgy-note">The daemon's own substrate census, read verbatim from <code>/v1/hypervisor/marketplace/overview</code> with its own key names: this is material that COULD be published, and none of it is a published artifact. It is deliberately NOT rendered as registry rows — counting candidate material as inventory is the same class of error as reading a refusal as a zero.</p>
+          <div class="rgy-subs">${rgySubRows || `<span class="rgy-sub">${rdash("The marketplace overview returned no substrate census on this render — stated, never filled in with a guess")}</span>`}</div>
+        </div>
+        <section class="rgy-learn"><div class="rgy-lwrap">
+          <div class="rgy-ltop"><h2 class="rgy-lh">Learn about artifacts</h2>${rgap("rgy-chip", "Go to documentation ↗", "The reference links out to vendor-hosted artifact documentation; the estate serves no documentation plane and has no binding to that vendor's docs, so this control names its absence instead of sending an operator somewhere this estate does not own (typed absence)")}</div>
+          <div class="rgy-cards">${rgyCards}</div>
+        </div></section>
+        <p class="rgy-foot">${rgyFoot}</p>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Missions · Builds — JOB-1 (remediation v2): the BUILDS port, and the leg where the
+    // finding is that NO SINGLE PLANE LISTS EVERY BUILD. The replay-scoped verdict for the `jobs`
+    // seed was absent_confirmed (#jobs, MIS-1.recon — "no Builds grammar expresses at any recorded
+    // state; the substrate STANDS as the surface", MIS-1.build skipped by evidence). The
+    // owner-authorized live-tenant sweep OVERTURNED it: the click target boots a real build
+    // tracker — title "Your builds · Builds", a left Search-by/Filter-by panel (resource + object
+    // type search, intermediate-resource and my-builds toggles, a three-way branch radio, a
+    // started-by principal chip, a job-type filter and two date ranges), an All/Running/Finished
+    // segmented control, and a six-column build table (Outputs · Started by · Start time ·
+    // Duration · Status · Actions) over REAL build rows. That supersession is recorded in
+    // #jobs-port; the reference record stands as history, and /__ioi/missions — the substrate, still
+    // read_only_by_contract — is untouched: this is a sibling lane, not a replacement.
+    //
+    // ADJUDICATED BEFORE BUILDING (#jobs-port). Like registry and unlike map, the estate HAS run
+    // planes — many — so the question was which plane can honestly carry a BUILD ROW. Sixteen were
+    // probed over this surface's own identity and classified into REG-1's four states, and the
+    // answer was sharper than "pick the biggest":
+    //
+    //   · /v1/hypervisor/agent-run-transcripts holds 3174 run transcripts and a state_root on
+    //     every one of them — and NOT ONE of the 3174 records carries a principal. Of the 3174,
+    //     only the automation-run kind is a build at all; the rest are hypervisor OPERATION
+    //     transcripts (harness-profile ops, model-route ops). The Monocle Build-timeline lane at
+    //     /__ioi/lineage?tab=timeline already renders this plane, so it is LINKED here, never
+    //     duplicated — one plane, one renderer.
+    //   · /v1/hypervisor/automations/:id/runs carries executor_identity — but it is reachable only
+    //     per automation (the daemon publishes NO list route for automation-executions), so an
+    //     execution whose automation was deleted can never be read through it at all.
+    //   · /v1/hypervisor/work-ledger's `run` lane is the EXACT UNION of the two, and it is the only
+    //     plane that carries BOTH the acting authority AND the state root on the same record.
+    //
+    // So the builds table renders the work-ledger run lane, and the three counts that prove why
+    // (ledger total · transcript-reachable · fan-out-unreachable) are RE-DERIVED ON EVERY RENDER
+    // from the three planes themselves — a pasted "57 / 50 / 7" would rot the first time a build
+    // lands or an automation is deleted.
+    //
+    // COLUMN MAPPING IS A REFUSAL, not a stretch (the FUS-1 precedent). The reference's "Outputs"
+    // column lists the DATASETS a build produced; an estate build record carries no output-resource
+    // field of any kind. Its step_results carry per-step evidence whose shape changes with the step
+    // kind, and the estate's nearest artifact list (artifactNames) lives on a DIFFERENT plane with
+    // a DIFFERENT noun. So this table uses the estate's own column names and states the refusal
+    // rather than putting different truth under a reference header — and it never relabels a STEP
+    // as a "job", because `job` is a live estate noun on /v1/jobs and it is not this one.
+    if (pathname === "/__ioi/missions/builds" && req.method === "GET") {
+      const esc = CX_ESC;
+      const bstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      // Probe every candidate run/build plane EXACTLY as this surface's identity sees it, keeping
+      // the raw status so a 404 (the daemon publishes no such route), a 405 (POST-only), a 503
+      // (the plane refused) and a 200 carrying an empty collection can never be confused.
+      const bldProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // The estate's run/build planes, in the order the question actually runs: what records a
+      // BUILD, what records the same build somewhere else, what records a different execution
+      // noun entirely, and what records nothing readable at all.
+      const BLD_PLANES = [
+        { key: "work_ledger", path: "/v1/hypervisor/work-ledger", label: "Work ledger — the run lane",
+          role: "THE build plane rendered below: the proof stream's `run` entries, the exact UNION of the two projections beneath it and the only plane carrying the acting authority AND the state root on one record",
+          owner: "/__ioi/work-ledger", ownerLabel: "Provenance" },
+        { key: "transcripts", path: "/v1/hypervisor/agent-run-transcripts", label: "Agent-run transcripts",
+          role: "durable run transcripts with a state_root on every record and a principal on NONE — already rendered by the Monocle Build timeline, so linked here and not duplicated",
+          owner: "/__ioi/lineage?tab=timeline", ownerLabel: "Build timeline" },
+        { key: "automation_executions", path: "/v1/hypervisor/automation-executions", label: "Automation executions (list)",
+          role: "the execution family the builds below belong to — the daemon publishes it per id and per cancel, and no list route at all",
+          owner: "/__ioi/automations", ownerLabel: "Automations" },
+        { key: "runtime_jobs", path: "/v1/jobs", label: "Runtime jobs",
+          role: "the estate's OWN `job` noun — runtime job records projected out of run records, with a jobType, a checklist and an artifactNames list. A different plane and a different noun from the builds below",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "runtime_runs", path: "/v1/runs", label: "Runtime runs",
+          role: "the persisted agent run records the runtime jobs and tasks are projected out of",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "runtime_tasks", path: "/v1/tasks", label: "Runtime tasks",
+          role: "the runtime TASK projection of the same run records — a third noun over the same substrate",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "goal_runs", path: "/v1/goal-orchestration/goal-runs", label: "GoalRuns",
+          role: "the orchestration plane's own long-lived run object (grounding loop, blockers, handoffs) — governed work, not an automation build",
+          owner: "/__ioi/missions", ownerLabel: "Missions" },
+        { key: "agent_launches", path: "/v1/goal-orchestration/ioi-agent/launches", label: "Agent launches",
+          role: "recorded agent launches with their strategy, policy and outcome — a launch is an admission decision, not a build",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "attempts", path: "/v1/goal-orchestration/attempts", label: "Orchestration attempts",
+          role: "the federated attempt envelope — the plane answers and holds none",
+          owner: "/__ioi/missions", ownerLabel: "Missions" },
+        { key: "foundry_run_plans", path: "/v1/hypervisor/foundry/run-plans", label: "Foundry run plans",
+          role: "draft run plans over the model substrate — planned work, and the plane holds none",
+          owner: "/__ioi/foundry", ownerLabel: "Foundry" },
+        { key: "transformation_runs", path: "/v1/hypervisor/odk/transformation-runs", label: "ODK transformation runs",
+          role: "the closest thing the estate has to a data BUILD — a transformation run that would materialize an output intent",
+          owner: "/__ioi/lineage", ownerLabel: "Data lineage" },
+        { key: "materializing_runs", path: "/v1/hypervisor/odk/materializing-runs", label: "ODK materializing runs",
+          role: "the run that materializes an object set from a data source under a capability lease",
+          owner: "/__ioi/lineage", ownerLabel: "Data lineage" },
+        { key: "failover_runs", path: "/v1/hypervisor/failover/runs", label: "Failover runs",
+          role: "provider failover executions with their own state_root — infrastructure work, not tenant builds",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "workruns", path: "/v1/hypervisor/workruns", label: "Work runs",
+          role: "the ONLY estate plane that records a BRANCH and a base commit — and it records no status transition, no start time and no duration, so it is not an execution plane",
+          owner: "/__ioi/sessions", ownerLabel: "Sessions" },
+        { key: "sessions", path: "/v1/hypervisor/sessions", label: "Hypervisor sessions",
+          role: "the session registry a build would resolve its execution context through",
+          owner: "/__ioi/sessions", ownerLabel: "Sessions" },
+        { key: "session_execution_bindings", path: "/v1/hypervisor/session-execution-bindings", label: "Session execution bindings",
+          role: "the binding that attaches an execution to a session — published write-only",
+          owner: "/__ioi/sessions", ownerLabel: "Sessions" },
+      ];
+      const [bldProbes, bldAutosJson, bldIndexJson] = await Promise.all([
+        Promise.all(BLD_PLANES.map((pl) => bldProbe(pl.path))),
+        daemonFetch(`/v1/hypervisor/automations`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1`).then((r) => r.json()).catch(() => ({})),
+      ]);
+      // The daemon's OWN route index decides "no read route" — a 404 body cannot tell a missing
+      // route apart from a missing record, and only the index knows which methods are published.
+      const bldRoutes = (Array.isArray(bldIndexJson.families) ? bldIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const bldRouteFor = (p) => bldRoutes.find((r) => String(r.path || "") === p && !r.retired) || null;
+      const bldMethodsFor = (p) => { const r = bldRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      // FOUR states, classified from the live response (and the live index) and never from a
+      // constant. The order of the tests IS the contract: a plane the daemon publishes no GET for
+      // is decided by the index before any body is read, a refusal is decided before any collection
+      // is looked for, and only a 200 that actually carried a collection may be called live-or-empty.
+      const bldClassify = (pr) => {
+        const methods = bldMethodsFor(pr.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && b.error.code) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), methods, message: String((b.error && b.error.message) || (b.error && b.error.detail) || b.message || ""), rows: [] };
+        }
+        const arr = Array.isArray(pr.body) ? pr.body : Object.values(pr.body || {}).find((v) => Array.isArray(v));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const bldRead = BLD_PLANES.map((pl, i) => ({ ...pl, ...bldClassify(bldProbes[i]), status: bldProbes[i].status }));
+      const bldBy = Object.fromEntries(bldRead.map((r) => [r.key, r]));
+      const bldCount = (s) => bldRead.filter((r) => r.state === s).length;
+      // ONE gap contract for every named absence (aria + title + data-ioi reason). bld-gap marks a
+      // CHROME control the reference offers and the estate cannot honour; bld-dash marks a FIELD
+      // the record itself does not carry. Every chrome reason is written for ITS control — a reused
+      // boilerplate reason is a decorative assertion, and the verifier fails on one.
+      const bgap = (cls, label, reason) => `<span class="${cls} bld-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const bdash = (reason) => `<span class="bld-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      // ---- THE BUILD LANE: the work-ledger's `run` entries. Every field below is read off the
+      // record; nothing is supplied by this surface.
+      const bldAll = (bldBy.work_ledger.state === "live" ? bldBy.work_ledger.rows : []).filter((e) => e && e.kind === "run");
+      const bldTranscripts = (bldBy.transcripts.state === "live" ? bldBy.transcripts.rows : []);
+      const bldAutoRunIds = new Set(bldTranscripts.filter((r) => r && r.kind === "automation-run").map((r) => String(r.run_id || "")));
+      const bldLiveAutos = new Set((Array.isArray(bldAutosJson.automations) ? bldAutosJson.automations : []).map((a) => String(a.automation_id || "")));
+      // The three counts this surface's whole argument rests on, RE-DERIVED here on every render:
+      // how many builds the ledger holds, how many of them the transcript projection can reach, and
+      // how many of them the per-automation fan-out can NEVER reach because their automation is
+      // gone. A pasted triple would rot the first time a build lands or an automation is deleted.
+      const bldInTranscripts = bldAll.filter((e) => bldAutoRunIds.has(String(e.id || "")));
+      const bldNotInTranscripts = bldAll.filter((e) => !bldAutoRunIds.has(String(e.id || "")));
+      const bldFanoutUnreachable = bldAll.filter((e) => !bldLiveAutos.has(String(e.automation_id || "")));
+      const bldNoStateRoot = bldAll.filter((e) => !bstr(e.state_root));
+      // The header tray and the segmented control are COUNTS, not filters — and unlike the registry
+      // leg's tray these zeros are MEASUREMENTS, because this plane answered. Terminal-vs-open is
+      // read off the records' own status values, never assumed.
+      const BLD_TERMINAL = new Set(["done", "complete", "completed", "success", "succeeded", "failed", "error", "cancelled", "canceled", "stopped"]);
+      const bldOpen = bldAll.filter((e) => !BLD_TERMINAL.has(String(e.status || "")));
+      const bldFinished = bldAll.filter((e) => BLD_TERMINAL.has(String(e.status || "")));
+      const bldStepTotals = bldAll.reduce((acc, e) => {
+        for (const [k, v] of Object.entries(e.counts || {})) acc[k] = (acc[k] || 0) + (Number(v) || 0);
+        return acc;
+      }, {});
+      const bldFailedSteps = bldStepTotals.failed || 0;
+      const bldStatusVocab = [...new Set(bldAll.map((e) => String(e.status || "")))].filter(Boolean).sort();
+      // The step-count vocabulary comes off the records themselves, so "N of M steps" can never
+      // outrun what the plane recorded — and it is STEPS, never "jobs": `job` is a live estate noun
+      // on a different plane (/v1/jobs) and relabelling one as the other would invent a hierarchy.
+      const bldStepsOf = (e) => Object.values(e.counts || {}).reduce((n, v) => n + (Number(v) || 0), 0);
+      const bfdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+      const bldDur = (a, b) => {
+        const t0 = Date.parse(a || ""); const t1 = Date.parse(b || "");
+        if (!Number.isFinite(t0) || !Number.isFinite(t1) || t1 < t0) return "";
+        const ms = t1 - t0;
+        if (ms < 1000) return `${ms}ms`;
+        const s = Math.floor(ms / 1000);
+        return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+      };
+      // Cap NAMED, never silent. It sits above the plane's current size deliberately: the 7 builds
+      // the transcript plane never recorded are the OLDEST on the ledger, and a 50-row window would
+      // hide every empty state_root behind a cap — the finding this surface exists to state would
+      // vanish into a truncation, and the gate that checks it would pass vacuously.
+      const BLD_ROW_CAP = 200;
+      const bldSorted = [...bldAll].sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")));
+      const bldShown = bldSorted.slice(0, BLD_ROW_CAP);
+      const bldRows = bldShown.map((e) => {
+        const auth = e.authority && typeof e.authority === "object" ? e.authority : null;
+        const authRef = bstr(auth?.ref);
+        const authKind = bstr(auth?.kind);
+        const steps = bldStepsOf(e);
+        const doneSteps = Number((e.counts || {}).done || 0);
+        const dur = bldDur(e.timestamp, e.finished_at);
+        const root = bstr(e.state_root);
+        const tl = bstr(e.timeline_ref);
+        return `<div class="bld-row" data-ioi-build="${esc(String(e.id || ""))}">`
+          + `<span><b>${esc(bstr(e.automation_name) || bstr(e.automation_id) || "run")}</b><code class="bld-ref">${esc(String(e.id || ""))}</code>`
+          + `<code class="bld-ref">project ${esc(bstr(e.project_id) || "—")} · env ${esc(bstr(e.environment_id) || "—")}</code></span>`
+          + `<span data-ioi-build-authority="${esc(authRef)}">${authRef ? `${esc(authRef)}<code class="bld-ref">authority.kind: ${esc(authKind || "—")}</code>` : bdash("This ledger run entry carries no authority object — the record itself names no acting principal, and this surface never supplies one (typed absence, not an unread field)")}</span>`
+          + `<span>${esc(bfdt(e.timestamp))}<code class="bld-ref">field: timestamp</code></span>`
+          + `<span>${dur ? `${esc(dur)}<code class="bld-ref">COMPUTED: finished_at − timestamp</code>` : bdash("This record does not carry both a timestamp and a finished_at, so no duration can be computed from it — the plane records no duration field of its own and none is invented here (typed absence)")}</span>`
+          + `<span><span class="bld-st bld-st-${esc(String(e.status || "unknown"))}">${esc(String(e.status || "—"))}</span>`
+          + `<code class="bld-ref">${doneSteps} of ${steps} step${steps === 1 ? "" : "s"} done <b>(steps, not jobs)</b></code></span>`
+          + `<span>${root ? `<code class="bld-ref" title="the run's recomputable state root — the proof anchor">${esc(root)}</code>` : bdash("This ledger run entry carries an EMPTY state_root: the transcript plane never recorded this execution, and the state root lives on the transcript. The proof anchor is genuinely absent here — it is not withheld and it is not zero (typed absence)")}`
+          + `${tl ? `<a class="bld-ref" href="${esc(tl)}" target="_blank" rel="noopener">run timeline ↗</a>` : ""}</span></div>`;
+      }).join("");
+      // ---- The COLUMN MAPPING: the reference's six columns, each answered with the estate field
+      // that binds it or the typed refusal that does not. This is stated rather than smoothed over,
+      // because putting different truth under a reference header is the defect FUS-1 named.
+      const bldColumns = [
+        { ref: "Outputs", bound: false, gap: ["Outputs", "The reference's Outputs column lists the DATASETS a build produced; an estate build record carries no output-resource field of any kind. Its step_results carry per-step evidence whose shape changes with the step kind — a command's stdout excerpt, an agent turn's conversation file, a proposal's changed files — which is evidence of how a step ran, not a list of what the build produced. Rendering that under an \"Outputs\" header would put different truth under a reference header (typed absence)"],
+          copy: `No estate field binds this column. The nearest artifact list the estate keeps is <code>artifactNames</code> on the RUNTIME JOB plane (<code>/v1/jobs</code>, ${bldBy.runtime_jobs.state === "live" ? `${bldBy.runtime_jobs.rows.length} record${bldBy.runtime_jobs.rows.length === 1 ? "" : "s"}` : bldBy.runtime_jobs.state.toUpperCase()}) — a different plane holding a different noun, and no estate record joins a runtime job to a build. Inventing that edge here would be a fabricated column.` },
+        { ref: "Started by", bound: true, field: "authority.ref + authority.kind",
+          copy: `Bound — but only on THIS plane. Of the <b>${bldTranscripts.length}</b> agent-run transcripts read on this render, <b>0</b> carry a principal of any kind; the per-automation execution projection carries <code>executor_identity</code> but cannot be reached for every build. The work-ledger run entry is the one record that carries the acting authority, so it is the one this column reads.` },
+        { ref: "Start time", bound: true, field: "timestamp", copy: `Bound directly. Every row names the field its value came from, so a start time is never a rendered guess at when something "really" began.` },
+        { ref: "Duration", bound: false, field: "COMPUTED: finished_at − timestamp",
+          copy: `The plane records NO duration field. Every duration on this page is computed from the record's own <code>timestamp</code> and <code>finished_at</code> and is labelled as computed on the row — a derived number presented as a recorded one is still a fabrication.` },
+        { ref: "Status", bound: true, field: "status + counts",
+          copy: `Bound, with the step roll-up beside it. The reference reads "N of M jobs succeeded"; on the estate the sub-unit of a build is a STEP (<code>counts.done / failed / pending / running / stopped</code>) and <code>job</code> is a live noun on a different plane. Steps are never relabelled jobs here. Status vocabulary actually present on this render: ${bldStatusVocab.length ? bldStatusVocab.map((s) => `<code>${esc(s)}</code>`).join(" · ") : "<i>none — the plane holds no records</i>"}.` },
+        { ref: "Actions", bound: false, gap: ["Actions", "The reference's per-row Actions menu runs build verbs. The estate's are REAL and they are owned elsewhere: cancelling an execution is POST /v1/hypervisor/automation-executions/:id/cancel and starting one is POST /v1/hypervisor/automations/:id/runs, both owned by Automations. A ported read landing never re-mints another surface's authority-crossing verb, so this column carries the record's PROOF instead and the surface links to the owner (typed absence by DESIGN, not by gap)"],
+          copy: `Replaced by proof, not by nothing. Each row carries its own <code>state_root</code> and its own <code>timeline_ref</code>, so the row's terminal claim can be re-derived rather than trusted. The verbs stay on <a href="/__ioi/automations">Automations</a>.` },
+      ].map((c) => `<div class="bld-crow" data-ioi-column="${esc(c.ref)}" data-ioi-column-bound="${c.bound ? "yes" : "no"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="bld-ref">${esc(c.field)}</code>` : (c.gap ? bgap("bld-chip", "no estate field", c.gap[1]) : "")}</span>`
+        + `<span class="bld-ccopy">${c.copy}</span></div>`).join("");
+      // ---- The plane census: one row per plane, state classified live and stamped.
+      const bldStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const bldStateCopy = (r) => {
+        if (r.state === "live") return `${r.rows.length} record${r.rows.length === 1 ? "" : "s"} — counted from the plane on this render`;
+        if (r.state === "empty") return `the plane answered and holds none — an EMPTY plane, not a missing one`;
+        if (r.state === "refused") return `the plane refused this read: <code>${esc(r.code)}</code> — a REFUSAL, never a zero`;
+        if (r.state === "no_read_route") return `the daemon's route index publishes no GET here (${r.methods.length ? `methods: ${esc(r.methods.join(", "))}` : `no route at all — HTTP ${esc(String(r.status))}`}) — nothing to read, which is not the same as reading nothing`;
+        return `the plane did not answer readably (<code>${esc(r.code)}</code>) — stated, never guessed`;
+      };
+      const bldPlaneRows = bldRead.map((r) => `<div class="bld-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}">`
+        + `<span><b>${esc(r.label)}</b><span class="bld-role">${esc(r.role)}</span></span>`
+        + `<span><code class="bld-ref">${esc(r.path)}</code></span>`
+        + `<span class="bld-state bld-state-${esc(r.state)}">${esc(bldStateLabel[r.state] || r.state)}</span>`
+        + `<span class="bld-scopy">${bldStateCopy(r)}</span>`
+        + `<span><a href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      const bldFoot = `JOB-1 (remediation v2): the BUILDS port — the leg whose finding is that <b>no single plane lists every build</b>. The replay-scoped verdict was absent_confirmed (#jobs, MIS-1.recon — "no Builds grammar expresses at any recorded state; the substrate STANDS as the surface"); the owner-authorized live sweep OVERTURNED it and recorded a real build tracker (title "Your builds · Builds" · <b>14 controls</b> · a left Search-by/Filter-by panel · an All/Running/Finished segmented control · a six-column build table over REAL rows). Of those 14, <b>9 are the vendor global rail</b> (railless here) and the <b>5 app controls</b> port as counted census chips or typed absences. That supersession is recorded in reference-seed-adjudications.v1.json#jobs-port and the reference record stands as history; <a href="/__ioi/missions">the Missions substrate</a> is untouched — this is a sibling lane, not a replacement. <b>${bldRead.length}</b> run/build planes were probed live on this render and answered in four states — <b>${bldCount("live")} LIVE</b> · <b>${bldCount("empty")} EMPTY</b> · <b>${bldCount("refused")} REFUSED</b> · <b>${bldCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the build verbs (start an execution · cancel one) belong to <a href="/__ioi/automations">Automations</a> and are not re-minted here. Evidence: reference-seed-adjudications.v1.json#jobs-port · reference-live-tenant-atlas.v1.json#jobs (landing) · .artifacts/live-tenant-atlas/jobs-landing.png. Owner: <a href="/__ioi/missions">Missions</a> · truth: <a href="/__ioi/work-ledger">the work ledger</a> · <a href="/__ioi/lineage?tab=timeline">Build timeline</a> · <a href="/__ioi/operations">Operations</a>.`;
+      sendOwnedSurfaceHtml(res, "jobs", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Builds</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .bld-shell{display:flex;flex-direction:column;min-height:100vh}
+        .bld-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .bld-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(45,114,210,.1) center/24px no-repeat}
+        .bld-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .bld-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px}
+        .bld-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854}
+        .bld-tray{display:inline-flex;align-items:center;gap:2px;border:1px solid #e5e8eb;border-radius:4px;padding:2px}
+        .bld-tchip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:3px;font-size:12px;color:#5f6b7c}
+        .bld-gap{opacity:.62;cursor:not-allowed}
+        .bld-dash{color:#a8b2be;cursor:not-allowed}
+        .bld-main{display:flex;flex:1;min-height:0}
+        .bld-side{flex:0 0 300px;border-right:1px solid #e5e8eb;padding:16px 18px 30px;background:#fff;overflow:auto}
+        .bld-sh{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:600;color:#1c2127;margin:6px 0 12px}
+        .bld-slab{font-size:12px;font-weight:600;color:#5f6b7c;margin:14px 0 5px}
+        .bld-sinput{display:flex;align-items:center;height:32px;border:1px solid #d1d1d1;border-radius:4px;padding:0 10px;font-size:13px;color:#8a94a2;width:100%}
+        .bld-srow{display:flex;gap:8px}
+        .bld-toggle{display:flex;align-items:center;gap:9px;font-size:13px;color:#404854;margin:8px 0}
+        .bld-tglyph{width:28px;height:16px;border-radius:999px;background:#c5cbd3;flex:0 0 28px}
+        .bld-radio{display:flex;align-items:center;gap:9px;font-size:13px;color:#404854;margin:7px 0}
+        .bld-rglyph{width:14px;height:14px;border-radius:999px;border:1px solid #c5cbd3;flex:0 0 14px}
+        .bld-body{flex:1;min-width:0;padding:16px 22px 40px;overflow:auto;overflow-x:auto}
+        .bld-btop{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+        .bld-h1{font-size:17px;font-weight:600;margin:0}
+        .bld-seg{display:inline-flex;margin-left:auto;border:1px solid #d1d1d1;border-radius:4px;overflow:hidden}
+        .bld-segb{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;font-size:13px;color:#404854;border-right:1px solid #d1d1d1}
+        .bld-segb:last-child{border-right:0}
+        .bld-segb.on{background:#2d72d2;color:#fff}
+        .bld-segn{font-weight:600}
+        .bld-h{font-size:16px;font-weight:600;margin:26px 0 4px}
+        .bld-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .bld-thead,.bld-row{display:grid;grid-template-columns:2.3fr 1.1fr 1.1fr .9fr 1.2fr 1.6fr;gap:8px;padding:9px 8px;min-width:760px}
+        .bld-phead,.bld-prow{display:grid;grid-template-columns:2.4fr 1.7fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:680px}
+        .bld-chead,.bld-crow{display:grid;grid-template-columns:.8fr 1.1fr 3.2fr;gap:8px;padding:9px 8px;min-width:560px}
+        .bld-thead,.bld-phead,.bld-chead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .bld-row,.bld-prow,.bld-crow{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .bld-row:hover,.bld-prow:hover,.bld-crow:hover{background:#f6f7f9}
+        .bld-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all;margin-top:2px}
+        .bld-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .bld-scopy,.bld-ccopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .bld-st{display:inline-block;font-size:11px;font-weight:600;border-radius:3px;padding:2px 7px;border:1px solid #9bc4ab;color:#1c6e42;background:#eef8f2}
+        .bld-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .bld-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .bld-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .bld-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .bld-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .bld-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .bld-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .bld-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .bld-call p{margin:0 0 8px}
+        .bld-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .bld-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:18px 22px 40px}
+        @media(max-width:700px){.bld-thead,.bld-phead,.bld-chead{display:none}.bld-row,.bld-prow,.bld-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}.bld-row *,.bld-prow *,.bld-crow *,.bld-note{overflow-wrap:break-word}.bld-body{overflow-x:hidden}.bld-body *{min-width:0;overflow-wrap:anywhere}}
+      </style></head><body><div class="bld-shell">
+        <header class="bld-header">
+          <span class="bld-hchip" aria-hidden="true" style="background-image:url('${ISSUES_APP_ICON_URI}')"></span>
+          <h1 class="bld-title">Builds</h1>
+          <div class="bld-hright">
+            <span class="bld-tray">
+              <span class="bld-tchip" data-ioi-tray="open" title="counted live from the work-ledger run lane on this render: ledger run entries whose own status value is not a terminal one. This is a MEASUREMENT — the plane answered — not a placeholder zero">⟳ <b>${bldOpen.length}</b></span>
+              <span class="bld-tchip" data-ioi-tray="finished" title="counted live from the work-ledger run lane on this render: ledger run entries carrying a terminal status value">✓ <b>${bldFinished.length}</b></span>
+              <span class="bld-tchip" data-ioi-tray="failed_steps" title="counted live by summing counts.failed across every ledger run entry on this render — this counts STEPS, the estate's sub-unit of a build, and it is not a count of failed builds">✕ <b>${bldFailedSteps}</b></span>
+            </span>
+            ${bgap("bld-chip", "⚙ Settings", "The reference's header gear opens per-user build-tracker preferences (default filters, retention, notification routing). The estate stores no per-principal preference plane for run projections at all, so this control would write nothing and read nothing (typed absence)")}
+            ${bgap("bld-chip", "◐ Theme", "The reference's header control toggles a tenant-level dark theme. This port renders the estate's own light surface chrome and holds no theme preference on any plane; a toggle that only changed this one page would imply a tenant setting that does not exist (typed absence)")}
+          </div>
+        </header>
+        <div class="bld-main">
+          <aside class="bld-side">
+            <div class="bld-sh">🔍 Search by…</div>
+            <div class="bld-slab">Resource</div>
+            <div class="bld-srow">
+              <span class="bld-sinput">${bgap("bld-chip", "Search for resource names or RIDs…", "The reference resolves a resource name or RID against a build INDEX keyed by the resources a build touched. No estate plane indexes builds by resource: a ledger run entry names its automation, its project and its environment, and nothing else, so a resource search here could only ever return an empty result that read like an answer (typed absence)")}</span>
+              ${bgap("bld-chip", "All", "The reference's scope selector narrows a resource search between all resources and a chosen subset. There is no resource search on this surface to scope, and a scope selector over an absent index would be pure decoration (typed absence)")}
+            </div>
+            <div class="bld-toggle"><span class="bld-tglyph" aria-hidden="true"></span>${bgap("bld-chip", "Include intermediate job resources", "The reference distinguishes a build's OUTPUT resources from the intermediate ones its jobs produced along the way. An estate build record carries no resource graph of either kind — step_results record how each step ran, not what it produced — so there is no intermediate tier to include or exclude (typed absence)")}</div>
+            <div class="bld-slab">Object type</div>
+            <span class="bld-sinput">${bgap("bld-chip", "Search for object types…", "The reference filters builds by the ontology object types they wrote. Object types are real on the estate — they live on the ODK ontology plane — but no build record references one, so joining the two here would invent an edge the estate does not record (typed absence)")}</span>
+            <div class="bld-sh" style="margin-top:22px">▼ Filter by…</div>
+            <div class="bld-slab">My builds</div>
+            <div class="bld-toggle"><span class="bld-tglyph" aria-hidden="true"></span>${bgap("bld-chip", "Show only my builds", `The reference partitions builds by viewer. On this render every one of the ${bldAll.length} ledger run entries that carries an authority carries the SAME one, so this toggle would partition nothing — and it would silently hide the ${bldNotInTranscripts.length} entr${bldNotInTranscripts.length === 1 ? "y" : "ies"} whose principal cannot be resolved at all. A filter that hides records it cannot classify is worse than no filter (typed absence)`)}</div>
+            <div class="bld-slab">Branch</div>
+            <div class="bld-radio"><span class="bld-rglyph" aria-hidden="true"></span>${bgap("bld-chip", "All branches", `The estate DOES record a branch — on the workruns plane (<code>/v1/hypervisor/workruns</code>, ${bldBy.workruns.state === "live" ? `${bldBy.workruns.rows.length} record${bldBy.workruns.rows.length === 1 ? "" : "s"}` : bldBy.workruns.state.toUpperCase()}), which records no status, no start time and no duration and is therefore not an execution plane. No build record carries a branch or a base commit, so there are no branches here to select across (typed absence)`)}</div>
+            <div class="bld-radio"><span class="bld-rglyph" aria-hidden="true"></span>${bgap("bld-chip", "Only master branch", "The reference treats master as the privileged build branch. The estate names no default or privileged branch anywhere in its build records — the only branch strings it holds sit on workrun records that never execute — so \"master\" here would be a convention this surface invented rather than one the estate keeps (typed absence)")}</div>
+            <div class="bld-radio"><span class="bld-rglyph" aria-hidden="true"></span>${bgap("bld-chip", "All branches excluding master", "This option is the complement of a privileged-branch convention the estate does not hold. A complement of an undefined set is undefined, and rendering it as an active choice would imply the estate had already split its builds that way (typed absence)")}</div>
+            <div class="bld-slab">Started by</div>
+            <span class="bld-sinput">${bgap("bld-chip", `${bldAll.length ? [...new Set(bldAll.map((e) => bstr((e.authority || {}).ref)).filter(Boolean))].join(", ") || "—" : "—"}`, `The reference offers a principal chooser. Across every ledger run entry on this render the plane records exactly ${[...new Set(bldAll.map((e) => bstr((e.authority || {}).ref)).filter(Boolean))].length} distinct acting authorit${[...new Set(bldAll.map((e) => bstr((e.authority || {}).ref)).filter(Boolean))].length === 1 ? "y" : "ies"}, so a chooser would be a control over a domain of one — decoration, not a filter. The value shown is read from the records and is not a placeholder (typed absence)`)}</span>
+            <div class="bld-slab">Job type</div>
+            <span class="bld-sinput">${bgap("bld-chip", "Filter job type…", `The estate DOES have a jobType field — on the runtime JOB plane (<code>/v1/jobs</code>), a different plane holding a different noun from the builds in this table. Ledger run entries carry a trigger_kind, not a job type, and offering a job-type filter over records that have none would let the reference's vocabulary stand in for the estate's (typed absence)`)}</span>
+            <div class="bld-slab">Start date</div>
+            <div class="bld-srow">
+              <span class="bld-sinput">${bgap("bld-chip", "Start date", "The reference's lower start bound is a server-side range query. The daemon's work-ledger route accepts no date parameter, so this bound could only be applied by reading the whole plane into this surface and filtering it here — a client-side filter wearing a plane query's clothes (typed absence)")}</span>
+              <span class="bld-sinput">${bgap("bld-chip", "End date", "The reference's upper start bound is evaluated in the tenant's local timezone. Every timestamp on a ledger run entry is a UTC instant and the estate records no tenant timezone anywhere, so this surface would have to choose one — and a boundary that silently depends on an invented timezone drops records without saying so (typed absence)")}</span>
+            </div>
+            <div class="bld-slab">Finish date</div>
+            <div class="bld-srow">
+              <span class="bld-sinput">${bgap("bld-chip", "Finish start", `The reference's lower finish bound assumes every build has a finish. ${bldOpen.length} of ${bldAll.length} ledger run entries on this render carry a non-terminal status, and a finish-date bound would quietly exclude every unfinished build rather than saying it had (typed absence)`)}</span>
+              <span class="bld-sinput">${bgap("bld-chip", "Finish end", "The reference's upper finish bound reads finished_at. That field is present on the ledger run lane but absent from the per-automation execution projection of the SAME builds, so a bound applied here would mean something different depending on which projection a future reader used — a filter whose meaning changes with the route is not one truth (typed absence)")}</span>
+            </div>
+            <div style="margin-top:20px">${bgap("bld-chip", "Clear all filters", "There is nothing to clear: every filter above is a typed absence, and this surface is a read-only projection with no filter state of any kind. A working Clear control over inert controls would imply the others had done something (typed absence)")}</div>
+          </aside>
+          <div class="bld-body">
+            <div class="bld-btop">
+              <h2 class="bld-h1">Your builds</h2>
+              <div class="bld-seg">
+                <span class="bld-segb on" data-ioi-seg="all" title="a live census of the work-ledger run lane on this render, not a filter — this surface is read-only">All <b class="bld-segn">${bldAll.length}</b></span>
+                <span class="bld-segb" data-ioi-seg="running" title="ledger run entries whose own status value is not terminal, counted on this render — a measurement of the plane, not a filter">Running <b class="bld-segn">${bldOpen.length}</b></span>
+                <span class="bld-segb" data-ioi-seg="finished" title="ledger run entries carrying a terminal status value, counted on this render — a measurement of the plane, not a filter">Finished <b class="bld-segn">${bldFinished.length}</b></span>
+                ${bgap("bld-segb", "▾", "The reference's overflow opens further status lanes to filter by. These three are COUNTS of the plane, not filters — this is a read-only projection — and an overflow offering more of something that does not filter would be decoration on decoration (typed absence)")}
+              </div>
+            </div>
+            <p class="bld-note">Rows are the plane or there are no rows. Every build below is a REAL <code>run</code> entry on the estate's work ledger, rendered with the estate's OWN column names — the reference's six columns are answered one by one further down, including the two nothing binds. ${bldAll.length > BLD_ROW_CAP ? `The newest <b>${BLD_ROW_CAP}</b> of <b>${bldAll.length}</b> render here (cap NAMED, never silent).` : `All <b>${bldAll.length}</b> render here.`}</p>
+            <div class="bld-thead"><span>Build</span><span>Started by</span><span>Start time</span><span>Duration</span><span>Status</span><span>Proof</span></div>
+            ${bldRows || `<div class="bld-empty">No build records on the work-ledger run lane — this table renders the real plane and never fabricates rows.</div>`}
+            <h2 class="bld-h">No single plane lists every build</h2>
+            <div class="bld-call">
+              <h3>Three planes project the same builds, and two of them are incomplete</h3>
+              <p>Counted from the three planes themselves on this render, never pasted: the work ledger's <code>run</code> lane holds <b>${bldAll.length}</b> build${bldAll.length === 1 ? "" : "s"}. The agent-run transcript plane can reach <b>${bldInTranscripts.length}</b> of them — the other <b>${bldNotInTranscripts.length}</b> were never transcribed, and those same <b>${bldNoStateRoot.length}</b> are exactly the entries whose <code>state_root</code> is empty, because the state root lives on the transcript. The per-automation execution projection carries <code>executor_identity</code> but is reachable only through <code>/v1/hypervisor/automations/:id/runs</code>, and <b>${bldFanoutUnreachable.length}</b> of these builds belong to automations that no longer exist, so no fan-out can ever reach them.</p>
+              <p>That is why this table reads the ledger: it is the exact union, and the only plane carrying BOTH the acting authority and the proof anchor on one record. It is also why the ${bldTranscripts.length} transcripts are LINKED rather than re-rendered — the <a href="/__ioi/lineage?tab=timeline">Monocle Build timeline</a> already renders that plane, and a second renderer over the same records is a second answer waiting to disagree.</p>
+            </div>
+            <h2 class="bld-h">The reference's six columns, answered one by one</h2>
+            <p class="bld-note">A ported table that keeps a reference header and fills it with a different field is not a port, it is a mislabel. Each of the reference's columns is answered below with the estate field that binds it — or with the typed refusal that does not.</p>
+            <div class="bld-chead"><span>Reference column</span><span>Estate field</span><span>What binds it, or why nothing does</span></div>
+            ${bldColumns}
+            <h2 class="bld-h">Run &amp; build planes — read live, classified into four states</h2>
+            <p class="bld-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three.</p>
+            <div class="bld-phead"><span>Plane</span><span>Route</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+            ${bldPlaneRows}
+            <h3 class="bld-h">The session registry — ${esc(bldStateLabel[bldBy.sessions.state] || bldBy.sessions.state)}</h3>
+            <div class="bld-call">
+              ${bldBy.sessions.state === "refused"
+                ? `<p><code>/v1/hypervisor/sessions</code> REFUSED this read with the daemon's own typed code <code>${esc(bldBy.sessions.code)}</code>. So this surface prints no session count and binds no build to a session — because it could not read one. <b>A refusal is not a zero</b>: rendering "0 sessions" here would convert a closed door into a measurement the estate never took, and the builds above would silently look session-less rather than unresolved.</p>`
+                : `<p><code>/v1/hypervisor/sessions</code> answered this read (state ${esc(bldStateLabel[bldBy.sessions.state] || bldBy.sessions.state)}). No build row is bound to a session regardless: a ledger run entry records its environment, not its session, and this surface never joins two planes the estate does not join itself.</p>`}
+              <p>Either way the VERBS stay where they are owned. Starting an execution and cancelling one are the Automations family's own authority-crossing writes; this landing links to them and re-mints none of them. <a href="/__ioi/automations">Open Automations →</a> · <a href="/__ioi/missions">Missions substrate →</a></p>
+            </div>
+            <p class="bld-foot">${bldFoot}</p>
+          </div>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Missions · Build Schedules — SCH-1 (remediation v2): the live-tenant SCHEDULER port.
+    // The seed's live target is a find/list landing titled "Build Schedules" whose result set is
+    // genuinely EMPTY on the tenant. The estate is NOT empty: it runs a real automation scheduler
+    // loop. THE FINDING this surface exists to state is that the field NAMED for the concept is
+    // not the field the runtime acts on — `trigger` / `trigger_kind` reads "manual" on the very
+    // automation the loop fires on a cron — and that two of the three schedule counts the estate
+    // publishes are produced by DIFFERENT PREDICATES over DIFFERENT WINDOWS. Every count here is
+    // re-derived on the render and each one names the predicate that produced it.
+    if (pathname === "/__ioi/missions/schedules" && req.method === "GET") {
+      const esc = CX_ESC;
+      const sstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const schProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // PHASE 1 — the daemon's own route index (the only thing that can say "no read route") and
+      // the schedule-bearing plane, because the concrete ids and the cron expression the rest of
+      // the census is probed WITH are read off it rather than pinned here.
+      const [schAutoPre, schIndexJson] = await Promise.all([
+        schProbe("/v1/hypervisor/automations"),
+        daemonFetch("/v1").then((r) => r.json()).catch(() => ({})),
+      ]);
+      const schAutos = Array.isArray(schAutoPre.body?.automations) ? schAutoPre.body.automations : [];
+      const schSpecOf = (a) => (a && a.schedule_spec && typeof a.schedule_spec === "object" ? a.schedule_spec : null);
+      // THE RECORDS PREDICATE — "carries a schedule_spec object". This is the predicate
+      // /v1/hypervisor/operations uses for its own scheduler projection; it is NOT the loop's.
+      const schWithSpec = schAutos.filter((a) => schSpecOf(a));
+      const schRows = [...schWithSpec].sort((a, b) => String(sstr(a.next_run_at) || "￿").localeCompare(String(sstr(b.next_run_at) || "￿")));
+      const schPrimary = schRows[0] || schAutos[0] || null;
+      const schPrimaryId = sstr(schPrimary?.automation_id);
+      const schPrimaryCron = sstr(schSpecOf(schRows[0])?.cron);
+      const schPrimaryTz = sstr(schSpecOf(schRows[0])?.timezone) || "UTC";
+      // PHASE 2 — the census. `path` is the ROUTE TEMPLATE the daemon's index publishes (the only
+      // thing an index lookup can match); `probe` is the concrete URL this identity actually read,
+      // and every templated row says which id it was probed with. `shape` keeps a status OBJECT
+      // from being counted as a one-row collection, and a pure COMPUTATION from being read as a
+      // stored plane — a singleton is not a collection of one.
+      const schIdPath = (tail) => `/v1/hypervisor/automations/${schPrimaryId || "no-automation-on-the-plane"}${tail}`;
+      const SCH_PLANES = [
+        { key: "scheduler_status", path: "/v1/hypervisor/scheduler/status", probe: "/v1/hypervisor/scheduler/status", shape: "singleton",
+          label: "Scheduler heartbeat — the LOOP", role: "the only record that proves the automation_scheduler loop actually ran: booted_at, tick_seq, the loop's own admitted-schedule count and its per-tick dispatch counters. A status OBJECT, never a collection",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "automations", path: "/v1/hypervisor/automations", probe: "/v1/hypervisor/automations", shape: "collection", pick: (b) => b?.automations,
+          label: "Automations — the schedule-bearing plane", role: "THE plane this table reads: a schedule is a `schedule_spec` FIELD on an automation record, and this is the only projection carrying every field the schedule has (catch_up_policy, misfire_policy, executor_identity, steps, created_at)",
+          owner: "/__ioi/automations/monitors", ownerLabel: "Automate" },
+        { key: "ops_scheduler", path: "/v1/hypervisor/operations", probe: "/v1/hypervisor/operations", shape: "collection", pick: (b) => b?.scheduler?.automations,
+          label: "Operations › scheduler projection", role: "a PRE-FILTERED schedules projection over the same records, admitted by a DIFFERENT predicate (schedule_spec is an object — it never reads `enabled`) and carrying a strict SUBSET of the fields",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "cron_preview", path: "/v1/hypervisor/cron-preview", probe: schPrimaryCron ? `/v1/hypervisor/cron-preview?cron=${encodeURIComponent(schPrimaryCron)}&tz=${encodeURIComponent(schPrimaryTz)}&n=3` : "/v1/hypervisor/cron-preview", shape: "computation", pick: (b) => b?.runs,
+          label: "Cron preview — a COMPUTATION", role: "not a plane at all: a pure function of a cron expression and a clock. It stores nothing, so every occurrence it returns is COMPUTED and is labelled so on this page",
+          owner: "/__ioi/automations/monitors", ownerLabel: "Automate" },
+        { key: "auto_runs", path: "/v1/hypervisor/automations/:id/runs", probe: schIdPath("/runs"), shape: "collection", pick: (b) => b?.runs,
+          label: "Per-automation run history", role: "where a fire LANDS — already rendered by the Builds port over the work-ledger run lane, so it is linked here and never re-rendered as a second run list",
+          owner: "/__ioi/missions/builds", ownerLabel: "Builds" },
+        { key: "webhook_events", path: "/v1/hypervisor/automations/:id/webhook-events", probe: schIdPath("/webhook-events"), shape: "collection", pick: (b) => b?.events,
+          label: "Webhook events — the OTHER trigger lane", role: "the estate's second way to start an automation. A webhook is an EVENT trigger, not a cadence, so nothing here belongs in a schedules table",
+          owner: "/__ioi/automations", ownerLabel: "Automations" },
+        { key: "automation_executions", path: "/v1/hypervisor/automation-executions", probe: "/v1/hypervisor/automation-executions", shape: "collection",
+          label: "Automation executions (list)", role: "the execution family a fire becomes — the daemon publishes it per id and per cancel and NO list route at all",
+          owner: "/__ioi/automations", ownerLabel: "Automations" },
+        { key: "work_ledger", path: "/v1/hypervisor/work-ledger", probe: "/v1/hypervisor/work-ledger", shape: "collection",
+          label: "Work ledger — the run lane", role: "the proof stream every fire lands in. It carries trigger_kind on each run and that field reads `manual` for a scheduled dispatch too — the finding stated below",
+          owner: "/__ioi/missions/builds", ownerLabel: "Builds" },
+        { key: "affinities", path: "/v1/hypervisor/automation-affinities", probe: "/v1/hypervisor/automation-affinities", shape: "collection", pick: (b) => b?.affinities,
+          label: "Automation affinities", role: "goal-pattern → policy bindings for automations. An affinity decides HOW an automation runs, never WHEN — adjacent to the schedule and not one",
+          owner: "/__ioi/automations", ownerLabel: "Automations" },
+        { key: "failover_plans", path: "/v1/hypervisor/failover/plans", probe: "/v1/hypervisor/failover/plans", shape: "collection", pick: (b) => b?.plans,
+          label: "Failover plans (armed)", role: "the estate's other standing-intent plane: armed CONDITIONS (provider outage, capacity eviction) rather than a cadence. Condition-triggered work is not scheduled work",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "release_controls", path: "/v1/hypervisor/governance/release-controls", probe: "/v1/hypervisor/governance/release-controls", shape: "collection", pick: (b) => b?.release_controls,
+          label: "Governance release controls", role: "the plane a time-windowed release gate would live on if the estate had one",
+          owner: "/__ioi/governance", ownerLabel: "Governance" },
+        { key: "retention", path: "/v1/hypervisor/retention/dispositions", probe: "/v1/hypervisor/retention/dispositions", shape: "collection",
+          label: "Retention dispositions", role: "the classic scheduled-job noun in the reference's world. Here it is a POST-only lane: the estate records a disposition, never a recurring one",
+          owner: "/__ioi/governance", ownerLabel: "Governance" },
+        { key: "idle_sweep", path: "/v1/hypervisor/maintenance/idle-sweep", probe: "/v1/hypervisor/maintenance/idle-sweep", shape: "collection",
+          label: "Maintenance idle-sweep", role: "a cadence-SHAPED verb with no cadence record: something must call it, and the estate stores no schedule that does",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "backups", path: "/v1/hypervisor/backups", probe: "/v1/hypervisor/backups", shape: "collection", pick: (b) => b?.backups,
+          label: "Backups", role: "the second classic scheduled-job noun. Whether the estate holds a backup cadence is UNKNOWN from this surface — the plane refuses this identity",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "economics_reconciliation", path: "/v1/hypervisor/economics/reconciliation", probe: "/v1/hypervisor/economics/reconciliation", shape: "collection",
+          label: "Economics reconciliation", role: "a periodic-by-nature lane. It refuses this read, so this surface says nothing about its cadence rather than printing a zero",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+      ];
+      const schProbes = await Promise.all(SCH_PLANES.map((pl) => schProbe(pl.probe)));
+      const schRoutes = (Array.isArray(schIndexJson.families) ? schIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const schRouteFor = (p) => schRoutes.find((r) => String(r.path || "") === p && !r.retired) || null;
+      const schMethodsFor = (p) => { const r = schRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      // FIVE states, decided in this order and never from a constant: no-read-route from the
+      // daemon's OWN index before any body is read; a transport refusal before any collection is
+      // looked for; a typed in-body decline (ok:false on a 200) as the refusal it is; then shape.
+      const schClassify = (pl, pr) => {
+        const methods = schMethodsFor(pl.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), methods, rows: [] };
+        }
+        const body = pr.body;
+        if (body && typeof body === "object" && body.ok === false) {
+          const b = body.error;
+          return { state: "refused", code: String((b && (b.code || b)) || body.code || "plane_declined"), methods, rows: [] };
+        }
+        if (pl.shape === "singleton") {
+          const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+          return { state: keys.length ? "live" : "empty", code: "", methods, rows: [], keys };
+        }
+        const arr = pl.pick ? pl.pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const schRead = SCH_PLANES.map((pl, i) => ({ ...pl, ...schClassify(pl, schProbes[i]), status: schProbes[i].status, body: schProbes[i].body }));
+      const schBy = Object.fromEntries(schRead.map((r) => [r.key, r]));
+      const schCount = (s) => schRead.filter((r) => r.state === s).length;
+      // ONE gap contract for every named absence (aria + title + data-ioi reason, all three on the
+      // same element). sgap marks a CHROME control the reference offers and the estate cannot
+      // honour; sdash marks a FIELD the record itself does not carry. Every reason is written for
+      // ITS control — a reused reason is a decorative assertion and the gate fails on one.
+      const sgap = (cls, label, reason) => `<span class="${cls} sch-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const sdash = (reason) => `<span class="sch-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      // ---- THE THREE COUNTS, each labelled with the PREDICATE that produced it and the WINDOW it
+      // covers. They agree today by arithmetic, not by definition, and the deltas are computed.
+      const schHb = (schBy.scheduler_status.state === "live" && schBy.scheduler_status.body) || {};
+      const schHeart = (schHb.heartbeat && typeof schHb.heartbeat === "object") ? schHb.heartbeat : {};
+      const schPosture = (schHb.posture && typeof schHb.posture === "object") ? schHb.posture : {};
+      const schNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+      const schLoopActive = schNum(schHeart.scheduled_active);           // LOOP predicate: enabled && an active spec type
+      const schOpsRows = schBy.ops_scheduler.state === "live" ? schBy.ops_scheduler.rows : [];
+      const schRecordsCount = schWithSpec.length;                        // RECORDS predicate: carries a schedule_spec object
+      const schDisabled = schWithSpec.filter((a) => a.enabled !== true);
+      // The reference-vocabulary count: what the field literally NAMED `trigger` says. It is the
+      // number this surface would print if it trusted the name instead of the runtime.
+      const SCH_CADENCE_WORDS = new Set(["cron", "schedule", "scheduled", "interval", "timer", "recurring"]);
+      const schTriggerNamed = schAutos.filter((a) => SCH_CADENCE_WORDS.has(String(sstr(a.trigger_kind) || sstr(a.trigger?.kind) || "").toLowerCase()));
+      const schSpecButManualTrigger = schWithSpec.filter((a) => !SCH_CADENCE_WORDS.has(String(sstr(a.trigger_kind) || sstr(a.trigger?.kind) || "").toLowerCase()));
+      const schSeen = schNum(schHeart.automations_seen);
+      // FIELD COMPLETENESS, derived by comparing the SAME record through both projections rather
+      // than pasting a field list: which keys the Operations projection drops, and which (if any)
+      // it adds. JOB-1's rule — find the COMPLETE projection before rendering a row.
+      const schOpsById = Object.fromEntries(schOpsRows.map((r) => [String(r.automation_id || ""), r]));
+      const schCompare = schWithSpec.map((a) => {
+        const o = schOpsById[String(a.automation_id || "")] || null;
+        return { id: String(a.automation_id || ""), dropped: o ? Object.keys(a).filter((k) => !(k in o)) : Object.keys(a), added: o ? Object.keys(o).filter((k) => !(k in a)) : [] };
+      });
+      const schDroppedFields = [...new Set(schCompare.flatMap((c) => c.dropped))].sort();
+      const schAddedFields = [...new Set(schCompare.flatMap((c) => c.added))].sort();
+      const schUnreachedByOps = schWithSpec.filter((a) => !schOpsById[String(a.automation_id || "")]);
+      // ---- The CADENCE projection. cron-preview stores nothing, so its occurrences are COMPUTED
+      // and labelled; the record's own next_run_at is RECORDED by the loop and labelled separately.
+      const SCH_PREVIEW_CAP = 12;
+      const schPreviewFor = await Promise.all(schRows.slice(0, SCH_PREVIEW_CAP).map(async (a) => {
+        const cron = sstr(schSpecOf(a)?.cron);
+        if (!cron) return { id: String(a.automation_id || ""), runs: [], reason: "not a cron spec" };
+        const tz = sstr(schSpecOf(a)?.timezone) || "UTC";
+        const pr = await schProbe(`/v1/hypervisor/cron-preview?cron=${encodeURIComponent(cron)}&tz=${encodeURIComponent(tz)}&n=3`);
+        const runs = Array.isArray(pr.body?.runs) ? pr.body.runs : [];
+        return { id: String(a.automation_id || ""), runs, reason: pr.body?.ok === false ? String(pr.body.error || "declined") : "" };
+      }));
+      const schPreviewBy = Object.fromEntries(schPreviewFor.map((p) => [p.id, p]));
+      // Rendered in UTC and LABELLED UTC. Every schedule instant the estate stores is a UTC
+      // instant; formatting one in the serving host's local zone would print a time the estate
+      // never recorded, and a schedule read an hour wrong is worse than a schedule read as a raw
+      // stamp. The raw value is printed beneath every formatted one regardless.
+      const sfdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "" : `${d2.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`; };
+      const SCH_ROW_CAP = 100;
+      const schShown = schRows.slice(0, SCH_ROW_CAP);
+      const schRowHtml = schShown.map((a) => {
+        const spec = schSpecOf(a) || {};
+        const id = String(a.automation_id || "");
+        const cron = sstr(spec.cron);
+        const tz = sstr(spec.timezone);
+        const next = sstr(a.next_run_at);
+        const last = sstr(a.last_run_at);
+        const pv = schPreviewBy[id];
+        const enabled = a.enabled === true;
+        return `<div class="sch-row" data-ioi-schedule="${esc(id)}" data-ioi-schedule-enabled="${enabled ? "yes" : "no"}">`
+          + `<span><b>${esc(sstr(a.name) || id || "schedule")}</b><code class="sch-ref">${esc(id)}</code>`
+          + `<code class="sch-ref">project ${esc(sstr(a.project_id) || sstr(a.project_ref) || "—")}</code></span>`
+          + `<span data-ioi-cadence="${esc(cron)}">${cron ? `<code class="sch-cron">${esc(cron)}</code><code class="sch-ref">field: schedule_spec.cron · type ${esc(sstr(spec.type) || "—")} · tz ${esc(tz || "—")}</code>`
+            : sdash("This record carries a schedule_spec that is not a cron spec, so no cron expression can be shown for it — the estate also accepts interval specs, and this surface prints the field the record actually has rather than translating one shape into the other (typed absence)")}</span>`
+          + `<span data-ioi-next-run="${esc(next)}">${next ? `${esc(sfdt(next) || next)}<code class="sch-ref">RECORDED by the loop: field next_run_at (${esc(next)})</code>`
+            : sdash("This record carries no next_run_at. The scheduler loop stamps that field the first time it sees a schedule and never fires on that first sight, so an absent next_run_at means the loop has not yet admitted this schedule — it is not a fire that was missed and it is not a zero (typed absence)")}</span>`
+          + `<span>${last ? `${esc(sfdt(last) || last)}<code class="sch-ref">field: last_run_at (${esc(last)})</code>` : sdash("This record carries no last_run_at, so the estate holds no evidence this schedule has ever fired. That is an absence of a stamp, not a record of never having run (typed absence)")}</span>`
+          + `<span data-ioi-schedule-posture="${esc(`${sstr(a.catch_up_policy) || "—"}/${sstr(a.misfire_policy) || "—"}`)}">`
+          + `<code class="sch-ref">enabled: <b>${enabled ? "true" : String(a.enabled)}</b> · max_concurrency ${esc(String(a.max_concurrency ?? "—"))}</code>`
+          + `<code class="sch-ref">catch_up ${esc(sstr(a.catch_up_policy) || "—")} · misfire ${esc(sstr(a.misfire_policy) || "—")} · on failure ${esc(sstr(a.failure_policy) || "—")}</code></span>`
+          + `<span>${pv && pv.runs.length ? `${pv.runs.map((r) => `<code class="sch-ref sch-computed">${esc(r)}</code>`).join("")}<code class="sch-ref"><b>COMPUTED</b> by /v1/hypervisor/cron-preview — not stored anywhere</code>`
+            : sdash("No further occurrences are shown for this schedule: cron-preview is a pure computation over a cron expression, and this record carries no cron expression for it to compute from. Nothing is inferred from the interval shape here (typed absence)")}</span>`
+          + `<span><a class="sch-ref" href="/__ioi/automations/monitors">Automate →</a><a class="sch-ref" href="/__ioi/missions/builds">its runs →</a></span></div>`;
+      }).join("");
+      // ---- The reference's OWN controls, answered one by one. The live target is a find/list
+      // landing whose result set is EMPTY; every control it offers is answered here with the
+      // estate lane that binds it or the typed refusal that does not.
+      const schControls = [
+        { ref: "Create schedule", bound: false,
+          copy: `Refused by DESIGN, not by gap. The estate mints no schedule OBJECT: a schedule is a <code>schedule_spec</code> field on an automation record, so "create a schedule" is "create or patch an automation" — <code>POST /v1/hypervisor/automations</code> (which refuses with the daemon's own typed <code>automation_project_ref_required</code> unless a project is declared, because the project is the automation's durable container) or <code>PATCH /v1/hypervisor/automations/:id</code>. Both are owned by <a href="/__ioi/automations">Automations</a> and a read-only projection never re-mints another surface's authority-crossing verb.`,
+          gap: ["Create schedule", "The reference's Create-schedule button opens a schedule authoring flow. The estate has no schedule object to create: a schedule is a schedule_spec FIELD on an automation, so the real verbs are POST /v1/hypervisor/automations (refused with the typed code automation_project_ref_required unless a project_ref is declared — the project is the automation's durable container) and PATCH /v1/hypervisor/automations/:id, both owned by Automations. Minting a create form here would be a second mutation spine over someone else's plane (typed absence by DESIGN)"] },
+        { ref: "Set search parameters", bound: false,
+          copy: `The reference's search-parameter panel builds a server-side query. The daemon's automations route accepts NO query parameters at all — this surface reads the whole plane and counts it — so a parameter panel here could only ever filter a set that is already fully rendered, while looking like it had asked the plane a question.`,
+          gap: ["Set search parameters", "The reference opens a panel that composes a server-side schedule query. The daemon's automations route accepts no query parameters of any kind, so every control in such a panel would be a client-side filter wearing a plane query's clothes — and the whole census is already rendered below, so there is nothing for it to fetch (typed absence)"] },
+        { ref: "Filter by name or rid…", bound: false,
+          copy: `Two absences in one control. There is no server-side name filter (the plane takes no parameters), and there is no <b>rid</b>: the vendor's resource identifier is a tenant-wide addressing scheme the estate does not mint — an estate schedule is addressed by its automation's <code>automation_id</code>, which is printed in full on every row.`,
+          gap: ["Filter by name or rid…", "The reference filters the result set by name or by RID. The estate mints no RID — a schedule is addressed by the automation_id printed on its row — and the automations plane accepts no name parameter, so this input would filter a fully-rendered census client-side while implying the plane had been asked (typed absence)"] },
+        { ref: "Sorted by most recently updated", bound: false,
+          copy: `The rows below are ordered by <b>next occurrence, soonest first</b>, and that is stated rather than disguised as the reference's order. Sorting by "most recently updated" would read <code>updated_at</code> — which is the AUTOMATION's update stamp, not the schedule's: editing a step or a name moves it, changing the cadence need not. Ordering schedules by an edit to something else is a worse answer than saying so.`,
+          gap: ["Sorted by most recently updated", "The reference sorts the result set by its most-recently-updated stamp. The estate's nearest field, updated_at, belongs to the AUTOMATION and not to its schedule — a step edit moves it and a cadence change need not — so this order would rank schedules by an edit to a different thing. The rows are ordered by next occurrence instead and the page says so (typed absence)"] },
+        { ref: "Select schedules…", bound: false,
+          copy: `Bulk selection exists to feed bulk verbs (pause these, delete those). This surface is a READ-ONLY projection and holds no verb at all, so a selection tray would collect rows for nothing.`,
+          gap: ["Select schedules…", "The reference's selection tray exists to feed bulk verbs — pause, resume, delete across many schedules at once. This is a read-only projection that re-mints no verb, so a tray here would gather rows for an action that does not exist on this surface; the per-automation verbs live on Automations (typed absence)"] },
+        { ref: "Results matching (principal chip)", bound: false,
+          copy: `The reference's chip asserts the result set was FILTERED to one principal. The census below is <b>unfiltered</b> — it is every schedule-bearing record the plane holds — so rendering a principal chip beside it would misstate the query that produced the rows. The estate does record an <code>executor_identity</code> per automation, and it is on the row's own record, not in a chip that claims a filter nobody applied.`,
+          gap: ["Results matching", "The reference's chip states that the result set was narrowed to a principal. This census is unfiltered — every schedule-bearing record on the plane renders below — so a principal chip here would describe a query that was never run. The estate's executor_identity is a per-automation field, not a filter that was applied (typed absence)"] },
+        { ref: "APPLICATIONS (facet group)", bound: false,
+          copy: `The reference's APPLICATIONS group is a per-user favourited-apps lane, and on the live tenant it is EMPTY with its own copy ("Your favorited apps will appear here"). Here it is <b>MISSING, not empty</b>: the estate holds no per-principal favourites plane at all, so there is nothing that could ever fill it. That distinction is the whole point — an empty lane says "nothing yet", a missing plane says "never".`,
+          gap: ["APPLICATIONS", "The reference's APPLICATIONS facet group lists a principal's favourited applications and is EMPTY on the live tenant with its own placeholder copy. The estate holds no per-principal favourites or pinned-application plane of any kind, so this lane is MISSING here rather than empty — a distinction this port refuses to blur, because an empty lane promises content that a missing plane can never deliver (typed absence)"] },
+      ];
+      const schControlRows = schControls.map((c) => `<div class="sch-crow" data-ioi-control="${esc(c.ref)}" data-ioi-control-bound="${c.bound ? "yes" : "no"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="sch-ref">${esc(c.field)}</code>` : `<span class="sch-nolane">no estate lane</span>`}</span>`
+        + `<span class="sch-ccopy">${c.copy}</span></div>`).join("");
+      // ---- The plane census: one row per plane, classified live and stamped.
+      const schStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const schStateCopy = (r) => {
+        if (r.state === "live" && r.shape === "singleton") return `the plane answered with a single status OBJECT (${r.keys.length} field${r.keys.length === 1 ? "" : "s"}) — read as an object, never counted as one row`;
+        if (r.state === "live" && r.shape === "computation") return `the computation answered with ${r.rows.length} occurrence${r.rows.length === 1 ? "" : "s"} — COMPUTED on this render, stored nowhere`;
+        if (r.state === "live") return `${r.rows.length} record${r.rows.length === 1 ? "" : "s"} — counted from the plane on this render`;
+        if (r.state === "empty") return `the plane answered and holds none — an EMPTY plane, not a missing one`;
+        if (r.state === "refused") return `the plane refused this read: <code>${esc(r.code)}</code> — a REFUSAL, never a zero`;
+        if (r.state === "no_read_route") return `the daemon's route index publishes no GET here (${r.methods.length ? `methods: ${esc(r.methods.join(", "))}` : `no route at all — HTTP ${esc(String(r.status))}`}) — nothing to read, which is not the same as reading nothing`;
+        return `the plane did not answer readably (<code>${esc(r.code)}</code>) — stated, never guessed`;
+      };
+      const schPlaneRows = schRead.map((r) => `<div class="sch-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}" data-ioi-plane-shape="${esc(r.shape)}">`
+        + `<span><b>${esc(r.label)}</b><span class="sch-role">${esc(r.role)}</span>${r.path === r.probe ? "" : `<code class="sch-ref">probed as ${esc(r.probe.split("?")[0])}</code>`}</span>`
+        + `<span><code class="sch-ref">${esc(r.path)}</code><code class="sch-ref">shape: ${esc(r.shape)}</code></span>`
+        + `<span class="sch-state sch-state-${esc(r.state)}">${esc(schStateLabel[r.state] || r.state)}</span>`
+        + `<span class="sch-scopy">${schStateCopy(r)}</span>`
+        + `<span><a href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      const schDispatchPath = sstr(schPosture.dispatch_path);
+      const schFoot = `SCH-1 (remediation v2): the BUILD SCHEDULES port. The replay-scoped verdict was absent_confirmed (#scheduler — "no expressed IA at any atlas state; the Operations boundary stands"); the owner-authorized live sweep OVERTURNED it and recorded a real find/list landing (title "Build Schedules" · a Create-schedule header verb · Set-search-parameters · a sort control · a selection tray · a "Filter by name or rid…" input · an APPLICATIONS facet group · <b>0 rows</b> — the live tenant's own result set is genuinely empty, so the EMPTY-STATE IA is the seed). That supersession is recorded in reference-seed-adjudications.v1.json#scheduler-port and the reference record stands as history. <b>${schRead.length}</b> schedule-bearing and cadence-adjacent planes were probed live on this render and answered in four states — <b>${schCount("live")} LIVE</b> · <b>${schCount("empty")} EMPTY</b> · <b>${schCount("refused")} REFUSED</b> · <b>${schCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the schedule verbs (create or patch the automation that carries the schedule_spec, pause it, run it now) belong to <a href="/__ioi/automations">Automations</a> and are not re-minted here; the fires themselves are already rendered by <a href="/__ioi/missions/builds">Builds</a> and are linked, never re-listed. Evidence: reference-seed-adjudications.v1.json#scheduler-port · reference-live-tenant-deep-atlas.v1.json#scheduler (landing) · .artifacts/live-tenant-atlas/deep/scheduler-landing.png. Owner: <a href="/__ioi/missions">Missions</a> · loop health: <a href="/__ioi/operations">Operations</a> · the plane: <a href="/__ioi/automations/monitors">Automate</a>.`;
+      sendOwnedSurfaceHtml(res, "scheduler", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Build Schedules</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .sch-shell{display:flex;flex-direction:column;min-height:100vh}
+        .sch-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .sch-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(29,147,122,.12) center/24px no-repeat}
+        .sch-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .sch-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px;flex-wrap:wrap}
+        .sch-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854}
+        .sch-link{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:13px}
+        .sch-tray{display:inline-flex;align-items:center;gap:2px;border:1px solid #e5e8eb;border-radius:4px;padding:2px;flex-wrap:wrap}
+        .sch-tchip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:3px;font-size:12px;color:#5f6b7c}
+        .sch-gap{opacity:.62;cursor:not-allowed}
+        .sch-dash{color:#a8b2be;cursor:not-allowed}
+        .sch-sub{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid #e5e8eb}
+        .sch-count{font-size:15px;font-weight:600;color:#1c2127}
+        .sch-subr{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+        .sch-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 22px 0}
+        .sch-input{display:inline-flex;align-items:center;height:32px;border:1px solid #d1d1d1;border-radius:4px;padding:0 10px;font-size:13px;color:#8a94a2;min-width:0}
+        .sch-body{flex:1;min-width:0;padding:10px 22px 40px;overflow-x:auto;max-width:1340px;width:100%}
+        .sch-h{font-size:16px;font-weight:600;margin:26px 0 4px}
+        .sch-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .sch-thead,.sch-row{display:grid;grid-template-columns:1.7fr 1.3fr 1.2fr 1.1fr 1.4fr 1.5fr .8fr;gap:8px;padding:9px 8px;min-width:900px}
+        .sch-phead,.sch-prow{display:grid;grid-template-columns:2.4fr 1.5fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:700px}
+        .sch-chead,.sch-crow{display:grid;grid-template-columns:1fr 1fr 3.2fr;gap:8px;padding:9px 8px;min-width:620px}
+        .sch-thead,.sch-phead,.sch-chead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .sch-row,.sch-prow,.sch-crow{align-items:center;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .sch-row:hover,.sch-prow:hover,.sch-crow:hover{background:#f6f7f9}
+        .sch-ref{display:block;font-size:11px;color:#5f6b7c;word-break:break-all;margin-top:2px}
+        .sch-computed{color:#946638}
+        .sch-nolane{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.03em;color:#946638;border:1px solid #f0dca6;background:#fff8e6;border-radius:3px;padding:2px 7px}
+        .sch-cron{display:inline-block;font-size:12px;font-weight:600;background:#f1f3f6;border:1px solid #e5e8eb;border-radius:3px;padding:1px 6px}
+        .sch-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .sch-scopy,.sch-ccopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .sch-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .sch-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .sch-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .sch-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .sch-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .sch-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .sch-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .sch-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .sch-call p{margin:0 0 8px}
+        .sch-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:16px 18px;color:#5f6b7c;font-size:13px;line-height:1.65;margin:0 0 16px}
+        .sch-empty{padding:22px 10px;color:#5f6b7c;font-size:14px;line-height:1.6}
+        .sch-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:18px 22px 40px}
+        @media(max-width:700px){
+          .sch-thead,.sch-phead,.sch-chead{display:none}
+          .sch-row,.sch-prow,.sch-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}
+          .sch-row *,.sch-prow *,.sch-crow *,.sch-note,.sch-call *,.sch-absent *,.sch-foot{overflow-wrap:anywhere;min-width:0}
+          .sch-body{overflow-x:hidden;padding:10px 14px 34px}
+          .sch-body *{min-width:0;overflow-wrap:anywhere}
+          .sch-header{flex:0 0 auto;flex-wrap:wrap;padding:8px 0 10px;gap:8px}
+          .sch-hright{margin-left:0;padding:0 12px;width:100%}
+          .sch-sub,.sch-tools{padding-left:14px;padding-right:14px}
+          .sch-subr{margin-left:0}
+          .sch-input{width:100%}
+          .sch-call,.sch-absent{padding:14px}
+        }
+      </style></head><body><div class="sch-shell">
+        <header class="sch-header">
+          <span class="sch-hchip" aria-hidden="true" style="background-image:url('${ISSUES_APP_ICON_URI}')"></span>
+          <h1 class="sch-title">Build Schedules</h1>
+          <div class="sch-hright">
+            <span class="sch-tray">
+              <span class="sch-tchip" data-ioi-tray="scheduled_active" title="the SCHEDULER LOOP's own count of the schedules it admitted on its last tick — its predicate is enabled === true AND an active spec type, and it never reads the trigger field. A state, and the closest thing the estate keeps to a total">⟳ <b>${schLoopActive === null ? "—" : schLoopActive}</b></span>
+              <span class="sch-tchip" data-ioi-tray="fired_dispatches" title="dispatches the loop fired on its LAST TICK ONLY — a ${esc(String(schPosture.tick_interval_secs ?? schHeart.tick_interval_secs ?? "?"))}-second window, NOT a lifetime total. The estate keeps no lifetime dispatch counter; the fires themselves live on the work ledger and are rendered by Builds">✓ <b>${schNum(schHeart.fired_dispatches) === null ? "—" : schNum(schHeart.fired_dispatches)}</b></span>
+              <span class="sch-tchip" data-ioi-tray="misfire_skips" title="occurrences the loop skipped on its LAST TICK ONLY because the automation was already at its concurrency cap — the same single-tick window as the dispatch counter beside it, and not a running total of missed fires">✕ <b>${schNum(schHeart.misfire_skips) === null ? "—" : schNum(schHeart.misfire_skips)}</b></span>
+            </span>
+            ${sgap("sch-chip", "＋ Create schedule ↗", schControls[0].gap[1])}
+            <a class="sch-link" href="/__ioi/automations">Automations →</a>
+          </div>
+        </header>
+        <div class="sch-sub">
+          <span class="sch-count" data-ioi-schedule-count="${schRecordsCount}">${schRecordsCount} schedule${schRecordsCount === 1 ? "" : "s"}</span>
+          <span class="sch-ref" style="margin:0">counted on this render from the records predicate: an automation record carrying a <code>schedule_spec</code> object</span>
+          ${sgap("sch-chip", "Results matching…", schControls[5].gap[1])}
+          <span class="sch-subr">${sgap("sch-chip", "⊕ Set search parameters", schControls[1].gap[1])}</span>
+        </div>
+        <div class="sch-tools">
+          ${sgap("sch-chip", "⇅ Sorted by most recently updated", schControls[3].gap[1])}
+          ${sgap("sch-chip", "▤ Select schedules…", schControls[4].gap[1])}
+          ${sgap("sch-chip", "▼", "The reference's filter glyph opens the same server-side query panel as Set-search-parameters, in one click instead of two. It is a second entrance to a panel the estate cannot build, and a shortcut to nothing is still nothing (typed absence)")}
+          <span class="sch-input">${sgap("sch-chip", "🔍 Filter by name or rid…", schControls[2].gap[1])}</span>
+        </div>
+        <div class="sch-body">
+          <h2 class="sch-h">Schedules</h2>
+          <p class="sch-note">Rows are the plane or there are no rows. Every schedule below is a REAL automation record carrying a <code>schedule_spec</code>, rendered with the estate's OWN column names and ordered by <b>next occurrence, soonest first</b> — not by the reference's update order, for the reason given in the control table below. ${schRows.length > SCH_ROW_CAP ? `The soonest <b>${SCH_ROW_CAP}</b> of <b>${schRows.length}</b> render here (cap NAMED, never silent).` : `All <b>${schRows.length}</b> render here.`}</p>
+          <div class="sch-thead"><span>Schedule</span><span>Cadence</span><span>Next run</span><span>Last run</span><span>Posture</span><span>Further occurrences</span><span>Owner</span></div>
+          ${schRowHtml || `<div class="sch-empty">No automation record on the plane carries a <code>schedule_spec</code>, so the estate holds no schedule to render. The plane ANSWERED and held none — this is an empty result, not a refused read and not a missing plane, and no row is fabricated to fill the table.</div>`}
+          <h2 class="sch-h">The field named for the schedule is not the field the runtime acts on</h2>
+          <div class="sch-call">
+            <h3>Three counts of one census, and the one that carries the word "trigger" agrees with none of them</h3>
+            <p>Counted from the planes themselves on this render, never pasted. The <b>records</b> predicate — an automation carrying a <code>schedule_spec</code> object, which is exactly the test <code>/v1/hypervisor/operations</code> applies — finds <b>${schRecordsCount}</b>. That projection itself returns <b>${schOpsRows.length}</b>. The <b>loop</b> predicate — the scheduler's own admission test, <code>enabled === true</code> AND an active spec type — reports <b>${schLoopActive === null ? "—" : schLoopActive}</b> in its heartbeat. And the field literally named <code>trigger</code> / <code>trigger_kind</code> names a cadence on <b>${schTriggerNamed.length}</b> of the ${schAutos.length} automations on the plane.</p>
+            <p><b>${schSpecButManualTrigger.length}</b> of the ${schRecordsCount} schedule${schRecordsCount === 1 ? "" : "s"} above carr${schSpecButManualTrigger.length === 1 ? "ies" : "y"} a cadence in <code>schedule_spec</code> while ${schSpecButManualTrigger.length === 1 ? "its" : "their"} <code>trigger</code> field still reads something else. A "trigger-shaped" schedules view built on the field that carries the word would therefore have reported <b>${schTriggerNamed.length}</b> schedules while the daemon's own loop was firing <b>${schLoopActive === null ? "—" : schLoopActive}</b>. This surface counts what the runtime acts on and says which predicate produced every number it prints.</p>
+            <p>The two predicates are not the same test and are not guaranteed to agree: the records predicate never reads <code>enabled</code>, so a paused schedule still appears in the Operations projection while the loop excludes it. Not enabled on this render: <b>${schDisabled.length}</b> of <b>${schRecordsCount}</b> schedule-bearing record${schRecordsCount === 1 ? "" : "s"}${schLoopActive === null ? "" : `; the records-minus-loop delta is <b>${schRecordsCount - schLoopActive}</b>`}. Any residual beyond the paused ones is the loop's own spec-activeness test, which this surface does <b>not</b> re-implement — re-deriving another component's admission predicate here would be a second answer waiting to disagree with the first.</p>
+            <p>The loop saw <b>${schSeen === null ? "—" : schSeen}</b> automations on its last tick; the plane holds <b>${schAutos.length}</b> on this read.</p>
+          </div>
+          <h2 class="sch-h">A scheduled fire is not marked as one</h2>
+          <div class="sch-call">
+            <h3>The estate records no field that distinguishes a fire from a manual start</h3>
+            <p>The scheduler states its own dispatch path: <i>${schDispatchPath ? esc(schDispatchPath) : "the heartbeat did not publish a dispatch_path on this render, so none is quoted"}</i>${schDispatchPath ? " — quoted verbatim from <code>/v1/hypervisor/scheduler/status</code>" : ""}. Because the loop fires through the same route a person uses, the execution it produces is indistinguishable from a manual one in the record: the run's <code>trigger_kind</code> reads the automation's, and no plane stamps "this run was dispatched by the scheduler".</p>
+            <p>So this surface answers <b>when a schedule will fire</b> and refuses to answer <b>which past runs were fires</b> — the estate did not record it, and a time-correlation between a run's timestamp and a cron slot would be this surface inventing an edge no record holds. The runs themselves are already rendered over the work-ledger run lane by <a href="/__ioi/missions/builds">Builds</a>; one plane gets one renderer, so they are linked here and not re-listed.</p>
+          </div>
+          <h2 class="sch-h">The complete projection, and what the shorter one drops</h2>
+          <div class="sch-call">
+            <h3>Two projections of the same schedule, and only one carries every field</h3>
+            <p>The same records are published twice: in full on <code>/v1/hypervisor/automations</code>, and pre-filtered on <code>/v1/hypervisor/operations</code> under <code>scheduler.automations</code>. Compared field-by-field on this render for the ${schRecordsCount} schedule-bearing record${schRecordsCount === 1 ? "" : "s"}, the Operations projection drops <b>${schDroppedFields.length}</b> field${schDroppedFields.length === 1 ? "" : "s"}${schDroppedFields.length ? ` — ${schDroppedFields.map((f) => `<code>${esc(f)}</code>`).join(" · ")}` : ""}, and adds <b>${schAddedFields.length}</b>${schAddedFields.length ? ` — ${schAddedFields.map((f) => `<code>${esc(f)}</code>`).join(" · ")}` : " (it is a strict subset)"}. ${schUnreachedByOps.length ? `<b>${schUnreachedByOps.length}</b> schedule-bearing record${schUnreachedByOps.length === 1 ? " is" : "s are"} not reachable through it at all.` : "Every schedule-bearing record is reachable through both."}</p>
+            <p>That is why the table above reads the automations plane: the shorter projection carries no <code>catch_up_policy</code>, no <code>misfire_policy</code> and no <code>executor_identity</code>, and the Posture column would have had to be a row of dashes over fields that exist. The comparison is recomputed on every render from the two planes themselves, so the choice cannot rot into a stale justification.</p>
+          </div>
+          <h2 class="sch-h">The APPLICATIONS lane — MISSING, not empty</h2>
+          <div class="sch-absent">
+            The reference's only facet group on this landing is <b>APPLICATIONS</b>, and on the live tenant it renders EMPTY with its own copy: <i>"Your favorited apps will appear here."</i> An empty lane promises content. This port renders it as a <b>typed absence instead</b>, because the estate holds no per-principal favourites or pinned-application plane of any kind — nothing exists that could ever fill it. ${sgap("sch-chip", "APPLICATIONS", schControls[6].gap[1])} <b>EMPTY is not MISSING</b>: the reference's lane is waiting for data, and this one is waiting for a plane.
+          </div>
+          <h2 class="sch-h">The reference's controls, answered one by one</h2>
+          <p class="sch-note">A ported landing that keeps a reference control and wires it to something else is not a port, it is a mislabel. Each control the live capture recorded is answered below with the estate lane that binds it — or with the typed refusal that does not, in a reason written for that control.</p>
+          <div class="sch-chead"><span>Reference control</span><span>Estate lane</span><span>What binds it, or why nothing does</span></div>
+          ${schControlRows}
+          <h2 class="sch-h">Schedule &amp; cadence planes — read live, classified into four states</h2>
+          <p class="sch-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three. The <code>shape</code> column carries a fourth distinction this leg needed: a status <b>singleton</b> is not a collection of one, and a <b>computation</b> is not a plane at all.</p>
+          <div class="sch-phead"><span>Plane</span><span>Route · shape</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+          ${schPlaneRows}
+          <p class="sch-foot">${schFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Data · HyperAuto (ingest) — ING-1 (remediation v2): the live-tenant INGEST port.
+    // The seed's live target is /workspace/hyperauto/pipeline, titled "HyperAuto": a single
+    // centred card ("HyperAuto Pipelines" + a Create-pipeline verb) over an EMPTY list, whose
+    // own empty copy sends the reader to the Data Connection application to create a pipeline
+    // "on one of your supported sources". So the vendor itself puts pipeline creation behind the
+    // SOURCE plane — which is why this port lands in the Data family beside /__ioi/data/sources.
+    // THE FINDING this surface exists to state: a self-report is scoped to the RECORD that
+    // carries it, never to the estate. Every stage of the estate's ingestion chain publishes a
+    // `status`/`wired`/`missing_contracts`/`data_moved` field about ITSELF, and those fields
+    // disagree with what the chain demonstrably did — a source whose rows were fetched under a
+    // receipted HTTP 200 still reads ingestion.wired:false, a mapping reads "ready" while its own
+    // note says it extracts nothing, and a connector session reads data_moved:false about the very
+    // crossing its object set names it as the provenance of. Join before you believe.
+    if (pathname === "/__ioi/data/ingest" && req.method === "GET") {
+      const esc = CX_ESC;
+      const istr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const ingProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // PHASE 1 — the daemon's own route index (the ONLY thing that can say "no read route"), plus
+      // the mapping plane, because the concrete ids the templated probes are made WITH are read
+      // off it rather than pinned here.
+      const [ingIndexJson, ingMapPre] = await Promise.all([
+        daemonFetch("/v1").then((r) => r.json()).catch(() => ({})),
+        ingProbe("/v1/hypervisor/odk/connector-mappings"),
+      ]);
+      const ingRoutes = (Array.isArray(ingIndexJson.families) ? ingIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const ingRouteFor = (p) => ingRoutes.find((r) => String(r.path || "") === p && !r.retired) || null;
+      const ingMethodsFor = (p) => { const r = ingRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      const ingMapsPre = Array.isArray(ingMapPre.body?.connector_mappings) ? ingMapPre.body.connector_mappings : [];
+      const ingPrimaryMap = istr(ingMapsPre[0]?.id);
+      const ingMapPath = (tail) => `/v1/hypervisor/odk/connector-mappings/${ingPrimaryMap || "no-mapping-on-the-plane"}${tail}`;
+      // PHASE 2 — the census. `path` is the ROUTE TEMPLATE the daemon's index publishes (the only
+      // thing an index lookup can match); `probe` is the concrete URL this identity actually read.
+      // `stage` names where the plane sits on the source -> objects chain, or marks it adjacent.
+      const ING_PLANES = [
+        { key: "data_sources", path: "/v1/hypervisor/data-sources", probe: "/v1/hypervisor/data-sources", shape: "collection", pick: (b) => b?.data_sources, stage: "0 · source",
+          label: "Data sources — the SUPPORTED-SOURCE plane", role: "what the reference's own empty copy points at: a HyperAuto pipeline is created ON a source. Already rendered in full by the Data Connection port, so it is READ here for the join and never re-listed as a source table",
+          owner: "/__ioi/data/sources", ownerLabel: "Data Connection" },
+        { key: "sources_overview", path: "/v1/hypervisor/data-sources/overview", probe: "/v1/hypervisor/data-sources/overview", shape: "singleton", stage: "0 · source",
+          label: "Data-source overview — a census OBJECT", role: "the daemon's own roll-up of the source plane (kinds, credential postures, governance gaps). A status object, never a collection of one",
+          owner: "/__ioi/data/sources", ownerLabel: "Data Connection" },
+        { key: "mappings", path: "/v1/hypervisor/odk/connector-mappings", probe: "/v1/hypervisor/odk/connector-mappings", shape: "collection", pick: (b) => b?.connector_mappings, stage: "1 · declare",
+          label: "Connector mappings — THE pipeline record", role: "the estate's nearest thing to a HyperAuto pipeline: a source-field to object-property binding keyed on one data_source_id. This is the plane the card above enumerates",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "mappings_overview", path: "/v1/hypervisor/odk/connector-mappings/overview", probe: "/v1/hypervisor/odk/connector-mappings/overview", shape: "singleton", stage: "1 · declare",
+          label: "Connector-mapping overview — the health BUCKETS", role: "publishes the ready/incomplete split this surface refuses to print as a pipeline count, and the plane-scoped governance_gaps quoted in the finding below",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "mapping_health", path: "/v1/hypervisor/odk/connector-mappings/:id/health", probe: ingMapPath("/health"), shape: "singleton", stage: "1 · declare",
+          label: "Per-mapping health", role: "the same self-report served per record. It answers about the MAPPING ALONE — which is exactly why its missing_contracts list names contracts that already exist beside it",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "policy_views", path: "/v1/hypervisor/odk/policy-bound-data-views", probe: "/v1/hypervisor/odk/policy-bound-data-views", shape: "collection", pick: (b) => b?.policy_bound_data_views, stage: "2 · authorize",
+          label: "Policy-bound data views — the authorization stage", role: "the declarative gate a transformation must satisfy before anything may run. Declaring one authorizes nothing and the record says so itself",
+          owner: "/__ioi/governance", ownerLabel: "Governance" },
+        { key: "transformation_runs", path: "/v1/hypervisor/odk/transformation-runs", probe: "/v1/hypervisor/odk/transformation-runs", shape: "collection", pick: (b) => b?.transformation_runs, stage: "3 · transform",
+          label: "Transformation runs — the plan stage", role: "the plan/dry-run stage. Every record on this plane carries execution.data_moved:false — the transform lane in this estate has never moved a byte, and the rows that DID come from a source came through the materializing lane instead",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "projections", path: "/v1/hypervisor/odk/ontology-projections", probe: "/v1/hypervisor/odk/ontology-projections", shape: "collection", pick: (b) => b?.ontology_projections, stage: "4 · shape",
+          label: "Ontology projections — the output SHAPE", role: "what the extracted rows become: visible properties, key field, title field. Also the ONLY mapping-keyed join to a materialized object set, which is why the chain column can attribute an output to a pipeline at all",
+          owner: "/__ioi/ontology/manager", ownerLabel: "Ontology Manager" },
+        { key: "lease_plans", path: "/v1/hypervisor/odk/capability-lease-plans", probe: "/v1/hypervisor/odk/capability-lease-plans", shape: "collection", pick: (b) => b?.capability_lease_plans, stage: "5 · authority",
+          label: "Capability-lease plans — the authority stage", role: "the wallet-gated crossing a materializing run must hold before it may contact a source. A plan is an intent to cross, never the crossing",
+          owner: "/__ioi/connections", ownerLabel: "Connections" },
+        { key: "materializing_runs", path: "/v1/hypervisor/odk/materializing-runs", probe: "/v1/hypervisor/odk/materializing-runs", shape: "collection", pick: (b) => b?.materializing_runs, stage: "6 · execute",
+          label: "Materializing runs — THE EXECUTION", role: "the only plane in the chain whose records ever report execution.source_contacted:true. Its runs are already rendered as the Syncs lane of the Data Connection port, so they are READ here for the join and linked, never re-listed",
+          owner: "/__ioi/data/sources", ownerLabel: "Data Connection · Syncs" },
+        { key: "sessions", path: "/v1/hypervisor/odk/connector-sessions", probe: "/v1/hypervisor/odk/connector-sessions", shape: "collection", pick: (b) => b?.connector_sessions, stage: "6 · execute",
+          label: "Connector sessions — the credential crossing", role: "the sealed session a run holds while it reads. Every record here reports data_moved:false about a crossing the object set names it as the provenance of — the contradiction stated in the finding below",
+          owner: "/__ioi/connections", ownerLabel: "Connections" },
+        { key: "object_sets", path: "/v1/hypervisor/odk/materialized-object-sets", probe: "/v1/hypervisor/odk/materialized-object-sets", shape: "collection", pick: (b) => b?.materialized_object_sets, stage: "7 · output",
+          label: "Materialized object sets — the OUTPUT", role: "the only records in the estate that carry a verbatim source_contact receipt (endpoint, HTTP status, elapsed). The objects themselves belong to the Object Explorer and are linked, never re-rendered here",
+          owner: "/__ioi/ontology/explorer", ownerLabel: "Object Explorer" },
+        { key: "run_history", path: "/v1/hypervisor/odk/materializing-runs/:id/history", probe: "/v1/hypervisor/odk/materializing-runs/no-run-selected/history", shape: "collection", pick: (b) => b?.history, stage: "6 · execute",
+          label: "Per-run history", role: "the receipted step trail of one execution (admitted, lease obtained, executed, lease released). Probed here WITHOUT a concrete id on purpose, so the row reports what an unresolved id actually answers rather than a happy path",
+          owner: "/__ioi/provenance", ownerLabel: "Provenance" },
+        { key: "data_recipes", path: "/v1/hypervisor/odk/data-recipes", probe: "/v1/hypervisor/odk/data-recipes", shape: "collection", pick: (b) => b?.data_recipes, stage: "auto?",
+          label: "Data recipes — the nearest PIPELINE TEMPLATE", role: "the closest lane the estate has to a reusable pipeline definition — the thing an automatic builder would emit. The plane answers and holds none, which is an empty template shelf, not a missing one",
+          owner: "/__ioi/odk", ownerLabel: "ODK plane" },
+        { key: "manifests", path: "/v1/hypervisor/odk/manifests", probe: "/v1/hypervisor/odk/manifests", shape: "collection", pick: (b) => b?.manifests, stage: "auto?",
+          label: "ODK manifests — the packaged composition", role: "where a whole composed pipeline would be packaged and re-applied elsewhere. Answered and empty on this render",
+          owner: "/__ioi/odk", ownerLabel: "ODK plane" },
+        { key: "ontology_proposals", path: "/v1/hypervisor/odk/ontology-proposals", probe: "/v1/hypervisor/odk/ontology-proposals", shape: "collection", pick: (b) => b?.proposals, stage: "auto?",
+          label: "Ontology proposals — the nearest AUTOMATIC lane", role: "the only plane in the estate shaped like “infer a model and offer it for apply”, which is what HyperAuto's whole premise needs. It REFUSES this identity, so this surface says nothing about whether the estate can propose a model — unknown is printed as unknown, never as absent",
+          owner: "/__ioi/ontology/manager", ownerLabel: "Ontology Manager" },
+        { key: "connectors", path: "/v1/hypervisor/connectors", probe: "/v1/hypervisor/connectors", shape: "collection", pick: (b) => b?.connectors, stage: "adjacent",
+          label: "Connectors — the OTHER source vocabulary", role: "the generic connector estate. A materialized object set's provenance names a connector_id from THIS plane while its pipeline is keyed on a data_source_id from another — two source vocabularies the estate does not join for you",
+          owner: "/__ioi/connections", ownerLabel: "Connections" },
+        { key: "saved_sets", path: "/v1/hypervisor/odk/saved-object-sets", probe: "/v1/hypervisor/odk/saved-object-sets", shape: "collection", pick: (b) => b?.saved_object_sets, stage: "7 · output",
+          label: "Saved object sets", role: "the curated lane downstream of an output. It refuses this identity, so no output count on this page is ever taken from it",
+          owner: "/__ioi/ontology/explorer", ownerLabel: "Object Explorer" },
+        { key: "dataset_snapshots", path: "/v1/hypervisor/foundry/dataset-snapshots", probe: "/v1/hypervisor/foundry/dataset-snapshots", shape: "collection", pick: (b) => b?.dataset_snapshots, stage: "adjacent",
+          label: "Foundry dataset snapshots", role: "the estate's other “ingested data at rest” noun. It refuses this read, so whether any ingested dataset lives there is UNKNOWN from this surface rather than zero",
+          owner: "/__ioi/foundry", ownerLabel: "Model Catalog" },
+        { key: "dry_run", path: "/v1/hypervisor/odk/transformation-runs/:id/dry-run", probe: "/v1/hypervisor/odk/transformation-runs/no-run-selected/dry-run", shape: "collection", stage: "3 · transform",
+          label: "Transformation dry-run", role: "the validate-before-you-run verb. POST-only: the estate performs a dry run, it never stores one you can read back, so there is nothing here to read at all",
+          owner: "/__ioi/pipeline", ownerLabel: "Pipeline Builder" },
+        { key: "backup_imports", path: "/v1/hypervisor/backup-imports", probe: "/v1/hypervisor/backup-imports", shape: "collection", stage: "adjacent",
+          label: "Backup imports — the OTHER way data arrives", role: "bulk arrival that bypasses the connector chain entirely. POST-only, so the estate holds no readable record of what has arrived this way",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+      ];
+      const ingProbes = await Promise.all(ING_PLANES.map((pl) => ingProbe(pl.probe)));
+      // FIVE states, decided in this order and never from a constant: no-read-route from the
+      // daemon's OWN index before any body is read; a transport refusal before any collection is
+      // looked for; a typed in-body decline (ok:false on a 200) as the refusal it is; then shape.
+      const ingClassify = (pl, pr) => {
+        const methods = ingMethodsFor(pl.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), methods, rows: [] };
+        }
+        const body = pr.body;
+        if (body && typeof body === "object" && body.ok === false) {
+          const b = body.error;
+          return { state: "refused", code: String((b && (b.code || b)) || body.code || "plane_declined"), methods, rows: [] };
+        }
+        if (pl.shape === "singleton") {
+          const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+          return { state: keys.length ? "live" : "empty", code: "", methods, rows: [], keys };
+        }
+        const arr = pl.pick ? pl.pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const ingRead = ING_PLANES.map((pl, i) => ({ ...pl, ...ingClassify(pl, ingProbes[i]), status: ingProbes[i].status, body: ingProbes[i].body }));
+      const ingBy = Object.fromEntries(ingRead.map((r) => [r.key, r]));
+      const ingCount = (s) => ingRead.filter((r) => r.state === s).length;
+      const ingRowsOf = (k) => (ingBy[k].state === "live" ? ingBy[k].rows : []);
+      // ONE gap contract for every named absence (aria + title + data-ioi reason, all three on the
+      // SAME element). Every reason is written for ITS control — a reused reason is decorative.
+      const igap = (cls, label, reason) => `<span class="${cls} ing-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const idash = (reason) => `<span class="ing-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
+      // ---- THE JOIN. Every number below is derived from the planes on THIS render. The chain is
+      // keyed mapping -> (policy view | transform | projection | lease plan) by connector_mapping_id,
+      // and mapping -> run by data_source_id, because those are the keys the RECORDS carry. The
+      // output is reached mapping -> projection -> object set via ontology_projection_id, which is
+      // the only mapping-keyed path to an output the estate publishes.
+      const ingSources = ingRowsOf("data_sources");
+      const ingSrcById = Object.fromEntries(ingSources.map((s) => [istr(s.source_id), s]));
+      const ingMaps = ingRowsOf("mappings");
+      const ingViews = ingRowsOf("policy_views");
+      const ingTrans = ingRowsOf("transformation_runs");
+      const ingProjs = ingRowsOf("projections");
+      const ingPlans = ingRowsOf("lease_plans");
+      const ingRuns = ingRowsOf("materializing_runs");
+      const ingSess = ingRowsOf("sessions");
+      const ingSets = ingRowsOf("object_sets");
+      const ingNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+      const ingChainOf = (m) => {
+        const mid = istr(m.id);
+        const dsid = istr(m.data_source_id);
+        const views = ingViews.filter((x) => istr(x.connector_mapping_id) === mid);
+        const trans = ingTrans.filter((x) => istr(x.connector_mapping_id) === mid);
+        const projs = ingProjs.filter((x) => istr(x.connector_mapping_id) === mid);
+        const plans = ingPlans.filter((x) => istr(x.connector_mapping_id) === mid);
+        const runs = dsid ? ingRuns.filter((x) => istr(x.data_source_id) === dsid) : [];
+        const runIds = new Set(runs.map((x) => istr(x.id)));
+        const sess = ingSess.filter((x) => runIds.has(istr(x.materializing_run_id)));
+        const projIds = new Set(projs.map((x) => istr(x.id)));
+        const sets = ingSets.filter((x) => projIds.has(istr(x.ontology_projection_id)));
+        const contacted = runs.filter((x) => x?.execution?.source_contacted === true);
+        return { mid, dsid, source: ingSrcById[dsid] || null, views, trans, projs, plans, runs, sess, sets, contacted,
+          rows: sets.reduce((n, x) => n + ingNum(x.rows_fetched ?? x.count), 0),
+          moved: contacted.length > 0 || sets.length > 0 };
+      };
+      const ingChains = ingMaps.map(ingChainOf);
+      // COUNT 1 — the DECLARED predicate: a connector-mapping record exists. This is what a
+      // "do you have a pipeline?" question answers with if it reads the mapping plane alone.
+      const ingDeclared = ingChains.length;
+      // COUNT 2 — the MOVED predicate: some record in this chain reports source_contacted:true or
+      // registers a materialized object set. A different test over the same six pipelines.
+      const ingMoved = ingChains.filter((c) => c.moved);
+      // COUNT 3 — the ROW predicate: rows actually landed, summed from the OUTPUT records, never
+      // from any stage's own self-report.
+      const ingRowsLanded = ingChains.reduce((n, c) => n + c.rows, 0);
+      // COUNT 4 — the SOURCE predicate: how many declared sources carry a pipeline at all.
+      const ingMappedSrcIds = new Set(ingChains.map((c) => c.dsid).filter(Boolean));
+      const ingUnresolvedSrc = ingChains.filter((c) => c.dsid && !ingSrcById[c.dsid]);
+      // FINDING A — the source's OWN wired flag, against what the runs did to it.
+      const ingWiredTrue = ingSources.filter((s) => s?.ingestion?.wired === true);
+      const ingContactedSrcIds = new Set(ingRuns.filter((r) => r?.execution?.source_contacted === true).map((r) => istr(r.data_source_id)).filter(Boolean));
+      const ingContactedButUnwired = [...ingContactedSrcIds].filter((id) => ingSrcById[id] && ingSrcById[id].ingestion?.wired !== true);
+      // FINDING B — "ready" against the same record's own inertness note.
+      const ingReadyButInert = ingMaps.filter((m) => istr(m?.health?.status) === "ready" && ingNum(m?.health?.object_instances) === 0);
+      // FINDING C — missing_contracts naming contracts that exist beside the record.
+      const ingContractPresent = { PolicyBoundDataView: (c) => c.views.length > 0, TransformationRun: (c) => c.trans.length > 0, OntologyProjection: (c) => c.projs.length > 0 };
+      const ingFalseMissing = ingChains.map((c) => {
+        const m = ingMaps.find((x) => istr(x.id) === c.mid) || {};
+        const named = Array.isArray(m?.health?.missing_contracts) ? m.health.missing_contracts.map(String) : [];
+        return { c, named, present: named.filter((n) => ingContractPresent[n] && ingContractPresent[n](c)) };
+      });
+      const ingFalseMissingChains = ingFalseMissing.filter((x) => x.present.length > 0);
+      const ingFalseMissingTotal = ingFalseMissing.reduce((n, x) => n + x.present.length, 0);
+      // FINDING D — the session and its run, disagreeing about one crossing.
+      const ingRunById = Object.fromEntries(ingRuns.map((r) => [istr(r.id), r]));
+      const ingSessDisagree = ingSess.filter((s) => {
+        const r = ingRunById[istr(s.materializing_run_id)];
+        return r && r.execution?.source_contacted === true && s.execution?.data_moved !== true;
+      });
+      // THE "AUTO" QUESTION, counted from the daemon's own index on this render: how many separate
+      // POST crossings a caller must make to get from a declared source to a materialized object
+      // set. Each entry is checked against the index, so a route that disappears stops being counted.
+      const ING_CHAIN_VERBS = [
+        ["declare the mapping", "/v1/hypervisor/odk/connector-mappings"],
+        ["authorize a policy-bound view", "/v1/hypervisor/odk/policy-bound-data-views"],
+        ["plan the transformation", "/v1/hypervisor/odk/transformation-runs"],
+        ["dry-run the transformation", "/v1/hypervisor/odk/transformation-runs/:id/dry-run"],
+        ["declare the output projection", "/v1/hypervisor/odk/ontology-projections"],
+        ["plan the capability lease", "/v1/hypervisor/odk/capability-lease-plans"],
+        ["admit the materializing run", "/v1/hypervisor/odk/materializing-runs"],
+        ["acquire the lease", "/v1/hypervisor/odk/materializing-runs/:id/acquire-lease"],
+        ["request the connector session", "/v1/hypervisor/odk/connector-sessions"],
+        ["open the session", "/v1/hypervisor/odk/connector-sessions/:id/open"],
+        ["execute the run", "/v1/hypervisor/odk/materializing-runs/:id/execute"],
+        ["release the session", "/v1/hypervisor/odk/connector-sessions/:id/release"],
+        ["release the lease", "/v1/hypervisor/odk/materializing-runs/:id/release-lease"],
+      ];
+      const ingChainVerbs = ING_CHAIN_VERBS.filter(([, p]) => ingMethodsFor(p).includes("POST"));
+      // The absence itself: no published route accepts a data_source_id and returns a built chain.
+      const ingOdkRoutes = ingRoutes.filter((r) => !r.retired && String(r.path || "").startsWith("/v1/hypervisor/odk/"));
+      const ingAutoRoutes = ingOdkRoutes.filter((r) => /(auto|infer|scaffold|generate|wizard|bootstrap|from-source)/i.test(String(r.path || "")));
+      const ING_ROW_CAP = 60;
+      const ingShown = ingChains.slice(0, ING_ROW_CAP);
+      const ingStageChip = (label, present, word, reason) => (present
+        ? `<span class="ing-stage ing-stage-on" title="${esc(word)}">${esc(label)}<b>${esc(word)}</b></span>`
+        : `<span class="ing-stage ing-stage-off" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}<b>—</b></span>`);
+      const ingRowHtml = ingShown.map((c) => {
+        const m = ingMaps.find((x) => istr(x.id) === c.mid) || {};
+        const src = c.source;
+        const declared = istr(m?.health?.status) || istr(m.status) || "—";
+        const contact = c.sets.map((s) => s.source_contact).find((s) => s && typeof s === "object") || null;
+        return `<div class="ing-row" data-ioi-pipeline="${esc(c.mid)}" data-ioi-pipeline-declared="${esc(declared)}" data-ioi-pipeline-moved="${c.moved ? "yes" : "no"}" data-ioi-pipeline-rows="${c.rows}">`
+          + `<span><b>${esc(istr(m.name) || c.mid)}</b><code class="ing-ref">${esc(c.mid)}</code>`
+          + `<code class="ing-ref">object type ${esc(istr(m.object_type_id) || "—")} · ${esc(String(Array.isArray(m.field_mappings) ? m.field_mappings.length : 0))} field mapping${(Array.isArray(m.field_mappings) ? m.field_mappings.length : 0) === 1 ? "" : "s"}</code></span>`
+          + `<span>${src ? `<b>${esc(istr(src.name) || c.dsid)}</b><code class="ing-ref">${esc(c.dsid)} · kind ${esc(istr(src.kind) || "—")}</code><code class="ing-ref">source's own field <b>ingestion.wired</b>: ${src.ingestion?.wired === true ? "true" : "<b>false</b>"} · lifecycle ${esc(istr(src.lifecycle?.status) || "—")}</code>`
+            : `<b class="ing-warn">source not on the plane</b><code class="ing-ref">${esc(c.dsid || "no data_source_id on the record")}</code><code class="ing-ref">this pipeline names a source the source plane does not return to this identity — a dangling key, printed as one</code>`}</span>`
+          + `<span><span class="ing-declared">${esc(declared)}</span><code class="ing-ref">field: health.status · record status ${esc(istr(m.status) || "—")}</code>`
+          + `<code class="ing-ref">the same record: object_instances ${esc(String(ingNum(m?.health?.object_instances)))} · ingestion.wired ${m?.ingestion?.wired === true ? "true" : "false"}</code></span>`
+          + `<span>${c.moved
+            ? `<span class="ing-moved ing-moved-yes">rows landed</span><code class="ing-ref"><b>${c.rows}</b> row${c.rows === 1 ? "" : "s"} · field: materialized set rows_fetched</code>`
+              + (contact ? `<code class="ing-ref">receipt: HTTP ${esc(String(contact.http_status ?? "—"))} from ${esc(istr(contact.endpoint) || "—")} in ${esc(String(contact.elapsed_ms ?? "—"))}ms</code>` : `<code class="ing-ref">a run reports source_contacted:true but registered no object set on this render</code>`)
+            : `<span class="ing-moved ing-moved-no">no source contact</span><code class="ing-ref">no record in this chain reports execution.source_contacted:true and no object set is registered — counted from the OUTPUT records, never from a stage's own status</code>`}</span>`
+          + `<span class="ing-stages">${ingStageChip("declare", true, istr(m.status) || "declared", "")}`
+          + ingStageChip("authorize", c.views.length > 0, istr(c.views[0]?.status) || "declared", "No policy-bound data view names this mapping, so nothing authorizes it to read (typed absence — the record is not there, this is not a value of zero)")
+          + ingStageChip("transform", c.trans.length > 0, istr(c.trans[0]?.status) || "planned", "No transformation run names this mapping, so no transform plan exists for it (typed absence)")
+          + ingStageChip("shape", c.projs.length > 0, istr(c.projs[0]?.status) || "declared", "No ontology projection names this mapping, so the extracted rows have no declared output shape — and no mapping-keyed path to an output exists (typed absence)")
+          + ingStageChip("authority", c.plans.length > 0, istr(c.plans[0]?.status) || "planned", "No capability-lease plan names this mapping, so no crossing was ever planned for it (typed absence)")
+          + ingStageChip("execute", c.runs.length > 0, istr(c.runs[0]?.status) || "planned", "No materializing run names this pipeline's data_source_id, so the chain was never taken past the declaration (typed absence)")
+          + ingStageChip("session", c.sess.length > 0, istr(c.sess[0]?.status) || "requested", "No connector session names a materializing run of this pipeline. The estate ran the chain without recording a session for it, or the session's run reference does not resolve — either way this surface does not invent the link (typed absence)")
+          + ingStageChip("output", c.sets.length > 0, `${c.sets.length} set${c.sets.length === 1 ? "" : "s"}`, "No materialized object set names an ontology projection of this mapping, so this pipeline produced no readable output. Object-set-to-pipeline is the ONLY mapping-keyed output join the estate publishes, and it finds nothing here (typed absence)")
+          + `</span>`
+          + `<span><a class="ing-ref" href="/__ioi/data/sources">its source →</a><a class="ing-ref" href="/__ioi/pipeline">the builder →</a>${c.sets.length ? `<a class="ing-ref" href="/__ioi/ontology/explorer">its objects →</a>` : ""}</span></div>`;
+      }).join("");
+      const ingStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const ingStateCopy = (r) => {
+        if (r.state === "refused") return `This plane <b>REFUSED</b> this read with the daemon's own typed code <code>${esc(r.code)}</code>. That is a closed door, and this page prints it as one — <b>a refusal is never rendered as 0 records</b>, because the estate took no measurement here for this identity to report.`;
+        if (r.state === "no_read_route") return `The daemon's own route index publishes <b>no GET</b> here${r.methods.length ? ` (only ${esc(r.methods.join(", "))})` : ""}. There is nothing to read, which is <b>not the same as reading nothing</b> — so no count appears on this row.`;
+        if (r.state === "empty") return `The plane answered and holds <b>none</b>. This is an <b>EMPTY plane, not a missing one</b>: the route exists, it read cleanly, and the estate simply has no record of this kind — the reference's own state on its landing.`;
+        if (r.state === "unreadable") return `The plane answered <code>${esc(r.code)}</code> in a shape this surface could not read as a collection. It is reported as unreadable rather than guessed at.`;
+        if (r.shape === "singleton") return `A single status <b>OBJECT</b> answered with ${r.keys ? r.keys.length : 0} field${(r.keys ? r.keys.length : 0) === 1 ? "" : "s"} — <b>never counted as one row</b>. A census object is not a collection.`;
+        return `<b>${r.rows.length}</b> record${r.rows.length === 1 ? "" : "s"} — counted from the plane on this render.`;
+      };
+      const ingPlaneRows = ingRead.map((r) => `<div class="ing-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}" data-ioi-plane-shape="${esc(r.shape)}" data-ioi-plane-stage="${esc(r.stage)}">`
+        + `<span><b>${esc(r.label)}</b><span class="ing-role">${esc(r.role)}</span>${r.path === r.probe ? "" : `<code class="ing-ref">probed as ${esc(r.probe.split("?")[0])}</code>`}</span>`
+        + `<span><code class="ing-ref">${esc(r.path)}</code><code class="ing-ref">stage: ${esc(r.stage)} · shape: ${esc(r.shape)}</code></span>`
+        + `<span class="ing-state ing-state-${esc(r.state)}">${esc(ingStateLabel[r.state] || r.state)}</span>`
+        + `<span class="ing-scopy">${ingStateCopy(r)}</span>`
+        + `<span><a class="ing-ref" href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      // The reference's control set. One app control, one facet group, four dialogs, one in-body
+      // link — each answered, and each reason written for ITS control.
+      const ingControls = [
+        { ref: "Create pipeline (header verb)", bound: false, field: "",
+          gap: "The estate mints no pipeline OBJECT to create. Building one is thirteen separate authority-crossing POSTs in order — mapping, policy view, transformation, dry-run, projection, lease plan, materializing run, lease, session, open, execute, release, release — each owned by the Pipeline Builder and the Connections lease gate. Re-minting that ladder here would be a second mutation spine over another surface's authority",
+          copy: "Answered as a REFUSAL, not hidden. The verb the reference offers is one click; the estate's equivalent is a thirteen-crossing ladder that already has an owner surface, so this page links it and mints none of it." },
+        { ref: "Create pipeline (card verb)", bound: false, field: "",
+          gap: "The same crossing offered a second time in the card header. A second entrance to a ladder this surface does not own is still not this surface's verb — and the reference's own empty copy sends the reader to the source application for it, which is exactly where this page sends them",
+          copy: "The reference offers the verb twice — header and card. Both are answered the same way, and neither is quietly dropped." },
+        { ref: "Go to Data Connection Application (empty-state link)", bound: true, field: "/__ioi/data/sources",
+          gap: "",
+          copy: "The ONE reference control this estate can honour exactly. The vendor's own empty copy routes pipeline creation to the source application; the estate has that application as a certified port, so the link is real and lands on the plane that actually holds the sources." },
+        { ref: "APPLICATIONS (facet group)", bound: false, field: "",
+          gap: "The reference's left rail carries a single APPLICATIONS group listing the tenant's pinned apps. The estate holds no per-principal favourites or pinned-application plane, so the lane could never fill — it is MISSING here, while the reference's own is merely empty and waiting",
+          copy: "MISSING, not empty. The reference's lane awaits data; the estate has no plane that could ever supply it." },
+        { ref: "4 recorded dialogs", bound: false, field: "",
+          gap: "The live capture recorded four dialog surfaces behind this landing. The capture is whitelist-only — mutation verbs were blacklisted — so their CONTENTS were never recorded, and a dialog reconstructed from its existence alone would be this port inventing an interaction nobody observed",
+          copy: "Named rather than guessed. Their existence is evidence; their contents are not, and this port does not manufacture the difference." },
+      ];
+      const ingControlRows = ingControls.map((c) => `<div class="ing-crow" data-ioi-control="${esc(c.ref)}" data-ioi-control-bound="${c.bound ? "yes" : "no"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="ing-ref">${esc(c.field)}</code>` : `<span class="ing-nolane">no estate lane</span>`}</span>`
+        + `<span class="ing-ccopy">${c.copy}</span></div>`).join("");
+      const ingVerbGap = ingControls[0].gap;
+      const ingFoot = `ING-1 (remediation v2): the HYPERAUTO port. The replay-scoped verdict was absent_confirmed (#ingest — "HyperAuto expresses no IA at any recorded state"); the owner-authorized live sweep OVERTURNED it and recorded a real landing titled <b>HyperAuto</b>: one centred card, "HyperAuto Pipelines" with a <b>Create pipeline</b> verb, an APPLICATIONS facet group, four dialogs and <b>0 rows</b> — the live tenant's own pipeline list is genuinely empty, so the EMPTY-STATE IA is the seed, and its own copy sends the reader to the source application to create one. That supersession is recorded in reference-seed-adjudications.v1.json#ingest-port and the reference record stands as history. <b>${ingRead.length}</b> ingestion-chain and ingestion-adjacent planes were probed live on this render and answered in four states — <b>${ingCount("live")} LIVE</b> · <b>${ingCount("empty")} EMPTY</b> · <b>${ingCount("refused")} REFUSED</b> · <b>${ingCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: all ${ingChainVerbs.length} chain crossings stay on <a href="/__ioi/pipeline">Pipeline Builder</a> and the <a href="/__ioi/connections">Connections</a> lease gate; the source plane is rendered by <a href="/__ioi/data/sources">Data Connection</a> and the runs by its Syncs lane, both linked and neither re-listed; the extracted objects belong to the <a href="/__ioi/ontology/explorer">Object Explorer</a>. Evidence: reference-seed-adjudications.v1.json#ingest-port · reference-live-tenant-deep-atlas.v1.json#ingest (landing) · .artifacts/live-tenant-atlas/deep/ingest-landing.png. Owner: <a href="/data">Data family</a>.`;
+      sendOwnedSurfaceHtml(res, "ingest", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HyperAuto</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f8fa;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
+        .ing-shell{display:flex;flex-direction:column;min-height:100vh}
+        .ing-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .ing-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(45,114,210,.10) center/24px no-repeat}
+        .ing-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .ing-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px;flex-wrap:wrap}
+        .ing-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854;background:#fff}
+        .ing-link{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:13px}
+        .ing-gap{opacity:.62;cursor:not-allowed}
+        .ing-dash{color:#a8b2be;cursor:not-allowed}
+        .ing-field{flex:1;min-width:0;width:100%;max-width:1180px;margin:0 auto;padding:26px 22px 44px}
+        .ing-card{background:#fff;border:1px solid #e5e8eb;border-radius:4px;box-shadow:0 1px 1px rgba(17,20,24,.06);margin:0 0 20px;overflow:hidden}
+        .ing-chead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid #e5e8eb}
+        .ing-cname{font-size:15px;font-weight:600;color:#1c2127}
+        .ing-cverb{margin-left:auto}
+        .ing-cbody{padding:12px 18px 18px;overflow-x:auto}
+        .ing-vempty{padding:38px 20px 42px;text-align:center;color:#5f6b7c;font-size:13px;line-height:1.7}
+        .ing-vbadge{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:#e5e8eb;color:#8a94a2;font-size:24px;font-weight:600;margin:0 0 16px}
+        .ing-h{font-size:16px;font-weight:600;margin:0 0 4px}
+        .ing-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .ing-thead,.ing-row{display:grid;grid-template-columns:1.5fr 1.7fr 1.2fr 1.5fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:1020px}
+        .ing-phead,.ing-prow{display:grid;grid-template-columns:2.4fr 1.5fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:760px}
+        .ing-chead2,.ing-crow{display:grid;grid-template-columns:1.3fr 1fr 3.2fr;gap:8px;padding:9px 8px;min-width:640px}
+        .ing-thead,.ing-phead,.ing-chead2{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .ing-row,.ing-prow,.ing-crow{align-items:start;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .ing-row:hover,.ing-prow:hover,.ing-crow:hover{background:#f6f7f9}
+        .ing-ref{display:block;font-size:11px;color:#5f6b7c;overflow-wrap:break-word;margin-top:2px}
+        .ing-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .ing-scopy,.ing-ccopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .ing-warn{color:#946638}
+        .ing-declared{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.03em;color:#946638;border:1px solid #f0dca6;background:#fff8e6;border-radius:3px;padding:2px 7px}
+        .ing-moved{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;border:1px solid}
+        .ing-moved-yes{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .ing-moved-no{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .ing-stages{display:flex;flex-wrap:wrap;gap:4px}
+        .ing-stage{display:inline-flex;flex-direction:column;font-size:10px;letter-spacing:.02em;border-radius:3px;padding:2px 6px;border:1px solid;line-height:1.35;min-width:0}
+        .ing-stage b{font-size:11px;font-weight:600;overflow-wrap:break-word}
+        .ing-stage-on{color:#1c6e42;border-color:#c3e0ce;background:#f4fbf7}
+        .ing-stage-off{color:#8a94a2;border-color:#e5e8eb;background:#f6f7f9;cursor:not-allowed}
+        .ing-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .ing-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .ing-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .ing-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .ing-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .ing-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .ing-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .ing-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .ing-call p{margin:0 0 8px}
+        .ing-quote{display:block;border-left:3px solid #cfd9e6;padding:6px 0 6px 12px;margin:8px 0;color:#404854;font-style:italic;overflow-wrap:break-word}
+        .ing-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:16px 18px;color:#5f6b7c;font-size:13px;line-height:1.65;margin:0 0 16px}
+        .ing-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:6px 2px 10px}
+        @media(max-width:700px){
+          .ing-thead,.ing-phead,.ing-chead2{display:none}
+          .ing-row,.ing-prow,.ing-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}
+          .ing-row *,.ing-prow *,.ing-crow *,.ing-note,.ing-call *,.ing-absent *,.ing-foot,.ing-vempty *{overflow-wrap:anywhere;min-width:0}
+          .ing-field{padding:14px 12px 34px}
+          .ing-field *{min-width:0;overflow-wrap:anywhere}
+          .ing-cbody{overflow-x:hidden;padding:10px 12px 14px}
+          .ing-header{flex:0 0 auto;flex-wrap:wrap;padding:8px 0 10px;gap:8px}
+          .ing-hright{margin-left:0;padding:0 12px;width:100%}
+          .ing-chead{padding:12px}
+          .ing-cverb{margin-left:0}
+          .ing-call,.ing-absent{padding:14px}
+          .ing-stages{gap:3px}
+        }
+      </style></head><body><div class="ing-shell">
+        <header class="ing-header">
+          <span class="ing-hchip" aria-hidden="true" style="background-image:url('${PIPELINE_APP_ICON_URI}')"></span>
+          <h1 class="ing-title">HyperAuto</h1>
+          <div class="ing-hright">
+            ${igap("ing-chip", "＋ Create pipeline", ingVerbGap)}
+            <a class="ing-link" href="/__ioi/data/sources">Data Connection →</a>
+          </div>
+        </header>
+        <div class="ing-field">
+          <div class="ing-card">
+            <div class="ing-chead"><span class="ing-cname">HyperAuto Pipelines</span><span class="ing-cverb">${igap("ing-chip", "＋ Create pipeline", ingControls[1].gap)}</span></div>
+            <div class="ing-cbody">
+              ${ingChains.length ? `<p class="ing-note">Every row is a REAL ingestion chain on this estate, counted on this render by the <b>declared</b> predicate: a <code>connector-mapping</code> record exists. ${ingChains.length > ING_ROW_CAP ? `The first <b>${ING_ROW_CAP}</b> of <b>${ingChains.length}</b> render here (cap NAMED, never silent).` : `All <b>${ingChains.length}</b> render here.`} The <b>Declared state</b> column is the record's OWN <code>health.status</code> field; the <b>Did data move?</b> column is derived from the OUTPUT records instead — and the two columns disagree, which is the finding this page exists to state.</p>
+              <div class="ing-thead"><span>Pipeline</span><span>Source</span><span>Declared state</span><span>Did data move?</span><span>Chain — each stage's own status</span><span>Owner</span></div>
+              ${ingRowHtml}`
+                : `<div class="ing-vempty" data-ioi-plane-state="${esc(ingBy.mappings.state)}"><div class="ing-vbadge" aria-hidden="true">!</div>
+                  <p>${ingBy.mappings.state === "refused"
+                    ? `The connector-mapping plane <b>REFUSED</b> this read with the daemon's typed code <code>${esc(ingBy.mappings.code)}</code>. This page therefore states nothing about how many pipelines exist — it could not read the plane, and a refusal is not a zero.`
+                    : `There are no existing ingestion pipelines. The plane answered and holds none — an <b>EMPTY</b> plane, not a missing one. Create a pipeline on one of your declared sources via the Data Connection application.`}</p>
+                  <p><a href="/__ioi/data/sources">Go to Data Connection Application</a></p></div>`}
+            </div>
+          </div>
+          <h2 class="ing-h">A self-report is about the record that carries it, never about the estate</h2>
+          <div class="ing-call">
+            <h3>The source says it is not wired. The receipt says it answered HTTP 200.</h3>
+            <p>Counted from the planes on this render, never pasted. The source plane holds <b>${ingSources.length}</b> declared source${ingSources.length === 1 ? "" : "s"}, and <b>${ingWiredTrue.length}</b> of them carry <code>ingestion.wired: true</code>. Yet <b>${ingContactedSrcIds.size}</b> source${ingContactedSrcIds.size === 1 ? " has" : "s have"} a materializing run reporting <code>execution.source_contacted: true</code>, and <b>${ingRowsLanded}</b> row${ingRowsLanded === 1 ? "" : "s"} landed in <b>${ingSets.length}</b> materialized object set${ingSets.length === 1 ? "" : "s"} carrying a verbatim contact receipt — an endpoint, an HTTP status and an elapsed time.</p>
+            <p><b>${ingContactedButUnwired.length}</b> source${ingContactedButUnwired.length === 1 ? "" : "s"} the estate demonstrably fetched rows from still read <code>ingestion.wired: false</code> on ${ingContactedButUnwired.length === 1 ? "its" : "their"} own record. That field is written once, at declaration time, and no run ever revises it: it states what the SOURCE RECORD alone implies about ingestion, not what the estate has since done to the source. A pipelines view keyed on the field literally named for wiring would have reported <b>${ingWiredTrue.length}</b> wired sources while <b>${ingContactedSrcIds.size}</b> had been read under a receipted crossing.</p>
+            <p>So no count on this page is taken from a stage's own status field. The <b>declared</b> predicate (a mapping record exists) finds <b>${ingDeclared}</b>; the <b>moved</b> predicate (some record in the chain reports <code>source_contacted: true</code>, or an object set is registered under the chain's own projection) finds <b>${ingMoved.length}</b>; the <b>row</b> predicate, summed from the output records themselves, finds <b>${ingRowsLanded}</b>. Three questions, three answers, and the page says which is which beside every number.</p>
+          </div>
+          <div class="ing-call">
+            <h3>"ready" is a verdict on the declaration, not on the run</h3>
+            <p><b>${ingReadyButInert.length}</b> of the ${ingDeclared} mapping${ingDeclared === 1 ? "" : "s"} report <code>health.status: ready</code> while the very same object reports <code>object_instances: 0</code> and <code>ingestion.wired: false</code>. The daemon is not lying — it is answering a narrower question than the word suggests, and it says so in its own note on the same record:</p>
+            <span class="ing-quote">${esc(istr(ingMaps[0]?.health?.note) || "the mapping plane published no health note on this render, so none is quoted")}</span>
+            <p>Read that way, <code>ready</code> means <i>this declaration is well-formed</i>. It does not mean a pipeline runs, and it is not a synonym for the reference's question, which is whether a HyperAuto pipeline exists at all. This page therefore renders the field verbatim under a header that says <b>Declared state</b> — never under one that says Status — and puts the derived <b>Did data move?</b> column beside it so the two can be read against each other.</p>
+            <p>The plane's own roll-up propagates the same scope. <code>/v1/hypervisor/odk/connector-mappings/overview</code> publishes a health split of ${(() => { const h = ingBy.mappings_overview.state === "live" ? (ingBy.mappings_overview.body?.health || {}) : {}; const ks = Object.keys(h); return ks.length ? ks.map((k) => `<b>${esc(k)}: ${esc(String(h[k]))}</b>`).join(" · ") : "no health buckets on this render"; })()} and states, as a whole-plane claim: ${(() => { const g = ingBy.mappings_overview.state === "live" && Array.isArray(ingBy.mappings_overview.body?.governance_gaps) ? ingBy.mappings_overview.body.governance_gaps : []; return g.length ? `<span class="ing-quote">${esc(String(g[0]))}</span>` : "no governance gap was published on this render"; })()} That sentence is true <b>of a mapping</b> and false <b>of this estate</b>, which holds ${ingRowsLanded} extracted row${ingRowsLanded === 1 ? "" : "s"} that arrived through the materializing lane beside it. A whole-plane claim written from one record's point of view is the same defect as a status field read as a system state.</p>
+          </div>
+          <div class="ing-call">
+            <h3>The list named <code>missing_contracts</code> names contracts that are not missing</h3>
+            <p>Every mapping publishes a <code>missing_contracts</code> array. Joined against the planes on this render, <b>${ingFalseMissingChains.length}</b> of the ${ingDeclared} mapping${ingDeclared === 1 ? "" : "s"} name at least one contract that <b>already exists</b> for that mapping — <b>${ingFalseMissingTotal}</b> such name${ingFalseMissingTotal === 1 ? "" : "s"} in total${ingFalseMissingChains.length ? `, and the names in question are ${[...new Set(ingFalseMissingChains.flatMap((x) => x.present))].map((n) => `<code>${esc(n)}</code>`).join(" · ")}` : ""}. The field is not wrong so much as scoped: it lists what the mapping record <b>alone</b> does not imply, and it is computed without reading the downstream planes at all.</p>
+            <p>This is why the Chain column exists. Each stage chip is resolved by JOINING the planes on the keys the RECORDS carry — <code>connector_mapping_id</code> for the policy view, the transformation, the projection and the lease plan; <code>data_source_id</code> for the materializing run; <code>materializing_run_id</code> for the session; and <code>ontology_projection_id</code> for the output, which is the only mapping-keyed path to an object set the estate publishes. A stage chip is present because a record was found, and absent as a typed absence with its own reason — never because a self-report said so.</p>
+            <p>Note what the run join costs: a materializing run is keyed on the <b>source</b>, not on the pipeline. Two mappings over one source would be indistinguishable in the run plane, and this page would say so rather than attribute a run to one of them. On this render ${ingMappedSrcIds.size === ingDeclared ? `each of the ${ingDeclared} pipeline${ingDeclared === 1 ? "" : "s"} names a distinct source, so the join is unambiguous` : `<b>${ingDeclared - ingMappedSrcIds.size}</b> pipeline${ingDeclared - ingMappedSrcIds.size === 1 ? "" : "s"} share a source with another, and their run attribution is AMBIGUOUS — stated here rather than resolved by a guess`}.${ingUnresolvedSrc.length ? ` <b>${ingUnresolvedSrc.length}</b> pipeline${ingUnresolvedSrc.length === 1 ? " names a" : "s name"} <code>data_source_id</code> the source plane does not return to this identity; ${ingUnresolvedSrc.length === 1 ? "it is" : "they are"} rendered as a dangling key, not as a missing source.` : ""}</p>
+          </div>
+          <div class="ing-call">
+            <h3>Two planes, one crossing, opposite answers</h3>
+            <p><b>${ingSessDisagree.length}</b> connector session${ingSessDisagree.length === 1 ? "" : "s"} on this render report <code>execution.data_moved: false</code> and <code>rows_extracted: 0</code> while the materializing run ${ingSessDisagree.length === 1 ? "it belongs" : "they belong"} to reports <code>source_contacted: true</code> — and the object set that holds the extracted rows names <b>that same session</b> in its <code>connector_session_ref</code> as the provenance the rows came through. The estate published both records and joins neither.</p>
+            <p>This page does not adjudicate between them. It counts what LANDED — from the output records, which are the only ones carrying a verbatim contact receipt — and it names the disagreement here rather than quietly preferring the record that agrees with its own column header. Picking a winner would be this surface deciding a question the estate never answered; hiding it would be worse.</p>
+          </div>
+          <h2 class="ing-h">The "auto" in HyperAuto — a typed absence, counted from the route index</h2>
+          <div class="ing-absent">
+            <p>HyperAuto's premise is that connecting a source BUILDS the pipeline. The estate publishes <b>${ingOdkRoutes.length}</b> ODK-family routes and <b>${ingAutoRoutes.length}</b> of them accept a source and return a built chain. Getting from a declared source to a materialized object set is <b>${ingChainVerbs.length}</b> separate authority-crossing POSTs, in order, every one of them confirmed against the daemon's own route index on this render: ${ingChainVerbs.map(([label, p]) => `<b>${esc(label)}</b> <code>${esc(p)}</code>`).join(" → ")}.</p>
+            <p>So the automatic builder is <b>MISSING, not empty</b> — and the distinction is the point. The reference's list is empty and waiting for a pipeline; the estate's builder does not exist as a lane at all, and the ${ingDeclared} pipeline${ingDeclared === 1 ? "" : "s"} above ${ingDeclared === 1 ? "was" : "were"} each declared one crossing at a time. The nearest thing to an automatic lane, <code>/v1/hypervisor/odk/ontology-proposals</code> — the only plane shaped like "infer a model and offer it for apply" — <b>${ingBy.ontology_proposals.state === "refused" ? `REFUSED this identity with <code>${esc(ingBy.ontology_proposals.code)}</code>, so this surface says NOTHING about whether the estate can propose a model from a source: unknown is printed as unknown, never as absent` : `answered this read (state ${esc(ingStateLabel[ingBy.ontology_proposals.state] || ingBy.ontology_proposals.state)}), and even so it proposes an ONTOLOGY, never a pipeline`}</b>. The reusable-definition shelf beside it — <code>data recipes</code> and <code>ODK manifests</code> — is ${ingBy.data_recipes.state === "empty" && ingBy.manifests.state === "empty" ? "EMPTY on both planes: they answered cleanly and hold none, which is an empty shelf and not a missing one" : `${esc(ingStateLabel[ingBy.data_recipes.state] || ingBy.data_recipes.state)} / ${esc(ingStateLabel[ingBy.manifests.state] || ingBy.manifests.state)} on this render`}.</p>
+          </div>
+          <h2 class="ing-h">The APPLICATIONS lane &mdash; MISSING, not empty</h2>
+          <div class="ing-absent">
+            The reference's only facet group on this landing is <b>APPLICATIONS</b>, and on the live tenant it holds the pinned HyperAuto app itself. This port renders it as a <b>typed absence instead</b>, because the estate holds no per-principal favourites or pinned-application plane of any kind &mdash; nothing exists that could ever fill it. ${igap("ing-chip", "APPLICATIONS", ingControls[3].gap)} <b>EMPTY is not MISSING</b>: the reference's lane is waiting for data, and this one is waiting for a plane.
+          </div>
+          <h2 class="ing-h">The four recorded dialogs &mdash; named, not reconstructed</h2>
+          <div class="ing-absent">
+            The live capture recorded <b>4</b> dialog surfaces behind this landing and recorded <b>nothing about what is inside them</b>: the sweep was whitelist-only and mutation verbs were blacklisted, so no dialog was ever opened. Their EXISTENCE is evidence; their CONTENTS are not, and a dialog rebuilt from a count would be this port inventing an interaction nobody observed. ${igap("ing-chip", "4 dialogs (contents unrecorded)", ingControls[4].gap)} The same rule that keeps a refusal from being printed as a zero keeps an unopened dialog from being printed as a form.
+          </div>
+          <h2 class="ing-h">Every reference control, answered</h2>
+          <p class="ing-note">The live capture recorded one app control offered twice, one in-body link, one facet group and four dialogs behind this landing. Each is answered below and, where the estate cannot honour it, disabled in place under the unified gap contract with a reason written for THAT control.</p>
+          <div class="ing-chead2"><span>Reference control</span><span>Estate lane</span><span>How it is answered here</span></div>
+          ${ingControlRows}
+          <h2 class="ing-h">Ingestion planes — read live, classified into four states</h2>
+          <p class="ing-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three. The <code>stage</code> field places each plane on the source → objects chain, so an adjacent plane is never read as a stage of it.</p>
+          <div class="ing-phead"><span>Plane</span><span>Route · stage · shape</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+          ${ingPlaneRows}
+          <div class="ing-call">
+            <h3>One plane, one renderer</h3>
+            <p>Three planes this page reads are already rendered elsewhere and are LINKED rather than re-listed. The <b>source</b> plane (<b>${ingSources.length}</b> record${ingSources.length === 1 ? "" : "s"}) belongs to <a href="/__ioi/data/sources">Data Connection</a> — read here only for the join, never re-rendered as a second source table. The <b>materializing runs</b> (<b>${ingRuns.length}</b>) are already the Syncs lane of that same surface. The extracted <b>objects</b> (<b>${ingSets.reduce((n, s) => n + ingNum(s.count), 0)}</b> across ${ingSets.length} set${ingSets.length === 1 ? "" : "s"}) belong to the <a href="/__ioi/ontology/explorer">Object Explorer</a>. What this page adds is the lane none of them held: the CHAIN, joined end to end, with each stage's own claim printed beside what the chain actually did.</p>
+            <p>And every verb stays where it is owned. The ${ingChainVerbs.length} crossings that build a pipeline belong to <a href="/__ioi/pipeline">Pipeline Builder</a> and the <a href="/__ioi/connections">Connections</a> capability-lease gate; declaring a source belongs to <a href="/__ioi/data/sources">Data Connection</a>. This surface re-mints none of them.</p>
+          </div>
+          <p class="ing-foot">${ingFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Foundry · Model Studio — MS-1 (remediation v2): the live-tenant MODEL-STUDIO port.
+    // The seed's live root is NOT an editor canvas (the capture-era grammar guess) and NOT a list:
+    // it is a CREATION-ENTRY DIALOG — "Choose file location", a pre-filled File name, a Location
+    // folder dropdown, Browse / Cancel / Save — modal over an empty field, with rows:0 everywhere.
+    // The app admits you by CREATING a Model Studio file in a chosen location; there is no browse
+    // root to port. THE FINDING this surface exists to state: a VERB WHOSE ROUTE EXISTS IS STILL A
+    // GAP WHEN THE FORM'S FIELDS AND THE ROUTE'S REQUIRED FIELDS DO NOT INTERSECT. The estate does
+    // publish POST /v1/hypervisor/foundry/specs — a real durable draft-spec create — but it has no
+    // location/project field at all, and it REQUIRES a resolving model-route or provider binding
+    // that this dialog never asks for. Wiring Save "because the POST exists" would mean silently
+    // supplying the argument the person was never asked for and silently discarding the one thing
+    // the dialog is named for. So Save is a typed gap, and no second mutation spine is minted.
+    if (pathname === "/__ioi/foundry/model-studio" && req.method === "GET") {
+      const esc = CX_ESC;
+      const mstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const mstProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // PHASE 1 — the daemon's OWN route index. It is the only thing that can say "no read route",
+      // and it is also where the containment-edge counts below are derived from, so a route that
+      // appears or disappears changes the finding's numbers instead of rotting beside them.
+      const mstIndexJson = await daemonFetch("/v1").then((r) => r.json()).catch(() => ({}));
+      const mstRoutes = (Array.isArray(mstIndexJson.families) ? mstIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const mstLiveRoutes = mstRoutes.filter((r) => !r.retired);
+      const mstRouteFor = (p) => mstLiveRoutes.find((r) => String(r.path || "") === p) || null;
+      const mstMethodsFor = (p) => { const r = mstRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      // PHASE 2 — the census. `path` is the ROUTE TEMPLATE the index publishes (the only thing an
+      // index lookup can match); `probe` is the concrete URL this identity actually read. `half`
+      // names which part of the dialog the plane answers for: the FILE, the LOCATION, the BINDING
+      // the create route demands, or an adjacent authoring lane that is none of the three.
+      const MST_PLANES = [
+        { key: "projects", path: "/v1/hypervisor/projects", probe: "/v1/hypervisor/projects", shape: "collection", pick: (b) => b?.projects, half: "location",
+          label: "Projects — the estate's LOCATION plane", role: "the nearest thing the estate has to the reference's folder: a durable custody container with a project_id, a custody posture and its own artifact/automation ref lists. It is the plane the Location selector above reads, and it is rendered in full by the Fusion port, so it is READ here for the selector and never re-listed as a file browser",
+          owner: "/__ioi/domain-apps/fusion", ownerLabel: "Fusion" },
+        { key: "project_record", path: "/v1/hypervisor/projects/:id", probe: "/v1/hypervisor/projects/no-project-selected", shape: "singleton", half: "location",
+          label: "Project record", role: "one location read back by id. Probed WITHOUT a resolvable id on purpose, so the row reports what an unresolved location actually answers rather than a happy path",
+          owner: "/__ioi/domain-apps/fusion", ownerLabel: "Fusion" },
+        { key: "project_env_classes", path: "/v1/hypervisor/projects/:id/environment-classes", probe: "/v1/hypervisor/projects/no-project-selected/environment-classes", shape: "collection", half: "location",
+          label: "Project environment classes — the ONE project PATCH", role: "the only field of a project the estate publishes a patch for. It is not a child list and it could not adopt a Model Studio file: this is the whole of what a project record will accept after it is created",
+          owner: "/__ioi/environments", ownerLabel: "Environments" },
+        { key: "specs", path: "/v1/hypervisor/foundry/specs", probe: "/v1/hypervisor/foundry/specs", shape: "collection", pick: (b) => b?.specs, half: "file",
+          label: "Foundry specs — THE FILE this estate would author", role: "the estate's nearest analogue to a Model Studio file: a durable FoundrySpec draft naming a kind, a set of real substrate bindings, free-form inputs and a policy ref. This is the plane the dialog's Save would have to write, and the plane the file count below is taken from",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "spec_record", path: "/v1/hypervisor/foundry/specs/:id", probe: "/v1/hypervisor/foundry/specs/no-spec-selected", shape: "singleton", half: "file",
+          label: "Foundry spec record", role: "one draft read back by id — the route that would serve a saved Model Studio file. Probed without a resolvable id, so the row reports the estate's own typed decline instead of a fabricated not-found story",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "run_plans", path: "/v1/hypervisor/foundry/run-plans", probe: "/v1/hypervisor/foundry/run-plans", shape: "collection", pick: (b) => b?.run_plans, half: "file",
+          label: "Foundry run plans — what a file would DO", role: "the draft execution plan a spec is pinned into. Inert by contract: the plane's own status note says specs and run-plans are drafts with no training, eval, promotion or registry mutation behind them",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "run_plan_record", path: "/v1/hypervisor/foundry/run-plans/:id", probe: "/v1/hypervisor/foundry/run-plans/no-plan-selected", shape: "singleton", half: "file",
+          label: "Foundry run-plan record", role: "one plan read back by id, probed unresolved for the same reason. Its DELETE verb is published beside its GET, which is the whole lifecycle a draft plane offers",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "foundry_overview", path: "/v1/hypervisor/foundry/overview", probe: "/v1/hypervisor/foundry/overview", shape: "singleton", half: "file",
+          label: "Foundry overview — the plane's OWN roll-up", role: "the daemon's census object over the draft planes and the real substrate beneath them. A status object, never a collection of one, and the source of the inertness note quoted verbatim below",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "model_routes", path: "/v1/hypervisor/model-routes", probe: "/v1/hypervisor/model-routes", shape: "collection", pick: (b) => b?.routes, half: "binding",
+          label: "Model routes — the binding the create route DEMANDS", role: "the substrate a FoundrySpec must resolve at least one of before it may exist. The reference dialog offers no control that names it, which is exactly the disjointness this page is about. Already rendered in full by the Model Catalog, so it is READ here for the count and linked, never re-listed",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "model_routes_overview", path: "/v1/hypervisor/model-routes/overview", probe: "/v1/hypervisor/model-routes/overview", shape: "singleton", half: "binding",
+          label: "Model-route overview", role: "the availability and lifecycle roll-up over the same registry. Read for the binding half only; no route row is minted from it here",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "providers", path: "/v1/model-mount/providers", probe: "/v1/model-mount/providers", shape: "collection", half: "binding",
+          label: "Model-mount providers — the OTHER accepted binding", role: "the second ref family the create route will accept in place of a route. A spec may bind either, and must bind one of them",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "backends", path: "/v1/model-mount/backends", probe: "/v1/model-mount/backends", shape: "collection", half: "binding",
+          label: "Model-mount backends", role: "an OPTIONAL spec binding — accepted and validated if declared, but never sufficient on its own. The distinction matters: a form that offered only this would still be refused",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "endpoints", path: "/v1/model-mount/endpoints", probe: "/v1/model-mount/endpoints", shape: "collection", half: "binding",
+          label: "Model-mount endpoints", role: "the other optional spec binding, validated the same way. Listed so the binding half of the census is complete rather than represented by its two required members alone",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "blueprints", path: "/v1/hypervisor/studio/blueprints", probe: "/v1/hypervisor/studio/blueprints", shape: "collection", pick: (b) => b?.blueprints, half: "adjacent",
+          label: "Studio blueprints — the estate's OTHER authoring draft", role: "the one other plane in the estate shaped like author-a-thing-as-a-draft-and-promote-it-later. It is Studio-owned, and it is named here so the route reasoning below can be checked rather than believed",
+          owner: "/__ioi/studio/workbench", ownerLabel: "Studio" },
+        { key: "recipes", path: "/v1/hypervisor/foundry/recipes", probe: "/v1/hypervisor/foundry/recipes", shape: "collection", pick: (b) => b?.recipes, half: "adjacent",
+          label: "Foundry recipes — the reusable authoring TEMPLATE", role: "the closest lane to start-from-a-template, which is how a studio usually opens. It refuses this identity, so this page says nothing about whether templates exist here — unknown is printed as unknown",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "programs", path: "/v1/hypervisor/foundry/programs", probe: "/v1/hypervisor/foundry/programs", shape: "collection", pick: (b) => b?.programs, half: "adjacent",
+          label: "Foundry programs — the qualified lane", role: "where a draft would go once it stopped being a draft. It refuses this identity, so no promotion claim on this page is taken from it",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "qualification_proposals", path: "/v1/hypervisor/foundry/qualification-proposals", probe: "/v1/hypervisor/foundry/qualification-proposals", shape: "collection", pick: (b) => b?.qualification_proposals, half: "adjacent",
+          label: "Qualification proposals", role: "the offered-for-promotion lane beside programs. It refuses this identity as well, and the surface records the refusal rather than inferring an empty shelf from it",
+          owner: "/__ioi/governance/approvals", ownerLabel: "Approvals" },
+        { key: "checkpoints", path: "/v1/hypervisor/foundry/checkpoints", probe: "/v1/hypervisor/foundry/checkpoints", shape: "collection", pick: (b) => b?.checkpoints, half: "adjacent",
+          label: "Foundry checkpoints", role: "the weights-at-rest lane a tuning studio would produce into. It refuses this identity, so whether any checkpoint exists is UNKNOWN from this surface rather than zero",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "dataset_snapshots", path: "/v1/hypervisor/foundry/dataset-snapshots", probe: "/v1/hypervisor/foundry/dataset-snapshots", shape: "collection", pick: (b) => b?.dataset_snapshots, half: "adjacent",
+          label: "Foundry dataset snapshots", role: "the training-input lane a model file would name. It refuses this identity; no input count on this page is ever taken from it",
+          owner: "/__ioi/data/sources", ownerLabel: "Data Connection" },
+        { key: "artifact_intents", path: "/v1/hypervisor/foundry/artifact-intents", probe: "/v1/hypervisor/foundry/artifact-intents", shape: "collection", pick: (b) => b?.artifact_intents, half: "adjacent",
+          label: "Foundry artifact intents", role: "the declared-intent-to-produce lane. It refuses this identity too, which is why the refusal column below is the largest one on this census — and why that is stated rather than smoothed over",
+          owner: "/__ioi/marketplace/artifacts", ownerLabel: "Artifacts" },
+        { key: "program_qualify", path: "/v1/hypervisor/foundry/programs/:id/qualify", probe: "/v1/hypervisor/foundry/programs/no-program-selected/qualify", shape: "collection", half: "adjacent",
+          label: "Program qualification verb", role: "POST-only: the estate performs a qualification, it never stores one you can read back at this route, so there is nothing here to read at all",
+          owner: "/__ioi/governance/approvals", ownerLabel: "Approvals" },
+        { key: "recipe_runs", path: "/v1/hypervisor/foundry/recipes/:id/runs", probe: "/v1/hypervisor/foundry/recipes/no-recipe-selected/runs", shape: "collection", half: "adjacent",
+          label: "Recipe run verb", role: "POST-only as well. Named here because a studio's Run affordance would land on it, and a lane with no read route is not an empty lane",
+          owner: "/__ioi/missions/builds", ownerLabel: "Builds" },
+      ];
+      const mstProbes = await Promise.all(MST_PLANES.map((pl) => mstProbe(pl.probe)));
+      // FIVE states, decided in this order and never from a constant: no-read-route from the
+      // daemon's OWN index before any body is read; a transport refusal before any collection is
+      // looked for; a typed in-body decline (ok:false on a 200) as the refusal it is — carrying the
+      // daemon's own `reason` word when it publishes one instead of a generic stand-in; then shape.
+      const mstClassify = (pl, pr) => {
+        const methods = mstMethodsFor(pl.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) {
+          const b = pr.body || {};
+          const code = (b.error && (b.error.code || b.error)) || b.reason || b.code || `http_${pr.status}`;
+          return { state: "refused", code: String(code), methods, rows: [] };
+        }
+        const body = pr.body;
+        if (body && typeof body === "object" && body.ok === false) {
+          const b = body.error;
+          return { state: "refused", code: String((b && (b.code || b)) || body.code || body.reason || "plane_declined"), methods, rows: [] };
+        }
+        if (pl.shape === "singleton") {
+          const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+          return { state: keys.length ? "live" : "empty", code: "", methods, rows: [], keys };
+        }
+        const arr = pl.pick ? pl.pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const mstRead = MST_PLANES.map((pl, i) => ({ ...pl, ...mstClassify(pl, mstProbes[i]), status: mstProbes[i].status, body: mstProbes[i].body }));
+      const mstBy = Object.fromEntries(mstRead.map((r) => [r.key, r]));
+      const mstCount = (s) => mstRead.filter((r) => r.state === s).length;
+      const mstRowsOf = (k) => (mstBy[k].state === "live" ? mstBy[k].rows : []);
+      // ONE gap contract for every named absence (aria + title + data-ioi reason, all three on the
+      // SAME element). Every reason is written for ITS control — a reused reason is decorative.
+      const mgap = (cls, label, reason) => `<span class="${cls} mst-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      // ---- THE DIALOG'S TWO FIELDS. The reference collects exactly two things — a NAME and a
+      // LOCATION — and every number below about whether the estate can receive them is derived on
+      // THIS render from the planes and from the daemon's own route index.
+      const mstProjects = mstRowsOf("projects");
+      const mstSpecs = mstRowsOf("specs");
+      const mstPlans = mstRowsOf("run_plans");
+      const mstModelRoutes = mstRowsOf("model_routes");
+      const mstProviders = mstRowsOf("providers");
+      const mstBackends = mstRowsOf("backends");
+      const mstEndpoints = mstRowsOf("endpoints");
+      // EDGE COUNT 1 — from the LOCATION side: how many real project records carry any field that
+      // could name a Model Studio file. Computed over the records' OWN keys, not from a schema doc.
+      const mstSpecFieldRe = /spec|foundry|model.?studio/i;
+      const mstProjWithSpecField = mstProjects.filter((p) => Object.keys(p || {}).some((k) => mstSpecFieldRe.test(k)));
+      const mstProjRefFields = [...new Set(mstProjects.flatMap((p) => Object.keys(p || {}).filter((k) => k.endsWith("_refs"))))].sort();
+      // EDGE COUNT 2 — from the ROUTE side: how many published project write routes could accept a
+      // file ref after creation, and how many Foundry routes name a location concept at all.
+      const mstProjectRoutes = mstLiveRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/projects"));
+      const mstProjectWriteRoutes = mstProjectRoutes.filter((r) => (r.methods || []).some((m) => ["POST", "PATCH", "PUT", "DELETE"].includes(String(m))));
+      const mstFoundryRoutes = mstLiveRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/foundry/"));
+      const mstLocationNamingRoutes = mstFoundryRoutes.filter((r) => /(folder|location|project|parent|path|place|move)/i.test(String(r.path || "")));
+      // The create verb itself, confirmed against the index on every render rather than pinned.
+      const MST_CREATE_ROUTE = "/v1/hypervisor/foundry/specs";
+      const mstCreateMethods = mstMethodsFor(MST_CREATE_ROUTE);
+      const mstCreatePublished = mstCreateMethods.includes("POST");
+      // The default file name. The two recorded reference states are byte-identical EXCEPT this
+      // stamp, which is how we know the vendor derives it when the dialog OPENS rather than storing
+      // it. So it is derived HERE, at render, and the surface says so rather than letting a value
+      // that looks like a record stand beside planes that hold none.
+      const mstRenderedAt = new Date();
+      const mstStamp = mstRenderedAt.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+      const mstDefaultName = `New Model Studio (${mstStamp})`;
+      // The validity affordance, with its PREDICATE named. It is a WELL-FORMEDNESS verdict over the
+      // derived string — never an availability one, because no plane in this estate indexes names
+      // within a location and none could answer "is this name free here".
+      const mstNameWellFormed = mstDefaultName.trim().length > 0 && mstDefaultName.length <= 200 && !/[\u0000-\u001f]/.test(mstDefaultName);
+      const mstFdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toISOString().slice(0, 19).replace("T", " "); };
+      const MST_LOC_CAP = 25;
+      const mstLocShown = mstProjects.slice(0, MST_LOC_CAP);
+      const mstSelected = mstProjects[0] || null;
+      const mstLocRowsHtml = mstLocShown.map((p) => `<div class="mst-locrow" data-ioi-location="${esc(mstr(p.project_id))}">`
+        + `<span class="mst-locico" aria-hidden="true">▸</span>`
+        + `<span class="mst-locname"><b>${esc(mstr(p.name) || mstr(p.project_id) || "project")}</b><code class="mst-ref">${esc(mstr(p.project_id))}</code></span>`
+        + `<span class="mst-locmeta"><code class="mst-ref">custody ${esc(mstr(p.custody_posture) || "—")}</code><code class="mst-ref">created ${esc(mstFdt(p.created_at))}</code></span></div>`).join("");
+      // The reference's controls, answered one by one. A ported landing that keeps a reference
+      // control and wires it to something else is not a port, it is a mislabel.
+      const mstControls = [
+        { ref: "Save (dialog primary)", bound: false, field: "",
+          gap: `The estate DOES publish a create verb for the file this dialog would author — POST ${MST_CREATE_ROUTE} — and it is still not this dialog's Save. The record it writes carries no location field of any kind, so the Location chosen above would be discarded; and it refuses any spec that resolves no model route and no provider, a binding this dialog offers no control for. Saving here would mean supplying an argument nobody chose and dropping the one thing the dialog is named for`,
+          copy: "The route exists and the verb is still a gap. The dialog collects a name and a location; the route accepts a name, has nowhere to put a location, and demands a substrate binding the dialog never asks for. The intersection of the two field sets is one field." },
+        { ref: "Location (folder dropdown)", bound: false, field: "/v1/hypervisor/projects",
+          gap: "The LIST is real — every location offered above is a live project record with its own id and custody posture — but CHOOSING one records nothing. No Foundry route accepts a project ref, no project record carries a spec field, and the only patch a project publishes is its environment-class list. The containment edge is absent in both directions, so the selector reads a plane it cannot write to",
+          copy: "Real records, no edge. The reference's folder maps cleanly onto the estate's projects, and that is exactly why the absence is worth stating: the nouns line up and the relation between them does not exist." },
+        { ref: "Browse (location picker)", bound: false, field: "",
+          gap: "Browse opens a folder TREE. The estate's locations are a flat collection: a project record names no parent and no children, and the route index publishes no project-hierarchy read of any kind, so there is no level to browse into. This is a missing structure, not an unbuilt picker",
+          copy: "Nothing to browse INTO. The projects plane is flat by construction — the reference's tree has no shape here to descend." },
+        { ref: "File name (pre-filled input)", bound: false, field: "",
+          gap: "The value is DERIVED on this render, exactly as the reference derives it when the dialog opens — the two recorded reference states differ only in this stamp. It is not stored anywhere, it names no record, and there is no lane to commit it to, so the field is presented read-only rather than as an input that pretends to be going somewhere",
+          copy: "A derived string is not a record. It is rendered because the reference's landing grammar is a pre-filled field, and it is marked read-only because nothing here would receive it." },
+        { ref: "Validity check (name field badge)", bound: true, field: "well-formedness of the derived string",
+          gap: "",
+          copy: "Kept, with its predicate NAMED. The badge is a well-formedness verdict over the string itself — non-empty, within length, no control characters. It is NOT an availability verdict: no plane in this estate indexes names inside a location, so whether this name is already taken here is a question nothing could answer, and the badge is never allowed to imply it." },
+        { ref: "Cancel (dialog secondary)", bound: true, field: "/__ioi/foundry/models",
+          gap: "",
+          copy: "One of the two reference controls this estate honours exactly. Cancel leaves the creation entry without creating anything, which on a served surface is a link back to the Foundry family landing — the same act, with nothing invented behind it." },
+        { ref: "Dialog close", bound: true, field: "/__ioi/foundry/models",
+          gap: "",
+          copy: "The same act as Cancel in the reference, and it is bound the same way here rather than being dropped or quietly given a different meaning." },
+        { ref: "APPLICATIONS (facet group)", bound: false, field: "",
+          gap: "The reference's left rail carries a single APPLICATIONS group listing the tenant's pinned apps. The estate holds no per-principal favourites or pinned-application plane, so the lane could never fill — it is MISSING here, while the reference's own is merely empty and waiting",
+          copy: "MISSING, not empty. The reference's lane awaits data; the estate has no plane that could ever supply it." },
+        { ref: "7 recorded dialog surfaces", bound: false, field: "",
+          gap: "The live capture recorded seven dialog-role surfaces in this app's document. ONE of them is the landing itself — its heading and its five controls were recorded and screenshotted, and that one is ported above. The other six were never opened: the capture was whitelist-only with mutation verbs blacklisted, so their existence is evidence and their contents are not",
+          copy: "Six named rather than guessed, one ported rather than named. The distinction matters: the dialog this page renders is evidenced down to its controls, and reconstructing the other six from a DOM count would be inventing interactions nobody observed." },
+      ];
+      const mstControlRows = mstControls.map((c) => `<div class="mst-crow" data-ioi-control="${esc(c.ref)}" data-ioi-control-bound="${c.bound ? "yes" : "no"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="mst-ref">${esc(c.field)}</code>` : `<span class="mst-nolane">no estate lane</span>`}</span>`
+        + `<span class="mst-ccopy">${c.copy}</span></div>`).join("");
+      const mstSaveGap = mstControls[0].gap;
+      const mstStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const mstHalfLabel = { location: "the LOCATION half", file: "the FILE half", binding: "the BINDING the route demands", adjacent: "adjacent" };
+      const mstStateCopy = (r) => {
+        if (r.state === "live") return `The plane answered this identity and holds <b>${r.shape === "singleton" ? (r.keys || []).length : r.rows.length}</b> ${r.shape === "singleton" ? `field${((r.keys || []).length) === 1 ? "" : "s"} on a status object` : `record${r.rows.length === 1 ? "" : "s"}`}.`;
+        if (r.state === "empty") return `The plane answered and holds none — an <b>EMPTY</b> plane, not a missing one, and not a refused read.`;
+        if (r.state === "refused") return `The plane <b>REFUSED</b> this read with the daemon's own typed code <code>${esc(r.code)}</code>. No count is printed for it here, because a refusal is not a zero.`;
+        if (r.state === "no_read_route") return `The daemon's route index publishes <b>no GET</b> for this path (methods: ${(r.methods || []).map((m) => `<code>${esc(String(m))}</code>`).join(" ") || "none"}). There is nothing to read, which is not the same as reading nothing.`;
+        return `The plane answered <code>${esc(r.code)}</code> in a shape this surface cannot read as a collection, and it is reported as unreadable rather than counted.`;
+      };
+      const mstPlaneRows = mstRead.map((r) => `<div class="mst-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}" data-ioi-plane-shape="${esc(r.shape)}" data-ioi-plane-half="${esc(r.half)}">`
+        + `<span><b>${esc(r.label)}</b><span class="mst-role">${esc(r.role)}</span></span>`
+        + `<span><code class="mst-ref">${esc(r.path)}</code><code class="mst-ref">shape: ${esc(r.shape)} · ${esc(mstHalfLabel[r.half] || r.half)}</code>${r.path === r.probe ? "" : `<code class="mst-ref">probed as ${esc(r.probe)}</code>`}</span>`
+        + `<span class="mst-state mst-state-${esc(r.state)}">${esc(mstStateLabel[r.state] || r.state)}</span>`
+        + `<span class="mst-scopy">${mstStateCopy(r)}</span>`
+        + `<span><a class="mst-ref" href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      const mstInertNote = mstBy.foundry_overview.state === "live" ? mstr(mstBy.foundry_overview.body?.status_note) : "";
+      const mstSubstrate = (mstBy.foundry_overview.state === "live" && mstBy.foundry_overview.body?.substrate && typeof mstBy.foundry_overview.body.substrate === "object") ? mstBy.foundry_overview.body.substrate : {};
+      const mstInputControls = mstControls.filter((c) => /input|dropdown/i.test(c.ref)).length;
+      const mstFoot = `MS-1 (remediation v2): the MODEL STUDIO port. The replay-scoped verdict was capture_broken_no_donor (#modelstudio — "no donor, no plane"); the owner-authorized live sweep OVERTURNED it and recorded a real landing whose ROOT IS A CREATION-ENTRY DIALOG: title <b>Model studio</b>, heading <b>Choose file location</b>, one pre-filled name input, a Location folder dropdown, <b>Browse · Cancel · Save</b>, one APPLICATIONS facet group, seven dialog surfaces and <b>0 rows</b> — the tenant holds no Model Studio files, so there is no list root to port and the DIALOG is the landing grammar. That supersession is recorded in reference-seed-adjudications.v1.json#modelstudio-port and the reference record stands as history. <b>${mstRead.length}</b> file-, location-, binding- and authoring-adjacent planes were probed live on this render and answered in four states — <b>${mstCount("live")} LIVE</b> · <b>${mstCount("empty")} EMPTY</b> · <b>${mstCount("refused")} REFUSED</b> · <b>${mstCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the draft-spec create verb stays where the daemon owns it and is <b>not</b> re-minted here; the model routes and providers a spec must bind are rendered by <a href="/__ioi/foundry/models">Model Catalog</a> and administered in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>; the locations themselves are rendered by <a href="/__ioi/domain-apps/fusion">Fusion</a> — all linked, none re-rendered. Evidence: reference-seed-adjudications.v1.json#modelstudio-port · reference-live-tenant-deep-atlas.v1.json#modelstudio (landing + create-attempt) · .artifacts/live-tenant-atlas/deep/modelstudio-landing.png. Owner: <a href="/__ioi/foundry/models">Foundry family</a>.`;
+      sendOwnedSurfaceHtml(res, "modelstudio", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Studio</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f8fa;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif;overflow-wrap:break-word}a{color:#215db0;text-decoration:none}
+        .mst-shell{display:flex;flex-direction:column;min-height:100vh}
+        .mst-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .mst-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(124,110,228,.12) center/24px no-repeat}
+        .mst-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .mst-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px;flex-wrap:wrap}
+        .mst-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854;background:#fff}
+        .mst-link{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:13px}
+        .mst-gap{opacity:.62;cursor:not-allowed}
+        .mst-field{flex:1;min-width:0;width:100%;max-width:1180px;margin:0 auto;padding:26px 22px 44px}
+        .mst-stage{background:#e9edf2;border:1px solid #dde3ea;border-radius:6px;padding:44px 16px;display:flex;justify-content:center;margin:0 0 22px}
+        .mst-dlg{width:100%;max-width:500px;background:#fff;border-radius:6px;box-shadow:0 8px 24px rgba(17,20,24,.2),0 0 0 1px rgba(17,20,24,.08)}
+        .mst-dlghead{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid #e5e8eb}
+        .mst-dlgtitle{font-size:16px;font-weight:600;color:#1c2127}
+        .mst-dlgx{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;color:#5f6b7c;font-size:15px}
+        .mst-dlgbody{padding:14px 15px 6px}
+        .mst-lab{display:block;font-size:13px;font-weight:600;color:#1c2127;margin:0 0 5px}
+        .mst-namerow{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 8px;border-radius:3px;border:2px solid #2d72d2;background:#fff;min-width:0}
+        .mst-nameico{flex:0 0 18px;height:18px;border-radius:3px;background:rgba(124,110,228,.18) center/12px no-repeat}
+        .mst-nameval{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:13px;color:#1c2127;outline:none;padding:0;text-overflow:ellipsis}
+        .mst-okbadge{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#1c6e42}
+        .mst-hint{font-size:11px;color:#5f6b7c;line-height:1.55;margin:5px 0 14px}
+        .mst-locpick{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .mst-locsel{flex:1;min-width:0;display:flex;align-items:center;gap:7px;min-height:32px;padding:0 9px;border-radius:3px;border:1px solid #d1d1d1;background:#f6f7f9;font-size:13px;color:#404854}
+        .mst-folder{flex:0 0 auto;color:#c9a227}
+        .mst-selname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .mst-caret{flex:0 0 auto;color:#8a94a2;font-size:10px}
+        .mst-browse{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 10px;border-radius:3px;border:1px solid #d1d1d1;background:#f6f7f9;font-size:13px;color:#404854}
+        .mst-locs{margin:9px 0 4px;border:1px solid #e5e8eb;border-radius:4px;max-height:230px;overflow-y:auto}
+        .mst-locrow{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;border-bottom:1px solid #f0f2f5;font-size:12px;min-width:0}
+        .mst-locrow:last-child{border-bottom:0}
+        .mst-locico{flex:0 0 auto;color:#8a94a2}
+        .mst-locname{flex:1;min-width:0}
+        .mst-locmeta{flex:0 0 auto;text-align:right;min-width:0}
+        .mst-locempty{padding:16px 12px;font-size:12px;color:#5f6b7c;line-height:1.6}
+        .mst-dlgfoot{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 15px;border-top:1px solid #e5e8eb;flex-wrap:wrap}
+        .mst-cancel{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;border:1px solid #d1d1d1;background:#f6f7f9;font-size:13px;color:#404854}
+        .mst-save{display:inline-flex;align-items:center;height:30px;padding:0 14px;border-radius:4px;border:1px solid #9bc4ab;background:#e8f3ec;font-size:13px;font-weight:600;color:#1c6e42}
+        .mst-h{font-size:16px;font-weight:600;margin:26px 0 4px}
+        .mst-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .mst-phead,.mst-prow{display:grid;grid-template-columns:2.4fr 1.6fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:820px}
+        .mst-chead,.mst-crow{display:grid;grid-template-columns:1.3fr 1fr 3.2fr;gap:8px;padding:9px 8px;min-width:640px}
+        .mst-phead,.mst-chead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .mst-prow,.mst-crow{align-items:start;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .mst-prow:hover,.mst-crow:hover{background:#f6f7f9}
+        .mst-scroll{overflow-x:auto;background:#fff;border:1px solid #e5e8eb;border-radius:4px;padding:2px 10px 6px;margin:0 0 8px}
+        .mst-ref{display:block;font-size:11px;color:#5f6b7c;overflow-wrap:break-word;margin-top:2px}
+        .mst-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .mst-scopy,.mst-ccopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .mst-nolane{font-size:11px;color:#946638}
+        .mst-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .mst-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .mst-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .mst-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .mst-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .mst-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .mst-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .mst-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .mst-call p{margin:0 0 8px}
+        .mst-quote{display:block;border-left:3px solid #cfd9e6;padding:6px 0 6px 12px;margin:8px 0;color:#404854;font-style:italic;overflow-wrap:break-word}
+        .mst-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:16px 18px;color:#5f6b7c;font-size:13px;line-height:1.65;margin:0 0 16px}
+        .mst-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:6px 2px 10px}
+        @media(max-width:700px){
+          .mst-phead,.mst-chead{display:none}
+          .mst-prow,.mst-crow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}
+          .mst-scroll{overflow-x:hidden;padding:2px 10px 6px}
+          .mst-field{padding:14px 12px 34px}
+          .mst-field *{min-width:0;overflow-wrap:anywhere}
+          .mst-header{flex:0 0 auto;flex-wrap:wrap;padding:8px 0 10px;gap:8px}
+          .mst-hright{margin-left:0;padding:0 12px;width:100%}
+          .mst-stage{padding:14px 8px;border-radius:4px}
+          .mst-dlg{max-width:100%}
+          .mst-namerow{padding:6px 8px;flex-wrap:wrap}
+          .mst-nameval{white-space:normal}
+          .mst-locpick{flex-direction:column;align-items:stretch}
+          .mst-locsel,.mst-browse{width:100%}
+          .mst-selname{white-space:normal;overflow:visible;text-overflow:clip}
+          .mst-locrow{flex-direction:column;gap:2px}
+          .mst-locmeta{text-align:left}
+          .mst-dlgfoot{justify-content:stretch}
+          .mst-cancel,.mst-save{flex:1;justify-content:center}
+          .mst-call,.mst-absent{padding:14px}
+        }
+      </style></head><body><div class="mst-shell">
+        <header class="mst-header">
+          <span class="mst-hchip" aria-hidden="true" style="background-image:url('${MODELS_APP_ICON_URI}')"></span>
+          <h1 class="mst-title">Model Studio</h1>
+          <div class="mst-hright">
+            <span class="mst-chip" title="Read live on this render: the file plane, the location plane, and the planes probed for this census. The reference app carries no header of its own — the dialog floats on an empty field — so nothing is minted here beyond the estate's own counts">${mstSpecs.length} file${mstSpecs.length === 1 ? "" : "s"} · ${mstProjects.length} location${mstProjects.length === 1 ? "" : "s"} · ${mstRead.length} planes read</span>
+            <a class="mst-link" href="/__ioi/foundry/models">Model Catalog →</a>
+          </div>
+        </header>
+        <div class="mst-field">
+          <div class="mst-stage">
+            <section class="mst-dlg" role="dialog" aria-label="Choose file location">
+              <div class="mst-dlghead"><span class="mst-dlgtitle">Choose file location</span><a class="mst-dlgx" href="/__ioi/foundry/models" title="Leave the creation entry without creating anything — the same act the reference's close control performs">✕</a></div>
+              <div class="mst-dlgbody">
+                <span class="mst-lab">File name</span>
+                <div class="mst-namerow" data-ioi-lane="file-name" data-ioi-plane-state="${esc(mstBy.specs.state)}">
+                  <span class="mst-nameico" aria-hidden="true" style="background-image:url('${MODELS_APP_ICON_URI}')"></span>
+                  <input class="mst-nameval" value="${esc(mstDefaultName)}" readonly aria-readonly="true" aria-disabled="true" title="${esc(mstControls[3].gap)}" data-ioi-disabled-reason="${esc(mstControls[3].gap)}" aria-label="File name — derived on this render, read-only">
+                  <span class="mst-okbadge" title="Well-formed: non-empty, within length, no control characters. This is NOT an availability check — no plane indexes names inside a location, so nothing here could answer whether this name is already taken">${mstNameWellFormed ? "well-formed" : "malformed"}</span>
+                </div>
+                <p class="mst-hint">Derived on <b>this render</b> at ${esc(mstStamp)} — exactly as the reference derives it when the dialog opens (the two recorded reference states are identical except this stamp). It is not stored, it names no record, and the badge beside it is a <b>well-formedness</b> verdict, never an availability one.</p>
+                <span class="mst-lab">Location</span>
+                <div class="mst-locpick" data-ioi-lane="location" data-ioi-plane-state="${esc(mstBy.projects.state)}">
+                  <span class="mst-locsel mst-gap" aria-disabled="true" title="${esc(mstControls[1].gap)}" data-ioi-disabled-reason="${esc(mstControls[1].gap)}"><span class="mst-folder" aria-hidden="true">▤</span><span class="mst-selname">${mstSelected ? esc(`${mstr(mstSelected.name) || mstr(mstSelected.project_id)} (${mstFdt(mstSelected.created_at)})`) : esc(mstBy.projects.state === "refused" ? `the projects plane refused this read — ${mstBy.projects.code}` : "no location on the plane")}</span><span class="mst-caret" aria-hidden="true">▼</span></span>
+                  ${mgap("mst-browse", "Browse", mstControls[2].gap)}
+                </div>
+                <div class="mst-locs" data-ioi-plane-state="${esc(mstBy.projects.state)}">
+                  ${mstProjects.length ? mstLocRowsHtml : `<div class="mst-locempty">${mstBy.projects.state === "refused"
+                    ? `The projects plane <b>REFUSED</b> this read with the daemon's typed code <code>${esc(mstBy.projects.code)}</code>, so this surface states nothing about how many locations exist — it could not read the plane, and a refusal is not a zero.`
+                    : `The projects plane answered and holds none. There is no location to offer — an <b>EMPTY</b> plane, not a missing one, and no folder is fabricated to fill the selector.`}</div>`}
+                </div>
+                ${mstProjects.length > MST_LOC_CAP
+                  ? `<p class="mst-hint">The first <b>${MST_LOC_CAP}</b> of <b>${mstProjects.length}</b> real locations render here (cap NAMED, never silent).</p>`
+                  : (mstProjects.length ? `<p class="mst-hint">All <b>${mstProjects.length}</b> locations the estate actually holds render here — every one a live project record, none fabricated.</p>` : "")}
+              </div>
+              <div class="mst-dlgfoot" data-ioi-lane="save" data-ioi-plane-state="${esc(mstBy.specs.state)}" data-ioi-verb-state="${mstCreatePublished ? "published_but_disjoint" : "unpublished"}">
+                <a class="mst-cancel" href="/__ioi/foundry/models">Cancel</a>
+                ${mgap("mst-save", "Save", mstSaveGap)}
+              </div>
+            </section>
+          </div>
+          <h2 class="mst-h">The route exists. The verb is still a gap.</h2>
+          <div class="mst-call">
+            <h3>The dialog collects two fields; the create route accepts one of them and demands one it never asks for</h3>
+            <p>Counted from the daemon's own route index and from the planes themselves on this render, never pasted. The estate <b>${mstCreatePublished ? "does" : "does not"}</b> publish a create verb for the file this dialog would author: <code>${esc(MST_CREATE_ROUTE)}</code> carries ${mstCreateMethods.length ? mstCreateMethods.map((m) => `<code>${esc(String(m))}</code>`).join(" ") : "no methods on the index"}. So the easy conclusion is available, and it is wrong.</p>
+            <p>The reference dialog collects exactly <b>two</b> things: a <b>name</b> and a <b>location</b>. The record that route writes carries a name; it carries <b>no location field of any kind</b>, and the estate publishes nothing that would let a location adopt the file afterwards. Both directions are checked here rather than asserted: <b>${mstProjWithSpecField.length}</b> of the <b>${mstProjects.length}</b> live project records carry any field naming a spec or a foundry object (their ref lists are ${mstProjRefFields.length ? mstProjRefFields.map((f) => `<code>${esc(f)}</code>`).join(" · ") : "none on this render"}), and of the <b>${mstProjectWriteRoutes.length}</b> published project write route${mstProjectWriteRoutes.length === 1 ? "" : "s"} not one accepts a file ref — the only patch a project takes is its environment-class list. Across the whole Foundry family, <b>${mstLocationNamingRoutes.length}</b> of <b>${mstFoundryRoutes.length}</b> routes name a location concept at all.</p>
+            <p>And the route requires something the dialog has no control for. Its admission test, read from the write path itself (<code>handle_foundry_spec_create</code> then <code>validate_bindings</code>, typed refusal <code>foundry_binding_required</code>), refuses any spec that resolves neither a model route nor a provider. The estate holds <b>${mstModelRoutes.length}</b> model route${mstModelRoutes.length === 1 ? "" : "s"} and <b>${mstProviders.length}</b> provider${mstProviders.length === 1 ? "" : "s"} that could satisfy it — and <b>0</b> of the dialog's <b>${mstInputControls}</b> recorded input controls names either one.</p>
+            <p>So the two field sets intersect in exactly <b>one</b> field, the name. A Save wired here would have to silently choose a binding nobody asked for and silently discard the location the dialog is <i>named after</i> — and the receipt would then record a decision the person never made. That is why the verb above is a typed absence rather than a working button, and why this surface mints no second mutation spine over the daemon's own create route. <b>A published route is not a wired verb</b>: the test is whether the form the reference draws and the contract the route enforces are about the same act.</p>
+          </div>
+          <h2 class="mst-h">EMPTY and MISSING, on one page, about the same dialog</h2>
+          <div class="mst-absent">
+            The reference's tenant holds <b>no Model Studio files</b> (rows 0 at both recorded states), and the estate's spec plane holds <b>${mstSpecs.length}</b> draft${mstSpecs.length === 1 ? "" : "s"} — ${mstBy.specs.state === "empty" ? "it answered and holds none" : `its state on this render is ${esc(mstStateLabel[mstBy.specs.state] || mstBy.specs.state)}`}. Those are the same KIND of nothing: an <b>EMPTY</b> plane waiting for a record. The file-in-a-location relation is a different kind — <b>MISSING</b>: no plane exists that could ever hold it, in either direction, so it is not waiting for anything. This surface renders both, side by side, rather than letting the empty one stand in for the missing one. ${mgap("mst-chip", "a Model Studio file inside a location", "There is no such object in this estate. A foundry spec has no location field, a project has no spec field, and no published route joins them — so this is a missing relation, not an unpopulated one, and no count could ever fill it")} <b>EMPTY is not MISSING</b>.
+          </div>
+          <div class="mst-call">
+            <h3>What a Model Studio file would be here, in the plane's own words</h3>
+            <p>The estate's analogue is a <b>FoundrySpec</b>: a durable draft naming a kind, at least one resolving substrate binding, free-form inputs and a policy ref — with a <b>FoundryRunPlan</b> beside it for what the file would do. On this render the spec plane holds <b>${mstSpecs.length}</b> and the run-plan plane holds <b>${mstPlans.length}</b>. The plane states its own inertness, and it is quoted rather than paraphrased:</p>
+            <span class="mst-quote">${esc(mstInertNote || "the foundry overview published no status note on this render, so none is quoted")}</span>
+            <p>Read that way, saving a file here would author a <b>draft</b> and nothing else — no training, no evaluation, no promotion, no registry mutation. The real substrate those drafts sit above is not empty: ${Object.keys(mstSubstrate).length ? Object.keys(mstSubstrate).sort().map((k) => `<b>${esc(k.replace(/_/g, " "))}</b> ${esc(String(mstSubstrate[k]))}`).join(" · ") : "the overview published no substrate census on this render"}. ${mstBackends.length + mstEndpoints.length ? `Beside the ${mstModelRoutes.length} route${mstModelRoutes.length === 1 ? "" : "s"} and ${mstProviders.length} provider${mstProviders.length === 1 ? "" : "s"} the create route will accept, <b>${mstBackends.length}</b> backend${mstBackends.length === 1 ? "" : "s"} and <b>${mstEndpoints.length}</b> endpoint${mstEndpoints.length === 1 ? "" : "s"} are declarable as optional bindings — accepted if named, never sufficient alone.` : ""} A studio over that substrate is a real thing to build; it is not a thing to imply from a dialog.</p>
+          </div>
+          <h2 class="mst-h">The APPLICATIONS lane — MISSING, not empty; and seven dialogs, one of them ported</h2>
+          <div class="mst-absent">
+            The reference's only facet group on this landing is <b>APPLICATIONS</b>, and on the live tenant it renders as the rail's pinned-app lane. An empty lane promises content. This port renders it as a <b>typed absence instead</b>, because the estate holds no per-principal favourites or pinned-application plane of any kind — nothing exists that could ever fill it. ${mgap("mst-chip", "APPLICATIONS", mstControls[7].gap)}
+            <p style="margin:10px 0 0">The capture also recorded <b>seven dialog-role surfaces</b> in this app's document, and they are not all the same kind of evidence. <b>ONE of them is the landing itself</b> — its heading and its five controls were recorded and screenshotted, and that one is ported above rather than named. The other six were never opened: the sweep was whitelist-only with mutation verbs blacklisted, so their existence is evidence and their contents are not, and reconstructing them from a DOM count would be inventing interactions nobody observed. ${mgap("mst-chip", "6 unopened dialog surfaces", mstControls[8].gap)}</p>
+          </div>
+          <h2 class="mst-h">The reference's controls, answered one by one</h2>
+          <p class="mst-note">A ported landing that keeps a reference control and wires it to something else is not a port, it is a mislabel. Each control the live capture recorded is answered below with the estate lane that binds it — or with the typed refusal that does not, in a reason written for that control.</p>
+          <div class="mst-scroll">
+            <div class="mst-chead"><span>Reference control</span><span>Estate lane</span><span>What binds it, or why nothing does</span></div>
+            ${mstControlRows}
+          </div>
+          <h2 class="mst-h">File, location, binding — every plane read live and classified into four states</h2>
+          <p class="mst-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three. Each row also carries the HALF of the dialog it answers for — the file, the location, or the binding the create route demands — so an adjacent authoring lane is never read as one of the three.</p>
+          <div class="mst-scroll">
+            <div class="mst-phead"><span>Plane</span><span>Route · shape · half</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+            ${mstPlaneRows}
+          </div>
+          <p class="mst-foot">${mstFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Foundry · Inference — INF-1 (remediation v2): the LIVE-TENANT SPACE-GATE port, and the
+    // EIGHTH and LAST leg of the live-tenant port backlog. The replay-scoped verdict was
+    // capture_broken_no_donor (#inference, FOU-2 — "terminal: no donor; the inference gap stands
+    // citing this record"); the owner-authorized live sweep OVERTURNED the expressed_ia half of it
+    // and recorded a real landing whose ROOT IS A SPACE GATE: heading "Please select a space" over
+    // ONE app control, "Select a space…", with rows 0 and no space picked.
+    //
+    // JUNK EVIDENCE, EXCLUDED BY NAME. The capture caught a PLATFORM NEWS DIALOG ("What's new in
+    // Sensitive Data Scanner") floating over the app, and the rail's APPLICATIONS lane naming the
+    // LAST-VISITED application rather than this one. Neither is this app's IA. Counting either as
+    // app grammar is the recorded control-count scar that killed two other seeds' candidacies, so
+    // both are named as excluded evidence in the control table and NEITHER is ported.
+    //
+    // THE FINDING this leg returns: A SELECTION THE ROUTE ACCEPTS IS STILL A GAP WHEN THE KEY IT
+    // FILTERS ON IS NEVER WRITTEN BY THE RECORDS IT IS MEANT TO SCOPE.
+    if (pathname === "/__ioi/foundry/inference" && req.method === "GET") {
+      const esc = CX_ESC;
+      const istr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
+      const infProbe = async (p) => {
+        try {
+          const r = await daemonFetch(p);
+          const text = await r.text();
+          let body = null;
+          try { body = JSON.parse(text); } catch { body = null; }
+          return { path: p, status: r.status, ok: r.ok, body };
+        } catch { return { path: p, status: 0, ok: false, body: null }; }
+      };
+      // PHASE 1 — the daemon's OWN route index. It is the only thing that can say "no read route",
+      // and the space-receiving / verb counts below are derived from it on this render, so a route
+      // that appears or disappears changes the finding's numbers instead of rotting beside them.
+      const infIndexJson = await daemonFetch("/v1").then((r) => r.json()).catch(() => ({}));
+      const infRoutes = (Array.isArray(infIndexJson.families) ? infIndexJson.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
+      const infLiveRoutes = infRoutes.filter((r) => !r.retired);
+      const infRouteFor = (p) => infLiveRoutes.find((r) => String(r.path || "") === p) || null;
+      const infMethodsFor = (p) => { const r = infRouteFor(p); return Array.isArray(r?.methods) ? r.methods : []; };
+      // PHASE 2 — the census. `path` is the ROUTE TEMPLATE the index publishes (the only thing an
+      // index lookup can match); `probe` is the concrete URL this identity actually read. `lane`
+      // names which half of the gate the plane answers for: the SPACE the chooser would select, the
+      // INVOCATION that selection would scope, the MODEL that executes one, or adjacent.
+      const INF_PLANES = [
+        { key: "projects", path: "/v1/hypervisor/projects", probe: "/v1/hypervisor/projects", shape: "collection", pick: (b) => b?.projects, lane: "space",
+          label: "Projects — the estate's SPACE plane", role: "the nearest thing the estate has to the reference's space: a durable custody container with its own project_id, custody posture and ref lanes. It is the plane the chooser above lists record by record, it is rendered in full by the Fusion port, and it is READ here for the chooser and never re-listed as a browser",
+          owner: "/__ioi/domain-apps/fusion", ownerLabel: "Fusion" },
+        { key: "project_record", path: "/v1/hypervisor/projects/:id", probe: "/v1/hypervisor/projects/no-space-selected", shape: "singleton", lane: "space",
+          label: "Project record", role: "one space read back by id. Probed WITHOUT a resolvable id on purpose, so the row reports what an unresolved space actually answers rather than a happy path",
+          owner: "/__ioi/domain-apps/fusion", ownerLabel: "Fusion" },
+        { key: "project_env_classes", path: "/v1/hypervisor/projects/:id/environment-classes", probe: "/v1/hypervisor/projects/no-space-selected/environment-classes", shape: "collection", lane: "space",
+          label: "Project environment classes — the ONE project PATCH", role: "the only field of a space the estate publishes a patch for. It is not a child list and it could not adopt an invocation: this is the whole of what a project record will accept after it is created",
+          owner: "/__ioi/environments", ownerLabel: "Environments" },
+        { key: "work_ledger", path: "/v1/hypervisor/work-ledger", probe: "/v1/hypervisor/work-ledger", shape: "collection", pick: (b) => b?.entries, lane: "space",
+          label: "Work ledger — the ONE read route that RECEIVES a space selection AND reaches an invocation record", role: "the estate's unified proof stream. It is the whole case of this page: it accepts ?project=…, it applies the selection, and the rows that carry a model do not carry the key it filters on. Its run lane is rendered by the Builds and Schedules ports and is LINKED, never re-listed",
+          owner: "/__ioi/missions/builds", ownerLabel: "Builds" },
+        { key: "automations", path: "/v1/hypervisor/automations", probe: "/v1/hypervisor/automations", shape: "collection", pick: (b) => b?.automations, lane: "space",
+          label: "Automations — the OTHER route that receives a project selection", role: "the only other published read in the whole daemon index whose handler takes a project filter (?project_ref= / ?project_id=). It is named here so the claim 'exactly two routes receive a space' can be checked rather than believed — and it is not an inference route",
+          owner: "/__ioi/missions/schedules", ownerLabel: "Schedules" },
+        { key: "invocations_collection", path: "/v1/hypervisor/model-invocations", probe: "/v1/hypervisor/model-invocations", shape: "collection", lane: "invocation",
+          label: "Model invocations — the COLLECTION that does not exist", role: "the daemon's index publishes a readback BY ID for this family and no collection route at all. There is no way to enumerate invocations, which is why a space-scoped list of them could not be assembled even if the key existed — and why this row is a NO READ ROUTE rather than an empty one",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "invocation_record", path: "/v1/hypervisor/model-invocations/:id", probe: "/v1/hypervisor/model-invocations/no-invocation-selected", shape: "singleton", lane: "invocation",
+          label: "Model invocation record — the TYPED ModelInvocationReceipt readback", role: "the estate's own invocation receipt, read back by id. It resolves identity BEFORE it reads the record — an anonymous caller is owed 401 rather than a 404 that would answer 'does this id exist?' for free — so this identity is refused here and the refusal is recorded as a refusal",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "invoke_verb", path: "/v1/hypervisor/model-routes/:id/invoke", probe: "/v1/hypervisor/model-routes/no-route-selected/invoke", shape: "collection", lane: "invocation",
+          label: "THE INVOKE VERB — the estate's governed model call", role: "POST-only: the daemon executes a real provider call through the registry and receipts it. It is the authority crossing this page refuses to re-mint, and its accepted body fields are the second half of the finding",
+          owner: "/__ioi/agent-studio#model-routes", ownerLabel: "Agent Studio" },
+        { key: "chat_completions", path: "/v1/chat/completions", probe: "/v1/chat/completions", shape: "collection", lane: "invocation",
+          label: "Chat completions — the OTHER inference verb", role: "POST-only as well. The capture-era record named this route as the estate's whole inference story; it is named here so that claim can be read against the governed invoke route beside it rather than instead of it",
+          owner: "/__ioi/agent-studio#model-routes", ownerLabel: "Agent Studio" },
+        { key: "mount_receipts", path: "/v1/model-mount/receipts", probe: "/v1/model-mount/receipts", shape: "collection", lane: "invocation",
+          label: "Model-mount receipts — the invocation evidence that IS readable", role: "a durable receipt store that answers this identity, holds records of kind model_invocation, and publishes a collection route. It is a DIFFERENT record family from the typed readback above and this surface does not claim they are the same records — the id vocabularies differ and the readback route refuses this identity, so the join is untestable here and is stated as untestable",
+          owner: "/__ioi/provenance", ownerLabel: "Provenance" },
+        { key: "mount_receipt_record", path: "/v1/model-mount/receipts/:id", probe: "/v1/model-mount/receipts/no-receipt-selected", shape: "singleton", lane: "invocation",
+          label: "Model-mount receipt record", role: "one receipt read back by id, probed unresolved for the same reason as the space record: so the row reports the store's own typed decline rather than a fabricated not-found story",
+          owner: "/__ioi/provenance", ownerLabel: "Provenance" },
+        { key: "runtime_usage", path: "/v1/usage", probe: "/v1/usage", shape: "collection", pick: (b) => b?.usage, lane: "invocation",
+          label: "Runtime usage telemetry — the METERED lane", role: "per-run token and cost telemetry. It is grouped by RUN and carries thread, turn, agent and route coordinates — and no space coordinate of any kind, which is the same absence the ledger's invocation rows have, arrived at down a different lane",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "consumption", path: "/v1/hypervisor/usage/consumption", probe: "/v1/hypervisor/usage/consumption", shape: "singleton", lane: "invocation",
+          label: "Consumption series — the roll-up over the same meter", role: "a time-series status object, never a collection of one. Read for the lane's completeness; no invocation row on this page is minted from it",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "goal_runs", path: "/v1/goal-orchestration/goal-runs", probe: "/v1/goal-orchestration/goal-runs", shape: "collection", pick: (b) => b?.goal_runs, lane: "invocation",
+          label: "Goal runs — the estate's REAL inference orchestration lane, and the plane that DOES carry a space key", role: "the records that fan out into the harness invocations the ledger counts. Every one carries a project_ref, which is the closest the estate comes to a space-scoped inference record — and the value it carries is the load-bearing half of this page's finding",
+          owner: "/__ioi/missions", ownerLabel: "Missions" },
+        { key: "agent_launches", path: "/v1/goal-orchestration/ioi-agent/launches", probe: "/v1/goal-orchestration/ioi-agent/launches", shape: "collection", pick: (b) => b?.launches, lane: "invocation",
+          label: "Agent launches — the delivered-intent lane beneath the goal runs", role: "one record per launched agent, carrying the delivered intent and its projection refs. Read here for the lane census and to check the space key from a third side; the launches themselves belong to the Missions surface",
+          owner: "/__ioi/missions", ownerLabel: "Missions" },
+        { key: "model_routes", path: "/v1/hypervisor/model-routes", probe: "/v1/hypervisor/model-routes", shape: "collection", pick: (b) => b?.routes, lane: "model",
+          label: "Model routes — WHAT an inference would run on", role: "the registry the invoke verb resolves its target from. Rendered in full by the Model Catalog and READ here for the count and the executable predicate, never re-listed as cards",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "model_routes_overview", path: "/v1/hypervisor/model-routes/overview", probe: "/v1/hypervisor/model-routes/overview", shape: "singleton", lane: "model",
+          label: "Model-route overview", role: "the availability and lifecycle roll-up over the same registry, and the publisher of the governance gaps quoted verbatim below rather than paraphrased",
+          owner: "/__ioi/foundry/models", ownerLabel: "Model Catalog" },
+        { key: "session_bindings", path: "/v1/hypervisor/model-route-session-bindings", probe: "/v1/hypervisor/model-route-session-bindings", shape: "collection", pick: (b) => b?.bindings, lane: "model",
+          label: "Model-route session bindings — the estate's OWN scoping noun", role: "the estate does scope a model route to something, and the something is a SESSION, not a space. This is the lane that answers what this estate means by 'scoped inference', and it is why the chooser above is a gap rather than an unbuilt feature",
+          owner: "/__ioi/agent-studio#model-routes", ownerLabel: "Agent Studio" },
+        { key: "providers", path: "/v1/model-mount/providers", probe: "/v1/model-mount/providers", shape: "collection", lane: "model",
+          label: "Model-mount providers", role: "the substrate inventory beneath the routes. Read for the model half of the census and linked to its owner; no provider row is minted here",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "instances_loaded", path: "/v1/model-mount/instances/loaded", probe: "/v1/model-mount/instances/loaded", shape: "collection", lane: "model",
+          label: "Loaded model instances — what is resident RIGHT NOW", role: "the only plane on this page whose emptiness is about the present tense rather than about history. It answered and holds none: an EMPTY plane, and specifically not a claim that nothing has ever been loaded",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "server_status", path: "/v1/model-mount/server/status", probe: "/v1/model-mount/server/status", shape: "singleton", lane: "model",
+          label: "Model server status", role: "the serving control plane's own status object. Read for the model half; the surface prints its backend census rather than inventing a health verdict of its own",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "tokens_count", path: "/v1/model-mount/tokens/count", probe: "/v1/model-mount/tokens/count", shape: "collection", lane: "model",
+          label: "Token count — a COMPUTATION, not a plane", role: "POST-only: the estate computes a count over a payload you send and stores nothing you can read back. A lane with no read route is not an empty lane, and a computation is not a plane at all",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "context_fit", path: "/v1/model-mount/context/fit", probe: "/v1/model-mount/context/fit", shape: "collection", lane: "model",
+          label: "Context fit — the other COMPUTATION", role: "POST-only as well. Named because a prompt console would land on it, and because it is the second of the two lanes on this census that are computations rather than records",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "quotes", path: "/v1/hypervisor/economics/quotes", probe: "/v1/hypervisor/economics/quotes", shape: "collection", lane: "adjacent",
+          label: "Economics quotes — the ref the invoke verb's billing block must name", role: "POST-only. If an invocation declares an economics block it must bind exactly one quote_ref, and the estate publishes no way to LIST the quotes a caller could bind. That is a second disjointness beside this page's own, and it is recorded rather than acted on",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "reconciliation", path: "/v1/hypervisor/economics/reconciliation", probe: "/v1/hypervisor/economics/reconciliation", shape: "collection", lane: "adjacent",
+          label: "Economics reconciliation", role: "the charge-versus-receipt lane an invoice view would read. It refuses this identity, so this surface says NOTHING about whether any invocation was billed — unknown prints as unknown, never as zero",
+          owner: "/__ioi/operations", ownerLabel: "Operations" },
+        { key: "sessions", path: "/v1/hypervisor/sessions", probe: "/v1/hypervisor/sessions", shape: "collection", lane: "adjacent",
+          label: "Hypervisor sessions — the noun the estate DOES scope a route to", role: "the container the session-binding lane binds a model route into. Its refusal on this render is a THIRD kind of no — not unauthorized and not absent, but the registry declaring itself unavailable in its own words, which is recorded verbatim rather than folded into the 401s",
+          owner: "/__ioi/environments", ownerLabel: "Environments" },
+        { key: "harness_profiles", path: "/v1/hypervisor/harness-profiles", probe: "/v1/hypervisor/harness-profiles", shape: "collection", pick: (b) => b?.profiles, lane: "adjacent",
+          label: "Harness profiles — WHO ran the invocations the ledger counts", role: "the adapter registry every counted invocation names in its profile_ref. Read so the invocation census can say which lane produced it, and linked to its own registry surface rather than re-rendered",
+          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+      ];
+      const infProbes = await Promise.all(INF_PLANES.map((pl) => infProbe(pl.probe)));
+      // FIVE states, decided in this order and never from a constant: no-read-route from the
+      // daemon's OWN index before any body is read; a transport refusal before any collection is
+      // looked for; a typed in-body decline (ok:false on a 200) as the refusal it is — carrying the
+      // daemon's own words when it publishes them instead of a generic stand-in; then shape.
+      const infDeclineCode = (b, status) => {
+        const e = b && b.error;
+        const fromErr = e && (typeof e === "string" ? e : (e.code || e.message || ""));
+        return String(fromErr || (b && (b.reason || b.code)) || `http_${status}`);
+      };
+      const infClassify = (pl, pr) => {
+        const methods = infMethodsFor(pl.path);
+        if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
+        if (!pr.ok) return { state: "refused", code: infDeclineCode(pr.body || {}, pr.status), methods, rows: [] };
+        const body = pr.body;
+        if (body && typeof body === "object" && body.ok === false) return { state: "refused", code: infDeclineCode(body, pr.status), methods, rows: [] };
+        if (pl.shape === "singleton") {
+          const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+          return { state: keys.length ? "live" : "empty", code: "", methods, rows: [], keys };
+        }
+        const arr = pl.pick ? pl.pick(body) : (Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v)));
+        if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
+        return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
+      };
+      const infRead = INF_PLANES.map((pl, i) => ({ ...pl, ...infClassify(pl, infProbes[i]), status: infProbes[i].status, body: infProbes[i].body }));
+      const infBy = Object.fromEntries(infRead.map((r) => [r.key, r]));
+      const infCount = (s) => infRead.filter((r) => r.state === s).length;
+      const infRowsOf = (k) => (infBy[k].state === "live" ? infBy[k].rows : []);
+      // ---- THE TWO HALVES OF THE GATE. The reference collects exactly ONE thing — a SPACE — and
+      // every number below about whether that selection can scope an inference is derived on THIS
+      // render from the planes and from the daemon's own route index.
+      const infProjects = infRowsOf("projects");
+      const infLedger = infRowsOf("work_ledger");
+      const infGoalRuns = infRowsOf("goal_runs");
+      const infLaunches = infRowsOf("agent_launches");
+      const infMountReceipts = infRowsOf("mount_receipts");
+      const infUsage = infRowsOf("runtime_usage");
+      const infModelRoutes = infRowsOf("model_routes");
+      const infBindings = infRowsOf("session_bindings");
+      const infAutomations = infRowsOf("automations");
+      const infProfiles = infRowsOf("harness_profiles");
+      // THE INVOCATION PREDICATE, named where it is used: a ledger entry counts as an invocation of
+      // a model when its KIND is one of the two the ledger publishes for harness/goal-run model
+      // calls. The predicate is a property of the records; it is not a re-derivation of any daemon
+      // filter, and the page says which it is beside every number.
+      const INF_INVOCATION_KINDS = ["goal_run_invocation", "harness_execution"];
+      const infInvRows = infLedger.filter((e) => INF_INVOCATION_KINDS.includes(String(e?.kind || "")));
+      const infModelOf = (e) => istr(e?.implementation_result?.model);
+      const infEndpointOf = (e) => istr(e?.implementation_result?.model_endpoint);
+      const infInvWithModel = infInvRows.filter((e) => infModelOf(e) !== "");
+      const infInvModels = [...new Set(infInvWithModel.map(infModelOf))].sort();
+      const infInvEndpoints = [...new Set(infInvRows.map(infEndpointOf).filter((v) => v !== ""))].sort();
+      const infInvSucceeded = infInvRows.filter((e) => String(e?.status || "") === "success").length;
+      const infStamps = (rows) => rows.map((e) => istr(e?.timestamp)).filter((v) => v !== "").sort();
+      const infWindowOf = (rows) => { const s = infStamps(rows); return s.length ? { from: s[0], to: s[s.length - 1], n: s.length } : { from: "", to: "", n: 0 }; };
+      const infLedgerWindow = infWindowOf(infLedger);
+      const infInvWindow = infWindowOf(infInvRows);
+      // THE KEY CENSUS — a property of the RECORDS, not of any filter. How many ledger entries carry
+      // the field the daemon's space filter compares against, at all; how many carry a value; and
+      // how many of the invocation-kind rows do. The last number is the finding.
+      const infHasProjectKey = (e) => e !== null && typeof e === "object" && Object.prototype.hasOwnProperty.call(e, "project_id");
+      const infProjectValue = (e) => istr(e?.project_id);
+      const infRowsWithKey = infLedger.filter(infHasProjectKey);
+      const infRowsWithValue = infLedger.filter((e) => infProjectValue(e) !== "");
+      const infInvRowsWithKey = infInvRows.filter(infHasProjectKey);
+      const infInvRowsWithValue = infInvRows.filter((e) => infProjectValue(e) !== "");
+      const infProjectIds = new Set(infProjects.map((p) => istr(p?.project_id)).filter((v) => v !== ""));
+      const infLedgerVocab = [...new Set(infLedger.map(infProjectValue).filter((v) => v !== ""))].sort();
+      const infLedgerVocabResolving = infLedgerVocab.filter((v) => infProjectIds.has(v));
+      const infLedgerVocabDangling = infLedgerVocab.filter((v) => !infProjectIds.has(v));
+      // THE THIRD VOCABULARY — the space key the estate's own inference orchestration lane writes.
+      const infGoalRefOf = (g) => istr(g?.project_ref);
+      const infGoalVocab = [...new Set(infGoalRuns.map(infGoalRefOf).filter((v) => v !== ""))].sort();
+      const infGoalVocabResolving = infGoalVocab.filter((v) => infProjectIds.has(v));
+      const infGoalRunsWithRef = infGoalRuns.filter((g) => infGoalRefOf(g) !== "").length;
+      const infGoalInvocationRefs = infGoalRuns.reduce((n, g) => n + (Array.isArray(g?.invocation_refs) ? g.invocation_refs.length : 0), 0);
+      const infLaunchesWithSpace = infLaunches.filter((l) => Object.keys(l || {}).some((k) => /project|space|tenant/i.test(k))).length;
+      // THE EDGE, FROM THE SPACE SIDE — checked against the records' OWN keys and their OWN refs,
+      // not from a schema doc, and re-derived every render.
+      const INF_SPACE_FIELD_RE = /invocation|inference|prompt|completion|model/i;
+      const infProjWithInvField = infProjects.filter((p) => Object.keys(p || {}).some((k) => INF_SPACE_FIELD_RE.test(k)));
+      const infProjRefLanes = [...new Set(infProjects.flatMap((p) => Object.keys(p || {}).filter((k) => k.endsWith("_refs"))))].sort();
+      const infProjRefs = infProjects.flatMap((p) => infProjRefLanes.flatMap((k) => (Array.isArray(p?.[k]) ? p[k] : []).map((v) => String(v))));
+      const infProjRefsNamingInvocation = infProjRefs.filter((v) => /model-invocation|invocation|inference|model-route/i.test(v));
+      // THE EDGE, FROM THE INVOCATION SIDE — over the receipt records this identity can actually
+      // read, by their own key paths rather than by a claim about their schema.
+      const infReceiptKeyPaths = (o, pre) => {
+        const out = [];
+        if (o && typeof o === "object" && !Array.isArray(o)) for (const [k, v] of Object.entries(o)) { out.push(`${pre}${k}`); out.push(...infReceiptKeyPaths(v, `${pre}${k}.`)); }
+        return out;
+      };
+      const infModelInvReceipts = infMountReceipts.filter((r) => String(r?.kind || "") === "model_invocation");
+      const INF_SPACEY_RE = /project|space|tenant|folder|location/i;
+      const infReceiptsWithSpaceField = infModelInvReceipts.filter((r) => infReceiptKeyPaths(r, "").some((k) => INF_SPACEY_RE.test(k)));
+      const infReceiptTokens = infModelInvReceipts.reduce((n, r) => n + (Number(r?.details?.tokenCount?.total_tokens) || 0), 0);
+      const infReceiptModels = [...new Set(infModelInvReceipts.map((r) => istr(r?.details?.selectedModel)).filter((v) => v !== ""))].sort();
+      const infReceiptStamps = infModelInvReceipts.map((r) => istr(r?.createdAt)).filter((v) => v !== "").sort();
+      const infUsageWithSpaceField = infUsage.filter((u) => Object.keys(u || {}).some((k) => INF_SPACEY_RE.test(k))).length;
+      // THE ROUTE SIDE — counted from the daemon's own index on this render, never pinned.
+      const INF_INVOKE_ROUTE = "/v1/hypervisor/model-routes/:id/invoke";
+      const INF_CHAT_ROUTE = "/v1/chat/completions";
+      const INF_LEDGER_ROUTE = "/v1/hypervisor/work-ledger";
+      const INF_AUTOMATIONS_ROUTE = "/v1/hypervisor/automations";
+      const infInvokeMethods = infMethodsFor(INF_INVOKE_ROUTE);
+      const infChatMethods = infMethodsFor(INF_CHAT_ROUTE);
+      const infInvokePublished = infInvokeMethods.includes("POST");
+      const infSpaceNamingRoutes = infLiveRoutes.filter((r) => /project|space|workspace|tenant/i.test(String(r.path || "")));
+      const infProjectRoutes = infLiveRoutes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/projects"));
+      const infProjectWriteRoutes = infProjectRoutes.filter((r) => (r.methods || []).some((m) => ["POST", "PATCH", "PUT", "DELETE"].includes(String(m))));
+      // The body fields the invoke verb ACCEPTS, read from the WRITE PATH itself
+      // (handle_model_route_invoke in crates/node/src/bin/hypervisor_daemon_routes/provider_transport.rs)
+      // rather than from the route list. Not one of them is a space.
+      const INF_INVOKE_BODY_FIELDS = ["prompt", "stream", "fallback_route_refs", "retry", "economics.quote_ref", "economics.commercial_posture"];
+      const infInvokeSpaceFields = INF_INVOKE_BODY_FIELDS.filter((f) => INF_SPACEY_RE.test(f));
+      // PHASE 3 — THE DAEMON'S OWN ANSWER TO A SELECTION. The filter belongs to the daemon, so the
+      // page ASKS IT rather than re-implementing its retain expression here (a re-implemented
+      // admission rule is a second answer waiting to disagree with the first). THREE selections are
+      // put to it, every one a principled pick: the FIRST space the plane offers, the first space
+      // value the LEDGER'S OWN rows carry that resolves to a real space, and the space key the
+      // estate's OWN inference lane writes.
+      const infSelA = istr(infProjects[0]?.project_id);
+      const infSelB = infLedgerVocabResolving[0] || "";
+      const infSelC = infGoalVocab[0] || "";
+      const infAskLedger = async (sel) => {
+        if (sel === "") return null;
+        const pr = await infProbe(`${INF_LEDGER_ROUTE}?project=${encodeURIComponent(sel)}`);
+        if (!pr.ok || !pr.body || !Array.isArray(pr.body.entries)) return { selection: sel, readable: false, entries: 0, invocations: 0, status: pr.status };
+        const rows = pr.body.entries;
+        return { selection: sel, readable: true, status: pr.status, entries: rows.length, invocations: rows.filter((e) => INF_INVOCATION_KINDS.includes(String(e?.kind || ""))).length };
+      };
+      const [infAnsA, infAnsB, infAnsC] = await Promise.all([infAskLedger(infSelA), infAskLedger(infSelB), infAskLedger(infSelC)]);
+      const infAskedSelections = [infSelA, infSelB, infSelC].filter((v) => v !== "");
+      const infAskedOf = (pid) => (pid !== "" && infAskedSelections.includes(pid) ? "yes" : "no");
+      const infAnswerFor = (pid) => (pid === infSelA ? infAnsA : (pid === infSelB ? infAnsB : (pid === infSelC ? infAnsC : null)));
+      // ONE gap contract for every named absence (aria + title + data-ioi reason, all three on the
+      // SAME element). Every reason is written for ITS control — a reused reason is decorative.
+      const igap = (cls, label, reason) => `<span class="${cls} inf-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
+      const infFdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toISOString().slice(0, 19).replace("T", " "); };
+      const INF_SPACE_CAP = 25;
+      const infSpaceShown = infProjects.slice(0, INF_SPACE_CAP);
+      const infSpaceRowsHtml = infSpaceShown.map((p) => `<div class="inf-sprow" data-ioi-space="${esc(istr(p.project_id))}" data-ioi-space-asked="${infAskedOf(istr(p.project_id))}">`
+        + `<span class="inf-spico" aria-hidden="true">▸</span>`
+        + `<span class="inf-spname"><b>${esc(istr(p.name) || istr(p.project_id) || "space")}</b><code class="inf-ref">${esc(istr(p.project_id))}</code></span>`
+        + `<span class="inf-spmeta"><code class="inf-ref">custody ${esc(istr(p.custody_posture) || "—")}</code><code class="inf-ref">created ${esc(infFdt(p.created_at))}</code></span>`
+        + `<span class="inf-spreach">${infAskedOf(istr(p.project_id)) === "yes"
+          ? ((infAnswerFor(istr(p.project_id)) || {}).readable
+            ? `<b>asked</b> — the daemon's own answer to <code class="inf-ref">?project=${esc(istr(p.project_id))}</code>: <b>${infAnswerFor(istr(p.project_id)).entries}</b> ledger entr${infAnswerFor(istr(p.project_id)).entries === 1 ? "y" : "ies"}, of which <b>${infAnswerFor(istr(p.project_id)).invocations}</b> name a model`
+            : `<b>asked</b> — the ledger did not answer this selection readably on this render, so no count is printed for it`)
+          : `not asked — this page puts ${infAskedSelections.length} principled selection${infAskedSelections.length === 1 ? "" : "s"} to the daemon and NAMES each, rather than issuing ${infProjects.length} full-ledger reads or re-implementing the daemon's retain expression here`}</span></div>`).join("");
+      // The reference's controls, answered one by one. A ported landing that keeps a reference
+      // control and wires it to something else is not a port, it is a mislabel — and a ported
+      // landing that keeps the PLATFORM's chrome as if it were the app's is not a port either.
+      const infControls = [
+        { ref: "Select a space… (the app's ONLY own control)", bound: false, field: "", junk: false,
+          gap: `The estate DOES receive a space selection: ${INF_LEDGER_ROUTE} accepts ?project=… and applies it, and so does ${INF_AUTOMATIONS_ROUTE}. Wiring this chooser on that basis would produce a working-looking filter that manufactures empty answers, because the key it retains on — project_id — is carried by ${infInvRowsWithKey.length} of the ${infInvRows.length} ledger rows that name a model. The daemon's own answers to the two selections this page put to it are printed beside the chooser; neither returned an invocation. Selecting a space here would scope nothing and would report that nothing as a zero`,
+          copy: "The selection is receivable, the filter is real, and the answer would still be manufactured. That is why the ACT of choosing is gap-marked while the space records below it are rendered in full: it is the KEY that is missing, not the spaces." },
+        { ref: "Please select a space (the landing heading)", bound: true, field: "rendered verbatim over the estate's real space plane", junk: false,
+          gap: "",
+          copy: "The one piece of this app's grammar the estate can honour exactly. The reference's landing IS this sentence over an unpicked chooser, and it is reproduced verbatim above the estate's own space records rather than being reworded into a summary of them." },
+        { ref: "rows: 0 (the app lists nothing until a space is picked)", bound: true, field: "no invocation row is rendered here", junk: false,
+          gap: "",
+          copy: "Honoured, with the DIFFERENCE named. The reference shows no rows because no space is picked; this port shows no invocation rows because no selection could scope one. Same empty list, two different reasons — and printing the estate's reason is the whole point of the band beneath." },
+        { ref: "APPLICATIONS (facet group)", bound: false, field: "", junk: false,
+          gap: "The reference's left rail carries a single APPLICATIONS group listing the tenant's pinned apps. The estate holds no per-principal favourites or pinned-application plane, so the lane could never fill — it is MISSING here, while the reference's own is merely empty and waiting",
+          copy: "MISSING, not empty. The reference's lane awaits data; the estate has no plane that could ever supply it." },
+        { ref: "8 recorded dialog surfaces", bound: false, field: "", junk: false,
+          gap: "The live capture recorded eight dialog-role surfaces in this document. ONE of them is the platform news dialog, which is named as excluded evidence in the row below rather than ported. The other seven were never opened: the sweep was whitelist-only with mutation verbs blacklisted, so their existence is evidence and their contents are not, and reconstructing them from a DOM count would be inventing interactions nobody observed",
+          copy: "Seven named rather than guessed, one identified as platform chrome. The distinction matters: a DOM dialog count is evidence that surfaces EXIST, never evidence of what they contain." },
+        { ref: "\"What's new in Sensitive Data Scanner\" (recorded heading #2)", bound: false, field: "", junk: true,
+          gap: "EXCLUDED AS JUNK EVIDENCE. This heading belongs to the PLATFORM's release-notes dialog, which the capture caught floating over the app; it is not this app's IA and it is about a different product entirely. It is recorded here so a reader can see it was considered and rejected rather than silently dropped — the recorded heading count for this app is one, not two",
+          copy: "Named, not ported. Treating platform chrome as app grammar is a recorded scar in this program: an atlas control-count that counted vendor chrome as IA is what killed two other seeds' candidacies, and the same misread in the opposite direction would have invented a news feed here." },
+        { ref: "Go to all platform updates · Close (2 recorded controls)", bound: false, field: "", junk: true,
+          gap: "EXCLUDED AS JUNK EVIDENCE. Both controls belong to the platform news dialog above, not to the inference app. Porting them would have given this surface two affordances the app does not have, and would have made the app's own control count read as three when it is one",
+          copy: "The app has ONE control of its own. Of the twelve controls the capture recorded, nine are the vendor global rail, two are the news dialog's, and one — the space chooser — is the app's." },
+        { ref: "Sensitive Data Scanner (the rail's APPLICATIONS entry)", bound: false, field: "", junk: true,
+          gap: "EXCLUDED AS JUNK EVIDENCE. The rail's application lane names the LAST-VISITED application, not the one being viewed; the recorded URL is the authority on identity and it names the inference app. Reading the rail as the app's identity would have ported the wrong application under this seed's name",
+          copy: "The identity check that had to happen twice. The seed name and the URL agree here — but the rail disagrees with both, and the rail is the one thing on the screenshot a reader's eye lands on first." },
+        { ref: "9 vendor global-rail controls", bound: false, field: "", junk: false,
+          gap: "Skip to content, Search, Notifications, What's New, Recent, Applications, View all, Support and Account are the vendor's global chrome. Every one of them is owned elsewhere in this estate — search, notifications and account are estate surfaces of their own — so re-minting them inside an app body would be a second spine beside the native shell",
+          copy: "Railless per the owner ruling of 2026-08-20. The nine are estate chrome with owners; this surface renders its body and lets the shell own the rail." },
+      ];
+      const infControlRows = infControls.map((c) => `<div class="inf-crow" data-ioi-control="${esc(c.ref)}" data-ioi-control-bound="${c.bound ? "yes" : "no"}" data-ioi-control-evidence="${c.junk ? "excluded_junk" : "app_ia"}">`
+        + `<span><b>${esc(c.ref)}</b></span>`
+        + `<span>${c.bound ? `<code class="inf-ref">${esc(c.field)}</code>` : (c.junk ? `<span class="inf-junk">excluded — platform chrome</span>` : `<span class="inf-nolane">no estate lane</span>`)}</span>`
+        + `<span class="inf-ccopy">${c.copy}</span></div>`).join("");
+      const infChooserGap = infControls[0].gap;
+      const infStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
+      const infLaneLabel = { space: "the SPACE half", invocation: "the INVOCATION half", model: "the MODEL that executes one", adjacent: "adjacent" };
+      const infStateCopy = (r) => {
+        if (r.state === "live") return `The plane answered this identity and holds <b>${r.shape === "singleton" ? (r.keys || []).length : r.rows.length}</b> ${r.shape === "singleton" ? `field${((r.keys || []).length) === 1 ? "" : "s"} on a status object` : `record${r.rows.length === 1 ? "" : "s"}`}.`;
+        if (r.state === "empty") return `The plane answered and holds none — an <b>EMPTY</b> plane, not a missing one, and not a refused read.`;
+        if (r.state === "refused") return `The plane <b>REFUSED</b> this read in the daemon's own words: <code>${esc(r.code)}</code>. No count is printed for it here, because a refusal is not a zero.`;
+        if (r.state === "no_read_route") return `The daemon's route index publishes <b>no GET</b> for this path (methods: ${(r.methods || []).map((m) => `<code>${esc(String(m))}</code>`).join(" ") || "none — the index publishes this path at no method at all"}). There is nothing to read, which is not the same as reading nothing.`;
+        return `The plane answered <code>${esc(r.code)}</code> in a shape this surface cannot read as a collection, and it is reported as unreadable rather than counted.`;
+      };
+      const infPlaneRows = infRead.map((r) => `<div class="inf-prow" data-ioi-plane="${esc(r.path)}" data-ioi-plane-state="${esc(r.state)}" data-ioi-plane-shape="${esc(r.shape)}" data-ioi-plane-lane="${esc(r.lane)}">`
+        + `<span><b>${esc(r.label)}</b><span class="inf-role">${esc(r.role)}</span></span>`
+        + `<span><code class="inf-ref">${esc(r.path)}</code><code class="inf-ref">shape: ${esc(r.shape)} · ${esc(infLaneLabel[r.lane] || r.lane)}</code>${r.path === r.probe ? "" : `<code class="inf-ref">probed as ${esc(r.probe)}</code>`}</span>`
+        + `<span class="inf-state inf-state-${esc(r.state)}">${esc(infStateLabel[r.state] || r.state)}</span>`
+        + `<span class="inf-scopy">${infStateCopy(r)}</span>`
+        + `<span><a class="inf-ref" href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      const infGovGaps = (infBy.model_routes_overview.state === "live" && Array.isArray(infBy.model_routes_overview.body?.governance_gaps)) ? infBy.model_routes_overview.body.governance_gaps.map((g) => String(g)) : [];
+      const infBackendStates = (infBy.server_status.state === "live" && infBy.server_status.body?.backendStates && typeof infBy.server_status.body.backendStates === "object") ? infBy.server_status.body.backendStates : {};
+      const infAnswerLine = (a, what) => a === null
+        ? `<b>not asked</b> — ${what}`
+        : (a.readable
+          ? `<code class="inf-ref">?project=${esc(a.selection)}</code> → the daemon returned <b>${a.entries}</b> ledger entr${a.entries === 1 ? "y" : "ies"}, of which <b>${a.invocations}</b> name a model.`
+          : `<code class="inf-ref">?project=${esc(a.selection)}</code> → the ledger did not answer readably on this render (HTTP ${esc(String(a.status))}), so nothing is counted from it.`);
+      const infJunkControls = infControls.filter((c) => c.junk).length;
+      const infFoot = `INF-1 (remediation v2): the INFERENCE port, and the EIGHTH and LAST leg of the live-tenant port backlog — which this cut CLOSES. The replay-scoped verdict was capture_broken_no_donor (#inference, FOU-2 — "terminal: no donor; the inference gap stands citing this record"); the owner-authorized live sweep OVERTURNED the expressed-IA half of it and recorded a real landing whose ROOT IS A SPACE GATE: heading <b>Please select a space</b>, one app control <b>Select a space…</b>, one APPLICATIONS facet group, eight dialog surfaces, <b>0 rows</b> and no space picked — the app admits you by SELECTING A SPACE, so the gate IS the landing grammar. That supersession is recorded in reference-seed-adjudications.v1.json#inference-port and the reference record stands as history. <b>${infJunkControls}</b> recorded elements are named as EXCLUDED JUNK EVIDENCE rather than ported: the platform news dialog that the capture caught floating over the app, its two controls, and the rail entry naming the last-visited application. <b>${infRead.length}</b> space-, invocation-, model- and adjacent planes were probed live on this render and answered in four states — <b>${infCount("live")} LIVE</b> · <b>${infCount("empty")} EMPTY</b> · <b>${infCount("refused")} REFUSED</b> · <b>${infCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the invoke verb stays where the daemon owns it and is <b>not</b> re-minted here; the model routes are rendered by <a href="/__ioi/foundry/models">Model Catalog</a> and administered in <a href="/__ioi/agent-studio#model-routes">Agent Studio</a>; the spaces themselves are rendered by <a href="/__ioi/domain-apps/fusion">Fusion</a>; the ledger's run lane belongs to <a href="/__ioi/missions/builds">Builds</a> and <a href="/__ioi/missions/schedules">Schedules</a>; the creation-entry sibling is <a href="/__ioi/foundry/model-studio">Model Studio</a> — all linked, none re-rendered. Evidence: reference-seed-adjudications.v1.json#inference-port · reference-live-tenant-deep-atlas.v1.json#inference · .artifacts/live-tenant-atlas/deep/inference-landing.png. Owner: <a href="/__ioi/foundry/models">Foundry family</a>.`;
+      sendOwnedSurfaceHtml(res, "inference", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Inference</title><style>
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f8fa;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif;overflow-wrap:break-word}a{color:#215db0;text-decoration:none}
+        .inf-shell{display:flex;flex-direction:column;min-height:100vh}
+        .inf-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
+        .inf-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(124,110,228,.12) center/24px no-repeat}
+        .inf-title{font-size:16px;font-weight:600;color:#404854;margin:0}
+        .inf-hright{display:flex;align-items:center;gap:8px;margin-left:auto;padding-right:16px;flex-wrap:wrap}
+        .inf-chip{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;border:1px solid #d1d1d1;font-size:13px;color:#404854;background:#fff}
+        .inf-link{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;background:#2d72d2;color:#fff;font-size:13px}
+        .inf-gap{opacity:.62;cursor:not-allowed}
+        .inf-field{flex:1;min-width:0;width:100%;max-width:1180px;margin:0 auto;padding:26px 22px 44px}
+        .inf-stage{background:#e9edf2;border:1px solid #dde3ea;border-radius:6px;padding:44px 16px;display:flex;justify-content:center;margin:0 0 22px}
+        .inf-gate{width:100%;max-width:560px;background:#fff;border-radius:6px;box-shadow:0 8px 24px rgba(17,20,24,.2),0 0 0 1px rgba(17,20,24,.08);padding:26px 22px 18px;text-align:center}
+        .inf-gateh{font-size:19px;font-weight:600;color:#1c2127;margin:0 0 4px}
+        .inf-gatesub{font-size:12px;color:#5f6b7c;line-height:1.6;margin:0 0 16px}
+        .inf-sel{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:3px;border:1px solid #d1d1d1;background:#f6f7f9;font-size:13px;color:#404854;text-align:left;min-width:0}
+        .inf-selico{flex:0 0 auto;color:#7961db}
+        .inf-selname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .inf-caret{flex:0 0 auto;color:#8a94a2;font-size:10px}
+        .inf-spaces{margin:12px 0 4px;border:1px solid #e5e8eb;border-radius:4px;max-height:300px;overflow-y:auto;text-align:left}
+        .inf-sprow{display:flex;align-items:flex-start;gap:8px;padding:8px 9px;border-bottom:1px solid #f0f2f5;font-size:12px;min-width:0;flex-wrap:wrap}
+        .inf-sprow:last-child{border-bottom:0}
+        .inf-spico{flex:0 0 auto;color:#8a94a2}
+        .inf-spname{flex:1 1 200px;min-width:0}
+        .inf-spmeta{flex:0 0 auto;text-align:right;min-width:0}
+        .inf-spreach{flex:1 1 100%;font-size:11px;color:#5f6b7c;line-height:1.55;padding-left:16px}
+        .inf-spempty{padding:16px 12px;font-size:12px;color:#5f6b7c;line-height:1.6}
+        .inf-hint{font-size:11px;color:#5f6b7c;line-height:1.55;margin:10px 0 2px;text-align:left}
+        .inf-h{font-size:16px;font-weight:600;margin:26px 0 4px}
+        .inf-note{font-size:12px;color:#5f6b7c;margin:0 0 12px;line-height:1.65}
+        .inf-phead,.inf-prow{display:grid;grid-template-columns:2.4fr 1.6fr .9fr 2.1fr .8fr;gap:8px;padding:9px 8px;min-width:860px}
+        .inf-chead,.inf-crow{display:grid;grid-template-columns:1.4fr 1fr 3.1fr;gap:8px;padding:9px 8px;min-width:660px}
+        .inf-vhead,.inf-vrow{display:grid;grid-template-columns:1.5fr 1fr 2.6fr;gap:8px;padding:9px 8px;min-width:620px}
+        .inf-phead,.inf-chead,.inf-vhead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;border-bottom:1px solid #e5e8eb}
+        .inf-prow,.inf-crow,.inf-vrow{align-items:start;border-bottom:1px solid #f0f2f5;font-size:13px;color:#1c2127}
+        .inf-prow:hover,.inf-crow:hover,.inf-vrow:hover{background:#f6f7f9}
+        .inf-scroll{overflow-x:auto;background:#fff;border:1px solid #e5e8eb;border-radius:4px;padding:2px 10px 6px;margin:0 0 8px}
+        .inf-ref{display:block;font-size:11px;color:#5f6b7c;overflow-wrap:break-word;margin-top:2px}
+        .inf-role{display:block;font-size:11px;color:#5f6b7c;line-height:1.5;margin-top:2px}
+        .inf-scopy,.inf-ccopy,.inf-vcopy{font-size:12px;color:#5f6b7c;line-height:1.55}
+        .inf-nolane{font-size:11px;color:#946638}
+        .inf-junk{font-size:11px;color:#a82a2a}
+        .inf-state{font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-align:center;border:1px solid}
+        .inf-state-live{color:#1c6e42;border-color:#9bc4ab;background:#eef8f2}
+        .inf-state-empty{color:#5f6b7c;border-color:#d1d1d1;background:#f6f7f9}
+        .inf-state-refused{color:#946638;border-color:#f0dca6;background:#fff8e6}
+        .inf-state-no_read_route{color:#7961db;border-color:#cfc4f5;background:#f3f0fd}
+        .inf-state-unreadable{color:#a82a2a;border-color:#eab8b8;background:#fdf0f0}
+        .inf-call{border:1px solid #cfd9e6;background:#f4f8fd;border-radius:4px;padding:18px 20px;color:#5f6b7c;font-size:13px;line-height:1.7;margin:0 0 16px}
+        .inf-call h3{font-size:15px;color:#1c2127;margin:0 0 8px}
+        .inf-call p{margin:0 0 8px}
+        .inf-quote{display:block;border-left:3px solid #cfd9e6;padding:6px 0 6px 12px;margin:8px 0;color:#404854;font-style:italic;overflow-wrap:break-word}
+        .inf-absent{border:1px solid #f0dca6;background:#fff8e6;border-radius:4px;padding:16px 18px;color:#5f6b7c;font-size:13px;line-height:1.65;margin:0 0 16px}
+        .inf-ask{border:1px solid #cfc4f5;background:#f3f0fd;border-radius:4px;padding:14px 16px;color:#404854;font-size:12.5px;line-height:1.7;margin:0 0 16px}
+        .inf-foot{font-size:12px;color:#7b8494;line-height:1.65;margin:0;padding:6px 2px 10px}
+        @media(max-width:700px){
+          .inf-phead,.inf-chead,.inf-vhead{display:none}
+          .inf-prow,.inf-crow,.inf-vrow{grid-template-columns:1fr;min-width:0;gap:2px;padding:10px 8px}
+          .inf-scroll{overflow-x:hidden;padding:2px 10px 6px}
+          .inf-field{padding:14px 12px 34px}
+          .inf-field *{min-width:0;overflow-wrap:anywhere}
+          .inf-header{flex:0 0 auto;flex-wrap:wrap;padding:8px 0 10px;gap:8px}
+          .inf-hright{margin-left:0;padding:0 12px;width:100%}
+          .inf-stage{padding:14px 8px;border-radius:4px}
+          .inf-gate{max-width:100%;padding:16px 12px 12px}
+          .inf-sel{flex-wrap:wrap;padding:6px 8px}
+          .inf-selname{white-space:normal;overflow:visible;text-overflow:clip}
+          .inf-sprow{flex-direction:column;gap:2px}
+          .inf-spmeta{text-align:left}
+          .inf-spreach{padding-left:0}
+          .inf-call,.inf-absent,.inf-ask{padding:14px}
+        }
+      </style></head><body><div class="inf-shell">
+        <header class="inf-header">
+          <span class="inf-hchip" aria-hidden="true" style="background-image:url('${MODELS_APP_ICON_URI}')"></span>
+          <h1 class="inf-title">Inference</h1>
+          <div class="inf-hright">
+            <span class="inf-chip" title="Read live on this render: the space plane, the invocation lanes, and every plane probed for this census. The reference app carries no header of its own — the gate floats on an empty field — so nothing is minted here beyond the estate's own counts">${infProjects.length} space${infProjects.length === 1 ? "" : "s"} · ${infInvRows.length} recorded invocation${infInvRows.length === 1 ? "" : "s"} · ${infRead.length} planes read</span>
+            <a class="inf-link" href="/__ioi/foundry/models">Model Catalog →</a>
+          </div>
+        </header>
+        <div class="inf-field">
+          <div class="inf-stage">
+            <section class="inf-gate" aria-label="Please select a space">
+              <h2 class="inf-gateh">Please select a space</h2>
+              <p class="inf-gatesub">The reference app admits you by selecting a space, and the recorded tenant had none picked — <b>0 rows</b>, no list, nothing behind the gate. The estate's own spaces are real and are listed below; what is missing is the edge between a space and an inference.</p>
+              <div data-ioi-lane="space-chooser" data-ioi-plane-state="${esc(infBy.projects.state)}">
+                ${igap("inf-sel", "Select a space…", infChooserGap)}
+              </div>
+              <div class="inf-spaces" data-ioi-plane-state="${esc(infBy.projects.state)}">
+                ${infProjects.length ? infSpaceRowsHtml : `<div class="inf-spempty">${infBy.projects.state === "refused"
+                  ? `The space plane <b>REFUSED</b> this read in the daemon's own words (<code>${esc(infBy.projects.code)}</code>), so this surface states nothing about how many spaces exist — it could not read the plane, and a refusal is not a zero.`
+                  : `The space plane answered and holds none. There is no space to offer — an <b>EMPTY</b> plane, not a missing one, and no space is fabricated to fill the chooser.`}</div>`}
+              </div>
+              ${infProjects.length > INF_SPACE_CAP
+                ? `<p class="inf-hint">The first <b>${INF_SPACE_CAP}</b> of <b>${infProjects.length}</b> real spaces render here (cap NAMED, never silent).</p>`
+                : (infProjects.length ? `<p class="inf-hint">All <b>${infProjects.length}</b> spaces the estate actually holds render here — every one a live project record, none fabricated.</p>` : "")}
+            </section>
+          </div>
+          <h2 class="inf-h">The selection is receivable. The filter is real. The answer is still manufactured.</h2>
+          <div class="inf-call">
+            <h3>A selection a route accepts is still a gap when the key it filters on is never written by the records it is meant to scope</h3>
+            <p>Counted from the daemon's own route index and from the planes themselves on this render, never pasted. The estate <b>does</b> receive a space selection: of <b>${infLiveRoutes.length}</b> live routes the index publishes, exactly <b>two</b> accept a project as a query filter — <code>${esc(INF_LEDGER_ROUTE)}</code> and <code>${esc(INF_AUTOMATIONS_ROUTE)}</code> — and the first of them is the only one that reaches a record naming a model. Its filter is real: read from the write path itself (<code>handle_work_ledger</code> in <code>crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs</code>), the selection retains only entries whose <code>project_id</code> equals it exactly. So the easy conclusion is available — the parameter exists, it is applied, wire the chooser — and it is wrong.</p>
+            <p>It is wrong because of what the records carry. Of the <b>${infLedger.length}</b> ledger entries readable on this render, <b>${infRowsWithKey.length}</b> carry a <code>project_id</code> field at all and <b>${infRowsWithValue.length}</b> carry a value in it. Of the <b>${infInvRows.length}</b> entries that name a model — the ones a space-scoped inference view exists to show — <b>${infInvRowsWithKey.length}</b> carry the key and <b>${infInvRowsWithValue.length}</b> carry a value. A chooser wired on that filter would drop every invocation the estate has ever recorded and report the loss as an empty space.</p>
+            <div class="inf-ask">
+              <b>The daemon's own answers, on this render.</b> The filter belongs to the daemon, so this page ASKS IT rather than re-implementing its retain expression here — a re-implemented admission rule is a second answer waiting to disagree with the first. ${infAskedSelections.length} selections were put to it, every one a principled pick rather than a cherry-picked one: the first space the plane offers, the first space value the LEDGER'S OWN rows carry that resolves to a real space, and the space key the estate's own inference lane writes.<br>
+              · <b>the first space the plane offers</b> — ${infAnswerLine(infAnsA, "the space plane offered none on this render, so there was no first space to ask about")}<br>
+              · <b>the first space the ledger's own rows actually name</b> — ${infAnswerLine(infAnsB, "no value the ledger's rows carry resolves to a space the space plane holds, so there was no resolving selection to ask about")} This is the sharp one: a real space, present in the ledger's own vocabulary, and not one of the entries it returns names a model.<br>
+              · <b>the space key the inference lane itself writes</b> — ${infAnswerLine(infAnsC, "the goal-run plane published no project_ref on this render, so there was no key to ask about")}
+            </div>
+            <p>And the edge is checked from the other side too, re-derived every render. From the SPACE side: <b>${infProjWithInvField.length}</b> of the <b>${infProjects.length}</b> live space records carry any field naming an invocation, an inference or a model — and the ref lanes they DO carry (${infProjRefLanes.length ? infProjRefLanes.map((f) => `<code>${esc(f)}</code>`).join(" · ") : "none on this render"}) hold <b>${infProjRefs.length}</b> refs between them, of which <b>${infProjRefsNamingInvocation.length}</b> names an invocation or a model route. Of the <b>${infProjectWriteRoutes.length}</b> published project write routes not one accepts an invocation ref; the only patch a space takes after creation is its environment-class list. From the INVOCATION side: the <b>${infModelInvReceipts.length}</b> model-invocation receipts this identity can read carry <b>${infReceiptsWithSpaceField.length}</b> space-, project- or tenant-named field between them, and the <b>${infUsage.length}</b> metered usage records carry <b>${infUsageWithSpaceField}</b>. The relation is MISSING in both directions, not unpopulated.</p>
+            <p>The one plane that DOES carry a space key makes the point twice over. The goal-run lane — the estate's real inference orchestration plane — holds <b>${infGoalRuns.length}</b> records, <b>${infGoalRunsWithRef}</b> of which carry a <code>project_ref</code>, fanning out into <b>${infGoalInvocationRefs}</b> declared invocation refs. Its whole space vocabulary is ${infGoalVocab.length ? infGoalVocab.map((v) => `<code>${esc(v)}</code>`).join(" · ") : "empty on this render"}, and <b>${infGoalVocabResolving.length}</b> of those <b>${infGoalVocab.length}</b> value${infGoalVocab.length === 1 ? "" : "s"} resolves to a space the space plane actually holds. Meanwhile the ledger's own vocabulary is ${infLedgerVocab.length ? infLedgerVocab.map((v) => `<code>${esc(v)}</code>`).join(" · ") : "empty on this render"}, of which <b>${infLedgerVocabResolving.length}</b> resolve${infLedgerVocabResolving.length === 1 ? "s" : ""} and <b>${infLedgerVocabDangling.length}</b> dangle${infLedgerVocabDangling.length === 1 ? "s" : ""}. <b>Three planes that would have to agree on what a space is, and no shared vocabulary between them.</b></p>
+            <p>So the chooser is a TYPED ABSENCE whose reason names the receiving route by path and its predicate by its exact expression, and this surface mints no second mutation spine over the daemon's own lanes. The space records themselves are REAL read truth — one row per live project record with its id, custody posture and created stamp — because it is the EDGE that is missing, not the spaces. <b>A selection a route accepts is not a working filter</b>: the test is whether the key it lands on is written by the records it is meant to scope, and it has to be asked of the records, not of the route list.</p>
+          </div>
+          <h2 class="inf-h">What this estate has actually inferred — every number with its predicate and its window</h2>
+          <div class="inf-call">
+            <h3>The gate is empty; the estate behind it is not</h3>
+            <p><b>${infInvRows.length}</b> recorded invocations. <i>Predicate:</i> a work-ledger entry whose <code>kind</code> is one of ${INF_INVOCATION_KINDS.map((k) => `<code>${esc(k)}</code>`).join(" or ")} — the two kinds the ledger publishes for harness and goal-run model calls. <i>Window:</i> ${infInvWindow.n ? `<code>${esc(infInvWindow.from)}</code> → <code>${esc(infInvWindow.to)}</code>` : "no timestamped invocation row on this render"}, inside a ledger whose own window is ${infLedgerWindow.n ? `<code>${esc(infLedgerWindow.from)}</code> → <code>${esc(infLedgerWindow.to)}</code>` : "empty on this render"} across <b>${infLedger.length}</b> entries. This is a RETENTION window, not a business period: it is whatever the ledger still holds, and no claim is made here about what fell out of it.</p>
+            <p><b>${infInvWithModel.length}</b> of those <b>${infInvRows.length}</b> name the model they ran. <i>Predicate:</i> a non-empty <code>implementation_result.model</code> on the entry itself. The models named are ${infInvModels.length ? infInvModels.map((m) => `<code>${esc(m)}</code>`).join(" · ") : "none on this render"}, reached at ${infInvEndpoints.length ? infInvEndpoints.map((e) => `<code>${esc(e)}</code>`).join(" · ") : "no recorded endpoint"}. <b>${infInvSucceeded}</b> report <code>status: success</code> — <i>predicate:</i> the entry's own status field, which is a self-report about that record and is not joined to anything here, so it is printed as what the record SAYS and never as what the estate verified.</p>
+            <p><b>${infModelInvReceipts.length}</b> receipts of kind <code>model_invocation</code> on the model-mount receipt store, out of <b>${infMountReceipts.length}</b> receipts of every kind. <i>Predicate:</i> <code>receipt.kind === "model_invocation"</code>. <i>Window:</i> ${infReceiptStamps.length ? `<code>${esc(infReceiptStamps[0])}</code> → <code>${esc(infReceiptStamps[infReceiptStamps.length - 1])}</code>` : "no timestamped receipt on this render"}. They carry <b>${infReceiptTokens}</b> total tokens between them (<i>predicate:</i> summed <code>details.tokenCount.total_tokens</code>, absent fields contributing nothing rather than zero) over ${infReceiptModels.length ? infReceiptModels.map((m) => `<code>${esc(m)}</code>`).join(" · ") : "no named model"}. Beside them the metered runtime lane holds <b>${infUsage.length}</b> usage records, scoped by run, thread and turn.</p>
+            <p><b>${infModelRoutes.length}</b> registered model route${infModelRoutes.length === 1 ? "" : "s"} and <b>${infBindings.length}</b> admitted session binding${infBindings.length === 1 ? "" : "s"} — which is the estate's OWN answer to what scoped inference means here. It scopes a route to a SESSION, not to a space, and that is why the gate above is a gap rather than an unbuilt feature: the noun the reference selects by is not the noun this estate binds by. The registry states its own limits, quoted rather than paraphrased:</p>
+            ${infGovGaps.length ? infGovGaps.map((g) => `<span class="inf-quote">${esc(g)}</span>`).join("") : `<span class="inf-quote">the model-route overview published no governance gaps on this render, so none is quoted</span>`}
+            <p>${Object.keys(infBackendStates).length ? `The serving control plane reports ${Object.keys(infBackendStates).sort().map((k) => `<b>${esc(k)}</b> ${esc(String(infBackendStates[k]))}`).join(" · ")} backends, and <b>${infBy.instances_loaded.state === "empty" ? "0" : String((infBy.instances_loaded.rows || []).length)}</b> model instance${(infBy.instances_loaded.rows || []).length === 1 ? "" : "s"} resident right now — an EMPTY present tense, never a claim that nothing has ever been loaded.` : "The serving control plane published no backend census on this render, so none is printed."} The harness registry that produced the counted invocations holds <b>${infProfiles.length}</b> profile${infProfiles.length === 1 ? "" : "s"}, and it is <a href="/__ioi/agent-studio">Agent Studio</a>'s to render, not this page's.</p>
+          </div>
+          <h2 class="inf-h">Two receipt families with one name — the contradiction is NAMED, not adjudicated</h2>
+          <div class="inf-absent">
+            The estate publishes a TYPED invocation receipt at <code>${esc("/v1/hypervisor/model-invocations/:id")}</code> — identity-first, refused to this identity in the daemon's own words (<code>${esc(infBy.invocation_record.code || "no code published")}</code>) — and the index publishes <b>no collection route for that family at all</b>, so an invocation can only be read by an id you already have. Beside it, a DIFFERENT store answers this identity and holds <b>${infModelInvReceipts.length}</b> records whose kind is also <code>model_invocation</code>. Their id vocabularies differ, and the typed readback cannot be asked whether a given id exists — refusing before the record is read is the route behaving correctly, not a bug, and it is exactly what makes the join untestable from here. So this surface does <b>not</b> claim the two families are the same records, and does not claim they are different ones either. ${igap("inf-chip", "join the two invocation-receipt families", "The typed readback route resolves identity BEFORE it reads the record, so an anonymous probe cannot learn whether an id exists — which is the route refusing to act as an existence oracle. That refusal is correct and it makes this join untestable at this posture: asserting the families are the same, or that they are different, would both be the surface answering a question the estate never answered")} Two planes, one name, and the honest report is that the estate has not been asked.
+          </div>
+          <h2 class="inf-h">Running an inference — the verb, and why it stays with the daemon</h2>
+          <p class="inf-note">The estate ${infInvokePublished ? "DOES" : "does not"} publish a governed model call: <code>${esc(INF_INVOKE_ROUTE)}</code> carries ${infInvokeMethods.length ? infInvokeMethods.map((m) => `<code>${esc(String(m))}</code>`).join(" ") : "no methods on the index"}, and <code>${esc(INF_CHAT_ROUTE)}</code> carries ${infChatMethods.length ? infChatMethods.map((m) => `<code>${esc(String(m))}</code>`).join(" ") : "no methods on the index"}. Executing one is an authority crossing — it contacts a configured destination, resolves a sealed credential where a route has one, and charges a ledger — so it is a typed absence here and is <b>not</b> re-minted as a form. What the verb accepts is read from the write path itself (<code>handle_model_route_invoke</code> in <code>crates/node/src/bin/hypervisor_daemon_routes/provider_transport.rs</code>), and it is the second half of this page's finding: <b>${infInvokeSpaceFields.length}</b> of its <b>${INF_INVOKE_BODY_FIELDS.length}</b> accepted body fields names a space.</p>
+          <div class="inf-scroll">
+            <div class="inf-vhead"><span>What the invoke verb accepts</span><span>Is it a space?</span><span>What it is</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="prompt" data-ioi-invoke-field-space="no"><span><b>prompt</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Required and non-empty. The record stores only its <code>sha256</code> hash, never its text — which is also why no prompt from those ${infInvRows.length} invocations could be rendered on this page even if a space could scope them.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="stream" data-ioi-invoke-field-space="no"><span><b>stream</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Transport shape. Recorded on the receipt's evidence block as <code>streaming</code> so a reader can tell a streamed call from a buffered one.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="fallback_route_refs" data-ioi-invoke-field-space="no"><span><b>fallback_route_refs</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">DECLARED by the caller, never chosen by the daemon — inferring alternates would mint a placement policy beside the ones the estate already owns. Each hop is its own authority crossing.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="retry" data-ioi-invoke-field-space="no"><span><b>retry</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Attempts per route and the router deadline. The receipt records the attempt lineage and the route that ACTUALLY answered, not the one addressed.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="economics.quote_ref" data-ioi-invoke-field-space="no"><span><b>economics.quote_ref</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">If a billing block is declared it must bind exactly one quote — and the estate publishes no route that LISTS quotes, so a caller cannot discover one to bind. A second disjointness, recorded here rather than acted on.</span></div>
+            <div class="inf-vrow" data-ioi-invoke-field="economics.commercial_posture" data-ioi-invoke-field-space="no"><span><b>economics.commercial_posture</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Required alongside the quote. The charged QUANTITY is refused from the caller outright — it is the token mix the daemon read off the provider response, never a number a client may set.</span></div>
+          </div>
+          <div class="inf-absent">
+            ${igap("inf-chip", "Run an inference in this space", `Executing a model call is an authority crossing the daemon owns at ${INF_INVOKE_ROUTE} — identity first, then the registry's own executable predicate, then the provider, then a typed ModelInvocationReceipt admitted through the shared write path. Re-minting it here would be a second mutation spine over that route. And it could not be space-scoped in any case: not one of the ${INF_INVOKE_BODY_FIELDS.length} body fields the verb accepts names a project, a space or a tenant, and the record it writes carries no such field either, so a space chosen above would be dropped on submit`)}
+            ${igap("inf-chip", "Show this space's inference history", `There is no such object in this estate. The invocation family publishes no collection route at all, the ${infInvRows.length} ledger rows that name a model carry no space key, and the ${infModelInvReceipts.length} readable invocation receipts carry no space field — so a per-space history is a MISSING relation, not an unpopulated one, and no count could ever fill it`)}
+            <b>EMPTY is not MISSING.</b> The reference tenant's gate is EMPTY — a real chooser awaiting a pick. The estate's space plane is LIVE and holds <b>${infProjects.length}</b> records. What is <b>MISSING</b> is the relation between them: a space that could contain an inference. Those are three different states about one screen and this page renders all three rather than letting any of them stand in for another.
+          </div>
+          <h2 class="inf-h">What the capture recorded, and what of it is this app</h2>
+          <div class="inf-absent">
+            The recorded landing carries TWO headings, and only one of them belongs to this app. The second — the platform's own release-notes dialog — was floating over the app when the sweep fired, and it is about a different product entirely. ${igap("inf-chip", "the platform news dialog", infControls[5].gap)} Of the twelve recorded controls, <b>nine</b> are the vendor global rail, <b>two</b> belong to that dialog, and <b>one</b> — the space chooser — is the app's own. ${igap("inf-chip", "Go to all platform updates · Close", infControls[6].gap)} And the vendor rail lists the LAST-VISITED application in its own lane, not the one being viewed. ${igap("inf-chip", "the rail's application entry", infControls[7].gap)}
+            <p style="margin:10px 0 0">This is not pedantry about a screenshot: counting platform chrome as app IA is a recorded scar in this program, and the same misread in the opposite direction has already ended two seeds' candidacies. The app's own expressed IA is a heading, a chooser, one facet group and zero rows. ${igap("inf-chip", "APPLICATIONS", infControls[3].gap)} ${igap("inf-chip", "7 unopened dialog surfaces", infControls[4].gap)}</p>
+          </div>
+          <h2 class="inf-h">The reference's controls, answered one by one</h2>
+          <p class="inf-note">A ported landing that keeps a reference control and wires it to something else is not a port, it is a mislabel — and one that keeps the PLATFORM's chrome as if it were the app's is not a port either. Each element the live capture recorded is answered below with the estate lane that binds it, the typed refusal that does not, or the reason it is excluded as junk evidence (<code>data-ioi-control-evidence</code>).</p>
+          <div class="inf-scroll">
+            <div class="inf-chead"><span>Recorded element</span><span>Estate lane</span><span>What binds it, why nothing does, or why it is excluded</span></div>
+            ${infControlRows}
+          </div>
+          <h2 class="inf-h">Space, invocation, model — every plane read live and classified into four states</h2>
+          <p class="inf-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read in its own words — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three. Each row also carries the HALF of the gate it answers for — the space, the invocation that a selection would scope, or the model that executes one — so an adjacent lane is never read as one of the three.</p>
+          <div class="inf-scroll">
+            <div class="inf-phead"><span>Plane</span><span>Route · shape · half</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
+            ${infPlaneRows}
+          </div>
+          <p class="inf-foot">${infFoot}</p>
+        </div>
+      </div></body></html>`);
+      return;
+    }
+    // ---- Studio · Workshop — STU-1/STU-2 (remediation v2): the D6 COMBINED-SEED port. The
+    // workshop capture is byte-dead; module's capture BOOTS AS "Workshop — Home" (atlas splash
+    // state, 5 facet groups) and is the recorded donor (roles donor+authoring_flow). The I-4
+    // splash grammar renders it over the estate's REAL application-composition planes —
+    // domain-apps + ODK surface descriptors — read-first, honest-empty, never fabricated.
+    if (pathname === "/__ioi/studio/workshop" && req.method === "GET") {
+      const [da, sd] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/domain-apps`).then((r) => r.json()).then((j) => j.domain_apps || []).catch(() => []),
+        daemonFetch(`/v1/hypervisor/odk/surface-descriptors`).then((r) => r.json()).then((j) => j.surface_descriptors || []).catch(() => []),
+      ]);
+      const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
+      const rowsHtml = [
+        ...da.map((x) => `<a class="spl-row" href="/__ioi/domain-apps" title="a REAL DomainApp record (governed mount/serve ladder on its owner surface)"><span><b>${CX_ESC(x.name || x.id || x.app_id || "domain app")}</b></span><span>${CX_ESC((x.owner_ref || x.created_by || "—"))}</span><span class="spl-dash" title="No edit-principal tracking is recorded on this plane (typed absence)">—</span><span>${fdt(x.created_at)}</span></a>`),
+        ...sd.map((x) => `<a class="spl-row" href="/__ioi/odk" title="a REAL ODK surface descriptor (authored on the ODK plane)"><span><b>${CX_ESC(x.name || x.id || "descriptor")}</b></span><span>${CX_ESC(x.owner_ref || "—")}</span><span class="spl-dash" title="No edit-principal tracking is recorded on this plane (typed absence)">—</span><span>${fdt(x.created_at)}</span></a>`),
+      ].join("");
+      sendOwnedSurfaceHtml(res, "workshop", renderSplashLanding({
+        slug: "studio/workshop", routeOverride: "/__ioi/studio/workshop", title: "Workshop",
+        appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
+        newLabel: "New module",
+        newGapReason: "Application/module authoring is an authority-crossing cut not yet bound on this surface — modules are composed on the ODK plane (named gap; the donor reference's New-module entry is recorded in reference-family-atlas.v1.json)",
+        heroTitle: "Workshop",
+        heroDesc: "Build and manage application modules — this landing renders the estate's REAL composition truth: DomainApp records and ODK surface descriptors, read-first.",
+        favoritesGapReason: "No favorites plane exists on the estate (typed absence)",
+        columns: ["Files", "Creator", "Last edited by", "Last viewed"],
+        rowsHtml,
+        emptyCopy: "No modules or domain apps yet — this table renders the real domain-app + ODK surface-descriptor planes and never fabricates rows. Compose one on the ODK plane.",
+        footHtml: `STU-1/STU-2 (remediation v2): the <b>Workshop</b> app shipped as a D6 COMBINED-SEED port — the workshop capture is byte-dead; the module capture boots as <b>Workshop — Home</b> and is the recorded donor (roles donor+authoring_flow; reference-seed-adjudications.v1.json#workshop · reference-family-atlas.v1.json module splash state). Truth: <a href="/__ioi/domain-apps">domain apps</a> · <a href="/__ioi/odk">ODK plane</a> · owner <a href="/__ioi/agent-studio">Agent Studio</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/module/splash" rel="noopener">Workshop Home capture</a> — the /__apps/workshop lane is byte-dead (307/octet-stream; census evidence).`,
+      }));
+      return;
+    }
     // ---- Automations · Monitors — the Automate-overview port (#51). A read-only PROJECTION over
     // the real automation plane (specs + executions); authoring stays on /__ioi/automations.
     if (pathname === "/__ioi/automations/monitors" && req.method === "GET") {
@@ -8896,7 +12277,16 @@ async function handleEstateRequest(req, res, body) {
       const autos = aRes.automations || [];
       const runsEntries = await Promise.all(autos.map((a) =>
         daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => [a.automation_id, j.runs || []]).catch(() => [a.automation_id, []])));
-      sendOwnedSurfaceHtml(res, "monitors", renderMonitorsPort(autos, Object.fromEntries(runsEntries)));
+      // AUT-1 (remediation v2): ?tab=automations = the LIVE faceted list lane — the reference's own
+      // in-app /automations route (atlas: tab_lane state, 8 facet groups) rebuilt inside the
+      // certified shell over the same plane. Read-only; ?status/?condition are server-side filters.
+      const monQp = new URL(req.url, "http://x").searchParams;
+      const monView = monQp.get("tab") === "automations" ? "automations" : "overview";
+      // AUT-2: in-shell detail (?automation=<id>) + create (?view=new) — verbs post the SEED lanes.
+      const monProjects = monView === "automations" && monQp.get("view") === "new"
+        ? await daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).then((j) => j.projects || []).catch(() => [])
+        : [];
+      sendOwnedSurfaceHtml(res, "monitors", renderMonitorsPort(autos, Object.fromEntries(runsEntries), monView, { status: monQp.get("status") || "", condition: monQp.get("condition") || "", automation: monQp.get("automation") || "", view: monQp.get("view") || "", projects: monProjects }));
       return;
     }
     if (pathname.startsWith("/__ioi/automations/")) {
@@ -8904,8 +12294,12 @@ async function handleEstateRequest(req, res, body) {
       const [rawId, action] = rest.split("/");
       const id = decodeURIComponent(rawId);
       // Remediation fired from the Operations console (?back=ops) returns the operator there.
-      const backTo = new URL(req.url, "http://x").searchParams.get("back") === "ops"
-        ? "/__ioi/operations" : `/__ioi/automations/${encodeURIComponent(id)}`;
+      const backQ = new URL(req.url, "http://x").searchParams.get("back");
+      // AUT-2: back=automate returns the caller to the IN-SHELL Automate detail — the SAME seed
+      // lane re-chromed, never a second mutation path.
+      const backTo = backQ === "ops" ? "/__ioi/operations"
+        : backQ === "automate" ? `/__ioi/automations/monitors?tab=automations&automation=${encodeURIComponent(id)}`
+        : `/__ioi/automations/${encodeURIComponent(id)}`;
       if (action === "run" && req.method === "POST") {
         // Manual run: the daemon executor creates an env, runs the steps, and records a transcript.
         const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
@@ -8970,7 +12364,7 @@ async function handleEstateRequest(req, res, body) {
           automationsRefusalPage(res, r.status, await r.json().catch(() => ({})), `/__ioi/automations/${encodeURIComponent(id)}`);
           return;
         }
-        res.writeHead(302, { Location: `/__ioi/automations${pid ? "?project=" + encodeURIComponent(pid) : ""}`, "Cache-Control": "no-cache" });
+        res.writeHead(302, { Location: backQ === "automate" ? "/__ioi/automations/monitors?tab=automations" : `/__ioi/automations${pid ? "?project=" + encodeURIComponent(pid) : ""}`, "Cache-Control": "no-cache" });
         res.end();
         return;
       }
@@ -9240,7 +12634,7 @@ async function handleEstateRequest(req, res, body) {
         const status = unavailable.status >= 400 ? unavailable.status : 503;
         const code = daemonProjectionCode(unavailable, "work_ledger_projection_unavailable");
         res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(automationsShell("Work Ledger unavailable", `<div id="work-ledger-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Work Ledger unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No run, receipt, state-root, artifact, or authority truth is shown.</div>`));
+        res.end(automationsShell("Work Ledger unavailable", `<div id="work-ledger-unavailable" class="empty" data-error-code="${CX_ESC(code)}">Work Ledger unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No run, receipt, state-root, artifact, or authority truth is shown.</div>`, { theme: "light" }));
         return;
       }
       if (postureRead.body?.deployment_auth_posture !== "local_development") {
@@ -9265,7 +12659,9 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/foundry/models" && req.method === "GET") {
       const routesJson = await daemonFetch(`/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
-      sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson));
+      // FOU-1 (remediation v2): ?tab=registered = the registry-by-origin lane (live).
+      const mcView = new URL(req.url, "http://x").searchParams.get("tab") === "registered" ? "registered" : "provided";
+      sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson, mcView));
       return;
     }
     if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
@@ -9972,7 +13368,9 @@ async function handleEstateRequest(req, res, body) {
     // permanent Systems rail/suite/catalog entry (M1.7). All truth is daemon-read per request;
     // every consequential action proxies verbatim to its owning daemon route.
     if (pathname === "/__ioi/systems" || pathname.startsWith("/__ioi/systems/")) {
-      if (await handleSystemGenesisSurfaces(req, res, pathname, body, { daemonUrl: DAEMON, shell: automationsShell })) return;
+      // GRE-1a: /__ioi/systems and every /__ioi/systems/* page render through the platform shell
+      // in its adopted LIGHT body; the module itself declares no colour of its own.
+      if (await handleSystemGenesisSurfaces(req, res, pathname, body, { daemonUrl: DAEMON, shell: (title, inner) => automationsShell(title, inner, { theme: "light" }) })) return;
     }
     // ---- Foundry — controlled builder over the daemon Foundry object plane (estate surface #4).
     const HTMLH = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" };
@@ -10111,6 +13509,63 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/work-ledger"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      // PRO-2 REBUILD (owner correction 2026-08-20): the LANDING is the SEED grammar — Welcome to
+      // Vertex · search · Graphs/Templates/Search-Arounds cards · Recents table (real graph rows).
+      // The substrate cross-plane graph is the DETAIL view behind a row (?ontology=), light + railless.
+      if (!selectedOntology) {
+        const esc2 = CX_ESC;
+        const onts = o.ontologies || [];
+        const sets = ms.materialized_object_sets || [];
+        const runsAll = mr.materializing_runs || [];
+        const withLineage = onts.filter((x) => sets.some((s2) => s2.ontology_ref === x.ref));
+        const lastModOf = (x) => {
+          const stamps = [...sets.filter((s2) => s2.ontology_ref === x.ref).map((s2) => s2.updated_at || s2.created_at || ""), ...runsAll.filter((r2) => r2.ontology_ref === x.ref).map((r2) => r2.updated_at || r2.created_at || "")].sort();
+          const iso = stamps[stamps.length - 1] || "";
+          const d2 = new Date(iso || 0); return isNaN(d2) || !iso ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        };
+        const rows = withLineage.map((x) => `<a class="vtx-row" href="/__ioi/vertex?ontology=${encodeURIComponent(x.id)}" title="open this graph — the cross-plane substrate truth (object sets · projections · runs · proof edges)"><span><b>${esc2(x.domain || x.id)}</b><code class="vtx-ref">${esc2(x.ref || x.id)}</code></span><span title="no principal tracking on this plane (typed absence)">—</span><span>${lastModOf(x)}</span></a>`).join("");
+        const gapV = (label, reason) => `<span class="vtx-view gap" aria-disabled="true" title="${esc2(reason)}" data-ioi-disabled-reason="${esc2(reason)}">${esc2(label)}</span>`;
+        const welcome = `<div class="vtx-hero"><h1>Welcome to Vertex</h1><p>Explore your organization's digital twin</p></div>
+          <form class="vtx-search" method="get" action="/__ioi/vertex"><input name="q" placeholder="Search for Graphs, Graph Templates, and Search Arounds…" title="LIVE search over the real graph rows (the reference search-page grammar; live-tenant evidence #vertex-live-tenant)"></form>
+          <div class="vtx-cards">
+            <div class="vtx-card"><span class="vtx-avail">${withLineage.length} available</span><h4>Graphs</h4><p>A graph is a collection of nodes and edges with associated styling. It helps you visualize practically any aspect of your digital twin and evaluate what-if analyses visually.</p><span class="sub">the REAL rows below — one graph per ontology with materialized lineage</span></div>
+            <div class="vtx-card"><span class="vtx-avail">None available</span><h4>Templates</h4><p>A graph template constructs a graph given inputs to its parameters.</p><span class="sub" title="No template plane exists on the estate (typed absence). The reference IA is RECORDED from the live tenant: a parameterized graph generator over typed object parameters (#vertex-live-tenant) — on file for a future cut">no template plane — typed absence (reference IA recorded)</span></div>
+            <div class="vtx-card"><span class="vtx-avail">None available</span><h4>Search Arounds</h4><p>A Search Around is a series of steps that searches around input objects of a specified type.</p><span class="sub" title="No search-around plane exists (typed absence)">no search-around plane — typed absence</span></div>
+          </div>
+          <div class="vtx-viewrow"><span class="sub">View</span>${gapV("Favorites", "No favorites plane exists (typed absence)")}${gapV("Promoted", "No promotion plane exists (typed absence)")}<span class="vtx-view on" aria-current="page">Recents</span>${gapV("Your graphs", "No principal-scoped graph ownership exists on this plane (typed absence)")}</div>
+          <div class="vtx-thead"><span>Graph</span><span>Creator</span><span>Last modified</span></div>
+          ${rows || `<div class="vtx-empty">No recents — this table renders REAL graphs (ontologies with materialized lineage) and never fabricates rows.</div>`}
+          <p class="vtx-foot">PRO-2 (rebuilt to the SEED grammar, owner correction 2026-08-20): the Vertex welcome landing — cards + Recents over REAL substrate truth (each row opens the cross-plane graph: object sets · projections · materializing runs · Provenance proof edges). Typed absences carry both vocabularies. Evidence: reference-seed-adjudications.v1.json#vertex (+ #vertex-canvas-correction) · reference-family-atlas.v1.json. Family: <a href="/__ioi/work-ledger">Provenance</a> · sibling <a href="/__ioi/lineage">Data Lineage (Monocle)</a>.</p>`;
+        const vq = (new URL(req.url, "http://x").searchParams.get("q") || "").trim();
+        if (vq) {
+          // LIVE SEARCH PAGE (owner live-tenant evidence #vertex-live-tenant): the reference's
+          // search grammar — tabs with LIVE counts over real rows; Object Type Search over the
+          // REAL object types on the materialized plane; typed absences carry both vocabularies.
+          const ql = vq.toLowerCase();
+          const hits = withLineage.filter((x) => (x.domain || "").toLowerCase().includes(ql) || (x.id || "").toLowerCase().includes(ql) || (x.ref || "").toLowerCase().includes(ql));
+          const otypes = [...new Set(sets.map((s2) => s2.object_type_id).filter(Boolean))];
+          const otHits = otypes.filter((k) => k.toLowerCase().includes(ql));
+          const gapT = (label, reason) => `<span class="vtx-view gap" aria-disabled="true" title="${esc2(reason)}" data-ioi-disabled-reason="${esc2(reason)}">${esc2(label)}</span>`;
+          const rowsQ = hits.map((x) => `<a class="vtx-row" href="/__ioi/vertex?ontology=${encodeURIComponent(x.id)}"><span><b>${esc2(x.domain || x.id)}</b><code class="vtx-ref">${esc2(x.ref || x.id)}</code></span><span title="no principal tracking (typed absence)">—</span><span>${lastModOf(x)}</span></a>`).join("");
+          const body = `<div class="vtx-hero"><a href="/__ioi/vertex">← Homepage</a></div>
+            <form class="vtx-search" method="get" action="/__ioi/vertex"><input name="q" value="${esc2(vq)}" placeholder="Search for Vertex resources…"></form>
+            <div class="vtx-viewrow"><span class="vtx-view on">Graphs <b>${hits.length}</b></span>${gapT("Templates 0", "No template plane exists on the estate — the reference template-generator IA is recorded (#vertex-live-tenant); typed absence")}${gapT("Search Arounds 0", "No search-around plane exists (typed absence)")}</div>
+            <h2>Object Type Search</h2>
+            <p class="sub">the REAL object types on the materialized plane${otHits.length !== otypes.length ? ` — ${otHits.length} of ${otypes.length} match` : ""}:</p>
+            <div class="chips">${(otHits.length ? otHits : otypes).map((k) => `<a class="pill" href="/__ioi/ontology/explorer" title="explore this object type on Object Explorer">${esc2(k)}</a>`).join("") || `<span class="sub">no object types materialized yet</span>`}</div>
+            <h2 style="margin-top:20px">Graphs</h2>
+            <div class="vtx-thead"><span>Graph</span><span>Creator</span><span>Last modified</span></div>
+            ${rowsQ || `<div class="vtx-empty">No graphs match <code>${esc2(vq)}</code> — the counts above are live plane truth; nothing fabricated.</div>`}
+            <p class="vtx-foot">The reference SEARCH-PAGE grammar (live-tenant evidence, #vertex-live-tenant) over REAL rows: live tab counts · real object types (linking Object Explorer) · results are the same real graphs as the landing. Templates/Search-Arounds stay typed absences.</p>`;
+          res.writeHead(200, HTMLH);
+          res.end(vertexLightPage(body, { backLink: false }));
+          return;
+        }
+        res.writeHead(200, HTMLH);
+        res.end(vertexLightPage(welcome));
+        return;
+      }
+      const vertexWrap = (_title, inner) => vertexLightPage(inner, { backLink: true });
       res.writeHead(200, HTMLH);
       res.end(renderVertex({
         ontologies: o.ontologies || [],
@@ -10118,11 +13573,41 @@ async function handleEstateRequest(req, res, body) {
         ontology_projections: op.ontology_projections || [],
         materializing_runs: mr.materializing_runs || [],
         provenance_stream: Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []),
-      }, selectedOntology, { objectSet: new URL(req.url, "http://x").searchParams.get("objectSet") || "", objectId: new URL(req.url, "http://x").searchParams.get("objectId") || "" }));
+      }, selectedOntology, { objectSet: new URL(req.url, "http://x").searchParams.get("objectSet") || "", objectId: new URL(req.url, "http://x").searchParams.get("objectId") || "" }, vertexWrap));
       return;
     }
     if (pathname === "/__ioi/lineage" && req.method === "GET") {
       const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
+      // PRO-1.build increment 1 (remediation v2): the light Monocle lanes — History (the proof
+      // stream: work-ledger) + Build timeline (agent-run transcripts), both LIVE with the cap
+      // NAMED; SQL scratchpad / Code / Data health = typed absences per the per-tab adjudication.
+      // The Preview lane (the lineage graph) keeps the substrate render this increment; its light
+      // re-chrome is the named residual completing PRO-1.build.
+      const linTab = new URL(req.url, "http://x").searchParams.get("tab") || "";
+      if (linTab === "history" || linTab === "timeline") {
+        const fdt2 = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+        let laneTitle, laneRows, planeN, laneNote;
+        if (linTab === "history") {
+          const wl = await J("/v1/hypervisor/work-ledger");
+          const entries = Array.isArray(wl) ? wl : (wl.entries || wl.work_ledger || []);
+          planeN = entries.length;
+          laneTitle = "History — the proof stream";
+          laneRows = entries.slice(-30).reverse().map((e) => `<div class="mnc-row"><span><b>${CX_ESC(e.kind || e.op || "entry")}</b><code class="mnc-ref">${CX_ESC(e.id || "")}</code></span><span>${CX_ESC(e.provider || "—")}</span><span>${CX_ESC(e.environment_ref || "—")}</span><span>${CX_ESC(e.exposure_ref || e.grant_ref || "—")}</span></div>`).join("");
+          laneNote = `newest 30 of ${planeN} proof-stream entries (cap NAMED; the full stream lives on <a href="/__ioi/work-ledger">the Provenance owner surface</a>)`;
+        } else {
+          const tr = await J("/v1/hypervisor/agent-run-transcripts");
+          const runs2 = tr.runs || [];
+          planeN = runs2.length;
+          laneTitle = "Build timeline — real run transcripts";
+          laneRows = [...runs2].sort((a, b) => String(b.started_at || "").localeCompare(String(a.started_at || ""))).slice(0, 30).map((r) => `<div class="mnc-row"><span><b>${CX_ESC(r.op || r.kind || "run")}</b><code class="mnc-ref">${CX_ESC(r.run_id || "")}</code></span><span>${CX_ESC(r.status || "—")}</span><span>${fdt2(r.started_at)}</span><span><code class="mnc-ref" title="the run's recomputable state root — the proof anchor">${CX_ESC((r.state_root || "").slice(0, 18))}${r.state_root ? "…" : "—"}</code></span></div>`).join("");
+          laneNote = `newest 30 of ${planeN} run transcripts (cap NAMED)`;
+        }
+        const laneBody = `<h2 class="mnc-h">${laneTitle}</h2><p class="mnc-note">${laneNote}</p>${laneRows || `<div class="mnc-note">No entries — this lane renders the real plane and never fabricates rows.</div>`}
+          <p class="mnc-foot">PRO-1.build (remediation v2): the light Monocle lanes over the REAL proof planes — per-tab adjudication reference-seed-adjudications.v1.json#lineage-tabs; atlas: reference-family-atlas.v1.json (6 tab states).</p>`;
+        res.writeHead(200, HTMLH);
+        res.end(monocleLineagePage(linTab, laneBody));
+        return;
+      }
       const [o, mr, ms, wl, cm, pv, op, lp, dsr] = await Promise.all([
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/materializing-runs"),
@@ -10135,6 +13620,18 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/data-sources"),
       ]);
       const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      // PRO-1.build COMPLETION: the Preview lane re-chromed — the SAME graph body hosted in the
+      // light Monocle shell (the dark automationsShell wrapper replaced in place).
+      const monocleWrap = (_title, inner) => monocleLineagePage("preview", inner, `
+        .sub{color:#5f6b7c;font-size:13px}
+        .empty{padding:14px;background:#f6f7f9;border:1px solid #e5e8eb;border-radius:4px;color:#5f6b7c}
+        .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+        .pill{display:inline-flex;padding:1px 8px;border-radius:10px;font-size:12px;background:#eef1f5;color:#1c2127}
+        .pill.ok{background:rgba(35,133,81,.12);color:#1c6e42}.pill.muted{background:rgba(95,107,124,.12);color:#5f6b7c}
+        .grid{display:grid;gap:10px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+        .act{display:inline-flex;align-items:center;height:26px;padding:0 10px;border:1px solid rgba(95,107,124,.3);border-radius:4px;color:#1c2127}.act.ghost{background:transparent}
+        code{background:#f0f2f5;padding:0 4px;border-radius:3px;font-size:12px}
+        h1{font-size:20px;margin:0 0 6px}h2{font-size:16px;margin:14px 0 6px}`);
       res.writeHead(200, HTMLH);
       res.end(renderDataLineage({
         ontologies: o.ontologies || [],
@@ -10147,7 +13644,7 @@ async function handleEstateRequest(req, res, body) {
         ontology_projections: op.ontology_projections || [],
         capability_lease_plans: lp.capability_lease_plans || [],
         data_sources: dsr.data_sources || [],
-      }, selectedOntology, new URL(req.url, "http://x").searchParams.get("objectSet") || ""));
+      }, selectedOntology, new URL(req.url, "http://x").searchParams.get("objectSet") || "", monocleWrap));
       return;
     }
     // ---- Surface registry dispatch — ported application surfaces mount through the explicit

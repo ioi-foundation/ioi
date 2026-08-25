@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.hypervisor.auth-factor-receipt.v1",
+  "receipt_id": "afr_0123456789abcdef",
+  "receipt_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "ceremony_id": "pkc_0123456789abcdef",
+  "principal_id": "operator-42",
+  "principal_ref": "user://operator-42",
+  "factor_kind": "passkey",
+  "credential_id_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "user_verification": "required_and_verified",
+  "purpose": "standing_effect_authority",
+  "effect_authority_created": false,
+  "created_at": "2026-08-22T15:04:00Z"
+}

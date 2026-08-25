@@ -102,6 +102,18 @@ jobs:
       - name: Test the shipped Hypervisor daemon
         run: cargo test --locked -p ioi-node --bin hypervisor-daemon
 
+      - name: Verify passkey identity remains separate from effect authority
+        run: |
+          npm run check:device-custody-boundary
+          npm run mutate:device-custody-boundary
+          npm run check:secret-custody-profile
+          npm run mutate:secret-custody-profile
+          npm run check:standing-authority
+          npm run mutate:standing-authority
+          npm run test:authority-trajectory-admission
+          npm run check:authority-trajectory-admission
+          npm run mutate:authority-trajectory-admission
+
       # A green verifier certifies nothing until a MUTATION proves it red on its own finding. Every
       # anchor is a replayable second-admission path planted in the daemon's own source, with the
       # assertion it must turn red named beside it — and the harness re-derives the population pins
@@ -256,12 +268,11 @@ jobs:
           npm run check:studio-journey --workspace=@ioi/hypervisor-app
           npm run check:packages-journey --workspace=@ioi/hypervisor-app
           npm run check:automations-journey --workspace=@ioi/hypervisor-app
-          npm run check:applications-journey --workspace=@ioi/hypervisor-app
-          npm run check:systems-journey --workspace=@ioi/hypervisor-app
+          npm run check:skill-contracts --workspace=@ioi/hypervisor-app
+          npm run check:goal-profile-contracts --workspace=@ioi/hypervisor-app
           npm run check:launch-chain --workspace=@ioi/hypervisor-app
-          npm run check:work-cockpit --workspace=@ioi/hypervisor-app
-          npm run check:home-cockpit --workspace=@ioi/hypervisor-app
-          npm run check:operations-cockpit --workspace=@ioi/hypervisor-app
+          npm run check:session-authority --workspace=@ioi/hypervisor-app
+          npm run check:landing-designations --workspace=@ioi/hypervisor-app
           npm run check:projects-saga --workspace=@ioi/hypervisor-app
           npm run check:provider-transport --workspace=@ioi/hypervisor-app
           npm run check:model-route-authority --workspace=@ioi/hypervisor-app
@@ -269,10 +280,37 @@ jobs:
           npm run check:backup-restore --workspace=@ioi/hypervisor-app
           npm run check:environment-custody --workspace=@ioi/hypervisor-app
           npm run check:env-lease-authority --workspace=@ioi/hypervisor-app
+          npm run check:command-execution-guardrails --workspace=@ioi/hypervisor-app
+          npm run check:enforcement-coverage-producer --workspace=@ioi/hypervisor-app
+          npm run check:runtime-tool-contract-admission --workspace=@ioi/hypervisor-app
+          npm run check:provider-proposal-provenance --workspace=@ioi/hypervisor-app
           npm run check:operational-depth --workspace=@ioi/hypervisor-app
           npm run check:ontology-backend-families --workspace=@ioi/hypervisor-app
           npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
           npm run check:named-gap-truth --workspace=@ioi/hypervisor-app
+          npm run check:governed-effect-assurance-floor --workspace=@ioi/hypervisor-app
+
+      - name: Verify the product-shell safety and native-container contracts
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: |
+          product_data_dir=$(mktemp -d)
+          IOI_HYPERVISOR_DATA_DIR="$product_data_dir" target/debug/hypervisor-daemon > /tmp/ioi-product-daemon.log 2>&1 &
+          product_daemon_pid=$!
+          npm run serve:product-ui --workspace=@ioi/hypervisor-app > /tmp/ioi-product-ui.log 2>&1 &
+          product_ui_pid=$!
+          trap 'kill "$product_ui_pid" "$product_daemon_pid" 2>/dev/null || true; rm -r "$product_data_dir"' EXIT
+          for attempt in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:4173/__ioi/applications >/dev/null && break
+            if [ "$attempt" -eq 60 ]; then
+              cat /tmp/ioi-product-daemon.log
+              cat /tmp/ioi-product-ui.log
+              exit 1
+            fi
+            sleep 1
+          done
+          npm run check:app-runtime-safety --workspace=@ioi/hypervisor-app
+          npm run check:native-shell --workspace=@ioi/hypervisor-app
 
       # The floor the verifier family never had. Every verifier above is pinned at the number of
       # assertions it actually EXECUTED; deleting assertions from any of them was silently green
@@ -319,7 +357,11 @@ jobs:
   aft_formal_floor:
     name: AFT Formal Floor
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A clean cache must download the proof toolchain, discharge every TLAPS
+    # obligation, and exhaust the registered TLC state spaces. The previous
+    # 30-minute job cap cancelled that complete floor after all cheap gates had
+    # passed; cancellation is neither a proof failure nor acceptable evidence.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:

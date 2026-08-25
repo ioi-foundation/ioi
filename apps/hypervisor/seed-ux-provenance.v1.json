@@ -715,7 +715,7 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/provenance/lineage.v1.json",
-          "class": "substrate_bound",
+          "class": "reference_ported",
           "seed_role": "baseline"
         },
         {
@@ -730,7 +730,7 @@
             "complete_interaction_route_graph": true
           },
           "graph_file": "seed-graphs/provenance/vertex.v1.json",
-          "class": "substrate_bound",
+          "class": "reference_ported",
           "seed_role": "baseline"
         },
         {

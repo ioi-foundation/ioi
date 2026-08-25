@@ -86,11 +86,14 @@
     // applications + workspaces bands are daemon registration records; the ported band is the
     // demoted evidence lane (implementation evidence, zero catalog authority).
     const compiledRow = (s) => {
-      // Prefer the legacy lane that serves this surface today (embedded open); else the
-      // canonical route (top navigation). No target → disabled row with the named reason.
+      // GRE-2 (owner ruling 2026-08-20): CONTAINER-FIRST — the platform session rail is the ONE
+      // rail, so applications open in the embedded container. The seeded canonical routes now
+      // serve raw railless documents (family landings / tagged 302s to the designated shells),
+      // which embed cleanly. Top navigation is reserved for the SPA shell itself (/ai) — the one
+      // target that cannot nest.
       const target = (s.open_today && s.open_today.href) || (s.launchable ? (s.launch_route || s.route) : "") || "";
       const pill = s.launchable ? "open" : esc((s.disabled_reason_codes || [])[0] || "not launchable");
-      const top = target && target.indexOf("/__ioi/") !== 0 ? ' data-nav="top"' : "";
+      const top = (target === "/ai" || target === "/projects") ? ' data-nav="top"' : ""; // /projects IS the shell — embedding it nests the SPA into itself (blank frame; stage-2 sweep find)
       return '<div class="ioi-mrow' + (target ? "" : " disabled") + '"' + (target ? ' data-href="' + target + '" data-name="' + esc(s.name) + '"' + top : "") +
         '><span>' + (s.icon || "◳") + '</span><span><div class="ioi-mname">' + esc(s.name) + '</div><div class="ioi-mdesc">' + esc(s.desc || "") + (s.route ? " · " + esc(s.route) : "") + '</div></span><span class="ioi-mpill">' + pill + "</span></div>";
     };

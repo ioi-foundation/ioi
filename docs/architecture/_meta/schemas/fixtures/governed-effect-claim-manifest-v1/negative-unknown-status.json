@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.components.hypervisor.governed-effect-claim-manifest.v1",
+  "manifest_ref": "claim-manifest://c8/certificate-1",
+  "manifest_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "subject_ref": "certificate://c8/certificate-1",
+  "subject_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "protection_profile": "development_cooperative",
+  "claims": [
+    {
+      "claim_id": "worker_secret_non_possession_tested",
+      "status": "probably_demonstrated",
+      "evidence_refs": [],
+      "limitation_note": "Unknown assurance language must fail schema validation."
+    }
+  ],
+  "source_basis_refs": [
+    {
+      "ref": "git-commit://ioi/900bc8ad640aaf18e091a13aae33204c104f51b6",
+      "hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "generated_at": "2026-08-22T12:00:00Z"
+}

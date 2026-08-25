@@ -7,16 +7,20 @@
 //! the host checkout is never the workspace and stays untouched. The toolchain (cloud-hypervisor,
 //! guest kernel, initramfs+guest-agent) is pinned + sha256-verified at boot (G2 supply chain):
 //! a checksum mismatch fails closed. Provision it with scripts/phase1/provision-vm-toolchain.sh.
+use std::collections::BTreeMap;
 use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::os::unix::net::UnixStream;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     admit_guest_transfer_len, UNBOUNDED_GUEST_TRANSFER_GATE,
 };
+use ioi_types::app::generated::architecture_contracts::HypervisorVmEnforcementDeclarationV1;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -27,9 +31,140 @@ pub(crate) struct VmSpec {
     pub vcpus: u32,
     pub mem_mib: u32,
     pub run_dir: PathBuf,
+    /// Workload-bound hostile-guest profile: the guest receives no network device. A future
+    /// brokered network lane must be a different, admitted profile; silently attaching a NIC to
+    /// this one would turn direct provider egress back on.
+    pub network_device_count: u32,
+    /// Host filesystems and control sockets are never attached to this guest. Workspace bytes
+    /// cross only through the bounded import/export protocol below.
+    pub host_mount_count: u32,
+    pub host_control_socket_count: u32,
+    /// Present only for a VM minted for one admitted WorkRun. Generic environment VMs remain
+    /// environment-scoped and must not claim fresh-per-workload containment.
+    pub workload_binding: Option<WorkloadVmBinding>,
     // The vsock UDS path. MUST be short (≤108 bytes, SUN_LEN) regardless of how deep the data dir
     // is — the workspace/serial live under run_dir, but the socket rides a short path.
     pub sock_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct WorkloadVmBinding {
+    pub workrun_ref: String,
+    pub isolation_binding_ref: String,
+    pub isolation_binding_hash: String,
+    pub principal_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct VmEnforcementDeclaration {
+    pub schema_version: &'static str,
+    pub backend: &'static str,
+    pub guest_kernel_boundary: bool,
+    pub fresh_instance: bool,
+    pub instance_scope: &'static str,
+    pub workrun_ref: Option<String>,
+    pub isolation_binding_ref: Option<String>,
+    pub isolation_binding_hash: Option<String>,
+    pub principal_ref: Option<String>,
+    pub network_policy: &'static str,
+    pub network_device_count: u32,
+    pub host_mount_count: u32,
+    pub host_control_socket_count: u32,
+    pub guest_channel: &'static str,
+    pub output_policy: &'static str,
+}
+
+impl VmSpec {
+    /// Refuse a weakened launch before the monitor process exists. These are observed launch
+    /// inputs, not a caller-authored label.
+    fn enforce_hostile_guest_floor(&self) -> Result<(), String> {
+        if self.network_device_count != 0 {
+            return Err("workload_boundary_network_device_refused".into());
+        }
+        if self.host_mount_count != 0 {
+            return Err("workload_boundary_host_mount_refused".into());
+        }
+        if self.host_control_socket_count != 0 {
+            return Err("workload_boundary_host_control_socket_refused".into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn enforcement_declaration(
+        &self,
+        backend: &'static str,
+    ) -> Result<VmEnforcementDeclaration, String> {
+        self.enforce_hostile_guest_floor()?;
+        let binding = self.workload_binding.as_ref();
+        let declaration = VmEnforcementDeclaration {
+            schema_version: "ioi.components.hypervisor.vm-enforcement-declaration.v1",
+            backend,
+            guest_kernel_boundary: true,
+            fresh_instance: binding.is_some(),
+            instance_scope: if binding.is_some() {
+                "fresh_per_workrun"
+            } else {
+                "environment_scoped"
+            },
+            workrun_ref: binding.map(|value| value.workrun_ref.clone()),
+            isolation_binding_ref: binding.map(|value| value.isolation_binding_ref.clone()),
+            isolation_binding_hash: binding.map(|value| value.isolation_binding_hash.clone()),
+            principal_ref: binding.map(|value| value.principal_ref.clone()),
+            network_policy: "deny_all_no_virtual_nic",
+            network_device_count: self.network_device_count,
+            host_mount_count: self.host_mount_count,
+            host_control_socket_count: self.host_control_socket_count,
+            guest_channel: "host_initiated_vsock_uds_bounded",
+            output_policy: "bounded_regular_file_archive_quarantine",
+        };
+        let value = serde_json::to_value(&declaration)
+            .map_err(|error| format!("VM enforcement declaration serialization: {error}"))?;
+        serde_json::from_value::<HypervisorVmEnforcementDeclarationV1>(value)
+            .map_err(|error| format!("VM enforcement declaration contract: {error}"))?;
+        Ok(declaration)
+    }
+
+    pub(crate) fn bind_workload(
+        &mut self,
+        workrun_ref: &str,
+        isolation_binding_ref: &str,
+        isolation_binding_hash: &str,
+        principal_ref: &str,
+    ) -> Result<(), String> {
+        if !workrun_ref.starts_with("workrun://")
+            || !isolation_binding_ref.starts_with("workload-isolation-binding://")
+            || !isolation_binding_hash.starts_with("sha256:")
+            || isolation_binding_hash.len() != 71
+            || !principal_ref.starts_with("principal://")
+            || [
+                workrun_ref,
+                isolation_binding_ref,
+                isolation_binding_hash,
+                principal_ref,
+            ]
+            .iter()
+            .any(|value| value.chars().any(char::is_whitespace))
+        {
+            return Err("workload_vm_binding_invalid".into());
+        }
+        self.workload_binding = Some(WorkloadVmBinding {
+            workrun_ref: workrun_ref.to_string(),
+            isolation_binding_ref: isolation_binding_ref.to_string(),
+            isolation_binding_hash: isolation_binding_hash.to_string(),
+            principal_ref: principal_ref.to_string(),
+        });
+        Ok(())
+    }
+
+    pub(crate) fn workload_bound_enforcement_declaration(
+        &self,
+        backend: &'static str,
+    ) -> Result<VmEnforcementDeclaration, String> {
+        if self.workload_binding.is_none() {
+            return Err("workload_vm_binding_required".into());
+        }
+        self.enforcement_declaration(backend)
+    }
 }
 
 /// A short, SUN_LEN-safe vsock socket path that still carries the env id (so orphan-VM detection
@@ -87,6 +222,25 @@ pub(crate) struct VmHandle {
 pub(crate) struct ExecOut {
     pub exit_code: i32,
     pub output: String,
+}
+
+/// Make the VMM die if the daemon process that spawned it disappears. The child checks `getppid`
+/// after arming `PR_SET_PDEATHSIG` to close the race where the parent dies between `fork` and
+/// `prctl`. This is a host cleanup primitive, not guest cooperation.
+fn arm_monitor_parent_death(cmd: &mut Command) {
+    unsafe {
+        cmd.pre_exec(|| {
+            if libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL) != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            if libc::getppid() == 1 {
+                return Err(std::io::Error::other(
+                    "monitor parent disappeared before parent-death signal was armed",
+                ));
+            }
+            Ok(())
+        });
+    }
 }
 
 /// A byte stream to the guest agent: the CH/Firecracker UDS hybrid, or a direct AF_VSOCK socket
@@ -521,6 +675,10 @@ pub(crate) fn build_vm_spec(
         vcpus,
         mem_mib,
         run_dir,
+        network_device_count: 0,
+        host_mount_count: 0,
+        host_control_socket_count: 0,
+        workload_binding: None,
         sock_path,
     })
 }
@@ -565,6 +723,7 @@ impl VmMonitor for CloudHypervisorMonitor {
     }
 
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
+        spec.enforce_hostile_guest_floor()?;
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
         let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
@@ -573,8 +732,8 @@ impl VmMonitor for CloudHypervisorMonitor {
         let log2 = log
             .try_clone()
             .map_err(|e| format!("serial log clone: {e}"))?;
-        let child = Command::new(&spec.monitor_bin)
-            .arg("--kernel")
+        let mut cmd = Command::new(&spec.monitor_bin);
+        cmd.arg("--kernel")
             .arg(&spec.kernel)
             .arg("--initramfs")
             .arg(&spec.initramfs)
@@ -592,7 +751,9 @@ impl VmMonitor for CloudHypervisorMonitor {
             .arg(format!("size={}M", spec.mem_mib.max(256)))
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
-            .stderr(Stdio::from(log2))
+            .stderr(Stdio::from(log2));
+        arm_monitor_parent_death(&mut cmd);
+        let child = cmd
             .spawn()
             .map_err(|e| format!("spawn cloud-hypervisor: {e}"))?;
         let pid = child.id();
@@ -616,6 +777,7 @@ impl VmMonitor for FirecrackerMonitor {
     }
 
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
+        spec.enforce_hostile_guest_floor()?;
         std::fs::create_dir_all(&spec.run_dir).map_err(|e| format!("vm run_dir: {e}"))?;
         let uds = spec.sock_path.clone();
         let serial_log = spec.run_dir.join("serial.log");
@@ -637,15 +799,15 @@ impl VmMonitor for FirecrackerMonitor {
         let log2 = log
             .try_clone()
             .map_err(|e| format!("serial log clone: {e}"))?;
-        let child = Command::new(&spec.monitor_bin)
-            .arg("--no-api")
+        let mut cmd = Command::new(&spec.monitor_bin);
+        cmd.arg("--no-api")
             .arg("--config-file")
             .arg(&config)
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
-            .stderr(Stdio::from(log2))
-            .spawn()
-            .map_err(|e| format!("spawn firecracker: {e}"))?;
+            .stderr(Stdio::from(log2));
+        arm_monitor_parent_death(&mut cmd);
+        let child = cmd.spawn().map_err(|e| format!("spawn firecracker: {e}"))?;
         let pid = child.id();
         let mut vm = VmHandle {
             child,
@@ -672,6 +834,7 @@ impl VmMonitor for QemuMonitor {
     }
 
     fn start(&self, spec: &VmSpec) -> Result<VmHandle, String> {
+        spec.enforce_hostile_guest_floor()?;
         // QEMU compat/diagnostic lane — a REAL boot (microvm machine + qboot firmware + the MMIO
         // guest kernel + vhost-vsock-device). Fails CLOSED with a precise reason if the qemu binary
         // is absent or /dev/vhost-vsock is not openable (group kvm) — never a fake boot.
@@ -749,6 +912,7 @@ impl VmMonitor for QemuMonitor {
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log2));
+        arm_monitor_parent_death(&mut cmd);
         let child = cmd.spawn().map_err(|e| format!("spawn qemu: {e}"))?;
         let pid = child.id();
         let mut vm = VmHandle {
@@ -813,9 +977,11 @@ fn tar_path(header: &[u8]) -> Result<PathBuf, String> {
         return Err("tar member has no path".into());
     }
     let path = PathBuf::from(joined);
+    let mut normalized = PathBuf::new();
     for component in path.components() {
         match component {
-            std::path::Component::Normal(_) | std::path::Component::CurDir => {}
+            std::path::Component::Normal(part) => normalized.push(part),
+            std::path::Component::CurDir => {}
             _ => {
                 return Err(format!(
                     "tar member escapes extraction root: {}",
@@ -824,13 +990,27 @@ fn tar_path(header: &[u8]) -> Result<PathBuf, String> {
             }
         }
     }
-    Ok(path)
+    if normalized.as_os_str().is_empty() {
+        if path
+            .components()
+            .all(|component| matches!(component, std::path::Component::CurDir))
+        {
+            return Ok(PathBuf::from("."));
+        }
+        return Err("tar member normalizes to an empty path".into());
+    }
+    Ok(normalized)
 }
 
 /// Validate an archive at the host trust boundary. Only regular files and directories with
 /// relative paths are admitted; links, devices, FIFOs, sparse/PAX/GNU extensions and traversal
 /// are refused. This intentionally accepts a smaller format than the system extractor.
-fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
+const MAX_HOST_EXTRACT_MEMBERS: usize = 100_000;
+
+fn validate_tar_for_host_extract_with_member_limit(
+    tar: &[u8],
+    max_members: usize,
+) -> Result<(), String> {
     if tar.len() % 512 != 0 {
         return Err("tar length is not block-aligned".into());
     }
@@ -841,6 +1021,7 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
     .map_err(|refusal| format!("{}: {}", refusal.reason, refusal.detail))?;
     let mut offset = 0usize;
     let mut members = 0usize;
+    let mut member_types: BTreeMap<PathBuf, u8> = BTreeMap::new();
     while offset < tar.len() {
         let header = &tar[offset..offset + 512];
         if header.iter().all(|byte| *byte == 0) {
@@ -850,8 +1031,8 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
             return Ok(());
         }
         members += 1;
-        if members > 100_000 {
-            return Err("tar member count exceeds 100000".into());
+        if members > max_members {
+            return Err(format!("tar member count exceeds {max_members}"));
         }
         let path = tar_path(header)?;
         let kind = header[156];
@@ -861,10 +1042,40 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
                 path.display()
             ));
         }
+        if path == Path::new(".") && kind != b'5' {
+            return Err("tar root marker must be a directory".into());
+        }
         let size = parse_tar_octal(&header[124..136])?;
         if kind == b'5' && size != 0 {
             return Err(format!("tar directory carries payload: {}", path.display()));
         }
+        if member_types.contains_key(&path) {
+            return Err(format!("tar contains duplicate member: {}", path.display()));
+        }
+        let mut ancestor = path.parent();
+        while let Some(parent) = ancestor.filter(|parent| !parent.as_os_str().is_empty()) {
+            if member_types
+                .get(parent)
+                .is_some_and(|parent_kind| *parent_kind != b'5')
+            {
+                return Err(format!(
+                    "tar member is nested below a non-directory: {}",
+                    path.display()
+                ));
+            }
+            ancestor = parent.parent();
+        }
+        if kind != b'5'
+            && member_types
+                .keys()
+                .any(|existing| existing != &path && existing.starts_with(&path))
+        {
+            return Err(format!(
+                "tar non-directory collides with an existing descendant: {}",
+                path.display()
+            ));
+        }
+        member_types.insert(path.clone(), kind);
         let padded = size
             .checked_add(511)
             .ok_or_else(|| "tar member size overflow".to_string())?
@@ -882,10 +1093,11 @@ fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-/// Extract a validated tar into a host directory.
-pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
-    validate_tar_for_host_extract(tar)?;
-    std::fs::create_dir_all(dir).map_err(|e| format!("mkdir: {e}"))?;
+fn validate_tar_for_host_extract(tar: &[u8]) -> Result<(), String> {
+    validate_tar_for_host_extract_with_member_limit(tar, MAX_HOST_EXTRACT_MEMBERS)
+}
+
+fn extract_validated_tar_into_existing(dir: &Path, tar: &[u8]) -> Result<(), String> {
     let mut child = Command::new("tar")
         .arg("-xf")
         .arg("-")
@@ -911,9 +1123,259 @@ pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+/// Extract a validated tar. A new destination is populated in a private sibling stage and renamed
+/// only after complete extraction, so a late extractor failure cannot expose partial quarantine
+/// output. Existing destinations retain the legacy merge behavior used only by explicitly gated
+/// workspace restoration callers.
+pub(crate) fn untar_into(dir: &Path, tar: &[u8]) -> Result<(), String> {
+    validate_tar_for_host_extract(tar)?;
+    if dir.exists() {
+        let metadata = std::fs::symlink_metadata(dir).map_err(|e| format!("stat: {e}"))?;
+        if !metadata.file_type().is_dir() || metadata.file_type().is_symlink() {
+            return Err("tar extraction destination is not a real directory".into());
+        }
+        return extract_validated_tar_into_existing(dir, tar);
+    }
+    let parent = dir
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .ok_or("tar extraction destination has no parent")?;
+    std::fs::create_dir_all(parent).map_err(|e| format!("mkdir parent: {e}"))?;
+    let leaf = dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("tar extraction destination name is invalid")?;
+    let staging = parent.join(format!(
+        ".ioi-quarantine-{leaf}-{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| format!("quarantine stage clock: {e}"))?
+            .as_nanos()
+    ));
+    std::fs::create_dir(&staging).map_err(|e| format!("create quarantine stage: {e}"))?;
+    std::fs::set_permissions(&staging, std::fs::Permissions::from_mode(0o700))
+        .map_err(|e| format!("restrict quarantine stage: {e}"))?;
+    if let Err(error) = extract_validated_tar_into_existing(&staging, tar) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(error);
+    }
+    if let Err(error) = std::fs::rename(&staging, dir) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(format!("commit quarantine stage: {error}"));
+    }
+    Ok(())
+}
+
+struct HostileGuestRoundtripDir(PathBuf);
+
+impl HostileGuestRoundtripDir {
+    fn create() -> Result<Self, String> {
+        let path = std::env::temp_dir().join(format!(
+            "ioi-hostile-guest-roundtrip-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir(&path)
+            .map_err(|error| format!("create hostile guest roundtrip directory: {error}"))?;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))
+            .map_err(|error| format!("protect hostile guest roundtrip directory: {error}"))?;
+        Ok(Self(path))
+    }
+}
+
+impl Drop for HostileGuestRoundtripDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// Pass one canonical, already-minted workload proposal through a fresh no-NIC KVM guest running
+/// as uid 0. The guest receives no host trigger or provider authority: it can only return the
+/// proposal through the bounded archive channel. Fixed probes attempt the direct network, host
+/// device, inherited-FD, environment, and secret paths before the proposal is admitted back into
+/// quarantine. This function never invokes a provider; the caller must separately present the
+/// host-only trigger to the governed finalizer.
+pub(crate) fn hostile_guest_proposal_roundtrip(
+    proposal_bytes: &[u8],
+) -> Result<(Vec<u8>, Value), String> {
+    admit_guest_transfer_len(
+        proposal_bytes.len() as u64,
+        std::env::var(UNBOUNDED_GUEST_TRANSFER_GATE).ok().as_deref(),
+    )
+    .map_err(|refusal| format!("{}: {}", refusal.reason, refusal.detail))?;
+    let proposal: Value = serde_json::from_slice(proposal_bytes)
+        .map_err(|error| format!("hostile guest proposal JSON invalid: {error}"))?;
+    let canonical = serde_jcs::to_vec(&proposal)
+        .map_err(|error| format!("hostile guest proposal canonicalization failed: {error}"))?;
+    if canonical != proposal_bytes {
+        return Err("hostile_guest_proposal_noncanonical".into());
+    }
+    let text = |field: &str| {
+        proposal
+            .get(field)
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("hostile_guest_proposal_{field}_required"))
+    };
+    let isolation_binding_ref = text("isolation_binding_ref")?;
+    let isolation_binding_hash = text("isolation_binding_hash")?;
+    let principal_ref = text("principal_ref")?;
+    let capability_ref = text("capability_ref")?;
+    let capability_id = capability_ref
+        .strip_prefix("workload-effect-capability://")
+        .filter(|value| value.starts_with("wec_"))
+        .ok_or_else(|| "hostile_guest_capability_ref_invalid".to_string())?;
+
+    let home =
+        std::env::var("HOME").map_err(|_| "HOME is required for VM toolchain".to_string())?;
+    let run = HostileGuestRoundtripDir::create()?;
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .map_err(|error| format!("bind hostile guest host canary: {error}"))?;
+    listener
+        .set_nonblocking(true)
+        .map_err(|error| format!("configure hostile guest host canary: {error}"))?;
+    let port = listener
+        .local_addr()
+        .map_err(|error| format!("read hostile guest host canary address: {error}"))?
+        .port();
+    let mut spec = build_vm_spec(&home, "cloud-hypervisor", run.0.join("vm"), 1, 384)?;
+    spec.bind_workload(
+        &format!("workrun://{capability_id}"),
+        isolation_binding_ref,
+        isolation_binding_hash,
+        principal_ref,
+    )?;
+    spec.sock_path = short_sock_path(&format!("t2-capstone-{}", uuid::Uuid::new_v4().simple()))?;
+    let declaration = spec.workload_bound_enforcement_declaration("cloud-hypervisor")?;
+    let monitor = CloudHypervisorMonitor;
+    let mut vm = monitor.start(&spec)?;
+
+    let execution = (|| -> Result<(Vec<u8>, Value), String> {
+        let input = run.0.join("input");
+        std::fs::create_dir(&input)
+            .map_err(|error| format!("create hostile guest input directory: {error}"))?;
+        std::fs::write(input.join("proposal.json"), proposal_bytes)
+            .map_err(|error| format!("write hostile guest proposal: {error}"))?;
+        monitor.import_workspace(&vm, &tar_dir(&input)?)?;
+
+        let root = monitor.exec(&vm, "id -u")?;
+        let network = monitor.exec(
+            &vm,
+            &format!(
+                "set +e; printf 'interfaces='; ls -1 /sys/class/net 2>/dev/null | tr '\\n' ','; echo; \
+                 /bin/busybox wget -T 1 -qO- http://10.0.2.2:{port}/protected >/tmp/raw-ip 2>&1; echo raw_ip=$?; \
+                 /bin/busybox wget -T 1 -qO- http://127.0.0.1:{port}/protected >/tmp/loopback 2>&1; echo loopback=$?; \
+                 /bin/busybox wget -T 1 -qO- 'http://[::1]:{port}/protected' >/tmp/ipv6 2>&1; echo ipv6=$?; \
+                 /bin/busybox wget -T 1 -qO- http://169.254.169.254/latest/meta-data/ >/tmp/metadata 2>&1; echo metadata=$?; \
+                 /bin/busybox wget -T 1 -qO- https://console-api.akash.network/ >/tmp/provider 2>&1; echo provider=$?; \
+                 /bin/busybox nc -u -w 1 10.0.2.2 {port} </dev/null >/tmp/udp 2>&1; echo udp=$?; \
+                 /bin/busybox nc -w 1 10.0.2.2 {port} </dev/null >/tmp/tunnel 2>&1; echo tunnel=$?; \
+                 http_proxy=http://10.0.2.2:{port} /bin/busybox wget -T 1 -qO- http://proxy-canary.invalid/ >/tmp/proxy 2>&1; echo proxy=$?; \
+                 /bin/busybox nslookup t2-exfil-canary.invalid >/tmp/dns-exfil 2>&1; echo dns_exfil=$?; \
+                 /bin/busybox wget -T 1 -qO- https://dl-cdn.alpinelinux.org/alpine/ >/tmp/package 2>&1; echo package=$?"
+            ),
+        )?;
+        let material = monitor.exec(
+            &vm,
+            "set +e; for p in /dev/kvm /dev/vhost-vsock /var/run/docker.sock /run/docker.sock /host /wallet /secrets; do [ -e \"$p\" ] && echo exposed=$p; done; for f in /proc/1/fd/*; do printf 'pid1_fd=%s:' \"$f\"; /bin/busybox readlink \"$f\"; done; tr '\\000' '\\n' </proc/1/environ | /bin/busybox grep -E 'AKASH|IOI_C7|PASSWORD|RECOVERY|PRIVATE_KEY|TOKEN|http_proxy|https_proxy|ALL_PROXY' || echo no_protected_environment",
+        )?;
+        let submitted = monitor.exec(&vm, "cp proposal.json submitted-proposal.json")?;
+        if submitted.exit_code != 0 {
+            return Err("hostile guest did not return its exact proposal".into());
+        }
+        let exported = monitor.export_workspace(&vm)?;
+        let quarantine = run.0.join("quarantine");
+        untar_into(&quarantine, &exported)?;
+        let returned = std::fs::read(quarantine.join("submitted-proposal.json"))
+            .map_err(|error| format!("read quarantined guest proposal: {error}"))?;
+
+        if root.output.trim() != "0" {
+            return Err("hostile guest probe did not run as uid 0".into());
+        }
+        if !network.output.contains("interfaces=lo,") {
+            return Err(
+                "hostile guest did not expose the exact loopback-only interface set".into(),
+            );
+        }
+        for probe in [
+            "raw_ip",
+            "loopback",
+            "ipv6",
+            "metadata",
+            "provider",
+            "udp",
+            "tunnel",
+            "proxy",
+            "dns_exfil",
+            "package",
+        ] {
+            if network.output.contains(&format!("{probe}=0")) {
+                return Err(format!("hostile guest network bypass succeeded: {probe}"));
+            }
+        }
+        if listener.accept().is_ok() {
+            return Err("hostile guest reached the protected host canary".into());
+        }
+        if material.output.contains("exposed=")
+            || !material.output.contains("no_protected_environment")
+        {
+            return Err("protected host material crossed into the hostile guest".into());
+        }
+        for forbidden in ["docker.sock", "/wallet", "/secrets", "/dev/kvm"] {
+            if material.output.contains(forbidden) {
+                return Err(format!(
+                    "protected inherited target crossed into guest: {forbidden}"
+                ));
+            }
+        }
+        if returned != proposal_bytes {
+            return Err("hostile_guest_proposal_roundtrip_mismatch".into());
+        }
+        let proposal_hash = format!("sha256:{}", hex::encode(Sha256::digest(proposal_bytes)));
+        Ok((
+            returned,
+            serde_json::json!({
+                "schema_version": "ioi.hypervisor.workload-bound-effect-boundary-live-probe.v2",
+                "protection_profile": "trusted_host_hostile_guest",
+                "guest_uid": 0,
+                "enforcement_declaration": declaration,
+                "attempted_paths": ["raw_ip", "loopback", "ipv6", "metadata", "provider", "udp", "proxy", "tunnel", "dns_exfil", "package_fetch", "host_device", "host_socket", "inherited_fd", "environment"],
+                "direct_host_canary_invocations": 0,
+                "direct_protected_provider_invocations": 0,
+                "host_trigger_in_guest": false,
+                "secret_findings": 0,
+                "proposal_roundtrip_exact": true,
+                "proposal_hash": proposal_hash,
+                "output_quarantine": "bounded_archive_validated",
+                "claim_boundary": "This probe establishes the named local KVM/no-NIC hostile-guest profile; it does not establish resistance to a compromised host kernel, VMM, daemon, firmware, or hardware."
+            }),
+        ))
+    })();
+
+    let stop = monitor.stop(&mut vm);
+    let terminal = vm
+        .child
+        .try_wait()
+        .map_err(|error| format!("observe hostile guest monitor terminal state: {error}"))?
+        .is_some();
+    if let Err(error) = stop {
+        return Err(format!("hostile guest teardown failed: {error}"));
+    }
+    if !terminal {
+        return Err("hostile guest monitor did not reach terminal state".into());
+    }
+    execution.map(|(bytes, mut evidence)| {
+        evidence["monitor_terminal"] = serde_json::json!(true);
+        (bytes, evidence)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_services::agentic::runtime::kernel::emergency_containment::GUEST_TRANSFER_MAX_BYTES;
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn archive_with(name: &str, kind: u8, size: u64) -> Vec<u8> {
         let mut archive = vec![0u8; 1024 + (((size + 511) / 512) * 512) as usize];
@@ -921,6 +1383,16 @@ mod tests {
         archive[156] = kind;
         let encoded = format!("{size:011o}\0");
         archive[124..136].copy_from_slice(encoded.as_bytes());
+        archive
+    }
+
+    fn archive_with_two_members(first: (&str, u8), second: (&str, u8)) -> Vec<u8> {
+        let mut archive = vec![0u8; 2048];
+        for (offset, (name, kind)) in [(0usize, first), (512usize, second)] {
+            archive[offset..offset + name.len()].copy_from_slice(name.as_bytes());
+            archive[offset + 156] = kind;
+            archive[offset + 124..offset + 136].copy_from_slice(b"00000000000\0");
+        }
         archive
     }
 
@@ -946,6 +1418,8 @@ mod tests {
         assert!(validate_tar_for_host_extract(&archive_with("../escape", b'0', 0)).is_err());
         assert!(validate_tar_for_host_extract(&archive_with("/absolute", b'0', 0)).is_err());
         assert!(validate_tar_for_host_extract(&archive_with("./link", b'2', 0)).is_err());
+        assert!(validate_tar_for_host_extract(&archive_with("./hardlink", b'1', 0)).is_err());
+        assert!(validate_tar_for_host_extract(&archive_with("./fifo", b'6', 0)).is_err());
         assert!(validate_tar_for_host_extract(&archive_with("./device", b'3', 0)).is_err());
     }
 
@@ -958,5 +1432,574 @@ mod tests {
         let mut trailing = archive_with("./safe", b'0', 0);
         *trailing.last_mut().expect("archive has end block") = 1;
         assert!(validate_tar_for_host_extract(&trailing).is_err());
+    }
+
+    #[test]
+    fn host_extract_rejects_duplicate_and_path_type_collisions() {
+        assert!(validate_tar_for_host_extract(&archive_with_two_members(
+            ("./same", b'0'),
+            ("same", b'0')
+        ))
+        .is_err());
+        assert!(validate_tar_for_host_extract(&archive_with_two_members(
+            ("./parent", b'0'),
+            ("./parent/child", b'0')
+        ))
+        .is_err());
+        assert!(validate_tar_for_host_extract(&archive_with_two_members(
+            ("./parent/child", b'0'),
+            ("./parent", b'0')
+        ))
+        .is_err());
+    }
+
+    #[test]
+    fn host_extract_refuses_archive_byte_member_and_compression_quota_abuse() {
+        assert!(admit_guest_transfer_len(GUEST_TRANSFER_MAX_BYTES + 1, None).is_err());
+        assert!(validate_tar_for_host_extract_with_member_limit(
+            &archive_with_two_members(("./first", b'0'), ("./second", b'0')),
+            1,
+        )
+        .is_err());
+
+        let mut compressed = vec![0u8; 512];
+        compressed[0] = 0x1f;
+        compressed[1] = 0x8b;
+        assert!(validate_tar_for_host_extract(&compressed).is_err());
+    }
+
+    #[test]
+    fn new_quarantine_destination_is_absent_after_late_extractor_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("quarantine");
+        let invalid_checksum = archive_with("./payload", b'0', 0);
+        assert!(untar_into(&destination, &invalid_checksum).is_err());
+        assert!(
+            !destination.exists(),
+            "partial quarantine became visible after extractor failure"
+        );
+        assert!(std::fs::read_dir(dir.path()).unwrap().next().is_none());
+    }
+
+    fn test_spec() -> VmSpec {
+        VmSpec {
+            monitor_bin: PathBuf::from("/bin/false"),
+            kernel: PathBuf::from("/dev/null"),
+            initramfs: PathBuf::from("/dev/null"),
+            vcpus: 1,
+            mem_mib: 256,
+            run_dir: PathBuf::from("/tmp/ioi-boundary-unit"),
+            network_device_count: 0,
+            host_mount_count: 0,
+            host_control_socket_count: 0,
+            workload_binding: None,
+            sock_path: PathBuf::from("/tmp/ioi-boundary-unit.sock"),
+        }
+    }
+
+    #[test]
+    fn hostile_guest_floor_refuses_each_planted_bypass_before_launch() {
+        let baseline = test_spec();
+        let environment = baseline
+            .enforcement_declaration("cloud-hypervisor")
+            .unwrap();
+        assert!(!environment.fresh_instance);
+        assert_eq!(environment.instance_scope, "environment_scoped");
+        assert_eq!(
+            baseline
+                .workload_bound_enforcement_declaration("cloud-hypervisor")
+                .unwrap_err(),
+            "workload_vm_binding_required"
+        );
+
+        let mut network = test_spec();
+        network.network_device_count = 1;
+        assert_eq!(
+            network.enforce_hostile_guest_floor().unwrap_err(),
+            "workload_boundary_network_device_refused"
+        );
+
+        let mut mount = test_spec();
+        mount.host_mount_count = 1;
+        assert_eq!(
+            mount.enforce_hostile_guest_floor().unwrap_err(),
+            "workload_boundary_host_mount_refused"
+        );
+
+        let mut socket = test_spec();
+        socket.host_control_socket_count = 1;
+        assert_eq!(
+            socket.enforce_hostile_guest_floor().unwrap_err(),
+            "workload_boundary_host_control_socket_refused"
+        );
+    }
+
+    #[test]
+    #[ignore = "spawns and SIGKILLs a parent process to verify monitor parent-death cleanup"]
+    fn monitor_is_killed_when_its_daemon_parent_disappears() {
+        const CHILD_ENV: &str = "IOI_T2_PARENT_DEATH_CHILD";
+        const PID_PATH_ENV: &str = "IOI_T2_PARENT_DEATH_PID_PATH";
+
+        if std::env::var(CHILD_ENV).ok().as_deref() == Some("1") {
+            let pid_path = std::env::var(PID_PATH_ENV).unwrap();
+            let mut monitor = Command::new("/bin/sleep");
+            monitor.arg("60");
+            arm_monitor_parent_death(&mut monitor);
+            let child = monitor.spawn().unwrap();
+            std::fs::write(pid_path, child.id().to_string()).unwrap();
+            loop {
+                std::thread::park_timeout(Duration::from_secs(60));
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        let pid_path = dir.path().join("monitor.pid");
+        let current_exe = std::env::current_exe().unwrap();
+        let mut daemon = Command::new(current_exe)
+            .arg("--exact")
+            .arg("microvm::tests::monitor_is_killed_when_its_daemon_parent_disappears")
+            .arg("--ignored")
+            .arg("--nocapture")
+            .env(CHILD_ENV, "1")
+            .env(PID_PATH_ENV, &pid_path)
+            .spawn()
+            .unwrap();
+        let ready_deadline = Instant::now() + Duration::from_secs(10);
+        while !pid_path.exists() && Instant::now() < ready_deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(pid_path.exists(), "child daemon never spawned its monitor");
+        let monitor_pid: i32 = std::fs::read_to_string(&pid_path)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+
+        daemon.kill().unwrap();
+        let daemon_status = daemon.wait().unwrap();
+        assert!(!daemon_status.success());
+        let death_deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let alive = unsafe { libc::kill(monitor_pid, 0) } == 0;
+            if !alive {
+                break;
+            }
+            assert!(
+                Instant::now() < death_deadline,
+                "monitor {monitor_pid} survived its daemon parent"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    #[ignore = "requires /dev/kvm and the checksum-pinned ~/.ioi/vm-toolchain"]
+    fn killed_guest_monitor_reaches_terminal_cleanup() {
+        let home = std::env::var("HOME").expect("HOME selects the local pinned toolchain");
+        let run = tempfile::tempdir().expect("probe run dir");
+        let mut spec = build_vm_spec(
+            &home,
+            "cloud-hypervisor",
+            run.path().join("vm-crash"),
+            1,
+            384,
+        )
+        .expect("verified VM spec");
+        spec.bind_workload(
+            "workrun://t2-guest-crash",
+            "workload-isolation-binding://t2-guest-crash",
+            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "principal://hostile-root-guest",
+        )
+        .unwrap();
+        spec.sock_path = short_sock_path(&format!("t2-crash-{}", std::process::id())).unwrap();
+        let monitor = CloudHypervisorMonitor;
+        let mut vm = monitor.start(&spec).expect("real KVM guest boot");
+        let uds = vm.uds.clone();
+        assert!(uds.exists());
+        vm.child.kill().expect("inject monitor/guest crash");
+        let _ = vm.child.wait();
+        monitor.stop(&mut vm).expect("idempotent crash cleanup");
+        assert!(vm.child.try_wait().unwrap().is_some());
+        assert!(!uds.exists(), "host-side guest channel survived cleanup");
+        assert!(
+            vm.serial_log.exists(),
+            "forensic serial evidence should remain in the private run directory"
+        );
+    }
+
+    /// Real-host T3 probe. The T2 probe above establishes that the hostile guest reaches no
+    /// protected provider effect, but it runs with no authority broker present at all — so it
+    /// cannot say anything about a broker that is actually holding authority. This probe runs the
+    /// same UID-0 guest while a REAL wallet.network authority broker is live on the host, with a
+    /// canary token seeded inside the broker's own protection domain. Its coordinates arrive from
+    /// the harness that started the broker; without them the probe refuses rather than passing
+    /// vacuously against a broker that was never running.
+    #[test]
+    #[ignore = "requires /dev/kvm, the checksum-pinned ~/.ioi/vm-toolchain, and a live authority broker"]
+    fn root_guest_cannot_reach_a_live_authority_broker_or_its_material() {
+        let home = std::env::var("HOME").expect("HOME selects the local pinned toolchain");
+        let broker_port = std::env::var("IOI_T3_BROKER_RPC_PORT")
+            .expect("the live authority broker's RPC port is required; a probe with no broker proves nothing");
+        let broker_dir = std::env::var("IOI_T3_BROKER_DIR")
+            .expect("the live authority broker's protection-domain directory is required");
+        let broker_canary = std::env::var("IOI_T3_BROKER_CANARY")
+            .expect("a canary seeded inside the broker protection domain is required");
+        assert!(
+            broker_canary.len() >= 32,
+            "the broker canary must be long enough that an accidental match is not plausible"
+        );
+        // The canary must actually be reachable on the host, or a guest that cannot find it
+        // proves nothing about isolation.
+        let seeded = std::fs::read_to_string(format!("{broker_dir}/ioi-t3-broker-canary.txt"))
+            .expect("the seeded broker canary must exist on the host before the guest starts");
+        assert!(
+            seeded.contains(&broker_canary),
+            "the seeded broker canary file must contain the exact canary"
+        );
+
+        let run = tempfile::tempdir().expect("probe run dir");
+        let mut spec = build_vm_spec(&home, "cloud-hypervisor", run.path().join("vm"), 1, 384)
+            .expect("verified VM spec");
+        spec.bind_workload(
+            "workrun://t3-broker-live",
+            "workload-isolation-binding://t3-broker-live",
+            "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "principal://hostile-root-guest",
+        )
+        .expect("exact workload VM binding");
+        spec.sock_path = short_sock_path(&format!("t3-broker-{}", std::process::id()))
+            .expect("private short socket");
+        let declaration = spec
+            .workload_bound_enforcement_declaration("cloud-hypervisor")
+            .expect("hostile guest floor");
+        let monitor = CloudHypervisorMonitor;
+        let mut vm = monitor.start(&spec).expect("real KVM guest boot");
+
+        let root = monitor.exec(&vm, "id -u").expect("root probe");
+        let reach = monitor
+            .exec(
+                &vm,
+                &format!(
+                    "set +e; \
+                     /bin/busybox wget -T 1 --no-check-certificate -qO- https://10.0.2.2:{broker_port}/ >/tmp/b1 2>&1; echo broker_gateway=$?; \
+                     /bin/busybox wget -T 1 --no-check-certificate -qO- https://127.0.0.1:{broker_port}/ >/tmp/b2 2>&1; echo broker_loopback=$?; \
+                     /bin/busybox nc -w 1 10.0.2.2 {broker_port} </dev/null >/tmp/b3 2>&1; echo broker_tcp=$?; \
+                     [ -e '{broker_dir}' ] && echo broker_dir_visible=yes || echo broker_dir_absent=yes; \
+                     [ -e '{broker_dir}/ioi-t3-broker-canary.txt' ] && echo broker_canary_file_visible=yes || echo broker_canary_file_absent=yes; \
+                     [ -e '{broker_dir}/commands' ] && echo broker_command_plane_visible=yes || echo broker_command_plane_absent=yes"
+                ),
+            )
+            .expect("broker reachability probes");
+        // A UID-0 guest search of every readable byte it has: filesystem, its own
+        // process environment, and the init process it shares the boundary with.
+        // The guest first writes a CONTROL token into its own writable tmpfs. The
+        // scan must find that control, or the walk is blind and its silence about
+        // the broker canary means nothing — a scan that cannot find a string it
+        // was just handed is not evidence of absence.
+        let control = format!("ioi-t3-guest-scan-control-{}", &broker_canary[..16]);
+        monitor
+            .exec(
+                &vm,
+                &format!("printf '%s' '{control}' > /tmp/ioi-t3-scan-control"),
+            )
+            .expect("seed the guest-side scan control");
+        let scan = monitor
+            .exec(
+                &vm,
+                &format!(
+                    // A bounded walk of every filesystem the guest can read, minus
+                    // the synthetic trees scanned explicitly below. It must NOT use
+                    // `-xdev`: the guest's writable tmpfs is a separate device, and
+                    // that is exactly where planted material lands.
+                    "set +e; \
+                     /bin/busybox find / -type f -size -4096k -not -path '/proc/*' -not -path '/sys/*' 2>/dev/null \
+                       | while read -r f; do \
+                           /bin/busybox grep -q -- '{control}' \"$f\" 2>/dev/null && echo control_found=$f; \
+                           /bin/busybox grep -q -- '{broker_canary}' \"$f\" 2>/dev/null && echo canary_found=$f; \
+                         done; \
+                     tr '\\000' '\\n' </proc/1/environ | /bin/busybox grep -q -- '{broker_canary}' && echo canary_found=init_environ; \
+                     tr '\\000' '\\n' </proc/self/environ | /bin/busybox grep -q -- '{broker_canary}' && echo canary_found=self_environ; \
+                     for f in /proc/1/fd/*; do /bin/busybox readlink \"$f\"; done | /bin/busybox grep -q -- '{broker_canary}' && echo canary_found=init_fd; \
+                     /bin/busybox env | /bin/busybox grep -q -- '{broker_canary}' && echo canary_found=env; \
+                     echo canary_scan_complete"
+                ),
+            )
+            .expect("broker canary scan");
+
+        monitor.stop(&mut vm).expect("guest teardown request");
+        let terminal = vm
+            .child
+            .try_wait()
+            .expect("observe monitor process")
+            .is_some();
+
+        assert_eq!(root.output.trim(), "0", "probe must actually have guest root");
+        for probe in ["broker_gateway", "broker_loopback", "broker_tcp"] {
+            assert!(
+                !reach.output.contains(&format!("{probe}=0")),
+                "{probe} reached the live authority broker: {}",
+                reach.output
+            );
+        }
+        for visible in [
+            "broker_dir_visible=yes",
+            "broker_canary_file_visible=yes",
+            "broker_command_plane_visible=yes",
+        ] {
+            assert!(
+                !reach.output.contains(visible),
+                "the authority protection domain crossed into the guest: {}",
+                reach.output
+            );
+        }
+        assert!(
+            reach.output.contains("broker_dir_absent=yes")
+                && reach.output.contains("broker_canary_file_absent=yes")
+                && reach.output.contains("broker_command_plane_absent=yes"),
+            "the broker-absence probes did not run: {}",
+            reach.output
+        );
+        assert!(
+            scan.output.contains("canary_scan_complete"),
+            "the canary scan did not run to completion: {}",
+            scan.output
+        );
+        assert!(
+            scan.output.contains("control_found=/tmp/ioi-t3-scan-control"),
+            "the guest-side scan never found its own control token, so its silence \
+             about the broker canary is not evidence of absence: {}",
+            scan.output
+        );
+        assert!(
+            !scan.output.contains("canary_found="),
+            "a broker-domain canary was readable inside the guest: {}",
+            scan.output
+        );
+        assert!(terminal, "the monitor must be observably terminal after teardown");
+
+        eprintln!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema_version": "ioi.hypervisor.live-authority-broker-non-possession-probe.v1",
+                "guest_uid": 0,
+                "enforcement_declaration": declaration,
+                "broker_present_during_probe": true,
+                "attempted_broker_paths": [
+                    "broker_gateway_https", "broker_loopback_https", "broker_tcp",
+                    "broker_protection_domain_directory", "broker_canary_file",
+                    "broker_command_plane", "guest_filesystem_canary_scan",
+                    "guest_environment_canary_scan", "init_environment_canary_scan"
+                ],
+                "broker_domain_canary_findings": 0,
+                "guest_scan_control_found": true,
+                "monitor_terminal": terminal,
+                "claim_boundary": "The worker held no broker material and reached no live broker endpoint under the named local KVM/no-NIC hostile-guest profile. It does not establish resistance to a compromised host kernel, VMM, daemon, or broker process."
+            }))
+            .unwrap()
+        );
+    }
+
+    /// Real-host T2 probe. This is ignored in generic CI because it needs KVM and the pinned VM
+    /// toolchain, but `check:workload-bound-effect-boundary -- --live` invokes it explicitly.
+    /// The guest agent is PID 1/root, so these probes execute with the strongest guest-local
+    /// privilege the selected `trusted_host_hostile_guest` profile promises to contain.
+    #[test]
+    #[ignore = "requires /dev/kvm and the checksum-pinned ~/.ioi/vm-toolchain"]
+    fn root_guest_cannot_reach_a_host_canary_or_find_protected_material() {
+        let home = std::env::var("HOME").expect("HOME selects the local pinned toolchain");
+        let run = tempfile::tempdir().expect("probe run dir");
+        let listener = TcpListener::bind("127.0.0.1:0").expect("host canary listener");
+        listener.set_nonblocking(true).expect("nonblocking canary");
+        let port = listener.local_addr().unwrap().port();
+
+        let mut spec = build_vm_spec(&home, "cloud-hypervisor", run.path().join("vm"), 1, 384)
+            .expect("verified VM spec");
+        spec.bind_workload(
+            "workrun://t2-live",
+            "workload-isolation-binding://t2-live",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "principal://hostile-root-guest",
+        )
+        .expect("exact workload VM binding");
+        spec.sock_path = short_sock_path(&format!("t2-live-{}", std::process::id()))
+            .expect("private short socket");
+        let declaration = spec
+            .workload_bound_enforcement_declaration("cloud-hypervisor")
+            .expect("hostile guest floor");
+        let monitor = CloudHypervisorMonitor;
+        let mut vm = monitor.start(&spec).expect("real KVM guest boot");
+
+        // Mint one exact guest-visible handle. It is authority to submit only the already-bound
+        // request, not a provider credential and not a general signing primitive.
+        let state_dir = run.path().join("state");
+        let request = serde_json::json!({
+            "operation": "test_protected_provider_effect",
+            "provider": "host-canary",
+            "maximum_invocations": 1
+        });
+        let proposal = crate::workload_effect_boundary::mint_guest_effect_capability(
+            state_dir.to_str().unwrap(),
+            "workload-isolation-binding://t2-live",
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "principal://hostile-root-guest",
+            "nonce-t2-live",
+            "hypervisor-final-invoker",
+            "provider-resource://host-canary/protected",
+            "result-destination://t2/quarantine",
+            &request,
+            1_000,
+            61_000,
+        )
+        .expect("mint exact workload capability");
+        let input = run.path().join("input");
+        std::fs::create_dir_all(&input).unwrap();
+        std::fs::write(
+            input.join("proposal.json"),
+            serde_jcs::to_vec(&proposal).unwrap(),
+        )
+        .unwrap();
+        monitor
+            .import_workspace(&vm, &tar_dir(&input).unwrap())
+            .expect("bounded guest input");
+
+        let root = monitor.exec(&vm, "id -u").expect("root probe");
+        let network = monitor
+            .exec(
+                &vm,
+                &format!(
+                    "set +e; printf 'interfaces='; ls -1 /sys/class/net 2>/dev/null | tr '\\n' ','; echo; \
+                     /bin/busybox wget -T 1 -qO- http://10.0.2.2:{port}/protected >/tmp/raw-ip 2>&1; echo raw_ip=$?; \
+                     /bin/busybox wget -T 1 -qO- http://127.0.0.1:{port}/protected >/tmp/loopback 2>&1; echo loopback=$?; \
+                     /bin/busybox wget -T 1 -qO- 'http://[::1]:{port}/protected' >/tmp/ipv6 2>&1; echo ipv6=$?; \
+                     /bin/busybox wget -T 1 -qO- http://169.254.169.254/latest/meta-data/ >/tmp/metadata 2>&1; echo metadata=$?; \
+                     /bin/busybox wget -T 1 -qO- https://console-api.akash.network/ >/tmp/dns 2>&1; echo dns=$?; \
+                     /bin/busybox nc -u -w 1 10.0.2.2 {port} </dev/null >/tmp/udp 2>&1; echo udp=$?; \
+                     /bin/busybox nc -w 1 10.0.2.2 {port} </dev/null >/tmp/tunnel 2>&1; echo tunnel=$?; \
+                     http_proxy=http://10.0.2.2:{port} /bin/busybox wget -T 1 -qO- http://proxy-canary.invalid/ >/tmp/proxy 2>&1; echo proxy=$?; \
+                     /bin/busybox nslookup t2-exfil-canary.invalid >/tmp/dns-exfil 2>&1; echo dns_exfil=$?; \
+                     /bin/busybox wget -T 1 -qO- https://dl-cdn.alpinelinux.org/alpine/ >/tmp/package 2>&1; echo package=$?"
+                ),
+            )
+            .expect("network probes");
+        let material = monitor
+            .exec(
+                &vm,
+                "set +e; for p in /dev/kvm /dev/vhost-vsock /var/run/docker.sock /run/docker.sock /host /wallet /secrets; do [ -e \"$p\" ] && echo exposed=$p; done; for f in /proc/1/fd/*; do printf 'pid1_fd=%s:' \"$f\"; /bin/busybox readlink \"$f\"; done; tr '\\000' '\\n' </proc/1/environ | /bin/busybox grep -E 'AKASH|IOI_C7|PASSWORD|RECOVERY|PRIVATE_KEY|TOKEN|http_proxy|https_proxy|ALL_PROXY' || echo no_protected_environment",
+            )
+            .expect("material probes");
+
+        // The hostile guest submits through the sole data path it has: bounded output. The host
+        // validates the archive into quarantine and then verifies every bound capability field
+        // before entering the final invoker exactly once.
+        let submitted = monitor
+            .exec(&vm, "cp proposal.json submitted-proposal.json")
+            .expect("guest proposal submission");
+        assert_eq!(submitted.exit_code, 0);
+        let exported = monitor.export_workspace(&vm).expect("bounded guest output");
+        let quarantine = run.path().join("quarantine");
+        untar_into(&quarantine, &exported).expect("transactional output quarantine");
+        let returned_proposal = std::fs::read(quarantine.join("submitted-proposal.json")).unwrap();
+        let final_invoker_calls = AtomicUsize::new(0);
+        let consumption = crate::workload_effect_boundary::consume_guest_effect_proposal_bytes(
+            state_dir.to_str().unwrap(),
+            &returned_proposal,
+            2_000,
+            |exact| {
+                final_invoker_calls.fetch_add(1, Ordering::SeqCst);
+                assert_eq!(exact, &request);
+                Ok(serde_json::json!({
+                    "provider_receipt_ref": "provider-receipt://host-canary/one",
+                    "outcome": "mock_effect_observed"
+                }))
+            },
+        )
+        .expect("legitimate syscall reaches final invoker");
+        let replay = crate::workload_effect_boundary::consume_guest_effect_proposal_bytes(
+            state_dir.to_str().unwrap(),
+            &returned_proposal,
+            3_000,
+            |_| panic!("replay cannot enter final invoker"),
+        )
+        .unwrap_err();
+
+        monitor.stop(&mut vm).expect("guest teardown request");
+        let terminal = vm
+            .child
+            .try_wait()
+            .expect("observe monitor process")
+            .is_some();
+        let host_canary_calls = usize::from(listener.accept().is_ok());
+
+        assert_eq!(
+            root.output.trim(),
+            "0",
+            "probe must actually have guest root"
+        );
+        assert!(
+            network.output.contains("interfaces=lo,"),
+            "the guest must expose loopback only: {}",
+            network.output
+        );
+        for probe in [
+            "raw_ip",
+            "loopback",
+            "ipv6",
+            "metadata",
+            "dns",
+            "udp",
+            "tunnel",
+            "proxy",
+            "dns_exfil",
+            "package",
+        ] {
+            assert!(
+                !network.output.contains(&format!("{probe}=0")),
+                "{probe} unexpectedly reached a network target: {}",
+                network.output
+            );
+        }
+        assert_eq!(
+            host_canary_calls, 0,
+            "direct guest host/provider boundary calls"
+        );
+        assert_eq!(final_invoker_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(consumption["final_invoker_calls"], 1);
+        assert_eq!(replay, "workload_effect_capability_already_consumed");
+        assert!(
+            !material.output.contains("exposed="),
+            "protected host material crossed into guest: {}",
+            material.output
+        );
+        assert!(material.output.contains("no_protected_environment"));
+        assert!(material.output.contains("pid1_fd="));
+        for forbidden_fd_target in ["docker.sock", "/wallet", "/secrets", "/dev/kvm"] {
+            assert!(
+                !material.output.contains(forbidden_fd_target),
+                "protected inherited FD target crossed into guest: {}",
+                material.output
+            );
+        }
+        assert!(
+            terminal,
+            "the monitor must be observably terminal after teardown"
+        );
+
+        eprintln!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema_version": "ioi.hypervisor.workload-bound-effect-boundary-live-probe.v1",
+                "guest_uid": 0,
+                "enforcement_declaration": declaration,
+                "attempted_paths": ["raw_ip", "loopback", "ipv6", "metadata", "dns", "udp", "proxy", "tunnel", "dns_exfil", "package_fetch", "host_device", "host_socket", "inherited_fd", "environment"],
+                "direct_host_canary_invocations": host_canary_calls,
+                "authenticated_final_invoker_calls": final_invoker_calls.load(Ordering::SeqCst),
+                "capability_replay": "refused",
+                "output_quarantine": "bounded_archive_validated",
+                "monitor_terminal": terminal,
+                "claim_boundary": "This probe establishes the named local KVM/no-NIC hostile-guest profile; it does not establish resistance to a compromised host kernel, VMM, daemon, firmware, or hardware."
+            }))
+            .unwrap()
+        );
     }
 }

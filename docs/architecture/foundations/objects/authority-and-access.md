@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of authority scope requests, approval ceremony context, authority grants, authority clients, access-point bindings, and step-up challenges.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-24.
 Doctrine status: canonical
-Implementation status: mixed (`AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, and `AuthorityRevocationSnapshot` v1 have registered schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections; production portable-authority cryptographic verifiers and CLIs remain planned)
-Last implementation audit: 2026-07-25
+Implementation status: mixed (`AuthorityScopeRequestEnvelope` v2, `ApprovalCeremonyContextEnvelope` v1, `AuthorityGrantEnvelope` v1/v2/v3, `AuthorityKeySet` v1, and `AuthorityRevocationSnapshot` v1 have registered schemas and generated Rust/TypeScript projections; production v3 issuance, complete-chain cryptographic verification, and offline CLI support remain in progress)
+Last implementation audit: 2026-08-24
 
 ## Purpose
 
@@ -23,7 +23,7 @@ this module does not restate them.
 
 ```yaml
 AuthorityScopeRequestEnvelopeV2:
-  schema_version: 2
+  schema_version: ioi.foundations.authority-scope-request-envelope.v2
   authority_request_id: authority-request://...
   principal_ref:
     principal://... | wallet://... | org://... | worker://... | service://... |
@@ -67,10 +67,13 @@ AuthorityScopeRequestEnvelopeV2:
   status: requested | granted | denied | expired | revoked
 ```
 
-The exact-action shape above is the target v2 successor. Current unversioned
-request adapters remain compatibility inputs until a closed v2 schema,
-fixtures, generated projections, migration rule, producer, and verifier land
-together; this prose does not mutate their wire contract.
+The exact-action shape above is the registered v2 successor. Current
+unversioned request adapters remain compatibility inputs behind explicit
+adapters until the production v2 producer and verifier replace them; they are
+not accepted as canonical v2 writes.
+
+Registered request contract:
+`schema://ioi/foundations/authority-scope-request-envelope/v2`.
 
 `product_session_ref` identifies a session owned by the product or deployment
 identity plane; wallet.network binds it into the request but does not own that
@@ -111,14 +114,14 @@ decision is request input; policy selects and records those later.
 
 ## ApprovalCeremonyContextEnvelope
 
-This is a target successor contract. Current master has no registered
-`ApprovalCeremonyContextEnvelope` schema, generated projection, production
-emitter, or verifier. It must land as one closed machine contract rather than
-being inferred from a challenge URL or reconstructed from mutable review state.
+This is a registered closed machine contract with generated Rust and TypeScript
+projections. Production emitters and verifiers must resolve its exact bytes; it
+must not be inferred from a challenge URL or reconstructed from mutable review
+state.
 
 ```yaml
 ApprovalCeremonyContextEnvelope:
-  schema_version: 1
+  schema_version: ioi.foundations.approval-ceremony-context.v1
   approval_ceremony_context_ref: approval-ceremony-context://...
   authority_request_ref: authority-request://...
   authority_request_body_hash: sha256:...
@@ -287,9 +290,11 @@ scopes, primitive capabilities, resources, risk classes, budget, calls, and
 validity while retaining or adding caveats and approval requirements.
 
 A conforming verifier operates over a caller-supplied locally trusted key set
-and bounded-freshness signed revocation snapshot. Current master registers the
-wire contract, invariants, fixtures, and generated projections but does not
-contain the portable Ed25519/JCS verifier or an offline CLI. The v3
+and bounded-freshness signed revocation snapshot. The Rust wallet service now
+contains a production, fully offline v3 Ed25519/JCS verifier over the exact raw
+closed JSON value. It validates the registered schema and invariants before
+hashing, so deserialized projections or reconstructed fields cannot bypass the
+cross-field contract. The v3
 acceptance bar, carried here since the separate conformance tree was retired
 (2026-08-12 owner ruling): a conforming verifier proves the complete ancestor
 chain with parent-holder issuance, strict narrowing on every axis at every
@@ -305,6 +310,25 @@ any either-outcome pass failing the whole bar. Network key
 discovery, trust-root acquisition, transparency infrastructure, and universal
 revocation distribution remain separate planned work.
 
+The v3 signature inherits the v2 construction with its successor domain:
+`IOI-AUTHORITY-GRANT-ENVELOPE-V3\0` followed by RFC 8785 JCS of the exact
+object `{body_hash, schema_hash, signature_domain}`. Its body hash uses the
+same v3 domain followed by JCS of the exact closed grant with only `body_hash`
+and `signature` removed.
+
+The registered v3 wire intentionally remains immutable, but it does not sign a
+delegation-depth ceiling, re-delegation right, or the complete sibling
+allocation set needed to prove cumulative descendant budgets. A root-only
+grant is self-contained. A delegated chain is therefore admissible only with a
+locally trusted, owner-scoped closed-world allocation closure that supplies
+`max_depth`, the exact grants allowed to re-delegate, and every strict
+descendant allocation for each ancestor. The verifier sums all listed strict
+descendant budget and call allocations against each ancestor's signed limits;
+missing closure, omitted ancestor entry, duplicate/ref-hash substitution, or
+excess refuses. Request-carried closure data is never trusted and would be an
+authority forgery. A future portable closure needs its own registered signed
+contract rather than an in-place v3 mutation.
+
 For consequential use, “locally trusted” does not mean caller-asserted
 current. The operation must also bind an admitted
 `TemporalVerificationProfile` and recomputable `TemporalValidityEvaluation`
@@ -314,7 +338,7 @@ a historical `valid_as_of` conclusion while present currentness remains
 indeterminate. Portable v1/v2 stay immutable; this cross-plane evaluation is an
 admission input rather than an inferred field in those envelopes.
 
-Portable v3 is the target successor required before the embedded
+Portable v3 is the registered successor required for the embedded
 sign-in-to-effect product proof. It retains the v2 portability and attenuation
 contract and additionally signs:
 
@@ -380,6 +404,9 @@ The signed v3 grant is independently verifiable against the exact target
 representation, presentation and ceremony evidence, required and satisfied
 factor/guardian posture, policy decision, any principal-authority resolution
 required by the portable principal contract, and authority-review receipt.
+Registered v3 contract:
+`schema://ioi/foundations/authority-grant-envelope/v3`.
+
 Request-side factor and guardian refs remain requested posture; only the
 separately named `satisfied_*` refs and their wallet-minted evidence record
 participation. `posture_satisfaction_evaluations` is the authoritative closed
@@ -424,10 +451,98 @@ profile, ceremony, factor, guardian, principal-authority coordinate or
 snapshot, authorization-subject, resource, destination, budget, policy, risk,
 or evidence-root substitution invalidates the commitment. A null session or
 origin is permitted only when the selected non-browser/non-product policy
-explicitly declares that posture; it is never inferred by omission. V1 and v2
-remain immutable compatibility contracts. V3 requires a new registered schema,
-fixtures, generated Rust/TypeScript projections, and verifier support rather
-than silently changing either registered version.
+explicitly declares that posture; it is never inferred by omission. V1, v2,
+and v3 remain immutable compatibility contracts. V3 production use requires
+the complete registered verifier path; projections or copied fields do not
+substitute for exact grant verification.
+
+The Rust verifier path also constructs the registered
+`AuthorityEffectAdmissionReceiptV2` directly from its verified leaf result and
+the daemon-derived effect. The constructor enforces the exact
+equality/membership/standing proof matrix, copies capabilities and scopes only
+from the verified leaf, binds the verified leaf revocation snapshot, computes
+both domain-separated canonical hashes, revalidates the completed raw receipt,
+and fixes every admitted artifact to the pre-invocation posture
+`invoker_called: false`. The wallet owner now durably registers a fully verified
+issuance bundle, consumes the single-use ceremony in the same transaction, and
+atomically meters an exact-effect use into an immutable idempotency receipt.
+Registration and every consumption independently resolve the issuer's current
+principal authority; request-carried key material cannot replace it. The daemon
+PEP still has to persist the registered v2 admission and revalidate it before
+the final invoker, so this is not yet a served portable effect path. A
+control-plane refresh replaces only key-set, revocation-snapshot, local closure,
+and current-owner evidence after re-verifying the immutable bundle; explicit
+revocation is durable and idempotent, and neither transition can restore uses.
+
+The same path now verifies a production issuance bundle before owner-side
+persistence. It recomputes the domain-separated request body,
+review-preparation, review body, review receipt, ceremony-context, and signed
+grant hashes; requires the exact request/review/ceremony/grant identity,
+principal, acting subject, session, origin, authorization subject,
+presentation, posture, policy-decision, authority-resolution, and evidence
+links; requires an approved review and a single-use ceremony whose interval
+contains issuance; and proves that the signed grant does not widen the
+request's capabilities, scopes, resources, risk classes, approval
+requirements, budget, or expiry. The verified issuance bundle is sealed
+in-process like the grant and admission results, so public construction or
+deserialization cannot manufacture verification. Wallet registration retains
+the canonical evidence and exact owner bindings only after this sealed check,
+and one ceremony hash cannot mint two different grants.
+
+The `standing_envelope` authorization subject resolves the registered
+`StandingAuthorityEnvelope` v1 object. That object closes the unattended class
+over exact provider-operation facets (provider, exact selector set, deposit,
+pricing ceiling, SDL and image hashes, registry and result destinations,
+duration, no-top-up and teardown posture) plus cumulative deposit/spend,
+usage, concurrency, provider-fan-out and failure bounds. It is inert until a
+separately signed portable grant binds its exact ref/hash. Its projection is
+never authority, recovery never widens or resets draw-down, and admission still
+requires an atomic trajectory decision and durable intent commitment.
+
+Registered subject contract:
+`schema://ioi/foundations/standing-authority-envelope/v1`.
+
+The portable authority artifact for this subject is a distinct
+`StandingApprovalGrant`; it is not an `ApprovalGrant` with a nullable request
+hash. The exact-request C7 grant retains its original signing domain and bytes.
+The standing grant instead signs the exact envelope and policy commitments,
+audience, validity interval, usage/deposit/spend ceilings, review receipt,
+ceremony context, authentication-factor receipt, issuer key, and signature
+suite. wallet.network registers and revokes that artifact through a
+control-plane client and permits draws only through a capability client bound
+to the current principal-authority record. Each successful draw atomically
+persists its idempotent receipt with checked usage, cumulative-deposit, and
+cumulative-spend reservation; signature, issuer, validity, revocation epoch,
+audience, envelope, policy, and principal substitution all refuse before the
+state change. `approval_mode=silent_within_standing_envelope` describes the
+actual per-effect ceremony and never implies a new human review.
+
+## Authority Trajectory State And Admission
+
+Per-operation authority is necessary but not sufficient: individually bounded
+operations can compose into an aggregate outcome outside the owner's intent.
+`AuthorityTrajectoryState` is the deterministic projection over admitted
+effect events for the minimum scope key
+`owner + bounded_system + principal + envelope_ancestor`. It records the
+revocation epoch and time window; cumulative spend and deposit; active
+resources; provider fan-out; result/data destinations; data classes; calls and
+failures; and the exact ref/hash event set from which the state is re-derived.
+Provider-local counters and caller-authored summaries are inadmissible.
+
+`TrajectoryAdmissionDecision` binds one candidate operation and the exact
+state-before hash to deterministic constraint results, optional semantic-risk
+evidence, policy epoch, decision, reason codes, and state-after commitment. Its
+decision is exactly `admit`, `step_up_required`, or `deny`. Semantic scoring may
+force step-up or denial but can never admit, widen an envelope, change a
+constraint result, or mint authority. A denied or step-up decision consumes no
+effect authority and leaves the trajectory state unchanged; an admission's
+state update, capability draw-down, and C2 intent commitment are one atomic
+logical transition.
+
+The registered contracts are:
+
+- `schema://ioi/foundations/authority-trajectory-state/v1`; and
+- `schema://ioi/foundations/trajectory-admission-decision/v1`.
 
 ## AuthorityClientEnvelope
 

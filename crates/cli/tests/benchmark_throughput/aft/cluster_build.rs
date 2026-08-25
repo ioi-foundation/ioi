@@ -60,8 +60,10 @@ impl AftBenchmarkLane {
 
     fn supports(self, safety_mode: AftSafetyMode) -> bool {
         match self {
-            Self::BaseFinal | Self::CanonicalOrdering | Self::DurableCollapse => true,
-            Self::SealedFinal => matches!(safety_mode, AftSafetyMode::Asymptote),
+            Self::BaseFinal => true,
+            Self::SealedFinal | Self::CanonicalOrdering | Self::DurableCollapse => {
+                matches!(safety_mode, AftSafetyMode::Asymptote)
+            }
         }
     }
 
@@ -124,12 +126,12 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
         .ok()
         .and_then(|path| std::fs::metadata(path).ok())
         .and_then(|metadata| metadata.modified().ok());
-    let binaries_present = ["orchestration", "workload", "guardian"]
+    let binaries_present = ["orchestration", "workload", "guardian", "ioi-signer"]
         .iter()
         .all(|bin| node_binary_dir.join(bin).exists());
     let stale_binaries = benchmark_exe_mtime
         .map(|benchmark_mtime| {
-            ["orchestration", "workload", "guardian"].iter().any(|bin| {
+            ["orchestration", "workload", "guardian", "ioi-signer"].iter().any(|bin| {
                 node_binary_dir
                     .join(bin)
                     .metadata()
@@ -142,6 +144,11 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
         .unwrap_or(false);
     if binaries_present && !rebuild_node_binary && !stale_binaries {
         return Ok(());
+    }
+    if !binaries_present && !rebuild_node_binary {
+        return Err(anyhow!(
+            "cached benchmark node binaries are absent while IOI_AFT_BENCH_REBUILD_NODE=0. Refresh the release node binaries before starting a paid benchmark."
+        ));
     }
     if stale_binaries && !rebuild_node_binary {
         return Err(anyhow!(
@@ -163,6 +170,14 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
         "--no-default-features",
         "--features",
         &features,
+        "--bin",
+        "orchestration",
+        "--bin",
+        "workload",
+        "--bin",
+        "guardian",
+        "--bin",
+        "ioi-signer",
     ]);
     cmd.env("CARGO_TARGET_DIR", &node_target_dir);
     if build_profile.eq_ignore_ascii_case("release") {
@@ -226,7 +241,7 @@ struct AftBenchmarkScenario {
 impl AftBenchmarkScenario {
     const fn paper_guardian_majority_4v() -> Self {
         Self {
-            name: "guardian_majority_4v",
+            name: "paper_guardian_majority_4v",
             validators: 4,
             safety_mode: AftSafetyMode::GuardianMajority,
             target_block_time_ms: BLOCK_TIME_MS,
@@ -240,7 +255,7 @@ impl AftBenchmarkScenario {
 
     const fn paper_guardian_majority_7v() -> Self {
         Self {
-            name: "guardian_majority_7v",
+            name: "paper_guardian_majority_7v",
             validators: 7,
             safety_mode: AftSafetyMode::GuardianMajority,
             target_block_time_ms: BLOCK_TIME_MS,
@@ -254,7 +269,7 @@ impl AftBenchmarkScenario {
 
     const fn paper_asymptote_4v() -> Self {
         Self {
-            name: "asymptote_4v",
+            name: "paper_asymptote_4v",
             validators: 4,
             safety_mode: AftSafetyMode::Asymptote,
             target_block_time_ms: BLOCK_TIME_MS,
@@ -268,7 +283,7 @@ impl AftBenchmarkScenario {
 
     const fn paper_asymptote_7v() -> Self {
         Self {
-            name: "asymptote_7v",
+            name: "paper_asymptote_7v",
             validators: 7,
             safety_mode: AftSafetyMode::Asymptote,
             target_block_time_ms: BLOCK_TIME_MS,

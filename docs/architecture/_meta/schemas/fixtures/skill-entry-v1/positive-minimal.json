@@ -1,13 +1,20 @@
 {
   "schema_version": "ioi.skill-entry.v1",
   "skill_entry_id": "skill-entry://literature",
-  "binding_revision_ref": "skill-entry://literature/revision/1",
+  "binding_revision_ref": "skill-entry://literature/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "predecessor_binding_revision_ref": null,
   "binding_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-  "skill_revision_ref": "skill://literature/revision/2",
+  "skill_revision_ref": "skill://literature/revision/sha256:2222222222222222222222222222222222222222222222222222222222222222",
   "skill_manifest_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
   "owner_scope_ref": "project://research",
+  "memory_space_ref": null,
   "compatibility_decision_ref": "decision://skill/literature",
+  "configuration_ref": null,
+  "allowed_goal_run_profile_revision_refs": [],
+  "policy_refs": [],
   "admitted_by_ref": "user://operator",
   "admission_receipt_ref": "receipt://skill/literature",
+  "revocation_ref": null,
+  "registry_lifecycle_ref": null,
   "registry_status": "active"
 }

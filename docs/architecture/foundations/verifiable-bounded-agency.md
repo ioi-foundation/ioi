@@ -4,13 +4,13 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI's alignment-security thesis, verifiable bounded agency, and execution-boundary alignment doctrine.
 Supersedes: the retired docs/specs/verifiable_bounded_agency.md (removed 2026-08-12) and product prose that claims IOI solves alignment by model cognition, prompt compliance, or one required proof backend.
 Superseded by: none.
-Last alignment pass: 2026-08-12.
+Last alignment pass: 2026-08-23.
 Doctrine status: canonical
 Implementation status: mixed (execution-boundary gating built in the daemon;
 the inference-computation-proof subsection is durable claim hygiene with no
 product profile or path admitted, and broader proof/zk continuity remains
 speculative)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-08-23 (offline Campaign O C8 v3 admission reached AFT measured-results registry revision 1)
 
 ## Canonical Definition
 
@@ -458,6 +458,122 @@ workers or clouds controlled by one operator remain one authority/risk/truth
 principal. Independent-party verification requires a separately accountable
 principal with disclosed affiliation, its own authority and revocation path,
 and the declared verification/adjudication role.
+
+## Governed Effect Claim Manifest
+
+Every public governed-effect certificate or evidence bundle MUST carry a typed
+`GovernedEffectClaimManifest`. The manifest binds an exact certificate subject,
+its source basis, and a named protection profile to an exhaustive vocabulary of
+demonstrated claims and bounded nonclaims. A claim marked `demonstrated` MUST
+name at least one durable evidence reference. A claim without such evidence
+MUST be `not_demonstrated`, `indeterminate`, or `not_applicable` and MUST explain
+the limitation. Claim status is evidence-derived; a publisher cannot promote it
+through prose or by changing only the manifest.
+
+The canonical claim identifiers are:
+
+- `governed_infrastructure_lifecycle`;
+- `workload_readiness`;
+- `workload_result_binding`;
+- `logical_policy_mediation`;
+- `workload_bound_isolation_enforced`;
+- `worker_secret_non_possession_tested`;
+- `separate_verifier`;
+- `independently_reproduced`;
+- `third_party_verified`;
+- `provider_neutrality`;
+- `bare_metal_placement`.
+
+These identifiers are deliberately non-substitutable. A separate verifier
+binary is not an independent reimplementation; an independent implementation
+is not third-party operation; daemon policy mediation is not workload-bound
+isolation; and secret custody outside model context is not an adversarial test
+of worker secret non-possession. The manifest names one of four protection
+profiles: `development_cooperative`, `trusted_host_hostile_guest`,
+`unattested_remote_host_bounded_authority`, or
+`attested_confidential_worker`. A stronger protection profile cannot be inferred
+from a weaker one.
+
+The registered wire contract is
+`schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1`.
+
+## Relying-Party Acceptance
+
+A certificate is evidence, not acceptance. `RelyingPartyAcceptancePolicy`
+names the accountable audience, accepted certificate and result schemas, trust
+roots, freshness and revocation posture, required demonstrated claims,
+tolerated nonclaims, environment/honesty classes, verifier profile, and the
+single durable transition that acceptance may perform. Unknown schemas,
+claims, trust roots, audiences, verifier profiles, or stale inputs fail closed.
+
+A claim identifier the policy does not enumerate is unsupported, not tolerated:
+the relying party MUST refuse a manifest carrying one. A claim the policy lists
+as a tolerated nonclaim is listed there because that audience does not accept
+it, so the relying party MUST refuse a manifest that marks it `demonstrated`.
+Promoting a nonclaim is a policy change, never a manifest edit.
+
+A certificate that binds a single governed operation carries no chain to a
+previously accepted decision, so the only authority-trajectory predecessor it
+can anchor is the genesis state. A relying party MUST refuse a non-genesis
+predecessor on such a certificate rather than trust a producer-supplied prior
+balance that nothing in the bundle independently establishes.
+
+The first relying party is the AFT measured-results registry. Its only admitted
+transition promotes one verified U1 measurement row into the measured-cost
+registry. Verification failure or policy mismatch writes a
+`CertificateAcceptanceReceipt` with typed failures and leaves the target state
+hash unchanged. Acceptance writes the accepted object/revision and binds the
+state-before and state-after hashes. The receipt also binds the certificate,
+policy, verifier identity/build, exact trust-input hashes, observation time,
+and validity horizon. A producer cannot self-declare registry acceptance by
+embedding an `accepted` field in its own certificate.
+
+The acceptance policy separately enumerates admitted environment classes,
+honesty classes, and result verdicts. A variance-caveated result therefore
+cannot enter through a policy that admits only reproduced-within-threshold
+results, even when every other claim passes. For the offline first-party
+profile, the relying party provisions the policy, verifier profile, and
+revision-zero registry before the producer assembles a bundle. The producer
+supplies evidence; it does not create or widen the accepting policy or initialize
+the target registry inside the admission transaction. This demonstrates a real
+first-party relying-party decision and state transition, not organizationally
+independent or third-party verification.
+
+`AftU1CampaignResult` is the closed aggregate emitted by the fixed U1
+measurement protocol. `AftMeasuredResultRow` is the promoted object binding
+that result to the accepting C8 v3 certificate, immutable workload and source,
+environment, provider, honesty class, and verdict. `AftMeasuredResultsRegistry`
+is the compare-and-set target containing an ordered set of accepted row
+ref/hash pairs, a monotonic revision, the prior state hash, and its own state
+commitment. Row bodies remain separately portable and schema-verifiable rather
+than being copied into registry state.
+
+`VerifierIndependenceProfile` declares the ADR 0032 axes individually. The
+first-party AFT verifier may claim `separate_binary`, `separate_codegen`, and
+`separate_transport` only with evidence for each, and must leave
+`separate_authoring_party` false until a disclosed external principal authors
+and maintains an implementation. `C8PortableEvidenceBundle` is the filesystem
+framing used by that verifier: every JSON object and trust input is named by a
+safe relative filename plus its schema ref, object ref, and canonical hash.
+The canonical portable identity is the object-ref/object-hash pair. This permits
+one logical state ref to carry distinct before and after versions while refusing
+duplicate pairs and any ambiguous ref-only lookup.
+
+The registered contracts are:
+
+- `schema://ioi/foundations/relying-party-acceptance-policy/v1`; and
+- `schema://ioi/foundations/certificate-acceptance-receipt/v1`;
+- `schema://ioi/aft/u1-campaign-result/v1`;
+- `schema://ioi/aft/measured-result-row/v1`; and
+- `schema://ioi/aft/measured-results-registry/v1`;
+- `schema://ioi/foundations/verifier-independence-profile/v1`; and
+- `schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1`.
+
+External witnessing initially composes the registered `ReceiptCheckpoint` and
+`ReceiptProofBundle` contracts over the acceptance receipt and C8 outcome root.
+No separate `ExternalWitnessCommitment` contract is introduced until a concrete
+external witness protocol requires response semantics those contracts cannot
+express. A locally emitted checkpoint is not external witnessing.
 
 ## Verifiability Instead of Vendor Trust
 

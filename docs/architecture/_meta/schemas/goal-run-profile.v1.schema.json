@@ -12,12 +12,42 @@
     "content_hash",
     "owner_ref",
     "display_name",
+    "description",
+    "version",
+    "predecessor_revision_ref",
+    "applicable_goal_class_refs",
+    "compatible_domain_object_schema_refs",
     "orchestration_policy_ref",
+    "constraint_derivation_policy_refs",
+    "workflow_template_revision_refs",
+    "role_topology_requirement_refs",
+    "harness_requirement_refs",
+    "pinned_harness_profile_revision_refs",
+    "skill_requirement_refs",
+    "pinned_skill_manifest_revision_refs",
+    "worker_requirement_refs",
+    "model_route_requirement_refs",
+    "service_requirement_refs",
+    "runtime_tool_contract_requirement_refs",
+    "primitive_capability_requirements",
+    "context_requirement_profile_refs",
     "input_contract_ref",
     "output_contract_ref",
+    "acceptance_contract_refs",
+    "verifier_requirement_refs",
+    "budget_time_and_resource_ceiling_refs",
     "stop_policy_ref",
     "recovery_policy_ref",
     "escalation_policy_ref",
+    "learning_boundary_requirement_ref",
+    "pinned_learning_boundary_profile_ref",
+    "allowed_override_schema_ref",
+    "compatibility_refs",
+    "provenance_refs",
+    "evaluation_and_benchmark_refs",
+    "promotion_policy_ref",
+    "revocation_and_recall_policy_ref",
+    "registry_lifecycle_ref",
     "registry_status"
   ],
   "properties": {
@@ -30,7 +60,7 @@
     },
     "revision_ref": {
       "type": "string",
-      "pattern": "^goal-run-profile://[^\\s]+/revision/[^\\s]+$"
+      "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
     },
     "version": {
       "type": "string"
@@ -39,7 +69,7 @@
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
         },
         {
           "type": "null"
@@ -52,7 +82,7 @@
     },
     "owner_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^(?:(?:org|project|system|user|domain)://[^\\s]{1,500}|ioi://publisher/[^\\s]{1,500})$"
     },
     "display_name": {
       "type": "string",

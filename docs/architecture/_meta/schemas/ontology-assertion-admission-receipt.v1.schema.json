@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/ontology-assertion-admission-receipt/v1",
+  "title": "OntologyAssertionAdmissionReceipt",
+  "description": "Separate exact-head Agentgres/domain admission decision over one ontology assertion.",
+  "x-ioi-schema-version": "ioi.ontology-assertion-admission-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_id", "receipt_type", "system_id", "assertion_ref", "assertion_commitment", "fact_class_ref", "oracle_evidence_profile_ref", "oracle_evidence_admission_receipt_ref", "applicability_scope_ref", "permitted_consequence_scope_refs", "decision", "expected_predecessor_assertion_head_ref", "expected_predecessor_assertion_head_hash", "resulting_assertion_head_hash", "policy_ref", "authority_refs", "agentgres_operation_ref"],
+  "properties": {
+    "schema_version": { "const": "ioi.ontology-assertion-admission-receipt.v1" },
+    "receipt_id": { "$ref": "#/$defs/receiptRef" },
+    "receipt_type": { "const": "ontology_assertion_admission" },
+    "system_id": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "assertion_ref": { "$ref": "#/$defs/assertionRef" },
+    "assertion_commitment": { "$ref": "#/$defs/hash" },
+    "fact_class_ref": { "oneOf": [{ "type": "string", "pattern": "^ontology://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "oracle_evidence_profile_ref": { "oneOf": [{ "type": "string", "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "oracle_evidence_admission_receipt_ref": { "oneOf": [{ "$ref": "#/$defs/receiptRef" }, { "type": "null" }] },
+    "applicability_scope_ref": { "oneOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }] },
+    "permitted_consequence_scope_refs": { "$ref": "#/$defs/canonicalRefs" },
+    "decision": { "enum": ["admitted", "rejected"] },
+    "expected_predecessor_assertion_head_ref": { "oneOf": [{ "$ref": "#/$defs/assertionRef" }, { "type": "null" }] },
+    "expected_predecessor_assertion_head_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "resulting_assertion_head_hash": { "$ref": "#/$defs/hash" },
+    "policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" },
+    "authority_refs": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:grant|lease)://[^\\s]{1,248}$" } },
+    "agentgres_operation_ref": { "type": "string", "pattern": "^agentgres://operation/[^\\s]{1,248}$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "decision": { "const": "admitted" } }, "required": ["decision"] },
+      "then": {
+        "properties": {
+          "fact_class_ref": { "type": "string", "pattern": "^ontology://[^\\s]{1,248}$" },
+          "oracle_evidence_profile_ref": { "type": "string", "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$" },
+          "oracle_evidence_admission_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+          "permitted_consequence_scope_refs": { "type": "array", "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "expected_predecessor_assertion_head_ref": { "type": "null" } }, "required": ["expected_predecessor_assertion_head_ref"] },
+      "then": { "properties": { "expected_predecessor_assertion_head_hash": { "type": "null" } } },
+      "else": { "properties": { "expected_predecessor_assertion_head_hash": { "$ref": "#/$defs/hash" } } }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$" },
+    "canonicalRefs": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "$ref": "#/$defs/canonicalRef" } },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+    "assertionRef": { "type": "string", "pattern": "^ontology-assertion://[^\\s]{1,248}$" }
+  }
+}

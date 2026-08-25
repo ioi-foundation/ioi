@@ -1,0 +1,51 @@
+{
+  "$id": "invariant://ioi/foundations/standing-authority-envelope/containment/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
+  "rules": [
+    {
+      "rule_id": "standing_authority_envelope.body_hash.recomputes",
+      "description": "The standing-envelope body hash commits the exact subject, facet template, aggregate bounds, validity, revocation and trajectory policy under a domain-separated JCS profile.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.standing-authority-envelope-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "standing_envelope_ref": { "path": "$.standing_envelope_ref" },
+          "owner_ref": { "path": "$.owner_ref" },
+          "bounded_system_ref": { "path": "$.bounded_system_ref" },
+          "principal_ref": { "path": "$.principal_ref" },
+          "audience_ref": { "path": "$.audience_ref" },
+          "authority_scope": { "path": "$.authority_scope" },
+          "facet_template": { "path": "$.facet_template" },
+          "aggregate_bounds": { "path": "$.aggregate_bounds" },
+          "not_before_ms": { "path": "$.not_before_ms" },
+          "expires_at_ms": { "path": "$.expires_at_ms" },
+          "revocation_epoch": { "path": "$.revocation_epoch" },
+          "trajectory_policy_ref": { "path": "$.trajectory_policy_ref" },
+          "trajectory_policy_hash": { "path": "$.trajectory_policy_hash" },
+          "approval_mode": { "path": "$.approval_mode" },
+          "recovery_posture": { "path": "$.recovery_posture" }
+        },
+        "expected_path": "$.body_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "standing_authority_envelope.validity.non_empty",
+      "description": "A standing envelope has a non-empty validity interval.",
+      "expression": { "operator": "numbers_lt", "paths": ["$.not_before_ms", "$.expires_at_ms"] }
+    },
+    {
+      "rule_id": "standing_authority_envelope.per_operation_deposit.within_aggregate",
+      "description": "One operation cannot reserve more deposit than the whole envelope permits.",
+      "expression": { "operator": "numbers_lte", "paths": ["$.facet_template.per_operation_deposit_microusd", "$.aggregate_bounds.max_cumulative_deposit_microusd"] }
+    },
+    {
+      "rule_id": "standing_authority_envelope.spend.within_deposit",
+      "description": "The maximum reconciled spend cannot exceed the maximum deposit authority.",
+      "expression": { "operator": "numbers_lte", "paths": ["$.aggregate_bounds.max_cumulative_spend_microusd", "$.aggregate_bounds.max_cumulative_deposit_microusd"] }
+    }
+  ]
+}

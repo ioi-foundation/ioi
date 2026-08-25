@@ -1,0 +1,20 @@
+{
+  "schema_version": "ioi.ontology-assertion-admission-receipt.v1",
+  "receipt_id": "receipt://ontology/acme/public-record/1",
+  "receipt_type": "ontology_assertion_admission",
+  "system_id": "system://acme/system-alpha",
+  "assertion_ref": "ontology-assertion://acme/public-record/1",
+  "assertion_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "fact_class_ref": "ontology://acme/facts/public-record",
+  "oracle_evidence_profile_ref": "oracle-evidence-profile://acme/system-alpha/public-records",
+  "oracle_evidence_admission_receipt_ref": "receipt://oracle/acme/public-record/1",
+  "applicability_scope_ref": "scope:ontology.assert",
+  "permitted_consequence_scope_refs": ["scope:workflow.read"],
+  "decision": "admitted",
+  "expected_predecessor_assertion_head_ref": null,
+  "expected_predecessor_assertion_head_hash": null,
+  "resulting_assertion_head_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "policy_ref": "policy://acme/evidence/admission",
+  "authority_refs": [],
+  "agentgres_operation_ref": "agentgres://operation/ontology-acme-public-record-1"
+}

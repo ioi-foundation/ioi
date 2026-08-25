@@ -9,8 +9,14 @@
 // names the unsupported lanes. Route administration (enable/disable/probe/select-default) has ONE
 // owner — Agent Studio — and the catalog links there rather than duplicating mutation.
 //
-// SCOPE (tight, by direction): only `models` binds. `modelstudio` (editor_canvas) and `inference`
-// (wizard) stay reference_capture — they have no clean daemon truth to bind.
+// SCOPE (tight, by direction): only `models` binds AS SUBSTRATE TRUTH here. BOTH sibling seeds have
+// now left the reference_capture list, each on its own live-tenant evidence and each with its own
+// gate in the domain-landings verifier: `modelstudio` at MS-1 (2026-08-20, #modelstudio-port — the
+// creation-entry dialog, not the canvas the mirror-era note called it) and `inference` at INF-1
+// (2026-08-20, #inference-port — the space gate, not the wizard the mirror-era note called it).
+// The FOU-1 scope guard below is RE-AIMED for the second time, never deleted: it still fails if
+// EITHER sibling's parity_class is claimed without the route and the adjudication that earn it, so
+// an unearned class claim on either one is a FAIL rather than a silent promotion.
 //
 // Guard: read-only-projection cross-check. Read the live model-route registry + Foundry substrate,
 // then assert the rendered Model Catalog reflects them EXACTLY — one card per route, each carrying the
@@ -45,7 +51,7 @@ async function run() {
   // #47 PROMOTED models to daemon_wired (certified port at /__ioi/foundry/models) — the substrate
   // surface stays bound; the class pin became a set (the frozen-class pin broke on promotion).
   ok("matrix binds models (substrate_bound|daemon_wired) with the intact /__ioi/foundry substrate (Foundry)", ["substrate_bound", "daemon_wired"].includes(bySlug.models?.parity_class) && bySlug.models?.substrate_surface === "/__ioi/foundry" && bySlug.models?.surface_name === "Foundry");
-  ok("matrix keeps modelstudio + inference reference_capture (NOT over-claimed in this cut)", bySlug.modelstudio?.parity_class === "reference_capture" && bySlug.inference?.parity_class === "reference_capture");
+  ok("matrix: BOTH Foundry siblings are reference_ported ONLY with the route + adjudication that earn it — an unearned class claim on either FAILS", bySlug.modelstudio?.parity_class === "reference_ported" && bySlug.modelstudio?.candidate_surface === "/__ioi/foundry/model-studio" && /#modelstudio-port/.test(bySlug.modelstudio?.adjudication_ref || "") && bySlug.inference?.parity_class === "reference_ported" && bySlug.inference?.candidate_surface === "/__ioi/foundry/inference" && /#inference-port/.test(bySlug.inference?.adjudication_ref || ""), `${bySlug.inference?.parity_class} / ${bySlug.modelstudio?.parity_class}`);
   ok("no 'covered' anywhere; prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex/jobs/incidents/evalsuites/designer/approvals)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex", "jobs", "incidents", "evalsuites", "designer", "approvals"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
 
   // 1. Reference baseline.
@@ -78,9 +84,14 @@ async function run() {
   }
   ok("route administration is deferred to Agent Studio via the working #model-routes deep-link (not the no-op ?tab= form)", t.includes("/__ioi/agent-studio#model-routes") && !/agent-studio\?tab=model-routes/.test(t));
 
-  // 4. No false coverage — named gaps + siblings named reference-only + brand-clean.
+  // 4. No false coverage — named gaps + the sibling claim kept TRUE + brand-clean. The sibling
+  //    sentence used to read "Sibling Foundry seeds stay reference-only", and this assertion checked
+  //    only that its two links were present — which is a decorative assertion: it kept passing after
+  //    MS-1 shipped modelstudio and the sentence became false. INF-1 corrected the sentence and
+  //    RE-AIMS the assertion at what it is about: both siblings are ported, the note says so, and the
+  //    mirror captures stay linked as baselines rather than as the siblings' current state.
   ok("named gaps: fine-tuning / prompt playground / live inference evals / deployment automation / training runs / model cards", /fine-tuning/.test(t) && /prompt playground/.test(t) && /live inference evals/.test(t) && /deployment automation/.test(t) && /training runs/.test(t) && /model cards/.test(t));
-  ok("sibling Foundry seeds named reference-only (Model Studio canvas + inference wizard)", t.includes("/__apps/modelstudio") && t.includes("/__apps/inference"));
+  ok("sibling Foundry seeds named PORTED with their live routes, and their mirror captures kept as linked baselines (the stale 'stay reference-only' claim is gone)", t.includes("/__ioi/foundry/model-studio") && t.includes("/__ioi/foundry/inference") && t.includes("/__apps/modelstudio") && t.includes("/__apps/inference") && /no longer reference-only/.test(t) && !/Sibling Foundry seeds stay reference-only/.test(t));
   ok("reference capture linked as secondary; IOI surface brand-clean (no Palantir)", t.includes("/__apps/models") && !/\bPalantir\b/.test(t));
 }
 

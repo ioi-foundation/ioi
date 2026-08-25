@@ -6,8 +6,8 @@ Supersedes: the same object definitions when they were carried as H3 sections un
 Superseded by: none.
 Last alignment pass: 2026-08-12.
 Doctrine status: canonical
-Implementation status: planned (no durable WorkflowTemplate, SkillManifest, SkillEntry, or ActiveSkillSetSnapshot object plane is admitted; the Workflow Compositor edits workflow drafts only)
-Last implementation audit: 2026-07-25
+Implementation status: mixed (`WorkflowTemplate` immutable revisions and the canonical `SkillManifest` / `SkillEntry` / `ActiveSkillSetSnapshot` split are registered and daemon-admitted; active skill-set resolution is currently bounded to owned `AutomationRun` subjects)
+Last implementation audit: 2026-08-25
 
 ## Purpose
 

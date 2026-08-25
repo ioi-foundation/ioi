@@ -11,8 +11,8 @@ pub mod output;
 pub mod planning;
 pub(crate) mod policy;
 pub use self::policy::{
-    install_constrained_browser_navigation_policy, install_constrained_shell_exec_policy,
-    install_constrained_workspace_write_policy,
+    install_constrained_browser_navigation_policy, install_constrained_extension_invoke_policy,
+    install_constrained_shell_exec_policy, install_constrained_workspace_write_policy,
 };
 pub mod queue;
 pub mod recovery;
@@ -85,6 +85,12 @@ pub use self::visual::VisualContextCache;
 
 /// The Runtime Agent Service.
 pub struct RuntimeAgentService {
+    /// Immutable released RuntimeToolContract heads used by the final-invoker gate.
+    pub(crate) runtime_tool_contract_registry: Arc<
+        std::sync::RwLock<
+            crate::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry,
+        >,
+    >,
     /// Driver for GUI automation (screenshot, click, type).
     pub(crate) gui: Arc<dyn GuiDriver>,
     /// Driver for terminal execution.

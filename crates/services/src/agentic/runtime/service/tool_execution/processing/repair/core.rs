@@ -329,10 +329,11 @@ pub(crate) async fn attempt_refusal_repair(
         });
     }
 
-    let discovered_tools = discover_tools(
+    let discovered_tools = discover_tools_with_registry(
         state,
         service.memory_runtime.as_deref(),
         service.mcp.as_deref(),
+        Some(service.runtime_tool_contract_registry.clone()),
         &agent_state.goal,
         service.fast_inference.clone(),
         agent_state.current_tier,
@@ -489,10 +490,11 @@ pub(crate) async fn attempt_invalid_tool_call_repair(
         });
     }
 
-    let discovered_tools = discover_tools(
+    let discovered_tools = discover_tools_with_registry(
         state,
         service.memory_runtime.as_deref(),
         service.mcp.as_deref(),
+        Some(service.runtime_tool_contract_registry.clone()),
         &agent_state.goal,
         service.fast_inference.clone(),
         agent_state.current_tier,

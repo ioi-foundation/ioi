@@ -34,8 +34,12 @@ mod agentops_routes;
 mod akash_candidate_source;
 #[path = "hypervisor_daemon_routes/attempt_finding_routes.rs"]
 mod attempt_finding_routes;
+#[path = "hypervisor_daemon_routes/authority_gateway_routes.rs"]
+mod authority_gateway_routes;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
 mod authority_routes;
+#[path = "hypervisor_daemon_routes/automation_contract_routes.rs"]
+mod automation_contract_routes;
 #[path = "hypervisor_daemon_routes/aws_candidate_source.rs"]
 mod aws_candidate_source;
 #[path = "hypervisor_daemon_routes/azure_candidate_source.rs"]
@@ -54,6 +58,8 @@ mod connector_session_routes;
 mod data_source_routes;
 #[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
 mod decentralized_cloud_routes;
+#[path = "hypervisor_daemon_routes/device_custody_routes.rs"]
+mod device_custody_routes;
 #[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
 mod domain_apps_routes;
 #[path = "hypervisor_daemon_routes/download_intent_routes.rs"]
@@ -70,6 +76,8 @@ mod editor_proxy;
 mod editor_routes;
 #[path = "hypervisor_daemon_routes/endgame_routes.rs"]
 mod endgame_routes;
+#[path = "hypervisor_daemon_routes/enforcement_coverage_routes.rs"]
+mod enforcement_coverage_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
 #[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
@@ -84,6 +92,8 @@ mod foundry_execution_routes;
 mod foundry_routes;
 #[path = "hypervisor_daemon_routes/gcp_candidate_source.rs"]
 mod gcp_candidate_source;
+#[path = "hypervisor_daemon_routes/goal_profile_contract_routes.rs"]
+mod goal_profile_contract_routes;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/governance_routes.rs"]
@@ -160,6 +170,8 @@ mod room_participation_routes;
 mod runpod_candidate_source;
 #[path = "hypervisor_daemon_routes/scm_publication_routes.rs"]
 mod scm_publication_routes;
+#[path = "hypervisor_daemon_routes/skill_contract_routes.rs"]
+mod skill_contract_routes;
 #[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
 mod state_machine_routes;
 #[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
@@ -180,6 +192,12 @@ mod system_continuity_routes;
 mod system_genesis_routes;
 #[path = "hypervisor_daemon_routes/system_membership_routes.rs"]
 mod system_membership_routes;
+#[path = "hypervisor_daemon_routes/system_oracle_routes.rs"]
+mod system_oracle_routes;
+#[path = "hypervisor_daemon_routes/system_ordering_recovery_routes.rs"]
+mod system_ordering_recovery_routes;
+#[path = "hypervisor_daemon_routes/system_policy_routes.rs"]
+mod system_policy_routes;
 #[path = "hypervisor_daemon_routes/system_projection_routes.rs"]
 mod system_projection_routes;
 #[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]
@@ -202,6 +220,8 @@ mod wallet_network_capability_client;
 mod work_frontier_claim_routes;
 #[path = "hypervisor_daemon_routes/work_result_routes.rs"]
 mod work_result_routes;
+#[path = "hypervisor_daemon_routes/workload_effect_boundary.rs"]
+mod workload_effect_boundary;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -244,6 +264,14 @@ pub(crate) struct DaemonState {
     inference: Arc<dyn InferenceRuntime>,
     model_name: String,
     pub(crate) data_dir: String,
+    pub(crate) enforcement_coverage_registry:
+        Mutex<ioi_services::agentic::runtime::enforcement_coverage::EnforcementCoverageRegistry>,
+    pub(crate) mcp_manager: Arc<ioi_drivers::mcp::McpManager>,
+    pub(crate) runtime_tool_contract_registry: Arc<
+        std::sync::RwLock<
+            ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry,
+        >,
+    >,
     // The workspace the daemon projects skills/hooks + repository context against (real
     // filesystem + git scans). Defaults to the daemon's cwd.
     pub(crate) workspace_root: String,
@@ -533,7 +561,8 @@ async fn async_main() -> anyhow::Result<()> {
     // C7 restart recovery — a funded akash deposit whose two-stage flow never reached a terminal
     // Stage B outcome (crash mid-flight) is stranded; mark each reconciliation_required so a funded
     // deposit is never silently lost. Marking only; the live close + refund confirm is a follow-up.
-    let akash_stranded = provider_routes::reconcile_stranded_akash_deployments(&data_dir);
+    let akash_stranded = provider_routes::reconcile_stranded_akash_deployments(&data_dir)
+        .map_err(|error| anyhow::anyhow!("akash restart recovery blocks readiness: {error}"))?;
     if !akash_stranded.is_empty() {
         tracing::warn!(
             count = akash_stranded.len(),
@@ -595,10 +624,21 @@ async fn async_main() -> anyhow::Result<()> {
     // bootstrap token to the host log. Loopback itself never becomes an administrator credential.
     lifecycle_routes::startup_auth_notice(&data_dir)
         .map_err(|error| anyhow::anyhow!("identity bootstrap blocks readiness: {error}"))?;
+    operability_routes::verify_mcp_route_classification()
+        .map_err(|error| anyhow::anyhow!("MCP route classification blocks readiness: {error}"))?;
+    let enforcement_coverage_registry = enforcement_coverage_routes::restore_registry(&data_dir)
+        .map_err(|error| anyhow::anyhow!("enforcement coverage blocks readiness: {error}"))?;
+    let runtime_tool_contract_registry = Arc::new(std::sync::RwLock::new(
+        ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry::seeded_native()
+            .map_err(|error| anyhow::anyhow!("runtime tool-contract seed blocks readiness: {error}"))?,
+    ));
     let state = Arc::new(DaemonState {
         inference,
         model_name,
         data_dir,
+        enforcement_coverage_registry: Mutex::new(enforcement_coverage_registry),
+        mcp_manager: Arc::new(ioi_drivers::mcp::McpManager::new()),
+        runtime_tool_contract_registry,
         workspace_root,
         home_dir,
         base_url: format!("http://{addr}"),
@@ -678,6 +718,26 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/authority-evidence",
             get(lifecycle_routes::handle_authority_evidence),
+        )
+        .route(
+            "/v1/authority-gateway/profiles",
+            post(authority_gateway_routes::handle_profile_register),
+        )
+        .route(
+            "/v1/hypervisor/enforcement-coverage",
+            get(enforcement_coverage_routes::handle_operability),
+        )
+        .route(
+            "/v1/action-requests",
+            post(authority_gateway_routes::handle_action_request_create),
+        )
+        .route(
+            "/v1/action-requests/:id",
+            get(authority_gateway_routes::handle_action_request_get),
+        )
+        .route(
+            "/v1/action-requests/:id/execute",
+            post(authority_gateway_routes::handle_action_request_execute),
         )
         .route(
             "/v1/workflow-capability-preflights",
@@ -908,6 +968,70 @@ async fn async_main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_mcp_tool_search),
         )
         .route(
+            "/v1/threads/:id/mcp/tools/:tool_id",
+            get(lifecycle_routes::handle_mcp_tool_get),
+        )
+        .route(
+            "/v1/threads/:id/mcp/tools/:tool_id/invoke",
+            post(lifecycle_routes::handle_mcp_tool_invoke),
+        )
+        .route(
+            "/v1/threads/:id/mcp/resources/search",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/resources/:resource_id",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/resources/:resource_id/read",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/prompts/search",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/prompts/:prompt_id",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/prompts/:prompt_id/imports",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/elicitation-requests",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/elicitation-requests/:request_id/responses",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/external-task-bindings",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/external-task-bindings/:binding_id",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/external-task-bindings/:binding_id/cancel",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/apps/search",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/apps/:app_id/descriptor",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/serve",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
             "/v1/mcp/servers",
             get(lifecycle_routes::handle_mcp_discover_servers),
         )
@@ -962,7 +1086,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/threads/:id/mcp/status",
-            post(lifecycle_routes::handle_mcp_status),
+            get(lifecycle_routes::handle_mcp_thread_status)
+                .post(lifecycle_routes::handle_mcp_status),
         )
         .route(
             "/v1/threads/:id/mcp/validate",
@@ -1479,6 +1604,45 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/automations/:id/webhook-events",
             get(orchestration_routes::handle_automation_webhook_events),
+        )
+        // M04.2 canonical automation family. These immutable object lifetimes are separate from
+        // the predecessor AutomationWorkflow executor above; runs freeze exact template, spec,
+        // and successor-versioned installation revisions at admission.
+        .route(
+            "/v1/hypervisor/workflow-templates",
+            get(automation_contract_routes::list_workflow_templates)
+                .post(automation_contract_routes::create_workflow_template),
+        )
+        .route(
+            "/v1/hypervisor/workflow-templates/:id/revisions",
+            post(automation_contract_routes::create_workflow_template_successor),
+        )
+        .route(
+            "/v1/hypervisor/automation-specs",
+            get(automation_contract_routes::list_automation_specs)
+                .post(automation_contract_routes::create_automation_spec),
+        )
+        .route(
+            "/v1/hypervisor/automation-specs/:id/revisions",
+            post(automation_contract_routes::create_automation_spec_successor),
+        )
+        .route(
+            "/v1/hypervisor/automation-installations",
+            get(automation_contract_routes::list_automation_installations)
+                .post(automation_contract_routes::create_automation_installation),
+        )
+        .route(
+            "/v1/hypervisor/automation-installations/:id/revisions",
+            post(automation_contract_routes::create_automation_installation_successor),
+        )
+        .route(
+            "/v1/hypervisor/automation-runs",
+            get(automation_contract_routes::list_automation_runs)
+                .post(automation_contract_routes::admit_automation_run),
+        )
+        .route(
+            "/v1/hypervisor/automation-runs/:id",
+            get(automation_contract_routes::get_automation_run),
         )
         // Cron next-runs preview (pure helper for the schedule form).
         .route(
@@ -2010,6 +2174,35 @@ async fn async_main() -> anyhow::Result<()> {
             get(ioi_intelligence_routes::handle_entries_get)
                 .patch(ioi_intelligence_routes::handle_entries_patch),
         )
+        // M04.3 canonical reusable-skill family. `/skill-bindings` is intentionally distinct
+        // from the retained mutable intelligence predecessor mounted at `/skill-entries` below.
+        .route(
+            "/v1/hypervisor/skill-manifests",
+            get(skill_contract_routes::list_skill_manifests)
+                .post(skill_contract_routes::create_skill_manifest),
+        )
+        .route(
+            "/v1/hypervisor/skill-manifests/:id/revisions",
+            post(skill_contract_routes::create_skill_manifest_successor),
+        )
+        .route(
+            "/v1/hypervisor/skill-bindings",
+            get(skill_contract_routes::list_skill_bindings)
+                .post(skill_contract_routes::create_skill_binding),
+        )
+        .route(
+            "/v1/hypervisor/skill-bindings/:id/revisions",
+            post(skill_contract_routes::create_skill_binding_successor),
+        )
+        .route(
+            "/v1/hypervisor/active-skill-set-snapshots",
+            get(skill_contract_routes::list_active_skill_set_snapshots)
+                .post(skill_contract_routes::create_active_skill_set_snapshot),
+        )
+        .route(
+            "/v1/hypervisor/active-skill-set-snapshots/:hash",
+            get(skill_contract_routes::get_active_skill_set_snapshot),
+        )
         .route(
             "/v1/hypervisor/skill-entries",
             get(ioi_intelligence_routes::handle_skills_list)
@@ -2155,6 +2348,24 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/goal-orchestration/goal-run-activations",
             post(goalrun_routes::handle_goal_run_activation_draft),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-run-profiles",
+            get(goal_profile_contract_routes::list_goal_run_profiles)
+                .post(goal_profile_contract_routes::create_goal_run_profile),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-run-profiles/:id/revisions",
+            post(goal_profile_contract_routes::create_goal_run_profile_successor),
+        )
+        .route(
+            "/v1/hypervisor/agent-harness-adapters",
+            get(goal_profile_contract_routes::list_agent_harness_adapters)
+                .post(goal_profile_contract_routes::create_agent_harness_adapter),
+        )
+        .route(
+            "/v1/hypervisor/agent-harness-adapters/:id/revisions",
+            post(goal_profile_contract_routes::create_agent_harness_adapter_successor),
         )
         .route(
             "/v1/goal-orchestration/goal-run-activations/:id",
@@ -2573,6 +2784,18 @@ async fn async_main() -> anyhow::Result<()> {
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/oracle-evidence/admissions",
+            post(system_oracle_routes::handle_admission).layer(DefaultBodyLimit::max(
+                system_activation_routes::MAX_REQUEST_BYTES,
+            )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/ordering/recoveries",
+            post(system_ordering_recovery_routes::handle_recovery).layer(DefaultBodyLimit::max(
+                system_activation_routes::MAX_REQUEST_BYTES,
+            )),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/:id/transitions/:op",
@@ -3235,6 +3458,22 @@ async fn async_main() -> anyhow::Result<()> {
             get(provider_routes::handle_providers_list),
         )
         .route(
+            "/v1/hypervisor/provider-operation-proposals",
+            post(provider_routes::handle_provider_operation_proposal_issue),
+        )
+        .route(
+            "/v1/hypervisor/workload-effect-capabilities",
+            post(workload_effect_boundary::handle_governed_capability_mint),
+        )
+        .route(
+            "/v1/hypervisor/workload-effect-capabilities/consume",
+            post(workload_effect_boundary::handle_governed_capability_consume),
+        )
+        .route(
+            "/v1/hypervisor/workload-effect-capabilities/hostile-guest-roundtrip",
+            post(workload_effect_boundary::handle_hostile_guest_roundtrip),
+        )
+        .route(
             "/v1/hypervisor/provider-ops",
             post(provider_routes::handle_provider_op),
         )
@@ -3837,6 +4076,38 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/auth/bootstrap",
             post(lifecycle_routes::handle_auth_bootstrap),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/register/start",
+            post(device_custody_routes::handle_registration_start),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/register/finish",
+            post(device_custody_routes::handle_registration_finish),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/login/start",
+            post(device_custody_routes::handle_login_start),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/login/finish",
+            post(device_custody_routes::handle_login_finish),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/authority/start",
+            post(device_custody_routes::handle_authority_start),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/authority/finish",
+            post(device_custody_routes::handle_authority_finish),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys",
+            get(device_custody_routes::handle_passkey_list),
+        )
+        .route(
+            "/v1/hypervisor/auth/passkeys/:credential_ref_id",
+            delete(device_custody_routes::handle_passkey_revoke),
         )
         .route(
             "/v1/hypervisor/auth/portal-session-exchange",
@@ -6853,6 +7124,99 @@ fn process_mcp_integrations(
 
 /// POST /v1/model-mount/mcp/import — register MCP servers (auth headers redacted
 /// to a hash; the raw vault ref is never persisted).
+pub(crate) async fn start_and_admit_mcp_server(
+    st: &DaemonState,
+    label: &str,
+    config: &Value,
+) -> Result<Vec<String>, AppError> {
+    let entry: ioi_types::config::McpConfigEntry =
+        serde_json::from_value(config.clone()).map_err(|error| {
+            AppError(
+                StatusCode::BAD_REQUEST,
+                format!("invalid MCP stdio config for '{label}': {error}"),
+            )
+        })?;
+    let mode = match config.get("mode").and_then(Value::as_str) {
+        Some("development") => ioi_types::config::McpMode::Development,
+        Some("production") => ioi_types::config::McpMode::Production,
+        _ => {
+            return Err(AppError(
+                StatusCode::BAD_REQUEST,
+                format!("MCP stdio server '{label}' requires mode development or production"),
+            ))
+        }
+    };
+    st.mcp_manager
+        .start_server(
+            label,
+            mode,
+            ioi_drivers::mcp::McpServerConfig {
+                command: entry.command,
+                args: entry.args,
+                env: entry.env,
+                tier: entry.tier,
+                source: entry.source,
+                integrity: entry.integrity,
+                containment: entry.containment,
+                allowed_tools: entry.allowed_tools,
+            },
+        )
+        .await
+        .map_err(|error| AppError(StatusCode::UNPROCESSABLE_ENTITY, error.to_string()))?;
+    let definitions = match st.mcp_manager.list_admitted_tools_for_server(label).await {
+        Ok(definitions) => definitions,
+        Err(error) => {
+            let _ = st.mcp_manager.stop_server(label).await;
+            return Err(AppError(StatusCode::BAD_GATEWAY, error.to_string()));
+        }
+    };
+    let receipt = st
+        .mcp_manager
+        .get_server_receipts()
+        .await
+        .into_iter()
+        .find(|receipt| receipt.server_name == label)
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::BAD_GATEWAY,
+                format!("MCP server '{label}' started without an admission receipt"),
+            )
+        });
+    let receipt = match receipt {
+        Ok(receipt) => receipt,
+        Err(error) => {
+            let _ = st.mcp_manager.stop_server(label).await;
+            return Err(error);
+        }
+    };
+    let receipt_ref = format!(
+        "receipt://mcp-server/{}/{}/{}",
+        label, receipt.command_sha256, receipt.started_at_ms
+    );
+    let admitted = st
+        .runtime_tool_contract_registry
+        .write()
+        .map_err(|_| {
+            AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "runtime tool-contract registry lock poisoned".to_string(),
+            )
+        })?
+        .admit_mcp_server_tools(label, &definitions, &receipt_ref)
+        .map_err(|error| AppError(StatusCode::UNPROCESSABLE_ENTITY, error.to_string()));
+    let admitted = match admitted {
+        Ok(admitted) => admitted,
+        Err(error) => {
+            let _ = st.mcp_manager.stop_server(label).await;
+            return Err(error);
+        }
+    };
+    Ok(admitted
+        .into_iter()
+        .map(|resolved| resolved.contract.revision_ref)
+        .collect())
+}
+
 async fn handle_mcp_import(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -6877,51 +7241,85 @@ async fn handle_mcp_import(
             .and_then(|h| h.get("authorization"))
             .and_then(|v| v.as_str())
             .map(|secret| format!("sha256:{}", sha256_hex_str(secret)));
+        let contract_revision_refs = if config.get("command").is_some() {
+            start_and_admit_mcp_server(&st, label, config).await?
+        } else {
+            Vec::new()
+        };
         let record = json!({
             "id": label, "label": label, "url": url, "allowedTools": allowed,
-            "authRefHash": auth_ref_hash, "status": "imported",
+            "authRefHash": auth_ref_hash,
+            "status": if config.get("command").is_some() { "live_admitted" } else { "imported_candidate" },
             "object": "ioi.model_mount_mcp_server",
+            "transport": if config.get("command").is_some() { "stdio" } else { "streamable_http_candidate" },
+            "live": config.get("command").is_some(),
+            "runtimeToolContractRevisionRefs": contract_revision_refs,
+            "protocolVersion": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
         });
-        let _ = persist_record(&st.data_dir, "model-mcp-servers", label, &record);
+        persist_record(&st.data_dir, "model-mcp-servers", label, &record).map_err(|error| {
+            AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("MCP server record '{label}' did not commit: {error}"),
+            )
+        })?;
         imported.push(record);
         count += 1;
     }
     Ok(Json(json!({ "count": count, "servers": imported })))
 }
 
-/// POST /v1/model-mount/mcp/invoke — governed MCP tool call (receipt only).
+/// POST /v1/model-mount/mcp/invoke — compatibility client for the canonical
+/// thread-scoped MCP invocation route. It requires an explicit thread coordinate
+/// and delegates execution, contract admission, wallet authority, and result truth.
 async fn handle_mcp_invoke(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>,
+    Json(mut body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    let thread_id = body
+        .get("thread_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "thread_id is required".to_string()))?
+        .to_string();
     let server_label = body
         .get("server_label")
         .and_then(|v| v.as_str())
-        .unwrap_or("mcp")
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::BAD_REQUEST,
+                "server_label is required".to_string(),
+            )
+        })?
         .to_string();
     let tool = body
         .get("tool")
         .and_then(|v| v.as_str())
-        .unwrap_or("tool")
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "tool is required".to_string()))?
         .to_string();
     authorize(&st, &headers, &format!("mcp.call:{server_label}.{tool}"))?;
-    let receipt_id = format!(
-        "receipt_mcp_tool_invocation_{}",
-        short_hash(&format!("{server_label}:{tool}:{}", iso_now()))
-    );
-    let receipt = json!({
-        "id": receipt_id,
-        "kind": "mcp_tool_invocation",
-        "redaction": "redacted",
-        "createdAt": iso_now(),
-        "details": { "serverLabel": server_label, "tool": tool, "ephemeral": false },
-    });
-    let _ = persist_record(&st.data_dir, "receipts", &receipt_id, &receipt);
-    Ok(Json(json!({
-        "receipt": receipt,
-        "result": { "ok": true, "status": "executed", "serverLabel": server_label, "tool": tool },
-    })))
+    let Some(object) = body.as_object_mut() else {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "MCP invocation body must be an object".to_string(),
+        ));
+    };
+    let tool_id = format!("{}__{}", server_label, tool);
+    object.insert("server_id".to_string(), json!(server_label));
+    object.insert("tool_name".to_string(), json!(tool));
+    let (status, Json(result)) = lifecycle_routes::handle_mcp_tool_invoke(
+        State(st),
+        AxumPath((thread_id, tool_id)),
+        Json(body),
+    )
+    .await;
+    if status.is_success() {
+        Ok(Json(result))
+    } else {
+        Err(AppError(status, result.to_string()))
+    }
 }
 
 /// GET /v1/model-mount/mcp — list registered MCP servers.

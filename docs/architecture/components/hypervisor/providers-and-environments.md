@@ -8,15 +8,15 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-08-06.
+Last alignment pass: 2026-08-23.
 Doctrine status: canonical
-Implementation status: partial (env lifecycle, providers, readiness, warm pools, and placement built; DePIN/storage posture families vary)
+Implementation status: partial (env lifecycle, providers, readiness, warm pools, placement, the local hostile-guest provider path, and offline C8 v3 AFT admission built; DePIN/storage posture families vary)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/hypervisor_environment_routes.rs`
   - `crates/types/src/app/hypervisor_environment_lifecycle.rs`
-Last implementation audit: 2026-08-06
+Last implementation audit: 2026-08-23 (Campaign O retained evidence admitted offline through the separate AFT verifier; see the governed-effect-capstone work-item record)
 
 ## Canonical Definition
 
@@ -346,6 +346,38 @@ a named reason and receipt rather than pretending parity.
 
 ## Development Environment Substrate Doctrine
 
+### Environment ownership and the first durable byte
+
+An environment's owner is the active principal named by its immutable
+`hypervisor-environment` substrate scope pin. Ownership is never read from an
+environment record field, inferred from a shared organization, or awarded by
+first reference. The daemon mints a normalization-safe canonical environment id,
+binds that scope before persisting the environment record, and treats a surviving
+pin after an induced record-write failure as a retryable owned coordinate—not as
+permission to reassign it.
+
+`POST /v1/hypervisor/environments` is the only creation seam. GET and lifecycle
+actions on a missing environment return a typed absence and create no record, pin
+or workspace. Every route whose handler can transitively reach an environment
+workspace authorizes the caller against the same pin, including terminal,
+ops-lease, preview, workrun, conversation, editor-service, snapshot and backup
+handles. Derived handles may identify the environment, but they never create an
+alternative authority coordinate.
+
+Environment listing and reads are owner-scoped. An unpinned legacy environment is
+`environment_unadopted`: ordinary principals cannot adopt, read or mutate it. A
+deployment administrator may dispose of an unadopted, owned or stranded
+environment through the environment plane's receipted disposal path, including
+when the pinned principal is no longer active, but administrator status grants no
+workspace read or write authority. Capability consumers additionally require an
+exact action, resource and pinned subject; a port/editor token is not an
+environment-ops token, and preview access requires the exact active token minted
+for that environment request.
+
+This contract is the accepted [ADR 0035](../../../decisions/0035-an-environment-is-owned-where-its-workspace-is-materialized-by-an-authorizing-request.md).
+Its executable closed world is derived from router source rather than maintained
+as a route hand-list; unresolved or unclassified registrations fail the gate.
+
 Autonomous software work is a stateful, interactive, adversarial workload, not
 a fungible stateless application pod. Hypervisor must avoid rebuilding a
 generic application orchestrator underneath the product.
@@ -638,6 +670,16 @@ HypervisorEnvironmentPort
   local_or_session_url?
   route_binding_refs
 ```
+
+On the shared local-host substrate, a preview request's path port is only a
+selector for an already-admitted `HypervisorEnvironmentPort`; it is never the
+provider target itself. The daemon derives the loopback target from that typed
+status row immediately before minting the lease and refuses if the row is
+absent, non-TCP, conflicted, or resolves to a target claimed by another
+non-deleted environment. A declaration therefore cannot be used to proxy into
+another environment merely by repeating its port number. Provider substrates
+with independent network namespaces may supply their own environment-bound
+mapping, but must preserve the same no-cross-environment target invariant.
 
 ### HypervisorEnvironmentRouteBinding
 
@@ -1343,6 +1385,123 @@ storage, leases, caches, and ephemeral credentials or retains a durable
 `HypervisorResourceCleanupObligation`. Missing binding, stale capability,
 unknown enforcement, unsafe output, or uncertain cleanup fails closed; none
 permits host fallback.
+
+#### Local hostile-guest enforcement profile
+
+The code profile `trusted_host_hostile_guest/no-nic-v1` is narrower than the
+general VM contract. Its launch specification records zero virtual network
+devices, zero host mounts, and zero host-control sockets and refuses a nonzero
+value before the VMM process is created. The only guest transport is the
+host-initiated, length-bounded vsock workspace protocol. Guest output is
+accepted only through the regular-file/directory archive subset after path,
+type, member-count, and total-size validation into quarantine.
+
+A generic environment-scoped VM reports `fresh_instance: false` and
+`instance_scope: environment_scoped`. Only a VM spec carrying the exact
+WorkRun, isolation-binding ref/hash, and principal may emit the stronger
+`fresh_per_workrun` enforcement declaration. Absence or malformed binding
+refuses the stronger declaration; labels never promote an environment VM.
+
+One exact guest proposal may cross the boundary through an opaque capability
+bound to the isolation binding, principal, proposal nonce, final-invoker
+audience, provider resource, result destination, canonical request hash, and a
+maximum fifteen-minute expiry. Durable state retains the token hash only. It
+records `claimed` before the final invoker; replay is refused, and restart from
+an ambiguous claim becomes `reconciliation_required` rather than a second
+invocation. Provider credentials, wallet signing, provider clients, C2 writes,
+and final invocation stay outside the guest and its proposal broker.
+
+The static-provider profile resolves an ambiguous create claim only through its
+dedicated reconciler. It first observes the exact provider/environment bound by
+the capability. An absent provider resource closes as `reconciled_no_effect`;
+an observed resource is deleted and must return positive cleanup evidence before
+closing as `reconciled_cleanup_succeeded`. The original create request is never
+reissued. The typed reconciliation receipt binds the prior status, observed
+phase, cleanup truth, exact reconciliation invoker count, provider-operation
+counts before and after, and a hash of the observation/cleanup evidence. A
+non-create ambiguity or unverified cleanup remains unresolved and fails closed.
+Expiry prevents a fresh invocation but never blocks observation or mandatory
+cleanup of an already ambiguous claim. Reconciliation resolves the hash-bound
+durable capability record by reference; it does not require retaining the
+guest's plaintext bearer token.
+
+The executable check is `check:workload-bound-effect-boundary`; `--live` boots
+the pinned Cloud Hypervisor/KVM guest as root and exercises the broker through
+the output quarantine. Its current claim is local and profile-specific. The
+trusted computing base remains the host hardware/firmware, Linux/KVM,
+Cloud Hypervisor, pinned guest kernel/initramfs and guest agent, Hypervisor
+daemon, durable filesystem core, output importer, capability broker, and final
+invoker. It does not establish resistance to compromise in that TCB, an
+unattested remote host, or an arbitrary future network/broker profile.
+
+### C8 workload-bound governed-effect certificate
+
+`C8CertificateV3` is an additive successor envelope over the immutable C8 v2
+bounded provider-lifecycle certificate. A v3 evidence bundle MUST carry the
+exact v2 certificate named by `predecessor_certificate_ref` and hash; v2 remains
+readable and unchanged. V3 additionally binds the source basis and governed
+request, typed claim manifest, workload-isolation binding, immutable image
+digest, provider-native readiness evidence, result contract/ref/hash and
+retrieval receipt, U1 campaign certificate, campaign/protocol identity,
+environment ref/hash, variance evidence, environment and honesty classes,
+standing-envelope draw, trajectory state before/decision/after, brokered
+secret-use posture and evidence, relying-party audience,
+terminal acceptance prerequisites, C2 intent/outcome predecessor chain, and
+provider-native terminal settlement.
+
+The presence of a binding field is not proof of its claim. Verification must
+resolve each exact ref/hash under the declared trust/freshness profile. Result
+binding requires the canonical result bytes and retrieval receipt;
+workload-bound isolation requires the current immutable binding and hostile-
+guest evidence; worker secret non-possession requires its separately named
+negative-probe profile. Unknown schemas, absent prerequisites, stale evidence,
+or any predecessor/hash substitution fail closed.
+
+Every evidence list carries ref/hash pairs rather than refs alone, including
+readiness, secret-use probes, and terminal acceptance prerequisites. The result
+retrieval receipt is likewise bound by both ref and hash. A portable verifier
+never infers an object hash from a filename or producer-owned lookup rule.
+
+The v3 claim manifest's `subject_ref` and `subject_hash` bind the governed
+request, not the completed C8 certificate. C8 then binds the manifest by hash.
+This ordering is deliberately acyclic: governed request -> claim manifest ->
+C8 certificate -> portable bundle. A verifier refuses a manifest that attempts
+to describe an unbound or different request.
+
+The registered wire contract is
+`schema://ioi/components/hypervisor/c8-certificate/v3`.
+
+Fresh-machine verification uses the closed portable filesystem framing
+`schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1`. The
+manifest carries no secret bytes or machine-specific absolute paths: it binds
+the certificate plus every resolved object and trust input by safe filename,
+schema ref, object ref, and canonical hash. The bundle manifest hash excludes
+only its own `bundle_hash` field; the certificate hash analogously excludes
+only `certificate_hash`. All other fields participate in JCS SHA-256.
+
+Portable object identity is the pair `(ref, hash)`, not `ref` alone. A
+logical state reference may therefore appear more than once when one
+certificate binds distinct committed versions, such as the before and after
+images of a trajectory state. Filenames and exact ref/hash pairs remain unique;
+a reference without its hash is rejected as ambiguous whenever multiple
+versions are present.
+
+Portable hashing preserves each admitted object's native content-addressing
+domain. Ordinary JCS objects exclude only their named self-hash field; the
+standing-envelope domain additionally injects its registered domain separator;
+trajectory decisions exclude their derived `decision_ref` as well as
+`decision_hash`; a canonical-JSON preimage hashes its exact retained bytes; and
+the C8 v2 predecessor uses its native certificate preimage. A portable producer
+MUST NOT rewrite a native object into a lookalike carrying `native_*` fields
+under the original schema version. The verifier recomputes the applicable
+native hash and rejects an unsupported schema ref before interpreting evidence.
+
+The 2026-08-23 Campaign O admission is the first retained implementation of
+this framing. Its bundle carries the complete C8 v2 predecessor, not a summary
+projection, and its registered C8 v3 core objects validate against the same
+architecture schemas used to generate Rust and TypeScript projections. Evidence
+schemas owned by the named verifier profile remain a closed verifier allowlist;
+they are not silently treated as globally registered architecture contracts.
 
 ### Typed virtual-machine target and observation payloads
 

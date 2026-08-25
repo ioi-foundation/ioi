@@ -20,7 +20,10 @@ use ioi_types::app::wallet_network::{
     WalletInterceptionContext, WalletListClientsParams, WalletRegisterClientParams,
     WalletRevokeClientParams,
 };
-use ioi_types::app::{action::ApprovalAuthority, ActionTarget};
+use ioi_types::app::{
+    action::{ApprovalAuthority, StandingApprovalGrant},
+    ActionTarget,
+};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use parity_scale_codec::{Decode, Encode};
@@ -32,6 +35,7 @@ mod handlers;
 mod keys;
 pub(crate) mod mail_ontology;
 mod mail_transport;
+pub mod portable_authority;
 mod support;
 mod validation;
 
@@ -142,6 +146,147 @@ pub struct ApprovalGrantConsumptionReceipt {
     pub remaining_usages: u32,
 }
 
+/// Control-plane registration of one cryptographically verified portable v3 issuance graph.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RecordPortableAuthorityGrantV3Params {
+    pub grant_chain_json: Vec<Vec<u8>>,
+    pub trusted_key_sets_json: Vec<Vec<u8>>,
+    pub revocation_snapshots_json: Vec<Vec<u8>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation_closure_json: Option<Vec<u8>>,
+    pub authority_request_json: Vec<u8>,
+    pub approval_ceremony_context_json: Vec<u8>,
+    pub authority_review_receipt_json: Vec<u8>,
+    /// Independently resolved current authority for every issuer in the chain.
+    pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
+    /// Wallet-registered client that exclusively owns the signed leaf audience.
+    pub audience_client_id: [u8; 32],
+}
+
+/// Control-plane replacement of short-lived verification evidence for one registered grant.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RefreshPortableAuthorityGrantV3EvidenceParams {
+    pub grant_hash: [u8; 32],
+    pub trusted_key_sets_json: Vec<Vec<u8>>,
+    pub revocation_snapshots_json: Vec<Vec<u8>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegation_closure_json: Option<Vec<u8>>,
+    pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RevokePortableAuthorityGrantV3Params {
+    pub grant_hash: [u8; 32],
+}
+
+/// Explicit owner mapping for issuer schemes that are not themselves portable-principal refs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityIssuerBindingV1 {
+    pub issuer_id: String,
+    pub current_authority: ExpectedPrincipalAuthorityBinding,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum PortableAuthorityGrantV3Status {
+    Active,
+    Revoked,
+    Exhausted,
+}
+
+/// Wallet-owned evidence and mutable use state for one exact portable v3 leaf.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityGrantV3State {
+    pub schema_version: u16,
+    pub authority_grant_ref: String,
+    pub grant_hash: [u8; 32],
+    pub grant_chain_json: Vec<Vec<u8>>,
+    pub trusted_key_sets_json: Vec<Vec<u8>>,
+    pub revocation_snapshots_json: Vec<Vec<u8>>,
+    pub delegation_closure_json: Option<Vec<u8>>,
+    pub authority_request_json: Vec<u8>,
+    pub approval_ceremony_context_json: Vec<u8>,
+    pub authority_review_receipt_json: Vec<u8>,
+    pub issuer_authorities: Vec<PortableAuthorityIssuerBindingV1>,
+    pub audience_client_id: [u8; 32],
+    pub max_calls: u64,
+    pub uses_consumed: u64,
+    pub remaining_calls: u64,
+    pub last_consumed_at_ms: Option<u64>,
+    pub status: PortableAuthorityGrantV3Status,
+}
+
+/// Durable single-use lock for the exact approval ceremony that minted one portable grant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityCeremonyConsumptionV1 {
+    pub schema_version: u16,
+    pub approval_ceremony_context_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub consumed_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct ConsumePortableAuthorityGrantV3ForEffectParams {
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub expected_audience: String,
+    pub expected_holder_id: String,
+    pub expected_holder_key_id: String,
+    pub actual_effect_ref: String,
+    pub actual_effect_hash: [u8; 32],
+    /// Daemon-owned policy and temporal evidence bound into the registered pre-invocation receipt.
+    pub admission: PortableAuthorityEffectAdmissionContextV1,
+}
+
+/// PEP-owned, non-authority decision context supplied to the wallet's sealed receipt builder.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityEffectAdmissionContextV1 {
+    pub decision_profile_ref: String,
+    pub policy_hash: [u8; 32],
+    pub temporal_verification_profile_ref: String,
+    pub temporal_verification_profile_hash: [u8; 32],
+    pub temporal_validity_evaluation_ref: String,
+    pub temporal_validity_evaluation_hash: [u8; 32],
+    pub temporal_posture: PortableAuthorityTemporalPostureV1,
+    pub continuity_floor_evidence_refs: Vec<String>,
+    pub principal_authority_revalidation_receipt_ref: Option<String>,
+    pub principal_authority_revalidation_receipt_hash: Option<[u8; 32]>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum PortableAuthorityTemporalPostureV1 {
+    OnlineFresh,
+    BoundedOffline,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityGrantV3ConsumptionReceipt {
+    pub schema_version: u16,
+    pub receipt_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub authority_grant_ref: String,
+    pub actual_effect_ref: String,
+    pub actual_effect_hash: [u8; 32],
+    pub audience: String,
+    pub holder_id: String,
+    pub holder_key_id: String,
+    pub admission_receipt_hash: [u8; 32],
+    pub consumed_at_ms: u64,
+    pub usage_ordinal: u64,
+    pub remaining_calls: u64,
+}
+
+/// Wallet-owned recoverable copy of the registered daemon admission receipt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct PortableAuthorityEffectAdmissionReceiptV2Record {
+    pub schema_version: u16,
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub receipt_hash: [u8; 32],
+    /// Canonical JCS bytes of `AuthorityEffectAdmissionReceiptV2`.
+    pub receipt_json: Vec<u8>,
+}
+
 /// Exact signed approval snapshot and mutable use counter, owned by the grant hash.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct ApprovalGrantState {
@@ -154,6 +299,136 @@ pub struct ApprovalGrantState {
     pub remaining_usages: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_consumed_at_ms: Option<u64>,
+}
+
+/// Wallet-owned mutable state for a signed standing authority grant.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalGrantState {
+    pub schema_version: u16,
+    pub grant_hash: [u8; 32],
+    pub grant: StandingApprovalGrant,
+    /// Exact portable principal named by both the envelope and consent evidence.
+    pub principal_ref: String,
+    /// Canonical registered evidence independently validated before activation.
+    pub standing_envelope_json: Vec<u8>,
+    pub approval_ceremony_context_json: Vec<u8>,
+    pub auth_factor_receipt_json: Vec<u8>,
+    pub issued_revocation_epoch: u64,
+    pub uses_consumed: u32,
+    pub cumulative_deposit_reserved_microusd: u64,
+    pub cumulative_spend_reserved_microusd: u64,
+    pub cumulative_spend_settled_microusd: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_consumed_at_ms: Option<u64>,
+    pub status: StandingApprovalGrantStatus,
+}
+
+/// Durable record that one single-use approval ceremony has already authorised a
+/// standing recording. A ceremony that declares `single_use` is consent to create
+/// authority once; without this, revoking the grant it created left the same
+/// ceremony free to authorise another.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalContextConsumption {
+    pub schema_version: u16,
+    pub approval_ceremony_context_hash: [u8; 32],
+    pub standing_grant_hash: [u8; 32],
+    pub consumed_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum StandingApprovalGrantStatus {
+    Active,
+    Revoked,
+    Expired,
+    Exhausted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RecordStandingApprovalGrantParams {
+    pub grant: StandingApprovalGrant,
+    /// Closed JSON contracts retained by wallet.network so a caller cannot activate a grant by
+    /// supplying hashes for evidence the authority broker never validated.
+    pub standing_envelope_json: Vec<u8>,
+    pub approval_ceremony_context_json: Vec<u8>,
+    pub auth_factor_receipt_json: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RevokeStandingApprovalGrantParams {
+    pub grant_hash: [u8; 32],
+}
+
+/// One daemon-derived reservation against a standing envelope.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct ConsumeStandingApprovalGrantForEffectParams {
+    pub grant_hash: [u8; 32],
+    pub standing_envelope_hash: [u8; 32],
+    pub policy_hash: [u8; 32],
+    pub request_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub estimated_deposit_microusd: u64,
+    pub estimated_spend_microusd: u64,
+    pub expected_principal_authority: ExpectedPrincipalAuthorityBinding,
+    pub expected_target_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalGrantConsumptionReceipt {
+    pub schema_version: u16,
+    pub receipt_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub standing_envelope_hash: [u8; 32],
+    pub policy_hash: [u8; 32],
+    pub request_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub authority_id: [u8; 32],
+    pub audience: [u8; 32],
+    pub expected_principal_authority: ExpectedPrincipalAuthorityBinding,
+    pub target_label: String,
+    pub estimated_deposit_microusd: u64,
+    pub estimated_spend_microusd: u64,
+    pub usage_ordinal: u32,
+    pub remaining_usages: u32,
+    pub cumulative_deposit_reserved_microusd: u64,
+    pub remaining_deposit_microusd: u64,
+    pub cumulative_spend_reserved_microusd: u64,
+    pub remaining_spend_microusd: u64,
+    pub consumed_at_ms: u64,
+    pub approval_mode: StandingApprovalMode,
+}
+
+/// Provider-native terminal settlement for one prior standing-authority draw.
+///
+/// Reservations remain monotonic after settlement: a refund cannot manufacture
+/// fresh authority. This records the actual terminal debit separately.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct SettleStandingApprovalGrantConsumptionParams {
+    pub consumption_id: [u8; 32],
+    pub terminal_evidence_hash: [u8; 32],
+    pub terminal_evidence_ref: String,
+    pub actual_spend_microusd: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalGrantSettlementReceipt {
+    pub schema_version: u16,
+    pub receipt_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub request_hash: [u8; 32],
+    pub terminal_evidence_hash: [u8; 32],
+    pub terminal_evidence_ref: String,
+    pub reserved_spend_microusd: u64,
+    pub actual_spend_microusd: u64,
+    pub refunded_spend_microusd: u64,
+    pub cumulative_spend_reserved_microusd: u64,
+    pub cumulative_spend_settled_microusd: u64,
+    pub settled_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub enum StandingApprovalMode {
+    SilentWithinStandingEnvelope,
 }
 
 /// Parameters for registering an approval authority.
@@ -502,6 +777,58 @@ impl BlockchainService for WalletNetworkService {
                 let consume: ConsumeApprovalGrantForEffectV2Params =
                     codec::from_bytes_canonical(params)?;
                 handlers::approval::consume_approval_grant_for_effect_v2(state, ctx, consume)
+            }
+            "record_portable_authority_grant_v3@v1" => {
+                let request: RecordPortableAuthorityGrantV3Params =
+                    codec::from_bytes_canonical(params)?;
+                handlers::portable_authority::record_portable_authority_grant_v3(
+                    state, ctx, request,
+                )
+            }
+            "consume_portable_authority_grant_v3_for_effect@v1" => {
+                let request: ConsumePortableAuthorityGrantV3ForEffectParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::portable_authority::consume_portable_authority_grant_v3_for_effect(
+                    state, ctx, request,
+                )
+            }
+            "refresh_portable_authority_grant_v3_evidence@v1" => {
+                let request: RefreshPortableAuthorityGrantV3EvidenceParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::portable_authority::refresh_portable_authority_grant_v3_evidence(
+                    state, ctx, request,
+                )
+            }
+            "revoke_portable_authority_grant_v3@v1" => {
+                let request: RevokePortableAuthorityGrantV3Params =
+                    codec::from_bytes_canonical(params)?;
+                handlers::portable_authority::revoke_portable_authority_grant_v3(
+                    state, ctx, request,
+                )
+            }
+            "record_standing_approval_grant@v1" => {
+                let request: RecordStandingApprovalGrantParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::standing_authority::record_standing_approval_grant(state, ctx, request)
+            }
+            "consume_standing_approval_grant_for_effect@v1" => {
+                let request: ConsumeStandingApprovalGrantForEffectParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::standing_authority::consume_standing_approval_grant_for_effect(
+                    state, ctx, request,
+                )
+            }
+            "settle_standing_approval_grant_consumption@v1" => {
+                let request: SettleStandingApprovalGrantConsumptionParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::standing_authority::settle_standing_approval_grant_consumption(
+                    state, ctx, request,
+                )
+            }
+            "revoke_standing_approval_grant@v1" => {
+                let request: RevokeStandingApprovalGrantParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::standing_authority::revoke_standing_approval_grant(state, ctx, request)
             }
             "panic_stop@v1" => {
                 let params: BumpRevocationEpochParams = codec::from_bytes_canonical(params)?;

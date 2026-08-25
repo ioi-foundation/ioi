@@ -271,9 +271,9 @@ function renderObjectExplorerPort(ov, lists, opts) {
   const globalRail = opts.embed ? "" : ioiGlobalRailHtml({ label: "Object Explorer", href: "/__ioi/ontology/explorer", iconUri: EXPLORER_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true, hiliteNav: "Ontology" });
 
   const tabbar = `<div class="oe-tabbar oe-topbar">
-    <span class="oe-sqbtn gap" aria-disabled="true" title="The active-exploration TAB is a reference-only session lane (named gap) — transient view state; saved object sets are daemon truth and are a different thing"><span class="oe-sqico"></span></span>
+    <span class="oe-sqbtn gap" aria-disabled="true" title="The active-exploration TAB is a reference-only session lane (named gap) — transient view state; saved object sets are daemon truth and are a different thing" data-ioi-disabled-reason="The active-exploration TAB is a reference-only session lane (named gap) — transient view state; saved object sets are daemon truth and are a different thing"><span class="oe-sqico"></span></span>
     <span class="oe-tab" title="Exploration TABS are a reference-only session lane — this tab is the honest default state; a SAVED object set is a saved exploration and does have a daemon plane">${bpIcon("search")}<span class="oe-tabt">New exploration</span></span>
-    <span class="oe-plus gap" aria-disabled="true" title="Opening more exploration TABS is a reference-only lane (named gap) — transient view state, not a saved selection">${bpIcon("plus")}</span>
+    <span class="oe-plus gap" aria-disabled="true" title="Opening more exploration TABS is a reference-only lane (named gap) — transient view state, not a saved selection" data-ioi-disabled-reason="Opening more exploration TABS is a reference-only lane (named gap) — transient view state, not a saved selection">${bpIcon("plus")}</span>
     <form class="oe-ontform" method="GET" action="${esc(basePath)}" title="Scope the catalog to one live ontology — no ontology is globally canonical">${q ? `<input type="hidden" name="q" value="${esc(q)}">` : ""}<select class="oe-ontsel oe-ontlive" name="ontology" aria-label="Ontology scope" onchange="this.form.submit()"><option value=""${scopeOnt ? "" : " selected"}>All ontologies (${ontologies.length})</option>${ontologies.map((oo) => `<option value="${esc(oo.id)}"${scopeOnt && scopeOnt.id === oo.id ? " selected" : ""}>${esc(oo.domain || oo.id)}</option>`).join("")}</select><noscript><button class="oe-ontgo" type="submit">Go</button></noscript></form>
   </div>`;
 
@@ -289,7 +289,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
       <form class="oe-herogrp" method="get" action="${esc(basePath)}">
         ${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}
         ${q ? `<input type="hidden" name="q" value="${esc(q)}">` : ""}
-        <span class="oe-filterby gap" aria-disabled="true" title="Faceted object filters remain a named gap — the query below is bound to the object-instance search plane, but narrowing it by facet has no daemon contract">${bpIcon("filter-funnel")}<span class="oe-fbt">Filter by...</span>${bpIcon("caret-down")}</span>
+        <span class="oe-filterby gap" aria-disabled="true" title="Faceted object filters remain a named gap — the query below is bound to the object-instance search plane, but narrowing it by facet has no daemon contract" data-ioi-disabled-reason="Faceted object filters remain a named gap — the query below is bound to the object-instance search plane, but narrowing it by facet has no daemon contract">${bpIcon("filter-funnel")}<span class="oe-fbt">Filter by...</span>${bpIcon("caret-down")}</span>
         <div class="oe-objsearch" title="Object search runs against POST /v1/hypervisor/odk/object-instance-search — ontology-scoped, typed corpus-absent distinct from no-matches">${bpIcon("search")}<input class="oe-objq" name="oq" value="${esc(search && search.q ? search.q : "")}" placeholder="Search for objects..." aria-label="Search for objects across this ontology's instances"><button class="oe-send" type="submit" aria-label="Run object search">${bpIcon("send-to")}</button></div>
       </form>
     </div>
@@ -306,9 +306,9 @@ function renderObjectExplorerPort(ov, lists, opts) {
   const shortcutsBand = `<div class="oe-shrow">
     <span class="oe-shlabel">Shortcuts</span>
     <span class="oe-lanes">
-      <span class="oe-lane on gap" aria-disabled="true" title="Recents are a reference-only per-user lane (named gap) — the cards below are the real top materialized sets">Recents</span>
-      <span class="oe-lane gap" aria-disabled="true" title="Favorites are a reference-only per-user lane (named gap)">Favorites</span>
-      <span class="oe-lane gap" aria-disabled="true" title="Your object sets — the real materialized sets render in the catalog below">Your object sets</span>
+      <span class="oe-lane on gap" aria-disabled="true" title="Recents are a reference-only per-user lane (named gap) — the cards below are the real top materialized sets" data-ioi-disabled-reason="Recents are a reference-only per-user lane (named gap) — the cards below are the real top materialized sets">Recents</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Favorites are a reference-only per-user lane (named gap)" data-ioi-disabled-reason="Favorites are a reference-only per-user lane (named gap)">Favorites</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Your object sets — the real materialized sets render in the catalog below" data-ioi-disabled-reason="Your object sets — the real materialized sets render in the catalog below">Your object sets</span>
       <span class="oe-shchev gap" aria-disabled="true">${bpIcon("chevron-right")}</span>
     </span>
   </div>
@@ -318,10 +318,10 @@ function renderObjectExplorerPort(ov, lists, opts) {
   <div class="oe-filterrow">
     <form class="oe-filterform" method="GET" action="${esc(basePath)}">${bpIcon("filter-funnel")}<input name="q" value="${esc(q)}" placeholder="Filter for an object type..." aria-label="Filter for an object type (live)">${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}${sel.objectType ? `<input type="hidden" name="objectType" value="${esc(sel.objectType)}">` : ""}${sel.objectSet ? `<input type="hidden" name="objectSet" value="${esc(sel.objectSet)}">` : ""}<span class="oe-count">${catalog.length} of ${allTypes.length}</span></form>
     <span class="oe-sortlanes">
-      <span class="oe-sort gap" aria-disabled="true" title="Relevancy sorting is a reference-only lane — rows are ordered by ontology then name (named gap)">${bpIcon("sort-desc")}<span class="oe-sortt">Relevancy</span>${bpIcon("caret-down")}</span>
-      <span class="oe-lane on gap" aria-disabled="true" title="named gap">All</span>
-      <span class="oe-lane gap" aria-disabled="true" title="Type groups are a reference-only lane — the daemon records none (named gap)">Type group</span>
-      <span class="oe-lane gap" aria-disabled="true" title="Application scoping is a reference-only lane (named gap)">Application</span>
+      <span class="oe-sort gap" aria-disabled="true" title="Relevancy sorting is a reference-only lane — rows are ordered by ontology then name (named gap)" data-ioi-disabled-reason="Relevancy sorting is a reference-only lane — rows are ordered by ontology then name (named gap)">${bpIcon("sort-desc")}<span class="oe-sortt">Relevancy</span>${bpIcon("caret-down")}</span>
+      <span class="oe-lane on gap" aria-disabled="true" title="named gap" data-ioi-disabled-reason="named gap">All</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Type groups are a reference-only lane — the daemon records none (named gap)" data-ioi-disabled-reason="Type groups are a reference-only lane — the daemon records none (named gap)">Type group</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Application scoping is a reference-only lane (named gap)" data-ioi-disabled-reason="Application scoping is a reference-only lane (named gap)">Application</span>
     </span>
   </div>
   <div class="oe-tablebox">
@@ -378,10 +378,10 @@ function renderObjectExplorerPort(ov, lists, opts) {
     <span class="oe-setlabel">Object set catalog <span class="oe-setsub">(explorations and lists)</span></span>
     <span class="oe-setlanes">
       <form class="oe-setfilter" method="get" action="${esc(basePath)}">${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}<input class="oe-setsearch" name="setq" value="${esc(setQuery)}" placeholder="Search explorations..." aria-label="Filter saved object sets by name" title="Filters the saved object sets below, read from GET /v1/hypervisor/odk/saved-object-sets"></form>
-      <span class="oe-slane on gap" aria-disabled="true" title="named gap">All</span>
-      <span class="oe-slane gap" aria-disabled="true" title="Per-user lanes over the MATERIALIZED set catalog are reference-only (named gap) — that catalog records no per-user ownership; saved object sets are a different store and are scoped per principal">Created by me</span>
-      <span class="oe-slane gap" aria-disabled="true" title="named gap">Shared with me</span>
-      <span class="oe-slane gap" aria-disabled="true" title="named gap">Favorites</span>
+      <span class="oe-slane on gap" aria-disabled="true" title="named gap" data-ioi-disabled-reason="named gap">All</span>
+      <span class="oe-slane gap" aria-disabled="true" title="Per-user lanes over the MATERIALIZED set catalog are reference-only (named gap) — that catalog records no per-user ownership; saved object sets are a different store and are scoped per principal" data-ioi-disabled-reason="Per-user lanes over the MATERIALIZED set catalog are reference-only (named gap) — that catalog records no per-user ownership; saved object sets are a different store and are scoped per principal">Created by me</span>
+      <span class="oe-slane gap" aria-disabled="true" title="named gap" data-ioi-disabled-reason="named gap">Shared with me</span>
+      <span class="oe-slane gap" aria-disabled="true" title="named gap" data-ioi-disabled-reason="named gap">Favorites</span>
     </span>
   </div>
   ${savedSetsHtml}

@@ -132,18 +132,32 @@ async function run() {
   // surface with real seed provenance whose registry row was created after the atlas froze at
   // `19d732ff2`). Neither is "IOI-native with no reference counterpart", which is what the list used
   // to say about surfaces that demonstrably have one.
+  // E7 COCKPIT RETIREMENT (2026-08-20): eight entries left this list with their registry rows —
+  // home · systems · applications · automations · operations · work · work-sessions ·
+  // work-new-session. They are removed rather than kept, because the assertion below rejects a
+  // stale name: a list that can name a surface the registry lacks is a list that absorbs coverage.
   const REFERENCELESS_SURFACES = {
-    home: { provenance_id: "home", class: "greenfield" },
-    systems: { provenance_id: "systems", class: "greenfield" },
-    applications: { provenance_id: "applications", class: "greenfield" },
+    contour: { provenance_id: "studio", class: "post-atlas" },
+    devconsole: { provenance_id: "developer-console", class: "post-atlas" },
+    fusion: { provenance_id: "studio", class: "post-atlas" },
+    inference: { provenance_id: "data", class: "post-atlas" },
+    ingest: { provenance_id: "data", class: "post-atlas" },
+    insight: { provenance_id: "evaluations", class: "post-atlas" },
+    jobs: { provenance_id: "work", class: "post-atlas" },
+    logic: { provenance_id: "studio", class: "post-atlas" },
+    map: { provenance_id: "environments", class: "post-atlas" },
+    modelstudio: { provenance_id: "foundry", class: "post-atlas" },
+    notepad: { provenance_id: "developer-workspace", class: "post-atlas" },
     packages: { provenance_id: "packages", class: "post-atlas" },
     "packages-marketplace": { provenance_id: "packages", class: "post-atlas" },
-    automations: { provenance_id: "automations", class: "post-atlas" },
-    operations: { provenance_id: "operations", class: "post-atlas" },
-    work: { provenance_id: "work", class: "post-atlas" },
-    "work-sessions": { provenance_id: "work", class: "post-atlas" },
-    "work-new-session": { provenance_id: "work", class: "post-atlas" },
+    quiver: { provenance_id: "evaluations", class: "post-atlas" },
+    registry: { provenance_id: "packages", class: "post-atlas" },
+    repositories: { provenance_id: "developer-workspace", class: "post-atlas" },
+    scheduler: { provenance_id: "operations", class: "post-atlas" },
     "studio-home": { provenance_id: "studio", class: "post-atlas" },
+    widgets: { provenance_id: "developer-console", class: "post-atlas" },
+    workshop: { provenance_id: "studio", class: "post-atlas" },
+    workspaces: { provenance_id: "developer-workspace", class: "post-atlas" },
   };
   const provenance = JSON.parse(readFileSync(join(APP, "seed-ux-provenance.v1.json"), "utf8"));
   const provenanceById = new Map((provenance.surfaces || []).map((record) => [record.id, record]));
@@ -400,9 +414,16 @@ async function run() {
       row(name).length > 0 && promoted.length === 0,
       promoted.map(String).join(" | ") || "no promotion language");
   }
-  for (const obj of ["OntologyVersion", "SemanticMappingDecision", "ProvenanceAssertion"]) {
+  for (const obj of ["OntologyVersion", "SemanticMappingDecision"]) {
     ok(`\`${obj}\` row: not started with an explicitly LABELED implementation precedent (a precedent is never partial)`, row(obj).includes("not started") && !/\| partial/.test(row(obj)) && /implementation precedent/i.test(row(obj)));
   }
+  const provenanceAssertion = row("ProvenanceAssertion");
+  ok("`ProvenanceAssertion` row records the bounded registered assertion-as-object slice without promoting its missing graph, challenge, or verifier-resolution lifecycles",
+    provenanceAssertion.includes("registered contract")
+      && provenanceAssertion.includes("durable assertion-as-object")
+      && provenanceAssertion.includes("bounded backend slice")
+      && provenanceAssertion.includes("challenge workflow")
+      && provenanceAssertion.includes("verifier-receipt resolution"));
   const estateRecord = `${deltaDoc}\n${JSON.stringify(atlas)}`;
   ok("merged estate work is no longer described as held or unlanded (delta doc + atlas)", !/already-landed|shipped state|held stack|not yet\s+merged(?:\s+to master)?/i.test(estateRecord));
 

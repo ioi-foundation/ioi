@@ -444,14 +444,31 @@ async function handleImpl(pathname, bodyText) {
     }
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetTermsOfService") {
-    // No canonical owner defines a Terms-of-Service record (settings.md §2) — nothing is served.
-    return unavailableRpc("terms_of_service_unowned", "no canonical owner defines a Terms-of-Service record; nothing is served");
+    // TYPED ABSENCE (ORG-1) — served as the service's well-formed EMPTY record, not a refusal.
+    // Byte-verified against the daemon route index (GET /v1/hypervisor -> 753 routes): NO route
+    // matching /terms/ exists, and no canonical owner defines a Terms-of-Service record
+    // (settings.md §2). Nothing real backs any field, so every field is OMITTED and the message
+    // carries its proto defaults: enabled=false, currentVersion absent, currentUserAcceptance
+    // absent. That is the truth ("this deployment has no terms-of-service record to accept"), and
+    // it is exactly what the bundle's acceptance gate reads (`!enabled || !currentVersion` => no
+    // gate), so no ToS content, version, or acceptance is invented. The former 503 refusal made
+    // the bundle's `throwOnError` boot query log a console error on every app open.
+    return json({ termsOfService: {} });
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetOrganizationPolicies") {
-    // The org-policy defaults family (env quotas, archive windows, sharing/veto/agent policy) is
-    // a Wave 3 daemon build (settings.md §2 route-missing row); the former response fabricated
-    // every value.
-    return unavailableRpc("org_policy_family_route_missing", "organization policy defaults have no daemon record family yet; no fabricated policy values are served");
+    // TYPED ABSENCE (ORG-1) — served as the service's well-formed EMPTY policy message, not a
+    // refusal. The org-policy defaults family (env quotas, archive windows, sharing/veto/agent
+    // policy) is a Wave 3 daemon build: byte-verified absent from the daemon route index (GET
+    // /v1/hypervisor -> 753 routes; the only /polic/ routes are auth/policy, branch-policy,
+    // connectors/:id/policy, placement/venue-policy, odk/policy-bound-data-views and the
+    // ioi-agent launch-policies — none is an organization-policy-defaults record family).
+    // EVERY field is omitted, so the message carries proto defaults only: nothing is fabricated
+    // and no policy is asserted. This is behaviour-neutral by construction — the bundle's only
+    // load-bearing read is the environment-start gate's
+    // `policies?.maximumEnvironmentLifetime?.seconds`, which with the field absent computes 0 =
+    // "no maximum lifetime", i.e. the same non-gating outcome the 503 produced, minus the thrown
+    // error that also aborted the start mutation and logged on every app open.
+    return json({ policies: {} });
   }
 
   // ---- EnvironmentService: real IOI daemon environments (WS-A/WS-B) ----
@@ -887,17 +904,42 @@ async function handleImpl(pathname, bodyText) {
   }
   if (pathname === "/api/ioi.v1.OrganizationService/ListMembers") {
     // Real multi-user roster — projected from the daemon principals plane (active members only).
-    // W0.5: the constant single-operator fallback row is gone — daemon down refuses typed, and an
-    // empty roster is served as empty (the daemon seeds the operator principal itself).
+    // W0.5: the constant single-operator fallback row is gone; nothing here invents a member.
+    const wantsCount = body?.count?.include === true || body?.count?.include === "true";
     try {
       const r = await daemon("GET", "/v1/hypervisor/principals");
       const members = (r.principals || []).filter((p) => p.status === "active").map((p) => ({
         userId: p.principal_id, role: p.role === "admin" ? "ORGANIZATION_ROLE_ADMIN" : "ORGANIZATION_ROLE_MEMBER",
         memberSince: p.created_at, avatarUrl: "", fullName: p.name, email: p.email, status: "USER_STATUS_ACTIVE", loginProvider: p.source || "local",
       }));
-      return json({ pagination: {}, members });
-    } catch (e) {
-      return unavailableRpc("identity_daemon_unavailable", `the daemon principals plane did not answer (${e.message}); no constant member row is served`);
+      // Count is the roster the daemon actually disclosed — never a separately-sourced number.
+      return json({ pagination: {}, members, ...(wantsCount ? { count: { value: members.length } } : {}) });
+    } catch {
+      // TYPED ABSENCE (ORG-1). The roster route EXISTS (GET /v1/hypervisor/principals, probed) but
+      // the daemon adjudicates it org-admin-only: an unauthenticated local session gets 401
+      // "hypervisor.authentication_required — an authenticated session or API token is required
+      // even on loopback" (handle_principal_list -> require_authenticated_org_admin). The adapter
+      // must NOT escalate the caller's authority to read it and must not invent rows, so it serves
+      // the service's well-formed EMPTY roster rather than the 4xx/5xx the bundle's batched
+      // member-by-ids loader logged on every app open. Empty here means "no member record was
+      // disclosed to this caller", not "this organization has no members".
+      // To keep that distinction from reading as a false zero, the membership CARDINALITY the
+      // daemon does disclose unauthenticated (GET /v1/hypervisor/organization ->
+      // organization.members.principals_total, 200 ok) is carried through when — and only when —
+      // the caller asked for an unfiltered count; a filtered count has no undisclosed-roster
+      // truth behind it, so it is omitted rather than approximated.
+      const filtered = Boolean(body?.filter && Object.keys(body.filter).length > 0);
+      let count;
+      if (wantsCount && !filtered) {
+        try {
+          const org = await daemon("GET", "/v1/hypervisor/organization");
+          const total = org?.organization?.members?.principals_total;
+          if (typeof total === "number" && Number.isFinite(total)) count = { value: total };
+        } catch {
+          /* the org read did not answer either — no cardinality is claimed */
+        }
+      }
+      return json({ pagination: {}, members: [], ...(count ? { count } : {}) });
     }
   }
   if (pathname === "/api/ioi.v1.GroupService/GetGroup") {

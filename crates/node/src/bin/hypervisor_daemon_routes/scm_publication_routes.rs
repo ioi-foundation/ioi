@@ -39,6 +39,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use ioi_types::app::scm_publication::{
     build_converged_replay_effect, build_scm_publication_effect, build_scm_publication_receipt,
@@ -57,7 +58,7 @@ use super::governed_authority::{
 };
 use super::lifecycle_routes::{authorize_capability_lease, CapabilityLeaseRequest};
 use super::system_activation_routes::{load_local, persist_local};
-use super::DaemonState;
+use super::{AppError, DaemonState};
 
 type VErr = (String, String);
 
@@ -2056,7 +2057,8 @@ fn status_for(code: &str) -> StatusCode {
         | "scm_publication_refused"
         | "scm_publication_artifact_invalid"
         | "scm_publication_artifact_ref_conflict"
-        | "scm_publication_idempotency_body_conflict" => StatusCode::CONFLICT,
+        | "scm_publication_idempotency_body_conflict"
+        | "scm_publication_gateway_effect_binding_mismatch" => StatusCode::CONFLICT,
         "scm_publication_idempotency_key_invalid" => StatusCode::BAD_REQUEST,
         "scm_publication_remote_unobservable" => StatusCode::BAD_GATEWAY,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -2188,88 +2190,6 @@ fn authorize_publication_source_scope(
         ));
     }
     Ok(binding_scope.owner_ref)
-}
-
-fn authorize_environment_owner(
-    identity: &super::substrate_store::RequestIdentity,
-    environment: &Value,
-    owner_ref: &str,
-) -> Result<(), (StatusCode, Json<Value>)> {
-    if !identity.authorizes_tenant(owner_ref) {
-        return Err(scope_fail(
-            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
-        ));
-    }
-    let declared_owner = environment
-        .get("owner_ref")
-        .or_else(|| environment.pointer("/spec/owner_ref"))
-        .and_then(Value::as_str);
-    if let Some(declared) = declared_owner {
-        if declared.starts_with("user://") && declared != identity.principal_ref {
-            return Err(scope_fail(
-                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
-            ));
-        }
-        if (declared.starts_with("org://") || declared.starts_with("project://"))
-            && declared != owner_ref
-        {
-            return Err(scope_fail(
-                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
-            ));
-        }
-    } else if identity.principal_ref != "user://local-operator"
-        || environment
-            .pointer("/status/tenant_posture")
-            .and_then(Value::as_str)
-            != Some("single_user")
-    {
-        // Legacy local-workspace environments have no owner coordinate. They are intentionally
-        // usable only by the authenticated bootstrap operator in their declared single-user mode.
-        return Err(scope_fail(
-            super::substrate_store::RequestScopeRefusal::ResourceScopeRequired,
-        ));
-    }
-    if let Some(project) = environment
-        .pointer("/spec/project_id")
-        .and_then(Value::as_str)
-        .filter(|value| value.starts_with("project://"))
-    {
-        if project != owner_ref {
-            return Err(scope_fail(
-                super::substrate_store::RequestScopeRefusal::ResourceOwnerMismatch,
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// Resolve the single tenant that owns publication artifacts derived from an environment. A
-/// canonical project coordinate wins; legacy local workspaces may use the caller's sole tenant,
-/// but only after the environment's explicit single-user/local-operator posture is rechecked.
-pub(crate) fn publication_owner_for_environment(
-    identity: &super::substrate_store::RequestIdentity,
-    environment: &Value,
-) -> Result<String, (StatusCode, Json<Value>)> {
-    let owner_ref = if let Some(project_ref) = environment
-        .pointer("/spec/project_id")
-        .and_then(Value::as_str)
-        .filter(|value| value.starts_with("project://"))
-    {
-        project_ref.to_owned()
-    } else if identity.tenant_refs.len() == 1 {
-        identity
-            .tenant_refs
-            .iter()
-            .next()
-            .cloned()
-            .unwrap_or_default()
-    } else {
-        return Err(scope_fail(
-            super::substrate_store::RequestScopeRefusal::TenantAuthorityRequired,
-        ));
-    };
-    authorize_environment_owner(identity, environment, &owner_ref)?;
-    Ok(owner_ref)
 }
 
 async fn settle_prepared_authority_from_remote_truth(
@@ -2708,6 +2628,43 @@ fn submission_from_body(body: &Value) -> ScmPublicationSubmission {
     }
 }
 
+fn verify_gateway_effect_binding(
+    body: &Value,
+    lease_request: &CapabilityLeaseRequest,
+) -> Result<(), VErr> {
+    let expected_ref = body
+        .get("gateway_expected_authority_effect_ref")
+        .and_then(Value::as_str);
+    let expected_hash = body
+        .get("gateway_expected_authority_effect_hash")
+        .and_then(Value::as_str);
+    match (expected_ref, expected_hash) {
+        (None, None) => Ok(()),
+        (Some(expected_ref), Some(expected_hash)) => {
+            let effect = super::lifecycle_routes::capability_lease_effect(lease_request);
+            let derived_hash =
+                super::governed_authority::live_effect_hash(&effect).map_err(|reason| {
+                    verr("scm_publication_gateway_effect_binding_mismatch", reason)
+                })?;
+            let derived_ref = super::governed_authority::portable_effect_ref(&derived_hash)
+                .map_err(|reason| {
+                    verr("scm_publication_gateway_effect_binding_mismatch", reason)
+                })?;
+            if expected_ref != derived_ref || expected_hash != derived_hash {
+                return Err(verr(
+                    "scm_publication_gateway_effect_binding_mismatch",
+                    "the authority-gateway request does not bind the exact native SCM authority effect",
+                ));
+            }
+            Ok(())
+        }
+        _ => Err(verr(
+            "scm_publication_gateway_effect_binding_mismatch",
+            "authority-gateway effect expectations require both the exact effect ref and hash",
+        )),
+    }
+}
+
 /// POST /v1/hypervisor/environments/:id/scm/publish — the wallet-authorized
 /// publication crossing, rebuilt against the registered contract.
 pub(crate) async fn handle_scm_publish(
@@ -2720,6 +2677,16 @@ pub(crate) async fn handle_scm_publish(
         Ok(identity) => identity,
         Err(response) => return response,
     };
+    if let Err(AppError(status, message)) = super::environment_routes::authorize_environment_owner(
+        &state.data_dir,
+        &headers,
+        &environment_id,
+    ) {
+        return (
+            status,
+            Json(json!({ "ok": false, "error": { "code": message } })),
+        );
+    }
     let Some(environment) = super::read_record_dir(&state.data_dir, "environments")
         .into_iter()
         .find(|record| record["id"].as_str() == Some(environment_id.as_str()))
@@ -2762,10 +2729,6 @@ pub(crate) async fn handle_scm_publish(
             Ok(owner_ref) => owner_ref,
             Err(response) => return response,
         };
-    if let Err(response) = authorize_environment_owner(&request_identity, &environment, &owner_ref)
-    {
-        return response;
-    }
     let caller_idempotency_key = match bounded_caller_idempotency_key(&body) {
         Ok(key) => key,
         Err(error) => return fail(error),
@@ -2940,11 +2903,31 @@ pub(crate) async fn handle_scm_publish(
         Ok(None) => {}
         Err(error) => return fail(error),
     }
+    if let Some(expires_at) = body
+        .get("gateway_action_expires_at")
+        .and_then(Value::as_str)
+    {
+        let expires_at = match OffsetDateTime::parse(expires_at, &Rfc3339) {
+            Ok(value) => value,
+            Err(reason) => {
+                return fail(verr(
+                    "scm_publication_gateway_effect_binding_mismatch",
+                    format!("authority-gateway expiry is invalid: {reason}"),
+                ))
+            }
+        };
+        if OffsetDateTime::now_utc() > expires_at {
+            return fail(verr(
+                "scm_publication_gateway_effect_binding_mismatch",
+                "the authority-gateway action expired before native authority consumption",
+            ));
+        }
+    }
     let requires_credential = remote_url.starts_with("https://");
-    let scopes = vec![
-        SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE.to_owned(),
-        SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE.to_owned(),
-    ];
+    let mut scopes = vec![SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE.to_owned()];
+    if submission.review_request_requested {
+        scopes.push(SCM_PUBLICATION_OPEN_REVIEW_REQUEST_SCOPE.to_owned());
+    }
     let lease_request = CapabilityLeaseRequest {
         authority_provider_ref: "wallet.network".to_owned(),
         backing_provider: if requires_credential {
@@ -2985,10 +2968,93 @@ pub(crate) async fn handle_scm_publish(
         revocation_ref: format!("scm-connectors/{connector_id}/credential"),
         authority_reason: "scm_publish_authority_required".to_owned(),
         grant_value: body
-            .get("wallet_approval_grant")
+            .get("wallet_portable_authority_grant_hash")
+            .filter(|value| !value.is_null())
+            .or_else(|| body.get("wallet_approval_grant"))
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
+    // An outer authority-gateway request may bind this native crossing, but it
+    // may never supply the effect the PEP consumes. Compare its immutable
+    // expectation to the effect coordinates derived here from the exact same
+    // constructor `authorize_capability_lease` uses, before wallet consumption
+    // or a final-invoker claim. Supplying only half a pair also fails closed.
+    if let Err(error) = verify_gateway_effect_binding(&body, &lease_request) {
+        return fail(error);
+    }
+    // A daemon can die after the portable admission's durable final-invoker
+    // claim but before this route persists native Prepared. The operation lock
+    // and the replay checks above prove that exact native boundary absent. In
+    // that one ordering, settle the spent claim as a proven pre-native refusal
+    // instead of asking authorization to claim it again (which would strand
+    // the action forever). No other claimed/terminal disposition is rewritten.
+    if let Some(grant_hash) = body
+        .get("wallet_portable_authority_grant_hash")
+        .and_then(Value::as_str)
+    {
+        let effect = super::lifecycle_routes::capability_lease_effect(&lease_request);
+        let effect_hash = match super::governed_authority::live_effect_hash(&effect) {
+            Ok(value) => value,
+            Err(reason) => return fail(verr("scm_publication_authority_recovery_invalid", reason)),
+        };
+        let effect_ref = match super::governed_authority::portable_effect_ref(&effect_hash) {
+            Ok(value) => value,
+            Err(reason) => return fail(verr("scm_publication_authority_recovery_invalid", reason)),
+        };
+        let existing = match super::governed_authority::find_portable_admission_evidence(
+            &state.data_dir,
+            &effect_ref,
+            &effect_hash,
+            grant_hash,
+        ) {
+            Ok(value) => value,
+            Err(reason) => return fail(verr("scm_publication_authority_recovery_invalid", reason)),
+        };
+        if let Some(evidence) = existing {
+            match super::governed_authority::refuse_orphaned_claim_before_native_prepared(
+                &state.data_dir,
+                &evidence,
+                "scm.publication.advance-target-ref",
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    return (
+                        StatusCode::CONFLICT,
+                        Json(json!({
+                            "ok": false,
+                            "overall_outcome": "refused_before_native_prepared",
+                            "converged": true,
+                            "reason": "a prior daemon spent and claimed this exact authority, but the native Prepared boundary proves its invoker was never entered",
+                            "authority_usage_disposition": "spent_not_refunded",
+                            "authority_admission_receipt_ref": format!("receipt://{}", evidence.admission_intent_ref),
+                            "authority_effect_ref": effect_ref,
+                            "authority_effect_hash": effect_hash,
+                            "remote_effect_invoked": false,
+                        })),
+                    );
+                }
+                Err(reason) => {
+                    return (
+                        StatusCode::CONFLICT,
+                        Json(json!({
+                            "ok": false,
+                            "overall_outcome": "reconciliation_required",
+                            "converged": false,
+                            "reason": reason,
+                            "authority_usage_disposition": "spent_not_refunded",
+                            "authority_admission_receipt_ref": format!("receipt://{}", evidence.admission_intent_ref),
+                            "authority_effect_ref": effect_ref,
+                            "authority_effect_hash": effect_hash,
+                            "remote_effect_invoked": Value::Null,
+                        })),
+                    );
+                }
+            }
+        }
+    }
     let lease = match authorize_capability_lease(&state, &lease_request).await {
         Ok(lease) => lease,
         Err((code, challenge)) => return (code, Json(challenge)),
@@ -3001,26 +3067,66 @@ pub(crate) async fn handle_scm_publish(
         .to_owned();
     // The admission receipt the invoker records is the wallet-owned identity the authority owner
     // can resolve — never a reference synthesized from the lease id.
+    let (admitted_grant_ref, admission_intent_ref, admission_effect_hash) = match &lease.admitted {
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Exact(admitted) => (
+            format!("grant://{}", admitted.authorized.evidence.grant_ref),
+            admitted.admission_intent_ref.clone(),
+            admitted.authorized.evidence.effect_hash.clone(),
+        ),
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Portable(admitted) => (
+            admitted.consumption_receipt.authority_grant_ref.clone(),
+            admitted.admission_intent_ref.clone(),
+            admitted.effect_hash.clone(),
+        ),
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Standing(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "ok": false,
+                    "code": "scm_publication_standing_authority_not_supported",
+                    "message": "SCM publication requires exact-request or exact-effect portable authority"
+                })),
+            );
+        }
+    };
     let mut authority = PublicationAuthority {
-        grant_refs: vec![format!("grant://{}", lease.grant_ref)],
+        grant_refs: vec![admitted_grant_ref],
         scope_refs: scopes,
         capability_lease_ref: format!("lease://{lease_id}"),
-        admission_receipt_ref: format!("receipt://{}", lease.admitted.admission_intent_ref),
-        admission_effect_hash: lease.admitted.authorized.evidence.effect_hash.clone(),
+        admission_receipt_ref: format!("receipt://{admission_intent_ref}"),
+        admission_effect_hash,
         final_invocation_claim_ref: None,
         final_invocation_claim_id: None,
     };
     // Claim the one final invocation before any remote effect. The claim is durable, so a crash
     // inside the dispatch window is recoverable as Unknown rather than replayable.
-    let claim = match super::governed_authority::claim_final_invocation(
-        &state.data_dir,
-        &lease.admitted,
-        "scm.publication.advance-target-ref",
-    )
-    .await
-    {
+    let claim_result = match &lease.admitted {
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Exact(admitted) => {
+            super::governed_authority::claim_final_invocation(
+                &state.data_dir,
+                admitted,
+                "scm.publication.advance-target-ref",
+            )
+            .await
+        }
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Portable(admitted) => {
+            super::governed_authority::claim_portable_final_invocation(
+                &state.data_dir,
+                admitted,
+                "scm.publication.advance-target-ref",
+            )
+            .await
+        }
+        super::lifecycle_routes::CapabilityAuthorityAdmission::Standing(_) => {
+            unreachable!("standing admission was refused before publication claim")
+        }
+    };
+    let claim = match claim_result {
         Ok(claim) => claim,
         Err(reason) => {
+            let effect_ref =
+                super::governed_authority::portable_effect_ref(&authority.admission_effect_hash)
+                    .unwrap_or_default();
             return (
                 StatusCode::CONFLICT,
                 Json(json!({
@@ -3029,6 +3135,10 @@ pub(crate) async fn handle_scm_publish(
                     "converged": false,
                     "reason": reason,
                     "authority_usage_disposition": "spent_not_refunded",
+                    "authority_admission_receipt_ref": authority.admission_receipt_ref,
+                    "authority_effect_ref": effect_ref,
+                    "authority_effect_hash": authority.admission_effect_hash,
+                    "remote_effect_invoked": Value::Null,
                 })),
             );
         }
@@ -3343,6 +3453,54 @@ mod tests {
             final_invocation_claim_ref: None,
             final_invocation_claim_id: None,
         }
+    }
+
+    #[test]
+    fn gateway_effect_binding_is_checked_against_the_native_pep_effect_constructor() {
+        let request = CapabilityLeaseRequest {
+            authority_provider_ref: "wallet.network".into(),
+            backing_provider: "none".into(),
+            allowed_tools: vec!["scm.publish".into()],
+            resource_refs: vec!["binding://one".into(), "environment_1".into()],
+            scopes: vec![SCM_PUBLICATION_ADVANCE_TARGET_REF_SCOPE.into()],
+            policy_domain: "hypervisor.scm.publication.policy.v1".into(),
+            request_domain: "hypervisor.scm.publication.request.v1".into(),
+            request_facets: json!({"operation_key": digest(0x44)}),
+            credential_connector_id: None,
+            credential_store: "scm-credentials".into(),
+            credential_required: false,
+            github_host_fallback: false,
+            receipt_required: true,
+            revocation_ref: "scm-connectors/none/credential".into(),
+            authority_reason: "scm_publish_authority_required".into(),
+            grant_value: json!(digest(0x55)),
+            standing_draw: None,
+        };
+        let effect = super::super::lifecycle_routes::capability_lease_effect(&request);
+        let hash = super::super::governed_authority::live_effect_hash(&effect).unwrap();
+        let reference = super::super::governed_authority::portable_effect_ref(&hash).unwrap();
+        verify_gateway_effect_binding(
+            &json!({
+                "gateway_expected_authority_effect_ref":reference,
+                "gateway_expected_authority_effect_hash":hash,
+            }),
+            &request,
+        )
+        .unwrap();
+
+        assert!(verify_gateway_effect_binding(
+            &json!({
+                "gateway_expected_authority_effect_ref":reference,
+                "gateway_expected_authority_effect_hash":digest(0x99),
+            }),
+            &request,
+        )
+        .is_err());
+        assert!(verify_gateway_effect_binding(
+            &json!({"gateway_expected_authority_effect_ref":reference}),
+            &request,
+        )
+        .is_err());
     }
 
     fn run(

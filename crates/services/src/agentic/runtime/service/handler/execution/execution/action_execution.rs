@@ -1,8 +1,8 @@
-use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
-use crate::agentic::runtime::service::tool_execution::enforce_file_write_observation;
 use crate::agentic::runtime::service::decision_loop::worker::{
     worker_assignment_allows_tool_name, worker_assignment_disallowed_tool_error,
 };
+use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
+use crate::agentic::runtime::service::tool_execution::enforce_file_write_observation;
 use crate::agentic::runtime::types::{CommandExecution, WorkerAssignment};
 
 fn split_parent_playbook_context(goal: &str) -> (&str, Option<&str>) {
@@ -330,6 +330,16 @@ pub async fn handle_action_execution(
         agent_state,
         worker_assignment.as_ref(),
     );
+    let _runtime_tool_admission = runtime_tool_admission::admit_runtime_tool_invocation(
+        service,
+        &mut execution_state,
+        &tool,
+        agent_state,
+        session_id,
+        step_index,
+        os_driver,
+    )
+    .await?;
 
     let mcp = service
         .mcp

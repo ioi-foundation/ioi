@@ -7,11 +7,15 @@ use super::keys::{
     lease_counter_window_key, lease_key, lease_replay_key, mail_connector_binding_receipt_key,
     mail_connector_get_receipt_key, mail_connector_key, mail_count_receipt_key,
     mail_delete_receipt_key, mail_list_receipt_key, mail_read_receipt_key, mail_reply_receipt_key,
-    policy_key, receipt_window_key, secret_alias_key, secret_key, session_delegation_key,
-    session_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
+    policy_key, portable_authority_ceremony_consumption_key,
+    portable_authority_effect_consumption_receipt_key, portable_authority_grant_v3_state_key,
+    receipt_window_key, secret_alias_key, secret_key, session_delegation_key, session_key,
+    standing_approval_consumption_receipt_key, standing_approval_grant_state_key,
+    standing_approval_settlement_receipt_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
 };
 use super::support::load_typed;
 use super::*;
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::state::StateScanIter;
@@ -19,7 +23,7 @@ use ioi_api::transaction::context::TxContext;
 use ioi_crypto::security::SecurityLevel;
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
-use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant, StandingApprovalGrant};
 use ioi_types::app::wallet_network::{
     ConnectorAuthExportParams, ConnectorAuthExportReceipt, ConnectorAuthGetParams,
     ConnectorAuthGetReceipt, ConnectorAuthImportParams, ConnectorAuthImportReceipt,
@@ -41,8 +45,11 @@ use ioi_types::app::{
     account_id_from_key_material, AccountId, ActionTarget, ChainId, SignatureProof, SignatureSuite,
 };
 use ioi_types::error::StateError;
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 #[derive(Default)]
 struct MockState {
@@ -235,6 +242,258 @@ fn signed_wallet_approval_grant(
         .to_bytes()
         .to_vec();
     grant
+}
+
+#[derive(Clone)]
+struct StandingGrantFixture {
+    grant: StandingApprovalGrant,
+    standing_envelope_json: Vec<u8>,
+    approval_ceremony_context_json: Vec<u8>,
+    auth_factor_receipt_json: Vec<u8>,
+}
+
+impl StandingGrantFixture {
+    fn record_params(&self) -> RecordStandingApprovalGrantParams {
+        RecordStandingApprovalGrantParams {
+            grant: self.grant.clone(),
+            standing_envelope_json: self.standing_envelope_json.clone(),
+            approval_ceremony_context_json: self.approval_ceremony_context_json.clone(),
+            auth_factor_receipt_json: self.auth_factor_receipt_json.clone(),
+        }
+    }
+}
+
+fn test_digest(bytes: &[u8]) -> [u8; 32] {
+    let digest = Sha256::digest(bytes).expect("test sha256");
+    let mut output = [0u8; 32];
+    output.copy_from_slice(digest.as_ref());
+    output
+}
+
+fn hash_ref(value: [u8; 32]) -> String {
+    format!("sha256:{}", hex::encode(value))
+}
+
+fn test_rfc3339(timestamp_ms: u64) -> String {
+    OffsetDateTime::from_unix_timestamp_nanos(i128::from(timestamp_ms) * 1_000_000)
+        .expect("test timestamp")
+        .format(&Rfc3339)
+        .expect("test RFC3339")
+}
+
+fn signed_standing_approval_grant(
+    signer: &ApprovalSigner,
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    nonce: [u8; 32],
+    counter: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+    marker: u8,
+) -> StandingGrantFixture {
+    signed_standing_approval_grant_for_principal(
+        signer,
+        policy_hash,
+        audience,
+        nonce,
+        counter,
+        max_usages,
+        max_cumulative_deposit_microusd,
+        max_cumulative_spend_microusd,
+        marker,
+        "org://wallet-network/effect-owner",
+        "org://wallet-network/effect-owner",
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn signed_standing_approval_grant_for_principal(
+    signer: &ApprovalSigner,
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    nonce: [u8; 32],
+    counter: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+    marker: u8,
+    envelope_principal_ref: &str,
+    operator_principal_ref: &str,
+) -> StandingGrantFixture {
+    const NOW_MS: u64 = 1_750_000_000_000;
+    let marker = format!("{marker:02x}");
+    let mut envelope = json!({
+        "schema_version": "ioi.foundations.standing-authority-envelope.v1",
+        "standing_envelope_ref": format!("standing-envelope://wallet-test/{marker}"),
+        "owner_ref": "org://wallet-test",
+        "bounded_system_ref": "system://wallet-test",
+        "principal_ref": envelope_principal_ref,
+        "audience_ref": "wallet-client://hypervisor/provider-ops",
+        "authority_scope": "scope:hypervisor.live-route.hypervisor-provider-op",
+        "facet_template": {
+            "provider_id": "pacc_18cd245812ad55b9",
+            "operations": ["create", "delete", "reconcile"],
+            "provider_selector": {
+                "mode": "exact",
+                "provider_addresses": ["akash1aaul837r7en7hpk9wv2svg8u78fdq0t2j2e82z"],
+                "selection": "only_qualified_bid_from_exact_provider"
+            },
+            "per_operation_deposit_microusd": max_cumulative_deposit_microusd,
+            "pricing_ceiling": { "amount": "1000", "denom": "uact" },
+            "sdl_hashes": [hash_ref([0x41; 32])],
+            "image_digests": [hash_ref([0x42; 32])],
+            "registry_hosts": ["ghcr.io"],
+            "result_destination_refs": ["connector://result/test"],
+            "result_transport_certificate_hashes": [hash_ref([0x43; 32])],
+            "auto_topup": false,
+            "teardown_policy": "always_teardown_required",
+            "max_duration_seconds": 7200
+        },
+        "aggregate_bounds": {
+            "max_cumulative_deposit_microusd": max_cumulative_deposit_microusd,
+            "max_cumulative_spend_microusd": max_cumulative_spend_microusd,
+            "max_usages": max_usages,
+            "max_concurrent_resources": 1,
+            "max_provider_fanout": 1,
+            "max_failures": max_usages
+        },
+        "not_before_ms": NOW_MS - 60_000,
+        "expires_at_ms": 1_850_000_000_000u64,
+        "revocation_epoch": 0,
+        "trajectory_policy_ref": "policy://wallet-test/trajectory/v1",
+        "trajectory_policy_hash": hash_ref(policy_hash),
+        "approval_mode": "standing_envelope",
+        "recovery_posture": "recovery_never_widens_or_resets_drawdown",
+        "body_hash": hash_ref([1; 32])
+    });
+    let mut envelope_material = envelope.clone();
+    envelope_material
+        .as_object_mut()
+        .expect("envelope object")
+        .remove("body_hash");
+    envelope_material
+        .as_object_mut()
+        .expect("envelope object")
+        .insert(
+            "domain".into(),
+            json!("ioi.standing-authority-envelope-jcs-sha256.v1"),
+        );
+    let standing_envelope_hash =
+        test_digest(&serde_jcs::to_vec(&envelope_material).expect("canonical envelope material"));
+    envelope["body_hash"] = json!(hash_ref(standing_envelope_hash));
+
+    let review_receipt_hash = [0x31; 32];
+    let authorization_subject = json!({
+        "kind": "standing_envelope",
+        "subject_ref": envelope["standing_envelope_ref"],
+        "subject_hash": hash_ref(standing_envelope_hash),
+        "validation_profile_ref": "schema://ioi/foundations/standing-authority-envelope/v1"
+    });
+    let context = json!({
+        "schema_version": "ioi.foundations.approval-ceremony-context.v1",
+        "approval_ceremony_context_ref": format!("approval-ceremony-context://wallet-test/{marker}"),
+        "authority_request_ref": format!("authority-request://wallet-test/{marker}"),
+        "authority_request_body_hash": hash_ref([0x11; 32]),
+        "authority_review_ref": format!("review://wallet-test/{marker}"),
+        "authority_review_body_hash": hash_ref([0x12; 32]),
+        "predecessor_authority_review_ref": null,
+        "predecessor_authority_review_body_hash": null,
+        "predecessor_authority_request_ref": null,
+        "predecessor_authority_request_body_hash": null,
+        "predecessor_authority_review_receipt_ref": null,
+        "predecessor_authority_review_receipt_hash": null,
+        "reviewed_representation_hash": hash_ref([0x13; 32]),
+        "principal_ref": operator_principal_ref,
+        "acting_subject_ref": "runtime://wallet-test/operator",
+        "product_session_ref": "session://wallet-test/operator",
+        "origin_binding_ref": "origin://wallet-test/local",
+        "authorization_subject": authorization_subject,
+        "presentation_surface_ref": "wallet-client://wallet-test/local",
+        "presentation_evidence_profile_ref": "policy://wallet-test/presentation/v1",
+        "principal_authority_resolution_ref": null,
+        "principal_authority_resolution_hash": null,
+        "required_auth_factor_posture_refs": ["auth_factor://passkey/operator/device"],
+        "required_guardian_surface_refs": [],
+        "posture_satisfaction_profile_ref": "policy://wallet-test/step-up/v1",
+        "interaction_mode": "interactive",
+        "authentication_posture": "step_up",
+        "receipt_timing": "before_effect",
+        "policy_decision_receipt_ref": format!("receipt://wallet-test/review/{marker}"),
+        "policy_decision_receipt_hash": hash_ref(review_receipt_hash),
+        "policy_hash": hash_ref(policy_hash),
+        "risk_classes": ["external_spend", "standing_authority"],
+        "revocation_epoch": 0,
+        "nonce_b64url": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        "issued_at": test_rfc3339(NOW_MS - 1_000),
+        "expires_at": test_rfc3339(NOW_MS + 4 * 60_000),
+        "single_use": true
+    });
+    let mut context_material = b"IOI-APPROVAL-CEREMONY-CONTEXT-V1\0".to_vec();
+    context_material
+        .extend_from_slice(&serde_jcs::to_vec(&context).expect("canonical approval context"));
+    let approval_ceremony_context_hash = test_digest(&context_material);
+
+    let mut factor = json!({
+        "schema_version": "ioi.hypervisor.auth-factor-receipt.v1",
+        "receipt_id": format!("afr_wallet{marker}"),
+        "receipt_hash": hash_ref([1; 32]),
+        "ceremony_id": format!("pkc_wallet{marker}"),
+        "principal_id": "operator",
+        "principal_ref": operator_principal_ref,
+        "factor_kind": "passkey",
+        "credential_id_hash": hash_ref([0x21; 32]),
+        "user_verification": "required_and_verified",
+        "purpose": "standing_effect_authority",
+        "approval_ceremony_context_ref": context["approval_ceremony_context_ref"],
+        "approval_ceremony_context_hash": hash_ref(approval_ceremony_context_hash),
+        "authorization_subject": context["authorization_subject"],
+        "policy_hash": hash_ref(policy_hash),
+        "effect_authority_created": false,
+        "created_at": test_rfc3339(NOW_MS)
+    });
+    let mut factor_material = factor.clone();
+    factor_material
+        .as_object_mut()
+        .expect("factor object")
+        .remove("receipt_hash");
+    let auth_factor_receipt_hash =
+        test_digest(&serde_jcs::to_vec(&factor_material).expect("canonical factor receipt"));
+    factor["receipt_hash"] = json!(hash_ref(auth_factor_receipt_hash));
+
+    let mut grant = StandingApprovalGrant {
+        schema_version: 1,
+        authority_id: signer.authority.authority_id,
+        standing_envelope_hash,
+        policy_hash,
+        audience,
+        nonce,
+        counter,
+        issued_at_ms: 1_749_999_999_999,
+        expires_at_ms: 1_850_000_000_000,
+        max_usages,
+        max_cumulative_deposit_microusd,
+        max_cumulative_spend_microusd,
+        review_receipt_hash,
+        approval_ceremony_context_hash,
+        auth_factor_receipt_hash,
+        approver_public_key: signer.authority.public_key.clone(),
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    grant.approver_sig = signer
+        .keypair
+        .sign(&grant.signing_bytes().expect("standing grant signing bytes"))
+        .expect("sign standing grant")
+        .to_bytes()
+        .to_vec();
+    StandingGrantFixture {
+        grant,
+        standing_envelope_json: serde_jcs::to_vec(&envelope).expect("canonical envelope"),
+        approval_ceremony_context_json: serde_jcs::to_vec(&context)
+            .expect("canonical approval context"),
+        auth_factor_receipt_json: serde_jcs::to_vec(&factor).expect("canonical factor receipt"),
+    }
 }
 
 fn make_session_grant(
@@ -484,5 +743,6 @@ mod connector_config;
 mod delegation;
 mod identity_owner_link;
 mod mail_operations;
+mod portable_authority_state;
 mod principal_authority;
 mod replay_and_receipts;

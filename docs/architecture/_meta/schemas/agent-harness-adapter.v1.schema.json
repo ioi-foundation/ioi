@@ -9,11 +9,20 @@
     "schema_version",
     "adapter_id",
     "revision_ref",
+    "predecessor_revision_ref",
     "content_hash",
     "owner_ref",
     "adapter_family",
     "transport_kind",
     "compatible_harness_profile_revision_refs",
+    "supported_task_brief_schema_refs",
+    "supported_event_and_result_schema_refs",
+    "supported_runtime_and_model_route_refs",
+    "rendering_and_normalization_contract_refs",
+    "required_runtime_tool_contract_revision_refs",
+    "capability_and_context_requirement_refs",
+    "provenance_evaluation_and_conformance_refs",
+    "registry_lifecycle_ref",
     "registry_status"
   ],
   "properties": {
@@ -22,17 +31,17 @@
     },
     "adapter_id": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}$"
     },
     "revision_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
     },
     "predecessor_revision_ref": {
       "anyOf": [
         {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
         },
         {
           "type": "null"
@@ -45,7 +54,7 @@
     },
     "owner_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      "pattern": "^(?:(?:org|project|system|user)://[^\\s]{1,500}|ioi://publisher/[^\\s]{1,500})$"
     },
     "adapter_family": {
       "enum": [

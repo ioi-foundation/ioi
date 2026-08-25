@@ -2249,6 +2249,47 @@ mod work_result_tests {
     }
 
     #[test]
+    fn research_result_and_mapping_delta_prove_the_non_software_seam() {
+        let mut body = valid_result_body();
+        body["result_payload_ref"] = json!("artifact://research/observation-set/1");
+        let mut result = validate_work_result(&body, &no_resolve, &no_room)
+            .expect("compile a non-software result");
+        result["work_result_id"] = json!("work-result://research/observation-set/1");
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            RESULT_CONTRACT,
+            &result,
+        )
+        .expect("non-software result satisfies the universal contract");
+        assert_eq!(result["result_profile"], "research");
+        assert!(result.get("changed_files").is_none());
+        assert!(result.get("patches").is_none());
+        assert!(result.get("tests").is_none());
+
+        let resolver = |tail: &str| (tail == "research/observation-set/1").then(|| result.clone());
+        let delta_body = json!({
+            "goal_ref":"goal://g-research-1",
+            "delta_kind":"update",
+            "target_ref":"ontology://research/corpus/1",
+            "proposed_by_ref":"work-result://research/observation-set/1",
+            "payload_ref":"mapping://research/corpus/observation-set/1"
+        });
+        let (mut delta, bound_result) = validate_outcome_delta(&delta_body, &resolver, &no_room)
+            .expect("compile a non-patch outcome delta");
+        delta["outcome_delta_id"] = json!("outcome-delta://research/corpus/revision/1");
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            DELTA_CONTRACT,
+            &delta,
+        )
+        .expect("non-patch delta satisfies the universal contract");
+        assert_eq!(bound_result["result_profile"], "research");
+        assert_eq!(
+            delta["payload_ref"],
+            "mapping://research/corpus/observation-set/1"
+        );
+        assert_eq!(delta["status"], "proposed");
+    }
+
+    #[test]
     fn sensitive_keys_are_rejected_recursively() {
         // Top level, nested object, nested-in-array, and normalized-variant keys all refuse.
         let cases = vec![

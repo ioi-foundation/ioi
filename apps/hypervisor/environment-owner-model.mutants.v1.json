@@ -1,0 +1,167 @@
+{
+  "schema_version": "ioi.hypervisor.environment-owner-model-mutants.v1",
+  "expected_mutations": 23,
+  "anchors": [
+    {
+      "id": "r1-qualified-route-registration-blind-spot",
+      "anchor_file": "apps/hypervisor/scripts/lib/environment-owner-source-census.mjs",
+      "find": "(?:axum::routing::)?(get|post|put|patch|delete|any)",
+      "replace": "(get|post|put|patch|delete|any)",
+      "red_on": "R1_DERIVED_CLOSED_WORLD"
+    },
+    {
+      "id": "r2-get-recreates-environment",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "    let env = match load_env(&st.data_dir, &id) {",
+      "replace": "    let _shadow_environment = new_env(&id, &json!({}))?;\n    let env = match load_env(&st.data_dir, &id) {",
+      "red_on": "R2_ONE_CREATE_SEAM"
+    },
+    {
+      "id": "r3-noncanonical-environment-minter",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "gen_opaque(\"env\")",
+      "replace": "gen_opaque(\"caller\")",
+      "red_on": "R3_DAEMON_MINT_AND_COLLISION"
+    },
+    {
+      "id": "r4-record-write-before-owner-bind",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "    super::substrate_store::bind_request_resource_scope(\n        &st.data_dir,",
+      "replace": "    persist_env(&st.data_dir, &new_env(&id, &spec)?)?;\n    super::substrate_store::bind_request_resource_scope(\n        &st.data_dir,",
+      "red_on": "R4_BIND_PRECEDES_BYTES"
+    },
+    {
+      "id": "r5-fold-noncanonical-id",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "safe_id(id) != id",
+      "replace": "false",
+      "red_on": "R5_CANONICAL_REJECTION"
+    },
+    {
+      "id": "r6-remove-pin-authorizer",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "pub(crate) fn authorize_environment_owner_identity(",
+      "replace": "pub(crate) fn authorize_environment_owner_identity_bypassed(",
+      "red_on": "R6_PIN_IS_AUTHORITY"
+    },
+    {
+      "id": "r7-remove-legacy-administrator-disposal",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "fn authorize_environment_disposal(",
+      "replace": "fn authorize_environment_disposal_removed(",
+      "red_on": "R7_LEGACY_ADMIN_DISPOSAL_ONLY"
+    },
+    {
+      "id": "r8-replace-derived-custody-world-with-hand-list",
+      "anchor_file": "apps/hypervisor/scripts/verify-hypervisor-environment-custody.mjs",
+      "find": "import { deriveEnvironmentOwnerCensus } from \"./lib/environment-owner-source-census.mjs\";",
+      "replace": "const deriveHandListedEnvironmentOwners = () => ({ routes: [] });",
+      "red_on": "R8_CUSTODY_ASSERTIONS_FLIPPED"
+    },
+    {
+      "id": "r9-remove-owner-scoped-list-handler",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "pub(crate) async fn handle_environments_list(",
+      "replace": "pub(crate) async fn handle_environments_list_unscoped(",
+      "red_on": "R9_OWNER_SCOPED_ENUMERATION"
+    },
+    {
+      "id": "r10-deactivation-leaves-principal-active",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "find": "p[\"status\"] = json!(\"deactivated\");",
+      "replace": "p[\"status\"] = json!(\"active\");",
+      "red_on": "R10_DEPROVISIONED_OWNER_DISPOSABLE"
+    },
+    {
+      "id": "r11-editor-proxy-admits-tokenless-request",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs",
+      "find": "let authed = lease_active && token_ok;",
+      "replace": "let authed = lease_active && (token_ok || token.is_none());",
+      "red_on": "R11_THREE_UNAUTHENTICATED_SURFACES_CLOSED"
+    },
+    {
+      "id": "v4-workrun-handle-skips-owner",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "pub(crate) async fn handle_workrun_create(",
+      "replace": "pub(crate) async fn handle_workrun_create_without_owner(",
+      "red_on": "V12_WORKRUN_NO_SIDE_EFFECT_BEFORE_AUTH"
+    },
+    {
+      "id": "v5-managed-backup-handle-skips-owner",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/managed_runtime_routes.rs",
+      "find": "pub(crate) async fn handle_environment_backup_create(",
+      "replace": "pub(crate) async fn handle_environment_backup_create_without_owner(",
+      "red_on": "V5_CAPTURE_FAMILIES"
+    },
+    {
+      "id": "v4-conversation-handle-skips-owner",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/agentops_routes.rs",
+      "find": "    super::environment_routes::authorize_environment_owner(&st.data_dir, &headers, &env_id)?;",
+      "replace": "    let _unowned_environment = (&st.data_dir, &headers, &env_id);",
+      "red_on": "V4_SEVEN_HANDLES"
+    },
+    {
+      "id": "v15-legacy-refusal-loses-unadopted-type",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "\"environment_unadopted\"",
+      "replace": "\"request_resource_scope_required\"",
+      "red_on": "V15_UNADOPTED_TYPED_REFUSAL"
+    },
+    {
+      "id": "v16-list-includes-foreign-records",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": ".is_some_and(|id| owned.contains(id))",
+      "replace": ".is_some_and(|_id| true)",
+      "red_on": "R9_OWNER_SCOPED_ENUMERATION"
+    },
+    {
+      "id": "v17-get-uses-administrator-disposal-authority",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "            authorize_environment_owner_identity(&st.data_dir, &identity, &id)?;",
+      "replace": "            authorize_environment_disposal(&st.data_dir, &headers, &id)?;",
+      "red_on": "V17_ADMIN_CANNOT_READ_OR_WRITE"
+    },
+    {
+      "id": "v18-mutation-floor-can-shrink",
+      "anchor_file": "apps/hypervisor/environment-owner-model.mutants.v1.json",
+      "find": "\"expected_mutations\": 23",
+      "replace": "\"expected_mutations\": 22",
+      "red_on": "V18_MUTATION_FLOOR"
+    },
+    {
+      "id": "r1-rust-raw-string-lexer-removed",
+      "anchor_file": "apps/hypervisor/scripts/lib/environment-owner-source-census.mjs",
+      "find": "if (here === \"r\" && (next === '\"' || next === \"#\")) {",
+      "replace": "if (false && here === \"r\" && (next === '\"' || next === \"#\")) {",
+      "red_on": "R1_DERIVED_CLOSED_WORLD"
+    },
+    {
+      "id": "r1-aggregate-marker-masks-workspace-field",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs",
+      "find": "// ENVIRONMENT_OWNER_CENSUS: aggregate_only",
+      "replace": "// ENVIRONMENT_OWNER_CENSUS: aggregate_only\n    let _workspace_root = \"forbidden aggregate leak\";",
+      "red_on": "R1_DERIVED_CLOSED_WORLD"
+    },
+    {
+      "id": "r1-policy-context-marker-masks-workspace-field",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs",
+      "find": "// ENVIRONMENT_OWNER_CENSUS: policy_context_only",
+      "replace": "// ENVIRONMENT_OWNER_CENSUS: policy_context_only\n    let _workspace_root = \"forbidden policy-context leak\";",
+      "red_on": "R1_DERIVED_CLOSED_WORLD"
+    },
+    {
+      "id": "m031-nonowner-ops-mint-authorizer-removed",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/supervisor_routes.rs",
+      "find": "let identity = match super::environment_routes::authorize_environment_owner(",
+      "replace": "let identity = match super::environment_routes::resolve_identity_without_environment_owner(",
+      "red_on": "R11_THREE_UNAUTHENTICATED_SURFACES_CLOSED"
+    },
+    {
+      "id": "m032-port-preview-target-fence-removed",
+      "anchor_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+      "find": "let target_port = match admitted_environment_port_target(",
+      "replace": "let target_port = match bypassed_environment_port_target(",
+      "red_on": "M032_PORT_TARGET_FENCE"
+    }
+  ]
+}

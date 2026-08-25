@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 
 const WALLET_SECRET_PASS_ENV: &str = "IOI_WALLET_SECRET_PASS";
 const GUARDIAN_SECRET_PASS_ENV: &str = "IOI_GUARDIAN_KEY_PASS";
+const SECRET_CUSTODY_PROFILE_ENV: &str = "IOI_SECRET_CUSTODY_PROFILE";
 const ENCRYPTED_SECRET_MAGIC: &[u8; 8] = b"IOI-GKEY";
 
 pub(super) fn load_revocation_epoch(state: &dyn StateAccess) -> Result<u64, TransactionError> {
@@ -227,18 +228,46 @@ pub(super) fn block_timestamp_ms(ctx: &TxContext<'_>) -> u64 {
     ctx.block_timestamp / 1_000_000
 }
 
-fn wallet_secret_passphrase() -> String {
-    std::env::var(WALLET_SECRET_PASS_ENV)
-        .ok()
+fn wallet_secret_passphrase_from(
+    wallet_secret_pass: Option<String>,
+    guardian_secret_pass: Option<String>,
+    custody_profile: Option<String>,
+    development_test_fixture: bool,
+) -> Result<String, TransactionError> {
+    wallet_secret_pass
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .or_else(|| {
-            std::env::var(GUARDIAN_SECRET_PASS_ENV)
-                .ok()
+            guardian_secret_pass
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty())
         })
-        .unwrap_or_else(|| "local-mode".to_string())
+        .map(Ok)
+        .unwrap_or_else(|| {
+            let profile = custody_profile
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            if profile == Some("development_cooperative")
+                || (profile.is_none() && development_test_fixture)
+            {
+                Ok("local-mode".to_string())
+            } else {
+                let profile = profile.unwrap_or("unspecified");
+                Err(TransactionError::Invalid(format!(
+                    "wallet secret custody key unavailable for profile '{profile}': conforming profiles have no local-mode fallback"
+                )))
+            }
+        })
+}
+
+fn wallet_secret_passphrase() -> Result<String, TransactionError> {
+    wallet_secret_passphrase_from(
+        std::env::var(WALLET_SECRET_PASS_ENV).ok(),
+        std::env::var(GUARDIAN_SECRET_PASS_ENV).ok(),
+        std::env::var(SECRET_CUSTODY_PROFILE_ENV).ok(),
+        cfg!(test),
+    )
 }
 
 pub(super) fn is_encrypted_secret_payload(payload: &[u8]) -> bool {
@@ -246,17 +275,77 @@ pub(super) fn is_encrypted_secret_payload(payload: &[u8]) -> bool {
 }
 
 pub(super) fn encrypt_secret_payload(plaintext: &[u8]) -> Result<Vec<u8>, TransactionError> {
-    encrypt_key(plaintext, &wallet_secret_passphrase())
+    encrypt_key(plaintext, &wallet_secret_passphrase()?)
         .map_err(|e| TransactionError::Invalid(format!("wallet secret encryption failed: {}", e)))
 }
 
 pub(super) fn decrypt_secret_payload(payload: &[u8]) -> Result<Vec<u8>, TransactionError> {
     if is_encrypted_secret_payload(payload) {
-        return decrypt_key(payload, &wallet_secret_passphrase())
+        return decrypt_key(payload, &wallet_secret_passphrase()?)
             .map(|value| value.0.clone())
             .map_err(|e| {
                 TransactionError::Invalid(format!("wallet secret decryption failed: {}", e))
             });
     }
     Ok(payload.to_vec())
+}
+
+#[cfg(test)]
+mod custody_profile_tests {
+    use super::wallet_secret_passphrase_from;
+
+    #[test]
+    fn development_profile_is_the_only_well_known_fallback() {
+        assert_eq!(
+            wallet_secret_passphrase_from(
+                None,
+                None,
+                Some("development_cooperative".into()),
+                false,
+            )
+            .expect("development fixture fallback"),
+            "local-mode"
+        );
+        assert!(wallet_secret_passphrase_from(None, None, None, false).is_err());
+        assert_eq!(
+            wallet_secret_passphrase_from(None, None, None, true)
+                .expect("compiled test fixture fallback"),
+            "local-mode"
+        );
+        for profile in [
+            "sovereign_local_passphrase",
+            "brokered_local",
+            "remote_wallet",
+            "production",
+        ] {
+            let error = wallet_secret_passphrase_from(None, None, Some(profile.into()), false)
+                .expect_err("conforming profile must refuse without custody key")
+                .to_string();
+            assert!(error.contains("no local-mode fallback"), "{error}");
+        }
+    }
+
+    #[test]
+    fn explicit_out_of_band_key_never_uses_fallback() {
+        assert_eq!(
+            wallet_secret_passphrase_from(
+                Some("wallet-key".into()),
+                None,
+                Some("sovereign_local_passphrase".into()),
+                false,
+            )
+            .expect("explicit wallet key"),
+            "wallet-key"
+        );
+        assert_eq!(
+            wallet_secret_passphrase_from(
+                None,
+                Some("guardian-key".into()),
+                Some("production".into()),
+                false,
+            )
+            .expect("explicit guardian key"),
+            "guardian-key"
+        );
+    }
 }

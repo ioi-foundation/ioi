@@ -74,7 +74,8 @@ const ciChecks = new Set(
   [...ciText.matchAll(/npm run (check:[A-Za-z0-9:_-]+) --workspace=@ioi\/hypervisor-app/g)].map((m) => m[1]),
 );
 
-// A CI check counts as a verifier when its npm script runs a verify-*.mjs file. Non-verifier checks
+// A CI check counts as a verifier when its npm script runs a verify-*.mjs file, plus the historical
+// landing-designation audit whose filename predates this convention. Non-verifier checks
 // (bundlers, generators) are outside this gate's subject.
 const ciVerifierScripts = new Map();
 for (const check of ciChecks) {
@@ -83,7 +84,7 @@ for (const check of ciChecks) {
     fail("ci_invokes_unknown_script", `${check} is run by ci.yml but is not a script in apps/hypervisor/package.json`);
     continue;
   }
-  const m = cmd.match(/(scripts\/verify-[A-Za-z0-9._-]+\.mjs)/);
+  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations)\.mjs)/);
   if (m) ciVerifierScripts.set(check, m[1]);
 }
 

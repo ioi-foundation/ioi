@@ -77,6 +77,11 @@ impl RuntimeAgentService {
         ) = default_worker_attach_state();
 
         Self {
+            runtime_tool_contract_registry: Arc::new(std::sync::RwLock::new(
+                crate::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry()
+                    .expect("native RuntimeToolContract registry must seed completely")
+                    .clone(),
+            )),
             gui,
             terminal,
             browser,
@@ -131,6 +136,11 @@ impl RuntimeAgentService {
         ) = default_worker_attach_state();
 
         Self {
+            runtime_tool_contract_registry: Arc::new(std::sync::RwLock::new(
+                crate::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry()
+                    .expect("native RuntimeToolContract registry must seed completely")
+                    .clone(),
+            )),
             gui,
             terminal,
             browser,
@@ -171,6 +181,21 @@ impl RuntimeAgentService {
 
     pub fn with_mcp_manager(mut self, manager: Arc<McpManager>) -> Self {
         self.mcp = Some(manager);
+        self
+    }
+
+    /// Share the immutable tool-contract owner with MCP startup/admission.
+    /// This keeps dynamically admitted descriptors and the final-invoker gate
+    /// on one registry instead of cloning divergent per-service snapshots.
+    pub fn with_runtime_tool_contract_registry(
+        mut self,
+        registry: Arc<
+            std::sync::RwLock<
+                crate::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry,
+            >,
+        >,
+    ) -> Self {
+        self.runtime_tool_contract_registry = registry;
         self
     }
 

@@ -5,7 +5,7 @@ use super::worker::{filter_tools_for_worker_recovery, worker_recovery_failure_cl
 use crate::agentic::runtime::agent_playbooks::playbook_decision_record;
 use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
 use crate::agentic::runtime::service::RuntimeAgentService;
-use crate::agentic::runtime::tools::discover_tools;
+use crate::agentic::runtime::tools::discover_tools_with_registry;
 use crate::agentic::runtime::types::{AgentState, ExecutionTier};
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::{
@@ -475,10 +475,11 @@ pub(crate) async fn project_route_decision(
 ) -> RoutingRouteDecision {
     let active_window_title =
         active_window_title_for_projection(service, agent_state.session_id).await;
-    let discovered_tools = discover_tools(
+    let discovered_tools = discover_tools_with_registry(
         state,
         service.memory_runtime.as_deref(),
         service.mcp.as_deref(),
+        Some(service.runtime_tool_contract_registry.clone()),
         &agent_state.goal,
         service.fast_inference.clone(),
         tier,

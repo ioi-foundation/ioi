@@ -4,9 +4,12 @@
   "work_subject_ref": "goal://research",
   "selected_skills": [],
   "excluded_candidates": [],
+  "compatibility_and_evaluation_result_refs": [],
   "active_set_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "resolved_runtime_tool_contracts": [],
+  "context_lease_refs": [],
   "resolution_receipt_ref": "receipt://goal-run/research/profile-resolution",
+  "registry_lifecycle_ref": null,
   "registry_status": "active",
   "unexpected": "must fail"
 }

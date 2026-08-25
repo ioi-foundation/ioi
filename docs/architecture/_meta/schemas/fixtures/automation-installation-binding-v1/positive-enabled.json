@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.hypervisor.automation-installation-binding.v1",
+  "binding_id": "install://automation/research-local",
+  "revision_ref": "install://automation/research-local/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "predecessor_revision_ref": null,
+  "binding_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "owner_ref": "user://operator",
+  "scope_ref": "project://research",
+  "automation_spec_revision_ref": "automation://research-digest/revision/sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "automation_spec_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "enabled": true,
+  "narrowed_activation_kinds": ["manual"],
+  "narrowed_authority_requirement_refs": ["scope:process.execute"],
+  "parameter_constraint_ref": null,
+  "activation_override_constraint_ref": null,
+  "admission_receipt_ref": "receipt://automation-installation/research-local",
+  "registry_lifecycle_ref": null,
+  "registry_status": "released"
+}

@@ -101,6 +101,13 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-writer-receipts",
     "autonomous-system-writer-successor-claims",
     "autonomous-system-lost-suffix-records",
+    "autonomous-system-oracle-admission-receipts",
+    "autonomous-system-ontology-assertion-admission-receipts",
+    "autonomous-system-ontology-assertions",
+    "autonomous-system-ordering-recovery-votes",
+    "autonomous-system-ordering-recovery-receipts",
+    "autonomous-system-ordering-recoveries",
+    "autonomous-system-state-transition-commitments",
     "hypervisoros-boot-profiles",
     "hypervisoros-temporal-profiles",
     "hypervisoros-node-records",
@@ -488,6 +495,13 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-writer-epoch-transitions"
         | "autonomous-system-writer-receipts"
         | "autonomous-system-lost-suffix-records"
+        | "autonomous-system-oracle-admission-receipts"
+        | "autonomous-system-ontology-assertion-admission-receipts"
+        | "autonomous-system-ontology-assertions"
+        | "autonomous-system-ordering-recovery-votes"
+        | "autonomous-system-ordering-recovery-receipts"
+        | "autonomous-system-ordering-recoveries"
+        | "autonomous-system-state-transition-commitments"
         | "hypervisor-environment-route-bindings"
         | "hypervisor-environment-backups"
         | "hypervisor-change-plans"
@@ -838,6 +852,13 @@ fn validate_required_identity(
         "autonomous-system-writer-receipts" => "aswr_",
         "autonomous-system-writer-successor-claims" => "aswsc_",
         "autonomous-system-lost-suffix-records" => "aslsr_",
+        "autonomous-system-oracle-admission-receipts" => "asoea_",
+        "autonomous-system-ontology-assertion-admission-receipts" => "asoaa_",
+        "autonomous-system-ontology-assertions" => "asoa_",
+        "autonomous-system-ordering-recovery-votes" => "asorv_",
+        "autonomous-system-ordering-recovery-receipts" => "asorr_",
+        "autonomous-system-ordering-recoveries" => "asor_",
+        "autonomous-system-state-transition-commitments" => "astc_",
         "hypervisoros-boot-profiles" => "hvbp_",
         "hypervisoros-temporal-profiles" => "hvtp_",
         "hypervisoros-node-records" => "hvnr_",
@@ -1470,6 +1491,167 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres approval authority evidence root does not recompute",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "autonomous-system-ordering-recovery-votes"
+            | "autonomous-system-ordering-recovery-receipts"
+            | "autonomous-system-ordering-recoveries"
+    ) {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let material = match record_dir {
+            "autonomous-system-ordering-recovery-votes" => json!({
+                "domain":"ioi.ordering-recovery-vote-record-jcs-sha256.v1",
+                "record":record,
+            }),
+            "autonomous-system-ordering-recovery-receipts" => json!({
+                "domain":"ioi.ordering-recovery-receipt-record-jcs-sha256.v1",
+                "record":record,
+            }),
+            "autonomous-system-ordering-recoveries" => json!({
+                "domain":"ioi.ordering-finality-recovery-record-jcs-sha256.v1",
+                "recovery":record,
+            }),
+            _ => unreachable!("ordering recovery families are exhaustively matched"),
+        };
+        if jcs_root(&material)? != format!("sha256:{encoded}") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres ordering-recovery key does not bind its exact record bytes",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-state-transition-commitments" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let expected_hash = format!("sha256:{encoded}");
+        if record
+            .get("state_transition_commitment_id")
+            .and_then(Value::as_str)
+            != Some(format!("transition://state-transition/{expected_hash}").as_str())
+            || record
+                .get("resulting_transition_commitment_ref")
+                .and_then(Value::as_str)
+                != Some(format!("commitment://state-transition/{expected_hash}").as_str())
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres state-transition key does not bind both commitment identities",
+            ));
+        }
+        let material = json!({
+            "domain":"ioi.state-transition-commitment-jcs-sha256.v1",
+            "system_id":record["system_id"],
+            "hypervisor_node_id":record["hypervisor_node_id"],
+            "acting_node_membership_ref":record["acting_node_membership_ref"],
+            "ordering_admission_finality_profile_ref":record["ordering_admission_finality_profile_ref"],
+            "authority_mode":record["authority_mode"],
+            "writer_epoch":record["writer_epoch"],
+            "ordering_or_finality_proof_ref":record["ordering_or_finality_proof_ref"],
+            "sequence":record["sequence"],
+            "expected_predecessor_commitment_ref":record["expected_predecessor_commitment_ref"],
+            "operation_or_batch_commitment":record["operation_or_batch_commitment"],
+            "admission_proof_ref":record["admission_proof_ref"],
+            "transition_kind":record["transition_kind"],
+            "operation_ref":record["operation_ref"],
+            "predecessor_state_root":record["predecessor_state_root"],
+            "resulting_state_root":record["resulting_state_root"],
+            "receipt_root":record["receipt_root"],
+            "ordering_recovery_ref":record["ordering_recovery_ref"],
+            "external_settlement_ref":record["external_settlement_ref"],
+        });
+        if jcs_root(&material)? != expected_hash {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres state-transition key does not recompute from exact commitment material",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "autonomous-system-oracle-admission-receipts"
+            | "autonomous-system-ontology-assertion-admission-receipts"
+    ) {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let (head_field, receipt_prefix, material) =
+            if record_dir == "autonomous-system-oracle-admission-receipts" {
+                (
+                    "resulting_admission_head_hash",
+                    "receipt://oracle-evidence-admission/",
+                    json!({
+                        "domain":"ioi.oracle-evidence-admission-head-jcs-sha256.v1",
+                        "system_id":record["system_id"],
+                        "assertion_commitment":record["assertion_commitment"],
+                        "profile_body_hash":record["oracle_evidence_profile_body_hash"],
+                        "evidence_root":record["evidence_root"],
+                        "decision":record["decision"],
+                        "applicability_scope_ref":record["applicability_scope_ref"],
+                        "permitted_consequence_scope_refs":record["permitted_consequence_scope_refs"],
+                        "valid_until":record["valid_until"],
+                        "predecessor_head":record["expected_predecessor_admission_head_hash"],
+                    }),
+                )
+            } else {
+                (
+                    "resulting_assertion_head_hash",
+                    "receipt://ontology-assertion-admission/",
+                    json!({
+                        "domain":"ioi.ontology-assertion-admission-head-jcs-sha256.v1",
+                        "system_id":record["system_id"],
+                        "assertion_commitment":record["assertion_commitment"],
+                        "oracle_receipt_ref":record["oracle_evidence_admission_receipt_ref"],
+                        "decision":record["decision"],
+                        "applicability_scope_ref":record["applicability_scope_ref"],
+                        "permitted_consequence_scope_refs":record["permitted_consequence_scope_refs"],
+                        "predecessor_head":record["expected_predecessor_assertion_head_hash"],
+                    }),
+                )
+            };
+        let expected_hash = format!("sha256:{encoded}");
+        if record.get(head_field).and_then(Value::as_str) != Some(expected_hash.as_str())
+            || record
+                .get("receipt_id")
+                .and_then(Value::as_str)
+                .and_then(|value| value.strip_prefix(receipt_prefix))
+                != Some(encoded)
+            || jcs_root(&material)? != expected_hash
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres oracle/assertion receipt key does not bind its receipt identity, resulting head, and exact decision material",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-ontology-assertions" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record.get("assertion_id").and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres ontology assertion lacks 'assertion_id'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain":"ioi.ontology-assertion-projection-jcs-sha256.v1",
+            "assertion":record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the ontology assertion projection root",
             ));
         }
         return Ok(());
@@ -2702,6 +2884,14 @@ impl RequestIdentity {
     pub(crate) fn authorizes_tenant(&self, tenant_ref: &str) -> bool {
         self.tenant_refs.contains(tenant_ref)
     }
+
+    pub(crate) fn local_development_operator(principal_ref: &str) -> Self {
+        Self {
+            principal_ref: principal_ref.to_owned(),
+            tenant_refs: BTreeSet::new(),
+            correlation_seed: scoped_digest(principal_ref),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2842,6 +3032,44 @@ pub(crate) fn resolve_request_identity(
         principal_ref,
         tenant_refs,
         correlation_seed,
+    })
+}
+
+/// Re-resolve a previously authenticated principal for a host-only workload broker.
+///
+/// The broker persists no bearer session.  At effect time it names the principal and the
+/// *single* owner that were bound when the opaque workload capability was minted; this helper
+/// rechecks current membership and deliberately narrows the reconstructed identity to that owner.
+/// It must never be used for a caller-controlled HTTP body because doing so would replace
+/// transport authentication with an asserted principal ref.
+pub(crate) fn resolve_workload_broker_identity(
+    data_dir: &str,
+    principal_ref: &str,
+    owner_ref: &str,
+    correlation_ref: &str,
+) -> Result<RequestIdentity, RequestScopeRefusal> {
+    if !principal_ref.starts_with("user://")
+        || principal_ref.len() <= "user://".len()
+        || principal_ref.len() > 512
+        || principal_ref.chars().any(char::is_whitespace)
+    {
+        return Err(RequestScopeRefusal::PrincipalIdentityInvalid);
+    }
+    if !matches!(owner_ref.split_once("://"), Some(("org" | "project", tail)) if !tail.is_empty())
+        || owner_ref.len() > 512
+        || owner_ref.chars().any(char::is_whitespace)
+    {
+        return Err(RequestScopeRefusal::TenantAuthorityRequired);
+    }
+    let current = super::lifecycle_routes::resolve_principal_tenant_refs(data_dir, principal_ref)
+        .map_err(RequestScopeRefusal::SubstrateUnavailable)?;
+    if !current.contains(owner_ref) {
+        return Err(RequestScopeRefusal::TenantAuthorityRequired);
+    }
+    Ok(RequestIdentity {
+        principal_ref: principal_ref.to_owned(),
+        tenant_refs: [owner_ref.to_owned()].into_iter().collect(),
+        correlation_seed: scoped_digest(correlation_ref),
     })
 }
 
@@ -3377,6 +3605,86 @@ mod tests {
             format!("Bearer {token}").parse().unwrap(),
         );
         headers
+    }
+
+    /// The workload broker holds no bearer session, so this seam reconstructs an
+    /// identity from values bound at capability-mint time. Its INV-37 disposition
+    /// says it DELEGATES to the canonical resolver and NARROWS to one owner. That
+    /// sentence is only worth writing if something checks it.
+    #[test]
+    fn workload_broker_identity_delegates_to_current_membership_and_narrows_to_one_owner() {
+        let dir = tempfile::tempdir().expect("broker identity data dir");
+        let data_dir = dir.path().to_str().expect("utf-8 data dir");
+        let principal_id = "usr_broker_identity";
+        let principal_ref = format!("user://{principal_id}");
+        authenticated_headers(
+            data_dir,
+            principal_id,
+            "broker-identity-token",
+            &[SCOPED_TENANT, SIBLING_TENANT],
+        );
+
+        // Delegation: the resolver really does see both memberships.
+        let current = super::super::lifecycle_routes::resolve_principal_tenant_refs(
+            data_dir,
+            &principal_ref,
+        )
+        .expect("canonical membership resolution");
+        assert!(current.contains(SCOPED_TENANT) && current.contains(SIBLING_TENANT));
+
+        // Narrowing: the reconstructed identity carries exactly the one owner
+        // that was bound, never the full membership the resolver returned.
+        let identity =
+            resolve_workload_broker_identity(data_dir, &principal_ref, SCOPED_TENANT, "corr://one")
+                .expect("bound owner is still a current membership");
+        assert_eq!(identity.principal_ref, principal_ref);
+        assert_eq!(
+            identity.tenant_refs,
+            [SCOPED_TENANT.to_owned()]
+                .into_iter()
+                .collect::<std::collections::BTreeSet<String>>(),
+            "the broker identity must narrow to the bound owner, never widen to every membership"
+        );
+
+        // Current membership, not membership at mint time: a revoked owner refuses.
+        super::super::lifecycle_routes::apply_membership_transition(
+            data_dir,
+            &principal_ref,
+            &principal_ref,
+            SCOPED_TENANT,
+            "organization",
+            "revoked",
+            1,
+            "test-broker-identity-revoke",
+            "test revocation",
+            "deployment_bootstrap",
+        )
+        .expect("revoke the bound owner");
+        assert!(matches!(
+            resolve_workload_broker_identity(data_dir, &principal_ref, SCOPED_TENANT, "corr://two"),
+            Err(RequestScopeRefusal::TenantAuthorityRequired)
+        ));
+
+        // A principal that never held the owner cannot assert it.
+        assert!(matches!(
+            resolve_workload_broker_identity(
+                data_dir,
+                &principal_ref,
+                "org://acme/never-a-member",
+                "corr://three"
+            ),
+            Err(RequestScopeRefusal::TenantAuthorityRequired)
+        ));
+        // And the seam takes only canonical local principals.
+        assert!(matches!(
+            resolve_workload_broker_identity(
+                data_dir,
+                "org://acme/alpha",
+                SCOPED_TENANT,
+                "corr://four"
+            ),
+            Err(RequestScopeRefusal::PrincipalIdentityInvalid)
+        ));
     }
 
     #[test]

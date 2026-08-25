@@ -1,0 +1,54 @@
+{
+  "schema": "ioi.hypervisor.reference-gap-adjudication.v1",
+  "recorded_at": "2026-08-19",
+  "doctrine": "Re-adjudicate an EXISTING named gap on a certified port against the reference surface behind its label. Two honest outcomes only: `portable` (the reference lane expresses an IA AND the estate holds a plane to bind it) or `absent_confirmed` (no IA, or no plane). Recording an adjudication changes no parity_class and ports nothing; it supplies the evidence a port or a standing gap must cite.",
+  "input_evidence": "reference-subroute-census.v1.json",
+  "note": "R0 proof pass — the `sources` port only. Its four gapped lanes were declared from the landing screenshot; the reference serves a working route behind each.",
+  "surface": "/__ioi/data/sources",
+  "reference_base": "http://localhost:9225/workspace/data-ingestion-app/",
+  "adjudications": [
+    {
+      "lane": "Syncs",
+      "reference_route": "/workspace/data-ingestion-app/syncs",
+      "reference_title": "All syncs | Data Connection",
+      "reference_ia": { "columns": ["Name", "Dataset", "Source", "Status", "Next run", "Actions"], "rows": 0, "empty_state": "No syncs" },
+      "prior_gap_reason": "Sync scheduling is not a bound lane — the estate's real source→set executions are ODK materializing runs (named gap)",
+      "outcome": "portable",
+      "estate_plane": "/v1/hypervisor/odk/materializing-runs (+ /overview, /:id/history); 7 real records",
+      "column_binding": {
+        "Name": "materializing_run.name",
+        "Dataset": "materializing_run.object_type_id → odk/materialized-object-sets",
+        "Source": "materializing_run.data_source_id → the data-source registry this port already renders",
+        "Status": "materializing_run.status",
+        "Next run": "TYPED ABSENCE — no scheduling field exists on the record; render an honest em-dash, never a computed guess",
+        "Actions": "NAMED GAP IN PLACE — /:id/execute and /:id/cancel exist but are authority crossings; this lane stays read-only"
+      },
+      "ceiling": "read-only projection over materializing runs; no scheduler, no execution semantics, no new mutation path"
+    },
+    {
+      "lane": "Agents",
+      "reference_route": "/workspace/data-ingestion-app/agents",
+      "reference_title": "All agents | Data Connection",
+      "reference_ia": { "columns": [], "rows": 0, "empty_state": "No agents found" },
+      "outcome": "absent_confirmed",
+      "reason": "the reference route serves, but its empty state expresses NO IA — no columns, no facets. Nothing to port backwards from; the standing gap now cites this evidence."
+    },
+    {
+      "lane": "Listeners",
+      "reference_route": "/workspace/data-ingestion-app/listeners",
+      "reference_title": "All listeners | Data Connection",
+      "reference_ia": { "columns": [], "rows": 0, "empty_state": "No listeners found" },
+      "outcome": "absent_confirmed",
+      "reason": "serves with no expressed IA (see Agents)."
+    },
+    {
+      "lane": "External stacks",
+      "reference_route": "/workspace/data-ingestion-app/external-stacks",
+      "reference_title": "External Stacks | Data Connection",
+      "reference_ia": { "columns": [], "rows": 0, "empty_state": "" },
+      "outcome": "absent_confirmed",
+      "reason": "serves with no expressed IA and no empty-state copy."
+    }
+  ],
+  "tally": { "portable": 1, "absent_confirmed": 3 }
+}

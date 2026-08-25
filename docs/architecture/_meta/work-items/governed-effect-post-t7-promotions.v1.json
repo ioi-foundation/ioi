@@ -1,0 +1,55 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "governed-effect-post-t7-promotions",
+  "stage_id": "C8",
+  "required_work": [
+    "T7 integrated capstone",
+    "Campaign N registry promotion",
+    "global governed-effect verifier floor"
+  ],
+  "status": "verified",
+  "objective": "Close the integrated T7 lifecycle on one clean revision, promote Campaign N through exactly one compare-and-set measured-results transition, and make the spend-free workload-bound and C8 v3 suites mandatory in global CI without publishing private campaign evidence.",
+  "falsifiable_claim": "The T7 run cannot pass without authenticated workload retrieval and terminal provider/economic reconciliation; Campaign N cannot be admitted from any state other than registry revision 1 or with trust drift outside verifier build lineage; and CI cannot remain green if any of five workload bypass mutations, six portable-bundle tests, or forty C8 semantic mutations is removed.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "internal-docs/architecture/protocols/aft/specs/p4_measured_costs.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/admit-u1-campaign-o-c8-v3.mjs",
+      "must_contain": "differencesOutsideBuildLineage",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-u1-real-campaign-relying-party.mjs",
+      "must_contain": "record_transitions_reproduced_offline",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-governed-effect-assurance-floor.mjs",
+      "must_contain": "resealed_semantic_mutations_rejected === 40",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "governed-effect-assurance",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/governed-effect-t7-integrated-capstone.v1.json",
+    "docs/architecture/_meta/evidence/governed-effect-c8-v3-campaign-n-promotion.v1.json",
+    "docs/architecture/_meta/evidence/governed-effect-c8-v3-campaign-o-capstone.v1.json"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "The integrated certificate is green under the 22-case capstone mutation verifier; the global floor executes the full spend-free workload fault matrix, catches five planted bypass classes, runs six portable-bundle tests, and rejects forty fully resealed C8 mutations. The owner-local real-evidence gate rebuilds both retained campaigns, reproduces registry transitions 0→1 and 1→2 offline, rejects fifty-six declared semantic mutations, and proves the registry of record remains byte-identical during verification.",
+  "remaining_nonclaims": [
+    "No source, website, evidence packet, or social publication is authorized by this work item.",
+    "The verifier and producer remain maintained by IOI; this is not third-party verification.",
+    "The provider placement is a measured container, not attested bare metal.",
+    "The result remains variance-caveated and does not prove provider neutrality or compromised-host resistance."
+  ],
+  "source_provenance": "T7 spent $0.077052 of the separately authorized $1.00 maximum and reconciled terminally on 2026-08-24. Campaign N was then admitted owner-locally at registry revision 2 under an explicitly re-derived verifier build lineage. Private run bytes remain outside the repository; only hashes and bounded factual summaries are tracked.",
+  "last_status_transaction": "2026-08-24"
+}

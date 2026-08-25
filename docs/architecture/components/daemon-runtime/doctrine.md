@@ -418,30 +418,45 @@ only with an exact disposition and negative-reachability proof (ADR 0025).
 
 The attach lane is the commercial wedge, and a wedge that meets people where
 their agents already run must be paid for in contracts, not slogans. Four
-debts, each a named target (none is claimed built; see
-[`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)):
+obligations define the lane; their current implementation state is recorded in
+[`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md), never inferred
+from this canonical contract:
 
-- **Admission.** `ActionRequestEnvelope` is the canonical target object for a
+- **Admission.** `ActionRequestEnvelope` is the canonical object for a
   gateway-mediated proposed action. It binds the adapter identity and
   revision, the proposed action and risk class, required primitive
   capabilities and authority scopes, the policy decision and hash, and — so
   attached work joins the work spine rather than living beside it — optional
   typed subject refs (`session://`, `goal://`, `work_run://`,
-  `work_item://`). The API sketch in [`api.md`](./api.md) carrying only legacy
-  `run_id`/`thread_id` identities is wire compatibility, not the contract.
+  `work_item://`). The authenticated live attach route admits the immutable
+  request only after resolving one current owner profile, its exact active
+  surface, and current verified coverage for every declared scope. It emits a
+  pre-dispatch `requires_approval` decision and invokes nothing. The first live
+  execution adapter accepts only an exact, commitment-bound SCM publication
+  payload plus a portable-v3 grant-hash locator. It prepares the gateway
+  intent durably, then delegates to the existing native SCM PEP/final invoker;
+  the gateway does not consume, claim, or invoke authority itself. The API sketch
+  in [`api.md`](./api.md) carrying only legacy `run_id`/`thread_id` identities
+  is wire compatibility, not the contract.
 - **Receipts.** Each `receipt_obligations` entry on an action request uses the
   shared `ReceiptObligation` element
   ([`evidence-and-delivery.md`](../../foundations/objects/evidence-and-delivery.md)),
   and the gateway decision/execution/artifact receipt types must be registered
   in [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md)
-  before any adapter claims receipted mediation. Today no gateway receipt
-  type is registered; that is a recorded gap, not a wording problem.
+  before any adapter claims receipted mediation. All three v1 receipt types are
+  registered. All three have live producers for the bounded SCM publication
+  adapter. Execution binds the independently derived native authority-effect
+  coordinates and registered v2 admission receipt; artifact evidence is
+  explicitly `none` when publication creates no captured artifact. Both
+  receipts are sealed once in the owner-scoped Agentgres successor and replayed
+  verbatim.
 - **Evidence.** `AuthorityGatewayProfile` is the canonical target object that
   declares one adapter deployment's action surfaces, scopes, and posture — the
   subject its `EnforcementCoverageDeclaration` evidence describes. Canon has
   referenced this profile for some time without defining it anywhere; it is
-  owned here. No profile may advertise coverage its current, verified
-  declaration does not support.
+  owned here. The authenticated profile route enforces immutable successor
+  lineage with one current owner leaf. No profile may advertise coverage its
+  current, verified declaration does not support.
 - **Migration.** Graduation from the attach lane into the run-on lane is
   contracted, not vibes: the external agent is admitted as an
   `AgentHarnessAdapter` revision
@@ -455,6 +470,126 @@ debts, each a named target (none is claimed built; see
   their adapter investment: adapter contracts are part of the open protocol
   surface named in
   [`economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md).
+
+  The gateway owner supplies the exact adapter/profile/request/receipt evidence
+  and the no-carryover boundary. The live activation crossing itself is admitted
+  by the GoalRun owner as part of general source/profile admission; it is not a
+  gateway route and must not duplicate the currently narrow application-owned
+  GoalRun activation path.
+
+#### ActionRequestEnvelope
+
+`ActionRequestEnvelope` v1 is the immutable attach-lane proposal crossing. Its
+registered wire contract is
+`schema://ioi/components/daemon-runtime/action-request-envelope/v1`.
+
+```yaml
+ActionRequestEnvelope:
+  action_request_ref: action-request://...
+  request_revision: integer
+  request_hash: sha256:...
+  authority_gateway_profile_ref: authority-gateway://...
+  authority_gateway_profile_hash: sha256:...
+  source_adapter:
+    adapter_ref: adapter://...
+    adapter_revision: string
+    adapter_kind: ide_extension | cli_wrapper | mcp_gateway | shell_wrapper | git_hook | workspace_watcher | api_proxy | browser_adapter | hosted_agent_gateway | ci_gate
+    implementation_ref: artifact://...
+    deployment_profile_ref: deployment-profile://...
+  proposed_action:
+    action_class: shell | file | git | mcp_tool | api | browser | deploy | secret | connector | provider
+    operation: string
+    summary: string
+    input_commitment: sha256:...
+    target_refs: [canonical ref]
+    external_effect: boolean
+    proposed_effect_ref: effect://... | null
+    proposed_effect_hash: sha256:... | null
+  risk_class: informational | local_mutation | external_effect | system_destructive | secret_access | financial
+  primitive_capabilities_required: [prim:...]
+  authority_scopes_required: [scope:...]
+  policy_decision: { status, decision_receipt_ref, policy_ref, policy_hash, decided_at }
+  subject_refs: { session_ref, goal_ref, work_run_ref, work_item_ref }
+  receipt_obligations: [ReceiptObligation]
+  created_at: timestamp
+  expires_at: timestamp
+```
+
+The request hash is the domain-separated JCS commitment over every field above
+except `schema_version` and `request_hash`. An external-effect proposal must
+bind its proposed `effect://` ref and exact effect hash. Every request carries
+required `gateway_decision`, `gateway_execution`, and `gateway_artifact`
+obligations using the shared `ReceiptObligation` shape. Optional subject refs
+link attached work to the work spine; they do not create those subjects. A
+pending policy decision has no decision receipt or decision time, and a later
+decision creates a new envelope revision. No request field grants a capability,
+scope, approval, lease, credential, admission, or invocation.
+
+For the live SCM adapter, `proposed_effect_ref/hash` are the native portable
+authority-effect coordinates, not an adapter-defined summary hash. The daemon
+reconstructs the capability-lease effect from the exact environment, proposal,
+destination, sub-effect flags, caller, scopes, and stable request-derived native
+idempotency key, then compares the derived pair before wallet consumption. The
+committed invocation payload cannot inject gateway effect fields or legacy
+approval material. A process death after the portable claim but before native
+Prepared is recoverable only because the absent Prepared record proves the
+invoker was not entered; the spent claim settles as an explicit refusal and is
+never refunded or invoked on retry.
+
+#### AuthorityGatewayProfile
+
+`AuthorityGatewayProfile` v1 is the immutable declaration for one adapter
+deployment. Its registered wire contract is
+`schema://ioi/components/daemon-runtime/authority-gateway-profile/v1`.
+
+```yaml
+AuthorityGatewayProfile:
+  profile_ref: authority-gateway://...
+  profile_revision: integer
+  profile_hash: sha256:...
+  predecessor_profile_hash: sha256:... | null
+  declaration:
+    adapter: { adapter_ref, adapter_revision, adapter_kind, implementation_ref, deployment_profile_ref }
+    action_surfaces:
+      - surface: ide | cli | mcp | shell | git | workspace | api | browser | hosted_agent | ci
+        action_classes: [string]
+        mediation_mode: active_pre_effect | audit_only | receipt_ingestion_only | uncovered
+        primitive_capabilities: [prim:...]
+        authority_scopes: [scope:...]
+        final_invoker_ref: runtime://... | application://... | adapter://...
+        receipt_profile_refs: [schema://...]
+    subject_kinds: [unattached | session | goal | work_run | work_item]
+    policy_enforcement_point_ref: runtime://...
+    authority_provider_ref: authority-provider://...
+    failure_posture: fail_closed | audit_only | queue_without_authority
+    required_enforcement_scope_refs: [enforcement-scope://...]
+    run_on_graduation:
+      agent_harness_adapter_revision_ref: agent-harness-adapter://.../revision/sha256:... | null
+      agent_harness_adapter_content_hash: sha256:... | null
+      activation_source_kind: gateway_adapter_context
+      implicit_approval_carryover: false
+      implicit_grant_carryover: false
+      implicit_credential_carryover: false
+      implicit_scope_carryover: false
+  grants_authority: false
+  status: declared | superseded | quarantined | revoked | expired
+  created_at: timestamp
+  valid_until: timestamp
+```
+
+The profile hash binds the complete declaration and validity window. A non-null
+run-on graduation tuple names one exact released canonical AgentHarnessAdapter
+revision and content hash; attach adapter identity remains separately bound by
+`declaration.adapter`. All four carryover flags are structurally false. Active
+pre-effect surfaces name a daemon `runtime://` final invoker and both decision
+and execution receipt profiles. Audit, receipt-ingestion, and uncovered modes
+cannot declare authority scopes. Before accepting a request, the daemon resolves
+exactly one current declared profile, byte-binds the request adapter coordinates,
+requires current verified `EnforcementCoverageDeclaration` evidence for every
+declared required scope, and refuses expired, superseded, quarantined, revoked,
+ambiguous, stale, or overclaiming profiles. A successor is a new revision; no
+profile mutation, coverage assertion, or attach-lane approval carries scopes
+into a graduated GoalRun.
 
 ## Runtime Role
 

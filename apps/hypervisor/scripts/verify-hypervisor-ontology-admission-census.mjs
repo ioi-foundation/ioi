@@ -78,12 +78,19 @@
 // AND WHAT IT RATCHETS, which is weaker and labelled as such. The extractor derives every string in
 // this daemon that begins `odk-`. Their admitter and toucher maps are RECORDED here and asserted in
 // both directions per scar 4: a gain beyond the record is RED; a loss makes the record STALE and is
-// re-derived in the commit that removes it. The label claims exactly that ratchet — NOT that every
-// ODK family has one admitter, because THREE DO NOT. Those three are recorded UNDER ADJUDICATION,
-// neither endorsed nor condemned; all three share one second admitter, `connector_execution_routes`,
-// which makes them one question rather than three, and answering it is next-legs XV work: is that
-// module a legitimate co-caller of kernel-owned admission paths, or does it hand-mint records
-// beside them — the W3.1 shape.
+// re-derived in the commit that removes it.
+//
+// M03.4 ANSWERED THE THREE-FAMILY QUESTION. `connector_execution_routes` directly persisted
+// MaterializingRun and OntologyProjection records and independently declared and minted the
+// materializing-run receipt schema. It was therefore a hand-minter beside each owner, not a
+// co-caller of an owner kernel. Execution remains the authorized route, but those three writes now
+// cross explicit seams owned by `materializing_run_routes` and `ontology_projection_routes`; the
+// resolved census consequently requires AT MOST ONE production admitter for every recorded ODK
+// family. The extractor also records every DIRECT production call to those crate-visible seams,
+// and this verifier pins the exact foreign caller/function/count set. That second fence matters:
+// otherwise moving a literal writer behind `pub(crate)` would only move the blind spot one call
+// outward. Three focused mutants put each removed hand-minter back, and a fourth calls an owner seam
+// from an unrelated module; each must fail its own M03.4 claim.
 //
 // THE MAP WAS WRONG IN BOTH DIRECTIONS BEFORE IT WAS DERIVED PROPERLY, WHICH IS THE POINT. The
 // hand-written table this replaced named FOUR families and structurally could not have seen the
@@ -147,6 +154,20 @@ const ONTOLOGY_FAMILIES = {
   "odk-saved-object-sets": "hypervisor_daemon_routes/ontology_workbench_routes.rs",
 };
 
+/** M03.4's crate-visible owner seams and their exact sanctioned foreign call sites. */
+const M034_OWNER_SEAM_OWNERS = {
+  persist_execution_state: "hypervisor_daemon_routes/materializing_run_routes.rs",
+  persist_materialized_state: "hypervisor_daemon_routes/ontology_projection_routes.rs",
+  run_receipt_checked: "hypervisor_daemon_routes/materializing_run_routes.rs",
+};
+const M034_EXPECTED_FOREIGN_SEAM_CALLS = {
+  "hypervisor_daemon_routes/connector_execution_routes.rs::handle_run_execute -> persist_execution_state": 10,
+  "hypervisor_daemon_routes/connector_execution_routes.rs::handle_run_execute -> persist_materialized_state": 3,
+  "hypervisor_daemon_routes/connector_execution_routes.rs::handle_run_execute -> run_receipt_checked": 2,
+  "hypervisor_daemon_routes/connector_execution_routes.rs::handle_set_delete -> persist_materialized_state": 2,
+  "hypervisor_daemon_routes/connector_execution_routes.rs::run_receipt -> run_receipt_checked": 1,
+};
+
 /**
  * EVERY SYNTACTIC ROLE A FAMILY NAME MAY APPEAR IN, and what each one means for admission.
  *
@@ -192,11 +213,11 @@ const RECORDED_PLANE = {
   "odk-manifest://": { admits: [], touches: ["hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-manifests": { admits: [], touches: ["hypervisor_daemon_routes/domain_apps_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs", "hypervisor_daemon_routes/package_registry_routes.rs"] },
   "odk-materialized-object-sets": { admits: ["hypervisor_daemon_routes/connector_execution_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/ontology_workbench_routes.rs", "hypervisor_daemon_routes/orchestration_routes.rs"] },
-  "odk-materializing-run-receipts": { admits: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs"] },
-  "odk-materializing-runs": { admits: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/connector_session_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs"] },
+  "odk-materializing-run-receipts": { admits: ["hypervisor_daemon_routes/materializing_run_routes.rs"], touches: ["hypervisor_daemon_routes/materializing_run_routes.rs"] },
+  "odk-materializing-runs": { admits: ["hypervisor_daemon_routes/materializing_run_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/connector_session_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs"] },
   "odk-materializing-runs/{id}/lease": { admits: [], touches: ["hypervisor_daemon_routes/materializing_run_routes.rs"] },
   "odk-ontology-projection-receipts": { admits: ["hypervisor_daemon_routes/ontology_projection_routes.rs"], touches: ["hypervisor_daemon_routes/ontology_projection_routes.rs"] },
-  "odk-ontology-projections": { admits: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs"] },
+  "odk-ontology-projections": { admits: ["hypervisor_daemon_routes/ontology_projection_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs"] },
   "odk-ontology-proposals": { admits: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"], touches: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"] },
   "odk-ontology-receipts": { admits: ["hypervisor_daemon_routes/odk_routes.rs"], touches: ["hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-policy-bound-data-view-receipts": { admits: [], touches: ["hypervisor_daemon_routes/policy_bound_data_view_routes.rs"] },
@@ -228,12 +249,60 @@ const RECORDED_TEST_WRITES = {
  * stops reaching a construct weakens all of them at once without failing any of them.
  */
 const PINNED = {
-  modules: 88,
-  familyMentions: 300,
-  tokenMentions: 107504,
-  judgedTokenPositions: 282,
-  productionWriterCalls: { family: 72, nonFamilyLiteral: 210, runtimeParameter: 290 },
-  productionFsCalls: 228,
+  // M04.2 re-derivation (2026-08-25): automation_contract_routes.rs adds one reachable module,
+  // 717 source tokens, one shared-writer call whose family is the store helper's runtime
+  // parameter, sixteen opaque initialisers (including the mutation lock and fork regression), and
+  // 59 foreign-qualified names. It contains zero ODK family mentions, zero raw-filesystem calls,
+  // and changes no owner/admitter edge.
+  // M04.3 re-derivation (2026-08-25): skill_contract_routes.rs and its route mount add one
+  // reachable module, 516 source tokens, one runtime-family shared-writer call, twelve opaque
+  // initialisers, and 50 foreign-qualified names. They add no ODK mention, raw-filesystem call,
+  // or ontology owner/admitter edge.
+  // M04.4 definition-substrate re-derivation (2026-08-25):
+  // goal_profile_contract_routes.rs and its route mount add one reachable module, 430 source
+  // tokens, one runtime-family durable-writer call, seven opaque initialisers, two bare
+  // undeclared names, and 34 foreign-qualified names. They add no ODK mention, raw-filesystem
+  // call, or ontology owner/admitter edge.
+  // M04.4 owner/gateway-binding re-derivation (2026-08-25): tenant-owner resolution, canonical
+  // built-in slots, and exact released gateway-adapter resolution add 29 source tokens and six
+  // foreign-qualified names across the already-reachable modules. They change no ODK mention,
+  // writer bucket, raw-filesystem count, opaque/bare bucket, or ontology owner/admitter edge.
+  // M04.4 general-profile consumption re-derivation (2026-08-25): strict owner-visible profile
+  // resolution on the general GoalRun surface adds 21 source tokens and two foreign-qualified
+  // names. It changes no other pinned traversal or adjudication population.
+  // M04.4 WorkResult producer-resolution re-derivation (2026-08-25): the strict persisted
+  // component-snapshot reader and exact concrete harness/adapter derivation add 37 source tokens
+  // and eight foreign-qualified names. No ODK, writer, filesystem, or owner edge changes.
+  // M04.4 WorkflowTemplate consumption re-derivation (2026-08-25): the automation-owner strict
+  // registry resolver and direct GoalRun integration add 74 source tokens and eight
+  // foreign-qualified names. No ODK, writer, filesystem, or owner edge changes.
+  // M04.4 HarnessProfile consumption re-derivation (2026-08-25): strict seeded-profile
+  // resolution and direct GoalRun integration add 82 source tokens and seventeen
+  // foreign-qualified names. No ODK, writer, filesystem, or owner edge changes.
+  // M04.4 RuntimeToolContract consumption re-derivation (2026-08-25): exact current released
+  // registry resolution and direct GoalRun integration add 56 source tokens and twelve
+  // foreign-qualified names. No ODK, writer, filesystem, or owner edge changes.
+  // M04.4 direct admission-policy/constraint closure re-derivation (2026-08-25): the bounded
+  // policy release, derived constraint, and snapshot closure add 192 source tokens and fifteen
+  // foreign-qualified names; replacing the plain GoalRun writer with the durable atomic owner
+  // removes one non-ODK literal writer. No ODK, filesystem, or owner edge changes.
+  // M04.4 canonical GoalRun ActiveSkillSetSnapshot convergence re-derivation (2026-08-25): the
+  // shared canonical builder, predetermined GoalRun preparation/persistence seam, and exact
+  // resolution cross-check add 105 source tokens, fourteen foreign-qualified names, and one
+  // opaque mutation-lock reference. No ODK mention, writer, filesystem, or owner edge changes.
+  // M04.4 selected-activation reusable-definition convergence re-derivation (2026-08-25):
+  // pre-wallet preparation through the shared workflow/harness/skill/tool owner chain plus the
+  // local-development request-identity constructor add 21 source tokens and two
+  // foreign-qualified names. No ODK mention, writer, filesystem, or owner edge changes.
+  // Origin Akash two-stage merge re-derivation (2026-08-25): exact SDL/bid admission,
+  // compensation, and fail-closed restart recovery add 100 reachable source tokens. They change
+  // no ODK mention, writer bucket, filesystem call, adjudication bucket, or owner/admitter edge.
+  modules: 98,
+  familyMentions: 284,
+  tokenMentions: 119194,
+  judgedTokenPositions: 281,
+  productionWriterCalls: { family: 58, nonFamilyLiteral: 236, runtimeParameter: 303 },
+  productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
    *
@@ -251,17 +320,17 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3502,
-    "opaque-initialiser": 1557,
-    "bare-undeclared": 517,
+    "foreign-qualified": 4076,
+    "opaque-initialiser": 1663,
+    "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 31, dataBytes: 0, dataOpaqueArg: 6 },
+  includes: { splicedCode: 0, dataStr: 33, dataBytes: 0, dataOpaqueArg: 8 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
-  compileAssembly: { production: 0, test: 8 },
+  compileAssembly: { production: 0, test: 10 },
 };
 
 /**
@@ -277,7 +346,7 @@ const PINNED = {
  * bytes on disk, and the digest the binary carries from its own compile. Moving this pin is a
  * GOVERNED COMMIT ACT — it appears in the diff of any change to the extractor, which is the point.
  */
-const EXTRACTOR_SOURCE_PIN = "522060618a90ba05";
+const EXTRACTOR_SOURCE_PIN = "5a7dfb130520acf2";
 
 /** FNV-1a/64 — the digest the extractor bakes its own source under at compile time. */
 function fnv1a64(bytes) {
@@ -343,6 +412,37 @@ function run() {
     if (!byStem.has(m.stem)) byStem.set(m.stem, []);
     byStem.get(m.stem).push(m);
   }
+
+  // A crate-visible owner seam is an authority surface even though its caller no longer spells the
+  // record family. Pin every direct production call in both directions: a new caller/count is RED,
+  // and deleting or renaming an expected crossing is stale evidence rather than silent safety.
+  const observedForeignSeamCalls = {};
+  const resolveOwnerSeam = (m, callee) => {
+    const segs = callee.split("::");
+    const last = segs.at(-1);
+    if (census.owner_seams.includes(last)) return last;
+    if (segs.length !== 1) return null;
+    const imported = m.imports.find((i) => !i.module_only && !i.glob && i.local === last && census.owner_seams.includes(i.item));
+    return imported?.item ?? null;
+  };
+  for (const m of modules) {
+    for (const c of m.named_calls) {
+      if (c.in_test) continue;
+      const seam = resolveOwnerSeam(m, c.callee);
+      if (!seam) continue;
+      const owner = M034_OWNER_SEAM_OWNERS[seam];
+      if (!owner || modId(m.key) === owner) continue;
+      const key = `${modId(m.key)}::${c.in_fn} -> ${seam}`;
+      observedForeignSeamCalls[key] = (observedForeignSeamCalls[key] ?? 0) + 1;
+    }
+  }
+  const expectedForeignSeams = JSON.stringify(Object.entries(M034_EXPECTED_FOREIGN_SEAM_CALLS).sort());
+  const observedForeignSeams = JSON.stringify(Object.entries(observedForeignSeamCalls).sort());
+  ok("[M034_OWNER_SEAM_CALLERS] EVERY DIRECT PRODUCTION CALL TO AN M03.4 OWNER SEAM, INCLUDING A RENAMED IMPORT, IS IN THE EXACT SANCTIONED CALLER/FUNCTION/COUNT SET — crate visibility cannot turn relocation of a literal write into a gate-invisible second spine",
+    observedForeignSeams === expectedForeignSeams,
+    observedForeignSeams === expectedForeignSeams
+      ? `${Object.keys(observedForeignSeamCalls).length} sanctioned caller/function edges, ${Object.values(observedForeignSeamCalls).reduce((a, n) => a + n, 0)} calls`
+      : `expected ${expectedForeignSeams}; observed ${observedForeignSeams}`);
   ok("the census walks the module graph it can SEE from the daemon's entry point — every `mod` declaration it can see, with a bare `#[path]` honoured and the rest resolved in rustc's own nested-before-sibling order, with an unresolvable declaration or an unreadable file aborting extraction rather than silently shrinking the world; it is NOT rustc's file set and does not claim to be, because `mod` has no totality edge and is not getting one: a `#[cfg_attr(…, path = …)]` redirect is invisible here and a `mod` declared inside a `macro_rules!` body never reaches the visitor at all, so rustc would compile one file while this reads another — neither construct exists in this daemon today and entailing the file set belongs to the run that entails the resolver",
     modules.length === PINNED.modules && byKey.size === modules.length,
     `${modules.length} modules reached, ${byKey.size} distinct paths (pinned ${PINNED.modules})`);
@@ -643,9 +743,16 @@ function run() {
   }
   for (const family of Object.keys(RECORDED_PLANE)) if (!observed.has(family)) staleTouch.push(`${family} has vanished from the daemon entirely`);
 
-  ok("NO ODK FAMILY GAINS AN ADMISSION PATH BEYOND THE RECORDED MAP — the weaker ratchet this run is entitled to claim, and deliberately not the no-second-spine property: three families have two production admitters today and are recorded UNDER ADJUDICATION rather than endorsed",
+  ok("NO ODK FAMILY GAINS AN ADMISSION PATH BEYOND THE RECORDED MAP — every new writer is a finding until explicitly adjudicated",
     gainedAdmit.length === 0 && unrecorded.length === 0,
     [...gainedAdmit, ...unrecorded.map((u) => `unrecorded family ${u}`)].join(" ; ") || `${observed.size} families, admitter map unchanged`);
+
+  const multiAdmitters = [...observed.entries()]
+    .filter(([, entry]) => entry.admits.size > 1)
+    .map(([family, entry]) => `${family}: ${[...entry.admits].sort().join(", ")}`);
+  ok("[M034_SINGLE_WRITER] EVERY RECORDED ODK FAMILY HAS AT MOST ONE PRODUCTION ADMITTER IN THE RESOLVED CENSUS — connector execution crosses owner-module seams for run, projection and receipt state rather than hand-minting beside them",
+    multiAdmitters.length === 0,
+    multiAdmitters.join(" ; ") || `${observed.size} families, zero multi-admitter families`);
 
   ok("NO MODULE NAMES AN ODK FAMILY IT IS NOT RECORDED AS NAMING — the ratchet a rung below admission, because a family name reaching a new module's function body cannot be shown harmless without dataflow this census deliberately does not do; the conservative reading is that it is a finding to run down, not a fact to wave through",
     gainedTouch.length === 0,

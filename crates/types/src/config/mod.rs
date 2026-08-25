@@ -21,6 +21,10 @@ pub use validator_role::*;
 pub const WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE: &str =
     "required_config_migration:wallet_network.consume_approval_grant_for_effect@v2";
 
+/// Stable startup error code for explicit wallet policies that predate standing authority.
+pub const WALLET_STANDING_AUTHORITY_CONFIG_MIGRATION_CODE: &str =
+    "required_config_migration:wallet_network.standing_approval_authority@v1";
+
 /// Selects the underlying data structure for the state manager.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
@@ -636,6 +640,25 @@ impl WorkloadConfig {
                     ));
                 }
             }
+            if let Some(effect_permission) =
+                policy.methods.get("consume_approval_grant_for_effect@v2")
+            {
+                for standing_method in [
+                    "record_standing_approval_grant@v1",
+                    "consume_standing_approval_grant_for_effect@v1",
+                    "settle_standing_approval_grant_consumption@v1",
+                    "revoke_standing_approval_grant@v1",
+                ] {
+                    if policy.methods.get(standing_method) != Some(effect_permission) {
+                        return Err(format!(
+                            "{WALLET_STANDING_AUTHORITY_CONFIG_MIGRATION_CODE}: explicit \
+                             wallet_network method maps that expose \
+                             consume_approval_grant_for_effect@v2 must add {standing_method} \
+                             with the same permission before startup"
+                        ));
+                    }
+                }
+            }
         }
 
         if needs_srs && self.srs_file_path.is_none() {
@@ -891,6 +914,14 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "report_guardian_equivocation@v1".into(),
         MethodPermission::User,
     );
+    guardian_methods.insert(
+        "publish_aft_canonical_order_artifact_bundle@v1".into(),
+        MethodPermission::User,
+    );
+    guardian_methods.insert(
+        "publish_aft_canonical_collapse_object@v1".into(),
+        MethodPermission::User,
+    );
     map.insert(
         "guardian_registry".to_string(),
         ServicePolicy {
@@ -992,6 +1023,10 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "consume_approval_grant@v1",
         "consume_approval_grant_for_effect@v1",
         "consume_approval_grant_for_effect@v2",
+        "record_standing_approval_grant@v1",
+        "consume_standing_approval_grant_for_effect@v1",
+        "settle_standing_approval_grant_consumption@v1",
+        "revoke_standing_approval_grant@v1",
         "panic_stop@v1",
     ] {
         wallet_methods.insert(method.to_string(), MethodPermission::User);

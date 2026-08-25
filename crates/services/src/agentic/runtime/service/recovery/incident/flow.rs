@@ -23,7 +23,7 @@ use crate::agentic::runtime::service::decision_loop::ontology::{
 };
 use crate::agentic::runtime::service::recovery::anti_loop::FailureClass;
 use crate::agentic::runtime::service::RuntimeAgentService;
-use crate::agentic::runtime::tools::discover_tools;
+use crate::agentic::runtime::tools::discover_tools_with_registry;
 use crate::agentic::runtime::types::{AgentState, AgentStatus};
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::ChatMessage;
@@ -671,10 +671,11 @@ pub async fn start_or_continue_incident_recovery(
     } else {
         "Unknown".to_string()
     };
-    let tools = discover_tools(
+    let tools = discover_tools_with_registry(
         state,
         service.memory_runtime.as_deref(),
         service.mcp.as_deref(),
+        Some(service.runtime_tool_contract_registry.clone()),
         &agent_state.goal,
         service.fast_inference.clone(),
         agent_state.current_tier,

@@ -1,0 +1,45 @@
+{
+  "schema_version": "ioi.hypervisor.certified-provider-campaign.v1",
+  "provider_id": "pacc_18cd245812ad55b9",
+  "environment_ref": "env-u1-CAMPAIGN-COMMIT",
+  "owner_ref": "org://local",
+  "idempotency_key": "u1-aft-CAMPAIGN-COMMIT",
+  "authority_principal_ref": "org://acme/research",
+  "data_dir": "/home/heathledger/.ioi/hypervisor/data",
+  "image_build_identity_path": "/OWNER/REVIEWED/aft-bench-build-identity.json",
+  "provider_preflight_path": "/OWNER/REVIEWED/u1-provider-preflight.json",
+  "provider_response_path": "/OWNER/REVIEWED/provider-response.json",
+  "sdl_path": "internal-docs/architecture/protocols/aft/bench/akash/deploy.sdl",
+  "sdl_values": {
+    "registry_host": "ghcr.io",
+    "image_reference": "ghcr.io/ioi-foundation/ioi-aft-bench@sha256:OWNER_APPROVED_64_HEX_DIGEST",
+    "secret_canary": "u1-canary-OWNER_APPROVED_RANDOM_NON_SECRET"
+  },
+  "result_poll_attempts": 120,
+  "result_poll_interval_ms": 15000,
+  "plan": {
+    "deposit_usd": "OWNER_APPROVED_DEPOSIT_USD",
+    "ceiling_amount": "OWNER_APPROVED_UACT_CEILING",
+    "ceiling_denom": "uact",
+    "auto_topup": false,
+    "provider_selector": {
+      "mode": "exact",
+      "provider_address": "OWNER_SELECTED_AKASH_PROVIDER_ADDRESS",
+      "selection": "only_qualified_bid_from_exact_provider"
+    },
+    "registry_credential_ref": "connector://conn_PRIVATE_REGISTRY",
+    "result_credential_ref": "connector://conn_U1_RESULT_TOKEN",
+    "result_tls_server_certificate_sha256": "sha256:OWNER_APPROVED_WORKLOAD_CERTIFICATE_64_HEX_DIGEST",
+    "campaign_id": "u1-CAMPAIGN-FULL_COMMIT",
+    "benchmark_source_commit": "OWNER_APPROVED_FULL_40_HEX_COMMIT",
+    "image_digest": "sha256:OWNER_APPROVED_64_HEX_DIGEST",
+    "image_build_identity_sha256": "sha256:OWNER_APPROVED_BUILD_IDENTITY_64_HEX_DIGEST",
+    "provider_preflight_sha256": "sha256:OWNER_APPROVED_PROVIDER_PREFLIGHT_64_HEX_DIGEST",
+    "benchmark_protocol_version": "res-p4.3.v2",
+    "result_schema_version": "ioi.aft.benchmark-campaign.v1",
+    "benchmark_warmups": 1,
+    "benchmark_repeats": 5,
+    "max_duration_seconds": 7200,
+    "teardown_policy": "always_teardown_required"
+  }
+}

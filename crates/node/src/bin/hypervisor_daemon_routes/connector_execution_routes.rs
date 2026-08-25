@@ -33,8 +33,6 @@ const SET_SCHEMA: &str = "ioi.hypervisor.odk.materialized-object-set.v1";
 const OVERVIEW_SCHEMA: &str = "ioi.hypervisor.odk.materialized-object-sets-overview.v1";
 pub(crate) const SET_DIR: &str = "odk-materialized-object-sets";
 /// Receipts land on the RUN's stream — execution is an act of the run.
-const RUN_RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.materializing-run-receipt.v1";
-const RUN_RECEIPT_DIR: &str = "odk-materializing-run-receipts";
 
 /// v1 allowlist: exactly one read-only adapter path.
 const SUPPORTED_EXECUTION_KINDS: &[&str] = &["rest_api"];
@@ -170,29 +168,11 @@ fn run_bindings(
     out
 }
 
-/// Receipt on the RUN's stream. Returns Err when the receipt itself cannot persist — callers that
-/// are about to register OUTPUT must abort on that (receipts land BEFORE output, or nothing does).
-fn run_receipt_checked(
-    data_dir: &str,
-    run_ref: &str,
-    op: &str,
-    outcome: &str,
-    summary: &str,
-) -> Result<Value, String> {
-    let id = format!("mrr_{:x}", nanos());
-    let receipt_ref = format!("agentgres://materializing-run-receipt/{id}");
-    let rec = json!({
-        "schema_version": RUN_RECEIPT_SCHEMA, "receipt_id": id, "receipt_ref": receipt_ref,
-        "materializing_run_ref": run_ref, "op": op, "outcome": outcome, "summary": summary, "at": iso_now()
-    });
-    persist_record(data_dir, RUN_RECEIPT_DIR, &id, &rec).map_err(|e| e.to_string())?;
-    Ok(rec)
-}
-// CLASSIFIED — best-effort telemetry/receipt mirror: this wrapper swallows the checked
-// variant's error for progress/refusal receipts; the pre-output and registration receipts on
-// the success path use run_receipt_checked directly and fail closed.
+// Receipts belong to the MaterializingRun stream. This execution module is a caller of the owner
+// seam, never a second schema minter or receipt-family writer.
 fn run_receipt(data_dir: &str, run_ref: &str, op: &str, outcome: &str, summary: &str) -> Value {
-    run_receipt_checked(data_dir, run_ref, op, outcome, summary).unwrap_or(Value::Null)
+    crate::materializing_run_routes::run_receipt_checked(data_dir, run_ref, op, outcome, summary)
+        .unwrap_or(Value::Null)
 }
 fn push_history(record: &mut Value, op: &str, summary: &str, receipt: &Value) {
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
@@ -544,12 +524,7 @@ pub(crate) async fn handle_run_execute(
                 &receipt,
             );
             // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
-            let _ = persist_record(
-                &data_dir,
-                crate::materializing_run_routes::RECORD_DIR,
-                &id,
-                &run,
-            );
+            let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
             return (
                 StatusCode::FORBIDDEN,
                 Json(json!({
@@ -596,12 +571,7 @@ pub(crate) async fn handle_run_execute(
                 &receipt,
             );
             // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
-            let _ = persist_record(
-                &data_dir,
-                crate::materializing_run_routes::RECORD_DIR,
-                &id,
-                &run,
-            );
+            let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
             return (
                 StatusCode::BAD_REQUEST,
                 Json(
@@ -636,12 +606,7 @@ pub(crate) async fn handle_run_execute(
             &receipt,
         );
         // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
-        let _ = persist_record(
-            &data_dir,
-            crate::materializing_run_routes::RECORD_DIR,
-            &id,
-            &run,
-        );
+        let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
         return (
             StatusCode::PRECONDITION_REQUIRED,
             Json(
@@ -711,12 +676,7 @@ pub(crate) async fn handle_run_execute(
                 &receipt,
             );
             // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
-            let _ = persist_record(
-                &data_dir,
-                crate::materializing_run_routes::RECORD_DIR,
-                &id,
-                &run,
-            );
+            let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
             return (
                 StatusCode::BAD_GATEWAY,
                 Json(
@@ -735,12 +695,7 @@ pub(crate) async fn handle_run_execute(
             &receipt,
         );
         // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
-        let _ = persist_record(
-            &data_dir,
-            crate::materializing_run_routes::RECORD_DIR,
-            &id,
-            &run,
-        );
+        let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
         return (
             StatusCode::BAD_GATEWAY,
             Json(
@@ -763,12 +718,7 @@ pub(crate) async fn handle_run_execute(
             &receipt,
         );
         // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
-        let _ = persist_record(
-            &data_dir,
-            crate::materializing_run_routes::RECORD_DIR,
-            &id,
-            &run,
-        );
+        let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
         return (
             StatusCode::BAD_GATEWAY,
             Json(
@@ -793,12 +743,7 @@ pub(crate) async fn handle_run_execute(
                 &receipt,
             );
             // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
-            let _ = persist_record(
-                &data_dir,
-                crate::materializing_run_routes::RECORD_DIR,
-                &id,
-                &run,
-            );
+            let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
             return (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 Json(
@@ -895,12 +840,7 @@ pub(crate) async fn handle_run_execute(
             &receipt,
         );
         // CLASSIFIED — best-effort telemetry: refusal-path history append immediately followed by a non-2xx return; run status stays truthful and only audit color is lost.
-        let _ = persist_record(
-            &data_dir,
-            crate::materializing_run_routes::RECORD_DIR,
-            &id,
-            &run,
-        );
+        let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
         return (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(
@@ -923,7 +863,7 @@ pub(crate) async fn handle_run_execute(
     // PRE-OUTPUT RECEIPT — must land BEFORE any output record. Persist failure ABORTS registration.
     let set_id = format!("mset_{:x}", nanos());
     let set_ref = format!("materialized-object-set://{set_id}");
-    let pre = match run_receipt_checked(&data_dir, &run_ref, "pre_output_receipt", "ok", &format!("about to register {} objects as {set_ref} for projection {projection_id} — receipt lands before output, or nothing does", objects.len())) {
+    let pre = match crate::materializing_run_routes::run_receipt_checked(&data_dir, &run_ref, "pre_output_receipt", "ok", &format!("about to register {} objects as {set_ref} for projection {projection_id} — receipt lands before output, or nothing does", objects.len())) {
         Ok(r) => r,
         Err(e) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_receipt_failed", "message": format!("the pre-output receipt could not persist — registration ABORTED before any output: {e}") } })));
@@ -973,12 +913,7 @@ pub(crate) async fn handle_run_execute(
             &receipt,
         );
         // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
-        let _ = persist_record(
-            &data_dir,
-            crate::materializing_run_routes::RECORD_DIR,
-            &id,
-            &run,
-        );
+        let _ = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run);
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(
@@ -1009,9 +944,8 @@ pub(crate) async fn handle_run_execute(
         json!("materialized — a bounded, receipted object set is registered for this projection");
     projection["materialized"] = json!({ "set_ref": set_ref, "count": count, "at": iso_now(), "materializing_run_ref": run_ref });
     projection["updated_at"] = json!(iso_now());
-    if let Err(e) = persist_record(
+    if let Err(e) = crate::ontology_projection_routes::persist_materialized_state(
         &data_dir,
-        crate::ontology_projection_routes::RECORD_DIR,
         &projection_id,
         &projection,
     ) {
@@ -1031,11 +965,11 @@ pub(crate) async fn handle_run_execute(
         "note": "one bounded read-only batch, registered all-or-nothing under the held lease + sealed session"
     });
     run["updated_at"] = json!(iso_now());
-    let receipt = match run_receipt_checked(&data_dir, &run_ref, "materialized_output_registered", "ok", &format!("{count} ontology-bound objects registered as {set_ref}; projection {projection_id} object_instances 0 → {count}")) {
+    let receipt = match crate::materializing_run_routes::run_receipt_checked(&data_dir, &run_ref, "materialized_output_registered", "ok", &format!("{count} ontology-bound objects registered as {set_ref}; projection {projection_id} object_instances 0 → {count}")) {
         Ok(r) => r,
         Err(e) => {
             // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
-            let _ = persist_record(&data_dir, crate::ontology_projection_routes::RECORD_DIR, &projection_id, &prior_projection);
+            let _ = crate::ontology_projection_routes::persist_materialized_state(&data_dir, &projection_id, &prior_projection);
             rollback_set(&format!("registration receipt: {e}"));
             return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "execution_finalize_failed", "message": "the registration receipt could not persist — projection restored, set rolled back" } })));
         }
@@ -1046,16 +980,10 @@ pub(crate) async fn handle_run_execute(
         &format!("{count} objects registered"),
         &receipt,
     );
-    if let Err(e) = persist_record(
-        &data_dir,
-        crate::materializing_run_routes::RECORD_DIR,
-        &id,
-        &run,
-    ) {
+    if let Err(e) = crate::materializing_run_routes::persist_execution_state(&data_dir, &id, &run) {
         // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
-        let _ = persist_record(
+        let _ = crate::ontology_projection_routes::persist_materialized_state(
             &data_dir,
-            crate::ontology_projection_routes::RECORD_DIR,
             &projection_id,
             &prior_projection,
         );
@@ -1151,9 +1079,8 @@ pub(crate) async fn handle_set_delete(
         // state gates the whole ladder (plan checks require status/health truth); removing the
         // set while the projection still claims `materialized: true` with a dead set_ref is
         // exactly the dangling count this handler's own doc comment promises to prevent.
-        if persist_record(
+        if crate::ontology_projection_routes::persist_materialized_state(
             &st.data_dir,
-            crate::ontology_projection_routes::RECORD_DIR,
             &projection_id,
             &projection,
         )
@@ -1174,9 +1101,8 @@ pub(crate) async fn handle_set_delete(
         // projection so a live set never stands beside a zeroed projection.
         if let Some(prior) = prior_projection {
             // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
-            let _ = persist_record(
+            let _ = crate::ontology_projection_routes::persist_materialized_state(
                 &st.data_dir,
-                crate::ontology_projection_routes::RECORD_DIR,
                 &projection_id,
                 &prior,
             );

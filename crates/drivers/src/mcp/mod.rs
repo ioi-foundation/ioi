@@ -246,6 +246,27 @@ impl McpManager {
         all_tools
     }
 
+    /// Remove every live routing/admission cache entry for one server before
+    /// terminating its owned subprocess. The immutable runtime tool contracts
+    /// remain as historical admission evidence, but no final invocation can
+    /// reach a disabled or removed transport.
+    pub async fn stop_server(&self, server_name: &str) -> Result<bool> {
+        let transport = self.servers.write().await.remove(server_name);
+        self.tool_routing_table
+            .write()
+            .await
+            .retain(|_, owner| owner != server_name);
+        self.tool_cache.write().await.remove(server_name);
+        self.server_containment.write().await.remove(server_name);
+        self.server_receipts.write().await.remove(server_name);
+
+        let Some(transport) = transport else {
+            return Ok(false);
+        };
+        transport.shutdown().await?;
+        Ok(true)
+    }
+
     pub async fn list_admitted_tools_for_server(
         &self,
         server_name: &str,

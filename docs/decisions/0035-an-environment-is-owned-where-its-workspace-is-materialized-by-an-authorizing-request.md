@@ -1,9 +1,9 @@
 # ADR 0035: An Environment Is Owned From Its First Durable Byte, And Every Handle To Its Bytes Authorizes
 
-- Status: Proposed — DESIGN ONLY, REVISION 4. Revisions 1, 2 and 3 were each DEFEATED
-  by their own review. No code exists and none may be written until this document
-  survives. **Revision 3's "sound-conditional" status is WITHDRAWN: the dependency it
-  filed does not exist.**
+- Status: Accepted and implemented — REVISION 4. Revisions 1, 2 and 3 were each
+  DEFEATED by their own review. Revision 4 survived citation audit and was
+  implemented on 2026-08-24. **Revision 3's "sound-conditional" status remains
+  WITHDRAWN: the dependency it filed does not exist.**
 - Date: 2026-08-15
 - Owners: daemon runtime / environment lifecycle / W1.5 disposition
 - Refines: ADR 0031 and ADR 0024 (the one structural law — no second spine), ADR 0030
@@ -43,10 +43,11 @@ buildable today by following a pattern that already ships. Revision 3's supporti
 schema. A dependency filed on a mis-read citation would have commissioned XV+ work that is not
 needed, and the conditional status it produced is withdrawn.
 
-## Context: what is true today, measured
+## Pre-implementation context, measured
 
 Read at `6cfdcb5be`, re-verified after revision 3's review. Files named where not
-`environment_routes.rs`.
+`environment_routes.rs`. This section is the baseline the accepted implementation
+reversed; the current implementation evidence is recorded at the end of this ADR.
 
 **Creation happens at three seams and one is a GET.** `new_env` at `:2564`, `:2652`
 (`handle_environment_get`, persisting at `:2661`), `:2679`. `:5199`/`:5208` are `#[cfg(test)]`.
@@ -337,5 +338,26 @@ admits a request carrying no token at all.**
 
 ## Status of the evidence
 
-Citations re-verified against source after revision 3's review, including the two that reversed
-this document's own claims. Nothing here has been built or demonstrated live.
+Citations were re-verified against source after revision 3's review, including the two that
+reversed this document's own claims. The accepted design is now implemented.
+
+The source-derived route census walks all registered Rust handlers and their transitive
+workspace reach. At the implementation point it classified 979 registered handlers into 37
+workspace-reaching handlers, two exact aggregate-only handlers and 940 non-environment
+handlers, with zero unresolved or unclassified registrations. The implementation makes the
+daemon mint canonical environment ids, binds `hypervisor-environment` ownership before the
+environment record, removes GET/action creation, authorizes every workspace handle against the
+immutable scope pin, owner-scopes list/read surfaces, limits administrator authority to
+receipted disposal, and fences ops, editor and preview capability consumers to exact action,
+resource and subject.
+
+The retained evidence is executable rather than this prose: `check:env-lease-authority` runs
+33 live assertions, 19 source/model assertions and 22 RED-ON-TARGET source mutations, including
+the subsequent M03.2 port-preview membership-and-exclusivity fence;
+`check:environment-custody` runs 53 live assertions; and `check:backup-restore` runs 76. The
+source gate requires the exact aggregate-only allowlist and rejects unresolved registrations,
+lexer blind spots and marker leakage. The mutation battery includes non-owner ops-lease mint,
+create/bind ordering, alias, legacy-administration, owner-list, deactivation, seven-handle,
+port-target and source-census escape classes. Assertion counts and names are floor-pinned in
+`apps/hypervisor/verifier-floors.v1.json`; mutation outcomes are re-executed by the chained
+environment-lease check.

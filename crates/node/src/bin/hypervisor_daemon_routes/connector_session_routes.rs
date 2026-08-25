@@ -598,6 +598,7 @@ pub(crate) async fn handle_session_open(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let _ = session_receipt(&st.data_dir, &sref, "session_requested", "ok", &format!("sealed session requested at the gateway: connector {connector_id} · ttl {ttl}s · {} properties", properties.len()));
     match authorize_capability_lease(&st, &lease_req).await {

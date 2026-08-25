@@ -52,7 +52,7 @@ function handleLine(line) {
   if (request.method === "notifications/initialized") return;
   if (request.method === "initialize") {
     respond(request.id, {
-      protocolVersion: "2024-11-05",
+      protocolVersion: "2025-06-18",
       capabilities: { tools: {}, resources: {}, prompts: {} },
       serverInfo: { name: "ioi-fixture-mcp-stdio", version: "0.1.0" },
     });

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/ontology-assertion/v1",
+  "title": "OntologyAssertion",
+  "description": "Attributed, time-bounded and challengeable semantic assertion. Admission records operational truth, not universal truth.",
+  "x-ioi-schema-version": "ioi.ontology-assertion.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "assertion_id", "assertion_profile", "ontology_ref",
+    "fact_class_ref", "subject_ref", "predicate_ref", "object_or_value_ref",
+    "valid_time", "transaction_time", "source_and_observation_context_refs",
+    "confidence_or_uncertainty", "supporting_evidence_refs",
+    "contradicting_assertion_refs", "oracle_evidence_profile_ref",
+    "oracle_evidence_admission_receipt_ref", "ontology_assertion_admission_receipt_ref",
+    "applicability_scope_ref", "permitted_consequence_scope_refs",
+    "causal_or_counterfactual_context_ref", "supersedes_ref", "dispute_ref", "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.ontology-assertion.v1" },
+    "assertion_id": { "type": "string", "pattern": "^ontology-assertion://[^\\s]{1,248}$" },
+    "assertion_profile": { "const": "provenance_assertion" },
+    "ontology_ref": { "type": "string", "pattern": "^ontology://[^\\s]{1,248}$" },
+    "fact_class_ref": { "oneOf": [{ "type": "string", "pattern": "^ontology://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "subject_ref": { "$ref": "#/$defs/canonicalRef" },
+    "predicate_ref": { "type": "string", "pattern": "^ontology://[^\\s]{1,248}$" },
+    "object_or_value_ref": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 2048 },
+        { "type": "number", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        { "type": "boolean" }, { "type": "null" }
+      ]
+    },
+    "valid_time": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["starts_at", "ends_at"],
+          "properties": {
+            "starts_at": { "$ref": "#/$defs/dateTime" },
+            "ends_at": { "$ref": "#/$defs/dateTime" }
+          }
+        }
+      ]
+    },
+    "transaction_time": { "$ref": "#/$defs/dateTime" },
+    "source_and_observation_context_refs": { "$ref": "#/$defs/canonicalRefs" },
+    "confidence_or_uncertainty": { "oneOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "type": "null" }] },
+    "supporting_evidence_refs": { "$ref": "#/$defs/evidenceRefs" },
+    "contradicting_assertion_refs": {
+      "type": "array", "maxItems": 128, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^(?:ontology-assertion|finding)://[^\\s]{1,248}$" }
+    },
+    "oracle_evidence_profile_ref": { "oneOf": [{ "type": "string", "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "oracle_evidence_admission_receipt_ref": { "$ref": "#/$defs/nullableReceiptRef" },
+    "ontology_assertion_admission_receipt_ref": { "$ref": "#/$defs/nullableReceiptRef" },
+    "applicability_scope_ref": { "oneOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }] },
+    "permitted_consequence_scope_refs": { "$ref": "#/$defs/canonicalRefs" },
+    "causal_or_counterfactual_context_ref": { "oneOf": [{ "type": "string", "pattern": "^(?:artifact|finding)://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "supersedes_ref": { "oneOf": [{ "type": "string", "pattern": "^ontology-assertion://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "dispute_ref": { "oneOf": [{ "type": "string", "pattern": "^dispute://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "status": { "enum": ["proposed", "evidence_pending", "held_unknown", "admitted", "contradicted", "superseded", "disputed", "rejected"] }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "admitted" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "fact_class_ref": { "type": "string", "pattern": "^ontology://[^\\s]{1,248}$" },
+          "oracle_evidence_profile_ref": { "type": "string", "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$" },
+          "oracle_evidence_admission_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+          "ontology_assertion_admission_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+          "permitted_consequence_scope_refs": { "type": "array", "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "proposed" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "oracle_evidence_admission_receipt_ref": { "type": "null" },
+          "ontology_assertion_admission_receipt_ref": { "type": "null" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "dateTime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$" },
+    "canonicalRefs": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "$ref": "#/$defs/canonicalRef" } },
+    "evidenceRefs": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:evidence|receipt|artifact)://[^\\s]{1,248}$" } },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+    "nullableReceiptRef": { "oneOf": [{ "$ref": "#/$defs/receiptRef" }, { "type": "null" }] }
+  }
+}

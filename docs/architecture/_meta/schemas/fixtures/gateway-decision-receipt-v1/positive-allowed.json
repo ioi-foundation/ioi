@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.gateway-decision-receipt.v1",
+  "receipt_ref": "receipt://acme/gateway-decision/001",
+  "receipt_type": "gateway_decision",
+  "action_request_ref": "action-request://acme/gateway/req-001",
+  "action_request_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "authority_gateway_profile_ref": "authority-gateway://acme/claude-code/revision/1",
+  "authority_gateway_profile_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "policy_enforcement_point_ref": "runtime://hypervisor-daemon/authority-gateway",
+  "decision": "allowed",
+  "policy_ref": "policy://acme/authority-gateway/scm",
+  "policy_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "authority_status": "verified",
+  "authority_evidence_refs": ["receipt://acme/authority/admission/001"],
+  "approval_receipt_ref": null,
+  "admitted_action_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "decided_at": "2026-08-24T16:01:00Z",
+  "receipt_hash": "sha256:59b9ca6811d22018359ee7151564aae92c9af346dc7a05d022ef3c8e476de3af"
+}

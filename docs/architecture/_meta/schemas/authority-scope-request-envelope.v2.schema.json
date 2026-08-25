@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
+  "title": "AuthorityScopeRequestEnvelope",
+  "description": "Closed exact-subject authority request that binds requested posture, capabilities, resources, destinations, risk, and policy before review.",
+  "x-ioi-schema-version": "ioi.foundations.authority-scope-request-envelope.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority_request_id",
+    "principal_ref",
+    "product_session_ref",
+    "origin_binding_ref",
+    "subject_id",
+    "issuer_id",
+    "requesting_runtime_ref",
+    "purpose",
+    "requested_auth_factor_posture_refs",
+    "requested_guardian_surface_refs",
+    "authorization_subject",
+    "primitive_capabilities_required",
+    "authority_scopes_requested",
+    "resource_scope",
+    "destination_refs",
+    "risk_classes",
+    "policy_hash",
+    "authority_request_body_hash",
+    "authority_grant_id",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.authority-scope-request-envelope.v2" },
+    "authority_request_id": { "$ref": "#/$defs/authorityRequestRef" },
+    "principal_ref": { "$ref": "#/$defs/principalRef" },
+    "product_session_ref": { "oneOf": [{ "$ref": "#/$defs/sessionRef" }, { "type": "null" }] },
+    "origin_binding_ref": { "oneOf": [{ "$ref": "#/$defs/originRef" }, { "type": "null" }] },
+    "subject_id": { "$ref": "#/$defs/subjectRef" },
+    "issuer_id": { "$ref": "#/$defs/issuerRef" },
+    "requesting_runtime_ref": { "oneOf": [{ "$ref": "#/$defs/runtimeRef" }, { "type": "null" }] },
+    "purpose": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "requested_auth_factor_posture_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^(?:policy|auth_factor)://[^\\s]{1,500}$" },
+      "uniqueItems": true
+    },
+    "requested_guardian_surface_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^guardian://[^\\s]{1,500}$" },
+      "uniqueItems": true
+    },
+    "authorization_subject": { "$ref": "#/$defs/authorizationSubject" },
+    "primitive_capabilities_required": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/primitiveCapability" },
+      "uniqueItems": true
+    },
+    "authority_scopes_requested": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/authorityScope" },
+      "uniqueItems": true
+    },
+    "resource_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resources", "constraints"],
+      "properties": {
+        "resources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/canonicalRef" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_budget_usd", "expiry", "approval_required_for"],
+          "properties": {
+            "max_budget_usd": { "type": "number", "minimum": 0 },
+            "expiry": { "$ref": "#/$defs/canonicalDateTime" },
+            "approval_required_for": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[a-z][a-z0-9._-]*$" },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "destination_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/canonicalRef" },
+      "uniqueItems": true
+    },
+    "risk_classes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/riskClass" },
+      "uniqueItems": true
+    },
+    "policy_hash": { "$ref": "#/$defs/sha256Hash" },
+    "authority_request_body_hash": { "$ref": "#/$defs/sha256Hash" },
+    "authority_grant_id": { "oneOf": [{ "$ref": "#/$defs/grantRef" }, { "type": "null" }] },
+    "status": { "enum": ["requested", "granted", "denied", "expired", "revoked"] }
+  },
+  "$defs": {
+    "authorizationSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "subject_ref", "subject_hash", "validation_profile_ref"],
+      "properties": {
+        "kind": { "enum": ["exact_effect", "batch_manifest", "standing_envelope"] },
+        "subject_ref": { "$ref": "#/$defs/canonicalRef" },
+        "subject_hash": { "$ref": "#/$defs/sha256Hash" },
+        "validation_profile_ref": { "$ref": "#/$defs/schemaOrPolicyRef" }
+      },
+      "allOf": [
+        { "if": { "properties": { "kind": { "const": "exact_effect" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^effect://[^\\s]{1,500}$" } } } },
+        { "if": { "properties": { "kind": { "const": "batch_manifest" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^artifact://[^\\s]{1,500}$" } } } },
+        { "if": { "properties": { "kind": { "const": "standing_envelope" } } }, "then": { "properties": { "subject_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" } } } }
+      ]
+    },
+    "canonicalDateTime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "authorityRequestRef": { "type": "string", "pattern": "^authority-request://[^\\s]{1,500}$" },
+    "principalRef": { "type": "string", "pattern": "^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$" },
+    "sessionRef": { "type": "string", "pattern": "^session://[^\\s]{1,500}$" },
+    "originRef": { "type": "string", "pattern": "^(?:origin-binding|origin)://[^\\s]{1,500}$" },
+    "subjectRef": { "type": "string", "pattern": "^(?:system|agent|worker|runtime)://[^\\s]{1,500}$" },
+    "issuerRef": { "type": "string", "pattern": "^(?:system|wallet|org|policy)://[^\\s]{1,500}$" },
+    "runtimeRef": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+    "grantRef": { "type": "string", "pattern": "^grant://[^\\s]{1,500}$" },
+    "schemaOrPolicyRef": { "type": "string", "pattern": "^(?:schema|policy)://[^\\s]{1,500}$" },
+    "primitiveCapability": { "type": "string", "pattern": "^prim:[a-z][a-z0-9._-]*$" },
+    "authorityScope": { "type": "string", "pattern": "^scope:[a-z][a-z0-9._-]*$" },
+    "sha256Hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "riskClass": { "enum": ["read", "draft", "external_message", "commerce", "funds", "trade", "policy_widening", "secret_export", "declassification", "identity_change", "cloud_deploy", "physical_action"] }
+  }
+}

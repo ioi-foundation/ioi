@@ -6,7 +6,7 @@ Supersedes: overlapping event/receipt examples in plans/specs when event, trace,
 Superseded by: none.
 Last alignment pass: 2026-08-12.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, `PhysicalActionExecutionReceipt` v1, and `GoalRunActivationReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipt profiles, full OutcomeRoom/collective-pursuit receipt production, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; the inference-computation-proof receipt and composed-delivery-link excerpts are dormant and unregistered, with no current carriage obligation)
+Implementation status: mixed (receipts/events live across existing owner planes; portable checkpoint/proof, temporal verification/evaluation, exact-action review/admission, managed-work billing/dispute, physical-action, and GoalRun activation machine contracts have registered schemas and generated projections; production portable cryptographic verification/CLI support, exact-action receipt emitters, managed-work billing/dispute kernels, physical execution, daemon/Agentgres billing/dispute/physical/checkpoint emission, supplier-statement resolution, adjudication/remedy receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipts, full OutcomeRoom/Campaign/embodied lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; dormant inference-computation-proof and composed-delivery-link excerpts remain unregistered)
 Last implementation audit: 2026-07-30
 
 ## Purpose
@@ -758,6 +758,9 @@ PolicyDecisionReceipt
 ApprovalReceipt
 AuthorityReviewReceipt
 AuthorityEffectAdmissionReceipt
+GatewayDecisionReceipt
+GatewayExecutionReceipt
+GatewayArtifactReceipt
 ModelInvocationReceipt
 LearningEgressReceipt
 InformationFlowDecisionReceipt
@@ -958,10 +961,13 @@ over one exact request and review representation while keeping presentation
 evidence, authenticator ceremony evidence, principal-authority resolution,
 grant issuance, effect admission, and execution as separate facts.
 
-This section is target doctrine. Current master has no registered
-`AuthorityReviewReceipt` schema, generated projection, production emitter, or
-v3 grant verifier. Those must land together in a later machine-contract cut;
-this profile does not silently extend an existing receipt or grant version.
+The closed `AuthorityReviewReceipt` v1 schema and generated Rust/TypeScript
+projections are registered. Its production wallet emitter and the v3 grant
+issuer/verifier remain implementation work; projections alone are not evidence
+that the review boundary ran.
+
+Registered review-receipt contract:
+`schema://ioi/components/wallet-network/authority-review-receipt/v1`.
 
 ```yaml
 AuthorityReviewReceiptV1:
@@ -1194,13 +1200,18 @@ or resource PEP makes the exact effect decision. Imported `verified`,
 
 ## Authority Effect Admission Receipt
 
-`AuthorityEffectAdmissionReceiptV1` is the target policy-enforcement-point
-evidence that closes the review-to-effect gap. Current master has no registered
-schema, generated projection, production emitter, or verifier for this profile.
+`AuthorityEffectAdmissionReceiptV2` is the registered target
+policy-enforcement-point evidence that closes the review-to-effect gap. The
+earlier registered v1 is an immutable flat compatibility precursor and cannot
+be rewritten into this `ReceiptEnvelope` wrapper. Production emission and
+verification of v2 remain implementation work.
+
+Registered target contract:
+`schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2`.
 
 ```yaml
-AuthorityEffectAdmissionReceiptV1:
-  schema_version: 1
+AuthorityEffectAdmissionReceiptV2:
+  schema_version: ioi.components.daemon-runtime.authority-effect-admission-receipt.v2
   receipt_envelope: ReceiptEnvelopeV1
   body:
     policy_enforcement_point_ref: runtime://...
@@ -1257,10 +1268,10 @@ mapping is:
 receipt_envelope:
   receipt_id: the wrapper's canonical receipt:// identity
   receipt_type: authority_effect_admission
-  receipt_profile_ref: schema://ioi/receipt/authority-effect-admission/v1
+  receipt_profile_ref: schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2
   attested_boundary_fact_refs: exact_sorted_unique(
     every non-null body ref matching ReceiptEnvelopeV1.$defs.canonicalRef)
-  claim_scope_ref: schema://ioi/receipt/authority-effect-admission/v1
+  claim_scope_ref: schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2
   run_id: null
   task_id: null
   actor_id: body.policy_enforcement_point_ref
@@ -1297,12 +1308,12 @@ Its hashes are:
 ```text
 body_hash =
   SHA-256(
-    "IOI-AUTHORITY-EFFECT-ADMISSION-BODY-V1\0" || RFC8785_JCS(body)
+    "IOI-AUTHORITY-EFFECT-ADMISSION-BODY-V2\0" || RFC8785_JCS(body)
   )
 
 receipt_hash =
   SHA-256(
-    "IOI-AUTHORITY-EFFECT-ADMISSION-RECEIPT-V1\0" ||
+    "IOI-AUTHORITY-EFFECT-ADMISSION-RECEIPT-V2\0" ||
     RFC8785_JCS({schema_version, receipt_envelope, body_hash})
   )
 ```
@@ -1316,9 +1327,8 @@ SHA-256(
 )
 ```
 
-Once v3 is registered, the PEP verifies its signature over that body hash;
-copied grant fields or signer identity do not substitute for the exact grant
-bytes.
+The PEP verifies the registered v3 signature over that body hash; copied grant
+fields or signer identity do not substitute for the exact grant bytes.
 
 The authorization-subject/proof matrix is exact:
 
@@ -1334,7 +1344,7 @@ requires a valid membership proof under the subject's named validation profile.
 Standing admission requires a complete constraint evaluation under that
 profile. Any kind/proof/nullability mismatch refuses.
 
-This v1 profile is persisted before invocation. Every v1 receipt therefore sets
+This v2 profile is persisted before invocation. Every v2 receipt therefore sets
 `invoker_called: false`, `invoker_receipt_ref: null`, and
 `effect_receipt_ref: null`, including an admitted decision; the later invoker
 and effect receipts point back to this immutable admission receipt. A
@@ -1382,6 +1392,98 @@ nonportable account-local principals. Every refused or unknown result is
 durable before the invoker boundary; failure to obtain or validate any required
 evidence fails closed with `invoker_called: false` and the corresponding
 evidence status.
+
+## Authority Gateway Receipts
+
+The attach lane registers three distinct receipts. They are not interchangeable
+with generic policy, tool, artifact, or authority receipts, and no one receipt
+may discharge another receipt type's obligation.
+
+```yaml
+GatewayDecisionReceipt:
+  receipt_type: gateway_decision
+  action_request_ref: action-request://...
+  action_request_hash: sha256:...
+  authority_gateway_profile_ref: authority-gateway://...
+  authority_gateway_profile_hash: sha256:...
+  policy_enforcement_point_ref: runtime://...
+  decision: allowed | denied | requires_approval | transform_required
+  policy_ref: policy://...
+  policy_hash: sha256:...
+  authority_status: not_required | required_unresolved | verified | refused
+  authority_evidence_refs: [canonical ref]
+  approval_receipt_ref: receipt://... | null
+  admitted_action_hash: sha256:... | null
+  decided_at: timestamp
+  receipt_hash: sha256:...
+
+GatewayExecutionReceipt:
+  receipt_type: gateway_execution
+  action_request_ref: action-request://...
+  action_request_hash: sha256:...
+  authority_gateway_profile_ref: authority-gateway://...
+  authority_gateway_profile_hash: sha256:...
+  gateway_decision_receipt_ref: receipt://...
+  gateway_decision_receipt_hash: sha256:...
+  policy_enforcement_point_ref: runtime://...
+  external_effect: boolean
+  authority_effect_admission_receipt_ref: receipt://... | null
+  authority_effect_admission_receipt_hash: sha256:... | null
+  final_invoker_ref: runtime://...
+  invocation_id: string
+  idempotency_key: sha256:...
+  actual_effect_ref: effect://... | null
+  actual_effect_hash: sha256:... | null
+  outcome: succeeded | failed | refused | unknown | reconciliation_required
+  result_hash: sha256:... | null
+  effect_receipt_ref: receipt://... | null
+  started_at: timestamp
+  completed_at: timestamp
+  receipt_hash: sha256:...
+
+GatewayArtifactReceipt:
+  receipt_type: gateway_artifact
+  action_request_ref: action-request://...
+  action_request_hash: sha256:...
+  gateway_execution_receipt_ref: receipt://...
+  gateway_execution_receipt_hash: sha256:...
+  evidence_kind: artifacts | diff | none
+  artifacts: [{ artifact_ref, content_hash, media_type, size_bytes }]
+  diff_artifact_ref: artifact://... | null
+  diff_hash: sha256:... | null
+  no_artifact_reason: string | null
+  captured_at: timestamp
+  receipt_hash: sha256:...
+```
+
+The registered profiles are respectively
+`schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1`,
+`schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1`, and
+`schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1`. Each
+receipt hash is the domain-separated JCS commitment over every other field.
+
+An allowed decision binds the exact admitted action hash and has authority
+status `not_required` or `verified`; it still grants no authority. An external
+execution must bind the current v2 `AuthorityEffectAdmissionReceipt`, the exact
+effect, and the daemon-owned final invoker. The execution result is honest:
+crash-window ambiguity becomes `unknown` or `reconciliation_required`, never a
+retry or fabricated success. The artifact receipt binds the execution receipt
+and either one or more immutable artifacts, a diff artifact/hash pair, or an
+explicit reason that no artifact exists. Attach-lane receipts remain immutable
+and linkable after graduation; they are never re-minted as run-on receipts.
+
+The first live producer is the Authority Gateway SCM execution bridge. It
+persists an owner-scoped prepared successor, delegates to the existing native
+SCM PEP/final invoker with one stable request-derived idempotency key, resolves
+the wallet-owned registered v2 admission receipt, and persists the execution
+and artifact pair in one terminal successor. The gateway owns no authority
+consume or final-invoker claim. A pre-authority challenge is a `refused`
+execution with null admission binding. A spent claim proven earlier than the
+native Prepared boundary is also `refused`, but retains its exact admission
+binding and `spent_not_refunded` evidence; indeterminate post-Prepared state is
+`reconciliation_required`. An SCM ref advance is not fabricated into an
+artifact: absent a separately captured immutable artifact, the artifact receipt
+uses `evidence_kind: none` and a specific no-artifact reason.
 
 ## Information-Flow Decision Receipts
 

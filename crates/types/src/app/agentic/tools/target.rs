@@ -59,16 +59,15 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         | AgentTool::BrowserFindText { .. }
         | AgentTool::BrowserWait { .. }
         | AgentTool::BrowserUploadFile { .. }
-        | AgentTool::BrowserDropdownOptions { .. }
         | AgentTool::BrowserSelectDropdown { .. }
         | AgentTool::BrowserGoBack { .. }
-        | AgentTool::BrowserTabList {}
         | AgentTool::BrowserTabSwitch { .. }
         | AgentTool::BrowserTabClose { .. } => ActionTarget::BrowserInteract,
 
-        AgentTool::BrowserScreenshot { .. } | AgentTool::BrowserCanvasSummary { .. } => {
-            ActionTarget::BrowserInspect
-        }
+        AgentTool::BrowserScreenshot { .. }
+        | AgentTool::BrowserCanvasSummary { .. }
+        | AgentTool::BrowserDropdownOptions { .. }
+        | AgentTool::BrowserTabList {} => ActionTarget::BrowserInspect,
 
         AgentTool::BrowserSnapshot { .. } => ActionTarget::BrowserInspect,
 
@@ -78,7 +77,7 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         AgentTool::GuiSnapshot { .. } => ActionTarget::GuiInspect,
         AgentTool::GuiClickElement { .. } => ActionTarget::GuiClick,
 
-        AgentTool::UiFind { .. } => ActionTarget::Custom("ui::find".into()),
+        AgentTool::UiFind { .. } => ActionTarget::GuiInspect,
         AgentTool::OsFocusWindow { .. } => ActionTarget::WindowFocus,
         AgentTool::OsCopy { .. } => ActionTarget::ClipboardWrite,
         AgentTool::OsPaste { .. } => ActionTarget::ClipboardRead,
@@ -200,5 +199,32 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                 ActionTarget::Custom("unknown".into())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn browser_observation_tools_map_to_the_inspection_boundary() {
+        assert_eq!(
+            target_for_tool(&AgentTool::BrowserDropdownOptions {
+                id: None,
+                selector: None,
+                som_id: None,
+            }),
+            ActionTarget::BrowserInspect
+        );
+        assert_eq!(
+            target_for_tool(&AgentTool::BrowserTabList {}),
+            ActionTarget::BrowserInspect
+        );
+        assert_eq!(
+            target_for_tool(&AgentTool::UiFind {
+                query: "submit".to_string(),
+            }),
+            ActionTarget::GuiInspect
+        );
     }
 }

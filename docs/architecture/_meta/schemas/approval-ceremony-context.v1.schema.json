@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/approval-ceremony-context/v1",
+  "title": "ApprovalCeremonyContextEnvelope",
+  "x-ioi-schema-version": "ioi.foundations.approval-ceremony-context.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "approval_ceremony_context_ref",
+    "authority_request_ref",
+    "authority_request_body_hash",
+    "authority_review_ref",
+    "authority_review_body_hash",
+    "predecessor_authority_review_ref",
+    "predecessor_authority_review_body_hash",
+    "predecessor_authority_request_ref",
+    "predecessor_authority_request_body_hash",
+    "predecessor_authority_review_receipt_ref",
+    "predecessor_authority_review_receipt_hash",
+    "reviewed_representation_hash",
+    "principal_ref",
+    "acting_subject_ref",
+    "product_session_ref",
+    "origin_binding_ref",
+    "authorization_subject",
+    "presentation_surface_ref",
+    "presentation_evidence_profile_ref",
+    "principal_authority_resolution_ref",
+    "principal_authority_resolution_hash",
+    "required_auth_factor_posture_refs",
+    "required_guardian_surface_refs",
+    "posture_satisfaction_profile_ref",
+    "interaction_mode",
+    "authentication_posture",
+    "receipt_timing",
+    "policy_decision_receipt_ref",
+    "policy_decision_receipt_hash",
+    "policy_hash",
+    "risk_classes",
+    "revocation_epoch",
+    "nonce_b64url",
+    "issued_at",
+    "expires_at",
+    "single_use"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.approval-ceremony-context.v1" },
+    "approval_ceremony_context_ref": { "$ref": "#/$defs/ref" },
+    "authority_request_ref": { "$ref": "#/$defs/ref" },
+    "authority_request_body_hash": { "$ref": "#/$defs/hash" },
+    "authority_review_ref": { "$ref": "#/$defs/ref" },
+    "authority_review_body_hash": { "$ref": "#/$defs/hash" },
+    "predecessor_authority_review_ref": { "$ref": "#/$defs/nullableRef" },
+    "predecessor_authority_review_body_hash": { "$ref": "#/$defs/nullableHash" },
+    "predecessor_authority_request_ref": { "$ref": "#/$defs/nullableRef" },
+    "predecessor_authority_request_body_hash": { "$ref": "#/$defs/nullableHash" },
+    "predecessor_authority_review_receipt_ref": { "$ref": "#/$defs/nullableRef" },
+    "predecessor_authority_review_receipt_hash": { "$ref": "#/$defs/nullableHash" },
+    "reviewed_representation_hash": { "$ref": "#/$defs/hash" },
+    "principal_ref": { "$ref": "#/$defs/ref" },
+    "acting_subject_ref": { "$ref": "#/$defs/ref" },
+    "product_session_ref": { "$ref": "#/$defs/nullableRef" },
+    "origin_binding_ref": { "$ref": "#/$defs/nullableRef" },
+    "authorization_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "subject_ref", "subject_hash", "validation_profile_ref"],
+      "properties": {
+        "kind": { "enum": ["exact_effect", "batch_manifest", "standing_envelope"] },
+        "subject_ref": { "$ref": "#/$defs/ref" },
+        "subject_hash": { "$ref": "#/$defs/hash" },
+        "validation_profile_ref": { "$ref": "#/$defs/ref" }
+      }
+    },
+    "presentation_surface_ref": { "$ref": "#/$defs/ref" },
+    "presentation_evidence_profile_ref": { "$ref": "#/$defs/ref" },
+    "principal_authority_resolution_ref": { "$ref": "#/$defs/nullableRef" },
+    "principal_authority_resolution_hash": { "$ref": "#/$defs/nullableHash" },
+    "required_auth_factor_posture_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" }
+    },
+    "required_guardian_surface_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" }
+    },
+    "posture_satisfaction_profile_ref": { "$ref": "#/$defs/ref" },
+    "interaction_mode": { "enum": ["interactive", "noninteractive_policy"] },
+    "authentication_posture": { "enum": ["baseline", "step_up"] },
+    "receipt_timing": { "enum": ["before_effect", "after_effect"] },
+    "policy_decision_receipt_ref": { "$ref": "#/$defs/ref" },
+    "policy_decision_receipt_hash": { "$ref": "#/$defs/hash" },
+    "policy_hash": { "$ref": "#/$defs/hash" },
+    "risk_classes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/name" }
+    },
+    "revocation_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "nonce_b64url": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43,256}$" },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "single_use": { "const": true }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "predecessor_authority_review_ref": { "type": "null" },
+            "predecessor_authority_review_body_hash": { "type": "null" },
+            "predecessor_authority_request_ref": { "type": "null" },
+            "predecessor_authority_request_body_hash": { "type": "null" },
+            "predecessor_authority_review_receipt_ref": { "type": "null" },
+            "predecessor_authority_review_receipt_hash": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "predecessor_authority_review_ref": { "$ref": "#/$defs/ref" },
+            "predecessor_authority_review_body_hash": { "$ref": "#/$defs/hash" },
+            "predecessor_authority_request_ref": { "$ref": "#/$defs/ref" },
+            "predecessor_authority_request_body_hash": { "$ref": "#/$defs/hash" },
+            "predecessor_authority_review_receipt_ref": { "$ref": "#/$defs/ref" },
+            "predecessor_authority_review_receipt_hash": { "$ref": "#/$defs/hash" }
+          }
+        }
+      ]
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "principal_authority_resolution_ref": { "type": "null" },
+            "principal_authority_resolution_hash": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "principal_authority_resolution_ref": { "$ref": "#/$defs/ref" },
+            "principal_authority_resolution_hash": { "$ref": "#/$defs/hash" }
+          }
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,127}$" },
+    "nullableRef": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "nullableHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] }
+  }
+}

@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, Query, State};
+use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::{json, Value};
@@ -71,6 +72,33 @@ fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+fn conversation_identity(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<super::substrate_store::RequestIdentity, AppError> {
+    super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(super::environment_routes::environment_scope_error)
+}
+
+fn authorize_conversation(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    conversation: &Value,
+) -> Result<(), AppError> {
+    let environment_id = conversation["environment_id"].as_str().ok_or_else(|| {
+        AppError(
+            axum::http::StatusCode::CONFLICT,
+            "conversation environment binding missing".into(),
+        )
+    })?;
+    super::environment_routes::authorize_environment_owner_identity(
+        data_dir,
+        identity,
+        environment_id,
+    )?;
+    Ok(())
+}
+
 fn git(ws: &str, args: &[&str]) -> String {
     std::process::Command::new("git")
         .arg("-C")
@@ -97,6 +125,7 @@ fn emit(conv: &mut Value, kind: &str, payload: Value) {
 // ---- POST /v1/hypervisor/agentops/conversations — create ----------------------------------------
 pub(crate) async fn handle_conversation_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let env_id = body
@@ -109,6 +138,7 @@ pub(crate) async fn handle_conversation_create(
             json!({ "ok": false, "reason": "environment_id required" }),
         ));
     }
+    super::environment_routes::authorize_environment_owner(&st.data_dir, &headers, &env_id)?;
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
@@ -258,14 +288,17 @@ fn apply_turn(conv: &mut Value, ws: &str, plan: &TurnPlan) {
 // ---- POST /v1/hypervisor/agentops/conversations/:id/send ----------------------------------------
 pub(crate) async fn handle_conversation_send(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    let identity = conversation_identity(&st.data_dir, &headers)?;
     let Some(mut conv) = load_conv(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "conversation not found" }),
         ));
     };
+    authorize_conversation(&st.data_dir, &identity, &conv)?;
     if conv["status"].as_str() == Some("waiting") {
         return Ok(Json(
             json!({ "ok": false, "reason": "conversation is waiting on an interest; resolve it via /provide", "waiting_interest": conv["waiting_interest"] }),
@@ -340,14 +373,17 @@ pub(crate) async fn handle_conversation_send(
 // ---- POST /v1/hypervisor/agentops/conversations/:id/provide — resolve a waiting interest ---------
 pub(crate) async fn handle_conversation_provide(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    let identity = conversation_identity(&st.data_dir, &headers)?;
     let Some(mut conv) = load_conv(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "conversation not found" }),
         ));
     };
+    authorize_conversation(&st.data_dir, &identity, &conv)?;
     if conv["status"].as_str() != Some("waiting") {
         return Ok(Json(
             json!({ "ok": false, "reason": "conversation is not waiting" }),
@@ -447,13 +483,16 @@ pub(crate) async fn handle_conversation_provide(
 // ---- POST /v1/hypervisor/agentops/conversations/:id/interrupt -----------------------------------
 pub(crate) async fn handle_conversation_interrupt(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
+    let identity = conversation_identity(&st.data_dir, &headers)?;
     let Some(mut conv) = load_conv(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "conversation not found" }),
         ));
     };
+    authorize_conversation(&st.data_dir, &identity, &conv)?;
     let prior = conv["status"].clone();
     emit(
         &mut conv,
@@ -472,18 +511,31 @@ pub(crate) async fn handle_conversation_interrupt(
 // ---- GET /v1/hypervisor/agentops/conversations/:id — history ------------------------------------
 pub(crate) async fn handle_conversation_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
+    let identity = conversation_identity(&st.data_dir, &headers)?;
     let Some(conv) = load_conv(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "conversation not found" }),
         ));
     };
+    authorize_conversation(&st.data_dir, &identity, &conv)?;
     Ok(Json(json!({ "ok": true, "conversation": conv })))
 }
 
 // ---- GET /v1/hypervisor/agentops/conversations — list -------------------------------------------
-pub(crate) async fn handle_conversation_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_conversation_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    let identity = conversation_identity(&st.data_dir, &headers)?;
+    let owned = super::substrate_store::authorized_request_resource_refs(
+        &st.data_dir,
+        &identity,
+        super::environment_routes::ENVIRONMENT_SCOPE_KIND,
+    )
+    .map_err(super::environment_routes::environment_scope_error)?;
     let mut convs = Vec::new();
     if let Ok(rd) = std::fs::read_dir(conv_dir(&st.data_dir)) {
         for e in rd.flatten() {
@@ -491,22 +543,30 @@ pub(crate) async fn handle_conversation_list(State(st): State<Arc<DaemonState>>)
                 .map_err(|_| ())
                 .and_then(|b| serde_json::from_slice::<Value>(&b).map_err(|_| ()))
             {
-                convs.push(json!({ "conversation_id": v["conversation_id"], "environment_id": v["environment_id"], "title": v["title"], "status": v["status"], "turn_count": v["turn_count"] }));
+                if v["environment_id"]
+                    .as_str()
+                    .is_some_and(|environment_id| owned.contains(environment_id))
+                {
+                    convs.push(json!({ "conversation_id": v["conversation_id"], "environment_id": v["environment_id"], "title": v["title"], "status": v["status"], "turn_count": v["turn_count"] }));
+                }
             }
         }
     }
-    Json(json!({ "ok": true, "conversations": convs }))
+    Ok(Json(json!({ "ok": true, "conversations": convs })))
 }
 
 // ---- GET /v1/hypervisor/agentops/conversations/:id/events?since=N — SSE replay -------------------
 pub(crate) async fn handle_conversation_events(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Query(q): Query<std::collections::HashMap<String, String>>,
-) -> Response {
+) -> Result<Response, AppError> {
+    let identity = conversation_identity(&st.data_dir, &headers)?;
     let Some(conv) = load_conv(&st.data_dir, &id) else {
-        return (axum::http::StatusCode::NOT_FOUND, "conversation not found").into_response();
+        return Ok((axum::http::StatusCode::NOT_FOUND, "conversation not found").into_response());
     };
+    authorize_conversation(&st.data_dir, &identity, &conv)?;
     let since: u64 = q.get("since").and_then(|s| s.parse().ok()).unwrap_or(0);
     let mut out = String::new();
     for b in conv["blocks"].as_array().cloned().unwrap_or_default() {
@@ -518,9 +578,9 @@ pub(crate) async fn handle_conversation_events(
         "event: agentops.cursor\ndata: {{\"cursor\":{}}}\n\n",
         conv["cursor"].as_u64().unwrap_or(0)
     ));
-    (
+    Ok((
         [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
         out,
     )
-        .into_response()
+        .into_response())
 }

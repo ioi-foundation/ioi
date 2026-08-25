@@ -28,21 +28,11 @@ use super::{
 
 const ENV_SCHEMA: &str = "ioi.hypervisor.environment.v1";
 const PROVIDER: &str = "local_workspace_provider_v0";
+pub(crate) const ENVIRONMENT_SCOPE_KIND: &str = "hypervisor-environment";
 
-/// The substrate scope kinds this plane's custody lane owns.
-///
-/// `org://local` is the ONLY constructible organization and EVERY principal holds it, so a check of
-/// the form "is the caller in the owner tenant" isolates nothing. Ownership here is per-PRINCIPAL,
-/// read from the substrate's own immutable scope pin, exactly as the managed-runtime custody surface
-/// resolves its backups.
-///
-/// THERE IS DELIBERATELY NO `hypervisor-environment` SCOPE KIND. An environment has no owner in this
-/// estate, and next-legs XIII proved by construction that it cannot acquire one here: the routes
-/// that materialize and write a workspace resolve no caller and never refuse, so any pin minted
-/// beside them is claimable by whoever reaches an unauthenticated route first. Four designs were
-/// demonstrated broken — pinning at create, at first reference, at workspace materialization, and
-/// gating adoption on a field an anonymous route nulls. The environment ownership model stays FILED
-/// OPEN; this lane owns the CAPTURE.
+/// Captures remain independently owner-scoped because they are separately addressable retention
+/// subjects. Environment ownership itself is the immutable `hypervisor-environment` substrate pin;
+/// record fields never confer authority.
 const CAPTURE_SCOPE_KIND: &str = "hypervisor-environment-capture";
 /// The owner-scoped stream namespace for one capture's LOCAL custody lifecycle.
 const CUSTODY_NAMESPACE: &str = "hypervisor-environment-custody";
@@ -193,12 +183,213 @@ fn safe_id(id: &str) -> String {
     )
 }
 
-fn gen_env_id() -> String {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    format!("env_{nanos:x}")
+fn canonical_environment_id(id: &str) -> Result<&str, AppError> {
+    if !super::durable_fs::is_normalization_safe(id) || safe_id(id) != id {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "environment_id_not_canonical".into(),
+        ));
+    }
+    Ok(id)
+}
+
+pub(crate) fn environment_scope_error(
+    error: super::substrate_store::RequestScopeRefusal,
+) -> AppError {
+    let status = match error {
+        super::substrate_store::RequestScopeRefusal::AuthenticationRequired
+        | super::substrate_store::RequestScopeRefusal::PrincipalIdentityInvalid => {
+            StatusCode::UNAUTHORIZED
+        }
+        super::substrate_store::RequestScopeRefusal::SubstrateUnavailable(_) => {
+            StatusCode::SERVICE_UNAVAILABLE
+        }
+        _ => StatusCode::FORBIDDEN,
+    };
+    AppError(status, error.code().into())
+}
+
+fn environment_owner_tenant(
+    identity: &super::substrate_store::RequestIdentity,
+) -> Result<String, AppError> {
+    let mut organizations = identity
+        .tenant_refs
+        .iter()
+        .filter(|tenant_ref| tenant_ref.starts_with("org://"));
+    let (Some(owner_ref), None) = (organizations.next(), organizations.next()) else {
+        return Err(AppError(
+            StatusCode::FORBIDDEN,
+            "environment_owner_tenant_unresolved".into(),
+        ));
+    };
+    Ok(owner_ref.clone())
+}
+
+pub(crate) fn authorize_environment_owner(
+    data_dir: &str,
+    headers: &HeaderMap,
+    environment_id: &str,
+) -> Result<super::substrate_store::RequestIdentity, AppError> {
+    let id = canonical_environment_id(environment_id)?;
+    let identity = super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(environment_scope_error)?;
+    authorize_environment_owner_identity(data_dir, &identity, id)?;
+    Ok(identity)
+}
+
+fn resolve_environment_request_identity(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<super::substrate_store::RequestIdentity, AppError> {
+    match super::substrate_store::resolve_request_identity(&st.data_dir, headers) {
+        Ok(identity) => Ok(identity),
+        Err(original) if super::orchestration_routes::internal_dispatch_authorized(st, headers) => {
+            let principal_ref = headers
+                .get("x-ioi-internal-principal-ref")
+                .and_then(|value| value.to_str().ok())
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    AppError(
+                        StatusCode::UNAUTHORIZED,
+                        "internal_environment_principal_required".into(),
+                    )
+                })?;
+            let owner_ref = headers
+                .get("x-ioi-internal-owner-ref")
+                .and_then(|value| value.to_str().ok())
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    AppError(
+                        StatusCode::UNAUTHORIZED,
+                        "internal_environment_owner_required".into(),
+                    )
+                })?;
+            super::substrate_store::resolve_workload_broker_identity(
+                &st.data_dir,
+                principal_ref,
+                owner_ref,
+                "internal-environment-dispatch",
+            )
+            .map_err(environment_scope_error)
+        }
+        Err(original) => Err(environment_scope_error(original)),
+    }
+}
+
+fn authorize_environment_owner_request(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    environment_id: &str,
+) -> Result<super::substrate_store::RequestIdentity, AppError> {
+    let identity = resolve_environment_request_identity(st, headers)?;
+    authorize_environment_owner_identity(&st.data_dir, &identity, environment_id)?;
+    Ok(identity)
+}
+
+pub(crate) fn authorize_environment_owner_identity(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    environment_id: &str,
+) -> Result<super::substrate_store::RequestResourceScope, AppError> {
+    let id = canonical_environment_id(environment_id)?;
+    super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        ENVIRONMENT_SCOPE_KIND,
+        id,
+        None,
+    )
+    .map_err(environment_scope_error)
+}
+
+fn commit_environment_disposal_receipt(
+    data_dir: &str,
+    environment_id: &str,
+    scope_state: &str,
+    actor_ref: &str,
+) -> Result<(), AppError> {
+    let receipt_id = super::lifecycle_routes::gen_opaque("environment-disposal");
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.environment-disposal-receipt.v1",
+        "receipt_id": receipt_id,
+        "environment_id": environment_id,
+        "environment_scope_state": scope_state,
+        "authorized_by_principal_ref": actor_ref,
+        "authorized_at": iso_now(),
+        "authority": "organization_administrator_disposal_only"
+    });
+    super::durable_fs::persist_record_durable(
+        data_dir,
+        "environment-disposal-receipts",
+        &receipt_id,
+        &receipt,
+    )
+    .map_err(|error| {
+        AppError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!("environment_disposal_receipt_not_committed:{error:?}"),
+        )
+    })
+}
+
+fn authorize_environment_disposal(
+    data_dir: &str,
+    headers: &HeaderMap,
+    environment_id: &str,
+) -> Result<super::substrate_store::RequestIdentity, AppError> {
+    let id = canonical_environment_id(environment_id)?;
+    let identity = super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(environment_scope_error)?;
+    let scope = super::substrate_store::read_request_scope(data_dir, ENVIRONMENT_SCOPE_KIND, id)
+        .map_err(environment_scope_error)?;
+    match scope.as_ref() {
+        Some(scope) if scope.principal_ref == identity.principal_ref => {
+            super::substrate_store::authorize_request_resource_scope(
+                data_dir,
+                &identity,
+                ENVIRONMENT_SCOPE_KIND,
+                id,
+                None,
+            )
+            .map_err(environment_scope_error)?;
+            Ok(identity)
+        }
+        Some(_) | None => {
+            let actor = super::lifecycle_routes::require_authenticated_org_admin(data_dir, headers)
+                .map_err(|(status, _)| {
+                    AppError(
+                        status,
+                        if scope.is_none() {
+                            "environment_unadopted"
+                        } else {
+                            "environment_disposal_admin_required"
+                        }
+                        .into(),
+                    )
+                })?;
+            let actor_ref = actor
+                .get("principal_ref")
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    AppError(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "environment_disposal_actor_unresolved".into(),
+                    )
+                })?;
+            commit_environment_disposal_receipt(
+                data_dir,
+                id,
+                if scope.is_some() {
+                    "owned"
+                } else {
+                    "legacy_unadopted"
+                },
+                actor_ref,
+            )?;
+            Ok(identity)
+        }
+    }
 }
 
 fn bwrap_available() -> bool {
@@ -209,13 +400,48 @@ fn bwrap_available() -> bool {
         .unwrap_or(false)
 }
 
-fn load_env(data_dir: &str, id: &str) -> Option<Value> {
+pub(crate) fn load_env(data_dir: &str, id: &str) -> Option<Value> {
     let path = std::path::Path::new(data_dir)
         .join("environments")
         .join(format!("{}.json", safe_id(id)));
     std::fs::read(path)
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
+}
+
+/// Strict environment projection load for command admission. True absence is distinct from an
+/// unreadable, malformed, symlinked, or non-regular record because treating indeterminacy as
+/// absence could silently discard environment-local denials.
+pub(crate) fn load_env_guardrail_context(
+    data_dir: &str,
+    id: &str,
+) -> Result<Option<Value>, String> {
+    let path = std::path::Path::new(data_dir)
+        .join("environments")
+        .join(format!("{}.json", safe_id(id)));
+    let metadata = match std::fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "environment record metadata is unreadable: {error}"
+            ))
+        }
+    };
+    if metadata.file_type().is_symlink() {
+        return Err("environment record is a symlink".to_string());
+    }
+    if !metadata.is_file() {
+        return Err("environment record is not a regular file".to_string());
+    }
+    let bytes = std::fs::read(&path)
+        .map_err(|error| format!("environment record is unreadable: {error}"))?;
+    let value: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("environment record is malformed: {error}"))?;
+    if !value.is_object() {
+        return Err("environment record is not a JSON object".to_string());
+    }
+    Ok(Some(value))
 }
 
 fn persist_env(data_dir: &str, env: &Value) -> Result<(), AppError> {
@@ -444,7 +670,14 @@ fn scaffold_devcontainer(ws: &str) -> bool {
 
 /// Run one resolved task as a REAL bounded process in the workspace; return a typed
 /// `HypervisorEnvironmentTask` record with phase/exit_code/log_ref.
-fn run_task(ws: &str, log_dir: &std::path::Path, task: &Value) -> Value {
+fn run_task(
+    data_dir: &str,
+    env_id: &str,
+    env: &Value,
+    ws: &str,
+    log_dir: &std::path::Path,
+    task: &Value,
+) -> Value {
     let name = task.get("name").and_then(|v| v.as_str()).unwrap_or("task");
     let command = task.get("command").and_then(|v| v.as_str()).unwrap_or("");
     let trigger = task
@@ -461,6 +694,19 @@ fn run_task(ws: &str, log_dir: &std::path::Path, task: &Value) -> Value {
     if command.is_empty() {
         return json!({ "task_ref": task_ref, "name": name, "trigger": trigger, "lifecycle": lifecycle,
             "phase": "succeeded", "exit_code": 0, "started_at": started_at, "ended_at": iso_now(), "log_ref": Value::Null });
+    }
+    if let Some(mut refusal) =
+        super::operability_routes::guardrail_refusal_response(data_dir, env, env_id, command)
+    {
+        refusal["task_ref"] = json!(task_ref);
+        refusal["name"] = json!(name);
+        refusal["trigger"] = json!(trigger);
+        refusal["lifecycle"] = json!(lifecycle);
+        refusal["phase"] = json!("failed");
+        refusal["started_at"] = json!(started_at);
+        refusal["ended_at"] = json!(iso_now());
+        refusal["log_ref"] = Value::Null;
+        return refusal;
     }
     let out = std::process::Command::new("timeout")
         .arg("120")
@@ -501,7 +747,13 @@ fn run_task(ws: &str, log_dir: &std::path::Path, task: &Value) -> Value {
 }
 
 /// Run a resolution's tasks (prebuild → environment_start order) as real processes.
-fn run_resolved_tasks(data_dir: &str, env_id: &str, ws: &str, resolution: &Value) -> Vec<Value> {
+fn run_resolved_tasks(
+    data_dir: &str,
+    env_id: &str,
+    env: &Value,
+    ws: &str,
+    resolution: &Value,
+) -> Vec<Value> {
     let log_dir = std::path::Path::new(data_dir)
         .join("environments")
         .join(safe_id(env_id))
@@ -511,7 +763,7 @@ fn run_resolved_tasks(data_dir: &str, env_id: &str, ws: &str, resolution: &Value
     for key in ["resolved_prebuild_tasks", "resolved_tasks"] {
         if let Some(arr) = resolution.get(key).and_then(|v| v.as_array()) {
             for t in arr {
-                results.push(run_task(ws, &log_dir, t));
+                results.push(run_task(data_dir, env_id, env, ws, &log_dir, t));
             }
         }
     }
@@ -520,7 +772,7 @@ fn run_resolved_tasks(data_dir: &str, env_id: &str, ws: &str, resolution: &Value
 
 /// Typed `HypervisorEnvironmentService`: required services must pass a healthcheck to be
 /// `running` (health-checks gate readiness); optional services without one are declared running.
-fn typed_service(ws: &str, svc: &Value) -> Value {
+fn typed_service(data_dir: &str, env_id: &str, env: &Value, ws: &str, svc: &Value) -> Value {
     let name = svc
         .get("name")
         .and_then(|v| v.as_str())
@@ -531,6 +783,21 @@ fn typed_service(ws: &str, svc: &Value) -> Value {
         .unwrap_or("optional");
     let healthcheck = svc.get("healthcheck").and_then(|v| v.as_str());
     let service_ref = format!("svc_{}", safe_id(name));
+    if let Some(hc) = healthcheck.filter(|command| !command.is_empty()) {
+        if let Some(mut refusal) =
+            super::operability_routes::guardrail_refusal_response(data_dir, env, env_id, hc)
+        {
+            refusal["service_ref"] = json!(service_ref);
+            refusal["name"] = json!(name);
+            refusal["lifecycle"] = json!(lifecycle);
+            refusal["healthcheck"] = json!(hc);
+            refusal["phase"] = json!("degraded");
+            refusal["restart_policy"] = json!("on_failure");
+            refusal["port_refs"] = svc.get("port_refs").cloned().unwrap_or_else(|| json!([]));
+            refusal["log_ref"] = Value::Null;
+            return refusal;
+        }
+    }
     let phase = match healthcheck {
         Some(hc) if !hc.is_empty() => {
             let healthy = std::process::Command::new("timeout")
@@ -581,7 +848,9 @@ fn typed_port(p: &Value) -> Value {
 
 // ---- WS-10: resource isolation + connectivity profiles (cgroups/netns; port-conflict detect) ----
 
-/// Host ports already bound by OTHER running envs (for conflict detection — not silent drop).
+/// Host targets already admitted to OTHER running environments (for conflict detection — not
+/// silent drop). A recipe normally uses the declared port directly; provider adapters may retain
+/// an explicit host_port mapping in the typed status row.
 fn host_ports_in_use(data_dir: &str, exclude_env: &str) -> std::collections::HashSet<u64> {
     let mut set = std::collections::HashSet::new();
     for env in read_record_dir(data_dir, "environments") {
@@ -592,10 +861,7 @@ fn host_ports_in_use(data_dir: &str, exclude_env: &str) -> std::collections::Has
             continue;
         }
         if let Some(ports) = env["status"]["ports"].as_array() {
-            for hp in ports
-                .iter()
-                .filter_map(|p| p.get("host_port").and_then(|v| v.as_u64()))
-            {
+            for hp in ports.iter().filter_map(environment_port_record_target) {
                 set.insert(hp);
             }
         }
@@ -609,15 +875,172 @@ fn typed_port_checked(p: &Value, in_use: &std::collections::HashSet<u64>) -> (Va
     let mut port = typed_port(p);
     if let Some(hp) = p.get("host_port").and_then(|v| v.as_u64()) {
         port["host_port"] = json!(hp);
-        if in_use.contains(&hp) {
+    }
+    if let Some(target) = environment_port_record_target(&port) {
+        if in_use.contains(&target) {
             port["exposure_state"] = json!("conflict");
             port["conflict_reason"] = json!(format!(
-                "host_port {hp} already bound by another running env"
+                "host target {target} already admitted to another running env"
             ));
             return (port, true);
         }
     }
     (port, false)
+}
+
+/// Resolve the provider target from a typed environment-port row. The request path is only the
+/// logical port selector; it is never itself authority to choose a host socket.
+fn environment_port_record_target(port: &Value) -> Option<u64> {
+    if port
+        .get("protocol")
+        .and_then(Value::as_str)
+        .unwrap_or("tcp")
+        != "tcp"
+    {
+        return None;
+    }
+    port.get("host_port")
+        .and_then(Value::as_u64)
+        .or_else(|| port.get("port").and_then(Value::as_u64))
+        .filter(|target| (1..=65535).contains(target))
+}
+
+/// Fence preview forwarding to an already-admitted port row owned by this environment, and refuse
+/// any host target that another non-deleted environment also claims. This is deliberately checked
+/// immediately before lease minting: a caller-controlled `:port` can select a row, never nominate
+/// an arbitrary loopback consumer.
+fn admitted_environment_port_target(
+    data_dir: &str,
+    environment_id: &str,
+    environment: &Value,
+    requested_port: u64,
+) -> Result<u16, &'static str> {
+    let Some(port_record) = environment["status"]["ports"].as_array().and_then(|ports| {
+        ports
+            .iter()
+            .find(|entry| entry.get("port").and_then(Value::as_u64) == Some(requested_port))
+    }) else {
+        return Err("environment_port_not_admitted");
+    };
+    if port_record.get("exposure_state").and_then(Value::as_str) == Some("conflict") {
+        return Err("environment_port_target_conflict");
+    }
+    let Some(target) = environment_port_record_target(port_record) else {
+        return Err("environment_port_target_not_tcp");
+    };
+    let claimed_by_other = read_record_dir(data_dir, "environments")
+        .into_iter()
+        .filter(|other| other["id"].as_str() != Some(environment_id))
+        .filter(|other| other["status"]["deleted"].as_bool() != Some(true))
+        .any(|other| {
+            other["status"]["ports"].as_array().is_some_and(|ports| {
+                ports
+                    .iter()
+                    .any(|entry| environment_port_record_target(entry) == Some(target))
+            })
+        });
+    if claimed_by_other {
+        return Err("environment_port_target_owned_by_another_environment");
+    }
+    u16::try_from(target).map_err(|_| "environment_port_target_invalid")
+}
+
+#[cfg(test)]
+mod port_preview_fence_tests {
+    use super::*;
+
+    fn env(id: &str, ports: Value) -> Value {
+        json!({
+            "id": id,
+            "status": { "phase": "running", "ports": ports }
+        })
+    }
+
+    #[test]
+    fn request_path_can_only_select_an_admitted_tcp_port() {
+        let data = tempfile::tempdir().unwrap();
+        let own = env(
+            "env_owner",
+            json!([{ "port": 41001, "protocol": "tcp", "access_policy": "session_lease" }]),
+        );
+        assert_eq!(
+            admitted_environment_port_target(
+                data.path().to_str().unwrap(),
+                "env_owner",
+                &own,
+                41001,
+            ),
+            Ok(41001)
+        );
+        assert_eq!(
+            admitted_environment_port_target(
+                data.path().to_str().unwrap(),
+                "env_owner",
+                &own,
+                41002,
+            ),
+            Err("environment_port_not_admitted")
+        );
+    }
+
+    #[test]
+    fn admitted_row_cannot_forward_to_another_environments_host_target() {
+        let data = tempfile::tempdir().unwrap();
+        let own = env(
+            "env_owner",
+            json!([{
+                "port": 41001,
+                "host_port": 42001,
+                "protocol": "tcp",
+                "access_policy": "session_lease"
+            }]),
+        );
+        let other = env(
+            "env_other",
+            json!([{ "port": 42001, "protocol": "tcp", "access_policy": "private" }]),
+        );
+        persist_record(
+            data.path().to_str().unwrap(),
+            "environments",
+            "env_other",
+            &other,
+        )
+        .unwrap();
+        assert_eq!(
+            admitted_environment_port_target(
+                data.path().to_str().unwrap(),
+                "env_owner",
+                &own,
+                41001,
+            ),
+            Err("environment_port_target_owned_by_another_environment")
+        );
+    }
+
+    #[test]
+    fn conflicted_or_non_tcp_rows_fail_closed() {
+        let data = tempfile::tempdir().unwrap();
+        for (record, expected) in [
+            (
+                json!([{ "port": 41001, "protocol": "tcp", "exposure_state": "conflict" }]),
+                "environment_port_target_conflict",
+            ),
+            (
+                json!([{ "port": 41001, "protocol": "udp", "exposure_state": "closed" }]),
+                "environment_port_target_not_tcp",
+            ),
+        ] {
+            assert_eq!(
+                admitted_environment_port_target(
+                    data.path().to_str().unwrap(),
+                    "env_owner",
+                    &env("env_owner", record),
+                    41001,
+                ),
+                Err(expected)
+            );
+        }
+    }
 }
 
 // ---- Cut C: port preview — lease-bound expose / observe / revoke via the env gateway ----------
@@ -737,8 +1160,10 @@ fn port_listening(port: u64) -> bool {
 /// GET /v1/hypervisor/environments/:id/ports — observe the env's ports with live TCP liveness.
 pub(crate) async fn handle_env_ports(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
+    authorize_environment_owner(&st.data_dir, &headers, &id)?;
     let Some(env) = load_env(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "environment not found" }),
@@ -750,8 +1175,8 @@ pub(crate) async fn handle_env_ports(
         .unwrap_or_default()
         .into_iter()
         .map(|mut p| {
-            let port = p.get("port").and_then(|v| v.as_u64()).unwrap_or(0);
-            p["listening"] = json!(port_listening(port));
+            let target = environment_port_record_target(&p).unwrap_or(0);
+            p["listening"] = json!(port_listening(target));
             p
         })
         .collect();
@@ -769,32 +1194,7 @@ pub(crate) async fn handle_env_port_expose(
     AxumPath((id, port)): AxumPath<(String, u64)>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, AppError> {
-    // POSTURE-RESOLVED CALLER, never the anonymous default, AND THE RESOLVED SUBJECT IS WHAT THE
-    // LEASE CARRIES. This route took no headers and minted an `environment.port` lease with the
-    // literal subject `"operator"` for anyone; Leg 4 proved that an anonymously-minted port lease
-    // drove WriteFile/Exec through `/supervisor/` (the env-ops seam now checks the lease ACTION,
-    // which stops a port lease reaching env-ops — but the mint itself must still resolve a caller so
-    // an exposed/managed surface cannot forge a port lease, and the grant must record WHO minted it
-    // so its own minter can revoke it). Exposed ⇒ 403, managed ⇒ real principal or 401, loopback ⇒
-    // operator. Owner-binding (does this caller own THIS environment) is the 1a residual — resolved
-    // here is the CALLER, not the owner.
-    let subject = match super::authority_routes::resolve_authority_subject(
-        &st.data_dir,
-        &headers,
-        "environment_port_expose_auth_required",
-        "environment_port_expose_exposed",
-    ) {
-        Ok(subject) => subject,
-        Err((code, body)) => {
-            let msg = body
-                .get("error")
-                .and_then(|e| e.get("message"))
-                .and_then(|m| m.as_str())
-                .unwrap_or("authority resolution refused")
-                .to_string();
-            return Err(AppError(code, msg));
-        }
-    };
+    let identity = authorize_environment_owner(&st.data_dir, &headers, &id)?;
     let Some(mut env) = load_env(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "environment not found" }),
@@ -812,13 +1212,22 @@ pub(crate) async fn handle_env_port_expose(
             "fail_closed": true }),
         ));
     }
-    if port == 0 || port > 65535 {
-        return Ok(Json(json!({ "ok": false, "reason": "invalid port" })));
-    }
-    let listening = port_listening(port);
+    let target_port = match admitted_environment_port_target(&st.data_dir, &id, &env, port) {
+        Ok(target) => target,
+        Err(reason) => {
+            return Ok(Json(json!({
+                "ok": false,
+                "reason": reason,
+                "fail_closed": true,
+                "environment_id": id,
+                "port": port
+            })))
+        }
+    };
+    let listening = port_listening(u64::from(target_port));
     let lease = super::authority_routes::issue_capability_lease(
         &st.data_dir,
-        &subject,
+        &identity.principal_ref,
         "environment.port",
         json!([format!("environment:{id}"), format!("port:{port}")]),
         3600,
@@ -836,7 +1245,7 @@ pub(crate) async fn handle_env_port_expose(
     let (public_port, proxy) = match super::editor_proxy::bind_editor_proxy(
         &st.data_dir,
         &service_key,
-        port as u16,
+        target_port,
         &lease_id,
     )
     .await
@@ -889,8 +1298,10 @@ pub(crate) async fn handle_env_port_expose(
 /// the gateway. The preview URL then fails closed.
 pub(crate) async fn handle_env_port_unexpose(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((id, port)): AxumPath<(String, u64)>,
 ) -> Result<Json<Value>, AppError> {
+    authorize_environment_owner(&st.data_dir, &headers, &id)?;
     let Some(mut env) = load_env(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "environment not found" }),
@@ -986,20 +1397,28 @@ fn list_workspace_files(ws: &str) -> Vec<String> {
 /// the env-ops Watch streams from. The transport polls this and diffs it into Watch events.
 pub(crate) async fn handle_env_watch_state(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> Result<Json<Value>, AppError> {
+    authorize_environment_owner(&st.data_dir, &headers, &id)?;
     let Some(env) = load_env(&st.data_dir, &id) else {
-        return Json(json!({ "ok": false, "reason": "environment not found" }));
+        return Ok(Json(
+            json!({ "ok": false, "reason": "environment not found" }),
+        ));
     };
     let Some(ws) = env["status"]["workspace_root"]
         .as_str()
         .filter(|s| !s.is_empty())
         .map(str::to_string)
     else {
-        return Json(json!({ "ok": false, "reason": "workspace not started" }));
+        return Ok(Json(
+            json!({ "ok": false, "reason": "workspace not started" }),
+        ));
     };
     let porcelain = run_git(&ws, &["status", "--porcelain", "-uall"]).unwrap_or_default();
-    Json(json!({ "ok": true, "porcelain": porcelain, "files": list_workspace_files(&ws) }))
+    Ok(Json(
+        json!({ "ok": true, "porcelain": porcelain, "files": list_workspace_files(&ws) }),
+    ))
 }
 
 // ---- Pull-request draft (daemon-owned governed proposal — aligns with automation-proposal.v1) ----
@@ -1014,35 +1433,13 @@ pub(crate) async fn handle_env_pr_draft(
     AxumPath(id): AxumPath<String>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, AppError> {
-    let identity = super::scm_publication_routes::request_identity(&st.data_dir, &headers)
-        .map_err(|(status, Json(body))| {
-            AppError(
-                status,
-                body.get("message")
-                    .or_else(|| body.get("reason"))
-                    .and_then(Value::as_str)
-                    .unwrap_or("publication identity refused")
-                    .to_owned(),
-            )
-        })?;
+    let identity = authorize_environment_owner(&st.data_dir, &headers, &id)?;
     let Some(env) = load_env(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "environment not found" }),
         ));
     };
-    let publication_owner_ref = super::scm_publication_routes::publication_owner_for_environment(
-        &identity, &env,
-    )
-    .map_err(|(status, Json(body))| {
-        AppError(
-            status,
-            body.get("message")
-                .or_else(|| body.get("reason"))
-                .and_then(Value::as_str)
-                .unwrap_or("environment publication ownership refused")
-                .to_owned(),
-        )
-    })?;
+    let publication_owner_ref = identity.principal_ref.clone();
     let Some(ws) = env["status"]["workspace_root"]
         .as_str()
         .filter(|s| !s.is_empty())
@@ -1549,6 +1946,9 @@ fn provision_microvm(
     // SUN_LEN-safe vsock socket path (the data dir can be arbitrarily deep; the socket cannot).
     spec.sock_path =
         microvm::short_sock_path(env_id).map_err(|e| app(format!("vm socket: {e}")))?;
+    let enforcement = spec
+        .enforcement_declaration(monitor_id)
+        .map_err(|e| app(format!("microvm enforcement: {e}")))?;
     let monitor = microvm::make_monitor(monitor_kind);
     let mut vm = monitor
         .start(&spec)
@@ -1581,7 +1981,13 @@ fn provision_microvm(
     env["status"]["isolation_claim"] = json!("selected_microvm_preview");
     env["status"]["minimum_isolation"] = json!("vm_kernel");
     env["status"]["trust_posture"] = json!("selected_profile_only");
-    env["status"]["vm"] = json!({ "monitor": monitor_id, "selection_reason": reason, "pid": vm.pid, "guest_agent_proto": proto });
+    env["status"]["vm"] = json!({
+        "monitor": monitor_id,
+        "selection_reason": reason,
+        "pid": vm.pid,
+        "guest_agent_proto": proto,
+        "enforcement_declaration": enforcement
+    });
     st.live_vms.lock().unwrap().insert(env_id.to_string(), vm);
     Ok(())
 }
@@ -1591,6 +1997,7 @@ fn provision_microvm(
 fn run_tasks_in_guest(
     st: &DaemonState,
     env_id: &str,
+    env: &Value,
     resolution: &Value,
 ) -> Result<Vec<Value>, AppError> {
     use super::microvm;
@@ -1613,6 +2020,27 @@ fn run_tasks_in_guest(
                     .unwrap_or("environment_start");
                 let required = t.get("required").and_then(|v| v.as_bool()).unwrap_or(false);
                 let started_at = iso_now();
+                if !command.is_empty() {
+                    if let Some(mut refusal) = super::operability_routes::guardrail_refusal_response(
+                        &st.data_dir,
+                        env,
+                        env_id,
+                        command,
+                    ) {
+                        refusal["task_ref"] = json!(format!("task_{}", safe_id(name)));
+                        refusal["name"] = json!(name);
+                        refusal["trigger"] = json!(trigger);
+                        refusal["lifecycle"] =
+                            json!(if required { "required" } else { "optional" });
+                        refusal["phase"] = json!("failed");
+                        refusal["started_at"] = json!(started_at);
+                        refusal["ended_at"] = json!(iso_now());
+                        refusal["executed_in"] = json!("none");
+                        refusal["log_ref"] = Value::Null;
+                        results.push(refusal);
+                        continue;
+                    }
+                }
                 let (phase, code) = if command.is_empty() {
                     ("succeeded", 0)
                 } else {
@@ -2297,9 +2725,27 @@ pub(crate) async fn handle_environment_classes(State(st): State<Arc<DaemonState>
     )
 }
 
-/// GET /v1/hypervisor/environments
-pub(crate) async fn handle_environments_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "environments": read_record_dir(&st.data_dir, "environments") }))
+/// GET /v1/hypervisor/environments — only the caller's scope-pinned environments.
+pub(crate) async fn handle_environments_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    let identity = resolve_environment_request_identity(&st, &headers)?;
+    let owned = super::substrate_store::authorized_request_resource_refs(
+        &st.data_dir,
+        &identity,
+        ENVIRONMENT_SCOPE_KIND,
+    )
+    .map_err(environment_scope_error)?;
+    let environments = read_record_dir(&st.data_dir, "environments")
+        .into_iter()
+        .filter(|environment| {
+            environment["id"]
+                .as_str()
+                .is_some_and(|id| owned.contains(id))
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(json!({ "environments": environments })))
 }
 
 /// GET /v1/hypervisor/environments-summary — a READ PROJECTION over the env records: global counts
@@ -2308,12 +2754,25 @@ pub(crate) async fn handle_environments_list(State(st): State<Arc<DaemonState>>)
 /// Params: limit, offset, phase=running|stopped|deleted|live|all, project, class, include_deleted.
 pub(crate) async fn handle_environments_summary(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Query(q): Query<HashMap<String, String>>,
-) -> Json<Value> {
-    Json(environments_summary(
-        &read_record_dir(&st.data_dir, "environments"),
-        &q,
-    ))
+) -> Result<Json<Value>, AppError> {
+    let identity = resolve_environment_request_identity(&st, &headers)?;
+    let owned = super::substrate_store::authorized_request_resource_refs(
+        &st.data_dir,
+        &identity,
+        ENVIRONMENT_SCOPE_KIND,
+    )
+    .map_err(environment_scope_error)?;
+    let environments = read_record_dir(&st.data_dir, "environments")
+        .into_iter()
+        .filter(|environment| {
+            environment["id"]
+                .as_str()
+                .is_some_and(|id| owned.contains(id))
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(environments_summary(&environments, &q)))
 }
 
 /// Pure projection (unit-tested): global counts + filtered, paged slim slice over env records.
@@ -2575,19 +3034,46 @@ mod environments_summary_tests {
 /// POST /v1/hypervisor/environments — create (admit spec; phase stopped).
 pub(crate) async fn handle_environment_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let spec = body.get("spec").cloned().unwrap_or_else(|| body.clone());
-    let id = body
-        .get("environment_id")
-        .or_else(|| spec.get("environment_id"))
-        .and_then(|v| v.as_str())
-        .map(String::from)
-        .unwrap_or_else(gen_env_id);
-    // NO OWNER PIN IS MINTED HERE, OR ANYWHERE. An environment has no owner in this estate: the
-    // routes that materialize and write its workspace resolve no caller, so any pin bound here would
-    // be claimable by whoever reaches an unauthenticated route first. The environment ownership
-    // model is FILED OPEN; this lane owns the CAPTURE instead.
+    if body.get("environment_id").is_some() || spec.get("environment_id").is_some() {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "environment_id_server_minted".into(),
+        ));
+    }
+    let identity = resolve_environment_request_identity(&st, &headers)?;
+    let owner_ref = environment_owner_tenant(&identity)?;
+    let mut id = None;
+    for _ in 0..16 {
+        let candidate = super::lifecycle_routes::gen_opaque("env");
+        let scope = super::substrate_store::read_request_scope(
+            &st.data_dir,
+            ENVIRONMENT_SCOPE_KIND,
+            &candidate,
+        )
+        .map_err(environment_scope_error)?;
+        if load_env(&st.data_dir, &candidate).is_none() && scope.is_none() {
+            id = Some(candidate);
+            break;
+        }
+    }
+    let id = id.ok_or_else(|| AppError(StatusCode::CONFLICT, "environment_id_collision".into()))?;
+    // The immutable substrate pin is the authority source and lands before any byte at this
+    // environment coordinate. A failed bind leaves no environment; a failed later write leaves an
+    // owner pin that can never be claimed by a different principal.
+    super::substrate_store::bind_request_resource_scope(
+        &st.data_dir,
+        &identity,
+        ENVIRONMENT_SCOPE_KIND,
+        &id,
+        &owner_ref,
+        &owner_ref,
+        &format!("environment-owner:{id}"),
+    )
+    .map_err(environment_scope_error)?;
     let mut env = new_env(&id, &spec)?;
     // WS-2: repo-detect-first — if the spec points at a repo, admit a detected recipe and bind it.
     if env["spec"]["recipe_ref"]
@@ -2636,14 +3122,17 @@ pub(crate) async fn handle_environment_create(
     Ok(Json(json!({ "environment": env })))
 }
 
-/// GET /v1/hypervisor/environments/:id — auto-vivifies a stopped env on first reference so
-/// the cockpit's GetEnvironment(sessionWorkspace) always resolves.
+/// GET /v1/hypervisor/environments/:id — an authorized read, never a creation seam.
 pub(crate) async fn handle_environment_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
+    canonical_environment_id(&id)?;
+    let identity = resolve_environment_request_identity(&st, &headers)?;
     let env = match load_env(&st.data_dir, &id) {
         Some(mut e) => {
+            authorize_environment_owner_identity(&st.data_dir, &identity, &id)?;
             // G5 — daemon-restart reconciliation: a microVM env marked `running` with a VM record
             // but no LIVE VM (e.g. after a daemon restart — live_vms is in-memory) is reconciled,
             // never left as a phantom `running` over a dead VM.
@@ -2674,21 +3163,10 @@ pub(crate) async fn handle_environment_get(
             e
         }
         None => {
-            // An empty spec declares no guardrails, so this cannot refuse; `?` keeps the one
-            // validation path rather than asserting that here.
-            let mut e = new_env(&id, &json!({}))?;
-            observe(
-                &mut e,
-                "queued",
-                "recipe",
-                "admitted",
-                "info",
-                "environment registered on first reference",
-            );
-            persist_env(&st.data_dir, &e)?;
-            // NO OWNER IS RECORDED HERE, OR ANYWHERE. An environment has no owner in this estate —
-            // see the module header for why four designs failed to give it one.
-            e
+            return Err(AppError(
+                StatusCode::NOT_FOUND,
+                "environment_not_found".into(),
+            ))
         }
     };
     Ok(Json(json!({ "environment": env })))
@@ -2697,14 +3175,20 @@ pub(crate) async fn handle_environment_get(
 /// POST /v1/hypervisor/environments/:id/:action — start|stop|archive|restore|delete.
 pub(crate) async fn handle_environment_action(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath((id, action)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    let mut env = match load_env(&st.data_dir, &id) {
-        Some(env) => env,
-        // An empty spec declares no guardrails, so this cannot refuse.
-        // No owner is recorded here either — see the module header.
-        None => new_env(&id, &json!({}))?,
-    };
+    canonical_environment_id(&id)?;
+    let identity = resolve_environment_request_identity(&st, &headers)?;
+    let mut env = load_env(&st.data_dir, &id)
+        .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment_not_found".into()))?;
+    if matches!(action.as_str(), "stop" | "archive" | "delete") {
+        if authorize_environment_owner_identity(&st.data_dir, &identity, &id).is_err() {
+            authorize_environment_disposal(&st.data_dir, &headers, &id)?;
+        }
+    } else {
+        authorize_environment_owner_identity(&st.data_dir, &identity, &id)?;
+    }
     // WS-1 migration: bring a Phase-0 (flat) env record up to the component model on touch.
     if !env["status"]["components"].is_object() {
         env["status"]["components"] = new_components();
@@ -3016,7 +3500,7 @@ pub(crate) async fn handle_environment_action(
                     "running resolved tasks",
                 );
                 let task_results = if is_microvm && microvm_ok {
-                    let r = run_tasks_in_guest(&st, &id, &resolution).unwrap_or_default();
+                    let r = run_tasks_in_guest(&st, &id, &env, &resolution).unwrap_or_default();
                     // bring the guest's results back onto the host scoped workspace.
                     let _ = export_guest_workspace(&st, &id, &ws);
                     r
@@ -3024,7 +3508,7 @@ pub(crate) async fn handle_environment_action(
                     // sandbox boot failed — do NOT fall back to the host (would defeat isolation).
                     Vec::new()
                 } else {
-                    run_resolved_tasks(&st.data_dir, &id, &ws, &resolution)
+                    run_resolved_tasks(&st.data_dir, &id, &env, &ws, &resolution)
                 };
                 let any_required_failed = task_results.iter().any(|t| {
                     t["lifecycle"].as_str() == Some("required")
@@ -3042,7 +3526,7 @@ pub(crate) async fn handle_environment_action(
                     .cloned()
                     .unwrap_or_default()
                     .iter()
-                    .map(|s| typed_service(&ws, s))
+                    .map(|s| typed_service(&st.data_dir, &id, &env, &ws, s))
                     .collect();
                 env["status"]["services"] = json!(services);
                 // WS-10 — typed ports with host-port conflict detection (surfaced, not dropped).
@@ -3197,8 +3681,8 @@ pub(crate) async fn handle_environment_action(
             );
         }
         "delete" => {
-            // CARVE-OUT: deletion of an EXISTING environment REMAINS CALLABLE under every
-            // containment in this cut. It never refuses. It returns an exact
+            // The owner is never refused; the deployment administrator may dispose but cannot
+            // read or write an owned workspace. It returns an exact
             // `succeeded | failed | unknown` outcome and opens a durable cleanup obligation
             // whenever the outcome is not `succeeded`, so an operator is never stranded with a
             // resource they cannot delete — and never told a resource is gone when it may not be.
@@ -3335,12 +3819,14 @@ fn admit_workrun_isolation_contract(
 /// `{ "environment_id": "...", "objective"?: "..." }`.
 pub(crate) async fn handle_workrun_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let env_id = body
         .get("environment_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+    authorize_environment_owner_request(&st, &headers, env_id)?;
     let env = load_env(&st.data_dir, env_id)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
     if env["status"]["substrate"].as_str() == Some("microvm")
@@ -3457,8 +3943,10 @@ pub(crate) async fn handle_recovery_attempts_list(
 /// receipts, and `done`. The panel subscribes here instead of polling the env JSON.
 pub(crate) async fn handle_env_events(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> impl axum::response::IntoResponse {
+) -> Result<impl axum::response::IntoResponse, AppError> {
+    authorize_environment_owner(&st.data_dir, &headers, &id)?;
     let mut sse = String::new();
     let mut frame = |ev: &str, data: &Value| {
         sse.push_str(&format!(
@@ -3491,16 +3979,31 @@ pub(crate) async fn handle_env_events(
             &json!({ "code": "not_found", "environment_id": id }),
         ),
     }
-    (
+    Ok((
         [(axum::http::header::CONTENT_TYPE, "text/event-stream")],
         sse,
-    )
+    ))
 }
 
 /// POST /v1/hypervisor/maintenance/idle-sweep — stop running envs idle beyond their stop policy
 /// (idle_timeout_secs) or past max_lifetime_secs. Each stop is graceful + receipted via a
 /// `timeout` lifecycle observation; the microVM is torn down (no orphan).
-pub(crate) async fn handle_idle_sweep(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_idle_sweep(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    let actor = super::lifecycle_routes::require_authenticated_org_admin(&st.data_dir, &headers)
+        .map_err(|(status, _)| AppError(status, "environment_disposal_admin_required".into()))?;
+    let actor_ref = actor
+        .get("principal_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "environment_disposal_actor_unresolved".into(),
+            )
+        })?;
     let now = now_secs();
     let mut stopped = Vec::new();
     for mut env in read_record_dir(&st.data_dir, "environments") {
@@ -3526,6 +4029,19 @@ pub(crate) async fn handle_idle_sweep(State(st): State<Arc<DaemonState>>) -> Jso
             None
         };
         if let Some(reason) = reason {
+            let scope_state = if super::substrate_store::read_request_scope(
+                &st.data_dir,
+                ENVIRONMENT_SCOPE_KIND,
+                &id,
+            )
+            .map_err(environment_scope_error)?
+            .is_some()
+            {
+                "owned"
+            } else {
+                "legacy_unadopted"
+            };
+            commit_environment_disposal_receipt(&st.data_dir, &id, scope_state, actor_ref)?;
             stop_environment(&st, &mut env, &id, "timeout", &reason);
             // W1.2 / MEF-GAP-008 — teardown already ran (measured, honest); record the per-env
             // outcome rather than discarding the write. A lost env record would leave the sweep
@@ -3539,7 +4055,7 @@ pub(crate) async fn handle_idle_sweep(State(st): State<Arc<DaemonState>>) -> Jso
             }
         }
     }
-    Json(json!({ "stopped": stopped, "swept_at": iso_now() }))
+    Ok(Json(json!({ "stopped": stopped, "swept_at": iso_now() })))
 }
 
 // ---- WS-8: Snapshot / Backup / Archive + restore validity ----
@@ -3567,12 +4083,11 @@ fn capture_workspace(
             e,
         )
     };
-    // THIS DOES NOT AUTHORIZE THE ENVIRONMENT, AND SAYING SO IS THE POINT. Any authenticated
-    // principal may still capture any environment's workspace — next-legs XI filed that open and it
-    // STAYS open, because closing it needs an environment ownership model and four designs in
-    // next-legs XIII demonstrated that a pin minted by a route which does not authorize is
-    // first-touch wearing a different hat. What this lane owns is the CAPTURE: whoever takes one
-    // owns it, and that is what restore, listing and the retention plane resolve through.
+    // Authorize the environment before reading its record or workspace bytes. The capture receives
+    // its own pin below because it is also an independently addressable retention subject.
+    authorize_environment_owner_identity(&st.data_dir, identity, env_id).map_err(|error| {
+        custody_bad(error.0, "environment_owner_authorization_refused", error.1)
+    })?;
     let env = load_env(&st.data_dir, env_id).ok_or_else(|| {
         custody_bad(
             StatusCode::NOT_FOUND,
@@ -3662,31 +4177,8 @@ fn public_capture(record: &Value) -> Value {
     public
 }
 
-// =================================================================================================
-// THE LEGACY CUSTODY LANE: WHAT IT OWNS, AND WHAT IT STILL DOES NOT.
-//
-// Next-legs XI closed the UNAUTHENTICATED half of this defect and filed the rest open. Next-legs
-// XIII closed the CAPTURE half and CONFIRMED XI was right about the other one.
-//
-// WHAT IS OWNED: a CAPTURE. Whoever takes one owns it, pinned per PRINCIPAL through the substrate's
-// own immutable scope — never a record's descriptive `owner_ref`, never a tenant check, because
-// `org://local` is the only constructible organization and every principal holds it. Restore
-// resolves the capture through the caller's own scope set, listing is derived from that set, and the
-// retention plane resolves its subject the same way.
-//
-// WHAT IS NOT OWNED: THE ENVIRONMENT. It has no owner, and this module mints no environment pin at
-// all. Four designs were demonstrated broken trying to give it one — pinning at create, at first
-// reference, at workspace materialization, and gating adoption on a field an anonymous route nulls.
-// The root cause is structural: `provision_local_workspace` is an idempotent `create_dir_all` of a
-// DETERMINISTIC path, reachable through a route that resolves no caller and never refuses, so a pin
-// minted beside it is first-touch wearing a different hat. Closing it needs the environment plane's
-// routes to REFUSE, plus an administrator-authorized adoption transition — the plane-wide change
-// with its own verifier that XI described.
-//
-// SO, PLAINLY: any authenticated principal can still capture ANY environment's workspace, and can
-// restore its own capture back over it, destroying work it did not do. Both facts are ASSERTED in
-// `check:environment-custody` so they cannot change unnoticed.
-// =================================================================================================
+// Captures and environments have separate immutable scope pins. A caller must own both the capture
+// and its destination environment before restore can read material or write workspace bytes.
 
 type CustodyReply = (StatusCode, Json<Value>);
 
@@ -4138,11 +4630,11 @@ pub(crate) async fn handle_snapshot_restore(
         .as_str()
         .unwrap_or_default()
         .to_string();
-    // NO DESTINATION AUTHORIZATION, because there is nothing to authorize against: an environment
-    // has no owner. A principal holding a capture can still restore it into the environment that
-    // capture came from, and a principal who captured another principal's environment can therefore
-    // still overwrite it. That is the open defect, unchanged, and it is named rather than papered
-    // over with a check that would refuse nothing.
+    // The immutable environment pin is the destination authority. Check it before reading the
+    // capture material so a refused restore produces neither an existence oracle nor a byte read.
+    authorize_environment_owner_identity(&st.data_dir, &identity, &env_id).map_err(|error| {
+        custody_bad(error.0, "environment_owner_authorization_refused", error.1)
+    })?;
     let material_path = snap["material_path"].as_str().unwrap_or_default();
     let tar = std::fs::read(material_path).map_err(|e| {
         app(
@@ -4281,15 +4773,37 @@ pub(crate) async fn handle_snapshot_restore(
 }
 
 /// GET /v1/hypervisor/workruns — list (for the injected session truth window).
-pub(crate) async fn handle_workruns_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "workRuns": read_record_dir(&st.data_dir, "workruns") }))
+pub(crate) async fn handle_workruns_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+        .map_err(environment_scope_error)?;
+    let owned = super::substrate_store::authorized_request_resource_refs(
+        &st.data_dir,
+        &identity,
+        ENVIRONMENT_SCOPE_KIND,
+    )
+    .map_err(environment_scope_error)?;
+    let workruns = read_record_dir(&st.data_dir, "workruns")
+        .into_iter()
+        .filter(|record| {
+            record["environment_id"]
+                .as_str()
+                .is_some_and(|environment_id| owned.contains(environment_id))
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(json!({ "workRuns": workruns })))
 }
 
 /// GET /v1/hypervisor/workruns/:id
 pub(crate) async fn handle_workrun_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+        .map_err(environment_scope_error)?;
     let path = std::path::Path::new(&st.data_dir)
         .join("workruns")
         .join(format!("{}.json", safe_id(&id)));
@@ -4297,58 +4811,14 @@ pub(crate) async fn handle_workrun_get(
         .ok()
         .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "workrun not found".into()))?;
+    let environment_id = rec["environment_id"].as_str().ok_or_else(|| {
+        AppError(
+            StatusCode::CONFLICT,
+            "workrun environment binding missing".into(),
+        )
+    })?;
+    authorize_environment_owner_identity(&st.data_dir, &identity, environment_id)?;
     Ok(Json(json!({ "workRun": rec })))
-}
-
-/// The command-execution guardrail decision AT the scoped execution primitive, and the response
-/// body when it refuses. `None` means no veto fired — which grants nothing: the caller still has
-/// every other gate to pass.
-///
-/// Extracted from the Axum adapter so both refusal shapes are directly testable without standing
-/// up a daemon. Two refusals, kept DISTINCT:
-///
-///   * `policy_denied` — a policy rule actually matched this command string. `denial` names the
-///     rule and the matched pattern.
-///   * `policy_indeterminate` — the policy could NOT be resolved (unreadable, malformed, or
-///     non-regular persisted state, or a malformed environment-local declaration). Execution is
-///     still refused, but the response must not claim a rule matched, because none did; the
-///     previous hardcoded "blocked by environment guardrail policy" stderr asserted exactly that
-///     for a state where no policy had been read at all.
-///
-/// The enforcement fact and the audit outcome are reported SEPARATELY. Losing the audit record is
-/// an observability gap, never a reason to admit the command and never `audited: true` — so
-/// `audit_durability` rides alongside the refusal instead of being discarded.
-fn guardrail_refusal_response(
-    data_dir: &str,
-    env: &Value,
-    env_id: &str,
-    command: &str,
-) -> Option<Value> {
-    use super::operability_routes::GuardrailDecision;
-    let (mut body, refusal) = match super::operability_routes::guardrail_check(
-        data_dir, env, command,
-    ) {
-        GuardrailDecision::Allowed => return None,
-        GuardrailDecision::Denied(denial) => (
-            json!({
-                "environment_id": env_id, "command": command, "denied": true,
-                "policy_denied": true, "denial": denial.clone(), "exit_code": 126,
-                "stdout": "", "stderr": "blocked by environment guardrail policy (fail-closed)"
-            }),
-            denial,
-        ),
-        GuardrailDecision::Indeterminate(indeterminacy) => (
-            json!({
-                "environment_id": env_id, "command": command, "denied": true,
-                "policy_indeterminate": true, "refusal": indeterminacy.clone(), "exit_code": 126,
-                "stdout": "", "stderr": "refused: the command-execution guardrail policy is INDETERMINATE and no policy rule was evaluated (fail-closed)"
-            }),
-            indeterminacy,
-        ),
-    };
-    body["audit_durability"] =
-        super::operability_routes::audit_guardrail_denial(data_dir, env_id, command, &refusal);
-    Some(body)
 }
 
 /// POST /v1/hypervisor/exec — the env's scoped terminal (Build Rule: terminal/logs).
@@ -4362,12 +4832,14 @@ fn guardrail_refusal_response(
 /// Body: `{ "environment_id": "...", "command": "..." }`.
 pub(crate) async fn handle_workspace_exec(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let env_id = body
         .get("environment_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+    authorize_environment_owner_request(&st, &headers, env_id)?;
     let command = body
         .get("command")
         .and_then(|v| v.as_str())
@@ -4388,7 +4860,9 @@ pub(crate) async fn handle_workspace_exec(
     // Cut F (M) — guardrail enforcement at the exec primitive: the deny-list is checked on the
     // command string itself, so an agent cannot bypass policy via ordinary shell (a `bash -c "rm
     // -rf /"` is still this command string). Fail-closed + audited; the in-guest path is gated too.
-    if let Some(refusal) = guardrail_refusal_response(&st.data_dir, &env, env_id, command) {
+    if let Some(refusal) =
+        super::operability_routes::guardrail_refusal_response(&st.data_dir, &env, env_id, command)
+    {
         return Ok(Json(refusal));
     }
 
@@ -4501,12 +4975,14 @@ pub(crate) async fn handle_workspace_exec(
 /// (recoverable: fix + rebuild again). Body: `{ environment_id, op }`.
 pub(crate) async fn handle_env_config(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let env_id = body
         .get("environment_id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "environment_id required".into()))?;
+    authorize_environment_owner(&st.data_dir, &headers, env_id)?;
     let op = body.get("op").and_then(|v| v.as_str()).unwrap_or("open");
     let mut env = load_env(&st.data_dir, env_id)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
@@ -4703,8 +5179,11 @@ pub(crate) async fn handle_env_config(
 /// (daemon EXECUTES · wallet AUTHORIZES the eventual merge crossing).
 pub(crate) async fn handle_workrun_execute(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, AppError> {
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+        .map_err(environment_scope_error)?;
     let wr_path = std::path::Path::new(&st.data_dir)
         .join("workruns")
         .join(format!("{}.json", safe_id(&id)));
@@ -4717,6 +5196,7 @@ pub(crate) async fn handle_workrun_execute(
         .as_str()
         .unwrap_or_default()
         .to_string();
+    authorize_environment_owner_identity(&st.data_dir, &identity, &env_id)?;
     let env = load_env(&st.data_dir, &env_id)
         .ok_or_else(|| AppError(StatusCode::NOT_FOUND, "environment not found".into()))?;
     let ws = wr["workspace_root"]
@@ -5239,7 +5719,7 @@ mod scoped_exec_guardrail_tests {
     }
 
     fn refuse(directory: &tempfile::TempDir, env: &Value, command: &str) -> Option<Value> {
-        guardrail_refusal_response(
+        super::super::operability_routes::guardrail_refusal_response(
             directory.path().to_str().unwrap(),
             env,
             env["id"].as_str().unwrap_or("env_1"),
@@ -5414,5 +5894,79 @@ mod scoped_exec_guardrail_tests {
         assert_eq!(audits.len(), 1);
         assert_eq!(audits[0]["kind"], json!("guardrail_denied"));
         assert_eq!(audits[0]["environment_ref"], json!("env_1"));
+    }
+
+    #[test]
+    fn resolved_tasks_and_service_healthchecks_refuse_before_host_process_spawn() {
+        let directory = temp();
+        let data_dir = directory.path().to_str().unwrap();
+        let workspace = directory.path().join("workspace");
+        let logs = directory.path().join("logs");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::create_dir_all(&logs).unwrap();
+        let env = admit(
+            "env_guarded",
+            &json!({ "guardrails": { "deny_commands": ["guardrail-probe"] } }),
+        );
+
+        let task_marker = workspace.join("task-marker");
+        let task = json!({
+            "name": "guarded task",
+            "command": format!("printf guardrail-probe > {}", task_marker.display()),
+            "trigger": "environment_start",
+            "required": true
+        });
+        let task_result = run_task(
+            data_dir,
+            "env_guarded",
+            &env,
+            workspace.to_str().unwrap(),
+            &logs,
+            &task,
+        );
+        assert_eq!(task_result["policy_denied"], json!(true));
+        assert_eq!(task_result["phase"], json!("failed"));
+        assert_eq!(task_result["exit_code"], json!(126));
+        assert!(!task_marker.exists(), "a refused task must not spawn");
+
+        let health_marker = workspace.join("health-marker");
+        let service = json!({
+            "name": "guarded service",
+            "command": "serve",
+            "lifecycle": "required",
+            "healthcheck": format!("printf guardrail-probe > {}", health_marker.display())
+        });
+        let service_result = typed_service(
+            data_dir,
+            "env_guarded",
+            &env,
+            workspace.to_str().unwrap(),
+            &service,
+        );
+        assert_eq!(service_result["policy_denied"], json!(true));
+        assert_eq!(service_result["phase"], json!("degraded"));
+        assert_eq!(service_result["exit_code"], json!(126));
+        assert!(
+            !health_marker.exists(),
+            "a refused healthcheck must not spawn"
+        );
+
+        let allowed_marker = workspace.join("allowed-marker");
+        let allowed = json!({
+            "name": "allowed task",
+            "command": format!("printf allowed > {}", allowed_marker.display()),
+            "trigger": "environment_start",
+            "required": true
+        });
+        let allowed_result = run_task(
+            data_dir,
+            "env_guarded",
+            &env,
+            workspace.to_str().unwrap(),
+            &logs,
+            &allowed,
+        );
+        assert_eq!(allowed_result["phase"], json!("succeeded"));
+        assert_eq!(std::fs::read_to_string(allowed_marker).unwrap(), "allowed");
     }
 }

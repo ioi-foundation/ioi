@@ -221,11 +221,19 @@ pub fn parse_created_manifest(resp: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
-/// The first bid from a `listBids` response, shape `{"data": {"data": [ {"bid":
-/// {"id": {"gseq", "oseq", "provider"}}} ]}}`. Returns `None` while no provider
+fn bid_entries(resp: &Value) -> Option<&Vec<Value>> {
+    // Current Console API ListBidsResponse is `{ data: Bid[] }`. Retain the
+    // older nested envelope only as a compatibility read path.
+    resp.get("data")
+        .and_then(Value::as_array)
+        .or_else(|| resp.pointer("/data/data").and_then(Value::as_array))
+}
+
+/// The first bid from a current Console `listBids` response, shape `{"data": [{"bid":
+/// {"id": {"gseq", "oseq", "provider"}}}]}`. Returns `None` while no provider
 /// has bid yet (keep polling).
 pub fn parse_first_bid(resp: &Value) -> Option<AkashBid> {
-    let bid = resp.pointer("/data/data/0/bid/id")?;
+    let bid = bid_entries(resp)?.first()?.pointer("/bid/id")?;
     Some(AkashBid {
         gseq: bid.get("gseq").and_then(Value::as_i64)?,
         oseq: bid.get("oseq").and_then(Value::as_i64)?,
@@ -236,7 +244,7 @@ pub fn parse_first_bid(resp: &Value) -> Option<AkashBid> {
 /// The lowest-priced bid across a `listBids` response, so selection can respect
 /// a price cap. Falls back to the first bid's ordering when prices are absent.
 pub fn parse_cheapest_bid(resp: &Value) -> Option<AkashBid> {
-    let bids = resp.pointer("/data/data").and_then(Value::as_array)?;
+    let bids = bid_entries(resp)?;
     let mut best: Option<(f64, AkashBid)> = None;
     for entry in bids {
         let id = entry.pointer("/bid/id")?;
@@ -262,13 +270,184 @@ pub fn parse_cheapest_bid(resp: &Value) -> Option<AkashBid> {
     best.map(|(_, b)| b)
 }
 
+/// Lowest bid whose exact provider-native price is in the owner-approved denomination and at or
+/// below the approved ceiling. Missing/malformed prices are ineligible, never treated as cheap.
+pub fn parse_cheapest_qualified_bid(
+    resp: &Value,
+    ceiling_denom: &str,
+    ceiling_amount: f64,
+) -> Option<AkashBid> {
+    let bids = bid_entries(resp)?;
+    let mut best: Option<(f64, AkashBid)> = None;
+    for entry in bids {
+        let Some(price) = entry.pointer("/bid/price") else {
+            continue;
+        };
+        if price.get("denom").and_then(Value::as_str) != Some(ceiling_denom) {
+            continue;
+        }
+        let Some(amount) = price
+            .get("amount")
+            .and_then(|value| {
+                value
+                    .as_str()
+                    .and_then(|raw| raw.parse::<f64>().ok())
+                    .or_else(|| value.as_f64())
+            })
+            .filter(|amount| amount.is_finite() && *amount >= 0.0 && *amount <= ceiling_amount)
+        else {
+            continue;
+        };
+        let Some(id) = entry.pointer("/bid/id") else {
+            continue;
+        };
+        let bid = AkashBid {
+            gseq: id.get("gseq").and_then(Value::as_i64)?,
+            oseq: id.get("oseq").and_then(Value::as_i64)?,
+            provider: id.get("provider").and_then(Value::as_str)?.to_string(),
+        };
+        match &best {
+            Some((current, _)) if *current <= amount => {}
+            _ => best = Some((amount, bid)),
+        }
+    }
+    best.map(|(_, bid)| bid)
+}
+
+/// The bid from one exact provider, but only when its provider-native price is in the exact
+/// owner-approved denomination and at or below the approved ceiling. An exact provider pin is
+/// never permission to bypass the spend ceiling.
+pub fn parse_pinned_qualified_bid(
+    resp: &Value,
+    provider: &str,
+    ceiling_denom: &str,
+    ceiling_amount: f64,
+) -> Option<AkashBid> {
+    let evidence = pinned_bid_qualification_evidence(resp, provider, ceiling_denom, ceiling_amount);
+    if evidence.get("status").and_then(Value::as_str) != Some("qualified") {
+        return None;
+    }
+    let bid = evidence.get("selected_bid")?;
+    Some(AkashBid {
+        gseq: bid.get("gseq").and_then(Value::as_i64)?,
+        oseq: bid.get("oseq").and_then(Value::as_i64)?,
+        provider: bid.get("provider").and_then(Value::as_str)?.to_string(),
+    })
+}
+
+/// Redacted provider-native evidence explaining why one exact provider bid did or did not satisfy
+/// the approved denomination and ceiling. The owner address and API credential are intentionally
+/// excluded; the caller may bind the raw response independently by hash.
+pub fn pinned_bid_qualification_evidence(
+    resp: &Value,
+    provider: &str,
+    ceiling_denom: &str,
+    ceiling_amount: f64,
+) -> Value {
+    let Some(bids) = bid_entries(resp) else {
+        return json!({
+            "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+            "status": "response_shape_invalid",
+            "total_bid_count": 0,
+            "exact_provider_bid_count": 0,
+            "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+        });
+    };
+    let mut exact_provider_bid_count = 0_u64;
+    for entry in bids {
+        let Some(id) = entry.pointer("/bid/id") else {
+            continue;
+        };
+        if id.get("provider").and_then(Value::as_str) != Some(provider) {
+            continue;
+        }
+        exact_provider_bid_count = exact_provider_bid_count.saturating_add(1);
+        let selected_bid = json!({
+            "gseq": id.get("gseq").cloned().unwrap_or(Value::Null),
+            "oseq": id.get("oseq").cloned().unwrap_or(Value::Null),
+            "provider": provider,
+            "state": entry.pointer("/bid/state").cloned().unwrap_or(Value::Null),
+        });
+        let Some(price) = entry.pointer("/bid/price") else {
+            return json!({
+                "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                "status": "price_missing",
+                "total_bid_count": bids.len(),
+                "exact_provider_bid_count": exact_provider_bid_count,
+                "selected_bid": selected_bid,
+                "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+            });
+        };
+        let observed_denom = price.get("denom").and_then(Value::as_str);
+        let observed_amount_raw = price.get("amount").cloned().unwrap_or(Value::Null);
+        if price.get("denom").and_then(Value::as_str) != Some(ceiling_denom) {
+            return json!({
+                "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                "status": "denomination_mismatch",
+                "total_bid_count": bids.len(),
+                "exact_provider_bid_count": exact_provider_bid_count,
+                "selected_bid": selected_bid,
+                "observed_price": { "denom": observed_denom, "amount": observed_amount_raw },
+                "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+            });
+        }
+        let Some(amount) = price
+            .get("amount")
+            .and_then(|value| {
+                value
+                    .as_str()
+                    .and_then(|raw| raw.parse::<f64>().ok())
+                    .or_else(|| value.as_f64())
+            })
+            .filter(|amount| amount.is_finite() && *amount >= 0.0)
+        else {
+            return json!({
+                "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                "status": "price_invalid",
+                "total_bid_count": bids.len(),
+                "exact_provider_bid_count": exact_provider_bid_count,
+                "selected_bid": selected_bid,
+                "observed_price": { "denom": observed_denom, "amount": observed_amount_raw },
+                "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+            });
+        };
+        if amount > ceiling_amount {
+            return json!({
+                "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+                "status": "above_ceiling",
+                "total_bid_count": bids.len(),
+                "exact_provider_bid_count": exact_provider_bid_count,
+                "selected_bid": selected_bid,
+                "observed_price": { "denom": observed_denom, "amount": observed_amount_raw },
+                "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+            });
+        }
+        return json!({
+            "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+            "status": "qualified",
+            "total_bid_count": bids.len(),
+            "exact_provider_bid_count": exact_provider_bid_count,
+            "selected_bid": selected_bid,
+            "observed_price": { "denom": observed_denom, "amount": observed_amount_raw },
+            "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+        });
+    }
+    json!({
+        "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+        "status": "exact_provider_absent",
+        "total_bid_count": bids.len(),
+        "exact_provider_bid_count": exact_provider_bid_count,
+        "approved_ceiling": { "denom": ceiling_denom, "amount": ceiling_amount },
+    })
+}
+
 /// The bid from a SPECIFIC provider address in a `getBids` response, or `None` if
 /// that provider is not among the bidders. C6 provider-pin: when a caller pins a
 /// provider address (the one the wallet challenge hashed), the daemon deploys on
 /// THAT provider or refuses — it never silently falls through to the cheapest.
 /// Selecting by pin proves `selected == pinned` by construction.
 pub fn parse_pinned_bid(resp: &Value, provider: &str) -> Option<AkashBid> {
-    let bids = resp.pointer("/data/data").and_then(Value::as_array)?;
+    let bids = bid_entries(resp)?;
     for entry in bids {
         let id = entry.pointer("/bid/id")?;
         if id.get("provider").and_then(Value::as_str) == Some(provider) {
@@ -434,7 +613,7 @@ pub fn parse_pinned_bid_priced(
     resp: &Value,
     provider: &str,
 ) -> Option<Result<(AkashBid, Decimal, String), String>> {
-    let bids = resp.pointer("/data/data").and_then(Value::as_array)?;
+    let bids = bid_entries(resp)?;
     for entry in bids {
         let id = entry.pointer("/bid/id")?;
         if id.get("provider").and_then(Value::as_str) == Some(provider) {
@@ -459,6 +638,75 @@ pub fn parse_pinned_bid_priced(
             };
             return Some(Ok((bid, amount, denom.to_string())));
         }
+    }
+    None
+}
+
+/// Extract one active lease's provider-reported service endpoint without conflating endpoint
+/// discovery with workload readiness. A provider URI proves routing information exists; only a
+/// positive provider-reported ready/available replica count proves workload readiness.
+pub fn parse_active_lease_endpoint(resp: &Value) -> Option<Value> {
+    let leases = resp.pointer("/data/leases").and_then(Value::as_array)?;
+    for lease in leases {
+        if lease.get("state").and_then(Value::as_str) != Some("active") {
+            continue;
+        }
+        let services = lease
+            .pointer("/status/services")
+            .and_then(Value::as_object)?;
+        let service_uri_present = services.values().any(|service| {
+            service
+                .get("uris")
+                .and_then(Value::as_array)
+                .map(|uris| !uris.is_empty())
+                .unwrap_or(false)
+        });
+        let forwarded_port_present = lease
+            .pointer("/status/forwarded_ports")
+            .and_then(Value::as_object)
+            .map(|ports| !ports.is_empty())
+            .unwrap_or(false);
+        let ip_present = lease
+            .pointer("/status/ips")
+            .and_then(Value::as_object)
+            .map(|ips| !ips.is_empty())
+            .unwrap_or(false);
+        if !service_uri_present && !forwarded_port_present && !ip_present {
+            continue;
+        }
+        let desired_replicas = services
+            .values()
+            .map(|service| {
+                service
+                    .get("replicas")
+                    .or_else(|| service.get("total"))
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0)
+            })
+            .sum::<u64>();
+        let ready_replicas = services
+            .values()
+            .map(|service| {
+                service
+                    .get("ready_replicas")
+                    .or_else(|| service.get("available_replicas"))
+                    .or_else(|| service.get("available"))
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0)
+            })
+            .sum::<u64>();
+        return Some(json!({
+            "provider_address": lease.pointer("/id/provider").cloned().unwrap_or(Value::Null),
+            "lease_id": lease.get("id").cloned().unwrap_or(Value::Null),
+            "services": services,
+            "forwarded_ports": lease.pointer("/status/forwarded_ports").cloned().unwrap_or(Value::Null),
+            "ips": lease.pointer("/status/ips").cloned().unwrap_or(Value::Null),
+            "endpoint_discovered": true,
+            "service_uri_present": service_uri_present,
+            "desired_replicas": desired_replicas,
+            "ready_replicas": ready_replicas,
+            "workload_readiness_proven": ready_replicas > 0,
+        }));
     }
     None
 }
@@ -510,7 +758,7 @@ pub fn select_lowest_qualified_bid(
     ceiling_denom: &str,
     ceiling: Decimal,
 ) -> Option<(AkashBid, Decimal, String)> {
-    let bids = resp.pointer("/data/data").and_then(Value::as_array)?;
+    let bids = bid_entries(resp)?;
     let mut best: Option<(AkashBid, Decimal, String)> = None;
     for entry in bids {
         let Some(id) = entry.pointer("/bid/id") else {
@@ -595,6 +843,124 @@ pub fn parse_deployment_state(resp: &Value) -> Option<String> {
         .or_else(|| resp.pointer("/deployment/state"))
         .and_then(Value::as_str)
         .map(str::to_string)
+}
+
+/// Normalize the provider-native close/escrow readback without inferring settlement from the
+/// DELETE response. A terminal verdict requires the deployment and escrow account to be closed,
+/// a provider `settled_at` height, no active lease, and zero funds left in escrow. `transferred`
+/// is the exact deployment debit in the managed `uact` denomination; the remainder of the
+/// caller-recorded deposit is the refund. Unknown/malformed amounts stay reconciliation-required.
+pub fn parse_settlement_readback(resp: &Value, deposit_usd: f64) -> Value {
+    let deployment_state = resp
+        .pointer("/data/deployment/state")
+        .or_else(|| resp.pointer("/deployment/state"))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let escrow = resp
+        .pointer("/data/escrow_account")
+        .or_else(|| resp.pointer("/escrow_account"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let escrow_state = escrow
+        .pointer("/state/state")
+        .or_else(|| escrow.get("state").filter(|value| value.is_string()))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let settled_at = escrow
+        .pointer("/state/settled_at")
+        .or_else(|| escrow.get("settled_at"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let leases = resp
+        .pointer("/data/leases")
+        .or_else(|| resp.get("leases"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let active_lease_count = leases
+        .iter()
+        .filter(|lease| {
+            lease
+                .pointer("/lease/state")
+                .or_else(|| lease.get("state"))
+                .and_then(Value::as_str)
+                .map(|state| matches!(state, "active" | "open"))
+                .unwrap_or(false)
+        })
+        .count();
+    let coins = |field: &str| {
+        escrow
+            .pointer(&format!("/state/{field}"))
+            .or_else(|| escrow.get(field))
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let funds = coins("funds");
+    let transferred = coins("transferred");
+    let sum_uact = |values: &[Value]| -> Option<f64> {
+        let mut total = 0.0;
+        for coin in values {
+            if coin.get("denom").and_then(Value::as_str) != Some("uact") {
+                continue;
+            }
+            let amount = coin
+                .get("amount")
+                .and_then(Value::as_str)?
+                .parse::<f64>()
+                .ok()?;
+            if !amount.is_finite() || amount < 0.0 {
+                return None;
+            }
+            total += amount;
+        }
+        Some(total)
+    };
+    let funds_uact = sum_uact(&funds);
+    let transferred_uact = sum_uact(&transferred);
+    let terminal = deployment_state == "closed"
+        && escrow_state == "closed"
+        && !settled_at.is_empty()
+        && active_lease_count == 0
+        && funds_uact == Some(0.0)
+        && transferred_uact.is_some();
+    let final_debit_usd = transferred_uact.map(|amount| amount / 1_000_000.0);
+    let refund_usd = final_debit_usd.map(|debit| (deposit_usd - debit).max(0.0));
+    let settlement_state = if terminal {
+        if transferred_uact == Some(0.0) {
+            "refund_settled"
+        } else {
+            "final_debit_settled"
+        }
+    } else {
+        "reconciliation_required"
+    };
+    json!({
+        "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+        "settlement_state": settlement_state,
+        "deployment_state": deployment_state,
+        "escrow_state": escrow_state,
+        "settled_at_height": if settled_at.is_empty() { Value::Null } else { json!(settled_at) },
+        "active_lease_count": active_lease_count,
+        "funds": funds,
+        "transferred": transferred,
+        "deposit_usd": deposit_usd,
+        "final_debit_usd": final_debit_usd,
+        "refund_usd": refund_usd,
+        "provider_terminal": terminal,
+        "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+    })
+}
+
+/// Backward-compatible strict readiness accessor. Callers that only need endpoint discovery must
+/// use `parse_active_lease_endpoint` and preserve its explicit readiness fields.
+pub fn parse_ready_lease_endpoint(resp: &Value) -> Option<Value> {
+    parse_active_lease_endpoint(resp).filter(|endpoint| {
+        endpoint
+            .get("workload_readiness_proven")
+            .and_then(Value::as_bool)
+            == Some(true)
+    })
 }
 
 #[cfg(test)]

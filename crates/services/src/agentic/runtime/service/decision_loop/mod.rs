@@ -29,7 +29,7 @@ use ioi_types::app::agentic::{
     CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState, RuntimeRouteFrame,
 };
 use ioi_types::error::TransactionError;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::time::Duration;
 
 const STEP_ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
@@ -63,6 +63,7 @@ const RUNTIME_ROUTE_FILE_WRITE_MARKER: &str = "runtime_route_frame_dispatch:file
 const RUNTIME_ROUTE_WEB_SEARCH_MARKER: &str = "runtime_route_frame_dispatch:web__search";
 const RUNTIME_ROUTE_WORKSPACE_CONTEXT_MARKER: &str =
     "runtime_route_frame_dispatch:workspace_context";
+const RUNTIME_ROUTE_MCP_TOOL_MARKER: &str = "runtime_route_frame_dispatch:mcp_tool";
 
 fn text_requests_retained_shell_controls(text: &str) -> bool {
     let normalized = text.to_ascii_lowercase();
@@ -692,6 +693,40 @@ fn maybe_typed_runtime_shell_run_tool_call(agent_state: &mut AgentState) -> Opti
     .ok()
 }
 
+fn maybe_typed_runtime_mcp_tool_call(agent_state: &mut AgentState) -> Option<String> {
+    let frame = agent_state.runtime_route_frame.clone()?;
+    if frame.direct_answer_allowed
+        || !frame.output_intent.eq_ignore_ascii_case("tool_execution")
+        || !frame.intent_id.eq_ignore_ascii_case("extension.invoke")
+    {
+        return None;
+    }
+    let tool_name = runtime_route_evidence_value(&frame, "mcp_tool_name")?;
+    if !tool_name.contains("__")
+        || ioi_types::app::agentic::AgentTool::is_reserved_tool_name(&tool_name)
+    {
+        return None;
+    }
+    let marker = format!("{RUNTIME_ROUTE_MCP_TOOL_MARKER}:{tool_name}");
+    if agent_state
+        .recent_actions
+        .iter()
+        .any(|action| action == &marker)
+    {
+        return None;
+    }
+    let arguments = runtime_route_evidence_value(&frame, "mcp_tool_arguments")
+        .and_then(|value| serde_json::from_str::<serde_json::Value>(&value).ok())
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({}));
+    agent_state.recent_actions.push(marker);
+    serde_json::to_string(&json!({
+        "name": tool_name,
+        "arguments": arguments,
+    }))
+    .ok()
+}
+
 fn typed_runtime_local_install_resolved_intent() -> ResolvedIntentState {
     ResolvedIntentState {
         intent_id: "software.install.desktop_app".to_string(),
@@ -768,6 +803,37 @@ fn typed_runtime_shell_command_resolved_intent() -> ResolvedIntentState {
         ],
         required_evidence: vec!["execution".to_string(), "verification".to_string()],
         success_conditions: vec!["execution_artifact".to_string()],
+        risk_class: "high".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        intent_catalog_version: "typed-runtime-route-frame".to_string(),
+        embedding_model_id: "typed-runtime-route-frame".to_string(),
+        embedding_model_version: "v1".to_string(),
+        similarity_function_id: "typed_runtime_route_frame".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "typed-runtime-route-frame-v1".to_string(),
+        intent_catalog_source_hash: [0u8; 32],
+        evidence_requirements_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: true,
+    }
+}
+
+fn typed_runtime_mcp_tool_resolved_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "extension.invoke".to_string(),
+        scope: IntentScopeProfile::Unknown,
+        band: IntentConfidenceBand::High,
+        score: 1.0,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("agent.lifecycle"),
+            CapabilityId::from("extension.invoke"),
+        ],
+        required_evidence: vec!["execution".to_string(), "verification".to_string()],
+        success_conditions: vec!["mcp_tool_result".to_string()],
         risk_class: "high".to_string(),
         preferred_tier: "tool_first".to_string(),
         intent_catalog_version: "typed-runtime-route-frame".to_string(),
@@ -1088,6 +1154,7 @@ fn typed_runtime_route_resolved_intent(frame: &RuntimeRouteFrame) -> Option<Reso
         }
         "browser.interact" => Some(typed_runtime_browser_action_resolved_intent()),
         "command.exec" => Some(typed_runtime_shell_command_resolved_intent()),
+        "extension.invoke" => Some(typed_runtime_mcp_tool_resolved_intent()),
         _ => None,
     }
 }
@@ -1412,6 +1479,7 @@ async fn maybe_process_runtime_route_frame_dispatch(
         .or_else(|| maybe_typed_runtime_workspace_context_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_browser_navigate_tool_call(agent_state))
         .or_else(|| maybe_typed_runtime_shell_run_tool_call(agent_state))
+        .or_else(|| maybe_typed_runtime_mcp_tool_call(agent_state))
     else {
         return Ok(false);
     };

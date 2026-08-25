@@ -10,7 +10,7 @@ use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
 use crate::agentic::runtime::service::recovery::anti_loop::latest_failure_class;
 use crate::agentic::runtime::service::visual_loop::visual::hamming_distance;
 use crate::agentic::runtime::service::RuntimeAgentService;
-use crate::agentic::runtime::tools::discover_tools;
+use crate::agentic::runtime::tools::discover_tools_with_registry;
 use crate::agentic::runtime::types::{AgentState, ExecutionTier, WorkerAssignment};
 use crate::agentic::runtime::utils::compute_phash;
 use ioi_api::state::StateAccess;
@@ -337,10 +337,11 @@ pub async fn gather_context(
 
     // 2. Dynamic Tool Discovery
     let tools_runtime = service.fast_inference.clone();
-    let tools = discover_tools(
+    let tools = discover_tools_with_registry(
         state,
         service.memory_runtime.as_deref(),
         service.mcp.as_deref(),
+        Some(service.runtime_tool_contract_registry.clone()),
         &agent_state.goal,
         tools_runtime,
         current_tier, // [FIX] Use the resolved tier here

@@ -132,11 +132,12 @@ async function run() {
     && lp.placement?.provider_account_ref === ssh.account_ref
     && lp.placement?.fee?.fee_basis === "none"
     && (lp.placement?.receipts_expected || []).length > 0);
-  const envRes = (await jd("POST", "/v1/hypervisor/environments", { environment_id: `env-pvp-${tag}` })).j;
+  const envRes = (await jd("POST", "/v1/hypervisor/environments", { spec: {} })).j;
+  const environmentId = envRes.environment?.id;
   const envVenue = envRes.environment?.spec?.placement_venue || {};
   ok("environment create snapshots the venue policy in force (provenance on the env record)",
     envVenue.venue === "use_my_infrastructure" && envVenue.provider_account_ref === ssh.account_ref);
-  await jd("DELETE", `/v1/hypervisor/environments/env-pvp-${tag}`);
+  if (environmentId) await jd("POST", `/v1/hypervisor/environments/${environmentId}/delete`, {});
 
   // ── 6. Operations + Work Ledger show provider receipt links ──
   const ledger = (await jd("GET", "/v1/hypervisor/work-ledger")).j.entries || [];

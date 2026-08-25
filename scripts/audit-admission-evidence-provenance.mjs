@@ -265,14 +265,22 @@ const PINNED = [
   {"file": "lifecycle_routes.rs", "rule": "B", "key": "is_impersonated", "count": 1, "disposition": "sanctioned", "justification": "W1.2 2026-08-08: this is resolve_acting_principal_ref's REFUSAL list, not a body->record copy \u2014 it is the gate that ENFORCES INV-37 (refuses any caller-supplied WHO field incl. is_impersonated), the opposite of a violation"},
   {"file": "lifecycle_routes.rs", "rule": "D", "key": "user://local-operator", "count": 7, "disposition": "sanctioned", "justification": "W1.2 2026-08-08 all read: 1 canonical resolver local-dev lane (hypervisor_request_identity :6012), 1 new resolve_acting_principal_ref local-dev fallback (both the sanctioned unauthenticated lane), and 5 stored-session absent-owner_ref legacy defaults \u2014 under enforcement session_request_owner yields user://usr_* or the OPERATOR UUID so a defaulted record equals NO authenticated principal (legacy records invisible/unmodifiable = fail-closed); load-bearing only in the local-dev seed lane, not an impersonation surface"},
   {"file": "orchestration_routes.rs", "rule": "F", "key": "auth-header", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: webhook delivery authenticates by a per-automation rotated trigger token (x-ioi-trigger-token / Bearer) compared against the stored secret \u2014 a presented capability, not a principal resolver"},
+  {"file": "orchestration_routes.rs", "rule": "F", "key": "tenant-resolver", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-25: only the per-boot-token-authenticated internal automation dispatch takes the executor principal from the durable AutomationSpec, delegates current membership to lifecycle_routes::resolve_principal_tenant_refs, and refuses unless that principal has exactly one active organization tenant before setting the internal owner header; it neither trusts request tenant data nor reimplements membership"},
+  {"file": "provider_routes.rs", "rule": "F", "key": "auth-header", "count": 2, "disposition": "sanctioned", "justification": "read 2026-08-22: provider_proposal_session_binding hashes the already-authenticated transport token solely to require proposal issuance and one-time consumption under the same session; require_write_caller separately resolves the principal first, and no header value becomes principal evidence"},
   {"file": "portal_session_exchange_routes.rs", "rule": "F", "key": "tenant-resolver", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: session-mint seam delegates to the canonical lifecycle_routes resolver to snapshot full membership INTO the session record (the projection later requests narrow FROM); it does not re-derive scope on a later request"},
+  {"file": "substrate_store.rs", "rule": "F", "key": "tenant-resolver", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-24: resolve_workload_broker_identity is the host-only workload-broker re-resolution seam. It retains no bearer session, so at effect time it takes the principal and the SINGLE owner bound when the opaque capability was minted, calls the canonical lifecycle_routes resolver for CURRENT membership, refuses unless that owner is still in it, and narrows the reconstructed identity to that one owner. It delegates and narrows; it never re-derives scope in parallel and never widens. Its only caller passes values from the hash-bound host compartment, never a caller-controlled HTTP body \u2014 the function's own doc comment states that boundary."},
   {"file": "supervisor_routes.rs", "rule": "F", "key": "auth-header", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-08: bearer() extracts a capability-lease token adjudicated against the durable authority-grants record (lease_binds_env) \u2014 a presented grant independently verified, not a principal resolver"},
-  {"file": "provider_routes.rs", "rule": "E", "key": "handle_provider_op", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-19 (post-C6 #351 reshape): the pre-identity reads are the quote/pin GATES reading daemon-owned records (cloud-resource-candidates, provider accounts) to REFUSE under-evidenced ops fail-closed with receipted refusals; identity is resolved by require_write_caller at the C2 intent phase BEFORE any external effect or record write \u2014 gate-reads-then-authenticate-before-effect, not bc73b5b20's authorize-after-admission-read. The same reshape moved this handler OUT of the rule-H no-in-handler-identity baseline (an improvement, re-pinned by removal)."},
+  {"file": "workload_effect_boundary.rs", "rule": "B", "key": "principal_ref", "count": 1, "disposition": "sanctioned", "justification": "read 2026-08-22: proposal_matches_record iterates principal_ref only to compare the guest proposal against the host-minted durable capability and refuses substitution; it never copies caller attribution into a record"},
 ];
 
 // Rule H baseline: mutating handlers with no in-handler identity/authority
 // call — the middleware-covered legacy surface. Growth is red.
 const H_BASELINE = [
+  // Passkey login finish authenticates the principal through a consumed, server-owned WebAuthn
+  // ceremony, verifies user presence/verification and the registered credential, then persists
+  // only the authenticator counter and a session. It cannot call the ordinary authenticated-
+  // session resolver because successful completion is precisely what creates that session.
+  "device_custody_routes.rs::handle_login_finish",
   "authority_routes.rs::handle_authority_grant",
   "authority_routes.rs::handle_authority_revoke",
   "authority_routes.rs::handle_harness_binding_create",
@@ -305,7 +313,6 @@ const H_BASELINE = [
   "environment_routes.rs::handle_project_delete",
   "environment_routes.rs::handle_snapshot_restore",
   "environment_routes.rs::handle_workrun_create",
-  "environment_routes.rs::handle_workrun_execute",
   "environment_routes.rs::handle_workspace_exec",
   "eval_suite_routes.rs::handle_eval_suite_create",
   "eval_suite_routes.rs::handle_eval_suite_delete",
@@ -477,12 +484,8 @@ const H_BASELINE = [
   "editor_routes.rs::handle_editor_service_stop",
   "environment_routes.rs::handle_env_port_expose",
   "environment_routes.rs::handle_env_port_unexpose",
-  "environment_routes.rs::handle_environment_create",
   "environment_routes.rs::handle_environment_get",
-  "environment_routes.rs::handle_idle_sweep",
   "goalrun_routes.rs::handle_goal_run_activation_draft",
-  "goalrun_routes.rs::handle_goal_run_activation_submit",
-  "goalrun_routes.rs::handle_goal_runs_create",
   "harness_routes.rs::handle_harness_profile_select_default",
   "hypervisor_environment_routes.rs::handle_environment_transition",
   "hypervisoros_node_routes.rs::handle_node_transition",

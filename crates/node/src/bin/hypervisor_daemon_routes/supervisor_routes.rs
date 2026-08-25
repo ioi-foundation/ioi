@@ -33,26 +33,19 @@ pub(crate) async fn handle_env_ops_lease(
     AxumPath(env_id): AxumPath<String>,
     headers: HeaderMap,
 ) -> Response {
-    // THE SUBJECT IS RESOLVED FROM THE REQUEST POSTURE, NEVER THE LITERAL "operator". This route
-    // used to take no headers and hardcode the operator, so in `exposed_untrusted` and
-    // `authenticated_managed` it minted an env-ops lease that grants ReadFile/WriteFile/Exec for ANY
-    // principal — Next-legs XIV Leg 4 drove that live. The posture resolver refuses an exposed
-    // surface (403) and requires a real principal under managed auth (401); loopback local dev still
-    // resolves to the operator, which is the local trust model. OWNER-BINDING (this principal owns
-    // THIS environment) is the named residual: it requires the environment scope pin that defect 1a
-    // / ADR 0035 introduces, so an authenticated NON-OWNER can still mint here until that lands.
-    let subject = match super::authority_routes::resolve_authority_subject(
+    // Identity and ownership are both resolved server-side from the immutable environment scope
+    // pin. Authentication posture is never a substitute for this per-principal authorization.
+    let identity = match super::environment_routes::authorize_environment_owner(
         &st.data_dir,
         &headers,
-        "environment_ops_lease_auth_required",
-        "environment_ops_lease_exposed",
+        &env_id,
     ) {
-        Ok(s) => s,
-        Err((code, body)) => return (code, body).into_response(),
+        Ok(identity) => identity,
+        Err(error) => return error.into_response(),
     };
     let lease = issue_capability_lease(
         &st.data_dir,
-        &subject,
+        &identity.principal_ref,
         "environment.ops",
         json!([format!("environment:{env_id}")]),
         3600,
@@ -113,6 +106,18 @@ fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
         .and_then(|x| x.as_str())
         .filter(|s| !s.is_empty())
         .map(str::to_string)
+}
+
+fn supervisor_exec_guardrail_refusal(
+    data_dir: &str,
+    env_id: &str,
+    command: &str,
+) -> Result<Option<Value>, &'static str> {
+    let env = super::environment_routes::load_env(data_dir, env_id)
+        .ok_or("environment record disappeared before command admission")?;
+    Ok(super::operability_routes::guardrail_refusal_response(
+        data_dir, &env, env_id, command,
+    ))
 }
 
 /// Resolve `rel` under the workspace, fenced: no `..` escape, result must stay within `ws`.
@@ -186,8 +191,18 @@ fn lease_authorizes_env_ops(data_dir: &str, lease_id: &str, env_id: &str) -> boo
     let Some(v) = lease_grant(data_dir, lease_id) else {
         return false;
     };
+    let Some(scope) = super::substrate_store::read_request_scope(
+        data_dir,
+        super::environment_routes::ENVIRONMENT_SCOPE_KIND,
+        env_id,
+    )
+    .ok()
+    .flatten() else {
+        return false;
+    };
     resources_name_env(&v, env_id)
         && v.get("action").and_then(Value::as_str) == Some(ENV_OPS_ACTION)
+        && v.get("subject").and_then(Value::as_str) == Some(scope.principal_ref.as_str())
 }
 
 /// The environment a lease is bound to (from its `resources: ["environment:<env>"]`).
@@ -599,6 +614,16 @@ pub(crate) async fn handle_environment_ops(
 
         "Exec" => {
             let command = s("command");
+            let refusal = match supervisor_exec_guardrail_refusal(&st.data_dir, &env_id, &command) {
+                Ok(refusal) => refusal,
+                Err(message) => {
+                    return connect_err(StatusCode::NOT_FOUND, "not_found", message);
+                }
+            };
+            if let Some(mut refusal) = refusal {
+                refusal["execution_surface"] = json!("supervisor.v1.EnvironmentOpsService/Exec");
+                return ok_json(refusal);
+            }
             let cwd = {
                 let wd = s("workingDirectory");
                 if wd.is_empty() {
@@ -648,5 +673,38 @@ pub(crate) async fn handle_environment_ops(
             "unimplemented",
             &format!("unknown method {other}"),
         ),
+    }
+}
+
+#[cfg(test)]
+mod command_guardrail_tests {
+    use super::*;
+
+    #[test]
+    fn supervisor_exec_uses_the_shared_fail_closed_refusal_before_spawn() {
+        let directory = tempfile::tempdir().unwrap();
+        let environments = directory.path().join("environments");
+        std::fs::create_dir_all(&environments).unwrap();
+        std::fs::write(
+            environments.join("env_guarded.json"),
+            serde_json::to_vec(&json!({
+                "id": "env_guarded",
+                "spec": { "guardrails": { "deny_commands": ["supervisor-denied"] } },
+                "status": { "workspace_root": directory.path() }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let refusal = supervisor_exec_guardrail_refusal(
+            directory.path().to_str().unwrap(),
+            "env_guarded",
+            "supervisor-denied --attempt",
+        )
+        .unwrap()
+        .expect("the environment-local denial must stop supervisor Exec");
+        assert_eq!(refusal["policy_denied"], json!(true));
+        assert_eq!(refusal["exit_code"], json!(126));
+        assert_eq!(refusal["denial"]["matched"], json!("supervisor-denied"));
     }
 }

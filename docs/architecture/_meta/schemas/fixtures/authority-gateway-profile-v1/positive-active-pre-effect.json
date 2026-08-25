@@ -1,0 +1,47 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.authority-gateway-profile.v1",
+  "profile_ref": "authority-gateway://acme/claude-code/revision/1",
+  "profile_revision": 1,
+  "profile_hash": "sha256:81fd1d872350d616ce5ce5f1a105b98d7da117fc19ccc22af55c4888054d5cf1",
+  "predecessor_profile_hash": null,
+  "declaration": {
+    "adapter": {
+      "adapter_ref": "adapter://acme/claude-code",
+      "adapter_revision": "1.0.0",
+      "adapter_kind": "cli_wrapper",
+      "implementation_ref": "artifact://acme/claude-code-wrapper/1.0.0",
+      "deployment_profile_ref": "deployment-profile://acme/local-authority-gateway"
+    },
+    "action_surfaces": [{
+      "surface": "cli",
+      "action_classes": ["git", "shell"],
+      "mediation_mode": "active_pre_effect",
+      "primitive_capabilities": ["prim:net.request", "prim:sys.exec"],
+      "authority_scopes": ["scope:scm.publication.advance-target-ref"],
+      "final_invoker_ref": "runtime://hypervisor-daemon/authority-gateway",
+      "receipt_profile_refs": [
+        "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
+        "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
+        "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"
+      ]
+    }],
+    "subject_kinds": ["unattached", "session", "goal", "work_run", "work_item"],
+    "policy_enforcement_point_ref": "runtime://hypervisor-daemon/authority-gateway",
+    "authority_provider_ref": "authority-provider://wallet.network",
+    "failure_posture": "fail_closed",
+    "required_enforcement_scope_refs": ["enforcement-scope://acme/claude-code/cli-effects"],
+    "run_on_graduation": {
+      "agent_harness_adapter_revision_ref": "agent-harness-adapter://local/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "agent_harness_adapter_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "activation_source_kind": "gateway_adapter_context",
+      "implicit_approval_carryover": false,
+      "implicit_grant_carryover": false,
+      "implicit_credential_carryover": false,
+      "implicit_scope_carryover": false
+    }
+  },
+  "grants_authority": false,
+  "status": "declared",
+  "created_at": "2026-08-24T15:00:00Z",
+  "valid_until": "2026-09-24T15:00:00Z"
+}

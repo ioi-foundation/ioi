@@ -92,12 +92,17 @@ checkEvery(
 );
 
 const protectedClasses = new Set(record.protected_seed_classes);
+const protectedSlugs = new Set(record.protected_seed_slugs || []);
 const matrixProtected = matrix.seeds
-  .filter((seed) => protectedClasses.has(seed.parity_class))
+  .filter((seed) => protectedClasses.has(seed.parity_class) || protectedSlugs.has(seed.slug))
   .map((seed) => ({
     slug: seed.slug,
-    route: seed.candidate_surface || seed.substrate_surface,
-    class: seed.parity_class,
+    route: protectedSlugs.has(seed.slug) && seed.substrate_surface
+      ? seed.substrate_surface
+      : seed.candidate_surface || seed.substrate_surface,
+    class: protectedSlugs.has(seed.slug) && seed.substrate_surface
+      ? "substrate_bound"
+      : seed.parity_class,
   }))
   .sort((a, b) => a.slug.localeCompare(b.slug));
 const recordProtected = [...record.protected_routes].sort((a, b) => a.slug.localeCompare(b.slug));

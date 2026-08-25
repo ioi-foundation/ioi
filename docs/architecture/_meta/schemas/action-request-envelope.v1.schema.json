@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
+  "title": "ActionRequestEnvelope",
+  "description": "Immutable proposal envelope for one Authority Gateway mediated action. It declares requirements and evidence obligations but grants no authority and invokes nothing.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.action-request-envelope.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "action_request_ref", "request_revision", "request_hash",
+    "authority_gateway_profile_ref", "authority_gateway_profile_hash", "source_adapter",
+    "proposed_action", "risk_class", "primitive_capabilities_required",
+    "authority_scopes_required", "policy_decision", "subject_refs",
+    "receipt_obligations", "created_at", "expires_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.components.daemon-runtime.action-request-envelope.v1" },
+    "action_request_ref": { "$ref": "#/$defs/actionRequestRef" },
+    "request_revision": { "$ref": "#/$defs/positiveInteger" },
+    "request_hash": { "$ref": "#/$defs/hash" },
+    "authority_gateway_profile_ref": { "$ref": "#/$defs/gatewayProfileRef" },
+    "authority_gateway_profile_hash": { "$ref": "#/$defs/hash" },
+    "source_adapter": { "$ref": "#/$defs/sourceAdapter" },
+    "proposed_action": { "$ref": "#/$defs/proposedAction" },
+    "risk_class": { "enum": ["informational", "local_mutation", "external_effect", "system_destructive", "secret_access", "financial"] },
+    "primitive_capabilities_required": {
+      "type": "array", "items": { "$ref": "#/$defs/primitiveCapability" },
+      "maxItems": 32, "uniqueItems": true
+    },
+    "authority_scopes_required": {
+      "type": "array", "items": { "$ref": "#/$defs/authorityScope" },
+      "maxItems": 32, "uniqueItems": true
+    },
+    "policy_decision": { "$ref": "#/$defs/policyDecision" },
+    "subject_refs": { "$ref": "#/$defs/subjectRefs" },
+    "receipt_obligations": {
+      "type": "array", "items": { "$ref": "#/$defs/receiptObligation" },
+      "minItems": 3, "maxItems": 16,
+      "allOf": [
+        { "contains": { "type": "object", "properties": { "receipt_type": { "const": "gateway_decision" } }, "required": ["receipt_type"] } },
+        { "contains": { "type": "object", "properties": { "receipt_type": { "const": "gateway_execution" } }, "required": ["receipt_type"] } },
+        { "contains": { "type": "object", "properties": { "receipt_type": { "const": "gateway_artifact" } }, "required": ["receipt_type"] } }
+      ]
+    },
+    "created_at": { "$ref": "#/$defs/dateTime" },
+    "expires_at": { "$ref": "#/$defs/dateTime" }
+  },
+  "$defs": {
+    "sourceAdapter": {
+      "type": "object", "additionalProperties": false,
+      "required": ["adapter_ref", "adapter_revision", "adapter_kind", "implementation_ref", "deployment_profile_ref"],
+      "properties": {
+        "adapter_ref": { "type": "string", "pattern": "^adapter://[^\\s]{1,500}$" },
+        "adapter_revision": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "adapter_kind": { "enum": ["ide_extension", "cli_wrapper", "mcp_gateway", "shell_wrapper", "git_hook", "workspace_watcher", "api_proxy", "browser_adapter", "hosted_agent_gateway", "ci_gate"] },
+        "implementation_ref": { "$ref": "#/$defs/artifactRef" },
+        "deployment_profile_ref": { "type": "string", "pattern": "^deployment-profile://[^\\s]{1,500}$" }
+      }
+    },
+    "proposedAction": {
+      "type": "object", "additionalProperties": false,
+      "required": ["action_class", "operation", "summary", "input_commitment", "target_refs", "external_effect", "proposed_effect_ref", "proposed_effect_hash"],
+      "properties": {
+        "action_class": { "enum": ["shell", "file", "git", "mcp_tool", "api", "browser", "deploy", "secret", "connector", "provider"] },
+        "operation": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,127}$" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "input_commitment": { "$ref": "#/$defs/hash" },
+        "target_refs": { "type": "array", "items": { "$ref": "#/$defs/canonicalRef" }, "minItems": 1, "maxItems": 32, "uniqueItems": true },
+        "external_effect": { "type": "boolean" },
+        "proposed_effect_ref": { "oneOf": [{ "type": "string", "pattern": "^effect://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "proposed_effect_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "external_effect": { "const": true } }, "required": ["external_effect"] },
+          "then": { "properties": { "proposed_effect_ref": { "type": "string", "pattern": "^effect://[^\\s]{1,500}$" }, "proposed_effect_hash": { "$ref": "#/$defs/hash" } } },
+          "else": { "properties": { "proposed_effect_ref": { "type": "null" }, "proposed_effect_hash": { "type": "null" } } }
+        }
+      ]
+    },
+    "policyDecision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "decision_receipt_ref", "policy_ref", "policy_hash", "decided_at"],
+      "properties": {
+        "status": { "enum": ["pending", "allowed", "denied", "requires_approval", "transform_required"] },
+        "decision_receipt_ref": { "oneOf": [{ "$ref": "#/$defs/receiptRef" }, { "type": "null" }] },
+        "policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,500}$" },
+        "policy_hash": { "$ref": "#/$defs/hash" },
+        "decided_at": { "oneOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "pending" } }, "required": ["status"] },
+          "then": { "properties": { "decision_receipt_ref": { "type": "null" }, "decided_at": { "type": "null" } } },
+          "else": { "properties": { "decision_receipt_ref": { "$ref": "#/$defs/receiptRef" }, "decided_at": { "$ref": "#/$defs/dateTime" } } }
+        }
+      ]
+    },
+    "subjectRefs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["session_ref", "goal_ref", "work_run_ref", "work_item_ref"],
+      "properties": {
+        "session_ref": { "oneOf": [{ "type": "string", "pattern": "^session://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "goal_ref": { "oneOf": [{ "type": "string", "pattern": "^goal://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "work_run_ref": { "oneOf": [{ "type": "string", "pattern": "^work_run://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "work_item_ref": { "oneOf": [{ "type": "string", "pattern": "^work_item://[^\\s]{1,500}$" }, { "type": "null" }] }
+      }
+    },
+    "receiptObligation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["obligation_id", "boundary_event", "receipt_type", "receipt_profile_ref", "bound_fact_requirement_refs", "required"],
+      "properties": {
+        "obligation_id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,127}$" },
+        "boundary_event": { "enum": ["decision", "execution", "artifact"] },
+        "receipt_type": { "enum": ["gateway_decision", "gateway_execution", "gateway_artifact"] },
+        "receipt_profile_ref": { "enum": ["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1", "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1", "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"] },
+        "bound_fact_requirement_refs": { "type": "array", "items": { "$ref": "#/$defs/canonicalRef" }, "maxItems": 32, "uniqueItems": true },
+        "required": { "const": true }
+      }
+    },
+    "positiveInteger": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "actionRequestRef": { "type": "string", "pattern": "^action-request://[^\\s]{1,500}$" },
+    "gatewayProfileRef": { "type": "string", "pattern": "^authority-gateway://[^\\s]{1,500}$" },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,500}$" },
+    "artifactRef": { "type": "string", "pattern": "^artifact://[^\\s]{1,500}$" },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$" },
+    "primitiveCapability": { "type": "string", "pattern": "^prim:[a-z][a-z0-9._-]*$" },
+    "authorityScope": { "type": "string", "pattern": "^scope:[a-z][a-z0-9._-]*$" },
+    "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "dateTime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }
+  }
+}

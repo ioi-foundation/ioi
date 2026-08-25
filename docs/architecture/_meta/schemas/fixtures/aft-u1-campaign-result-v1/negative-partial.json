@@ -1,0 +1,1 @@
+{"schema_version":"ioi.aft.benchmark-campaign.v1","campaign_id":"u1-campaign-a","measured_passes":2,"row_count_per_pass":1,"threshold_policy":{},"verdict":"reproduced_within_threshold","all_rows_within_threshold":true,"summaries":[],"pass_artifacts":["run-1.json"]}

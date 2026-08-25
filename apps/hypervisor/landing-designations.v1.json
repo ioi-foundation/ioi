@@ -1,0 +1,339 @@
+{
+  "schema": "ioi.hypervisor.landing-designations.v1",
+  "doctrine": "The machine record of remediation-plan \u00a74.1: exactly ONE designated landing grammar per click target (launcher tile, canonical route, owner landing, certified deep route). Choice governed by D-rules: D1 grammar-fit-to-job, D2 evidence rank, D3 richer IA breaks ties, D4 losers never deleted (sibling app/tab or terminal absence), D5 one designation per target, D6 combined-seed designations (seeds are not 1:1 with apps; grafts carry roles donor|authoring_flow|detail_view|secondary_grammar). Status: NOW = designated; TERMINAL = recorded terminal absence (requires adjudication_ref); LATER = undecidable until the named action's W1 evidence lands (illegal after W1 exit \u2014 the E8 audit); GRE = greenfield, governed by the GRE-1 owner ruling.",
+  "plan": "internal-docs/prompts/hypervisor-application-surface-plans/reference-seed-remediation-plan.md \u00a74.1",
+  "authored": "2026-08-19",
+  "targets": [
+    {
+      "click_target": "/automations",
+      "status": "NOW",
+      "grammar": "Automate (monitors capture): Overview + live Automations tab",
+      "grafts": [
+        {
+          "seed": "monitors-wizard-strip",
+          "role": "secondary_grammar",
+          "note": "linked walkthrough, never a rebound surface or peer CTA"
+        }
+      ],
+      "competitors": [
+        {
+          "seed": "scheduler",
+          "disposition": "CORRECTED (SCH-1, 2026-08-20): this note carried the scheduler seed's mirror-scoped absent_confirmed (reference-seed-adjudications.v1.json#scheduler, AUT-4). The owner-authorized live-tenant sweep OVERTURNED it (a real Build Schedules find/list landing: 15 controls, 1 input, 1 facet group, 0 rows) and the scheduler seed now has its OWN designation (seed:scheduler \u2192 NOW, /__ioi/missions/schedules, reference-seed-adjudications.v1.json#scheduler-port). AUT-4's ruling that scheduler HEALTH is Operations-owned still stands and the port honours it. The NOW status of THIS target is unchanged and is about Automate itself, not about scheduler."
+        }
+      ]
+    },
+    {
+      "click_target": "/studio",
+      "status": "NOW",
+      "grammar": "Solution Designer landing (I-4) hosting agent estate + blueprints",
+      "competitors": [
+        {
+          "seed": "machinery",
+          "disposition": "sibling app tab (D1: single-purpose graph app)"
+        },
+        {
+          "seed": "workshop+module",
+          "disposition": "ONE combined-seed sibling app (D6): primary grammar module (boots as Workshop Home); roles donor+authoring_flow for the dead workshop capture"
+        }
+      ]
+    },
+    {
+      "click_target": "/data",
+      "status": "NOW",
+      "grammar": "family splash (I-4) \u2014 no single reference Data home exists; recipes/sources first-class tabs",
+      "competitors": [
+        {
+          "seed": "ingest",
+          "disposition": "CORRECTED (ING-1, 2026-08-20): this note carried the ingest seed's mirror-scoped absent_confirmed (reference-seed-adjudications.v1.json#ingest, DAT-3). The owner-authorized live-tenant sweep OVERTURNED it (a real HyperAuto pipelines card: 10 controls, 1 facet group APPLICATIONS, 4 dialogs, 0 rows) and the ingest seed now has its OWN designation (seed:ingest -> NOW, /__ioi/data/ingest, reference-seed-adjudications.v1.json#ingest-port). DAT-3's GRAFT ruling still stands and the port honours it: nothing is grafted into the certified Pipeline Builder and no authoring flow is minted \u2014 the port is a sibling READ-ONLY landing in this family, added as a third row beside Data Connection and Pipeline Builder. The NOW status of THIS target is unchanged and is about the Data family landing itself."
+        }
+      ]
+    },
+    {
+      "click_target": "/data/sources",
+      "status": "NOW",
+      "grammar": "Data Connection (certified, shipped)"
+    },
+    {
+      "click_target": "/data/recipes",
+      "status": "NOW",
+      "grammar": "Pipeline Builder (certified, shipped)"
+    },
+    {
+      "click_target": "/ontology",
+      "status": "NOW",
+      "grammar": "family splash (I-4); schema + explorer first-class",
+      "competitors": [
+        {
+          "seed": "objectview+objecteditor",
+          "disposition": "capture_broken_no_donor \u2014 hubble carries no drillable detail on the mirror (reference-seed-adjudications.v1.json#objectview); ONT-2.build skipped"
+        }
+      ]
+    },
+    {
+      "click_target": "/ontology/schema",
+      "status": "NOW",
+      "grammar": "Ontology Manager (certified, shipped)"
+    },
+    {
+      "click_target": "/ontology/explore",
+      "status": "NOW",
+      "grammar": "Object Explorer (certified, shipped)"
+    },
+    {
+      "click_target": "/governance",
+      "status": "NOW",
+      "grammar": "Approvals faceted inbox family grammar"
+    },
+    {
+      "click_target": "/governance/approvals",
+      "status": "NOW",
+      "grammar": "Approvals faceted inbox (certified, shipped)"
+    },
+    {
+      "click_target": "/provenance",
+      "status": "NOW",
+      "grammar": "Monocle (lineage) \u2014 the proof-plane app: 6-tab IA (Preview/SQL/History/Code/Build timeline/Data health); Vertex = sibling app (own 4-facet landing)",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#lineage"
+    },
+    {
+      "click_target": "/evaluations",
+      "status": "NOW",
+      "grammar": "AIP Evals (evalsuites, certified)",
+      "competitors": [
+        {
+          "seed": "analysis",
+          "disposition": "sibling app or terminal absence \u2014 EVA-2"
+        },
+        {
+          "seed": "quiver",
+          "disposition": "expected terminal absence \u2014 EVA-3"
+        }
+      ],
+      "pending_roles": [
+        "EVA-2.recon",
+        "EVA-3"
+      ]
+    },
+    {
+      "click_target": "/improvement",
+      "status": "NOW",
+      "grammar": "Upgrade Assistant (changes \u2014 THE EXEMPLAR: reference tabs already live ?lane= links)"
+    },
+    {
+      "click_target": "/foundry",
+      "status": "NOW",
+      "grammar": "Model Catalog (models, certified)",
+      "competitors": [
+        {
+          "seed": "modelstudio",
+          "disposition": "CORRECTED (MS-1, 2026-08-20): this note carried the modelstudio seed's mirror-scoped capture_broken_no_donor (reference-seed-adjudications.v1.json#modelstudio, FOU-2 \u2014 \"no donor, no plane\"). The owner-authorized live-tenant sweep OVERTURNED it: the live root is a real CREATION-ENTRY DIALOG (\"Choose file location\": a pre-filled File name, a Location folder dropdown, Browse/Cancel/Save; 13 controls, 1 input, 1 facet group APPLICATIONS, 7 dialogs, 0 rows), and the estate does hold a draft authoring plane the mirror-era reading never reached. modelstudio now has its OWN designation (seed:modelstudio -> NOW, /__ioi/foundry/model-studio, reference-seed-adjudications.v1.json#modelstudio-port). The NOW status of THIS target is unchanged and is about the Model Catalog itself: the certified catalog keeps the designation, and the only change made to it is the one-line sibling link that delivers the new surface's reachability."
+        },
+        {
+          "seed": "inference",
+          "disposition": "CORRECTED (INF-1, 2026-08-20): this note carried the inference seed's mirror-scoped capture_broken_no_donor (reference-seed-adjudications.v1.json#inference, FOU-2 \u2014 \"no donor; the inference gap stands citing this record\"). The owner-authorized live-tenant sweep OVERTURNED the expressed-IA half of it: the live root is a real SPACE GATE (heading \"Please select a space\" over one app control, \"Select a space\u2026\"; 12 recorded controls of which ONE is the app's own, 0 inputs, 1 facet group APPLICATIONS, 8 dialogs, 0 rows, no space picked), and the estate-plane half is CORRECTED rather than overturned \u2014 inference here is not only /v1/chat/completions but a governed verb (POST /v1/hypervisor/model-routes/:id/invoke) with a typed ModelInvocationReceipt behind it, while the mirror record's core sentence (not a governed CATALOG WORKFLOW) stands, because there is no space-scoped inference workflow at all. inference now has its OWN designation (seed:inference -> NOW, /__ioi/foundry/inference, reference-seed-adjudications.v1.json#inference-port). The NOW status of THIS target is unchanged and is about the Model Catalog itself: the certified catalog keeps the designation, and the only change made to it is the one-line sibling link that delivers the new surface's reachability. The /__ioi/foundry boundary note's sibling sentence (\"Sibling Foundry seeds stay reference-only: the Model Studio canvas and the inference wizard\") was ALREADY false about modelstudio after MS-1 and this cut would have made it doubly false, so it was rewritten in the same cut to name both siblings as ported with their mirror captures kept as linked baselines \u2014 and neither seed's grammar was what that sentence called it: the first is a creation dialog rather than a canvas, the second a space gate rather than a wizard."
+        }
+      ]
+    },
+    {
+      "click_target": "/packages/marketplace",
+      "status": "NOW",
+      "grammar": "Marketplace (listings, certified)",
+      "competitors": [
+        {
+          "seed": "registry",
+          "disposition": "CORRECTED (REG-1, 2026-08-20): this entry carried the registry seed's mirror-scoped absent_confirmed (reference-seed-adjudications.v1.json#registry, MAR-1). The owner-authorized live-tenant sweep OVERTURNED it (a real artifact-registry landing: 14 controls, 1 search input, 0 rows) and the registry seed now has its OWN designation (marketplace:artifacts \u2192 NOW, /__ioi/marketplace/artifacts, reference-seed-adjudications.v1.json#registry-port). The NOW status of THIS target is unchanged and is about Packages / Marketplace itself, not about registry.",
+          "superseded_disposition": "absent_confirmed (reference-seed-adjudications.v1.json#registry) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #registry-port"
+        }
+      ]
+    },
+    {
+      "click_target": "marketplace:artifacts",
+      "status": "NOW",
+      "grammar": "Artifact-registry landing (the LIVE-tenant grammar the registry click target actually boots): header + three-counter task tray + Help + Create-artifact-repository \u00b7 centred \"Explore artifacts\" hero with its ecosystem scope and search bar \u00b7 four-card \"Learn about artifacts\" band with its documentation link \u2014 served as a READ-ONLY PROJECTION over the estate's real registry LADDER. Ten daemon planes are probed on every render and classified live into FOUR states: LIVE (records rendered verbatim, each row naming WHICH plane it came from with id / ref / schema_version and a typed dash for every field the record does not carry), EMPTY (the plane answered and holds none \u2014 the reference's own state), REFUSED (identity-first planes whose typed code renders verbatim and NEVER as a zero) and NO READ ROUTE (POST-only planes that cannot be read at all). The package family's eight-route closure and the ZERO artifact-search-route census are re-counted from the daemon's index on every render. Every app control the reference offers is a typed absence with a reason written for it; every registry VERB stays on its owner surface and is linked, never duplicated.",
+      "route": "/__ioi/marketplace/artifacts",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, recorded as a competitor disposition on the /packages/marketplace target because the registry seed had no target of its own) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#registry-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#registry + reference-live-tenant-atlas.v1.json#registry",
+      "competitors": [
+        {
+          "seed": "registry",
+          "disposition": "the registry seed IS this target; the Packages / Marketplace click target (/packages/marketplace) stays NOW and is a different target that OWNS the verbs this projection only links to (D5: one designation per target)"
+        }
+      ]
+    },
+    {
+      "click_target": "/packages",
+      "status": "GRE"
+    },
+    {
+      "click_target": "missions:incidents",
+      "status": "NOW",
+      "grammar": "Issues (certified, shipped); no canonical route yet"
+    },
+    {
+      "click_target": "missions:jobs",
+      "status": "NOW",
+      "grammar": "Builds (the LIVE-tenant grammar the job-tracker click target actually boots): header + a three-counter tray COUNTED from the plane + settings/theme absences \u00b7 a left Search-by / Filter-by panel (resource + object-type search, intermediate-resource and my-builds toggles, a three-way Branch radio, a Started-by principal chip, a Job-type filter, Start-date and Finish-date ranges, Clear all filters) \u2014 every one a typed absence with a reason written for it \u00b7 an All/Running/Finished segmented control rendered as a LIVE CENSUS of the plane and said on-surface to be a count, not a filter \u00b7 and the build table, served as a READ-ONLY PROJECTION over the estate's REAL build plane. THE FINDING: no single plane lists every build. The agent-run-transcript plane carries a state_root on every record and a principal on NONE; the per-automation execution projection carries executor_identity but can never reach an execution whose automation was deleted (the daemon publishes no automation-executions list route); the work ledger's `run` lane is the EXACT UNION of both and the only plane carrying the acting authority AND the proof anchor on one record \u2014 so it is what the table reads, and the three counts that justify that choice are re-derived on every render. Sixteen run/build planes are classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index rather than a status guess). The reference's Outputs and Actions columns bind NO estate field and are answered as REFUSALS in a six-row column-mapping table rather than filled with different truth; Duration is labelled COMPUTED on every row; a build's sub-unit is a STEP and is never relabelled a job, because `job` is a live estate noun on /v1/jobs. The 3174-record transcript plane is LINKED to the Monocle Build timeline, never re-rendered. Read-only: the build verbs stay on Automations.",
+      "route": "/__ioi/missions/builds",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, reference-seed-adjudications.v1.json#jobs \u2014 MIS-1.recon: \"no Builds grammar expresses at any recorded state; the substrate STANDS as the surface\") \u2014 OVERTURNED by the owner-authorized live-tenant sweep; the mirror record stands as history and is not rewritten",
+      "substrate_unchanged": "/__ioi/missions keeps its class (read_only_by_contract) and its content untouched \u2014 the Builds port is a SIBLING lane in the same owner family, and the jobs seed row CARRIES substrate_surface: /__ioi/missions forward so the promotion to reference_ported never unbinds the substrate",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#jobs-port",
+      "superseded_note": "absent_confirmed \u2014 the substrate stands as the surface (reference-seed-adjudications.v1.json#jobs) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #jobs-port",
+      "evidence": "reference-live-tenant-atlas.v1.json#jobs + .artifacts/live-tenant-atlas/jobs-landing.png"
+    },
+    {
+      "click_target": "/developer-console",
+      "status": "NOW",
+      "grammar": "Developer Console (devconsole: Applications/OAuth tabs + guided create); binding depth gated by DEV-2",
+      "competitors": [
+        {
+          "seed": "widgets",
+          "disposition": "sibling app, own grammar (origin-align)"
+        },
+        {
+          "seed": "developer",
+          "disposition": "donor devconsole RECORDED (reference-seed-adjudications.v1.json#developer); ships with DEV-2"
+        }
+      ]
+    },
+    {
+      "click_target": "/developer-workspace",
+      "status": "NOW",
+      "grammar": "family splash (I-4); workspaces/notepad/repositories(donor: code) siblings"
+    },
+    {
+      "click_target": "domain-apps:logic",
+      "status": "NOW",
+      "grammar": "AIP Logic landing (origin-align, I-4 instance)"
+    },
+    {
+      "click_target": "domain-apps:contour",
+      "status": "NOW",
+      "grammar": "Contour landing (origin-align, I-4 instance)"
+    },
+    {
+      "click_target": "domain-apps:slate",
+      "status": "NOW",
+      "grammar": "Slate landing via splash alias (I-4 instance; origin-aligned)",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#slate"
+    },
+    {
+      "click_target": "domain-apps:fusion",
+      "status": "NOW",
+      "grammar": "Projects-and-files browser (the LIVE-tenant grammar the fusion click target actually resolves to \u2014 NOT a spreadsheet): 4-tab header (All files LIVE \u00b7 Shared with you absent \u00b7 Data Catalog LIVE \u00b7 Trash absent) + quick-filter band + 6-group facet rail + Data-Catalog sub-tabs (Collections absent \u00b7 Files LIVE)",
+      "route": "/__ioi/domain-apps/fusion",
+      "supersedes_terminal": "capture_broken_no_donor (mirror-scoped) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#fusion-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#fusion + reference-live-tenant-atlas.v1.json#fusion"
+    },
+    {
+      "click_target": "/environments",
+      "status": "GRE",
+      "note": "the owned Environments app is greenfield \u2014 awaits GRE-1 like its siblings. CORRECTION (MAP-1, 2026-08-20): this note carried the map seed's mirror-scoped absent_confirmed verdict (reference-seed-adjudications.v1.json#map); the owner-authorized live-tenant sweep OVERTURNED it (20 controls \u00b7 2 canvas surfaces) and the map seed now has its OWN designation (environments:map \u2192 NOW, /__ioi/environments/map, reference-seed-adjudications.v1.json#map-port). The GRE status here is unchanged and is about the owned Environments app itself, not about map.",
+      "superseded_note": "map seed absent_confirmed (reference-seed-adjudications.v1.json#map) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #map-port"
+    },
+    {
+      "click_target": "environments:map",
+      "status": "NOW",
+      "grammar": "Map workbench landing (the LIVE-tenant grammar the map click target actually boots): header + Save-as \u00b7 left layer panel (tab strip Search/Layers/Basemap/Legend/Histogram, Add-to-map, active-basemap footer) \u00b7 select + search-around and six draw tools \u00b7 vertical Selection tray \u00b7 zoom + Timeline under-bar \u2014 over a canvas region that is a TYPED ABSENCE. A map CANVAS cannot be honestly faked and the estate has NO geospatial plane (0 geospatial routes of 753; 247 param-free GET routes swept), so nothing map-shaped is drawn and the absence names MISSING vs the reference's own EMPTY layer list. One LIVE lane, explicitly NOT a map: the placement plane's cloud-resource candidates that carry placement geography (region \u00b7 location \u00b7 zone \u00b7 az), rendered verbatim with each record's expired / not-live-supply state.",
+      "route": "/__ioi/environments/map",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, recorded on the /environments target's note because the map seed had no target of its own) \u2014 overturned by the owner-authorized live-tenant sweep; the mirror record stands as history",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#map-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#map + reference-live-tenant-atlas.v1.json#map",
+      "competitors": [
+        {
+          "seed": "map",
+          "disposition": "the map seed IS this target; the owned Environments app (/environments) stays GRE and is a different click target (D5: one designation per target)"
+        }
+      ]
+    },
+    {
+      "click_target": "/work",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/home",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/systems",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/applications",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/operations",
+      "status": "GRE"
+    },
+    {
+      "click_target": "/settings",
+      "status": "GRE"
+    },
+    {
+      "click_target": "seed:dataset",
+      "status": "TERMINAL",
+      "note": "capture_broken_no_donor \u2014 preview grammar survives inside the certified pipeline port",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#dataset"
+    },
+    {
+      "click_target": "seed:scheduler",
+      "status": "NOW",
+      "grammar": "Build Schedules (the LIVE-tenant find/list grammar the scheduler click target actually boots at /workspace/scheduler/find): header + a three-counter tray whose two per-tick counters STATE their 15-second window + a Create-schedule typed absence \u00b7 an N-schedules count band counted live from the records predicate, beside a Results-matching principal chip refused because the census is UNFILTERED \u00b7 a sort / select / filter toolbar with the name-or-rid input, every one a typed absence with a reason written for it \u00b7 the APPLICATIONS facet lane rendered as MISSING rather than the reference's own EMPTY \u00b7 and the schedule table, served as a READ-ONLY PROJECTION over the estate's ONLY cadence records: automation records carrying a schedule_spec, read from /v1/hypervisor/automations because it is the COMPLETE projection (the pre-filtered Operations scheduler lane drops 24 fields including catch_up_policy, misfire_policy and executor_identity, recomputed field-by-field on every render). THE FINDING: the field NAMED for the concept is not the field the runtime acts on \u2014 the scheduler loop admits on `enabled && schedule_is_active(schedule_spec)` and never reads `trigger`, so the one automation it fires on a cron carries trigger_kind: manual, and a trigger-shaped view would have reported 0 schedules while the loop fired 1. Two published schedule counts come from two DIFFERENT predicates (Operations never reads `enabled`; the loop does) and their agreement is printed as a delta rather than assumed. The daemon's own posture says the loop dispatches through the MANUAL-RUN path, so no record marks a past run as scheduler-dispatched \u2014 the surface answers when a schedule WILL fire and refuses to say which past runs WERE fires. Fifteen schedule/cadence planes are classified live into FOUR states across THREE shapes (a collection, a status SINGLETON that is not a collection of one, a pure COMPUTATION that is not a plane at all). Read-only: the schedule verbs stay on Automations, the fires stay on Builds, loop health stays on Operations.",
+      "route": "/__ioi/missions/schedules",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, reference-seed-adjudications.v1.json#scheduler \u2014 AUT-4: \"expresses NO IA at any recorded state\") \u2014 OVERTURNED by the owner-authorized live-tenant sweep, which recorded a real find/list landing (title \"Build Schedules\", 15 controls, 1 input, 1 facet group APPLICATIONS, rows 0 \u2014 the reference's own result set is genuinely empty, so the EMPTY-STATE IA is the seed). The mirror record stands as history and is not rewritten.",
+      "boundary_unchanged": "AUT-4's OPERATIONS BOUNDARY is untouched: scheduler LOOP HEALTH stays Operations-owned. The port READS the loop heartbeat (the only record carrying the loop's own admitted-schedule count) and LINKS every liveness question to /__ioi/operations; what it adds is the schedule RECORDS lane, which no estate surface rendered. The /automations designation's competitor note for this seed carried the overturned absent_confirmed and is corrected there.",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler-port",
+      "superseded_note": "absent_confirmed \u2014 no expressed IA at any atlas state; Operations boundary stands (reference-seed-adjudications.v1.json#scheduler) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #scheduler-port",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#scheduler + .artifacts/live-tenant-atlas/deep/scheduler-landing.png"
+    },
+    {
+      "click_target": "seed:ingest",
+      "status": "NOW",
+      "grammar": "HyperAuto (the LIVE-tenant card grammar the ingest click target actually boots at /workspace/hyperauto/pipeline): a header carrying the app name and its Create-pipeline typed absence \u00b7 one centred card titled \"HyperAuto Pipelines\" repeating the same verb in its head \u00b7 the card body, whose reference state is an EMPTY list carrying a badge, its own copy and a Go-to-Data-Connection-Application link \u2014 KEPT here as the honest rendering for an empty plane, and distinguished from the plane REFUSING the read \u00b7 the APPLICATIONS facet lane rendered as MISSING rather than the reference's own EMPTY. Over that grammar the surface renders the estate's REAL ingestion CHAIN as a READ-ONLY projection: one row per connector-mapping record, joined END TO END on the keys the RECORDS carry \u2014 connector_mapping_id to the policy-bound data view, the transformation run, the ontology projection and the capability-lease plan; data_source_id to the materializing run; materializing_run_id to the connector session; and ontology_projection_id to the materialized object set, the ONLY mapping-keyed path to an output the estate publishes. Twenty-one ingestion-chain and adjacent planes are classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index), each stamped with the STAGE it occupies so an adjacent plane is never read as a stage of the chain. THE FINDING: a self-report is scoped to the RECORD that carries it and never to the estate \u2014 a source whose rows were fetched under a receipted HTTP 200 still reads ingestion.wired:false (the flag is written once at declaration time and no run revises it); a mapping reads health.status:ready while the same object reports object_instances:0 and its own note says it extracts nothing; the plane roll-up states as a WHOLE-PLANE claim that nothing here moves source data, in an estate holding extracted rows that arrived through the lane beside it; missing_contracts names contracts that already exist for that very mapping because it is computed without reading downstream; and a connector session reports data_moved:false about the crossing its own object set names it as the provenance of. So no count is taken from a status field: three predicates are re-derived every render and each names itself \u2014 declared (a mapping exists), moved (source_contacted:true or an object set under the chain's own projection), rows (summed from the OUTPUT records, the only ones carrying a verbatim contact receipt) \u2014 and the session/run contradiction is NAMED rather than adjudicated. The automatic BUILDER is a typed absence counted from the route index: zero ODK routes accept a source and return a built chain, the path is thirteen separate authority-crossing POSTs confirmed against the index on render, and the nearest automatic lane (ontology-proposals) REFUSES this identity so unknown is printed as unknown, never as absent. Read-only: the chain verbs stay on Pipeline Builder and the Connections lease gate, the source plane and its Syncs lane stay on Data Connection, the extracted objects stay on the Object Explorer \u2014 all linked, none re-rendered.",
+      "route": "/__ioi/data/ingest",
+      "supersedes_terminal": "absent_confirmed (mirror-scoped, reference-seed-adjudications.v1.json#ingest \u2014 DAT-3: \"HyperAuto expresses no IA at any recorded state\") \u2014 OVERTURNED by the owner-authorized live-tenant sweep, which recorded a real landing (title \"HyperAuto\", url /workspace/hyperauto/pipeline, 10 controls, 0 inputs, 1 facet group APPLICATIONS, 4 dialogs, rows 0 \u2014 the reference's own pipeline list is genuinely empty, so the EMPTY-STATE IA is the seed, and its own copy routes creation to the Data Connection application). The mirror record stands as history and is not rewritten.",
+      "graft_ruling_unchanged": "DAT-3's GRAFT ruling is UNTOUCHED: the D6 authoring_flow graft of HyperAuto INTO the certified Pipeline Builder stays REFUTED, and this port honours it \u2014 nothing is grafted into /__ioi/pipeline, no authoring flow is minted, and the builder is LINKED as the owner of every one of the thirteen chain crossings. What the port adds is the lane the graft was never going to supply: the ingestion chain read end to end as one record, which no estate surface held. The Data ladder still stands; this is a sibling landing beside it.",
+      "identity_finding": "FUS-1's check, and it changed the port: the seed slug is 'ingest' but the live target is /workspace/hyperauto/pipeline and the app is titled HYPERAUTO \u2014 a pipelines LIST over a source, not an ingestion console and not a connector wizard. An 'ingest' surface would have rendered rows of arriving data; HyperAuto's grammar is a list of pipelines whose empty copy hands creation to the source application. That is why the route lands in the Data family beside /__ioi/data/sources rather than under Ontology (where the mirror-era seed inventory filed it) or inside /__ioi/pipeline (DAT-3-refuted).",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#ingest-port",
+      "superseded_note": "absent_confirmed \u2014 no expressed IA at any atlas state; the D6 authoring_flow graft into Pipeline Builder REFUTED (reference-seed-adjudications.v1.json#ingest) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #ingest-port (the graft refutation itself still stands)",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#ingest + .artifacts/live-tenant-atlas/deep/ingest-landing.png"
+    },
+    {
+      "click_target": "seed:modelstudio",
+      "status": "NOW",
+      "grammar": "Model Studio (the LIVE-tenant CREATION-ENTRY grammar the modelstudio click target actually boots): the app has no list root and no editor \u2014 opening it renders a modal \"Choose file location\" over an empty field, and the tenant holds no Model Studio files (rows 0 at both recorded states), so the DIALOG IS THE LANDING. Ported as the centrepiece: a header carrying the app name and a live file/location/plane count \u00b7 the dialog head \"Choose file location\" with its close control \u00b7 a File name field pre-filled the way the reference pre-fills it \u00b7 a Location folder selector \u00b7 Browse \u00b7 Cancel \u00b7 Save. Over that grammar the surface renders the estate's REAL halves: the LOCATION selector reads /v1/hypervisor/projects record by record (name \u00b7 project_id \u00b7 custody posture \u00b7 created stamp, cap 25 NAMED), and the FILE half reads the Foundry draft-spec and run-plan planes. Twenty-two file-, location-, binding- and authoring-adjacent planes are classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index), each stamped with the HALF of the dialog it answers for so an adjacent authoring lane is never read as the file, the location or the binding. THE FINDING: a VERB WHOSE ROUTE EXISTS IS STILL A GAP WHEN THE FORM'S FIELDS AND THE ROUTE'S REQUIRED FIELDS DO NOT INTERSECT. The estate publishes POST /v1/hypervisor/foundry/specs \u2014 a real, durable, unauthenticated-at-this-posture draft create \u2014 so every surface-level test for 'is there a governed lane behind this button' says yes, and wiring Save on that basis would have been wrong. The record it writes carries NO location field of any kind; 0 of the 11 live project records carry any spec/foundry field and none of the 3 published project write routes would accept one, so the containment edge is absent in BOTH directions; and the route's own admission test (handle_foundry_spec_create -> validate_bindings, typed refusal foundry_binding_required) demands a resolving model-route or provider binding that the dialog offers no control for. The two field sets intersect in exactly one field, the name. So Save is a typed absence whose reason names the create route BY PATH, and no second mutation spine is minted. Two further rules carried onto affordances rather than numbers: the pre-filled name is DERIVED AT RENDER (the two recorded reference states are byte-identical except that stamp, which is how we know the vendor derives it at dialog-open) and is marked as stored nowhere, with the gate proving the derivation by fetching the page twice a second apart; and the reference's green validity check keeps its PREDICATE named as well-formedness, explicitly refusing the availability reading, because no plane indexes names inside a location. EMPTY and MISSING are rendered side by side about the same dialog: the spec plane is an EMPTY shelf waiting for a record (the same kind of nothing as the reference tenant's own zero files), while the file-in-a-location RELATION is MISSING and could never fill. Read-only: the create verb stays with the daemon, the model routes and providers a spec must bind stay on Model Catalog and Agent Studio, the locations stay on Fusion \u2014 all linked, none re-rendered.",
+      "route": "/__ioi/foundry/model-studio",
+      "supersedes_terminal": "capture_broken_no_donor (mirror-scoped, reference-seed-adjudications.v1.json#modelstudio \u2014 FOU-2: \"terminal: no donor, no plane\") \u2014 OVERTURNED on BOTH counts by the owner-authorized live-tenant sweep, which recorded a real landing (title \"Model studio\", heading \"Choose file location\", 13 controls, 1 input, 1 facet group APPLICATIONS, 7 dialogs, rows 0 \u2014 the tenant's own file list is genuinely empty, so the CREATION-ENTRY IA is the seed) and against which the estate turned out to hold a durable draft authoring plane (foundry specs + run-plans). The mirror record stands as history and is not rewritten.",
+      "identity_finding": "FUS-1's check, and it changed the port twice over: the seed slug is 'modelstudio' and the mirror-era inventory filed its grammar as editor_canvas, but the live root is neither a canvas nor a list \u2014 it is a creation-entry dialog. An editor_canvas reading would have reproduced MAP-1's problem (a canvas the estate cannot honestly render); the creation-entry reading produced a sharper one \u2014 whether the estate can RECEIVE what the dialog collects \u2014 which is where the leg's finding came from. The matrix's grammar field is left untouched as mirror-era provenance, exactly as map and fusion left theirs.",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#modelstudio-port",
+      "superseded_note": "capture_broken_no_donor \u2014 atlas landing dead, crawl never reached it, sibling grammars incompatible, and 'model authoring/fine-tuning has no daemon plane' (reference-seed-adjudications.v1.json#modelstudio) \u2014 kept as history; overturned by the live-tenant sweep and re-adjudicated in #modelstudio-port. The Model Catalog's own fine-tuning/studio gap prose that cited the mirror record remains true as written and is untouched.",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#modelstudio (landing + create-attempt) + .artifacts/live-tenant-atlas/deep/modelstudio-landing.png + .artifacts/live-tenant-atlas/deep/modelstudio-create-attempt.png"
+    },
+    {
+      "click_target": "seed:inference",
+      "status": "NOW",
+      "grammar": "Inference (the LIVE-tenant SPACE-GATE grammar the inference click target actually boots): the app has no list, no table, no canvas and no wizard \u2014 opening it renders one heading, \"Please select a space\", above one control, \"Select a space\u2026\", with rows 0 and no space picked, so the GATE IS THE LANDING. Ported as the centrepiece: a header carrying the app name and a live space/invocation/plane count \u00b7 the heading verbatim \u00b7 the chooser as a typed absence \u00b7 the estate's REAL space records beneath it, one row per live project record (name \u00b7 project_id \u00b7 custody posture \u00b7 created stamp, cap 25 NAMED). Twenty-seven space-, invocation-, model- and adjacent planes are classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index), each stamped with the HALF of the gate it answers for. JUNK EVIDENCE IS NAMED, NOT PORTED: the capture caught a PLATFORM news dialog (\"What's new in Sensitive Data Scanner\") floating over the app, its two controls, and a rail entry naming the LAST-VISITED application \u2014 all three are recorded in the control table with data-ioi-control-evidence=\"excluded_junk\" so the exclusion can be checked rather than discovered as a silent omission; of the 12 recorded controls, nine are the vendor global rail, two are the dialog's and ONE is the app's. THE FINDING: A SELECTION THE ROUTE ACCEPTS IS STILL A GAP WHEN THE KEY IT FILTERS ON IS NEVER WRITTEN BY THE RECORDS IT IS MEANT TO SCOPE. Exactly two published reads in the whole daemon index accept a project filter, and the work ledger both accepts and APPLIES one \u2014 so every surface-level test for 'can this chooser be wired' says yes, including MS-1's. Of 7141 ledger entries, 60 carry the project_id the filter retains on and 542 name a model; the intersection is ZERO. The page ASKS the daemon rather than re-implementing its retain expression (SCH-1): three principled selections are put to the filter on every render \u2014 the first space the plane offers, the first space value the ledger's own rows carry that resolves to a real space, and the space key the inference lane itself writes \u2014 and at port time they answered 0, 34-of-which-0-name-a-model, and 0. The one plane carrying a space key (goal runs, 190 records, 348 declared invocation refs) pins project_ref to a single value resolving to NO space record. Three vocabularies, no intersection. The edge is checked from the other side too and re-derived every render: 0 of 11 space records carry an invocation field, 0 of their 25 refs names an invocation or model route, 0 of 3 project write routes would accept one, and 0 of the 47 readable model_invocation receipts and 0 of the 10 metered usage records carry a space field. The invoke verb accepts six body fields and none is a space. So the chooser is a typed absence naming the receiving route BY PATH and its predicate by its exact expression; the space records are rendered in full because it is the EDGE that is missing, not the spaces; and no second mutation spine is minted over the daemon's invoke route. Every number carries its PREDICATE and its WINDOW (SCH-1), the ledger window is stated as a RETENTION window rather than a business period, the success count is printed as what the record SAYS and not as what the estate verified (ING-1), and the TWO receipt families sharing the name model_invocation are NAMED as a contradiction the estate has not been asked to resolve \u2014 the typed readback refuses before it reads, which is correct behaviour and is exactly what makes the join untestable here. EMPTY, MISSING and UNPUBLISHED are held apart: the reference's gate is empty and fills; the space-contains-an-inference relation is missing and never could; and the invocation COLLECTION route does not exist in the index at all. Read-only: the invoke verb stays with the daemon, the model routes stay on Model Catalog and Agent Studio, the spaces stay on Fusion, the ledger's run lane stays on Builds and Schedules \u2014 all linked, none re-rendered.",
+      "route": "/__ioi/foundry/inference",
+      "supersedes_terminal": "capture_broken_no_donor (mirror-scoped, reference-seed-adjudications.v1.json#inference \u2014 FOU-2: \"terminal: no donor; the inference gap stands citing this record\") \u2014 the EXPRESSED-IA half OVERTURNED by the owner-authorized live-tenant sweep, which recorded a real landing (url /workspace/foundry-inference-app/, heading \"Please select a space\", one app control, 1 facet group APPLICATIONS, 8 dialogs, rows 0 \u2014 the tenant has no space selected, so the SPACE-GATE IA is the seed), and the ESTATE-PLANE half CORRECTED rather than overturned: inference here is a governed verb with a typed receipt and 542 recorded invocations behind it, while the mirror record's core sentence \u2014 that it is not a governed CATALOG WORKFLOW \u2014 stands, because no space-scoped inference workflow exists at all. The mirror record stands as history and is not rewritten.",
+      "identity_finding": "FUS-1's check applied to a capture with TWO identities floating over the real one. The seed slug says 'inference' and the URL agrees, so unlike fusion the name does name the app \u2014 but the mirror-era inventory filed the grammar as a WIZARD and it is not one: there is no step, no next, no form, no input at all. It is a SPACE GATE. A wizard reading would have invented steps nobody captured; the space-gate reading produced the leg's finding \u2014 whether a space selection can scope anything here. And the capture ALSO caught the platform's release-notes dialog centred over the app plus a rail entry naming the LAST-VISITED application, either of which read as identity would have ported the wrong application under this seed's name. The recorded URL is the authority on identity; the rail is not. The matrix's mirror-era grammar field is left untouched as provenance, exactly as map, fusion and modelstudio left theirs.",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#inference-port",
+      "superseded_note": "capture_broken_no_donor \u2014 atlas landing dead, crawl never reached it, no wizard-grammar sibling boots in the Foundry family, and 'inference exists at /v1/chat/completions but is not a governed catalog workflow' (reference-seed-adjudications.v1.json#inference) \u2014 kept as history; the expressed-IA half overturned by the live-tenant sweep and the estate-plane half corrected, both re-adjudicated in #inference-port. The Model Catalog's own live-inference-evals and prompt-playground gap prose remains true as written and is untouched: this port executes nothing and evaluates nothing.",
+      "evidence": "reference-live-tenant-deep-atlas.v1.json#inference (landing) + .artifacts/live-tenant-atlas/deep/inference-landing.png \u2014 read directly, which is how the platform news dialog was identified as chrome rather than counted as app IA",
+      "backlog_closure": "INF-1 is the EIGHTH and LAST leg of the live-tenant port backlog. With this designation portable_candidates is empty: 8 ported, 2 withdrawn on read evidence (dataset, objecteditor), objectview/developer terminal on double evidence. The backlog is CLOSED."
+    }
+  ],
+  "cross_family_edges": [
+    {
+      "edge": "vertex \u2192 workshop (resource_embed)",
+      "recorded": "2026-08-20",
+      "evidence": "vendor docs: Workshop's 'Vertex Graph widget' displays an existing graph/template/diagram created in Vertex; live tenant: Vertex's example installations open as Workshop modules (ri.workshop.main.module\u2026) \u2014 owner screenshots 2026-08-20",
+      "relationship": "PRODUCER/CONSUMER, not one app (contrast D6 workshop+module = one app): Vertex authors graph resources; Workshop composes applications that embed them",
+      "estate_analogue": "the ODK composition plane already declares compositions over materialized-set/domain-app RESOURCES (real refs) \u2014 the estate's Vertex renders exactly those materialized sets as its graph; the edge exists in schema, both planes honestly empty today",
+      "backlog": "wire reciprocal links read-first when either plane carries records: Workshop rows show referenced materialized-set resources linking the Vertex detail graph; Vertex detail shows 'used in compositions' linking back \u2014 honest-empty until then",
+      "corroboration": "vendor nav marks 'Object Monitors [Sunset]' \u2014 independently validates the Automate family designation (monitors overview = the landing, monitor wizard = secondary grammar)"
+    }
+  ],
+  "updated": "2026-08-20"
+}

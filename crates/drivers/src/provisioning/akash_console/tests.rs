@@ -110,6 +110,83 @@ fn parse_created_deployment_reads_dseq_and_manifest() {
 }
 
 #[test]
+fn cheapest_qualified_bid_enforces_exact_denom_and_ceiling() {
+    let bids = json!({ "data": [
+        { "bid": { "id": { "gseq": 1, "oseq": 1, "provider": "over" }, "price": { "amount": "1001", "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "wrong" }, "price": { "amount": "1", "denom": "uakt" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 3, "provider": "qualified" }, "price": { "amount": "999", "denom": "uact" } } }
+    ] });
+    assert_eq!(
+        parse_cheapest_qualified_bid(&bids, "uact", 1000.0)
+            .expect("one qualified bid")
+            .provider,
+        "qualified"
+    );
+    assert!(parse_cheapest_qualified_bid(&bids, "uact", 998.0).is_none());
+}
+
+#[test]
+fn settlement_requires_closed_provider_readback_and_computes_zero_debit_refund() {
+    let detail = json!({ "data": {
+        "deployment": { "state": "closed" },
+        "escrow_account": { "state": {
+            "state": "closed", "settled_at": "28269748",
+            "funds": [{ "amount": "0.000000000000000000", "denom": "uact" }],
+            "transferred": [{ "amount": "0.000000000000000000", "denom": "uact" }]
+        }},
+        "leases": []
+    }});
+    let settled = parse_settlement_readback(&detail, 1.0);
+    assert_eq!(settled["settlement_state"], "refund_settled");
+    assert_eq!(settled["provider_terminal"], true);
+    assert_eq!(settled["final_debit_usd"], 0.0);
+    assert_eq!(settled["refund_usd"], 1.0);
+
+    let mut pending = detail;
+    pending["data"]["escrow_account"]["state"]["settled_at"] = Value::Null;
+    assert_eq!(
+        parse_settlement_readback(&pending, 1.0)["settlement_state"],
+        "reconciliation_required"
+    );
+}
+
+#[test]
+fn positive_branch_requires_active_lease_and_provider_reported_endpoint() {
+    let detail = json!({ "data": { "leases": [{
+        "id": { "dseq": "1", "gseq": 1, "oseq": 1, "provider": "akash1provider" },
+        "state": "active",
+        "status": { "services": { "web": { "uris": ["https://example.invalid"], "available_replicas": 1 } }, "forwarded_ports": {}, "ips": {} }
+    }] }});
+    let endpoint = parse_ready_lease_endpoint(&detail).expect("active live service endpoint");
+    assert_eq!(endpoint["provider_address"], "akash1provider");
+    let mut pending = detail;
+    pending["data"]["leases"][0]["status"]["services"]["web"]["uris"] = json!([]);
+    pending["data"]["leases"][0]["status"]["services"]["web"]["available_replicas"] = json!(0);
+    assert!(parse_ready_lease_endpoint(&pending).is_none());
+}
+
+#[test]
+fn endpoint_discovery_does_not_inflate_zero_ready_replicas() {
+    let detail = json!({ "data": { "leases": [{
+        "id": { "dseq": "1", "gseq": 1, "oseq": 1, "provider": "akash1provider" },
+        "state": "active",
+        "status": { "services": { "web": {
+            "uris": ["https://example.invalid"],
+            "replicas": 1,
+            "ready_replicas": 0,
+            "available_replicas": 0
+        } }, "forwarded_ports": {}, "ips": {} }
+    }] }});
+    let endpoint = parse_active_lease_endpoint(&detail).expect("URI is endpoint discovery");
+    assert_eq!(endpoint["endpoint_discovered"], true);
+    assert_eq!(endpoint["service_uri_present"], true);
+    assert_eq!(endpoint["desired_replicas"], 1);
+    assert_eq!(endpoint["ready_replicas"], 0);
+    assert_eq!(endpoint["workload_readiness_proven"], false);
+    assert!(parse_ready_lease_endpoint(&detail).is_none());
+}
+
+#[test]
 fn parse_first_bid_reads_the_provider_native_ids() {
     let resp = json!({
         "data": { "data": [
@@ -158,6 +235,41 @@ fn parse_pinned_bid_selects_the_pinned_provider_or_refuses() {
     assert_eq!(pinned.oseq, 3);
     // A provider that did not bid is refused (None), never silently downgraded.
     assert!(parse_pinned_bid(&resp, "akash1neverbid").is_none());
+}
+
+#[test]
+fn pinned_qualified_bid_enforces_provider_denom_and_ceiling_together() {
+    let resp = json!({ "data": [
+        { "bid": { "id": { "gseq": 1, "oseq": 1, "provider": "akash1exact" }, "price": { "amount": "999", "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "akash1cheap" }, "price": { "amount": "1", "denom": "uact" } } }
+    ] });
+    let exact = parse_pinned_qualified_bid(&resp, "akash1exact", "uact", 1000.0)
+        .expect("exact provider is within the approved ceiling");
+    assert_eq!(exact.provider, "akash1exact");
+    assert!(parse_pinned_qualified_bid(&resp, "akash1exact", "uact", 998.0).is_none());
+    assert!(parse_pinned_qualified_bid(&resp, "akash1exact", "uakt", 1000.0).is_none());
+    assert!(parse_pinned_qualified_bid(&resp, "akash1missing", "uact", 1000.0).is_none());
+}
+
+#[test]
+fn pinned_bid_qualification_evidence_distinguishes_absent_price_and_ceiling_refusals() {
+    let bids = json!({ "data": [
+        { "bid": { "id": { "gseq": 1, "oseq": 1, "provider": "akash1other" }, "price": { "amount": "1", "denom": "uact" } } },
+        { "bid": { "id": { "gseq": 1, "oseq": 2, "provider": "akash1exact" }, "state": "open", "price": { "amount": "1001", "denom": "uact" } } }
+    ] });
+    let over = pinned_bid_qualification_evidence(&bids, "akash1exact", "uact", 1000.0);
+    assert_eq!(over["status"], "above_ceiling");
+    assert_eq!(over["total_bid_count"], 2);
+    assert_eq!(over["exact_provider_bid_count"], 1);
+    assert_eq!(over["observed_price"]["amount"], "1001");
+    assert!(over.get("owner").is_none());
+
+    let absent = pinned_bid_qualification_evidence(&bids, "akash1missing", "uact", 1000.0);
+    assert_eq!(absent["status"], "exact_provider_absent");
+    assert_eq!(absent["exact_provider_bid_count"], 0);
+
+    let wrong_denom = pinned_bid_qualification_evidence(&bids, "akash1exact", "uakt", 1001.0);
+    assert_eq!(wrong_denom["status"], "denomination_mismatch");
 }
 
 #[test]

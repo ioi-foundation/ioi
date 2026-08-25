@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
+  "title": "AuthorityGatewayProfile",
+  "description": "Immutable compatibility-adapter profile for one Authority Gateway deployment. The profile declares mediation posture and requirements but grants no authority, admission, execution, or truth.",
+  "x-ioi-schema-version": "ioi.components.daemon-runtime.authority-gateway-profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile_ref", "profile_revision", "profile_hash", "predecessor_profile_hash", "declaration", "grants_authority", "status", "created_at", "valid_until"],
+  "properties": {
+    "schema_version": { "const": "ioi.components.daemon-runtime.authority-gateway-profile.v1" },
+    "profile_ref": { "$ref": "#/$defs/gatewayProfileRef" },
+    "profile_revision": { "$ref": "#/$defs/positiveInteger" },
+    "profile_hash": { "$ref": "#/$defs/hash" },
+    "predecessor_profile_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "declaration": { "$ref": "#/$defs/declaration" },
+    "grants_authority": { "const": false },
+    "status": { "enum": ["declared", "superseded", "quarantined", "revoked", "expired"] },
+    "created_at": { "$ref": "#/$defs/dateTime" },
+    "valid_until": { "$ref": "#/$defs/dateTime" }
+  },
+  "$defs": {
+    "declaration": {
+      "type": "object", "additionalProperties": false,
+      "required": ["adapter", "action_surfaces", "subject_kinds", "policy_enforcement_point_ref", "authority_provider_ref", "failure_posture", "required_enforcement_scope_refs", "run_on_graduation"],
+      "properties": {
+        "adapter": { "$ref": "#/$defs/adapter" },
+        "action_surfaces": { "type": "array", "items": { "$ref": "#/$defs/actionSurface" }, "minItems": 1, "maxItems": 32 },
+        "subject_kinds": { "type": "array", "items": { "enum": ["unattached", "session", "goal", "work_run", "work_item"] }, "minItems": 1, "maxItems": 5, "uniqueItems": true },
+        "policy_enforcement_point_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+        "authority_provider_ref": { "type": "string", "pattern": "^authority-provider://[^\\s]{1,500}$" },
+        "failure_posture": { "enum": ["fail_closed", "audit_only", "queue_without_authority"] },
+        "required_enforcement_scope_refs": { "type": "array", "items": { "type": "string", "pattern": "^enforcement-scope://[^\\s]{1,500}$" }, "minItems": 1, "maxItems": 64, "uniqueItems": true },
+        "run_on_graduation": { "$ref": "#/$defs/runOnGraduation" }
+      }
+    },
+    "adapter": {
+      "type": "object", "additionalProperties": false,
+      "required": ["adapter_ref", "adapter_revision", "adapter_kind", "implementation_ref", "deployment_profile_ref"],
+      "properties": {
+        "adapter_ref": { "type": "string", "pattern": "^adapter://[^\\s]{1,500}$" },
+        "adapter_revision": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "adapter_kind": { "enum": ["ide_extension", "cli_wrapper", "mcp_gateway", "shell_wrapper", "git_hook", "workspace_watcher", "api_proxy", "browser_adapter", "hosted_agent_gateway", "ci_gate"] },
+        "implementation_ref": { "$ref": "#/$defs/artifactRef" },
+        "deployment_profile_ref": { "type": "string", "pattern": "^deployment-profile://[^\\s]{1,500}$" }
+      }
+    },
+    "actionSurface": {
+      "type": "object", "additionalProperties": false,
+      "required": ["surface", "action_classes", "mediation_mode", "primitive_capabilities", "authority_scopes", "final_invoker_ref", "receipt_profile_refs"],
+      "properties": {
+        "surface": { "enum": ["ide", "cli", "mcp", "shell", "git", "workspace", "api", "browser", "hosted_agent", "ci"] },
+        "action_classes": { "type": "array", "items": { "enum": ["shell", "file", "git", "mcp_tool", "api", "browser", "deploy", "secret", "connector", "provider"] }, "minItems": 1, "maxItems": 10, "uniqueItems": true },
+        "mediation_mode": { "enum": ["active_pre_effect", "audit_only", "receipt_ingestion_only", "uncovered"] },
+        "primitive_capabilities": { "type": "array", "items": { "$ref": "#/$defs/primitiveCapability" }, "maxItems": 32, "uniqueItems": true },
+        "authority_scopes": { "type": "array", "items": { "$ref": "#/$defs/authorityScope" }, "maxItems": 32, "uniqueItems": true },
+        "final_invoker_ref": { "type": "string", "pattern": "^(?:runtime|application|adapter)://[^\\s]{1,500}$" },
+        "receipt_profile_refs": {
+          "type": "array",
+          "items": { "enum": ["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1", "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1", "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"] },
+          "minItems": 1, "maxItems": 3, "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mediation_mode": { "const": "active_pre_effect" } }, "required": ["mediation_mode"] },
+          "then": {
+            "properties": {
+              "final_invoker_ref": { "type": "string", "pattern": "^runtime://[^\\s]{1,500}$" },
+              "receipt_profile_refs": {
+                "type": "array",
+                "allOf": [
+                  { "contains": { "const": "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1" } },
+                  { "contains": { "const": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1" } }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "mediation_mode": { "enum": ["audit_only", "receipt_ingestion_only", "uncovered"] } }, "required": ["mediation_mode"] },
+          "then": { "properties": { "authority_scopes": { "type": "array", "maxItems": 0 } } }
+        }
+      ]
+    },
+    "runOnGraduation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["agent_harness_adapter_revision_ref", "agent_harness_adapter_content_hash", "activation_source_kind", "implicit_approval_carryover", "implicit_grant_carryover", "implicit_credential_carryover", "implicit_scope_carryover"],
+      "properties": {
+        "agent_harness_adapter_revision_ref": { "oneOf": [{ "type": "string", "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$" }, { "type": "null" }] },
+        "agent_harness_adapter_content_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+        "activation_source_kind": { "const": "gateway_adapter_context" },
+        "implicit_approval_carryover": { "const": false },
+        "implicit_grant_carryover": { "const": false },
+        "implicit_credential_carryover": { "const": false },
+        "implicit_scope_carryover": { "const": false }
+      },
+      "allOf": [{
+        "if": { "properties": { "agent_harness_adapter_revision_ref": { "type": "null" } }, "required": ["agent_harness_adapter_revision_ref"] },
+        "then": { "properties": { "agent_harness_adapter_content_hash": { "type": "null" } } },
+        "else": { "properties": { "agent_harness_adapter_content_hash": { "$ref": "#/$defs/hash" } } }
+      }]
+    },
+    "positiveInteger": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "gatewayProfileRef": { "type": "string", "pattern": "^authority-gateway://[^\\s]{1,500}$" },
+    "artifactRef": { "type": "string", "pattern": "^artifact://[^\\s]{1,500}$" },
+    "primitiveCapability": { "type": "string", "pattern": "^prim:[a-z][a-z0-9._-]*$" },
+    "authorityScope": { "type": "string", "pattern": "^scope:[a-z][a-z0-9._-]*$" },
+    "hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "dateTime": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }
+  }
+}

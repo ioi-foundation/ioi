@@ -1,0 +1,73 @@
+{
+  "schema_version": "ioi.components.hypervisor.c8-certificate.v3",
+  "certificate_ref": "certificate://c8/v3/42",
+  "certificate_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "predecessor_certificate_schema_version": "ioi.hypervisor.c7-c8-certificate.v2",
+  "predecessor_certificate_ref": "certificate://c8/v2/42",
+  "predecessor_certificate_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "source_basis_refs": [
+    {
+      "ref": "git-commit://ioi/42",
+      "hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "ref": "binary://hypervisor-daemon/42",
+      "hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "operator_principal_ref": "principal://ioi/operator-1",
+  "governed_request_ref": "provider-operation://akash/create-42",
+  "governed_request_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "claim_manifest_ref": "claim-manifest://c8/v3/42",
+  "claim_manifest_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "isolation_binding_ref": "isolation-binding://workrun/42",
+  "isolation_binding_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "workload_image_ref": "image://aft/bench/42",
+  "workload_image_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "workload_readiness_evidence": [{"ref":"evidence://provider/readiness-42","hash":"sha256:1616161616161616161616161616161616161616161616161616161616161616"}],
+  "campaign_certificate_ref": "certificate://u1/campaign-42",
+  "campaign_certificate_hash": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+  "campaign_id": "campaign-42",
+  "benchmark_source_commit": "4242424242424242424242424242424242424242",
+  "benchmark_protocol_version": "res-p4.3.v2",
+  "result_contract_ref": "schema://ioi/aft/u1-campaign-result/v1",
+  "result_contract_hash": "sha256:1313131313131313131313131313131313131313131313131313131313131313",
+  "result_ref": "result://aft/campaign-42",
+  "result_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "result_retrieval_receipt_ref": "receipt://aft/result-retrieval-42",
+  "result_retrieval_receipt_hash": "sha256:1717171717171717171717171717171717171717171717171717171717171717",
+  "environment_ref": "environment://aft/campaign-42",
+  "environment_hash": "sha256:1414141414141414141414141414141414141414141414141414141414141414",
+  "variance_evidence_ref": "variance://aft/campaign-42",
+  "variance_evidence_hash": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
+  "environment_class": "measured_container",
+  "honesty_class": "same_provider_container_unknown_host",
+  "authority_draw": {
+    "standing_envelope_ref": "authority-grant://ioi/standing-42",
+    "standing_envelope_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "draw_request_ref": "authority-draw://ioi/42",
+    "draw_request_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "draw_receipt_ref": "receipt://authority-draw/42",
+    "draw_receipt_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+  },
+  "trajectory_binding": {
+    "state_before_ref": "trajectory-state://ioi/41",
+    "state_before_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "decision_ref": "trajectory-decision://ioi/42",
+    "decision_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+    "state_after_ref": "trajectory-state://ioi/42",
+    "state_after_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+  },
+  "brokered_secret_use_posture": "opaque_handle_final_invoker",
+  "secret_use_evidence": [{"ref":"evidence://secret-probe/42","hash":"sha256:1818181818181818181818181818181818181818181818181818181818181818"}],
+  "relying_party_audience_ref": "relying-party://aft/measured-results-registry",
+  "terminal_acceptance_prerequisites": [{"ref":"acceptance-policy://aft/measured-results/v1","hash":"sha256:1919191919191919191919191919191919191919191919191919191919191919"}],
+  "journal_binding": {
+    "intent_root": "sha256:abababababababababababababababababababababababababababababababab",
+    "outcome_predecessor_root": "sha256:abababababababababababababababababababababababababababababababab",
+    "outcome_root": "sha256:cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+  },
+  "terminal_settlement_ref": "receipt://provider/settlement-42",
+  "terminal_settlement_hash": "sha256:edededededededededededededededededededededededededededededededed",
+  "generated_at": "2026-08-22T12:00:00Z"
+}

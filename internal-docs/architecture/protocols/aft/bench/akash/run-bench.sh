@@ -1,58 +1,135 @@
 #!/usr/bin/env bash
-# AFT paper-benchmark runner entrypoint (RES-P4.3, Stage 1).
-#
-# Prints an environment manifest, runs AFT_BENCH_WARMUPS discarded warmups,
-# then AFT_BENCH_REPEATS measured passes of the AFT paper-benchmark matrix.
-# Each pass is wrapped in ===AFT-BENCH RUN k/N=== markers so the Markdown
-# tables can be split for variance analysis. After the passes it sleeps so the
-# Akash lease stays up for log retrieval — CLOSE THE LEASE MANUALLY when done.
-#
-# Retrieval: the results are on stdout (provider lease-logs). If /output is a
-# mounted volume, each pass is also written there.
-set -uo pipefail
+# Fail-closed RES-P4.3 campaign runner. A failed or partial matrix is retained
+# as evidence, but is never labeled complete and is never silently re-run.
+set -euo pipefail
 
 WARMUPS="${AFT_BENCH_WARMUPS:-1}"
 REPEATS="${AFT_BENCH_REPEATS:-5}"
-SCENARIO="${IOI_AFT_BENCH_SCENARIO:-}"   # empty = full matrix (4v+7v, both families)
+SCENARIO="${IOI_AFT_BENCH_SCENARIO:-}"
 OUTDIR="${AFT_BENCH_OUTDIR:-/output}"
-mkdir -p "$OUTDIR" 2>/dev/null || true
+CAMPAIGN="${AFT_BENCH_CAMPAIGN_ID:?AFT_BENCH_CAMPAIGN_ID is required}"
+COMMIT="${IOI_BENCH_COMMIT:?IOI_BENCH_COMMIT is required}"
+IMAGE_DIGEST="${IOI_BENCH_IMAGE_DIGEST:?IOI_BENCH_IMAGE_DIGEST is required}"
+PROTOCOL_VERSION="${AFT_BENCH_PROTOCOL_VERSION:?AFT_BENCH_PROTOCOL_VERSION is required}"
+TOOLS="${AFT_RESULT_TOOLS:-/usr/local/bin/aft-result-tools.py}"
+RESULT_TLS_CERT="${AFT_RESULT_TLS_CERT:-/etc/ioi-aft-result/tls.crt}"
+RESULT_TLS_KEY="${AFT_RESULT_TLS_KEY:-/etc/ioi-aft-result/tls.key}"
+
+case "$WARMUPS:$REPEATS" in
+  *[!0-9:]*|:*|*:) echo "warmups and repeats must be integers" >&2; exit 2 ;;
+esac
+if (( WARMUPS != 1 || REPEATS != 5 )); then
+  echo "RES-P4.3 v2 requires exactly one warmup and five measured passes" >&2
+  exit 2
+fi
+
+mkdir -p "$OUTDIR"
+if [[ ! -r "$RESULT_TLS_CERT" || ! -r "$RESULT_TLS_KEY" ]]; then
+  echo "result TLS certificate and key must be readable before the campaign starts" >&2
+  exit 2
+fi
+
+set_status() {
+  "$TOOLS" status --output "$OUTDIR/status.json" --campaign "$CAMPAIGN" --state "$1" --detail "$2"
+}
 
 bench_cmd() {
-  cargo test --release \
+  cargo test --locked --offline --release \
     -p ioi-cli \
     --features consensus-aft,vm-wasm,state-jellyfish \
+    --test benchmark_throughput \
     -- --ignored --nocapture test_aft_paper_benchmark_matrix
 }
 
-echo "===AFT-BENCH ENVIRONMENT MANIFEST==="
-echo "source_commit: ${IOI_BENCH_COMMIT:-unknown}"
-echo "scenario_filter: ${SCENARIO:-<full-matrix>}"
-echo "warmups: ${WARMUPS}   repeats: ${REPEATS}"
-echo "cpu_model: $(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2 | sed 's/^ //')"
-echo "cpu_cores_online: $(nproc 2>/dev/null)"
-echo "mem_total: $(awk '/MemTotal/{print $2 $3}' /proc/meminfo 2>/dev/null)"
-echo "kernel: $(uname -r 2>/dev/null)   (NOTE: provider host kernel, not ours)"
-echo "rustc: $(rustc --version 2>/dev/null)"
-echo "governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo unknown)"
-echo "===END MANIFEST==="
+run_campaign() (
+  set -euo pipefail
+  set_status starting "capturing environment manifest"
+  "$TOOLS" environment \
+    --output "$OUTDIR/environment.json" \
+    --campaign "$CAMPAIGN" \
+    --commit "$COMMIT" \
+    --image-digest "$IMAGE_DIGEST" \
+    --protocol-version "$PROTOCOL_VERSION" \
+    --scenario "$SCENARIO" \
+    --warmups "$WARMUPS" \
+    --repeats "$REPEATS"
 
-for w in $(seq 1 "${WARMUPS}"); do
-  echo "===AFT-BENCH WARMUP ${w}/${WARMUPS} (discarded)==="
-  bench_cmd >/dev/null 2>&1 || echo "warmup ${w} exited non-zero (continuing)"
-done
+  for (( warmup = 1; warmup <= WARMUPS; warmup++ )); do
+    set_status warmup "warmup $warmup of $WARMUPS"
+    bench_cmd >"$OUTDIR/warmup-${warmup}.raw" 2>&1
+  done
 
-for k in $(seq 1 "${REPEATS}"); do
-  echo "===AFT-BENCH RUN ${k}/${REPEATS} BEGIN==="
-  if [ -w "$OUTDIR" ]; then
-    bench_cmd 2>&1 | tee "${OUTDIR}/run-${k}.md"
-  else
-    bench_cmd 2>&1
-  fi
-  echo "===AFT-BENCH RUN ${k}/${REPEATS} END==="
-done
+  for (( pass = 1; pass <= REPEATS; pass++ )); do
+    set_status measuring "measured pass $pass of $REPEATS"
+    bench_cmd >"$OUTDIR/run-${pass}.raw" 2>&1
+    "$TOOLS" collect \
+      --input "$OUTDIR/run-${pass}.raw" \
+      --output "$OUTDIR/run-${pass}.json" \
+      --campaign "$CAMPAIGN" \
+      --pass-number "$pass" \
+      --scenario "$SCENARIO" \
+      2>"$OUTDIR/collect-${pass}.stderr"
+  done
 
-echo "===AFT-BENCH ALL RUNS COMPLETE — lease idle, CLOSE IT MANUALLY==="
-# Keep the container alive so `lease-logs` and any mounted /output remain
-# retrievable. Akash treats an exited service as crashed and restarts it,
-# which would re-run the whole matrix and bill for it — so we hold here.
-sleep infinity
+  set_status measuring "aggregating $REPEATS measured passes"
+  (
+    cd "$OUTDIR"
+    "$TOOLS" aggregate \
+      --inputs 'run-*.json' \
+      --repeats "$REPEATS" \
+      --campaign "$CAMPAIGN" \
+      --output-json result.json \
+      --output-markdown result.md \
+      2>aggregate.stderr
+  )
+  set_status measuring "scanning campaign artifacts for secret canaries"
+  "$TOOLS" scan --directory "$OUTDIR" --canaries "${IOI_SECRET_CANARIES:-}"
+  set_status measuring "sealing the campaign artifact manifest"
+  "$TOOLS" manifest --directory "$OUTDIR"
+  set_status complete "all measured passes validated and aggregated"
+)
+
+set_status starting "campaign has not crossed the benchmark boundary"
+
+# Bring the authenticated evidence channel up before the paid benchmark starts.
+# `/results` remains fail-closed until status reaches `complete`, while `/status`
+# and `/environment` make a slow or failed run distinguishable from an absent
+# container. Keeping the same server process alive across the campaign also
+# prevents a completed result from depending on a late bind to the ingress port.
+"$TOOLS" serve \
+  --directory "$OUTDIR" \
+  --port "${AFT_RESULT_PORT:-8080}" \
+  --tls-cert "$RESULT_TLS_CERT" \
+  --tls-key "$RESULT_TLS_KEY" &
+RESULT_SERVER_PID=$!
+cleanup_result_server() {
+  kill "$RESULT_SERVER_PID" 2>/dev/null || true
+  wait "$RESULT_SERVER_PID" 2>/dev/null || true
+}
+trap cleanup_result_server EXIT INT TERM
+sleep 1
+if ! kill -0 "$RESULT_SERVER_PID" 2>/dev/null; then
+  wait "$RESULT_SERVER_PID"
+fi
+
+set +e
+run_campaign
+code=$?
+set -e
+if (( code == 0 )); then
+  echo "AFT campaign $CAMPAIGN completed and validated"
+else
+  "$TOOLS" failure-status \
+    --directory "$OUTDIR" \
+    --campaign "$CAMPAIGN" \
+    --exit-code "$code" \
+    --canaries "${IOI_SECRET_CANARIES:-}" || \
+    set_status failed "campaign failed closed with exit code $code; bounded diagnostics unavailable"
+  "$TOOLS" manifest --directory "$OUTDIR" || true
+  echo "AFT campaign $CAMPAIGN failed closed; evidence remains retrievable" >&2
+fi
+
+# Never exit after the paid workload starts: Akash may restart an exited
+# service and accidentally repeat a spend-bearing benchmark campaign. The
+# already-running server keeps both successful and failed evidence available.
+wait "$RESULT_SERVER_PID"

@@ -12,17 +12,18 @@
 //!
 //! Ops are BODY-dispatched via POST /v1/hypervisor/provider-ops to avoid matchit route collisions.
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::Json;
+use base64::Engine as _;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-
-use ioi_services::agentic::runtime::kernel::runtime_hypervisor_approved_operation_admission::RuntimeHypervisorApprovedOperationAdmissionCore;
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 use super::lifecycle_routes::{
     authorize_capability_lease, open_scm_token, seal_scm_token, CapabilityLeaseRequest,
@@ -30,6 +31,7 @@ use super::lifecycle_routes::{
 use ioi_services::agentic::runtime::kernel::emergency_containment::{
     close_deletion, DeletionOutcome,
 };
+use ioi_services::wallet_network::SettleStandingApprovalGrantConsumptionParams;
 
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
@@ -39,11 +41,310 @@ fn nanos() -> u128 {
         .map(|d| d.as_nanos())
         .unwrap_or(0)
 }
+
+#[cfg(test)]
+mod command_guardrail_tests {
+    use super::*;
+
+    #[test]
+    fn every_provider_workrun_entry_can_use_the_shared_fail_closed_refusal() {
+        let directory = tempfile::tempdir().unwrap();
+        let refusal = provider_workrun_guardrail_refusal(
+            directory.path().to_str().unwrap(),
+            "loopback-runner",
+            "provider-local-env",
+            "rm -rf /",
+        )
+        .expect("the built-in global denial must cover provider-local workruns");
+
+        assert_eq!(refusal["policy_denied"], json!(true));
+        assert_eq!(refusal["exit_code"], json!(126));
+        assert_eq!(refusal["provider"], json!("loopback-runner"));
+        assert_eq!(refusal["op"], json!("workrun"));
+        assert_eq!(refusal["execution_surface"], json!("provider.workrun"));
+
+        let environments = directory.path().join("environments");
+        std::fs::create_dir_all(&environments).unwrap();
+        std::fs::write(environments.join("broken-env.json"), b"{ malformed").unwrap();
+        let indeterminate = provider_workrun_guardrail_refusal(
+            directory.path().to_str().unwrap(),
+            "loopback-runner",
+            "broken-env",
+            "printf harmless",
+        )
+        .expect("a malformed environment record must refuse rather than drop local denials");
+        assert_eq!(indeterminate["policy_indeterminate"], json!(true));
+        assert_eq!(
+            indeterminate["refusal"]["store"],
+            json!("environment_record")
+        );
+        assert_eq!(indeterminate["exit_code"], json!(126));
+    }
+}
+
+fn trajectory_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn trajectory_hash(mut value: Value, hash_field: &str) -> Result<String, String> {
+    value
+        .as_object_mut()
+        .ok_or_else(|| "trajectory object must be an object".to_string())?
+        .remove(hash_field);
+    serde_jcs::to_vec(&value)
+        .map(|bytes| sha256_bytes(&bytes))
+        .map_err(|error| format!("trajectory object cannot be canonicalized: {error}"))
+}
+
+fn ms_rfc3339(ms: u64) -> String {
+    OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms).saturating_mul(1_000_000))
+        .ok()
+        .and_then(|value| value.format(&Rfc3339).ok())
+        .unwrap_or_else(iso_now)
+}
+
+/// Reserve one deterministic trajectory slot for a standing-authority provider effect. The
+/// wallet draw has already committed when this runs; therefore any failure conservatively burns
+/// that use but never reaches the provider. The global daemon lock plus immutable state records
+/// prevents concurrent or restarted callers from admitting against the same stale revision.
+fn admit_standing_provider_trajectory(
+    data_dir: &str,
+    envelope: &Value,
+    request_hash: &str,
+    provider_id: &str,
+    environment_ref: &str,
+    facets: &Value,
+) -> Result<Value, String> {
+    let _guard = trajectory_lock()
+        .lock()
+        .map_err(|_| "trajectory admission lock poisoned".to_string())?;
+    let state_ref = format!(
+        "trajectory-state://{}",
+        sha256_bytes(
+            format!(
+                "{}\0{}",
+                text(envelope, "owner_ref"),
+                text(envelope, "bounded_system_ref")
+            )
+            .as_bytes()
+        )
+        .trim_start_matches("sha256:")
+    );
+    let prior = read_record_dir(data_dir, "authority-trajectory-states")
+        .into_iter()
+        .filter(|record| text(record, "trajectory_state_ref") == state_ref)
+        .max_by_key(|record| {
+            record
+                .get("admitted_call_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+        });
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+    let mut before = prior.unwrap_or_else(|| {
+        json!({
+            "schema_version": "ioi.foundations.authority-trajectory-state.v1",
+            "trajectory_state_ref": state_ref,
+            "owner_ref": envelope["owner_ref"],
+            "bounded_system_ref": envelope["bounded_system_ref"],
+            "principal_ref": envelope["principal_ref"],
+            "envelope_ancestor_refs": [envelope["standing_envelope_ref"]],
+            "revocation_epoch": envelope["revocation_epoch"],
+            "window_started_at": ms_rfc3339(now_ms),
+            "window_ends_at": ms_rfc3339(envelope["expires_at_ms"].as_u64().unwrap_or(now_ms)),
+            "cumulative_spend_usd": 0.0,
+            "cumulative_deposit_usd": 0.0,
+            "active_resource_refs": [],
+            "provider_refs": [],
+            "destination_refs": [],
+            "data_class_refs": [],
+            "admitted_call_count": 0,
+            "failed_call_count": 0,
+            "admitted_events": [],
+            "derived_at": ms_rfc3339(now_ms),
+        })
+    });
+    before["trajectory_state_hash"] =
+        json!(trajectory_hash(before.clone(), "trajectory_state_hash")?);
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        "schema://ioi/foundations/authority-trajectory-state/v1",
+        &before,
+    )
+    .map_err(|error| format!("trajectory state is not contract valid: {error}"))?;
+
+    let unique_with = |values: &Value, added: &str| {
+        let mut output = values
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        if !output.iter().any(|value| value == added) {
+            output.push(added.to_string());
+        }
+        output.sort();
+        output.dedup();
+        output
+    };
+    let provider_address = text(facets, "provider_address");
+    let provider_ref = format!("provider://akash/{provider_address}");
+    let destination = text(facets, "result_credential_ref");
+    let resource_ref = format!("provider-resource://{provider_id}/{environment_ref}");
+    let active = unique_with(&before["active_resource_refs"], &resource_ref);
+    let providers = unique_with(&before["provider_refs"], &provider_ref);
+    let destinations = unique_with(&before["destination_refs"], destination);
+    let data_classes = unique_with(&before["data_class_refs"], "data-class://public-benchmark");
+    let deposit = facets
+        .get("deposit_usd")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| "trajectory deposit is absent".to_string())?;
+    let spend = before["cumulative_spend_usd"].as_f64().unwrap_or(0.0) + deposit;
+    let cumulative_deposit = before["cumulative_deposit_usd"].as_f64().unwrap_or(0.0) + deposit;
+    let calls = before["admitted_call_count"].as_u64().unwrap_or(0) + 1;
+    let bounds = &envelope["aggregate_bounds"];
+    let constraints = vec![
+        json!({"constraint_id":"max_cumulative_spend_usd","satisfied": spend * 1_000_000.0 <= bounds["max_cumulative_spend_microusd"].as_u64().unwrap_or(0) as f64,"observed_value":spend.to_string(),"limit_value":(bounds["max_cumulative_spend_microusd"].as_u64().unwrap_or(0) as f64 / 1_000_000.0).to_string(),"evidence_refs":[]}),
+        json!({"constraint_id":"max_cumulative_deposit_usd","satisfied": cumulative_deposit * 1_000_000.0 <= bounds["max_cumulative_deposit_microusd"].as_u64().unwrap_or(0) as f64,"observed_value":cumulative_deposit.to_string(),"limit_value":(bounds["max_cumulative_deposit_microusd"].as_u64().unwrap_or(0) as f64 / 1_000_000.0).to_string(),"evidence_refs":[]}),
+        json!({"constraint_id":"max_active_resources","satisfied": active.len() as u64 <= bounds["max_concurrent_resources"].as_u64().unwrap_or(0),"observed_value":active.len().to_string(),"limit_value":bounds["max_concurrent_resources"].as_u64().unwrap_or(0).to_string(),"evidence_refs":[]}),
+        json!({"constraint_id":"max_provider_fanout","satisfied": providers.len() as u64 <= bounds["max_provider_fanout"].as_u64().unwrap_or(0),"observed_value":providers.len().to_string(),"limit_value":bounds["max_provider_fanout"].as_u64().unwrap_or(0).to_string(),"evidence_refs":[]}),
+        json!({"constraint_id":"max_destination_fanout","satisfied": destinations.len() <= 1,"observed_value":destinations.len().to_string(),"limit_value":"1","evidence_refs":[]}),
+        json!({"constraint_id":"max_calls","satisfied": calls <= bounds["max_usages"].as_u64().unwrap_or(0),"observed_value":calls.to_string(),"limit_value":bounds["max_usages"].as_u64().unwrap_or(0).to_string(),"evidence_refs":[]}),
+    ];
+    let exceeded = constraints
+        .iter()
+        .filter(|constraint| constraint["satisfied"].as_bool() != Some(true))
+        .map(|constraint| format!("trajectory_{}_exceeded", text(constraint, "constraint_id")))
+        .collect::<Vec<_>>();
+    let admitted = exceeded.is_empty();
+    let candidate_ref = format!(
+        "provider-operation://trajectory/{}",
+        request_hash.trim_start_matches("sha256:")
+    );
+    let event = json!({"ref": candidate_ref, "hash": request_hash});
+    let mut after = before.clone();
+    if admitted {
+        after["cumulative_spend_usd"] = json!(spend);
+        after["cumulative_deposit_usd"] = json!(cumulative_deposit);
+        after["active_resource_refs"] = json!(active);
+        after["provider_refs"] = json!(providers);
+        after["destination_refs"] = json!(destinations);
+        after["data_class_refs"] = json!(data_classes);
+        after["admitted_call_count"] = json!(calls);
+        let mut events = after["admitted_events"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        events.push(event);
+        after["admitted_events"] = json!(events);
+        after["derived_at"] = json!(ms_rfc3339(now_ms));
+        after["trajectory_state_hash"] =
+            json!(trajectory_hash(after.clone(), "trajectory_state_hash")?);
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            "schema://ioi/foundations/authority-trajectory-state/v1",
+            &after,
+        )
+        .map_err(|error| format!("trajectory state-after is not contract valid: {error}"))?;
+    }
+    let mut decision = json!({
+        "schema_version": "ioi.foundations.trajectory-admission-decision.v1",
+        "candidate_operation_ref": candidate_ref,
+        "candidate_operation_hash": request_hash,
+        "state_before_ref": before["trajectory_state_ref"],
+        "state_before_hash": before["trajectory_state_hash"],
+        "constraint_results": constraints,
+        "semantic_risk_evidence_refs": [],
+        "decision": if admitted { "admit" } else { "deny" },
+        "reason_codes": if admitted { json!(["trajectory_within_policy"]) } else { json!(exceeded) },
+        "step_up_requirement_refs": [],
+        "policy_ref": envelope["trajectory_policy_ref"],
+        "policy_hash": envelope["trajectory_policy_hash"],
+        "state_after_ref": after["trajectory_state_ref"],
+        "state_after_hash": after["trajectory_state_hash"],
+        "policy_epoch": envelope["revocation_epoch"],
+        "decided_at": ms_rfc3339(now_ms),
+    });
+    let decision_hash = trajectory_hash(decision.clone(), "decision_hash")?;
+    decision["decision_hash"] = json!(decision_hash);
+    decision["decision_ref"] = json!(format!(
+        "trajectory-decision://{}",
+        decision_hash.trim_start_matches("sha256:")
+    ));
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        "schema://ioi/foundations/trajectory-admission-decision/v1",
+        &decision,
+    )
+    .map_err(|error| format!("trajectory decision is not contract valid: {error}"))?;
+    let decision_id = decision_hash.trim_start_matches("sha256:");
+    persist_record(
+        data_dir,
+        "authority-trajectory-decisions",
+        decision_id,
+        &decision,
+    )
+    .map_err(|error| format!("trajectory decision did not persist: {error}"))?;
+    if !admitted {
+        return Err(format!(
+            "trajectory admission refused: {}",
+            exceeded.join(",")
+        ));
+    }
+    let state_id = format!(
+        "{}-{calls}",
+        sha256_bytes(state_ref.as_bytes()).trim_start_matches("sha256:")
+    );
+    persist_record(data_dir, "authority-trajectory-states", &state_id, &after)
+        .map_err(|error| format!("trajectory state did not persist: {error}"))?;
+    Ok(decision)
+}
 fn safe(seg: &str) -> String {
     seg.replace(
         |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
         "_",
     )
+}
+
+fn standing_consumption_for_environment(
+    data_dir: &str,
+    provider: &str,
+    environment_ref: &str,
+) -> Option<[u8; 32]> {
+    let record = read_record_dir(data_dir, "provider-operations")
+        .into_iter()
+        .filter(|record| {
+            text(record, "provider") == provider
+                && text(record, "environment_ref") == environment_ref
+                && matches!(text(record, "op"), "create" | "redeploy")
+                && record
+                    .pointer("/capability_lease/authority_mode")
+                    .and_then(Value::as_str)
+                    == Some("standing_envelope")
+        })
+        .max_by(|left, right| text(left, "at").cmp(text(right, "at")))?;
+    let encoded = record
+        .pointer("/capability_lease/standing_consumption_id")
+        .and_then(Value::as_str)?;
+    let mut consumption_id = [0u8; 32];
+    hex::decode_to_slice(encoded, &mut consumption_id).ok()?;
+    Some(consumption_id)
+}
+
+fn terminal_spend_microusd(evidence: &Value) -> Option<(u64, &Value)> {
+    let settlement = evidence
+        .get("settlement")
+        .or_else(|| evidence.get("provider_native_settlement"))
+        .or_else(|| evidence.pointer("/provider_native/settlement"))?;
+    if settlement.get("provider_terminal").and_then(Value::as_bool) != Some(true) {
+        return None;
+    }
+    let usd = settlement.get("final_debit_usd")?.as_f64()?;
+    if !usd.is_finite() || usd < 0.0 || usd > (u64::MAX as f64 / 1_000_000.0) {
+        return None;
+    }
+    Some(((usd * 1_000_000.0).round() as u64, settlement))
 }
 /// Derive the EXACT deletion outcome for a provider teardown.
 ///
@@ -235,6 +536,11 @@ trait EnvironmentProvider: Send + Sync {
     /// Provider-native lifecycle events (read-only evidence). Default: no event lane.
     fn events(&self, _data_dir: &str, _env_ref: &str) -> Result<Value, String> {
         Err("events_not_supported — this provider records no native event lane".into())
+    }
+    /// Provider-native billing/escrow reconciliation. Read-only at the provider; adapters may
+    /// durably advance their local projection only from the fetched counterparty truth.
+    fn reconcile(&self, _data_dir: &str, _env_ref: &str) -> Result<Value, String> {
+        Err("provider_reconciliation_not_supported".into())
     }
     /// Reboot/restart where the provider supports it (EC2 reboot semantics).
     fn restart(&self, _data_dir: &str, _env_ref: &str) -> Result<Value, String> {
@@ -4702,83 +5008,36 @@ fn load_akash_deployment(data_dir: &str, account_id: &str, env_ref: &str) -> Opt
     mine.pop()
 }
 
-/// C7 restart recovery — a `deployment_created` record with no terminal (lease_accepted / closed /
-/// reconciliation) state is STRANDED: the daemon funded an akash deposit but did not reach a Stage B
-/// terminal outcome before it stopped. Scan for these and transition each to
-/// `reconciliation_required`, so a funded deposit is never silently lost. Returns the stranded
-/// dseqs. Marks records only; the live close + escrow-refund confirmation is a follow-up step that
-/// needs the credential (closed != refund_settled).
-pub(crate) fn reconcile_stranded_akash_deployments(data_dir: &str) -> Vec<String> {
+/// C7 restart recovery — a `deposit_funded` record is STRANDED when the daemon stopped before a
+/// lease or compensation outcome committed. Transition the same durable dseq record to
+/// `reconciliation_required`; never manufacture a second legacy intent identity. The live close
+/// and escrow-refund confirmation remain a credentialed follow-up (close accepted != settled).
+pub(crate) fn reconcile_stranded_akash_deployments(data_dir: &str) -> Result<Vec<String>, String> {
     let stranded: Vec<Value> = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
         .into_iter()
-        .filter(|d| text(d, "state") == "deployment_created")
+        .filter(|d| text(d, "state") == "deposit_funded")
         .collect();
     let mut dseqs = Vec::new();
     for rec in stranded {
         let dseq = text(&rec, "dseq").to_string();
-        let id = format!("akdep_intent_{dseq}");
+        let id = text(&rec, "record_id").to_string();
+        if dseq.is_empty() || id.is_empty() {
+            return Err("akash_restart_recovery_record_identity_missing".into());
+        }
         let mut updated = rec.clone();
         if let Some(o) = updated.as_object_mut() {
             o.insert("state".into(), json!("reconciliation_required"));
+            o.insert("status".into(), json!("reconciliation_required"));
+            o.insert("settlement_state".into(), json!("reconciliation_required"));
             o.insert("reconciled_at".into(), json!(iso_now()));
             o.insert("reconcile_note".into(), json!("STRANDED on restart: the deposit was funded but Stage B never reached a terminal outcome. Close the deployment from the provider console and confirm the escrow refund; the daemon marks it here so the funded deposit is not silently lost."));
         }
-        let _ = persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &id, &updated);
+        persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &id, &updated).map_err(|error| {
+            format!("akash_restart_recovery_persistence_failed — {id}: {error}")
+        })?;
         dseqs.push(dseq);
     }
-    dseqs
-}
-
-/// C7 provider_selector — the typed, wallet-bound admissible-provider policy. A clean typed break:
-/// NO legacy `provider_address` alias, no migration branch, no fallback from exact to any_marketplace.
-/// Returns the CANONICAL selector (exactly the allowed fields) on success, or a refusal reason.
-///   { "mode": "exact",           "address": "akash1..." }
-///   { "mode": "any_marketplace", "selection": "lowest_qualified_bid" }
-/// The wallet approves the admissible set; Stage B selects and records the actual provider.
-fn validate_provider_selector(sel: &Value) -> Result<Value, String> {
-    let obj = sel.as_object().ok_or(
-        "provider_selector is required — an object with mode 'exact' (address) or 'any_marketplace' (selection)",
-    )?;
-    let mode = obj
-        .get("mode")
-        .and_then(Value::as_str)
-        .ok_or("provider_selector.mode is required")?;
-    match mode {
-        "exact" => {
-            for k in obj.keys() {
-                if k != "mode" && k != "address" {
-                    return Err(format!(
-                        "provider_selector.exact has unknown field '{k}' (allowed: mode, address)"
-                    ));
-                }
-            }
-            let address = obj
-                .get("address")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .trim();
-            if address.is_empty() {
-                return Err("provider_selector.exact requires one non-empty 'address'".into());
-            }
-            Ok(json!({ "mode": "exact", "address": address }))
-        }
-        "any_marketplace" => {
-            for k in obj.keys() {
-                if k != "mode" && k != "selection" {
-                    return Err(format!(
-                        "provider_selector.any_marketplace has unknown field '{k}' (allowed: mode, selection)"
-                    ));
-                }
-            }
-            if obj.get("selection").and_then(Value::as_str) != Some("lowest_qualified_bid") {
-                return Err("provider_selector.any_marketplace requires selection == 'lowest_qualified_bid' (the only deterministic selection today)".into());
-            }
-            Ok(json!({ "mode": "any_marketplace", "selection": "lowest_qualified_bid" }))
-        }
-        other => Err(format!(
-            "provider_selector.mode '{other}' is unknown (allowed: exact, any_marketplace)"
-        )),
-    }
+    Ok(dseqs)
 }
 
 struct AkashProvider {
@@ -4823,6 +5082,136 @@ impl AkashProvider {
         // lease is closed; a lost write hides an accruing lease from spend reconciliation.
         persist_record(data_dir, AKASH_LEASE_KIND, &id, lease)
             .map_err(|e| format!("provider_spend_exposure_persistence_failed — lease record {id} did not commit; an accruing lease may be invisible to spend reconciliation: {e}"))
+    }
+    fn live_api_key(&self, data_dir: &str) -> Result<String, String> {
+        let cred = load_account_credential(data_dir, self.account_id()).ok_or(
+            "akash_live_credentials_absent — provider readback needs the bound credential",
+        )?;
+        cred["sealed_token"]
+            .as_str()
+            .and_then(open_scm_token)
+            .ok_or_else(|| {
+                "akash_live_credential_unresolvable — the sealed Console key did not decrypt"
+                    .to_string()
+            })
+    }
+    fn console_request(
+        request: ioi_drivers::provisioning::akash_console::ConsoleRequest,
+    ) -> Result<(u16, Value), String> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async move {
+                use ioi_drivers::provisioning::akash_console as ac;
+                let (header_name, header_value) = request.header();
+                let url = format!("{}{}", ac::AKASH_CONSOLE_BASE_URL, request.path);
+                let client = reqwest::Client::new();
+                let builder = match request.method {
+                    ac::ConsoleMethod::Get => client.get(&url),
+                    ac::ConsoleMethod::Post => client.post(&url),
+                    ac::ConsoleMethod::Put => client.put(&url),
+                    ac::ConsoleMethod::Delete => client.delete(&url),
+                }
+                .header(header_name, header_value)
+                .timeout(std::time::Duration::from_secs(60));
+                let builder = if let Some(body) = &request.body {
+                    builder.json(body)
+                } else {
+                    builder
+                };
+                let response = builder
+                    .send()
+                    .await
+                    .map_err(|error| format!("akash_console_http_failed: {error}"))?;
+                let status = response.status().as_u16();
+                let body = response.json().await.unwrap_or(Value::Null);
+                Ok((status, body))
+            })
+        })
+    }
+    fn live_detail(&self, data_dir: &str, dseq: &str) -> Result<Value, String> {
+        use ioi_drivers::provisioning::akash_console as ac;
+        let api_key = self.live_api_key(data_dir)?;
+        let (status, detail) = Self::console_request(ac::get_deployment(&api_key, dseq))?;
+        if !(200..300).contains(&status) {
+            return Err(format!(
+                "akash_console_get_deployment_failed: http {status}"
+            ));
+        }
+        Ok(detail)
+    }
+    fn settle_from_detail(
+        &self,
+        data_dir: &str,
+        dep: &mut Value,
+        detail: &Value,
+    ) -> Result<Value, String> {
+        use ioi_drivers::provisioning::akash_console as ac;
+        let deposit_usd = dep
+            .get("deposit_usd")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
+        let settlement = ac::parse_settlement_readback(detail, deposit_usd);
+        dep["provider_native_settlement"] = settlement.clone();
+        dep["settlement_state"] = settlement["settlement_state"].clone();
+        dep["provider_readback_hash"] =
+            json!(sha256_bytes(&serde_jcs::to_vec(detail).unwrap_or_default()));
+        dep["last_reconciled_at"] = json!(iso_now());
+        if settlement["provider_terminal"] == json!(true) {
+            dep["state"] = settlement["settlement_state"].clone();
+            dep["status"] = json!("torn_down");
+            dep["teardown_state"] = json!("torn_down");
+            Self::push_event(
+                dep,
+                text(&settlement, "settlement_state"),
+                "provider-native deployment, escrow and lease readback reached terminal settlement"
+                    .into(),
+            );
+            for mut lease in read_record_dir(data_dir, AKASH_LEASE_KIND) {
+                if lease.get("deployment_ref") == dep.get("deployment_ref")
+                    && text(&lease, "state") != "closed"
+                {
+                    lease["state"] = json!("closed");
+                    lease["closed_at"] = json!(iso_now());
+                    lease["closure_basis"] = json!(
+                        "provider-native terminal deployment, escrow and zero-active-lease readback"
+                    );
+                    self.save_lease(data_dir, &lease)?;
+                }
+            }
+        } else {
+            dep["state"] = json!("reconciliation_required");
+            dep["status"] = json!("reconciliation_required");
+            Self::push_event(
+                dep,
+                "reconciliation_required",
+                "provider-native close/escrow readback is not terminal".into(),
+            );
+        }
+        self.save_deployment(data_dir, dep)?;
+
+        // A one-call capability lease cannot remain semantically active after its only call was
+        // consumed. Reconciliation closes that stale local projection without widening authority.
+        for mut lease in read_record_dir(data_dir, "capability-leases") {
+            let binds_environment = lease
+                .get("resource_refs")
+                .and_then(Value::as_array)
+                .map(|refs| {
+                    refs.iter()
+                        .any(|value| value.as_str() == Some(text(dep, "environment_ref")))
+                })
+                .unwrap_or(false);
+            if binds_environment
+                && lease.get("remaining_calls").and_then(Value::as_u64) == Some(0)
+                && text(&lease, "state") == "active"
+            {
+                lease["state"] = json!("exhausted");
+                lease["exhausted_at"] = json!(iso_now());
+                let lease_id = text(&lease, "lease_id").to_string();
+                persist_record(data_dir, "capability-leases", &lease_id, &lease).map_err(
+                    |error| format!("capability_lease_terminal_state_persistence_failed: {error}"),
+                )?;
+            }
+        }
+        Ok(settlement)
     }
     /// Exec/custody lane: available ONLY because the deployment's SDL declares an ssh service
     /// and ONLY after endpoint readiness is proven. Never assumed.
@@ -4902,13 +5291,15 @@ impl AkashProvider {
                     "akash_live_credential_unresolvable — the sealed Console key did not decrypt",
                 )?;
 
-            // The SDL is the standard Akash YAML the Console deploys verbatim — the
-            // caller supplies the exact manifest; we never synthesize spend inputs.
-            let sdl_yaml = plan
+            // C2 and the wallet grant bind the exact SDL template and use-only connector refs.
+            // Resolve any sealed registry/result credentials only here, at the provider execution
+            // boundary, after intent commitment. The expanded SDL is never journaled or receipted.
+            let sdl_template = plan
                 .get("sdl_yaml")
                 .and_then(Value::as_str)
                 .ok_or("akash_live_sdl_required — provide plan.sdl_yaml (the Akash SDL manifest to deploy)")?
                 .to_string();
+            let sdl_yaml = materialize_akash_sdl(data_dir, plan, &sdl_template)?;
             let deposit = plan
                 .get("deposit_usd")
                 .and_then(Value::as_f64)
@@ -4927,7 +5318,11 @@ impl AkashProvider {
                 .cloned()
                 .unwrap_or(Value::Null);
             let selector_mode = text(&selector, "mode").to_string();
-            let selector_address = text(&selector, "address").to_string();
+            let selector_address = text(&selector, "provider_address").to_string();
+            let ceiling_denom = text(plan, "ceiling_denom").to_string();
+            let ceiling_amount =
+                rust_decimal::Decimal::from_str_exact(text(plan, "ceiling_amount").trim())
+                    .map_err(|error| format!("akash_ceiling_amount_invalid: {error}"))?;
 
             // Run the async create→bid→lease→status flow from this sync body,
             // mirroring the live Vast path.
@@ -4967,166 +5362,220 @@ impl AkashProvider {
                     let (code, cd) =
                         send(ac::create_deployment(&api_key, &sdl_yaml, deposit)).await?;
                     if !(200..300).contains(&code) {
-                        return Err(format!("akash_console_create_failed: http {code} {cd}"));
+                        let response_hash =
+                            sha256_bytes(&serde_jcs::to_vec(&cd).unwrap_or_default());
+                        return Err(format!(
+                            "akash_console_create_failed: http {code} response_hash={response_hash}"
+                        ));
                     }
                     let dseq = ac::parse_created_dseq(&cd)
                         .ok_or("akash_console_create_no_dseq — create response had no data.dseq")?;
-                    let manifest = ac::parse_created_manifest(&cd).ok_or(
-                        "akash_console_create_no_manifest — create response had no data.manifest",
-                    )?;
-
-                    // Journal the deployment_create transition NOW — the deposit is funded, so a
-                    // crash mid-Stage-B must leave a recoverable record. Keyed by dseq; restart
-                    // recovery (reconcile_stranded_akash_deployments) reconciles any record left in
-                    // `deployment_created` with no terminal (lease_accepted / closed) outcome.
-                    let intent_rec_id = format!("akdep_intent_{dseq}");
-                    // CLASSIFIED (reconciliation evidence, checked-elsewhere): the deployment_create
-                    // MUTATION TRUTH is the shared-foundation C2 INTENT journal, committed and
-                    // checked in handle_provider_op BEFORE this external op. This dseq-keyed akash
-                    // record is provider-native reconciliation evidence for restart recovery; a lost
-                    // write leaves the C2 intent as the state truth, so it is not owed the shared path.
-                    let _ = persist_record(
-                        data_dir,
-                        AKASH_DEPLOYMENT_KIND,
-                        &intent_rec_id,
-                        &json!({
-                            "schema_version": "ioi.hypervisor.akash-deployment.v1",
-                            "record_id": intent_rec_id, "dseq": dseq,
-                            "account_id": self.account_id(), "environment_ref": env_ref,
-                            "state": "deployment_created", "deposit_usd": deposit,
-                            "sdl_hash": text(plan, "sdl_hash"), "provider_selector": selector.clone(),
-                            "note": "Stage A committed: deposit funded, awaiting Stage B. A record left in this state past a restart is stranded and gets reconciled (closed).",
-                            "execution_mode": "live_console_api", "at": iso_now(),
-                        }),
+                    // The escrow is funded at this point. Persist that fact immediately, before
+                    // waiting for bids, so a daemon restart has a provider-native dseq to close
+                    // and reconcile. Close acceptance and settlement are later, distinct states.
+                    let intent_id = format!("akdep_{}", safe(&dseq));
+                    let intent_ref = format!("akash-deployment://{intent_id}");
+                    let mut intent = json!({
+                        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                        "record_id": intent_id,
+                        "deployment_ref": intent_ref,
+                        "dseq": dseq,
+                        "account_id": self.account_id(),
+                        "account_ref": self.account["account_ref"],
+                        "environment_ref": env_ref,
+                        "status": "deposit_funded",
+                        "state": "deposit_funded",
+                        "settlement_state": "open",
+                        "execution_mode": "live_console_api",
+                        "deposit_usd": deposit,
+                        "sdl_template_bytes": sdl_template.len(),
+                        "events": [],
+                        "created_at": iso_now(),
+                    });
+                    Self::push_event(
+                        &mut intent,
+                        "deposit_funded",
+                        format!("Console funded deployment escrow for dseq={dseq}"),
                     );
-
-                    // ── THE DEPOSIT IS NOW FUNDED (the deployment exists). From here, ANY failure
-                    //    before the lease opens MUST close the deployment — Stage B is wrapped so it
-                    //    does. Stage B is the REAL post-bid quote gate: poll bids, accept ONLY the
-                    //    wallet-pinned provider, verify the bid's denom + EXACT amount against the
-                    //    SDL ceiling bound at Stage A, then open the lease. No second grant is
-                    //    consumed: this validates the real bid under the Stage A authority.
-                    let ceiling_denom = text(plan, "ceiling_denom").to_string();
-                    let ceiling_amount =
-                        rust_decimal::Decimal::from_str_exact(text(plan, "ceiling_amount").trim())
-                            .unwrap_or_default();
+                    persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &intent_id, &intent)
+                        .map_err(|error| format!(
+                            "akash_deposit_funded_persistence_failed — dseq={dseq} requires immediate provider reconciliation: {error}"
+                        ))?;
+                    let manifest = ac::parse_created_manifest(&cd);
+                    let mut bid_poll_count = 0_u64;
+                    let mut last_bid_observation = json!({
+                        "schema_version": "ioi.akash.bid-poll-evidence.v1",
+                        "status": "not_polled"
+                    });
+                    // Once the deposit is funded, every failure before lease acceptance flows through
+                    // the compensation block below. Prices remain exact DecCoin values throughout.
                     let stage_b: Result<(ac::AkashBid, String), String> = async {
-                        // Poll (up to 10× at 6s) for a bid that satisfies the wallet-approved
-                        // selector: exact → the authorized address's bid; any_marketplace → the
-                        // DETERMINISTIC lowest qualified (in-ceiling) bid.
+                        let manifest = manifest.ok_or(
+                            "akash_console_create_no_manifest — create response had no data.manifest",
+                        )?;
                         let mut priced: Option<
                             Result<(ac::AkashBid, rust_decimal::Decimal, String), String>,
                         > = None;
                         for _ in 0..10 {
-                            let (bc, bl) = send(ac::list_bids(&api_key, &dseq)).await?;
-                            if (200..300).contains(&bc) {
+                            let (http_status, bids) =
+                                send(ac::list_bids(&api_key, &dseq)).await?;
+                            bid_poll_count = bid_poll_count.saturating_add(1);
+                            let response_hash =
+                                sha256_bytes(&serde_jcs::to_vec(&bids).unwrap_or_default());
+                            if (200..300).contains(&http_status) {
                                 let picked = match selector_mode.as_str() {
-                                    "exact" => ac::parse_pinned_bid_priced(&bl, &selector_address),
+                                    "exact" => {
+                                        ac::parse_pinned_bid_priced(&bids, &selector_address)
+                                    }
                                     "any_marketplace" => ac::select_lowest_qualified_bid(
-                                        &bl,
+                                        &bids,
                                         &ceiling_denom,
                                         ceiling_amount,
                                     )
                                     .map(Ok),
                                     other => Some(Err(format!(
-                                        "akash_selector_mode_unknown — '{other}' (Stage A should have refused this)"
+                                        "akash_selector_mode_unknown — '{other}'"
                                     ))),
                                 };
-                                if let Some(p) = picked {
-                                    priced = Some(p);
+                                last_bid_observation = match &picked {
+                                    Some(Ok((bid, amount, denom))) => json!({
+                                        "schema_version": "ioi.akash.bid-poll-evidence.v1",
+                                        "status": "candidate_observed",
+                                        "selected_bid": { "provider": bid.provider, "gseq": bid.gseq, "oseq": bid.oseq },
+                                        "observed_price": { "amount": amount.to_string(), "denom": denom },
+                                        "http_status": http_status,
+                                        "poll_index": bid_poll_count,
+                                        "response_hash": response_hash,
+                                    }),
+                                    Some(Err(error)) => json!({
+                                        "schema_version": "ioi.akash.bid-poll-evidence.v1",
+                                        "status": "candidate_invalid",
+                                        "reason": error,
+                                        "http_status": http_status,
+                                        "poll_index": bid_poll_count,
+                                        "response_hash": response_hash,
+                                    }),
+                                    None => json!({
+                                        "schema_version": "ioi.akash.bid-poll-evidence.v1",
+                                        "status": "no_selector_qualified_bid",
+                                        "http_status": http_status,
+                                        "poll_index": bid_poll_count,
+                                        "response_hash": response_hash,
+                                    }),
+                                };
+                                if picked.is_some() {
+                                    priced = picked;
                                     break;
                                 }
+                            } else {
+                                last_bid_observation = json!({
+                                    "schema_version": "ioi.akash.bid-poll-evidence.v1",
+                                    "status": "http_refused",
+                                    "http_status": http_status,
+                                    "poll_index": bid_poll_count,
+                                    "response_hash": response_hash,
+                                });
                             }
                             tokio::time::sleep(std::time::Duration::from_secs(6)).await;
                         }
                         let (bid, bid_amount, bid_denom) = priced.ok_or_else(|| {
                             format!("akash_no_qualified_bid — no bid satisfied the '{selector_mode}' selector within the polling window")
                         })??;
-                        // The bid must price in the accepted denom AND be ≤ the SDL max (the exact
-                        // path needs this; any_marketplace already filtered — re-checked uniformly).
-                        ac::bid_passes_ceiling(bid_amount, &bid_denom, &ceiling_denom, ceiling_amount)?;
-                        // Prove the SELECTED provider satisfies the selector.
+                        ac::bid_passes_ceiling(
+                            bid_amount,
+                            &bid_denom,
+                            &ceiling_denom,
+                            ceiling_amount,
+                        )?;
                         if selector_mode == "exact" && bid.provider != selector_address {
                             return Err(format!(
                                 "akash_selector_mismatch — selected '{}' != exact '{selector_address}'",
                                 bid.provider
                             ));
                         }
-                        // Auto-top-up must be PROVABLY off before the lease opens (checked now the
-                        // DSEQ exists). If the deployment cannot be read, or carries an enabled
-                        // auto-top-up, the deposit is not provably the hard bound → refuse (→ close).
-                        let (adc, add) = send(ac::get_deployment(&api_key, &dseq)).await?;
-                        if !(200..300).contains(&adc) {
+                        let (detail_status, detail) =
+                            send(ac::get_deployment(&api_key, &dseq)).await?;
+                        if !(200..300).contains(&detail_status) {
                             return Err(format!(
-                                "akash_auto_topup_unprovable — could not read deployment {dseq} to prove auto-top-up off (http {adc})"
+                                "akash_auto_topup_unprovable — deployment readback returned HTTP {detail_status}"
                             ));
                         }
-                        if ac::deployment_has_auto_topup(&add) {
-                            return Err("akash_auto_topup_enabled — the deployment has auto-top-up enabled; refusing a lease that could exceed the deposit bound".into());
+                        if ac::deployment_has_auto_topup(&detail) {
+                            return Err("akash_auto_topup_enabled — refusing a lease whose deposit is not a hard bound".into());
                         }
-                        // Open the lease against the accepted, in-ceiling, wallet-pinned bid.
-                        let (lc, ll) =
+                        let (lease_status, _lease_body) =
                             send(ac::create_lease(&api_key, &manifest, &dseq, &bid)).await?;
-                        if !(200..300).contains(&lc) {
-                            return Err(format!("akash_console_lease_failed: http {lc} {ll}"));
+                        if !(200..300).contains(&lease_status) {
+                            return Err(format!(
+                                "akash_console_lease_failed: http {lease_status}"
+                            ));
                         }
                         Ok((bid, format!("{bid_amount}{bid_denom}")))
                     }
                     .await;
                     let (bid, burn_rate) = match stage_b {
                         Ok(v) => v,
-                        Err(e) => {
-                            // The deposit is funded but the lease did not open — CLOSE the deployment
-                            // so escrow stops, and JOURNAL the close outcome separately. A 2xx close
-                            // is `deposit_closed_refund_pending`: the close is accepted but the
-                            // escrow refund is the provider's async settlement, so closed ≠
-                            // refund_settled. A non-2xx / unreachable close is
-                            // `reconciliation_required`: the deposit may still be funded — reconcile.
-                            let close_http = send(ac::close_deployment(&api_key, &dseq))
-                                .await
-                                .map(|(c, _)| c)
-                                .unwrap_or(0);
-                            let close_state = if (200..300).contains(&close_http) {
-                                "deposit_closed_refund_pending"
+                        Err(reason) => {
+                            intent["stage_b_error"] = json!(reason);
+                            intent["bid_poll_evidence"] = json!({
+                                "poll_count": bid_poll_count,
+                                "last_observation": last_bid_observation,
+                                "observed_at": iso_now(),
+                            });
+                            let close = send(ac::close_deployment(&api_key, &dseq)).await;
+                            let close_http = close.as_ref().map(|(status, _)| *status).unwrap_or(0);
+                            intent["close_http"] = json!(close_http);
+                            if let Ok((_, close_body)) = &close {
+                                intent["close_response_hash"] = json!(sha256_bytes(
+                                    &serde_jcs::to_vec(close_body).unwrap_or_default()
+                                ));
+                            }
+                            if (200..300).contains(&close_http) {
+                                intent["state"] = json!("deployment_close_accepted");
+                                intent["status"] = json!("deployment_close_accepted");
+                                intent["settlement_state"] = json!("refund_pending");
+                                intent["close_accepted_at"] = json!(iso_now());
+                                Self::push_event(
+                                    &mut intent,
+                                    "deployment_close_accepted",
+                                    "Stage B compensation close accepted; provider settlement remains pending".into(),
+                                );
                             } else {
-                                "reconciliation_required"
-                            };
-                            // Transition the SAME dseq-keyed record to its terminal close state, so
-                            // restart recovery does not see it as stranded.
-                            let close_id = format!("akdep_intent_{dseq}");
-                            // CLASSIFIED (reconciliation evidence, checked-elsewhere): the close
-                            // outcome MUTATION TRUTH is the shared-foundation C2 failure-outcome
-                            // journal (committed by handle_provider_op on Err); this record is
-                            // provider-native close/refund evidence, not owed the shared path.
-                            let _ = persist_record(
-                                data_dir,
-                                AKASH_DEPLOYMENT_KIND,
-                                &close_id,
-                                &json!({
-                                    "schema_version": "ioi.hypervisor.akash-deployment.v1",
-                                    "record_id": close_id, "dseq": dseq,
-                                    "account_id": self.account_id(), "environment_ref": env_ref,
-                                    "state": close_state, "close_http": close_http,
-                                    "stage_b_error": e,
-                                    "note": "Stage B refused AFTER the deposit was funded; the deployment was closed. deposit_closed_refund_pending = close accepted, escrow refund is the provider's async settlement (closed != refund_settled). reconciliation_required = close unconfirmed; reconcile from the provider console.",
-                                    "execution_mode": "live_console_api", "at": iso_now(),
-                                }),
-                            );
+                                intent["state"] = json!("reconciliation_required");
+                                intent["status"] = json!("reconciliation_required");
+                                intent["settlement_state"] = json!("reconciliation_required");
+                                Self::push_event(
+                                    &mut intent,
+                                    "reconciliation_required",
+                                    format!("Stage B compensation close was not confirmed (HTTP {close_http})"),
+                                );
+                            }
+                            persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &intent_id, &intent)
+                                .map_err(|error| format!("akash_compensation_persistence_failed: {error}"))?;
                             return Err(format!(
-                                "akash_stage_b_refused ({close_state}): {e} | close_http={close_http} dseq={dseq}"
+                                "akash_stage_b_refused ({}): {} | close_http={close_http} dseq={dseq}",
+                                text(&intent, "settlement_state"),
+                                text(&intent, "stage_b_error")
                             ));
                         }
                     };
 
                     // status snapshot
-                    let (_sc, sd) = send(ac::get_deployment(&api_key, &dseq)).await?;
-                    let dep_state =
-                        ac::parse_deployment_state(&sd).unwrap_or_else(|| "unknown".into());
+                    let dep_state = match send(ac::get_deployment(&api_key, &dseq)).await {
+                        Ok((status, detail)) if (200..300).contains(&status) =>
+                            ac::parse_deployment_state(&detail).unwrap_or_else(|| "unknown".into()),
+                        _ => "unknown".into(),
+                    };
 
                     Ok::<Value, String>(json!({
                         "dseq": dseq, "provider": bid.provider, "gseq": bid.gseq,
                         "oseq": bid.oseq, "deployment_state": dep_state, "deposit_usd": deposit,
                         "burn_rate": burn_rate,
+                        "bid_poll_evidence": {
+                            "poll_count": bid_poll_count,
+                            "last_observation": last_bid_observation,
+                            "observed_at": iso_now(),
+                        },
                     }))
                 })
             })?;
@@ -5134,33 +5583,39 @@ impl AkashProvider {
             // Persist REAL records — same custody discipline as the simulator path,
             // execution_mode = live_console_api, provider-native ids as evidence.
             let stamp = nanos();
-            let record_id = format!("akdep_{stamp:x}");
+            let record_id = format!("akdep_{}", safe(text(&live, "dseq")));
             let deployment_ref = format!("akash-deployment://{record_id}");
             let real_dseq = text(&live, "dseq").to_string();
-            // Transition the dseq-keyed deployment_create record to its TERMINAL lease_accepted
-            // state, binding the accepted bid + burn rate — so restart recovery does not see it as
-            // stranded. (Stage B already verified pin + denom + ceiling before the lease opened.)
-            let lease_rec_id = format!("akdep_intent_{real_dseq}");
-            // CLASSIFIED (reconciliation evidence, checked-elsewhere): the lease_accept MUTATION
-            // TRUTH is the shared-foundation C2 OUTCOME journal + the provider-operation receipt,
-            // committed by handle_provider_op after this returns Ok. This record is provider-native
-            // evidence; a lost write leaves the journal as truth, so it is not owed the shared path.
-            let _ = persist_record(
-                data_dir,
-                AKASH_DEPLOYMENT_KIND,
-                &lease_rec_id,
-                &json!({
-                    "schema_version": "ioi.hypervisor.akash-deployment.v1",
-                    "record_id": lease_rec_id, "dseq": real_dseq,
-                    "account_id": self.account_id(), "environment_ref": env_ref,
-                    "state": "lease_accepted", "provider_selector": selector,
-                    "selected_provider": text(&live, "provider"),
-                    "gseq": live["gseq"], "oseq": live["oseq"],
-                    "deposit_usd": live["deposit_usd"], "burn_rate": live["burn_rate"],
-                    "note": "Stage B selected the provider under the wallet-approved selector and within the SDL ceiling; the lease opened.",
-                    "execution_mode": "live_console_api", "at": iso_now(),
-                }),
+            // Transition the SAME dseq-keyed deposit record before creating dependent projections.
+            // A crash can therefore never leave a successful lease looking like an untouched
+            // deposit, and no legacy parallel `akdep_intent_*` identity can diverge from it.
+            let mut lease_commit = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+                .into_iter()
+                .find(|record| text(record, "record_id") == record_id)
+                .ok_or_else(|| {
+                    format!(
+                        "akash_deposit_record_missing_after_lease — {record_id} requires reconciliation"
+                    )
+                })?;
+            lease_commit["state"] = json!("lease_accepted");
+            lease_commit["status"] = json!("lease_accepted");
+            lease_commit["provider_selector"] = selector.clone();
+            lease_commit["selected_provider"] = live["provider"].clone();
+            lease_commit["gseq"] = live["gseq"].clone();
+            lease_commit["oseq"] = live["oseq"].clone();
+            lease_commit["burn_rate"] = live["burn_rate"].clone();
+            lease_commit["lease_accepted_at"] = json!(iso_now());
+            Self::push_event(
+                &mut lease_commit,
+                "lease_accepted",
+                "Stage B selected an exact qualified bid and opened the lease".into(),
             );
+            persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &record_id, &lease_commit)
+                .map_err(|error| {
+                    format!(
+                        "akash_lease_acceptance_persistence_failed — {record_id} requires reconciliation: {error}"
+                    )
+                })?;
             let provider_address = text(&live, "provider").to_string();
             let bid_id = format!("akbid_{stamp:x}");
             let bid_rec = json!({
@@ -5193,7 +5648,23 @@ impl AkashProvider {
                 "record_id": record_id, "deployment_ref": deployment_ref, "dseq": real_dseq,
                 "account_id": self.account_id(), "account_ref": self.account["account_ref"],
                 "environment_ref": env_ref, "status": "deployment_created",
-                "execution_mode": "live_console_api", "sdl_yaml_bytes": sdl_yaml.len(),
+                "state": "lease_open", "settlement_state": "open",
+                "execution_mode": "live_console_api", "sdl_template_bytes": sdl_template.len(),
+                "sdl_template_hash": plan.get("sdl_hash").cloned().unwrap_or(Value::Null),
+                "result_credential_ref": plan.get("result_credential_ref").cloned().unwrap_or(Value::Null),
+                "result_tls_server_certificate_sha256": plan.get("result_tls_server_certificate_sha256").cloned().unwrap_or(Value::Null),
+                "campaign_id": plan.get("campaign_id").cloned().unwrap_or(Value::Null),
+                "benchmark_source_commit": plan.get("benchmark_source_commit").cloned().unwrap_or(Value::Null),
+                "image_digest": plan.get("image_digest").cloned().unwrap_or(Value::Null),
+                "image_build_identity_sha256": plan.get("image_build_identity_sha256").cloned().unwrap_or(Value::Null),
+                "provider_preflight_sha256": plan.get("provider_preflight_sha256").cloned().unwrap_or(Value::Null),
+                "benchmark_protocol_version": plan.get("benchmark_protocol_version").cloned().unwrap_or(Value::Null),
+                "result_schema_version": plan.get("result_schema_version").cloned().unwrap_or(Value::Null),
+                "benchmark_warmups": plan.get("benchmark_warmups").cloned().unwrap_or(Value::Null),
+                "benchmark_repeats": plan.get("benchmark_repeats").cloned().unwrap_or(Value::Null),
+                "endpoint_discovered": false, "endpoint_ready": false,
+                "workload_readiness_proven": false, "workload_result_retrieved": false,
+                "desired_replicas": 0, "ready_replicas": 0,
                 "bid_ref": bid_rec["bid_ref"], "lease_ref": lease_rec["lease_ref"],
                 "deposit_usd": live["deposit_usd"], "deployment_state": live["deployment_state"],
                 "provider_native": { "dseq": real_dseq, "provider": provider_address, "note": "REAL managed-Console deployment — dseq/provider are provider-native evidence; daemon custody state roots remain restore truth" },
@@ -5229,6 +5700,9 @@ impl AkashProvider {
             return Ok(json!({
                 "provider_operation_ref": format!("provider-account://{}/op/create/{}", self.account_id(), safe(env_ref)),
                 "deployment": { "deployment_ref": deployment_ref, "dseq": real_dseq, "status": text(&live, "deployment_state"), "execution_mode": "live_console_api" },
+                "endpoint_discovered": false,
+                "workload_readiness_proven": false,
+                "workload_result_retrieved": false,
                 "bid_ref": bid_rec["bid_ref"], "lease_ref": lease_rec["lease_ref"],
                 "provider_native": dep["provider_native"],
                 "spend": "REAL — deposit-funded lease accrues until close; run delete/close to stop",
@@ -5420,6 +5894,88 @@ impl EnvironmentProvider for AkashProvider {
         if text(&dep, "status") == "torn_down" {
             return Err("akash_deployment_torn_down".into());
         }
+        if text(&dep, "execution_mode") == "live_console_api" {
+            let dseq = text(&dep, "dseq").to_string();
+            let mut discovered = None;
+            for _ in 0..10 {
+                let detail = self.live_detail(data_dir, &dseq)?;
+                if let Some(endpoint) =
+                    ioi_drivers::provisioning::akash_console::parse_active_lease_endpoint(&detail)
+                {
+                    discovered = Some((detail, endpoint));
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_secs(6));
+            }
+            let (detail, provider_endpoint) = discovered.ok_or(
+                "akash_endpoint_undiscovered — no active lease routing endpoint was reported within the bounded polling window",
+            )?;
+            let workload_readiness_proven = provider_endpoint
+                .get("workload_readiness_proven")
+                .and_then(Value::as_bool)
+                == Some(true);
+            let endpoint_id = format!("akep_{:x}", nanos());
+            let endpoint = json!({
+                "schema_version": "ioi.hypervisor.akash-endpoint.v1",
+                "record_id": endpoint_id,
+                "endpoint_ref": format!("akash-endpoint://{endpoint_id}"),
+                "deployment_ref": dep["deployment_ref"],
+                "lease_ref": dep["lease_ref"],
+                "environment_ref": env_ref,
+                "provider_address": provider_endpoint["provider_address"],
+                "lease_id": provider_endpoint["lease_id"],
+                "services": provider_endpoint["services"],
+                "forwarded_ports": provider_endpoint["forwarded_ports"],
+                "ips": provider_endpoint["ips"],
+                "endpoint_discovered": true,
+                "service_uri_present": provider_endpoint["service_uri_present"],
+                "desired_replicas": provider_endpoint["desired_replicas"],
+                "ready_replicas": provider_endpoint["ready_replicas"],
+                "workload_readiness_proven": workload_readiness_proven,
+                "workload_result_retrieved": false,
+                "retrieved_live": true,
+                "provider_response_hash": sha256_bytes(&serde_jcs::to_vec(&detail).unwrap_or_default()),
+                "authority_note": "lease-assigned endpoints are fetched provider evidence, never authority",
+                "proven_at": iso_now(),
+            });
+            persist_record(data_dir, AKASH_ENDPOINT_KIND, &endpoint_id, &endpoint)
+                .map_err(|error| format!("provider_operation_persistence_failed — live Akash endpoint evidence did not commit: {error}"))?;
+            dep["endpoint_discovered"] = json!(true);
+            dep["endpoint_ready"] = json!(workload_readiness_proven);
+            dep["workload_readiness_proven"] = json!(workload_readiness_proven);
+            dep["workload_result_retrieved"] = json!(false);
+            dep["desired_replicas"] = provider_endpoint["desired_replicas"].clone();
+            dep["ready_replicas"] = provider_endpoint["ready_replicas"].clone();
+            dep["endpoint_ref"] = endpoint["endpoint_ref"].clone();
+            dep["status"] = json!(if workload_readiness_proven {
+                "workload_ready"
+            } else {
+                "provider_endpoint_discovered"
+            });
+            dep["deployment_state"] = json!("active");
+            Self::push_event(
+                &mut dep,
+                "endpoint_discovered",
+                format!(
+                    "active lease endpoint fetched from managed Console API; workload_readiness_proven={workload_readiness_proven}"
+                ),
+            );
+            self.save_deployment(data_dir, &dep)?;
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+                "deployment_ref": dep["deployment_ref"],
+                "dseq": dseq,
+                "status": dep["status"],
+                "endpoint_discovered": true,
+                "endpoint_ready": workload_readiness_proven,
+                "workload_readiness_proven": workload_readiness_proven,
+                "workload_result_retrieved": false,
+                "desired_replicas": provider_endpoint["desired_replicas"],
+                "ready_replicas": provider_endpoint["ready_replicas"],
+                "endpoint": endpoint,
+                "retrieved_live": true,
+            }));
+        }
         let mut endpoint_evidence = Value::Null;
         if dep.get("endpoint_ready").and_then(Value::as_bool) != Some(true) {
             if text(&dep, "execution_mode") == "live" {
@@ -5512,7 +6068,7 @@ impl EnvironmentProvider for AkashProvider {
         lane.restore(data_dir, env_ref, material_ref)
     }
     fn logs(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let dep = self
+        let mut dep = self
             .deployment(data_dir, env_ref)
             .ok_or("akash_deployment_absent")?;
         let mut out = json!({
@@ -5534,46 +6090,118 @@ impl EnvironmentProvider for AkashProvider {
                         .into(),
                 );
             }
-            let Some(cred) = load_account_credential(data_dir, self.account_id()) else {
-                return Err(
-                    "akash_live_credentials_absent — proof retrieval needs the bound credential"
-                        .into(),
-                );
-            };
-            let api_key = cred["sealed_token"]
-                .as_str()
-                .and_then(open_scm_token)
-                .ok_or(
-                    "akash_live_credential_unresolvable — the sealed Console key did not decrypt",
-                )?;
-            let detail: Value = tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(async {
-                    use ioi_drivers::provisioning::akash_console as ac;
-                    let req = ac::get_deployment(&api_key, &dseq);
-                    let (hn, hv) = req.header();
-                    let url = format!("{}{}", ac::AKASH_CONSOLE_BASE_URL, req.path);
-                    let resp = reqwest::Client::new()
-                        .get(&url)
-                        .header(hn, hv)
-                        .timeout(std::time::Duration::from_secs(30))
-                        .send()
-                        .await
-                        .map_err(|e| format!("akash_console_http_failed: {e}"))?;
-                    let code = resp.status().as_u16();
-                    let body: Value = resp.json().await.unwrap_or(Value::Null);
-                    if !(200..300).contains(&code) {
-                        return Err(format!("akash_console_get_deployment_failed: http {code}"));
-                    }
-                    Ok::<Value, String>(body)
-                })
-            })?;
+            let detail = self.live_detail(data_dir, &dseq)?;
             let state = ioi_drivers::provisioning::akash_console::parse_deployment_state(&detail);
+            let leases = detail
+                .pointer("/data/leases")
+                .or_else(|| detail.get("leases"))
+                .cloned()
+                .unwrap_or(Value::Null);
             out["lease_state_proof"] = json!({
                 "deployment_state": state,
                 "retrieved_live": true,
                 "source": "managed Console API GET /v1/deployments/{dseq} — the lease's on-chain state, fetched not asserted",
             });
+            out["settlement_readback"] = json!({
+                "normalized": ioi_drivers::provisioning::akash_console::parse_settlement_readback(
+                    &detail,
+                    dep.get("deposit_usd").and_then(Value::as_f64).unwrap_or(0.0),
+                ),
+                "leases": leases,
+                "provider_native": detail,
+                "provider_response_hash": sha256_bytes(&serde_jcs::to_vec(&detail).unwrap_or_default()),
+                "retrieved_live": true,
+                "source": "managed Console API GET /v1/deployments/{dseq}",
+            });
             out["service_logs"] = json!("not_exposed_by_managed_console_api — container logs require the provider's own endpoint; the retrievable proof is the live lease state above");
+            let result_ref = text(&dep, "result_credential_ref").to_string();
+            if !result_ref.is_empty() {
+                let endpoint_ref = text(&dep, "endpoint_ref");
+                let endpoint = read_record_dir(data_dir, AKASH_ENDPOINT_KIND)
+                    .into_iter()
+                    .find(|record| text(record, "endpoint_ref") == endpoint_ref)
+                    .ok_or("akash_result_endpoint_record_absent")?;
+                let (host, port) = akash_result_endpoint_target(&endpoint)?;
+                let token = resolve_connector_bearer(data_dir, &result_ref)?;
+                let base = if port == 443 {
+                    format!("https://{host}")
+                } else {
+                    format!("https://{host}:{port}")
+                };
+                let certificate_pin = text(&dep, "result_tls_server_certificate_sha256");
+                let bundle = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(async {
+                        let client = pinned_result_client(&host, port, certificate_pin)?;
+                        let mut bundle = serde_json::Map::new();
+                        for (name, path) in [
+                            ("status", "/status"),
+                            ("environment", "/environment"),
+                            ("results", "/results"),
+                            ("manifest", "/manifest"),
+                        ] {
+                            let response = client
+                                .get(format!("{base}{path}"))
+                                .bearer_auth(&token)
+                                .send()
+                                .await
+                                .map_err(|_| "akash_result_endpoint_fetch_failed".to_string())?;
+                            if !response.status().is_success() {
+                                return Err("akash_result_endpoint_refused".to_string());
+                            }
+                            let bytes = response
+                                .bytes()
+                                .await
+                                .map_err(|_| "akash_result_endpoint_body_failed".to_string())?;
+                            if bytes.len() > 2 * 1024 * 1024 {
+                                return Err("akash_result_artifact_too_large".to_string());
+                            }
+                            let value: Value = serde_json::from_slice(&bytes)
+                                .map_err(|_| "akash_result_artifact_invalid_json".to_string())?;
+                            let value = json!({
+                                "value": value,
+                                "sha256": sha256_bytes(&bytes),
+                                "bytes": bytes.len(),
+                                "body_base64": base64::engine::general_purpose::STANDARD.encode(&bytes),
+                            });
+                            if name == "status" {
+                                validate_akash_result_status(&dep, &value["value"])?;
+                            }
+                            bundle.insert(name.into(), value);
+                        }
+                        Ok::<Value, String>(Value::Object(bundle))
+                    })
+                })?;
+                validate_akash_result_bundle(&dep, &bundle).map_err(str::to_string)?;
+                let result_id = format!(
+                    "akresult_{}",
+                    &sha256_bytes(&serde_jcs::to_vec(&bundle).unwrap_or_default())[7..23]
+                );
+                let record = json!({
+                    "schema_version": "ioi.hypervisor.akash-workload-result.v1",
+                    "record_id": result_id,
+                    "result_ref": format!("akash-workload-result://{result_id}"),
+                    "deployment_ref": dep["deployment_ref"],
+                    "environment_ref": env_ref,
+                    "provider_address": dep.pointer("/provider_native/provider").cloned().unwrap_or(Value::Null),
+                    "credential_ref": result_ref,
+                    "bundle": bundle,
+                    "retrieved_live": true,
+                    "credential_exposed_to_caller": false,
+                    "retrieved_at": iso_now(),
+                });
+                persist_record(data_dir, "akash-workload-results", &result_id, &record)
+                    .map_err(|error| format!("akash_result_persistence_failed: {error}"))?;
+                dep["workload_result_retrieved"] = json!(true);
+                dep["workload_result_ref"] = record["result_ref"].clone();
+                Self::push_event(
+                    &mut dep,
+                    "workload_result_retrieved",
+                    "authenticated benchmark result bundle fetched without exposing its bearer token"
+                        .into(),
+                );
+                self.save_deployment(data_dir, &dep)?;
+                out["workload_result"] = record;
+            }
         } else {
             out["service_logs"] = json!("unavailable_in_simulator — provider-native service logs land with the live lease; workspace exec outputs are receipted in the Work Ledger");
         }
@@ -5588,6 +6216,34 @@ impl EnvironmentProvider for AkashProvider {
             "events": dep.get("events").cloned().unwrap_or(json!([])),
             "execution_mode": dep["execution_mode"],
             "basis": "daemon-recorded deployment lifecycle events (simulated control plane labelled)",
+        }))
+    }
+    fn reconcile(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
+        if self.mode() != "live" {
+            return Err("akash_reconciliation_requires_live_provider_readback".into());
+        }
+        let mut dep = self
+            .deployment(data_dir, env_ref)
+            .ok_or("akash_deployment_absent")?;
+        let dseq = text(&dep, "dseq").to_string();
+        if dseq.is_empty() {
+            return Err("akash_reconciliation_dseq_required".into());
+        }
+        let detail = self.live_detail(data_dir, &dseq)?;
+        let settlement = self.settle_from_detail(data_dir, &mut dep, &detail)?;
+        Ok(json!({
+            "provider_operation_ref": format!("provider-account://{}/op/reconcile/{}", self.account_id(), safe(env_ref)),
+            "deployment_ref": dep["deployment_ref"],
+            "dseq": dseq,
+            "retrieved_live": true,
+            "settlement": settlement,
+            "provider_native": {
+                "response_hash": dep["provider_readback_hash"],
+                "deployment": detail.pointer("/data/deployment").cloned().unwrap_or(Value::Null),
+                "escrow_account": detail.pointer("/data/escrow_account").cloned().unwrap_or(Value::Null),
+                "leases": detail.pointer("/data/leases").cloned().unwrap_or(Value::Null),
+            },
+            "teardown_state": dep["teardown_state"],
         }))
     }
     fn inject_outage(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
@@ -5627,6 +6283,64 @@ impl EnvironmentProvider for AkashProvider {
         let mut dep = self
             .deployment(data_dir, env_ref)
             .ok_or("akash_deployment_absent")?;
+        if text(&dep, "execution_mode") == "live_console_api" {
+            use ioi_drivers::provisioning::akash_console as ac;
+            let dseq = text(&dep, "dseq").to_string();
+            if dseq.is_empty() {
+                return Err("akash_live_close_dseq_required".into());
+            }
+            let api_key = self.live_api_key(data_dir)?;
+            let (close_http, close_body) =
+                Self::console_request(ac::close_deployment(&api_key, &dseq))?;
+            if !(200..300).contains(&close_http) {
+                dep["state"] = json!("reconciliation_required");
+                dep["status"] = json!("reconciliation_required");
+                dep["close_http"] = json!(close_http);
+                dep["close_response_hash"] = json!(sha256_bytes(
+                    &serde_jcs::to_vec(&close_body).unwrap_or_default()
+                ));
+                Self::push_event(
+                    &mut dep,
+                    "reconciliation_required",
+                    format!("Console close did not confirm acceptance (HTTP {close_http})"),
+                );
+                self.save_deployment(data_dir, &dep)?;
+                return Err(format!(
+                    "akash_close_reconciliation_required: http {close_http} dseq={dseq}"
+                ));
+            }
+            dep["state"] = json!("deployment_close_accepted");
+            dep["status"] = json!("deployment_close_accepted");
+            dep["close_http"] = json!(close_http);
+            dep["close_response_hash"] = json!(sha256_bytes(
+                &serde_jcs::to_vec(&close_body).unwrap_or_default()
+            ));
+            dep["close_accepted_at"] = json!(iso_now());
+            Self::push_event(
+                &mut dep,
+                "deployment_close_accepted",
+                "Console accepted deployment close; settlement still requires provider readback"
+                    .into(),
+            );
+            self.save_deployment(data_dir, &dep)?;
+
+            let detail = self.live_detail(data_dir, &dseq)?;
+            let settlement = self.settle_from_detail(data_dir, &mut dep, &detail)?;
+            let terminal = settlement["provider_terminal"] == json!(true);
+            return Ok(json!({
+                "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+                "deployment_ref": dep["deployment_ref"],
+                "dseq": dseq,
+                "teardown_state": if terminal { "torn_down" } else { "reconciliation_required" },
+                "native_teardown": {
+                    "destroyed": terminal,
+                    "close_http": close_http,
+                    "provider_response_hash": dep["provider_readback_hash"],
+                },
+                "settlement": settlement,
+                "cleanup_verified": terminal,
+            }));
+        }
         let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
             Ok((lane, _guard)) => lane
                 .delete(data_dir, env_ref)
@@ -5638,9 +6352,7 @@ impl EnvironmentProvider for AkashProvider {
             .lease_for(data_dir, text(&dep, "deployment_ref"))
             .map(|l| text(&l, "state") == "closed_by_provider")
             .unwrap_or(false);
-        let native_teardown = if text(&dep, "execution_mode") == "live" {
-            json!({ "destroyed": false, "error": "akash_live_deployment_tx_not_implemented", "warning": "TEARDOWN MAY BE INCOMPLETE — no live close transaction exists yet" })
-        } else if self
+        let native_teardown = if self
             .account
             .pointer("/endpoint/simulate_teardown_failure")
             .and_then(Value::as_bool)
@@ -6136,7 +6848,7 @@ pub(crate) async fn handle_provider_account_credential(
         // connector_id keys the CapabilityLease gateway lookup — one spine, no new gate.
         "connector_id": aid,
         "kind": cred_kind,
-        "key_source": std::env::var("IOI_WALLET_SECRET_PASS").map(|_| "wallet-secret").unwrap_or("local-mode"),
+        "key_source": super::lifecycle_routes::scm_key_source(),
         "fingerprint": fingerprint,
         // Non-secret aux hints (region/project/cluster) travel in the clear; secrets never do.
         "aux": body.get("aux").cloned().unwrap_or_else(|| json!({})),
@@ -6430,28 +7142,376 @@ pub(crate) async fn handle_providers_list(State(st): State<Arc<DaemonState>>) ->
     }))
 }
 
+const PROVIDER_PROPOSAL_NAMESPACE: &str = "hypervisor-provider-operation-proposals";
+const PROVIDER_PROPOSAL_KIND: &str = "provider_operation_proposal";
+const PROVIDER_PROPOSAL_TTL_SECONDS: u64 = 300;
+
+fn provider_proposal_ref(owner_ref: &str, idempotency_key: &str) -> String {
+    format!(
+        "provider-operation-proposal://{}",
+        super::mutation_event_foundation::replay_stable_id("popp", owner_ref, idempotency_key,)
+    )
+}
+
+/// Bind a proposal to the exact authenticated transport without retaining a bearer token.
+/// The hash is deliberately opaque and is useful only for same-session comparison.
+pub(crate) fn provider_proposal_session_binding(
+    headers: &HeaderMap,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let material = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .or_else(|| headers.get("cookie").and_then(|value| value.to_str().ok()))
+        .or_else(|| headers.get("x-api-key").and_then(|value| value.to_str().ok()))
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "ok": false,
+                    "code": "provider_operation_proposal_session_required",
+                    "message": "proposal issuance and consumption require the same authenticated session"
+                })),
+            )
+        })?;
+    Ok(sha256_bytes(material.as_bytes()))
+}
+
+fn canonical_provider_proposal_request(body: &Value) -> Result<Value, (StatusCode, Json<Value>)> {
+    if body.get("operation_proposal").is_some() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "provider_operation_inline_proposal_forbidden",
+                "message": "inline operation_proposal objects are caller assertions and cannot authorize a live provider effect; obtain an opaque proposal_ref from the daemon"
+            })),
+        ));
+    }
+    let mut canonical = body.clone();
+    let Some(object) = canonical.as_object_mut() else {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "provider_operation_proposal_request_invalid" })),
+        ));
+    };
+    object.remove("operation_proposal_ref");
+    // Proposal admission has its own short-lived idempotency namespace. It is transport
+    // ceremony, not part of the owner-approved provider operation or its request hash.
+    object.remove("proposal_idempotency_key");
+    Ok(canonical)
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
+fn random_proposal_nonce() -> String {
+    use rand::{distributions::Alphanumeric, Rng};
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect()
+}
+
+fn provider_proposal_refusal(code: &str, message: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::FORBIDDEN,
+        Json(json!({ "ok": false, "code": code, "message": message })),
+    )
+}
+
+fn issue_provider_operation_proposal(
+    data_dir: &str,
+    caller: &super::mutation_event_foundation::WriteCaller,
+    session_binding: &str,
+    request: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let proposal_idempotency_key = text(request, "proposal_idempotency_key");
+    if proposal_idempotency_key.is_empty() || proposal_idempotency_key.len() > 256 {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({
+                "ok": false,
+                "code": "provider_operation_proposal_idempotency_key_required",
+                "message": "proposal issuance requires a distinct non-empty proposal_idempotency_key"
+            })),
+        ));
+    }
+    let canonical = canonical_provider_proposal_request(request)?;
+    let op = text(&canonical, "op");
+    let provider_id = text(&canonical, "provider_id");
+    let environment_ref = text(&canonical, "environment_ref");
+    if !matches!(op, "create" | "redeploy") || provider_id.is_empty() || environment_ref.is_empty()
+    {
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({
+                "ok": false,
+                "code": "provider_operation_proposal_facets_required",
+                "message": "a live proposal requires provider_id, environment_ref and op=create|redeploy"
+            })),
+        ));
+    }
+    let proposal_caller = super::mutation_event_foundation::WriteCaller {
+        identity: caller.identity.clone(),
+        owner_ref: caller.owner_ref.clone(),
+        idempotency_key: proposal_idempotency_key.to_owned(),
+    };
+    let proposal_ref = provider_proposal_ref(&caller.owner_ref, proposal_idempotency_key);
+    let history = super::mutation_event_foundation::admitted_history_for_caller(
+        data_dir,
+        &proposal_caller,
+        PROVIDER_PROPOSAL_NAMESPACE,
+        PROVIDER_PROPOSAL_KIND,
+        &proposal_ref,
+    )?;
+    let request_hash = sha256_bytes(&serde_jcs::to_vec(&canonical).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "provider_operation_proposal_canonicalization_failed" })),
+        )
+    })?);
+    if let Some(admitted) = history.first() {
+        let payload = &admitted.operation.payload;
+        if text(payload, "phase") == "admitted"
+            && text(payload, "request_hash") == request_hash
+            && text(payload, "principal_ref") == caller.identity.principal_ref
+            && text(payload, "session_binding") == session_binding
+        {
+            return Ok(json!({
+                "ok": true,
+                "proposal_ref": proposal_ref,
+                "request_hash": request_hash,
+                "expires_at_unix": payload["expires_at_unix"],
+                "proposal_admission_receipt_ref": admitted.operation.payload["proposal_admission_receipt_ref"],
+                "replayed": true
+            }));
+        }
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_idempotency_conflict",
+            "this proposal idempotency key is already bound to different request or session bytes",
+        ));
+    }
+    let issued_at_unix = unix_now();
+    let expires_at_unix = issued_at_unix.saturating_add(PROVIDER_PROPOSAL_TTL_SECONDS);
+    let nonce = random_proposal_nonce();
+    let admission_receipt_ref = format!(
+        "provider-operation-proposal-admission://{}",
+        sha256_bytes(format!("{proposal_ref}\0{request_hash}\0{nonce}").as_bytes())
+            .trim_start_matches("sha256:")
+    );
+    let payload = json!({
+        "schema_version": "ioi.hypervisor.provider-operation-proposal.v2",
+        "phase": "admitted",
+        "proposal_ref": proposal_ref,
+        "proposal_source": "daemon-issued-durable-proposal",
+        "principal_ref": caller.identity.principal_ref,
+        "session_binding": session_binding,
+        "owner_ref": caller.owner_ref,
+        "operation_idempotency_key": caller.idempotency_key,
+        "request_hash": request_hash,
+        "provider_id": provider_id,
+        "operation_kind": op,
+        "environment_ref": environment_ref,
+        "resource_refs": [provider_id, environment_ref],
+        "one_time_nonce": nonce,
+        "issued_at_unix": issued_at_unix,
+        "expires_at_unix": expires_at_unix,
+        "proposal_admission_receipt_ref": admission_receipt_ref,
+    });
+    let commit = super::mutation_event_foundation::admit_owner_scoped_write(
+        data_dir,
+        &proposal_caller,
+        PROVIDER_PROPOSAL_NAMESPACE,
+        PROVIDER_PROPOSAL_KIND,
+        &proposal_ref,
+        "provider_operation_proposal.admitted",
+        None,
+        &payload,
+    )?;
+    Ok(json!({
+        "ok": true,
+        "proposal_ref": proposal_ref,
+        "request_hash": request_hash,
+        "expires_at_unix": expires_at_unix,
+        "proposal_admission_operation_ref": commit.operation_ref,
+        "proposal_admission_receipt_ref": admission_receipt_ref,
+        "replayed": commit.replayed
+    }))
+}
+
+fn consume_provider_operation_proposal(
+    data_dir: &str,
+    caller: &super::mutation_event_foundation::WriteCaller,
+    session_binding: &str,
+    request: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let canonical = canonical_provider_proposal_request(request)?;
+    let supplied_ref = text(request, "operation_proposal_ref");
+    if supplied_ref.is_empty() {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_ref_required",
+            "a live provider effect requires an opaque daemon-issued operation_proposal_ref",
+        ));
+    }
+    if !supplied_ref.starts_with("provider-operation-proposal://") {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_ref_substitution",
+            "the proposal reference is not a daemon-issued provider proposal reference",
+        ));
+    }
+    let history = super::mutation_event_foundation::admitted_history_for_caller(
+        data_dir,
+        caller,
+        PROVIDER_PROPOSAL_NAMESPACE,
+        PROVIDER_PROPOSAL_KIND,
+        supplied_ref,
+    )?;
+    let Some(admitted) = history.first() else {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_unknown",
+            "the proposal reference does not resolve for this authenticated principal",
+        ));
+    };
+    if history.len() != 1 || text(&admitted.operation.payload, "phase") != "admitted" {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_replayed",
+            "the one-time provider proposal was already consumed",
+        ));
+    }
+    let proposal = &admitted.operation.payload;
+    if text(proposal, "principal_ref") != caller.identity.principal_ref {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_principal_mismatch",
+            "the proposal belongs to another authenticated principal",
+        ));
+    }
+    if text(proposal, "operation_idempotency_key") != caller.idempotency_key {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_ref_substitution",
+            "the proposal belongs to a different owner-approved provider operation",
+        ));
+    }
+    if text(proposal, "session_binding") != session_binding {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_session_mismatch",
+            "the proposal belongs to another authenticated session",
+        ));
+    }
+    if proposal
+        .get("expires_at_unix")
+        .and_then(Value::as_u64)
+        .map(|expiry| unix_now() > expiry)
+        .unwrap_or(true)
+    {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_expired",
+            "the provider proposal expired before consumption",
+        ));
+    }
+    let request_hash = sha256_bytes(&serde_jcs::to_vec(&canonical).map_err(|_| {
+        provider_proposal_refusal(
+            "provider_operation_proposal_canonicalization_failed",
+            "the provider request could not be canonicalized",
+        )
+    })?);
+    if text(proposal, "request_hash") != request_hash
+        || text(proposal, "provider_id") != text(&canonical, "provider_id")
+        || text(proposal, "operation_kind") != text(&canonical, "op")
+        || text(proposal, "environment_ref") != text(&canonical, "environment_ref")
+    {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_request_mismatch",
+            "the live provider request or its bound facets changed after proposal issuance",
+        ));
+    }
+    let consumption_receipt_ref = format!(
+        "provider-operation-proposal-consumption://{}",
+        sha256_bytes(
+            format!(
+                "{supplied_ref}\0{}\0{request_hash}",
+                text(proposal, "one_time_nonce")
+            )
+            .as_bytes()
+        )
+        .trim_start_matches("sha256:")
+    );
+    let consume_caller = super::mutation_event_foundation::WriteCaller {
+        identity: caller.identity.clone(),
+        owner_ref: caller.owner_ref.clone(),
+        idempotency_key: format!("{}.proposal.consume", caller.idempotency_key),
+    };
+    let payload = json!({
+        "schema_version": "ioi.hypervisor.provider-operation-proposal-consumption.v1",
+        "phase": "consumed",
+        "proposal_ref": supplied_ref,
+        "proposal_admission_root": admitted.head,
+        "principal_ref": caller.identity.principal_ref,
+        "session_binding": session_binding,
+        "request_hash": request_hash,
+        "one_time_nonce_hash": sha256_bytes(text(proposal, "one_time_nonce").as_bytes()),
+        "proposal_consumption_receipt_ref": consumption_receipt_ref,
+    });
+    let commit = super::mutation_event_foundation::admit_owner_scoped_write(
+        data_dir,
+        &consume_caller,
+        PROVIDER_PROPOSAL_NAMESPACE,
+        PROVIDER_PROPOSAL_KIND,
+        supplied_ref,
+        "provider_operation_proposal.consumed",
+        Some(&admitted.head),
+        &payload,
+    )?;
+    if commit.replayed {
+        return Err(provider_proposal_refusal(
+            "provider_operation_proposal_replayed",
+            "the one-time provider proposal was already consumed",
+        ));
+    }
+    Ok(json!({
+        "proposal_ref": supplied_ref,
+        "principal_ref": caller.identity.principal_ref,
+        "proposal_admission_root": admitted.head,
+        "proposal_consumption_root": commit.projection.head,
+        "proposal_admission_receipt_ref": proposal["proposal_admission_receipt_ref"],
+        "proposal_consumption_receipt_ref": consumption_receipt_ref,
+        "request_hash": request_hash
+    }))
+}
+
+/// POST /v1/hypervisor/provider-operation-proposals — authenticate and durably admit one exact
+/// live provider request. The response contains only an opaque one-time reference, never a
+/// self-authorizing proposal object.
+pub(crate) async fn handle_provider_operation_proposal_issue(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let caller =
+        match super::mutation_event_foundation::require_write_caller(&st.data_dir, &headers, &body)
+        {
+            Ok(caller) => caller,
+            Err(reply) => return reply,
+        };
+    let session_binding = match provider_proposal_session_binding(&headers) {
+        Ok(binding) => binding,
+        Err(reply) => return reply,
+    };
+    match issue_provider_operation_proposal(&st.data_dir, &caller, &session_binding, &body) {
+        Ok(proposal) => (StatusCode::CREATED, Json(proposal)),
+        Err(reply) => reply,
+    }
+}
+
 /// POST /v1/hypervisor/provider-ops — body-dispatched provider lifecycle op (collision-safe).
 /// Body: `{ provider_id, op, environment_ref?, plan?, command?, material_ref?, grant_ref? }`.
 /// op ∈ preflight | create | start | workrun | stop | snapshot | restore | inject_outage |
 /// recover | delete | observe. Records an admitted-operation record + a provider receipt.
-/// C4 — models propose, Hypervisor executes. A LIVE provider spend op must
-/// carry a daemon-authored `operation_proposal` (a provider_operation_proposal)
-/// that the admission kernel validates — wallet approval + lease + required
-/// scopes + a daemon-authored proposal source (403 on fixtures / unverified
-/// projections) — before the daemon executes it. This is the not-curl
-/// authority boundary: a live provider op with no admitted proposal is refused,
-/// and the sealed credential never crosses on an unauthored request. Returns
-/// the admission record (execution plan) on success, or (status, code).
-fn admit_live_provider_operation(body: &Value, now: &str) -> Result<Value, (u16, String)> {
-    let proposal = body
-        .get("operation_proposal")
-        .cloned()
-        .unwrap_or(Value::Null);
-    RuntimeHypervisorApprovedOperationAdmissionCore
-        .admit(&proposal, now)
-        .map_err(|e| (e.status, e.code))
-}
-
 /// C2 phase 1 — the INTENT body of a provider-operation journal entry, committed
 /// BEFORE the external effect. It carries only what is known pre-effect: the model
 /// proposal (by hash), the authority (grant + lease), custody (a fingerprint, never
@@ -6519,6 +7579,54 @@ fn provider_operation_outcome_payload(
     })
 }
 
+/// U1 result binding — append the authenticated workload result as a successor
+/// of the create outcome while retaining the original pre-effect intent root.
+/// The journal stores only content hashes and opaque refs; result bytes remain
+/// in the bounded workload-result record.
+fn provider_operation_result_outcome_payload(
+    journal_ref: &str,
+    intent_state_root: &str,
+    predecessor_state_root: &str,
+    evidence: &Value,
+    receipt: &Option<String>,
+) -> Result<Value, &'static str> {
+    let workload = evidence
+        .get("workload_result")
+        .ok_or("akash_result_outcome_evidence_missing")?;
+    let bundle = workload
+        .get("bundle")
+        .ok_or("akash_result_outcome_bundle_missing")?;
+    let hash_at = |name: &str| {
+        bundle
+            .pointer(&format!("/{name}/sha256"))
+            .and_then(Value::as_str)
+            .filter(|value| {
+                value.len() == 71
+                    && value.starts_with("sha256:")
+                    && value[7..]
+                        .chars()
+                        .all(|character| character.is_ascii_hexdigit())
+            })
+            .map(str::to_string)
+            .ok_or("akash_result_outcome_hash_missing")
+    };
+    Ok(json!({
+        "schema_version": "ioi.hypervisor.provider-operation-journal.v1",
+        "phase": "outcome",
+        "operation_ref": journal_ref,
+        "intent_state_root": intent_state_root,
+        "predecessor_state_root": predecessor_state_root,
+        "outcome": "workload_result_retrieved",
+        "evidence_hash": sha256_bytes(&serde_jcs::to_vec(evidence).unwrap_or_default()),
+        "workload_result_ref": workload.get("result_ref").cloned().unwrap_or(Value::Null),
+        "status_hash": hash_at("status")?,
+        "environment_hash": hash_at("environment")?,
+        "result_hash": hash_at("results")?,
+        "manifest_hash": hash_at("manifest")?,
+        "receipt_ref": receipt,
+    }))
+}
+
 /// C2 — the pre-effect state captured by a committed provider-operation INTENT.
 /// Carries the caller (to author the successor outcome under the same owner scope),
 /// the op's journal stream ref, and the intent root the outcome must chain to.
@@ -6526,6 +7634,192 @@ struct ProviderJournalIntent {
     caller: super::mutation_event_foundation::WriteCaller,
     journal_ref: String,
     intent_state_root: String,
+}
+
+fn bind_akash_create_journal_to_deployment(
+    data_dir: &str,
+    env_ref: &str,
+    intent: &ProviderJournalIntent,
+    roots: &[String],
+) -> Result<(), String> {
+    let mut deployment = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+        .into_iter()
+        .find(|record| text(record, "environment_ref") == env_ref)
+        .ok_or_else(|| "akash_journal_deployment_absent".to_string())?;
+    let effect_root = roots
+        .last()
+        .filter(|root| !root.is_empty())
+        .ok_or_else(|| "akash_journal_effect_root_missing".to_string())?;
+    deployment["provider_operation_journal_ref"] = json!(intent.journal_ref);
+    deployment["provider_operation_journal_owner_ref"] = json!(intent.caller.owner_ref);
+    deployment["provider_operation_intent_root"] = json!(intent.intent_state_root);
+    deployment["provider_operation_effect_outcome_root"] = json!(effect_root);
+    deployment["provider_operation_current_root"] = json!(effect_root);
+    let record_id = text(&deployment, "record_id").to_string();
+    persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &record_id, &deployment)
+        .map_err(|error| format!("akash_journal_deployment_binding_failed: {error}"))
+}
+
+fn commit_akash_result_outcome(
+    data_dir: &str,
+    caller: &super::mutation_event_foundation::WriteCaller,
+    env_ref: &str,
+    evidence: &Value,
+    receipt: &Option<String>,
+) -> Result<Vec<String>, (StatusCode, Json<Value>)> {
+    let mut deployment = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+        .into_iter()
+        .find(|record| text(record, "environment_ref") == env_ref)
+        .ok_or_else(|| {
+            provider_op_reconciliation_required(
+                "logs",
+                "akash",
+                env_ref,
+                receipt,
+                Value::Null,
+                "",
+                "",
+                "the authenticated workload result was fetched but its deployment record is absent",
+            )
+        })?;
+    let journal_ref = text(&deployment, "provider_operation_journal_ref").to_string();
+    let intent_root = text(&deployment, "provider_operation_intent_root").to_string();
+    let predecessor_root = text(&deployment, "provider_operation_current_root").to_string();
+    if journal_ref.is_empty() || intent_root.is_empty() || predecessor_root.is_empty() {
+        return Err(provider_op_reconciliation_required(
+            "logs",
+            "akash",
+            env_ref,
+            receipt,
+            deployment
+                .get("provider_native")
+                .cloned()
+                .unwrap_or(Value::Null),
+            &journal_ref,
+            &intent_root,
+            "the authenticated workload result was fetched but the create journal binding is incomplete",
+        ));
+    }
+    if text(&deployment, "provider_operation_journal_owner_ref") != caller.owner_ref {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "akash_result_outcome_owner_mismatch",
+                "message": "the result-binding caller does not own the pre-effect journal"
+            })),
+        ));
+    }
+    if deployment
+        .get("workload_readiness_proven")
+        .and_then(Value::as_bool)
+        != Some(true)
+        || evidence
+            .pointer("/workload_result/retrieved_live")
+            .and_then(Value::as_bool)
+            != Some(true)
+    {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "code": "akash_result_outcome_readiness_unproven",
+                "message": "result bytes cannot finalize the journal without positive workload readiness and live authenticated retrieval"
+            })),
+        ));
+    }
+    let payload = provider_operation_result_outcome_payload(
+        &journal_ref,
+        &intent_root,
+        &predecessor_root,
+        evidence,
+        receipt,
+    )
+    .map_err(|reason| {
+        (
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "code": reason })),
+        )
+    })?;
+    let result_hash = text(&payload, "result_hash").to_string();
+    let status_hash = text(&payload, "status_hash").to_string();
+    let environment_hash = text(&payload, "environment_hash").to_string();
+    let manifest_hash = text(&payload, "manifest_hash").to_string();
+    let existing_root = text(&deployment, "provider_operation_result_outcome_root");
+    if !existing_root.is_empty() {
+        if text(&deployment, "workload_result_hash") == result_hash
+            && text(&deployment, "workload_status_hash") == status_hash
+            && text(&deployment, "workload_environment_hash") == environment_hash
+            && text(&deployment, "workload_manifest_hash") == manifest_hash
+        {
+            return Ok(vec![
+                intent_root,
+                predecessor_root,
+                existing_root.to_string(),
+            ]);
+        }
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "code": "akash_result_bundle_changed_after_commit",
+                "message": "the completed workload result changed after its outcome root committed"
+            })),
+        ));
+    }
+    let outcome_caller = super::mutation_event_foundation::WriteCaller {
+        identity: caller.identity.clone(),
+        owner_ref: caller.owner_ref.clone(),
+        idempotency_key: format!("{}.workload-result-outcome", caller.idempotency_key),
+    };
+    let commit = super::mutation_event_foundation::admit_owner_scoped_write(
+        data_dir,
+        &outcome_caller,
+        "hypervisor-provider-operations",
+        "provider_operation",
+        &journal_ref,
+        "provider_operation.workload_result_outcome",
+        Some(&predecessor_root),
+        &payload,
+    )
+    .map_err(|_| {
+        provider_op_reconciliation_required(
+            "logs",
+            "akash",
+            env_ref,
+            receipt,
+            deployment
+                .get("provider_native")
+                .cloned()
+                .unwrap_or(Value::Null),
+            &journal_ref,
+            &intent_root,
+            "the authenticated workload result was fetched but its successor outcome root did not finalize",
+        )
+    })?;
+    deployment["provider_operation_result_outcome_root"] = json!(commit.projection.head);
+    deployment["provider_operation_current_root"] = json!(commit.projection.head);
+    deployment["workload_result_hash"] = json!(result_hash);
+    deployment["workload_status_hash"] = json!(status_hash);
+    deployment["workload_environment_hash"] = json!(environment_hash);
+    deployment["workload_manifest_hash"] = json!(manifest_hash);
+    let record_id = text(&deployment, "record_id").to_string();
+    persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &record_id, &deployment).map_err(|_| {
+        provider_op_reconciliation_required(
+            "logs",
+            "akash",
+            env_ref,
+            receipt,
+            deployment
+                .get("provider_native")
+                .cloned()
+                .unwrap_or(Value::Null),
+            &journal_ref,
+            &intent_root,
+            "the result outcome committed but the deployment projection did not retain its root and hashes",
+        )
+    })?;
+    Ok(vec![intent_root, predecessor_root, commit.projection.head])
 }
 
 /// C2 phase 2 — commit the OUTCOME as a successor of the intent (expected_head = the
@@ -6587,10 +7881,1085 @@ fn commit_provider_operation_outcome(
     }
 }
 
+/// Resolve the direct live-Akash selection contract. The exact provider lives inside the
+/// selector so one canonical object is proposal-, request-, grant-, execution-, and receipt-bound.
+/// A shadow `plan.provider_address` is rejected rather than allowed to change execution outside
+/// the reviewed selector.
+fn direct_akash_provider_pin(plan: &Value) -> Result<Option<String>, &'static str> {
+    let selector = plan
+        .get("provider_selector")
+        .ok_or("provider_selector_missing")?;
+    let selector_object = selector.as_object().ok_or("provider_selector_not_object")?;
+    let mode = text(selector, "mode");
+    let selection = text(selector, "selection");
+    let selector_address = text(selector, "provider_address");
+    let shadow_address = text(plan, "provider_address");
+    if !shadow_address.is_empty() {
+        return Err("shadow_provider_address_forbidden");
+    }
+    match mode {
+        "any_marketplace" => {
+            if selector_object
+                .keys()
+                .any(|key| key != "mode" && key != "selection")
+            {
+                return Err("marketplace_selector_unknown_field");
+            }
+            if selection != "lowest_qualified_bid" {
+                return Err("marketplace_selection_invalid");
+            }
+            if !selector_address.is_empty() {
+                return Err("marketplace_selector_cannot_carry_provider_pin");
+            }
+            Ok(None)
+        }
+        "exact" => {
+            if selector_object
+                .keys()
+                .any(|key| key != "mode" && key != "selection" && key != "provider_address")
+            {
+                return Err("exact_selector_unknown_field");
+            }
+            if selection != "only_qualified_bid_from_exact_provider" {
+                return Err("exact_selection_invalid");
+            }
+            if !selector_address.starts_with("akash1")
+                || selector_address.len() < 20
+                || selector_address.chars().any(char::is_whitespace)
+            {
+                return Err("exact_provider_address_invalid");
+            }
+            Ok(Some(selector_address.to_string()))
+        }
+        _ => Err("provider_selector_mode_invalid"),
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct StandingProviderDrawBounds {
+    envelope_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    deposit_microusd: u64,
+    spend_reservation_microusd: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+}
+
+fn decode_sha256_ref(value: &str, label: &str) -> Result<[u8; 32], String> {
+    let hex_value = value
+        .strip_prefix("sha256:")
+        .ok_or_else(|| format!("{label} is not a sha256 ref"))?;
+    if hex_value.len() != 64 || hex_value != hex_value.to_ascii_lowercase() {
+        return Err(format!("{label} is not 32 lowercase bytes"));
+    }
+    let decoded = hex::decode(hex_value).map_err(|_| format!("{label} is not hexadecimal"))?;
+    let mut output = [0u8; 32];
+    output.copy_from_slice(&decoded);
+    if output == [0u8; 32] {
+        return Err(format!("{label} must not be zero"));
+    }
+    Ok(output)
+}
+
+/// Validate daemon-derived provider facets as a subset of a registered standing envelope.
+/// Host/tool-advertised filters are never read here and therefore cannot widen this decision.
+fn validate_standing_provider_facets(
+    envelope: &Value,
+    provider_id: &str,
+    op: &str,
+    facets: &Value,
+) -> Result<StandingProviderDrawBounds, String> {
+    const CONTRACT: &str = "schema://ioi/foundations/standing-authority-envelope/v1";
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        CONTRACT, envelope,
+    )
+    .map_err(|error| format!("standing envelope is not registered-contract valid: {error}"))?;
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0);
+    if envelope
+        .get("not_before_ms")
+        .and_then(Value::as_u64)
+        .unwrap_or(u64::MAX)
+        > now_ms
+        || envelope
+            .get("expires_at_ms")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+            < now_ms
+    {
+        return Err("standing_envelope_outside_validity_window".to_string());
+    }
+    let template = envelope
+        .get("facet_template")
+        .ok_or_else(|| "standing envelope has no facet template".to_string())?;
+    let equals = |pointer: &str, actual: &Value, code: &str| {
+        if envelope.pointer(pointer) == Some(actual) {
+            Ok(())
+        } else {
+            Err(code.to_string())
+        }
+    };
+    equals(
+        "/facet_template/provider_id",
+        &json!(provider_id),
+        "standing_provider_id_outside_envelope",
+    )?;
+    if !template
+        .get("operations")
+        .and_then(Value::as_array)
+        .is_some_and(|operations| operations.iter().any(|operation| operation == op))
+    {
+        return Err("standing_operation_outside_envelope".to_string());
+    }
+    equals(
+        "/facet_template/provider_selector/mode",
+        facets
+            .pointer("/provider_selector/mode")
+            .unwrap_or(&Value::Null),
+        "standing_provider_selector_mode_outside_envelope",
+    )?;
+    equals(
+        "/facet_template/provider_selector/selection",
+        facets
+            .pointer("/provider_selector/selection")
+            .unwrap_or(&Value::Null),
+        "standing_provider_selection_outside_envelope",
+    )?;
+    let provider_address = facets
+        .get("provider_address")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "standing_exact_provider_address_missing".to_string())?;
+    if !template
+        .pointer("/provider_selector/provider_addresses")
+        .and_then(Value::as_array)
+        .is_some_and(|addresses| addresses.iter().any(|address| address == provider_address))
+    {
+        return Err("standing_provider_address_outside_envelope".to_string());
+    }
+    let deposit_usd = facets
+        .get("deposit_usd")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| "standing_deposit_missing".to_string())?;
+    let deposit_scaled = deposit_usd * 1_000_000.0;
+    if !deposit_scaled.is_finite()
+        || deposit_scaled <= 0.0
+        || (deposit_scaled.round() - deposit_scaled).abs() > 0.000_001
+    {
+        return Err("standing_deposit_not_exact_microusd".to_string());
+    }
+    let deposit_microusd = deposit_scaled.round() as u64;
+    if deposit_microusd
+        > template
+            .get("per_operation_deposit_microusd")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    {
+        return Err("standing_deposit_outside_envelope".to_string());
+    }
+    equals(
+        "/facet_template/pricing_ceiling/denom",
+        facets.get("ceiling_denom").unwrap_or(&Value::Null),
+        "standing_ceiling_denom_outside_envelope",
+    )?;
+    let requested_ceiling = facets
+        .get("ceiling_amount")
+        .and_then(Value::as_str)
+        .and_then(|value| value.parse::<u64>().ok())
+        .ok_or_else(|| "standing_ceiling_amount_invalid".to_string())?;
+    let allowed_ceiling = template
+        .pointer("/pricing_ceiling/amount")
+        .and_then(Value::as_str)
+        .and_then(|value| value.parse::<u64>().ok())
+        .ok_or_else(|| "standing_envelope_ceiling_invalid".to_string())?;
+    if requested_ceiling > allowed_ceiling {
+        return Err("standing_ceiling_outside_envelope".to_string());
+    }
+    for (facet, set_pointer, code) in [
+        ("sdl_hash", "/sdl_hashes", "standing_sdl_outside_envelope"),
+        (
+            "image_digest",
+            "/image_digests",
+            "standing_image_outside_envelope",
+        ),
+        (
+            "registry_host",
+            "/registry_hosts",
+            "standing_registry_outside_envelope",
+        ),
+        (
+            "result_credential_ref",
+            "/result_destination_refs",
+            "standing_result_destination_outside_envelope",
+        ),
+        (
+            "result_tls_server_certificate_sha256",
+            "/result_transport_certificate_hashes",
+            "standing_result_transport_outside_envelope",
+        ),
+    ] {
+        let value = facets
+            .get(facet)
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("standing_{facet}_missing"))?;
+        if !template
+            .pointer(set_pointer)
+            .and_then(Value::as_array)
+            .is_some_and(|allowed| allowed.iter().any(|candidate| candidate == value))
+        {
+            return Err(code.to_string());
+        }
+    }
+    equals(
+        "/facet_template/auto_topup",
+        facets.get("auto_topup").unwrap_or(&Value::Null),
+        "standing_auto_topup_outside_envelope",
+    )?;
+    equals(
+        "/facet_template/teardown_policy",
+        facets.get("teardown_policy").unwrap_or(&Value::Null),
+        "standing_teardown_outside_envelope",
+    )?;
+    let duration = facets
+        .get("max_duration_seconds")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| "standing_duration_missing".to_string())?;
+    if duration
+        > template
+            .get("max_duration_seconds")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    {
+        return Err("standing_duration_outside_envelope".to_string());
+    }
+    let aggregate = envelope
+        .get("aggregate_bounds")
+        .ok_or_else(|| "standing_aggregate_bounds_missing".to_string())?;
+    Ok(StandingProviderDrawBounds {
+        envelope_hash: decode_sha256_ref(text(envelope, "body_hash"), "standing envelope hash")?,
+        policy_hash: decode_sha256_ref(
+            text(envelope, "trajectory_policy_hash"),
+            "standing trajectory policy hash",
+        )?,
+        deposit_microusd,
+        // Until provider-native settlement arrives, reserve the full deposit as the conservative
+        // spend bound. Refund reconciliation may reduce exposure but never creates authority.
+        spend_reservation_microusd: deposit_microusd,
+        max_usages: aggregate
+            .get("max_usages")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+            .ok_or_else(|| "standing_max_usages_invalid".to_string())?,
+        max_cumulative_deposit_microusd: aggregate
+            .get("max_cumulative_deposit_microusd")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| "standing_cumulative_deposit_invalid".to_string())?,
+        max_cumulative_spend_microusd: aggregate
+            .get("max_cumulative_spend_microusd")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| "standing_cumulative_spend_invalid".to_string())?,
+    })
+}
+
+const AKASH_REGISTRY_USERNAME_SENTINEL: &str = "__IOI_REGISTRY_USERNAME__";
+const AKASH_REGISTRY_PASSWORD_SENTINEL: &str = "__IOI_REGISTRY_PASSWORD__";
+const AKASH_RESULT_TOKEN_SENTINEL: &str = "__IOI_AFT_RESULT_BEARER_TOKEN__";
+
+/// Validate that any secret-bearing SDL template uses daemon-resolved connector references.
+/// The references and the unexpanded template are bound into C2 and the wallet challenge; the
+/// plaintext values are introduced only inside `provision`, after the pre-effect intent commits.
+fn validate_akash_sdl_secret_refs(plan: &Value, sdl: &str) -> Result<(), &'static str> {
+    let registry_ref = text(plan, "registry_credential_ref");
+    let result_ref = text(plan, "result_credential_ref");
+    let valid_ref = |reference: &str| {
+        reference
+            .strip_prefix("connector://")
+            .map(|id| id.starts_with("conn_") && !id.chars().any(char::is_whitespace))
+            .unwrap_or(false)
+    };
+    let registry_sentinels = sdl.contains(AKASH_REGISTRY_USERNAME_SENTINEL)
+        || sdl.contains(AKASH_REGISTRY_PASSWORD_SENTINEL);
+    let result_sentinel = sdl.contains(AKASH_RESULT_TOKEN_SENTINEL);
+    if registry_sentinels != !registry_ref.is_empty()
+        || (registry_sentinels && !valid_ref(registry_ref))
+    {
+        return Err("registry_credential_ref_or_sentinel_invalid");
+    }
+    if result_sentinel != !result_ref.is_empty() || (result_sentinel && !valid_ref(result_ref)) {
+        return Err("result_credential_ref_or_sentinel_invalid");
+    }
+    if registry_sentinels
+        && !(sdl.contains(AKASH_REGISTRY_USERNAME_SENTINEL)
+            && sdl.contains(AKASH_REGISTRY_PASSWORD_SENTINEL))
+    {
+        return Err("registry_credential_template_incomplete");
+    }
+    Ok(())
+}
+
+/// Bind the workload-result identity and measurement shape independently of the
+/// SDL hash, then require the reviewed SDL to carry the same values. This makes
+/// a stale but internally consistent result bundle distinguishable from the
+/// exact campaign authorized by the wallet grant.
+fn validate_akash_result_contract(plan: &Value, sdl: &str) -> Result<(), &'static str> {
+    let result_ref = text(plan, "result_credential_ref");
+    let campaign_id = text(plan, "campaign_id");
+    let source_commit = text(plan, "benchmark_source_commit");
+    let image_digest = text(plan, "image_digest");
+    let image_build_identity_sha256 = text(plan, "image_build_identity_sha256");
+    let provider_preflight_sha256 = text(plan, "provider_preflight_sha256");
+    let protocol_version = text(plan, "benchmark_protocol_version");
+    let result_schema = text(plan, "result_schema_version");
+    let warmups = plan.get("benchmark_warmups").and_then(Value::as_u64);
+    let repeats = plan.get("benchmark_repeats").and_then(Value::as_u64);
+    let tls_server_certificate_sha256 = text(plan, "result_tls_server_certificate_sha256");
+
+    if result_ref.is_empty() {
+        if !campaign_id.is_empty()
+            || !source_commit.is_empty()
+            || !image_digest.is_empty()
+            || !image_build_identity_sha256.is_empty()
+            || !provider_preflight_sha256.is_empty()
+            || !protocol_version.is_empty()
+            || !result_schema.is_empty()
+            || warmups.is_some()
+            || repeats.is_some()
+            || !tls_server_certificate_sha256.is_empty()
+        {
+            return Err("akash_result_contract_without_result_credential");
+        }
+        return Ok(());
+    }
+    if !tls_server_certificate_sha256
+        .strip_prefix("sha256:")
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest.chars().all(|character| {
+                    character.is_ascii_hexdigit() && !character.is_ascii_uppercase()
+                })
+        })
+    {
+        return Err("akash_result_tls_certificate_pin_invalid");
+    }
+    if campaign_id.is_empty()
+        || campaign_id.len() > 128
+        || !campaign_id.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-')
+        })
+    {
+        return Err("akash_result_campaign_id_invalid");
+    }
+    if source_commit.len() != 40
+        || !source_commit
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err("akash_result_source_commit_invalid");
+    }
+    if image_digest.len() != 71
+        || !image_digest.starts_with("sha256:")
+        || !image_digest[7..]
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    {
+        return Err("akash_result_image_digest_invalid");
+    }
+    if !image_build_identity_sha256
+        .strip_prefix("sha256:")
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest.chars().all(|character| {
+                    character.is_ascii_hexdigit() && !character.is_ascii_uppercase()
+                })
+        })
+    {
+        return Err("akash_result_image_build_identity_invalid");
+    }
+    if !provider_preflight_sha256
+        .strip_prefix("sha256:")
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && digest.chars().all(|character| {
+                    character.is_ascii_hexdigit() && !character.is_ascii_uppercase()
+                })
+        })
+    {
+        return Err("akash_result_provider_preflight_invalid");
+    }
+    if protocol_version != "res-p4.3.v2"
+        || result_schema != "ioi.aft.benchmark-campaign.v1"
+        || warmups != Some(1)
+        || repeats != Some(5)
+    {
+        return Err("akash_result_measurement_protocol_invalid");
+    }
+    for required in [
+        format!("AFT_BENCH_CAMPAIGN_ID={campaign_id}"),
+        format!("IOI_BENCH_COMMIT={source_commit}"),
+        format!("IOI_BENCH_IMAGE_DIGEST={image_digest}"),
+        format!("AFT_BENCH_PROTOCOL_VERSION={protocol_version}"),
+        format!("AFT_BENCH_WARMUPS={}", warmups.unwrap_or_default()),
+        format!("AFT_BENCH_REPEATS={}", repeats.unwrap_or_default()),
+    ] {
+        if !sdl.contains(&required) {
+            return Err("akash_result_contract_sdl_mismatch");
+        }
+    }
+    if !sdl.contains(&format!("@{image_digest}")) {
+        return Err("akash_result_image_digest_sdl_mismatch");
+    }
+    Ok(())
+}
+
+fn validate_akash_result_status(dep: &Value, status: &Value) -> Result<(), String> {
+    if status.get("campaign_id").and_then(Value::as_str) != Some(text(dep, "campaign_id")) {
+        return Err("akash_result_campaign_identity_mismatch".into());
+    }
+    match status.get("state").and_then(Value::as_str) {
+        Some("complete") => Ok(()),
+        Some("failed") => {
+            let detail = status
+                .get("detail")
+                .and_then(Value::as_str)
+                .unwrap_or("bounded diagnostics unavailable");
+            let mut bounded = detail
+                .chars()
+                .map(|character| {
+                    if character.is_ascii_graphic() || character == ' ' {
+                        character
+                    } else {
+                        ' '
+                    }
+                })
+                .collect::<String>();
+            bounded.truncate(1_200);
+            Err(format!("akash_workload_campaign_failed: {bounded}"))
+        }
+        Some("starting" | "warmup" | "measuring") => {
+            Err("akash_result_endpoint_not_complete".into())
+        }
+        _ => Err("akash_result_status_invalid".into()),
+    }
+}
+
+fn validate_akash_result_bundle(dep: &Value, bundle: &Value) -> Result<(), &'static str> {
+    let expected_campaign = text(dep, "campaign_id");
+    let expected_source_commit = text(dep, "benchmark_source_commit");
+    let expected_image_digest = text(dep, "image_digest");
+    let expected_protocol = text(dep, "benchmark_protocol_version");
+    let expected_result_schema = text(dep, "result_schema_version");
+    let expected_warmups = dep.get("benchmark_warmups").and_then(Value::as_u64);
+    let expected_repeats = dep.get("benchmark_repeats").and_then(Value::as_u64);
+    for name in ["status", "environment", "results", "manifest"] {
+        let encoded = bundle
+            .pointer(&format!("/{name}/body_base64"))
+            .and_then(Value::as_str)
+            .ok_or("akash_result_raw_body_missing")?;
+        let raw = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|_| "akash_result_raw_body_invalid")?;
+        let parsed: Value =
+            serde_json::from_slice(&raw).map_err(|_| "akash_result_raw_body_invalid")?;
+        let raw_hash = sha256_bytes(&raw);
+        if bundle
+            .pointer(&format!("/{name}/bytes"))
+            .and_then(Value::as_u64)
+            != Some(raw.len() as u64)
+            || bundle
+                .pointer(&format!("/{name}/sha256"))
+                .and_then(Value::as_str)
+                != Some(raw_hash.as_str())
+            || bundle.pointer(&format!("/{name}/value")) != Some(&parsed)
+        {
+            return Err("akash_result_raw_body_mismatch");
+        }
+    }
+    if expected_campaign.is_empty()
+        || bundle
+            .pointer("/status/value/state")
+            .and_then(Value::as_str)
+            != Some("complete")
+        || bundle
+            .pointer("/results/value/schema_version")
+            .and_then(Value::as_str)
+            != Some(expected_result_schema)
+    {
+        return Err("akash_result_campaign_not_complete_or_invalid");
+    }
+    for path in [
+        "/status/value/campaign_id",
+        "/environment/value/campaign_id",
+        "/results/value/campaign_id",
+        "/manifest/value/campaign_id",
+    ] {
+        if bundle.pointer(path).and_then(Value::as_str) != Some(expected_campaign) {
+            return Err("akash_result_campaign_identity_mismatch");
+        }
+    }
+    if bundle
+        .pointer("/environment/value/schema_version")
+        .and_then(Value::as_str)
+        != Some("ioi.aft.environment-manifest.v1")
+        || bundle
+            .pointer("/manifest/value/schema_version")
+            .and_then(Value::as_str)
+            != Some("ioi.aft.artifact-manifest.v1")
+        || bundle
+            .pointer("/environment/value/source_commit")
+            .and_then(Value::as_str)
+            != Some(expected_source_commit)
+        || bundle
+            .pointer("/environment/value/image_digest")
+            .and_then(Value::as_str)
+            != Some(expected_image_digest)
+        || bundle
+            .pointer("/environment/value/protocol_version")
+            .and_then(Value::as_str)
+            != Some(expected_protocol)
+        || bundle
+            .pointer("/environment/value/warmups")
+            .and_then(Value::as_u64)
+            != expected_warmups
+        || bundle
+            .pointer("/environment/value/measured_passes")
+            .and_then(Value::as_u64)
+            != expected_repeats
+        || bundle
+            .pointer("/results/value/measured_passes")
+            .and_then(Value::as_u64)
+            != expected_repeats
+        || bundle
+            .pointer("/results/value/row_count_per_pass")
+            .and_then(Value::as_u64)
+            != Some(10)
+    {
+        return Err("akash_result_measurement_contract_mismatch");
+    }
+    let manifest_artifacts = bundle
+        .pointer("/manifest/value/artifacts")
+        .and_then(Value::as_array)
+        .ok_or("akash_result_manifest_artifacts_missing")?;
+    for (artifact_name, bundle_name) in [
+        ("environment.json", "environment"),
+        ("result.json", "results"),
+    ] {
+        let artifact = manifest_artifacts
+            .iter()
+            .find(|item| text(item, "name") == artifact_name)
+            .ok_or("akash_result_manifest_required_artifact_missing")?;
+        if artifact.get("sha256").and_then(Value::as_str)
+            != bundle
+                .pointer(&format!("/{bundle_name}/sha256"))
+                .and_then(Value::as_str)
+            || artifact.get("bytes").and_then(Value::as_u64)
+                != bundle
+                    .pointer(&format!("/{bundle_name}/bytes"))
+                    .and_then(Value::as_u64)
+        {
+            return Err("akash_result_manifest_hash_mismatch");
+        }
+    }
+    Ok(())
+}
+
+fn resolve_connector_bearer(data_dir: &str, reference: &str) -> Result<String, String> {
+    let connector_id = reference
+        .strip_prefix("connector://")
+        .ok_or("connector_credential_ref_invalid")?;
+    let credential = read_record_dir(data_dir, "connector-credentials")
+        .into_iter()
+        .find(|record| text(record, "connector_id") == connector_id)
+        .ok_or("connector_credential_not_bound")?;
+    if !matches!(text(&credential, "kind"), "bearer" | "service-account") {
+        return Err("connector_credential_kind_not_supported_for_sdl_injection".into());
+    }
+    credential["sealed_token"]
+        .as_str()
+        .and_then(open_scm_token)
+        .ok_or_else(|| "connector_credential_unresolvable".into())
+}
+
+fn yaml_single_quoted_fragment(value: &str) -> Result<String, String> {
+    if value.contains(['\n', '\r']) {
+        return Err("connector_credential_contains_forbidden_line_break".into());
+    }
+    Ok(value.replace('\'', "''"))
+}
+
+fn inject_akash_sdl_secrets(
+    template: &str,
+    registry_json: Option<&str>,
+    result_token: Option<&str>,
+) -> Result<String, String> {
+    let mut expanded = template.to_string();
+    if let Some(registry_json) = registry_json {
+        let registry: Value = serde_json::from_str(registry_json)
+            .map_err(|_| "registry_credential_payload_invalid_json")?;
+        let username = registry
+            .get("username")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or("registry_credential_username_missing")?;
+        let password = registry
+            .get("password")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or("registry_credential_password_missing")?;
+        expanded = expanded.replace(
+            AKASH_REGISTRY_USERNAME_SENTINEL,
+            &yaml_single_quoted_fragment(username)?,
+        );
+        expanded = expanded.replace(
+            AKASH_REGISTRY_PASSWORD_SENTINEL,
+            &yaml_single_quoted_fragment(password)?,
+        );
+    }
+    if let Some(result_token) = result_token {
+        expanded = expanded.replace(
+            AKASH_RESULT_TOKEN_SENTINEL,
+            &yaml_single_quoted_fragment(result_token)?,
+        );
+    }
+    if [
+        AKASH_REGISTRY_USERNAME_SENTINEL,
+        AKASH_REGISTRY_PASSWORD_SENTINEL,
+        AKASH_RESULT_TOKEN_SENTINEL,
+    ]
+    .iter()
+    .any(|sentinel| expanded.contains(sentinel))
+    {
+        return Err("akash_sdl_secret_sentinel_unresolved".into());
+    }
+    Ok(expanded)
+}
+
+fn materialize_akash_sdl(data_dir: &str, plan: &Value, template: &str) -> Result<String, String> {
+    validate_akash_sdl_secret_refs(plan, template).map_err(str::to_string)?;
+    let registry_ref = text(plan, "registry_credential_ref");
+    let result_ref = text(plan, "result_credential_ref");
+    let registry = if registry_ref.is_empty() {
+        None
+    } else {
+        Some(resolve_connector_bearer(data_dir, registry_ref)?)
+    };
+    let result = if result_ref.is_empty() {
+        None
+    } else {
+        Some(resolve_connector_bearer(data_dir, result_ref)?)
+    };
+    inject_akash_sdl_secrets(template, registry.as_deref(), result.as_deref())
+}
+
+/// Build a result client that accepts exactly the owner-reviewed leaf
+/// certificate. Some Akash ingress controllers expose a provider-local,
+/// self-signed certificate without a DNS SAN. We therefore retrieve the leaf
+/// without sending application bytes, verify its DER hash against the
+/// authority-bound pin, add only that certificate as a trust root, and disable
+/// hostname matching for the subsequent HTTPS request. Chain validation stays
+/// enabled, so this is not a global invalid-certificate escape hatch.
+fn valid_akash_result_host(host: &str) -> bool {
+    host.len() <= 253
+        && host.contains('.')
+        && !host.contains('/')
+        && !host.contains(':')
+        && !host.eq_ignore_ascii_case("localhost")
+        && host.chars().all(|character| {
+            character.is_ascii_alphanumeric() || character == '.' || character == '-'
+        })
+}
+
+/// Resolve the only two result transports admitted by the U1 contract:
+/// provider-terminated HTTPS on a service URI, or workload-terminated TLS on
+/// the provider-assigned raw forwarding for the immutable result port 8080.
+/// The latter is required by providers that represent `as: 443` as a random
+/// TCP forwarding rather than a Gateway hostname. Ambiguous or plaintext
+/// forwards refuse instead of guessing.
+fn akash_result_endpoint_target(endpoint: &Value) -> Result<(String, u16), &'static str> {
+    if let Some(host) = endpoint
+        .get("services")
+        .and_then(Value::as_object)
+        .and_then(|services| {
+            services.values().find_map(|service| {
+                service
+                    .get("uris")
+                    .and_then(Value::as_array)
+                    .and_then(|uris| uris.first())
+                    .and_then(Value::as_str)
+            })
+        })
+    {
+        if !valid_akash_result_host(host) {
+            return Err("akash_result_endpoint_uri_invalid");
+        }
+        return Ok((host.to_string(), 443));
+    }
+
+    let forwards = endpoint
+        .pointer("/forwarded_ports/aft-bench")
+        .and_then(Value::as_array)
+        .ok_or("akash_result_endpoint_uri_absent")?;
+    let mut matches = forwards.iter().filter_map(|forward| {
+        let internal_port = forward.get("port")?.as_u64()?;
+        let external_port = forward.get("externalPort")?.as_u64()?;
+        let protocol = forward.get("proto")?.as_str()?;
+        let host = forward.get("host")?.as_str()?;
+        (internal_port == 8080
+            && protocol.eq_ignore_ascii_case("tcp")
+            && (1..=u16::MAX as u64).contains(&external_port)
+            && valid_akash_result_host(host))
+        .then(|| (host.to_string(), external_port as u16))
+    });
+    let target = matches.next().ok_or("akash_result_tls_forward_absent")?;
+    if matches.next().is_some() {
+        return Err("akash_result_tls_forward_ambiguous");
+    }
+    Ok(target)
+}
+
+fn pinned_result_client(
+    host: &str,
+    port: u16,
+    expected_pin: &str,
+) -> Result<reqwest::Client, &'static str> {
+    let expected = expected_pin
+        .strip_prefix("sha256:")
+        .filter(|digest| {
+            digest.len() == 64
+                && digest.chars().all(|character| {
+                    character.is_ascii_hexdigit() && !character.is_ascii_uppercase()
+                })
+        })
+        .ok_or("akash_result_tls_certificate_pin_invalid")?;
+    let stream = std::net::TcpStream::connect((host, port))
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(30)))
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    stream
+        .set_write_timeout(Some(std::time::Duration::from_secs(30)))
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    let connector = native_tls::TlsConnector::builder()
+        .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true)
+        .build()
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    let tls = connector
+        .connect(host, stream)
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?;
+    let certificate = tls
+        .peer_certificate()
+        .map_err(|_| "akash_result_tls_certificate_probe_failed")?
+        .ok_or("akash_result_tls_certificate_absent")?;
+    let der = certificate
+        .to_der()
+        .map_err(|_| "akash_result_tls_certificate_invalid")?;
+    if sha256_bytes(&der).strip_prefix("sha256:") != Some(expected) {
+        return Err("akash_result_tls_certificate_pin_mismatch");
+    }
+    let root =
+        reqwest::Certificate::from_der(&der).map_err(|_| "akash_result_tls_certificate_invalid")?;
+    reqwest::Client::builder()
+        .tls_built_in_root_certs(false)
+        .add_root_certificate(root)
+        .danger_accept_invalid_hostnames(true)
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|_| "akash_result_client_build_failed")
+}
+
+/// The single final-invoker implementation for static provider adapters. Both the HTTP route and
+/// the workload-bound broker enter here, so the guest lane cannot grow a second provider client
+/// or persistence path.
+fn provider_workrun_guardrail_refusal(
+    data_dir: &str,
+    provider_id: &str,
+    env_ref: &str,
+    command: &str,
+) -> Option<Value> {
+    // ENVIRONMENT_OWNER_CENSUS: policy_context_only — this strict projection read feeds only the
+    // shared command-policy decision below. It returns no environment or workspace coordinates;
+    // provider effect authority is enforced independently by the provider admission lane.
+    // Static provider fixtures can address a provider-local environment before a Hypervisor
+    // environment projection exists. The global policy still applies in that case; when the
+    // environment record exists its local declarations compose monotonically as usual.
+    let env = match super::environment_routes::load_env_guardrail_context(data_dir, env_ref) {
+        Ok(Some(env)) => env,
+        Ok(None) => json!({ "spec": {} }),
+        Err(detail) => {
+            let mut refusal = super::operability_routes::guardrail_indeterminate_refusal_response(
+                data_dir,
+                env_ref,
+                command,
+                "environment_record",
+                detail,
+            );
+            refusal["ok"] = json!(false);
+            refusal["provider"] = json!(provider_id);
+            refusal["op"] = json!("workrun");
+            refusal["execution_surface"] = json!("provider.workrun");
+            return Some(refusal);
+        }
+    };
+    let mut refusal =
+        super::operability_routes::guardrail_refusal_response(data_dir, &env, env_ref, command)?;
+    refusal["ok"] = json!(false);
+    refusal["provider"] = json!(provider_id);
+    refusal["op"] = json!("workrun");
+    refusal["execution_surface"] = json!("provider.workrun");
+    Some(refusal)
+}
+
+pub(crate) fn invoke_static_provider_operation(
+    data_dir: &str,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
+    let provider_id = text(body, "provider_id");
+    let op = text(body, "op");
+    let env_ref = body
+        .get("environment_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("env-default");
+    let Some(provider) = resolve(provider_id) else {
+        let receipt = provider_receipt(data_dir, provider_id, env_ref, op, "error");
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "ok": false,
+                "reason": format!("unknown provider '{provider_id}'"),
+                "receipt_ref": receipt
+            })),
+        );
+    };
+
+    let credentials_required = provider
+        .capabilities()
+        .get("credentials_required")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if credentials_required
+        && matches!(op, "create" | "start" | "workrun")
+        && body.get("grant_ref").and_then(Value::as_str).is_none()
+    {
+        let receipt = provider_receipt(data_dir, provider_id, env_ref, op, "authority_missing");
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "ok": false,
+                "op": op,
+                "provider": provider_id,
+                "reason": "provider credentials are authority-gated; present a grant_ref (effect=provider_credential)",
+                "receipt_ref": receipt
+            })),
+        );
+    }
+
+    let plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
+    let command = body
+        .get("command")
+        .and_then(Value::as_str)
+        .unwrap_or("true");
+    let material_ref = body
+        .get("material_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if op == "workrun" {
+        if let Some(refusal) =
+            provider_workrun_guardrail_refusal(data_dir, provider_id, env_ref, command)
+        {
+            return (StatusCode::OK, Json(refusal));
+        }
+    }
+    let result = match op {
+        "preflight" => Ok(provider.preflight(&plan)),
+        "create" => provider.create(data_dir, env_ref, &plan),
+        "start" => provider.start(data_dir, env_ref),
+        "workrun" => provider.workrun(data_dir, env_ref, command),
+        "stop" => provider.stop(data_dir, env_ref),
+        "snapshot" => provider.snapshot(data_dir, env_ref),
+        "restore" => provider.restore(data_dir, env_ref, material_ref),
+        "inject_outage" => provider.inject_outage(data_dir, env_ref),
+        "recover" => provider.recover(data_dir, env_ref),
+        "delete" => provider.delete(data_dir, env_ref),
+        "observe" => Ok(provider.observe(data_dir, env_ref)),
+        other => Err(format!("unknown op '{other}'")),
+    };
+
+    match result {
+        Ok(evidence) => {
+            let receipt = provider_receipt(data_dir, provider_id, env_ref, op, "ok");
+            let op_id = format!("pop_{:x}", nanos());
+            let record = json!({
+                "schema_version": "ioi.hypervisor.provider-operation.v1",
+                "operation_id": op_id,
+                "provider": provider_id,
+                "environment_ref": env_ref,
+                "op": op,
+                "evidence": evidence,
+                "receipt_ref": receipt,
+                "at": iso_now()
+            });
+            if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
+                return provider_op_persist_failed(
+                    "provider_operation_persistence_failed",
+                    op,
+                    provider_id,
+                    env_ref,
+                    &receipt,
+                    evidence
+                        .get("provider_native")
+                        .cloned()
+                        .unwrap_or(Value::Null),
+                    "the provider op executed but its admitted-operation record did not commit",
+                );
+            }
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "op": op,
+                    "provider": provider_id,
+                    "environment_ref": env_ref,
+                    "evidence": evidence,
+                    "receipt_ref": receipt
+                })),
+            )
+        }
+        Err(reason) => {
+            let outcome = if reason.contains("NOT_CONFIGURED") {
+                "not_configured"
+            } else {
+                "error"
+            };
+            let receipt = provider_receipt(data_dir, provider_id, env_ref, op, outcome);
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": false,
+                    "op": op,
+                    "provider": provider_id,
+                    "environment_ref": env_ref,
+                    "reason": reason,
+                    "outcome": outcome,
+                    "receipt_ref": receipt
+                })),
+            )
+        }
+    }
+}
+
+/// Host-only authenticated context used by the workload effect broker.  It contains no bearer
+/// session: the principal's current membership is re-resolved when the context is constructed,
+/// and the stored proposal-session binding is only a hash used to consume the already admitted
+/// daemon proposal.  HTTP callers can never select this path.
+#[derive(Clone)]
+pub(crate) struct WorkloadBrokerProviderAuthority {
+    caller: super::mutation_event_foundation::WriteCaller,
+    proposal_session_binding: String,
+}
+
+impl WorkloadBrokerProviderAuthority {
+    pub(crate) fn resolve(
+        data_dir: &str,
+        principal_ref: &str,
+        owner_ref: &str,
+        idempotency_key: &str,
+        proposal_session_binding: &str,
+        correlation_ref: &str,
+    ) -> Result<Self, (StatusCode, Json<Value>)> {
+        if idempotency_key.is_empty()
+            || idempotency_key.len() > 256
+            || idempotency_key.chars().any(char::is_control)
+            || !proposal_session_binding.starts_with("sha256:")
+            || proposal_session_binding.len() != 71
+        {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "ok": false,
+                    "code": "workload_broker_authority_binding_invalid",
+                    "message": "the host broker authority binding is malformed"
+                })),
+            ));
+        }
+        let identity = super::substrate_store::resolve_workload_broker_identity(
+            data_dir,
+            principal_ref,
+            owner_ref,
+            correlation_ref,
+        )
+        .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+        Ok(Self {
+            caller: super::mutation_event_foundation::WriteCaller {
+                identity,
+                owner_ref: owner_ref.to_owned(),
+                idempotency_key: idempotency_key.to_owned(),
+            },
+            proposal_session_binding: proposal_session_binding.to_owned(),
+        })
+    }
+}
+
+fn provider_write_caller(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+    broker_authority: Option<&WorkloadBrokerProviderAuthority>,
+) -> Result<super::mutation_event_foundation::WriteCaller, (StatusCode, Json<Value>)> {
+    if let Some(authority) = broker_authority {
+        if text(body, "owner_ref") != authority.caller.owner_ref
+            || text(body, "idempotency_key") != authority.caller.idempotency_key
+        {
+            return Err((
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "code": "workload_broker_owner_binding_mismatch",
+                    "message": "the brokered request changed its authenticated owner or idempotency key"
+                })),
+            ));
+        }
+        return Ok(authority.caller.clone());
+    }
+    super::mutation_event_foundation::require_write_caller(data_dir, headers, body)
+}
+
+fn provider_request_session_binding(
+    headers: &HeaderMap,
+    broker_authority: Option<&WorkloadBrokerProviderAuthority>,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    broker_authority
+        .map(|authority| authority.proposal_session_binding.clone())
+        .map(Ok)
+        .unwrap_or_else(|| provider_proposal_session_binding(headers))
+}
+
 pub(crate) async fn handle_provider_op(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    handle_provider_op_internal(st, headers, body, None).await
+}
+
+/// Invoke the exact provider route from the trusted host broker without materializing an operator
+/// session. The opaque guest capability is consumed by `workload_effect_boundary`; only that
+/// module can assemble this authority context from its host-only durable record.
+pub(crate) async fn invoke_workload_brokered_provider_operation(
+    st: Arc<DaemonState>,
+    body: Value,
+    authority: WorkloadBrokerProviderAuthority,
+) -> (StatusCode, Json<Value>) {
+    handle_provider_op_internal(st, HeaderMap::new(), body, Some(authority)).await
+}
+
+async fn handle_provider_op_internal(
+    st: Arc<DaemonState>,
+    headers: HeaderMap,
+    body: Value,
+    broker_authority: Option<WorkloadBrokerProviderAuthority>,
 ) -> (StatusCode, Json<Value>) {
     let data_dir = &st.data_dir;
     let provider_id = body
@@ -6629,11 +8998,49 @@ pub(crate) async fn handle_provider_op(
         let account_id = text(&account, "account_id").to_string();
         let account_ref = text(&account, "account_ref").to_string();
         let kind = text(&account, "kind").to_string();
-        let mutation = !matches!(op, "preflight" | "observe" | "logs" | "events");
+        // Provider cleanup and reconciliation never need fresh spend authority, but they are
+        // still owner-scoped local writes and are authenticated below.
+        let akash_live_readiness =
+            op == "start" && kind == "akash" && vast_mode(&account) == "live";
+        let akash_live_logs_caller =
+            if op == "logs" && kind == "akash" && vast_mode(&account) == "live" {
+                match provider_write_caller(data_dir, &headers, &body, broker_authority.as_ref()) {
+                    Ok(caller) => Some(caller),
+                    Err(reply) => return reply,
+                }
+            } else {
+                None
+            };
+        let akash_live_result_binding = akash_live_logs_caller.is_some()
+            && read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+                .into_iter()
+                .find(|record| text(record, "environment_ref") == env_ref)
+                .map(|record| !text(&record, "result_credential_ref").is_empty())
+                .unwrap_or(false);
+        let mutation = !matches!(
+            op,
+            "preflight" | "observe" | "logs" | "events" | "reconcile" | "delete"
+        ) && !akash_live_readiness;
+        let result_binding_caller = if akash_live_result_binding {
+            akash_live_logs_caller
+        } else {
+            None
+        };
+        if (matches!(op, "reconcile" | "delete") || akash_live_readiness)
+            && result_binding_caller.is_none()
+        {
+            if let Err(reply) =
+                provider_write_caller(data_dir, &headers, &body, broker_authority.as_ref())
+            {
+                return reply;
+            }
+        }
         let mut vast_gate = Value::Null;
         let mut budget_note = Value::Null;
         let mut lease_note = Value::Null;
         let mut grant_ref = Value::Null;
+        let mut proposal_consumption = Value::Null;
+        let mut trajectory_admission = Value::Null;
         if mutation {
             // 1) external_spend posture is discovered BEFORE any provider mutation.
             match discover_budget(data_dir, &kind, op, &account) {
@@ -6670,98 +9077,117 @@ pub(crate) async fn handle_provider_op(
             ) && matches!(op, "create" | "redeploy")
                 && !vast_mode(&account).is_empty()
             {
-                if kind == "akash" {
-                    // ── STAGE A — akash pre-bid intent gate. Akash prices via POST-create bids,
-                    //    so `create` is NOT pre-bid-quote-gated; it is bounded by the explicit
-                    //    deposit and the SDL's single-group max bid, reserved whole against budget,
-                    //    pinned to the wallet-approved provider. The real post-bid quote gate is
-                    //    Stage B, inside provision, before the lease. The deposit + sdl_hash + pin
-                    //    are bound into the wallet facets (below) and the C2 intent, so the approval
-                    //    authorizes exactly this bounded continuation.
-                    let refuse_a = |code: &str, detail: String| {
-                        let receipt = provider_receipt_ext(
-                            data_dir,
-                            &kind,
-                            &env_ref,
-                            op,
-                            "stage_a_refused",
-                            &json!({ "account_ref": account_ref, "error": code }),
-                        );
-                        (
-                            StatusCode::UNPROCESSABLE_ENTITY,
-                            Json(json!({ "ok": false, "op": op, "provider": provider_id,
-                                "reason": format!("{code} — {detail}"), "receipt_ref": receipt })),
-                        )
-                    };
-                    // 1) explicit deposit, bounded — no live default. The exact value is bound into
-                    //    the wallet facets, so the approval covers THIS deposit only.
-                    let Some(deposit) = body.pointer("/plan/deposit_usd").and_then(Value::as_f64)
-                    else {
-                        return refuse_a(
-                            "akash_deposit_required",
-                            "provide plan.deposit_usd explicitly — there is no live default".into(),
-                        );
-                    };
-                    if !(deposit > 0.0 && deposit <= AKASH_MAX_DEPLOY_DEPOSIT_USD) {
-                        return refuse_a(
-                            "akash_deposit_out_of_bounds",
-                            format!("deposit ${deposit} must be > 0 and ≤ ${AKASH_MAX_DEPLOY_DEPOSIT_USD}"),
-                        );
-                    }
-                    // 2) single-group SDL, priced in uact — the max-bid ceiling (exact decimal).
+                let direct_akash_marketplace = kind == "akash"
+                    && vast_mode(&account) == "live"
+                    && body
+                        .pointer("/plan/sdl_yaml")
+                        .and_then(Value::as_str)
+                        .is_some();
+                if direct_akash_marketplace {
                     let sdl_yaml = body
                         .pointer("/plan/sdl_yaml")
                         .and_then(Value::as_str)
                         .unwrap_or("");
-                    let (ceiling_denom, ceiling_amount) =
-                        match ioi_drivers::provisioning::akash_console::parse_c7_sdl_ceiling(
-                            sdl_yaml,
-                        ) {
-                            Ok(c) => c,
-                            Err(e) => return refuse_a("akash_sdl_rejected", e),
-                        };
-                    let sdl_hash = sha256_bytes(sdl_yaml.as_bytes());
-                    // 3) provider_selector REQUIRED — the wallet approves the ADMISSIBLE provider
-                    //    SET (an exact address, or any_marketplace with deterministic selection),
-                    //    not necessarily one address. Stage B selects + records the ACTUAL provider
-                    //    from real bids and proves it satisfied the selector. No provider_address.
-                    let selector = match validate_provider_selector(
-                        body.pointer("/plan/provider_selector")
-                            .unwrap_or(&Value::Null),
-                    ) {
-                        Ok(s) => s,
-                        Err(e) => return refuse_a("akash_provider_selector_invalid", e),
-                    };
-                    // 4) auto-top-up must not be requested (Stage B re-verifies against the DSEQ).
-                    if body.pointer("/plan/auto_topup").and_then(Value::as_bool) == Some(true) {
-                        return refuse_a(
-                            "akash_auto_topup_forbidden",
-                            "auto-top-up must be disabled — the deposit is the hard bound".into(),
-                        );
-                    }
-                    // 5) reserve the WHOLE deposit against external_spend headroom.
-                    let headroom = budget_note
-                        .get("remaining_headroom_after_reservations")
+                    let deposit_usd = body
+                        .pointer("/plan/deposit_usd")
                         .and_then(Value::as_f64)
                         .unwrap_or(0.0);
-                    if headroom - deposit < 0.0 {
-                        return refuse_a(
-                            "akash_budget_reservation_exceeded",
-                            format!("remaining headroom ${headroom:.3} < deposit ${deposit:.3}"),
+                    let ceiling_amount = body
+                        .pointer("/plan/ceiling_amount")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let ceiling_denom = body
+                        .pointer("/plan/ceiling_denom")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let selector = body
+                        .pointer("/plan/provider_selector")
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    let provider_pin =
+                        direct_akash_provider_pin(body.pointer("/plan").unwrap_or(&Value::Null));
+                    let secret_refs = validate_akash_sdl_secret_refs(
+                        body.pointer("/plan").unwrap_or(&Value::Null),
+                        sdl_yaml,
+                    );
+                    let result_contract = validate_akash_result_contract(
+                        body.pointer("/plan").unwrap_or(&Value::Null),
+                        sdl_yaml,
+                    );
+                    let ceiling_contract = ioi_drivers::provisioning::akash_console::parse_c7_sdl_ceiling(sdl_yaml)
+                        .and_then(|(derived_denom, derived_amount)| {
+                            let declared_amount = rust_decimal::Decimal::from_str_exact(ceiling_amount.trim())
+                                .map_err(|error| format!("akash_ceiling_amount_invalid: {error}"))?;
+                            if ceiling_denom != derived_denom || declared_amount != derived_amount {
+                                return Err(format!(
+                                    "akash_ceiling_not_sdl_derived — declared {ceiling_amount} {ceiling_denom}, SDL binds {derived_amount} {derived_denom}"
+                                ));
+                            }
+                            Ok((derived_denom, derived_amount))
+                        });
+                    let auto_topup_disabled =
+                        body.pointer("/plan/auto_topup").and_then(Value::as_bool) == Some(false);
+                    if sdl_yaml.is_empty()
+                        || !(deposit_usd > 0.0 && deposit_usd <= AKASH_MAX_DEPLOY_DEPOSIT_USD)
+                        || provider_pin.is_err()
+                        || secret_refs.is_err()
+                        || result_contract.is_err()
+                        || ceiling_contract.is_err()
+                        || !auto_topup_disabled
+                    {
+                        let selector_error = provider_pin.err();
+                        let ceiling_error = ceiling_contract.err();
+                        return (
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            Json(json!({
+                                "ok": false,
+                                "code": "akash_live_marketplace_facets_required",
+                                "message": "direct Akash live deployment requires sdl_yaml, bounded deposit_usd, ceiling_amount in uact, and either any_marketplace/lowest_qualified_bid or an exact/only_qualified_bid_from_exact_provider selector",
+                                "selector_error": selector_error,
+                                "ceiling_error": ceiling_error,
+                                "secret_reference_error": secret_refs.err(),
+                                "result_contract_error": result_contract.err()
+                            })),
                         );
                     }
+                    let provider_pin = provider_pin.ok().flatten();
+                    let (ceiling_denom, ceiling_amount) =
+                        ceiling_contract.expect("validated exact SDL-derived ceiling");
                     vast_gate = json!({
                         "stage": "deployment_intent",
-                        "provider_selector": selector,
-                        "sdl": sdl_yaml,
-                        "sdl_hash": sdl_hash,
-                        "deposit_usd": deposit,
-                        "ceiling_denom": ceiling_denom,
+                        "provider_id": provider_id,
+                        "deposit_usd": deposit_usd,
                         "ceiling_amount": ceiling_amount.to_string(),
+                        "ceiling_denom": ceiling_denom,
+                        "provider_selector": selector,
                         "auto_topup": false,
+                        "sdl_yaml": sdl_yaml,
+                        "sdl_hash": sha256_bytes(sdl_yaml.as_bytes()),
+                        "registry_credential_ref": body.pointer("/plan/registry_credential_ref").cloned().unwrap_or(Value::Null),
+                        "registry_host": body.pointer("/plan/registry_host").cloned().unwrap_or(Value::Null),
+                        "result_credential_ref": body.pointer("/plan/result_credential_ref").cloned().unwrap_or(Value::Null),
+                        "result_tls_server_certificate_sha256": body.pointer("/plan/result_tls_server_certificate_sha256").cloned().unwrap_or(Value::Null),
+                        "campaign_id": body.pointer("/plan/campaign_id").cloned().unwrap_or(Value::Null),
+                        "benchmark_source_commit": body.pointer("/plan/benchmark_source_commit").cloned().unwrap_or(Value::Null),
+                        "image_digest": body.pointer("/plan/image_digest").cloned().unwrap_or(Value::Null),
+                        "image_build_identity_sha256": body.pointer("/plan/image_build_identity_sha256").cloned().unwrap_or(Value::Null),
+                        "provider_preflight_sha256": body.pointer("/plan/provider_preflight_sha256").cloned().unwrap_or(Value::Null),
+                        "benchmark_protocol_version": body.pointer("/plan/benchmark_protocol_version").cloned().unwrap_or(Value::Null),
+                        "result_schema_version": body.pointer("/plan/result_schema_version").cloned().unwrap_or(Value::Null),
+                        "benchmark_warmups": body.pointer("/plan/benchmark_warmups").cloned().unwrap_or(Value::Null),
+                        "benchmark_repeats": body.pointer("/plan/benchmark_repeats").cloned().unwrap_or(Value::Null),
+                        "max_duration_seconds": body.pointer("/plan/max_duration_seconds").cloned().unwrap_or(Value::Null),
                         "execution_mode": "live",
-                        "teardown_policy": body.pointer("/plan/teardown_policy").and_then(Value::as_str).unwrap_or("always_teardown_required"),
+                        "teardown_policy": body
+                            .get("teardown_policy")
+                            .and_then(Value::as_str)
+                            .unwrap_or("always_teardown_required"),
                     });
+                    if let (Some(gate), Some(provider_address)) =
+                        (vast_gate.as_object_mut(), provider_pin)
+                    {
+                        gate.insert("provider_address".into(), json!(provider_address));
+                    }
                 } else {
                     let candidate_ref = body
                         .get("candidate_ref")
@@ -7016,9 +9442,60 @@ pub(crate) async fn handle_provider_op(
                     });
                 }
             }
+            // C4 — models propose, Hypervisor executes. Once the caller presents a
+            // wallet grant for a LIVE Akash cast, resolve and consume the opaque,
+            // daemon-issued proposal before consuming that wallet capability. A
+            // grant-less request still reaches the spend-free authority challenge.
+            if matches!(op, "create" | "redeploy")
+                && kind == "akash"
+                && vast_mode(&account) == "live"
+                && ["wallet_approval_grant", "wallet_standing_approval_grant"]
+                    .iter()
+                    .any(|field| body.get(*field).is_some_and(|grant| !grant.is_null()))
+            {
+                let caller = match provider_write_caller(
+                    data_dir,
+                    &headers,
+                    &body,
+                    broker_authority.as_ref(),
+                ) {
+                    Ok(caller) => caller,
+                    Err(reply) => return reply,
+                };
+                let session_binding =
+                    match provider_request_session_binding(&headers, broker_authority.as_ref()) {
+                        Ok(binding) => binding,
+                        Err(reply) => return reply,
+                    };
+                proposal_consumption = match consume_provider_operation_proposal(
+                    data_dir,
+                    &caller,
+                    &session_binding,
+                    &body,
+                ) {
+                    Ok(consumption) => consumption,
+                    Err((status, Json(mut refusal))) => {
+                        let receipt = provider_receipt_ext(
+                            data_dir,
+                            &kind,
+                            &env_ref,
+                            op,
+                            "proposal_not_admitted",
+                            &json!({
+                                "account_ref": account_ref,
+                                "admission_code": refusal.get("code").cloned().unwrap_or(Value::Null)
+                            }),
+                        );
+                        if let Some(object) = refusal.as_object_mut() {
+                            object.insert("receipt_ref".into(), json!(receipt));
+                        }
+                        return (status, Json(refusal));
+                    }
+                };
+            }
             // 2) A REAL wallet grant via the capability-lease gateway — 403 challenge echoes the
             //    exact policy/request hashes to mint against; the lease descriptor carries no secret.
-            let lease_req = CapabilityLeaseRequest {
+            let mut lease_req = CapabilityLeaseRequest {
                 authority_provider_ref: "wallet.network".to_string(),
                 backing_provider: format!("provider:account:{account_id}"),
                 allowed_tools: vec![format!("provider.{op}")],
@@ -7057,14 +9534,26 @@ pub(crate) async fn handle_provider_op(
                             "bid_ref",
                             "persistent_storage",
                             "sdl_hash",
-                            // akash Stage A: the exact deposit + single-group ceiling + auto-top-up
-                            // posture are hashed into the wallet challenge, so the approval
-                            // authorizes THIS bounded continuation (Stage B validates the real bid
-                            // under it, never a second grant).
+                            "registry_credential_ref",
+                            "registry_host",
+                            "result_credential_ref",
+                            "result_tls_server_certificate_sha256",
+                            "campaign_id",
+                            "benchmark_source_commit",
+                            "image_digest",
+                            "image_build_identity_sha256",
+                            "provider_preflight_sha256",
+                            "benchmark_protocol_version",
+                            "result_schema_version",
+                            "benchmark_warmups",
+                            "benchmark_repeats",
+                            "max_duration_seconds",
                             "deposit_usd",
-                            "ceiling_denom",
                             "ceiling_amount",
+                            "ceiling_denom",
+                            "provider_selector",
                             "auto_topup",
+                            "stage",
                             "restore_material_ref",
                             "archive_ref",
                             "teardown_policy",
@@ -7088,7 +9577,67 @@ pub(crate) async fn handle_provider_op(
                     .get("wallet_approval_grant")
                     .cloned()
                     .unwrap_or(Value::Null),
+                standing_draw: None,
             };
+            let standing_grant = body
+                .get("wallet_standing_approval_grant")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let standing_envelope = body
+                .get("standing_authority_envelope")
+                .cloned()
+                .unwrap_or(Value::Null);
+            if !standing_grant.is_null() || !standing_envelope.is_null() {
+                if !lease_req.grant_value.is_null() {
+                    return (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        Json(json!({
+                            "ok": false,
+                            "code": "provider_authority_mode_ambiguous",
+                            "message": "present exactly one of wallet_approval_grant or wallet_standing_approval_grant"
+                        })),
+                    );
+                }
+                if standing_grant.is_null() || standing_envelope.is_null() {
+                    return (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        Json(json!({
+                            "ok": false,
+                            "code": "provider_standing_authority_incomplete",
+                            "message": "standing authority requires both its signed grant and registered envelope"
+                        })),
+                    );
+                }
+                let bounds = match validate_standing_provider_facets(
+                    &standing_envelope,
+                    provider_id,
+                    op,
+                    &lease_req.request_facets,
+                ) {
+                    Ok(bounds) => bounds,
+                    Err(reason) => {
+                        return (
+                            StatusCode::FORBIDDEN,
+                            Json(json!({
+                                "ok": false,
+                                "code": "provider_standing_authority_facets_refused",
+                                "reason": reason,
+                                "host_mutation": false
+                            })),
+                        )
+                    }
+                };
+                lease_req.standing_draw = Some(super::lifecycle_routes::StandingCapabilityDraw {
+                    grant_value: standing_grant,
+                    envelope_hash: bounds.envelope_hash,
+                    policy_hash: bounds.policy_hash,
+                    estimated_deposit_microusd: bounds.deposit_microusd,
+                    estimated_spend_microusd: bounds.spend_reservation_microusd,
+                    max_usages: bounds.max_usages,
+                    max_cumulative_deposit_microusd: bounds.max_cumulative_deposit_microusd,
+                    max_cumulative_spend_microusd: bounds.max_cumulative_spend_microusd,
+                });
+            }
             match authorize_capability_lease(&st, &lease_req).await {
                 Err((status, challenge)) => {
                     let outcome = if status == StatusCode::PRECONDITION_REQUIRED {
@@ -7126,12 +9675,39 @@ pub(crate) async fn handle_provider_op(
                     grant_ref = json!(lease.grant_ref);
                 }
             }
+            if !standing_envelope.is_null() {
+                trajectory_admission = match admit_standing_provider_trajectory(
+                    data_dir,
+                    &standing_envelope,
+                    text(&lease_note, "request_hash"),
+                    provider_id,
+                    &env_ref,
+                    &lease_req.request_facets,
+                ) {
+                    Ok(decision) => decision,
+                    Err(reason) => {
+                        return (
+                            StatusCode::CONFLICT,
+                            Json(json!({
+                                "ok": false,
+                                "code": "provider_trajectory_admission_refused",
+                                "reason": reason,
+                                "authority_consumed": true,
+                                "host_mutation": false
+                            })),
+                        )
+                    }
+                };
+            }
         }
         let mut plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
         if let (Some(target), Some(gate)) = (plan.as_object_mut(), vast_gate.as_object()) {
             for (k, v) in gate {
                 target.insert(k.clone(), v.clone());
             }
+        }
+        if !trajectory_admission.is_null() {
+            plan["trajectory_admission"] = trajectory_admission.clone();
         }
         let command = body
             .get("command")
@@ -7141,28 +9717,6 @@ pub(crate) async fn handle_provider_op(
             .get("material_ref")
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        // C4 — models propose, Hypervisor executes: a LIVE akash spend op must
-        // present an admitted, daemon-authored operation proposal (wallet
-        // approval + lease + scopes). No admitted proposal → refuse before the
-        // credential crosses; a human curl with no proposal cannot spend.
-        if matches!(op, "create" | "redeploy") && kind == "akash" && vast_mode(&account) == "live" {
-            if let Err((status, code)) = admit_live_provider_operation(&body, &iso_now()) {
-                let receipt = provider_receipt_ext(
-                    data_dir,
-                    &kind,
-                    &env_ref,
-                    op,
-                    "proposal_not_admitted",
-                    &json!({ "account_ref": account_ref, "admission_code": code }),
-                );
-                return (
-                    StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_REQUEST),
-                    Json(json!({ "ok": false, "op": op, "provider": kind,
-                        "reason": "provider_operation_proposal_not_admitted",
-                        "admission_code": code, "receipt_ref": receipt })),
-                );
-            }
-        }
         // C2 phase 1 — the pre-effect INTENT. For a live provider spend, resolve the
         // authenticated owner-scoped caller and commit the intent + pre-effect root
         // BEFORE the external op. If either fails, refuse: nothing external has
@@ -7172,12 +9726,11 @@ pub(crate) async fn handle_provider_op(
             && kind == "akash"
             && vast_mode(&account) == "live"
         {
-            let caller = match super::mutation_event_foundation::require_write_caller(
-                data_dir, &headers, &body,
-            ) {
-                Ok(caller) => caller,
-                Err((status, reply)) => return (status, reply),
-            };
+            let caller =
+                match provider_write_caller(data_dir, &headers, &body, broker_authority.as_ref()) {
+                    Ok(caller) => caller,
+                    Err((status, reply)) => return (status, reply),
+                };
             let credential_fingerprint = load_account_credential(data_dir, &account_id)
                 .map(|c| text(&c, "fingerprint").to_string())
                 .unwrap_or_default();
@@ -7200,10 +9753,7 @@ pub(crate) async fn handle_provider_op(
                 op,
                 &account_ref,
                 &env_ref,
-                &body
-                    .get("operation_proposal")
-                    .cloned()
-                    .unwrap_or(Value::Null),
+                &proposal_consumption,
                 &grant_ref,
                 &lease_note,
                 &credential_fingerprint,
@@ -7230,6 +9780,13 @@ pub(crate) async fn handle_provider_op(
         } else {
             None
         };
+        if op == "workrun" {
+            if let Some(refusal) =
+                provider_workrun_guardrail_refusal(data_dir, &kind, &env_ref, command)
+            {
+                return (StatusCode::OK, Json(refusal));
+            }
+        }
         let result = match op {
             "preflight" => Ok(provider.preflight(&plan)),
             "create" => provider.create(data_dir, &env_ref, &plan),
@@ -7245,6 +9802,7 @@ pub(crate) async fn handle_provider_op(
             "restart" => provider.restart(data_dir, &env_ref),
             "logs" => provider.logs(data_dir, &env_ref),
             "events" => provider.events(data_dir, &env_ref),
+            "reconcile" => provider.reconcile(data_dir, &env_ref),
             "redeploy" => provider.redeploy(data_dir, &env_ref, &plan),
             other => Err(format!("unknown op '{other}'")),
         };
@@ -7262,6 +9820,8 @@ pub(crate) async fn handle_provider_op(
                     "ok",
                     &json!({
                         "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note,
+                        "proposal_consumption": proposal_consumption,
+                        "trajectory_admission": trajectory_admission,
                         "cost_estimate": cost_estimate, "budget_discovery": budget_note,
                         "candidate_ref": vast_gate.get("candidate_ref").cloned().unwrap_or(Value::Null),
                         "quote_ref": vast_gate.get("quote_ref").cloned().unwrap_or(Value::Null),
@@ -7273,10 +9833,13 @@ pub(crate) async fn handle_provider_op(
                     }),
                 );
                 let op_id = format!("pop_{:x}", nanos());
-                let record = json!({
+                let mut record = json!({
                     "schema_version": "ioi.hypervisor.provider-operation.v1",
                     "operation_id": op_id, "provider": kind, "account_ref": account_ref,
                     "environment_ref": env_ref, "op": op, "evidence": evidence,
+                    "proposal_consumption": proposal_consumption,
+                    "trajectory_admission": trajectory_admission,
+                    "capability_lease": lease_note,
                     "grant_ref": grant_ref, "budget_discovery": budget_note, "cost_estimate": cost_estimate,
                     "receipt_ref": receipt, "at": iso_now()
                 });
@@ -7313,8 +9876,118 @@ pub(crate) async fn handle_provider_op(
                         &receipt,
                         "the provider op executed against the provider but its completion root did not finalize",
                     ) {
+                        Ok(roots) => {
+                            if let Err(error) = bind_akash_create_journal_to_deployment(
+                                data_dir,
+                                &env_ref,
+                                intent,
+                                &roots,
+                            ) {
+                                return provider_op_reconciliation_required(
+                                    op,
+                                    &kind,
+                                    &env_ref,
+                                    &receipt,
+                                    evidence
+                                        .get("provider_native")
+                                        .cloned()
+                                        .unwrap_or(Value::Null),
+                                    &intent.journal_ref,
+                                    &intent.intent_state_root,
+                                    &format!(
+                                        "the create outcome committed but its deployment journal binding did not persist ({error})"
+                                    ),
+                                );
+                            }
+                            journal_state_roots = roots;
+                        }
+                        Err(reconciliation) => return reconciliation,
+                    }
+                }
+                if let Some(caller) = result_binding_caller.as_ref() {
+                    match commit_akash_result_outcome(
+                        data_dir, caller, &env_ref, &evidence, &receipt,
+                    ) {
                         Ok(roots) => journal_state_roots = roots,
                         Err(reconciliation) => return reconciliation,
+                    }
+                }
+                if !journal_state_roots.is_empty() {
+                    record["journal_state_roots"] = json!(journal_state_roots);
+                    if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
+                        return provider_op_reconciliation_required(
+                            op,
+                            &kind,
+                            &env_ref,
+                            &receipt,
+                            evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                            provider_journal_intent
+                                .as_ref()
+                                .map(|intent| intent.journal_ref.as_str())
+                                .unwrap_or(""),
+                            provider_journal_intent
+                                .as_ref()
+                                .map(|intent| intent.intent_state_root.as_str())
+                                .unwrap_or(""),
+                            "the outcome committed but its durable provider-operation evidence projection did not record the journal roots",
+                        );
+                    }
+                }
+                // A terminal provider readback settles the actual debit for the standing draw
+                // that created this environment. The original reservation remains monotonic:
+                // refunds are evidence, never newly minted authority.
+                if let (Some(consumption_id), Some((actual_spend_microusd, settlement))) = (
+                    standing_consumption_for_environment(data_dir, &kind, &env_ref),
+                    terminal_spend_microusd(&evidence),
+                ) {
+                    let terminal_evidence: [u8; 32] =
+                        Sha256::digest(serde_jcs::to_vec(settlement).unwrap_or_default()).into();
+                    let Some(terminal_evidence_ref) = receipt.clone() else {
+                        return provider_op_reconciliation_required(
+                            op,
+                            &kind,
+                            &env_ref,
+                            &receipt,
+                            evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                            provider_journal_intent.as_ref().map(|intent| intent.journal_ref.as_str()).unwrap_or(""),
+                            provider_journal_intent.as_ref().map(|intent| intent.intent_state_root.as_str()).unwrap_or(""),
+                            "provider settlement is terminal but its durable evidence receipt is missing",
+                        );
+                    };
+                    let settlement_params = SettleStandingApprovalGrantConsumptionParams {
+                        consumption_id,
+                        terminal_evidence_hash: terminal_evidence,
+                        terminal_evidence_ref,
+                        actual_spend_microusd,
+                    };
+                    let authority_settlement = match super::wallet_network_capability_client::settle_standing_approval_grant_consumption(settlement_params).await {
+                        Ok(receipt) => receipt,
+                        Err(error) => {
+                            return provider_op_reconciliation_required(
+                                op,
+                                &kind,
+                                &env_ref,
+                                &receipt,
+                                evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                                provider_journal_intent.as_ref().map(|intent| intent.journal_ref.as_str()).unwrap_or(""),
+                                provider_journal_intent.as_ref().map(|intent| intent.intent_state_root.as_str()).unwrap_or(""),
+                                &format!("provider settlement is terminal but wallet.network standing-authority settlement did not commit ({error:?})"),
+                            );
+                        }
+                    };
+                    record["standing_authority_settlement"] =
+                        serde_json::to_value(authority_settlement).unwrap_or(Value::Null);
+                    if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
+                        return provider_op_reconciliation_required(
+                            op,
+                            &kind,
+                            &env_ref,
+                            &receipt,
+                            evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                            provider_journal_intent.as_ref().map(|intent| intent.journal_ref.as_str()).unwrap_or(""),
+                            provider_journal_intent.as_ref().map(|intent| intent.intent_state_root.as_str()).unwrap_or(""),
+                            "wallet.network settled the standing draw but the provider-operation projection did not persist its settlement receipt",
+                        );
                     }
                 }
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
@@ -7431,9 +10104,19 @@ pub(crate) async fn handle_provider_op(
                 }
                 (
                     StatusCode::OK,
-                    Json(
-                        json!({ "ok": true, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt, "cost_estimate": cost_estimate }),
-                    ),
+                    Json(json!({
+                        "ok": true,
+                        "op": op,
+                        "provider": provider_id,
+                        "account_ref": account_ref,
+                        "environment_ref": env_ref,
+                        "evidence": evidence,
+                        "receipt_ref": receipt,
+                        "cost_estimate": cost_estimate,
+                        "proposal_consumption": proposal_consumption,
+                        "capability_lease": lease_note,
+                        "journal_state_roots": journal_state_roots,
+                    })),
                 )
             }
             Err(reason) => {
@@ -7486,108 +10169,8 @@ pub(crate) async fn handle_provider_op(
         };
     }
 
-    // ── Legacy static-adapter lane (local-microvm / loopback-runner / cloud-vpc) — unchanged. ──
-    let Some(provider) = resolve(provider_id) else {
-        let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "error");
-        return (
-            StatusCode::OK,
-            Json(
-                json!({ "ok": false, "reason": format!("unknown provider '{provider_id}'"), "receipt_ref": receipt }),
-            ),
-        );
-    };
-
-    // Remote/external providers require an authority grant for provider-credential materialization.
-    let cap = provider.capabilities();
-    let creds_required = cap
-        .get("credentials_required")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    if creds_required
-        && matches!(op, "create" | "start" | "workrun")
-        && body.get("grant_ref").and_then(|v| v.as_str()).is_none()
-    {
-        let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "authority_missing");
-        return (
-            StatusCode::OK,
-            Json(
-                json!({ "ok": false, "op": op, "provider": provider_id, "reason": "provider credentials are authority-gated; present a grant_ref (effect=provider_credential)", "receipt_ref": receipt }),
-            ),
-        );
-    }
-
-    let plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
-    let command = body
-        .get("command")
-        .and_then(|v| v.as_str())
-        .unwrap_or("true");
-    let material_ref = body
-        .get("material_ref")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let result = match op {
-        "preflight" => Ok(provider.preflight(&plan)),
-        "create" => provider.create(data_dir, &env_ref, &plan),
-        "start" => provider.start(data_dir, &env_ref),
-        "workrun" => provider.workrun(data_dir, &env_ref, command),
-        "stop" => provider.stop(data_dir, &env_ref),
-        "snapshot" => provider.snapshot(data_dir, &env_ref),
-        "restore" => provider.restore(data_dir, &env_ref, material_ref),
-        "inject_outage" => provider.inject_outage(data_dir, &env_ref),
-        "recover" => provider.recover(data_dir, &env_ref),
-        "delete" => provider.delete(data_dir, &env_ref),
-        "observe" => Ok(provider.observe(data_dir, &env_ref)),
-        other => Err(format!("unknown op '{other}'")),
-    };
-
-    match result {
-        Ok(evidence) => {
-            let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "ok");
-            // Record the admitted operation as daemon truth (provider IDs inside are evidence only).
-            let op_id = format!("pop_{:x}", nanos());
-            let record = json!({
-                "schema_version": "ioi.hypervisor.provider-operation.v1",
-                "operation_id": op_id, "provider": provider_id, "environment_ref": env_ref,
-                "op": op, "evidence": evidence, "receipt_ref": receipt, "at": iso_now()
-            });
-            // W1.2 / MEF-GAP-008 — the legacy-adapter op executed; a lost admitted-operation record
-            // orphans the resource from its own lifecycle lane. Refuse, naming the effect + receipt.
-            if persist_record(data_dir, "provider-operations", &op_id, &record).is_err() {
-                return provider_op_persist_failed(
-                    "provider_operation_persistence_failed",
-                    op,
-                    provider_id,
-                    &env_ref,
-                    &receipt,
-                    evidence
-                        .get("provider_native")
-                        .cloned()
-                        .unwrap_or(Value::Null),
-                    "the provider op executed but its admitted-operation record did not commit",
-                );
-            }
-            (
-                StatusCode::OK,
-                Json(
-                    json!({ "ok": true, "op": op, "provider": provider_id, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt }),
-                ),
-            )
-        }
-        Err(reason) => {
-            let outcome = if reason.contains("NOT_CONFIGURED") {
-                "not_configured"
-            } else {
-                "error"
-            };
-            let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, outcome);
-            (
-                StatusCode::OK,
-                Json(
-                    json!({ "ok": false, "op": op, "provider": provider_id, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt }),
-                ),
-            )
-        }
-    }
+    // ── Legacy static-adapter lane (local-microvm / loopback-runner / cloud-vpc). ──
+    invoke_static_provider_operation(data_dir, &body)
 }
 
 /// GET /v1/hypervisor/provider-spend/reconciliation — customer-borne external-spend
@@ -7685,47 +10268,794 @@ pub(crate) async fn handle_provider_operations(State(st): State<Arc<DaemonState>
 mod containment_tests {
     use super::*;
 
-    // ---- MEC C4: the models-propose gate on the live provider spend path ----
-    fn admitted_provider_op_body() -> Value {
-        json!({ "operation_proposal": {
-            "operation_family": "provider",
-            "proposal_schema_version": "ioi.hypervisor.provider_operation_proposal.v1",
-            "proposal_source": "daemon-provider-operation-proposal",
-            "proposal_ref": "proposal:provider/1",
-            "project_ref": "project:ioi",
-            "operation_kind": "create",
-            "wallet_approval_ref": "approval://wallet/provider/1",
-            "wallet_lease_ref": "lease:wallet/provider/1",
-            "required_scope_refs": ["scope:provider.create"],
-            "agentgres_operation_refs": ["agentgres://operation/provider/1"],
-            "receipt_refs": ["receipt://provider/1"],
-            "state_root_ref": "agentgres://state-root/provider/1",
+    // ---- MEC C4: daemon-issued, exact-request-bound, one-time proposal provenance ----
+    fn provider_proposal_caller(
+        principal: &str,
+        key: &str,
+    ) -> super::super::mutation_event_foundation::WriteCaller {
+        super::super::mutation_event_foundation::WriteCaller {
+            identity: super::super::substrate_store::request_identity_for_test(
+                principal,
+                ["org://one".to_string()],
+            ),
+            owner_ref: "org://one".to_string(),
+            idempotency_key: key.to_string(),
+        }
+    }
+
+    fn provider_proposal_request() -> Value {
+        json!({
+            "provider_id": "pacc_1",
+            "op": "create",
+            "environment_ref": "env-one",
+            "owner_ref": "org://one",
+            "idempotency_key": "proposal-one",
+            "proposal_idempotency_key": "proposal-admission-one",
             "candidate_ref": "provider-candidate:akash/1",
-            "direct_provider_ref": "provider-account://pacc_1",
-            "environment_ref": "environment:1",
-            "target_ref": "akash-deployment://1"
-        }})
+            "max_hourly_usd": 0.4,
+            "plan": { "deposit_usd": 1.0, "sdl_hash": "sha256:one" },
+            "wallet_approval_grant": { "grant_ref": "wallet.network://grant/one" }
+        })
     }
 
     #[test]
-    fn a_live_provider_op_with_an_admitted_proposal_passes() {
-        assert!(admit_live_provider_operation(&admitted_provider_op_body(), "now").is_ok());
+    fn direct_akash_selector_binds_exact_provider_and_rejects_shadow_or_fallback() {
+        let exact = json!({
+            "provider_selector": {
+                "mode": "exact",
+                "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+                "selection": "only_qualified_bid_from_exact_provider"
+            }
+        });
+        assert_eq!(
+            direct_akash_provider_pin(&exact),
+            Ok(Some(
+                "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk".to_string()
+            ))
+        );
+
+        let mut shadow = exact.clone();
+        shadow["provider_address"] = json!("akash1differentprovider000000000000000000000");
+        assert_eq!(
+            direct_akash_provider_pin(&shadow),
+            Err("shadow_provider_address_forbidden")
+        );
+
+        let mut fallback = exact;
+        fallback["provider_selector"]["selection"] = json!("lowest_qualified_bid");
+        assert_eq!(
+            direct_akash_provider_pin(&fallback),
+            Err("exact_selection_invalid")
+        );
     }
 
     #[test]
-    fn a_live_provider_op_with_no_proposal_is_refused() {
-        // A curl with no operation_proposal cannot spend. (Mutation drill: make
-        // admit_live_provider_operation always return Ok → this goes RED.)
-        let (status, _code) = admit_live_provider_operation(&json!({}), "now").unwrap_err();
-        assert_eq!(status, 400);
+    fn direct_akash_marketplace_selector_cannot_smuggle_a_provider_pin() {
+        let marketplace = json!({
+            "provider_selector": {
+                "mode": "any_marketplace",
+                "selection": "lowest_qualified_bid"
+            }
+        });
+        assert_eq!(direct_akash_provider_pin(&marketplace), Ok(None));
+
+        let mut smuggled = marketplace;
+        smuggled["provider_address"] = json!("akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk");
+        assert_eq!(
+            direct_akash_provider_pin(&smuggled),
+            Err("shadow_provider_address_forbidden")
+        );
     }
 
     #[test]
-    fn a_live_provider_op_without_wallet_approval_is_refused_403() {
-        let mut body = admitted_provider_op_body();
-        body["operation_proposal"]["wallet_approval_ref"] = json!("approval://other/1");
-        let (status, _code) = admit_live_provider_operation(&body, "now").unwrap_err();
-        assert_eq!(status, 403);
+    fn restart_recovery_updates_the_same_funded_deployment_once() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let record_id = "akdep_123";
+        persist_record(
+            data_dir,
+            AKASH_DEPLOYMENT_KIND,
+            record_id,
+            &json!({
+                "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                "record_id": record_id,
+                "dseq": "123",
+                "state": "deposit_funded",
+                "status": "deposit_funded",
+                "settlement_state": "open",
+                "events": []
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(
+            reconcile_stranded_akash_deployments(data_dir).unwrap(),
+            vec!["123".to_string()]
+        );
+        let recovered = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND)
+            .into_iter()
+            .find(|record| text(record, "record_id") == record_id)
+            .expect("same deployment record remains readable");
+        assert_eq!(text(&recovered, "state"), "reconciliation_required");
+        assert_eq!(text(&recovered, "status"), "reconciliation_required");
+        assert_eq!(
+            text(&recovered, "settlement_state"),
+            "reconciliation_required"
+        );
+        assert_eq!(
+            reconcile_stranded_akash_deployments(data_dir).unwrap(),
+            Vec::<String>::new(),
+            "recovery is idempotent once the durable state advances"
+        );
+    }
+
+    #[test]
+    fn restart_recovery_never_reports_an_uncommittable_identity_as_recovered() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        persist_record(
+            data_dir,
+            AKASH_DEPLOYMENT_KIND,
+            "akdep_missing_identity",
+            &json!({
+                "schema_version": "ioi.hypervisor.akash-deployment.v1",
+                "dseq": "456",
+                "state": "deposit_funded"
+            }),
+        )
+        .unwrap();
+        assert_eq!(
+            reconcile_stranded_akash_deployments(data_dir),
+            Err("akash_restart_recovery_record_identity_missing".to_string())
+        );
+    }
+
+    #[test]
+    fn standing_provider_facets_are_closed_over_daemon_derived_values() {
+        let fixture: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json"
+        )))
+        .expect("standing envelope fixture");
+        // The registered fixture pins a fixed validity window, so reading it
+        // directly made this test pass or fail by calendar rather than by the
+        // property it names — it began refusing every run after the fixture's
+        // window closed. Hold the window as its own assertion and re-anchor the
+        // facet-closure assertions to now, so neither can expire.
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_millis() as u64)
+            .expect("host clock is after the Unix epoch");
+        // Re-anchoring the window changes the envelope body, so its self-hash
+        // must be recomputed over the same domain the contract checks — an
+        // envelope whose body_hash no longer recomputes is refused before any
+        // facet is looked at, which would silently make this a hashing test.
+        let with_window = |not_before_ms: u64, expires_at_ms: u64| {
+            let mut value = fixture.clone();
+            value["not_before_ms"] = json!(not_before_ms);
+            value["expires_at_ms"] = json!(expires_at_ms);
+            let mut material = value.clone();
+            let object = material.as_object_mut().expect("envelope object");
+            object.remove("body_hash");
+            object.insert(
+                "domain".into(),
+                json!("ioi.standing-authority-envelope-jcs-sha256.v1"),
+            );
+            value["body_hash"] = json!(sha256_bytes(
+                &serde_jcs::to_vec(&material).expect("canonical envelope material")
+            ));
+            value
+        };
+        let envelope = with_window(now_ms.saturating_sub(60_000), now_ms + 3_600_000);
+        let facets = json!({
+            "provider_selector": {
+                "mode": "exact",
+                "provider_address": "akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8",
+                "selection": "only_qualified_bid_from_exact_provider"
+            },
+            "provider_address": "akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8",
+            "deposit_usd": 1.0,
+            "ceiling_amount": "1000",
+            "ceiling_denom": "uact",
+            "sdl_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "image_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+            "registry_host": "ghcr.io",
+            "result_credential_ref": "connector://conn_eee2dfac02809de0",
+            "result_tls_server_certificate_sha256": format!("sha256:{}", "a".repeat(64)),
+            "auto_topup": false,
+            "teardown_policy": "always_teardown_required",
+            "max_duration_seconds": 3600
+        });
+        let bounds = validate_standing_provider_facets(
+            &envelope,
+            "pacc_18cd245812ad55b9",
+            "create",
+            &facets,
+        )
+        .expect("exact subset");
+        assert_eq!(bounds.deposit_microusd, 1_000_000);
+        assert_eq!(bounds.spend_reservation_microusd, 1_000_000);
+
+        // The validity window is a bound in its own right, in both directions.
+        for (label, expired) in [
+            (
+                "already expired",
+                with_window(
+                    now_ms.saturating_sub(120_000),
+                    now_ms.saturating_sub(60_000),
+                ),
+            ),
+            (
+                "not yet valid",
+                with_window(now_ms + 60_000, now_ms + 3_600_000),
+            ),
+        ] {
+            assert_eq!(
+                validate_standing_provider_facets(
+                    &expired,
+                    "pacc_18cd245812ad55b9",
+                    "create",
+                    &facets
+                ),
+                Err("standing_envelope_outside_validity_window".to_string()),
+                "{label} envelope must refuse"
+            );
+        }
+
+        let mut widened = facets.clone();
+        widened["result_credential_ref"] = json!("connector://attacker");
+        assert_eq!(
+            validate_standing_provider_facets(
+                &envelope,
+                "pacc_18cd245812ad55b9",
+                "create",
+                &widened,
+            )
+            .unwrap_err(),
+            "standing_result_destination_outside_envelope"
+        );
+        let mut repinned = facets.clone();
+        repinned["result_tls_server_certificate_sha256"] =
+            json!(format!("sha256:{}", "b".repeat(64)));
+        assert_eq!(
+            validate_standing_provider_facets(
+                &envelope,
+                "pacc_18cd245812ad55b9",
+                "create",
+                &repinned,
+            )
+            .unwrap_err(),
+            "standing_result_transport_outside_envelope"
+        );
+        let mut expensive = facets;
+        expensive["deposit_usd"] = json!(1.000001);
+        assert_eq!(
+            validate_standing_provider_facets(
+                &envelope,
+                "pacc_18cd245812ad55b9",
+                "create",
+                &expensive,
+            )
+            .unwrap_err(),
+            "standing_deposit_outside_envelope"
+        );
+    }
+
+    #[test]
+    fn akash_sdl_secret_injection_is_execution_boundary_only_and_fail_closed() {
+        let template = r#"credentials:
+  username: '__IOI_REGISTRY_USERNAME__'
+  password: '__IOI_REGISTRY_PASSWORD__'
+env:
+  - 'AFT_RESULT_BEARER_TOKEN=__IOI_AFT_RESULT_BEARER_TOKEN__'
+"#;
+        let plan = json!({
+            "registry_credential_ref": "connector://conn_registry",
+            "result_credential_ref": "connector://conn_results"
+        });
+        assert_eq!(validate_akash_sdl_secret_refs(&plan, template), Ok(()));
+        let expanded = inject_akash_sdl_secrets(
+            template,
+            Some(r#"{"username":"registry-canary","password":"p'ass-canary"}"#),
+            Some("result-canary"),
+        )
+        .expect("valid sealed values expand at execution");
+        assert!(expanded.contains("registry-canary"));
+        assert!(expanded.contains("p''ass-canary"));
+        assert!(expanded.contains("result-canary"));
+        assert!(!expanded.contains("__IOI_"));
+        assert!(!plan.to_string().contains("canary"));
+
+        assert!(inject_akash_sdl_secrets(template, None, Some("result-canary")).is_err());
+        assert_eq!(
+            validate_akash_sdl_secret_refs(&json!({}), template),
+            Err("registry_credential_ref_or_sentinel_invalid")
+        );
+    }
+
+    #[test]
+    fn akash_plain_sdl_needs_no_secret_connector_refs() {
+        let sdl = "services:\n  web:\n    image: nginx@sha256:abc\n";
+        assert_eq!(validate_akash_sdl_secret_refs(&json!({}), sdl), Ok(()));
+        assert_eq!(
+            validate_akash_sdl_secret_refs(
+                &json!({ "result_credential_ref": "connector://conn_results" }),
+                sdl,
+            ),
+            Err("result_credential_ref_or_sentinel_invalid")
+        );
+    }
+
+    #[test]
+    fn akash_result_contract_binds_campaign_source_image_protocol_and_run_count() {
+        let commit = "b".repeat(40);
+        let digest = format!("sha256:{}", "a".repeat(64));
+        let plan = json!({
+            "result_credential_ref": "connector://conn_results",
+            "result_tls_server_certificate_sha256": format!("sha256:{}", "c".repeat(64)),
+            "campaign_id": "u1-campaign-a",
+            "benchmark_source_commit": commit,
+            "image_digest": digest,
+            "image_build_identity_sha256": format!("sha256:{}", "d".repeat(64)),
+            "provider_preflight_sha256": format!("sha256:{}", "e".repeat(64)),
+            "benchmark_protocol_version": "res-p4.3.v2",
+            "result_schema_version": "ioi.aft.benchmark-campaign.v1",
+            "benchmark_warmups": 1,
+            "benchmark_repeats": 5,
+        });
+        let sdl = format!(
+            r#"services:
+  aft:
+    image: ghcr.io/ioi/aft@{digest}
+    env:
+      - 'AFT_BENCH_CAMPAIGN_ID=u1-campaign-a'
+      - 'IOI_BENCH_COMMIT={commit}'
+      - 'IOI_BENCH_IMAGE_DIGEST={digest}'
+      - 'AFT_BENCH_PROTOCOL_VERSION=res-p4.3.v2'
+      - 'AFT_BENCH_WARMUPS=1'
+      - 'AFT_BENCH_REPEATS=5'
+"#
+        );
+        assert_eq!(validate_akash_result_contract(&plan, &sdl), Ok(()));
+
+        let mut unpinned = plan.clone();
+        unpinned["result_tls_server_certificate_sha256"] = Value::Null;
+        assert_eq!(
+            validate_akash_result_contract(&unpinned, &sdl),
+            Err("akash_result_tls_certificate_pin_invalid")
+        );
+
+        let mut stale = plan.clone();
+        stale["campaign_id"] = json!("u1-campaign-b");
+        assert_eq!(
+            validate_akash_result_contract(&stale, &sdl),
+            Err("akash_result_contract_sdl_mismatch")
+        );
+        let mut shortened = plan;
+        shortened["benchmark_repeats"] = json!(4);
+        assert_eq!(
+            validate_akash_result_contract(&shortened, &sdl),
+            Err("akash_result_measurement_protocol_invalid")
+        );
+    }
+
+    #[test]
+    fn akash_result_bundle_rejects_stale_partial_and_tampered_campaigns() {
+        fn response(value: Value) -> Value {
+            let raw = serde_json::to_vec(&value).unwrap();
+            json!({
+                "value": value,
+                "sha256": sha256_bytes(&raw),
+                "bytes": raw.len(),
+                "body_base64": base64::engine::general_purpose::STANDARD.encode(&raw),
+            })
+        }
+        let commit = "b".repeat(40);
+        let digest = format!("sha256:{}", "a".repeat(64));
+        let dep = json!({
+            "campaign_id": "u1-campaign-a",
+            "benchmark_source_commit": commit,
+            "image_digest": digest,
+            "benchmark_protocol_version": "res-p4.3.v2",
+            "result_schema_version": "ioi.aft.benchmark-campaign.v1",
+            "benchmark_warmups": 1,
+            "benchmark_repeats": 5,
+        });
+        let status = response(json!({
+            "campaign_id": "u1-campaign-a", "state": "complete"
+        }));
+        let environment = response(json!({
+            "schema_version": "ioi.aft.environment-manifest.v1",
+            "campaign_id": "u1-campaign-a",
+            "source_commit": commit,
+            "image_digest": digest,
+            "protocol_version": "res-p4.3.v2",
+            "warmups": 1,
+            "measured_passes": 5
+        }));
+        let results = response(json!({
+            "schema_version": "ioi.aft.benchmark-campaign.v1",
+            "campaign_id": "u1-campaign-a",
+            "measured_passes": 5,
+            "row_count_per_pass": 10
+        }));
+        let manifest = response(json!({
+            "schema_version": "ioi.aft.artifact-manifest.v1",
+            "campaign_id": "u1-campaign-a",
+            "artifacts": [
+                { "name": "environment.json", "sha256": environment["sha256"], "bytes": environment["bytes"] },
+                { "name": "result.json", "sha256": results["sha256"], "bytes": results["bytes"] }
+            ]
+        }));
+        let bundle = json!({
+            "status": status,
+            "environment": environment,
+            "results": results,
+            "manifest": manifest,
+        });
+        assert_eq!(validate_akash_result_bundle(&dep, &bundle), Ok(()));
+
+        let mut stale = bundle.clone();
+        stale["results"]["value"]["campaign_id"] = json!("u1-campaign-b");
+        stale["results"] = response(stale["results"]["value"].clone());
+        assert_eq!(
+            validate_akash_result_bundle(&dep, &stale),
+            Err("akash_result_campaign_identity_mismatch")
+        );
+        let mut partial = bundle.clone();
+        partial["results"]["value"]["row_count_per_pass"] = json!(9);
+        partial["results"] = response(partial["results"]["value"].clone());
+        assert_eq!(
+            validate_akash_result_bundle(&dep, &partial),
+            Err("akash_result_measurement_contract_mismatch")
+        );
+        let mut raw_mismatch = bundle.clone();
+        raw_mismatch["results"]["value"]["row_count_per_pass"] = json!(9);
+        assert_eq!(
+            validate_akash_result_bundle(&dep, &raw_mismatch),
+            Err("akash_result_raw_body_mismatch")
+        );
+        let mut tampered = bundle;
+        tampered["manifest"]["value"]["artifacts"][1]["sha256"] = json!("sha256:different");
+        tampered["manifest"] = response(tampered["manifest"]["value"].clone());
+        assert_eq!(
+            validate_akash_result_bundle(&dep, &tampered),
+            Err("akash_result_manifest_hash_mismatch")
+        );
+    }
+
+    #[test]
+    fn akash_result_status_distinguishes_incomplete_failed_and_complete_campaigns() {
+        let dep = json!({"campaign_id": "u1-campaign-a"});
+        for state in ["starting", "warmup", "measuring"] {
+            assert_eq!(
+                validate_akash_result_status(
+                    &dep,
+                    &json!({"campaign_id": "u1-campaign-a", "state": state}),
+                ),
+                Err("akash_result_endpoint_not_complete".into())
+            );
+        }
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({"campaign_id": "u1-campaign-a", "state": "failed"}),
+            ),
+            Err("akash_workload_campaign_failed: bounded diagnostics unavailable".into())
+        );
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({"campaign_id": "u1-campaign-a", "state": "complete"}),
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({"campaign_id": "u1-campaign-b", "state": "complete"}),
+            ),
+            Err("akash_result_campaign_identity_mismatch".into())
+        );
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({"campaign_id": "u1-campaign-a", "state": "unknown"}),
+            ),
+            Err("akash_result_status_invalid".into())
+        );
+        assert_eq!(
+            validate_akash_result_status(
+                &dep,
+                &json!({
+                    "campaign_id": "u1-campaign-a",
+                    "state": "failed",
+                    "detail": "measured pass 3 of 5 failed with exit code 101: assertion failed"
+                }),
+            ),
+            Err("akash_workload_campaign_failed: measured pass 3 of 5 failed with exit code 101: assertion failed".into())
+        );
+    }
+
+    #[test]
+    fn akash_result_target_accepts_only_one_tls_capable_provider_endpoint() {
+        let uri = json!({
+            "services": {"aft-bench": {"uris": ["result.ingress.provider.example"]}}
+        });
+        assert_eq!(
+            akash_result_endpoint_target(&uri),
+            Ok(("result.ingress.provider.example".into(), 443))
+        );
+
+        let forwarded = json!({
+            "services": {"aft-bench": {"uris": null}},
+            "forwarded_ports": {"aft-bench": [{
+                "port": 8080,
+                "externalPort": 30284,
+                "proto": "TCP",
+                "host": "provider.example"
+            }]}
+        });
+        assert_eq!(
+            akash_result_endpoint_target(&forwarded),
+            Ok(("provider.example".into(), 30284))
+        );
+
+        let mut plaintext_or_wrong_port = forwarded.clone();
+        plaintext_or_wrong_port["forwarded_ports"]["aft-bench"][0]["port"] = json!(80);
+        assert_eq!(
+            akash_result_endpoint_target(&plaintext_or_wrong_port),
+            Err("akash_result_tls_forward_absent")
+        );
+
+        let mut ambiguous = forwarded;
+        let duplicate = ambiguous["forwarded_ports"]["aft-bench"][0].clone();
+        ambiguous["forwarded_ports"]["aft-bench"]
+            .as_array_mut()
+            .unwrap()
+            .push(duplicate);
+        assert_eq!(
+            akash_result_endpoint_target(&ambiguous),
+            Err("akash_result_tls_forward_ambiguous")
+        );
+    }
+
+    #[test]
+    fn daemon_issued_proposal_consumes_once_and_replay_refuses() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let caller = provider_proposal_caller("user://proposal-one", "proposal-one");
+        let request = provider_proposal_request();
+        let issued = issue_provider_operation_proposal(data_dir, &caller, "session:one", &request)
+            .expect("daemon issuance admits");
+        let mut cast = request;
+        cast.as_object_mut()
+            .unwrap()
+            .remove("proposal_idempotency_key");
+        cast["operation_proposal_ref"] = issued["proposal_ref"].clone();
+        let consumed = consume_provider_operation_proposal(data_dir, &caller, "session:one", &cast)
+            .expect("the exact request consumes once");
+        assert!(text(&consumed, "proposal_consumption_root").starts_with("sha256:"));
+        let (_, Json(replay)) =
+            consume_provider_operation_proposal(data_dir, &caller, "session:one", &cast)
+                .expect_err("replay must refuse");
+        assert_eq!(
+            text(&replay, "code"),
+            "provider_operation_proposal_replayed"
+        );
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn inline_literal_tamper_and_session_substitution_all_refuse() {
+        assert_eq!(
+            text(
+                &canonical_provider_proposal_request(&json!({
+                    "operation_proposal": { "proposal_source": "daemon-provider-operation-proposal" }
+                }))
+                .unwrap_err()
+                .1
+                 .0,
+                "code"
+            ),
+            "provider_operation_inline_proposal_forbidden"
+        );
+
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let caller = provider_proposal_caller("user://proposal-two", "proposal-one");
+        let request = provider_proposal_request();
+        let issued = issue_provider_operation_proposal(data_dir, &caller, "session:one", &request)
+            .expect("daemon issuance admits");
+        let mut cast = request.clone();
+        cast.as_object_mut()
+            .unwrap()
+            .remove("proposal_idempotency_key");
+        cast["operation_proposal_ref"] = issued["proposal_ref"].clone();
+        let (_, Json(session_refusal)) =
+            consume_provider_operation_proposal(data_dir, &caller, "session:other", &cast)
+                .expect_err("cross-session substitution refuses");
+        assert_eq!(
+            text(&session_refusal, "code"),
+            "provider_operation_proposal_session_mismatch"
+        );
+
+        cast["plan"]["deposit_usd"] = json!(2.0);
+        let (_, Json(tamper_refusal)) =
+            consume_provider_operation_proposal(data_dir, &caller, "session:one", &cast)
+                .expect_err("body tamper refuses");
+        assert_eq!(
+            text(&tamper_refusal, "code"),
+            "provider_operation_proposal_request_mismatch"
+        );
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn fresh_proposal_admission_does_not_change_the_approved_operation_key() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let caller = provider_proposal_caller("user://proposal-three", "approved-operation-one");
+        let mut first = provider_proposal_request();
+        first["idempotency_key"] = json!("approved-operation-one");
+        first["proposal_idempotency_key"] = json!("proposal-attempt-one");
+        let first_issued =
+            issue_provider_operation_proposal(data_dir, &caller, "session:one", &first)
+                .expect("first proposal admits");
+
+        let mut second = first.clone();
+        second["proposal_idempotency_key"] = json!("proposal-attempt-two");
+        let second_issued =
+            issue_provider_operation_proposal(data_dir, &caller, "session:two", &second)
+                .expect("a separately prepared proposal admits under a fresh proposal key");
+        assert_ne!(first_issued["proposal_ref"], second_issued["proposal_ref"]);
+        assert_eq!(first_issued["request_hash"], second_issued["request_hash"]);
+
+        let mut cast = second;
+        cast.as_object_mut()
+            .unwrap()
+            .remove("proposal_idempotency_key");
+        cast["operation_proposal_ref"] = second_issued["proposal_ref"].clone();
+        consume_provider_operation_proposal(data_dir, &caller, "session:two", &cast)
+            .expect("fresh proposal remains bound to the unchanged approved operation key");
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn terminal_provider_settlement_and_exhausted_authority_survive_restart() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let provider = AkashProvider {
+            account: json!({
+                "account_id": "pacc_restart",
+                "account_ref": "provider-account://pacc_restart",
+                "kind": "akash",
+                "mode": "live"
+            }),
+        };
+        let mut deployment = json!({
+            "record_id": "akdep_restart",
+            "deployment_ref": "akash-deployment://akdep_restart",
+            "account_id": "pacc_restart",
+            "environment_ref": "env-restart",
+            "execution_mode": "live",
+            "deposit_usd": 1.0,
+            "state": "refund_pending",
+            "status": "refund_pending",
+            "events": []
+        });
+        provider
+            .save_deployment(data_dir, &deployment)
+            .expect("pre-terminal deployment persists");
+        provider
+            .save_lease(
+                data_dir,
+                &json!({
+                    "record_id": "aklease_restart",
+                    "lease_ref": "akash-lease://aklease_restart",
+                    "deployment_ref": "akash-deployment://akdep_restart",
+                    "state": "open"
+                }),
+            )
+            .expect("provider spend projection persists");
+        persist_record(
+            data_dir,
+            "capability-leases",
+            "lease_restart",
+            &json!({
+                "lease_id": "lease_restart",
+                "resource_refs": ["provider-account://pacc_restart", "env-restart"],
+                "remaining_calls": 0,
+                "state": "active"
+            }),
+        )
+        .expect("consumed authority projection persists");
+        let detail = json!({ "data": {
+            "deployment": { "state": "closed" },
+            "escrow_account": { "state": {
+                "state": "closed",
+                "settled_at": "28269748",
+                "funds": [{ "amount": "0.000000000000000000", "denom": "uact" }],
+                "transferred": [{ "amount": "0.000000000000000000", "denom": "uact" }]
+            }},
+            "leases": []
+        }});
+        provider
+            .settle_from_detail(data_dir, &mut deployment, &detail)
+            .expect("terminal readback commits");
+
+        // Re-open all durable projections as a fresh daemon would.
+        super::super::substrate_store::reset_handle_for_test();
+        let restored = provider
+            .deployment(data_dir, "env-restart")
+            .expect("deployment survives restart");
+        assert_eq!(text(&restored, "settlement_state"), "refund_settled");
+        assert_eq!(text(&restored, "teardown_state"), "torn_down");
+        assert_eq!(
+            restored["provider_native_settlement"]["final_debit_usd"],
+            0.0
+        );
+        assert_eq!(restored["provider_native_settlement"]["refund_usd"], 1.0);
+        let provider_lease = provider
+            .lease_for(data_dir, "akash-deployment://akdep_restart")
+            .expect("provider lease projection survives restart");
+        assert_eq!(text(&provider_lease, "state"), "closed");
+        let lease = read_record_dir(data_dir, "capability-leases")
+            .into_iter()
+            .find(|record| text(record, "lease_id") == "lease_restart")
+            .expect("authority projection survives restart");
+        assert_eq!(text(&lease, "state"), "exhausted");
+        super::super::substrate_store::reset_handle_for_test();
+    }
+
+    #[test]
+    fn standing_draw_identity_and_terminal_debit_are_derived_from_durable_provider_truth() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let consumption_id = [0x5a; 32];
+        persist_record(
+            data_dir,
+            "provider-operations",
+            "pop-standing-create",
+            &json!({
+                "operation_id": "pop-standing-create",
+                "provider": "akash",
+                "environment_ref": "env-standing",
+                "op": "create",
+                "at": "2026-08-22T10:00:00Z",
+                "capability_lease": {
+                    "authority_mode": "standing_envelope",
+                    "standing_consumption_id": hex::encode(consumption_id)
+                }
+            }),
+        )
+        .expect("persist standing create");
+        assert_eq!(
+            standing_consumption_for_environment(data_dir, "akash", "env-standing"),
+            Some(consumption_id)
+        );
+        assert_eq!(
+            standing_consumption_for_environment(data_dir, "akash", "other-environment"),
+            None
+        );
+
+        let evidence = json!({
+            "settlement": {
+                "provider_terminal": true,
+                "final_debit_usd": 0.000002,
+                "refund_usd": 0.999998,
+                "open_unknown_exposure_usd": 0
+            }
+        });
+        let (debit, _) = terminal_spend_microusd(&evidence).expect("terminal debit");
+        assert_eq!(debit, 2);
+        let mut nonterminal = evidence;
+        nonterminal["settlement"]["provider_terminal"] = json!(false);
+        assert!(terminal_spend_microusd(&nonterminal).is_none());
     }
 
     // ---- MEC C2/C5(b): the two-phase provider-operation journal (intent → outcome) ----
@@ -7924,76 +11254,141 @@ mod containment_tests {
         );
     }
 
-    // ---- MEC akash two-stage: restart recovery of a stranded funded deposit ----
     #[test]
-    fn restart_recovery_marks_only_stranded_deployment_created_records() {
-        let dir = tempfile::tempdir().unwrap();
-        let data_dir = dir.path().to_str().unwrap();
-        // A stranded Stage-A record (deposit funded, no terminal outcome) + a completed one.
-        persist_record(
-            data_dir,
-            AKASH_DEPLOYMENT_KIND,
-            "akdep_intent_100",
-            &json!({ "state": "deployment_created", "dseq": "100", "account_id": "a", "environment_ref": "e" }),
+    fn the_workload_result_outcome_names_both_roots_and_binds_each_authenticated_artifact() {
+        let evidence = json!({
+            "workload_result": {
+                "result_ref": "akash-workload-result://akresult_1",
+                "retrieved_live": true,
+                "bundle": {
+                    "status": { "sha256": format!("sha256:{}", "1".repeat(64)) },
+                    "environment": { "sha256": format!("sha256:{}", "2".repeat(64)) },
+                    "results": { "sha256": format!("sha256:{}", "3".repeat(64)) },
+                    "manifest": { "sha256": format!("sha256:{}", "4".repeat(64)) }
+                }
+            }
+        });
+        let payload = provider_operation_result_outcome_payload(
+            "provider-operation://pop_c2_result",
+            "sha256:intent",
+            "sha256:create-outcome",
+            &evidence,
+            &Some("agentgres://provider-receipt/result".to_string()),
         )
-        .unwrap();
-        persist_record(
-            data_dir,
-            AKASH_DEPLOYMENT_KIND,
-            "akdep_intent_200",
-            &json!({ "state": "lease_accepted", "dseq": "200", "account_id": "a", "environment_ref": "e" }),
-        )
-        .unwrap();
-        let stranded = reconcile_stranded_akash_deployments(data_dir);
+        .expect("a complete authenticated bundle is bindable");
+        assert_eq!(payload["phase"], "outcome");
+        assert_eq!(payload["outcome"], "workload_result_retrieved");
+        assert_eq!(payload["intent_state_root"], "sha256:intent");
+        assert_eq!(payload["predecessor_state_root"], "sha256:create-outcome");
+        assert_eq!(payload["result_hash"], format!("sha256:{}", "3".repeat(64)));
         assert_eq!(
-            stranded,
-            vec!["100".to_string()],
-            "only the funded-but-unfinished deposit is stranded"
+            payload["environment_hash"],
+            format!("sha256:{}", "2".repeat(64))
         );
-        let recs = read_record_dir(data_dir, AKASH_DEPLOYMENT_KIND);
-        let r100 = recs.iter().find(|r| text(r, "dseq") == "100").unwrap();
-        assert_eq!(text(r100, "state"), "reconciliation_required");
-        let r200 = recs.iter().find(|r| text(r, "dseq") == "200").unwrap();
-        assert_eq!(
-            text(r200, "state"),
-            "lease_accepted",
-            "a completed deploy is untouched"
-        );
-        // Idempotent: a second pass finds nothing new (the record is no longer deployment_created).
-        assert!(reconcile_stranded_akash_deployments(data_dir).is_empty());
+        assert!(payload["evidence_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
     }
 
     #[test]
-    fn provider_selector_is_a_clean_typed_break_no_provider_address_alias() {
-        // exact: canonicalizes to {mode, address}.
-        let ex = validate_provider_selector(&json!({ "mode": "exact", "address": "akash1abc" }))
-            .expect("exact with an address is valid");
-        assert_eq!(ex, json!({ "mode": "exact", "address": "akash1abc" }));
-        // any_marketplace: requires the deterministic selection.
-        let mkt = validate_provider_selector(
-            &json!({ "mode": "any_marketplace", "selection": "lowest_qualified_bid" }),
+    fn a_ready_authenticated_result_extends_the_create_journal_once_and_then_is_immutable() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let create_caller = journal_caller_for_test("c2-result-create");
+        let journal_ref = "provider-operation://pop_c2_result_chain";
+        let intent = super::super::mutation_event_foundation::admit_owner_scoped_write(
+            data_dir,
+            &super::super::mutation_event_foundation::WriteCaller {
+                identity: create_caller.identity.clone(),
+                owner_ref: create_caller.owner_ref.clone(),
+                idempotency_key: format!("{}.intent", create_caller.idempotency_key),
+            },
+            "hypervisor-provider-operations",
+            "provider_operation",
+            journal_ref,
+            "provider_operation.intent",
+            None,
+            &sample_intent_payload(journal_ref),
         )
-        .expect("any_marketplace with lowest_qualified_bid is valid");
-        assert_eq!(mkt["mode"], "any_marketplace");
-        // Refusals (the mutation drills):
-        assert!(validate_provider_selector(&Value::Null).is_err()); // missing selector
-        assert!(validate_provider_selector(&json!({ "mode": "wildcard" })).is_err()); // unknown mode
-        assert!(validate_provider_selector(&json!({ "mode": "exact" })).is_err()); // exact, no address
-        assert!(validate_provider_selector(&json!({ "mode": "exact", "address": "" })).is_err()); // empty address
-        assert!(
-            validate_provider_selector(&json!({ "mode": "exact", "address": "a", "x": 1 }))
-                .is_err()
-        ); // unknown field
-        assert!(validate_provider_selector(
-            &json!({ "mode": "any_marketplace", "selection": "cheapest" })
+        .unwrap();
+        let intent_state = ProviderJournalIntent {
+            caller: create_caller,
+            journal_ref: journal_ref.to_string(),
+            intent_state_root: intent.projection.head.clone(),
+        };
+        let create_roots = commit_provider_operation_outcome(
+            data_dir,
+            &intent_state,
+            "create",
+            "akash",
+            "environment:result",
+            "ok",
+            &json!({ "provider_native": { "dseq": "88" } }),
+            &Some("agentgres://provider-receipt/create".to_string()),
+            "unused",
         )
-        .is_err()); // non-deterministic selection
-        assert!(
-            validate_provider_selector(&json!({ "mode": "any_marketplace", "address": "a" }))
-                .is_err()
-        ); // wrong field for mode
-           // The clean break: a bare provider_address is NOT a selector (no mode) → refused.
-        assert!(validate_provider_selector(&json!({ "provider_address": "akash1abc" })).is_err());
+        .unwrap();
+        let deployment = json!({
+            "schema_version": "ioi.hypervisor.akash-deployment.v1",
+            "record_id": "akdep_result",
+            "environment_ref": "environment:result",
+            "provider_native": { "dseq": "88" },
+            "workload_readiness_proven": true,
+            "provider_operation_journal_ref": journal_ref,
+            "provider_operation_journal_owner_ref": "org://one",
+            "provider_operation_intent_root": intent.projection.head,
+            "provider_operation_effect_outcome_root": create_roots[1],
+            "provider_operation_current_root": create_roots[1]
+        });
+        persist_record(data_dir, AKASH_DEPLOYMENT_KIND, "akdep_result", &deployment).unwrap();
+        let evidence = json!({
+            "workload_result": {
+                "result_ref": "akash-workload-result://akresult_88",
+                "retrieved_live": true,
+                "bundle": {
+                    "status": { "sha256": format!("sha256:{}", "1".repeat(64)) },
+                    "environment": { "sha256": format!("sha256:{}", "2".repeat(64)) },
+                    "results": { "sha256": format!("sha256:{}", "3".repeat(64)) },
+                    "manifest": { "sha256": format!("sha256:{}", "4".repeat(64)) }
+                }
+            }
+        });
+        let result_caller = journal_caller_for_test("c2-result-logs");
+        let roots = commit_akash_result_outcome(
+            data_dir,
+            &result_caller,
+            "environment:result",
+            &evidence,
+            &Some("agentgres://provider-receipt/result".to_string()),
+        )
+        .expect("the result successor commits");
+        assert_eq!(roots.len(), 3);
+        assert_ne!(roots[1], roots[2]);
+        let replay = commit_akash_result_outcome(
+            data_dir,
+            &result_caller,
+            "environment:result",
+            &evidence,
+            &Some("agentgres://provider-receipt/result".to_string()),
+        )
+        .expect("identical result retrieval reuses the committed root");
+        assert_eq!(replay[2], roots[2]);
+        let mut changed = evidence;
+        changed["workload_result"]["bundle"]["results"]["sha256"] =
+            json!(format!("sha256:{}", "9".repeat(64)));
+        let (status, body) = commit_akash_result_outcome(
+            data_dir,
+            &result_caller,
+            "environment:result",
+            &changed,
+            &Some("agentgres://provider-receipt/result".to_string()),
+        )
+        .expect_err("a changed completed result must not replace the root");
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body.0["code"], "akash_result_bundle_changed_after_commit");
+        super::super::substrate_store::reset_handle_for_test();
     }
 
     // ---- CARVE-OUT: provider deletion stays callable and reports exactly ----
@@ -8088,5 +11483,75 @@ mod containment_tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn standing_provider_trajectory_reserves_once_and_refuses_the_next_draw() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let envelope = json!({
+            "schema_version": "ioi.foundations.standing-authority-envelope.v1",
+            "standing_envelope_ref": "standing-envelope://aft/trajectory-test",
+            "owner_ref": "org://local",
+            "bounded_system_ref": "system://aft/u1",
+            "principal_ref": "user://operator",
+            "audience_ref": "wallet-client://hypervisor/provider-ops",
+            "authority_scope": "scope:hypervisor.live-route.hypervisor-provider-op",
+            "facet_template": {},
+            "aggregate_bounds": {
+                "max_cumulative_deposit_microusd": 1_000_000,
+                "max_cumulative_spend_microusd": 1_000_000,
+                "max_usages": 1,
+                "max_concurrent_resources": 1,
+                "max_provider_fanout": 1,
+                "max_failures": 1
+            },
+            "not_before_ms": 1,
+            "expires_at_ms": 4_102_444_800_000u64,
+            "revocation_epoch": 0,
+            "trajectory_policy_ref": "policy://aft/u1/trajectory/v1",
+            "trajectory_policy_hash": format!("sha256:{}", "e".repeat(64)),
+            "approval_mode": "standing_envelope",
+            "recovery_posture": "recovery_never_widens_or_resets_drawdown",
+            "body_hash": format!("sha256:{}", "f".repeat(64))
+        });
+        let facets = json!({
+            "deposit_usd": 1.0,
+            "provider_address": "akash1ggfvyhr9sar4uxjs4hth3p4kzrwk7lysnenj3g",
+            "result_credential_ref": "connector://conn_eee2dfac02809de0"
+        });
+        let first = admit_standing_provider_trajectory(
+            data_dir,
+            &envelope,
+            &format!("sha256:{}", "1".repeat(64)),
+            "pacc_18cd245812ad55b9",
+            "env-trajectory-a",
+            &facets,
+        )
+        .expect("the first bounded trajectory draw admits");
+        assert_eq!(first["decision"], "admit");
+        assert_eq!(
+            read_record_dir(data_dir, "authority-trajectory-states").len(),
+            1
+        );
+        let second = admit_standing_provider_trajectory(
+            data_dir,
+            &envelope,
+            &format!("sha256:{}", "2".repeat(64)),
+            "pacc_18cd245812ad55b9",
+            "env-trajectory-b",
+            &facets,
+        )
+        .expect_err("the second call crosses the envelope and must refuse");
+        assert!(second.contains("max_cumulative_spend_usd"));
+        assert_eq!(
+            read_record_dir(data_dir, "authority-trajectory-states").len(),
+            1,
+            "a refused trajectory cannot mutate the admitted state"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, "authority-trajectory-decisions").len(),
+            2
+        );
     }
 }

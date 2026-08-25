@@ -198,7 +198,10 @@ impl RuntimeGoalRunAdmissionCore {
         let constraint_hash = sha256_text(request, "effective_constraint_hash")?;
         let result_profile = enum_value(request, "result_profile", RESULT_PROFILES)?;
         let policy_refs = uri_refs(request, "policy_refs", false)?;
-        let authority_refs = uri_refs(request, "authority_refs", false)?;
+        // A direct definition-only GoalRun does not gain authority merely by admission. Empty is
+        // canonical until an authority owner supplies an exact decision/grant; callers cannot
+        // satisfy this field with an opaque typed string and have the kernel treat it as proof.
+        let authority_refs = uri_refs(request, "authority_refs", true)?;
         let capability_requirement_refs = uri_refs(request, "capability_requirement_refs", true)?;
 
         let facts = request.get("runtime_facts").ok_or_else(|| {

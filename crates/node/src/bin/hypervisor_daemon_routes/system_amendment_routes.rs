@@ -279,17 +279,20 @@ pub(crate) fn load_amendment_source(
             "durable active profile set does not carry the predecessor state's set ref",
         ));
     }
-    Ok((
-        system_id,
-        AmendmentSource {
-            activation_effect,
-            previous_step,
-            chain_head,
-            operation_log,
-            predecessor_constitution,
-            predecessor_profile_set,
-        },
-    ))
+    let source = AmendmentSource {
+        activation_effect,
+        previous_step,
+        chain_head,
+        operation_log,
+        predecessor_constitution,
+        predecessor_profile_set,
+    };
+    super::system_policy_routes::bind_active_system_policies(
+        &admission.record,
+        &system_id,
+        &source,
+    )?;
+    Ok((system_id, source))
 }
 
 /// Compile one amendment from durable truth plus the proposed declaration

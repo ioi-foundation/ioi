@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.workflow-template.v1",
   "workflow_template_id": "workflow-template://research",
-  "revision_ref": "workflow-template://research/revision/1",
+  "revision_ref": "workflow-template://research/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "owner_ref": "project://research",
   "display_name": "Research",

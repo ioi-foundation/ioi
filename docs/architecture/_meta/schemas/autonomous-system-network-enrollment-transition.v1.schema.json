@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
   "title": "AutonomousSystemNetworkEnrollmentTransition",
-  "description": "Committed compare-and-swap transition for local-only enrollment admission or exit.",
+  "description": "Committed compare-and-swap transition for local enrollment, explicit profile-tier declaration/change/revocation, or local exit.",
   "x-ioi-schema-version": "ioi.autonomous-system-network-enrollment-transition.v1",
   "type": "object",
   "additionalProperties": false,
@@ -11,7 +11,7 @@
     "schema_version": {"const": "ioi.autonomous-system-network-enrollment-transition.v1"},
     "lifecycle_transition_id": {"type": "string", "pattern": "^lifecycle-transition://[^\\s]{1,248}$"},
     "system_id": {"type": "string", "pattern": "^system://[^\\s]{1,248}$"},
-    "op": {"enum": ["enroll_local", "exit_local_enrollment"]},
+    "op": {"enum": ["enroll_local", "exit_local_enrollment", "change_network_enrollment"]},
     "sequence": {"type": "integer", "minimum": 3, "maximum": 9007199254740991},
     "proposal_ref": {"type": "string", "pattern": "^proposal://[^\\s]{1,248}$"},
     "proposal_root": {"$ref": "#/$defs/hash"},
@@ -30,9 +30,9 @@
       "required": ["schema_version", "op", "transition_kind", "required_scope", "sequence", "system_id", "genesis_ref", "source_governing_authority_ref", "resulting_governing_authority_ref", "predecessor_status", "predecessor_state_ref", "predecessor_state_root", "predecessor_chain_head_root", "resulting_status", "resulting_state_ref", "resulting_state_root", "constitution_ref", "lifecycle_profile_ref", "active_profile_set_ref", "active_profile_set_root", "chain_ref", "current_network_enrollment_ref", "current_network_enrollment_root", "resulting_network_enrollment_ref", "resulting_network_enrollment_root", "trigger_evidence_refs", "successor_candidate_ref", "successor_authority_ref", "successor_authority_binding", "migration_destination_ack_ref", "migration_destination_ack_root", "migration_destination_ref", "verified_migration_state_root", "residual_disposition", "live_effect_refs", "identity_preserved", "authority_widened", "network_assurance_admitted", "runtime_effect_admitted", "operation_commitment"],
       "properties": {
         "schema_version": {"const": "ioi.autonomous-system-continuity-authority-effect.v1"},
-        "op": {"enum": ["enroll_local", "exit_local_enrollment"]},
+        "op": {"enum": ["enroll_local", "exit_local_enrollment", "change_network_enrollment"]},
         "transition_kind": {"type": "null"},
-        "required_scope": {"enum": ["scope:autonomous_system.network_enrollment.local.enroll", "scope:autonomous_system.network_enrollment.local.exit"]},
+        "required_scope": {"enum": ["scope:autonomous_system.network_enrollment.local.enroll", "scope:autonomous_system.network_enrollment.local.exit", "scope:autonomous_system.network_enrollment_change"]},
         "sequence": {"type": "integer", "minimum": 3, "maximum": 9007199254740991},
         "system_id": {"type": "string", "pattern": "^system://[^\\s]{1,248}$"},
         "genesis_ref": {"type": "string", "pattern": "^genesis://[^\\s]{1,248}$"},
@@ -76,7 +76,7 @@
     "status": {"const": "committed"}
   },
   "allOf": [
-    {"if": {"properties": {"op": {"const": "enroll_local"}}}, "then": {"properties": {"resulting_enrollment_ref": {"type": "string", "pattern": "^network-enrollment://[^\\s]{1,248}$"}, "resulting_enrollment_root": {"$ref": "#/$defs/hash"}}}},
+    {"if": {"properties": {"op": {"enum": ["enroll_local", "change_network_enrollment"]}}}, "then": {"properties": {"resulting_enrollment_ref": {"type": "string", "pattern": "^network-enrollment://[^\\s]{1,248}$"}, "resulting_enrollment_root": {"$ref": "#/$defs/hash"}}}},
     {"if": {"properties": {"op": {"const": "exit_local_enrollment"}}}, "then": {"properties": {"predecessor_enrollment_ref": {"type": "string", "pattern": "^network-enrollment://[^\\s]{1,248}$"}, "predecessor_enrollment_root": {"$ref": "#/$defs/hash"}, "resulting_enrollment_ref": {"type": "null"}, "resulting_enrollment_root": {"type": "null"}}}}
   ],
   "$defs": {

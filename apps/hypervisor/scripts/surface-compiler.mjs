@@ -39,6 +39,8 @@ export const COMPILED_SURFACES_SCHEMA = "ioi.hypervisor.compiled-product-surface
 // decoration, never membership.
 export const SURFACE_REGISTRATION_INPUT = {
   workspaces: {
+    // GRE-2 LAUNCHER RE-POINT (owner go 2026-08-20): seeded families open their DESIGNATED click
+    // targets (canonical routes → the seed shells). Greenfield lanes stay pending GRE-1 impl.
     home: { icon: "⌂", desc: "Estate cockpit — governed work, recents, launch.", open_today: { href: "/ai", label: "Explorer Home" } },
     systems: { icon: "⬡", desc: "The live institution at the center — honest read models only.", open_today: { href: "/__ioi/systems", label: "Systems readout" } },
     projects: { icon: "🗂", desc: "Project context, preserved end to end.", open_today: null },
@@ -47,18 +49,18 @@ export const SURFACE_REGISTRATION_INPUT = {
     settings: { icon: "⚙", desc: "Projection-only core workspace; writes through owners.", open_today: null },
   },
   applications: {
-    studio: { icon: "🎨", desc: "Compose systems & agents — agent lens live; typed canvas and blueprints arrive by wave.", open_today: { href: "/__ioi/agent-studio", label: "Agent Studio" } },
-    automations: { icon: "⚡", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", open_today: { href: "/__ioi/automations", label: "Automations readout" } },
-    ontology: { icon: "🧬", desc: "The semantic world-model — Ontology Manager over the typed COM; Explorer + ODK substrate.", open_today: { href: "/__ioi/ontology/manager", label: "Ontology Manager" } },
-    data: { icon: "🌐", desc: "Supply the world-model — sources, syncs, recipes, pipelines, consent posture.", open_today: { href: "/__ioi/data/sources", label: "Data Connection" } },
-    governance: { icon: "🛡", desc: "Authority — approvals, leases, release gates, kill switches, budgets, gaps.", open_today: { href: "/__ioi/governance", label: "Governance cockpit" } },
-    provenance: { icon: "📒", desc: "Proof plane — receipts stream, state roots, timelines, lineage.", open_today: { href: "/__ioi/work-ledger", label: "Work Ledger" } },
-    evaluations: { icon: "🧪", desc: "Eval-suite library over real subjects and consent; scoring lands by wave.", open_today: { href: "/__ioi/evaluations", label: "Evaluations owner surface" } },
+    studio: { icon: "🎨", desc: "Compose systems & agents — agent lens live; typed canvas and blueprints arrive by wave.", open_today: { href: "/studio", label: "Studio (family landing)" } },
+    automations: { icon: "⚡", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", open_today: { href: "/automations", label: "Automate" } },
+    ontology: { icon: "🧬", desc: "The semantic world-model — Ontology Manager over the typed COM; Explorer + ODK substrate.", open_today: { href: "/ontology", label: "Ontology (family landing)" } },
+    data: { icon: "🌐", desc: "Supply the world-model — sources, syncs, recipes, pipelines, consent posture.", open_today: { href: "/data", label: "Data (family landing)" } },
+    governance: { icon: "🛡", desc: "Authority — approvals, leases, release gates, kill switches, budgets, gaps.", open_today: { href: "/governance", label: "Approvals" } },
+    provenance: { icon: "📒", desc: "Proof plane — receipts stream, state roots, timelines, lineage.", open_today: { href: "/provenance", label: "Data Lineage (Monocle)" } },
+    evaluations: { icon: "🧪", desc: "Eval-suite library over real subjects and consent; scoring lands by wave.", open_today: { href: "/evaluations", label: "AIP Evals" } },
     improvement: { icon: "📈", desc: "Proposals, what-if simulation, apply-under-gates — change inbox over daemon truth.", open_today: { href: "/__ioi/improvement/changes", label: "Upgrade Assistant" } },
-    foundry: { icon: "🏗", desc: "Model substrate — catalog, routes, draft specs, run plans, promotion previews.", open_today: { href: "/__ioi/foundry", label: "Foundry readout" } },
+    foundry: { icon: "🏗", desc: "Model substrate — catalog, routes, draft specs, run plans, promotion previews.", open_today: { href: "/foundry", label: "Model Catalog" } },
     packages: { icon: "📦", desc: "Registry of packages and releases; Marketplace is the optional mode at /packages/marketplace.", open_today: { href: "/__ioi/marketplace", label: "Marketplace readout" } },
-    "developer-workspace": { icon: "🧰", desc: "Enter an environment's live console — files, terminal, ports, tasks, repos.", open_today: { href: "/__ioi/workbench", label: "Workbench readout" } },
-    "developer-console": { icon: "🔌", desc: "Extend the environment — connectors, MCP, sealed credentials, SDK on-ramps.", open_today: { href: "/__ioi/connections", label: "Connections cockpit" } },
+    "developer-workspace": { icon: "🧰", desc: "Enter an environment's live console — files, terminal, ports, tasks, repos.", open_today: { href: "/developer-workspace", label: "Workbench (family landing)" } },
+    "developer-console": { icon: "🔌", desc: "Extend the environment — connectors, MCP, sealed credentials, SDK on-ramps.", open_today: { href: "/__ioi/developer-console", label: "Developer Console" } },
     environments: { icon: "🖥", desc: "Substrate — lifecycle, readiness, services/ports/tasks, kernel boundary.", open_today: { href: "/__ioi/environments", label: "Environments readout" } },
     operations: { icon: "⛭", desc: "Substrate — scheduler health, providers, placement/failover, custody, spend.", open_today: { href: "/__ioi/operations", label: "Operations readout" } },
     "embodied-systems": { icon: "🤖", desc: "Conditional owner application — planned and nonlaunchable until built.", open_today: null },

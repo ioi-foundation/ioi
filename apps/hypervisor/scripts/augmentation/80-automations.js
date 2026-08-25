@@ -14,7 +14,9 @@
         if (!a || a.classList.contains("ioi-connections-nav")) return; // not our Connections clone
         e.preventDefault();
         e.stopPropagation();
-        window.location.assign("/automations"); // full load — the v2 route shell resolves it, not the SPA router
+        // GRE-2 (owner ruling 2026-08-20): open in the CONTAINER — the session rail persists;
+        // /automations 302s to the designated Automate shell, which embeds railless (embed=1).
+        openApplication("/automations", "Automate");
       },
       true, // capture — beat the SPA router
     );

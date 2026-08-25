@@ -28,11 +28,20 @@ import os from "node:os";
 import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
+const SCHEMA_DIR = path.join(ROOT, "docs", "architecture", "_meta", "schemas");
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+addFormats(ajv);
+const validateWorkflowTemplate = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, "workflow-template.v1.schema.json"), "utf8")));
+const validateAutomationSpec = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, "automation-spec.v1.schema.json"), "utf8")));
+const validateAutomationInstallation = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, "automation-installation-binding.v1.schema.json"), "utf8")));
+const validateAutomationRun = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, "automation-run.v1.schema.json"), "utf8")));
 
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
@@ -75,7 +84,7 @@ let SERVE = "";
 let SESSION = "";
 
 const SEED_LANE = "/__ioi/automations"; // the T2 cockpit's own wired action lanes (seed truth)
-const FRESH_LANE = "/__ioi/automations-cockpit"; // the module's fresh legacy mount
+const FRESH_LANE = "/__ioi/automations-cockpit"; // E7-RETIRED lane — probed only to prove it serves no surface
 
 async function startDaemon() {
   daemon = spawn(daemonBinary, [], {
@@ -130,7 +139,14 @@ const specGet = async (id) => (await jd(`/v1/hypervisor/automations/${encodeURIC
 function automationFamilyRoutes(index) {
   return (index.families ?? [])
     .flatMap((family) => family.paths ?? [])
-    .filter((row) => row.path.startsWith("/v1/hypervisor/automations") || row.path.startsWith("/v1/hypervisor/automation-executions"))
+    .filter((row) => [
+      "/v1/hypervisor/automations",
+      "/v1/hypervisor/automation-executions",
+      "/v1/hypervisor/workflow-templates",
+      "/v1/hypervisor/automation-specs",
+      "/v1/hypervisor/automation-installations",
+      "/v1/hypervisor/automation-runs",
+    ].some((prefix) => row.path.startsWith(prefix)))
     .map((row) => ({ path: row.path, methods: [...row.methods].sort() }))
     .sort((left, right) => left.path.localeCompare(right.path));
 }
@@ -166,8 +182,16 @@ async function run() {
     { path: "/v1/hypervisor/automations/:id/webhook", methods: ["POST"] },
     { path: "/v1/hypervisor/automations/:id/webhook-events", methods: ["GET"] },
     { path: "/v1/hypervisor/automations/:id/webhook-rotate", methods: ["POST"] },
+    { path: "/v1/hypervisor/workflow-templates", methods: ["GET", "POST"] },
+    { path: "/v1/hypervisor/workflow-templates/:id/revisions", methods: ["POST"] },
+    { path: "/v1/hypervisor/automation-specs", methods: ["GET", "POST"] },
+    { path: "/v1/hypervisor/automation-specs/:id/revisions", methods: ["POST"] },
+    { path: "/v1/hypervisor/automation-installations", methods: ["GET", "POST"] },
+    { path: "/v1/hypervisor/automation-installations/:id/revisions", methods: ["POST"] },
+    { path: "/v1/hypervisor/automation-runs", methods: ["GET", "POST"] },
+    { path: "/v1/hypervisor/automation-runs/:id", methods: ["GET"] },
   ].sort((left, right) => left.path.localeCompare(right.path));
-  ok("owned-verb inventory pinned: the automations family is EXACTLY list/create · get/patch/delete · start/runs · webhook/rotate/events · execution get/cancel — no versions/revisions, no separate activate, no binding plane",
+  ok("owned-verb inventory pinned: the mutable predecessor executor remains explicit while the canonical family separately owns immutable template/spec revisions, successor-only installations, and frozen runs",
     JSON.stringify(familyRoutes) === JSON.stringify(expectedRoutes)
       && !JSON.stringify(index.body).includes("/v1/hypervisor/automations/:id/versions")
       && !JSON.stringify(index.body).includes("/v1/hypervisor/automations/:id/activate"),
@@ -190,43 +214,44 @@ async function run() {
   await waitFor(`${SERVE}/automations`, 30000);
 
   // -- canonical mount: rehomed grammar, honest-empty, boundaries held --------
-  const landing = await pageText("/automations");
-  ok("canonical /automations 200s as the module's own mount (ownership headers name the served route)",
-    landing.status === 200 && landing.headers.get("x-ioi-surface-route") === "/automations" && landing.headers.get("x-ioi-surface-owner") === "Automations",
-    `status ${landing.status} route ${landing.headers.get("x-ioi-surface-route")}`);
-  ok("the rehomed grammar renders with its owner-surface contract intact (heading anchor + durable-orchestration framing + daemon-truth claim) and HONEST-EMPTY (no fixture rows)",
-    landing.text.includes('id="automations-owner"') && landing.text.includes("Durable orchestration")
-      && landing.text.includes("daemon truth") && landing.text.includes("No daemon automations yet"),
-    "");
-  ok("the Monitors reference stays a LINK to the protected seed route (and the wizard capture stays a linked reference, never rows)",
-    landing.text.includes('href="/__ioi/automations/monitors"') && landing.text.includes('href="/__apps/monitors"'),
-    "");
-  ok("machinery stays OUT entirely (OQ-2 unruled — no registry transfer, no state-machines read, no machinery link)",
-    !landing.text.includes("machinery") && !landing.text.includes("Machinery")
-      && !landing.text.includes("state-machines") && !landing.text.includes("state_machines"),
-    "");
-  ok("scheduler-health rows are ABSENT (Operations-owned boundary NAMED as a link, never rendered as data)",
-    rendersNoSchedulerHealth(landing.text) && landing.text.includes("Operations-owned") && landing.text.includes('href="/__ioi/operations"'),
-    "");
-  ok("the named absences render disabled-with-reason (Versions + monitor wizard) — typed, machine-readable, never simulated",
-    landing.text.includes("data-ioi-disabled-reason") && landing.text.includes("no daemon route exists")
-      && landing.text.includes(">Versions<") && landing.text.includes("Monitor wizard"),
-    "");
-  const freshLane = await pageText(FRESH_LANE);
-  ok("the fresh legacy lane serves the same module with its own truthful marker",
-    freshLane.status === 200 && freshLane.headers.get("x-ioi-surface-route") === FRESH_LANE
-      && freshLane.headers.get("x-ioi-surface-owner") === "Automations" && freshLane.text.includes('id="automations-owner"'),
-    `status ${freshLane.status} route ${freshLane.headers.get("x-ioi-surface-route")}`);
+  // GRE-2 AUT-3 (owner go 2026-08-20): canonical /automations is a TRANSFER — nav lands on the
+  // designated Automate shell (E1/E7); the redirect is asserted both raw (302 + transfer header)
+  // and followed (the Automate shell renders). E7 (2026-08-20): the cockpit module that used to
+  // serve the rehomed grammar on FRESH_LANE was retired — that lane is now asserted EMPTY below.
+  const rawT = await fetch(`${SERVE}/automations`, { redirect: "manual" }).then((r) => ({ status: r.status, loc: r.headers.get("location"), tag: r.headers.get("x-ioi-gre2-transfer") })).catch(() => ({ status: 0 }));
+  ok("canonical /automations is the GRE-2 transfer: 302 → the designated Automate landing, transfer-tagged",
+    rawT.status === 302 && rawT.loc === "/__ioi/automations/monitors" && rawT.tag === "/automations",
+    `status ${rawT.status} loc ${rawT.loc}`);
+  const landingFollowed = await pageText("/automations");
+  ok("followed, the canonical click lands on the Automate shell (the modified seed — E7)",
+    landingFollowed.status === 200 && landingFollowed.text.includes("Automate") && landingFollowed.text.includes("mon-tabs"),
+    String(landingFollowed.status));
+  // E7 COCKPIT RETIREMENT (2026-08-20): the bound Automations cockpit module and its
+  // /__ioi/automations-cockpit lane were removed with their registry row, so the five assertions
+  // that read THAT MODULE'S rendered page are gone with it. Every assertion that survives here has
+  // a LIVE subject: the designated Automate landing (above), the T2 cockpit at /__ioi/automations
+  // which owns the family's real action lanes (below, and every crossing in this file already
+  // posts to it), and the daemon automations family itself.
   const seedReadout = await pageText(SEED_LANE);
   const seedMonitors = await pageText("/__ioi/automations/monitors");
-  ok("the seed lanes keep serving untouched (seed preservation: T2 cockpit + protected monitors)",
+  ok("the LIVE Automations lanes serve: the T2 cockpit (the family's own action-lane owner) and the protected monitors seed",
     seedReadout.status === 200 && seedReadout.text.includes("Automations") && seedMonitors.status === 200,
     `statuses ${seedReadout.status}/${seedMonitors.status}`);
-  const newForm = await pageText("/automations?view=new");
-  ok("the New-automation view renders project-first (project_ref REQUIRED) and posts through the seed cockpit's own create lane — no second mutation path",
-    newForm.status === 200 && newForm.text.includes("New automation") && newForm.text.includes("project_ref")
-      && newForm.text.includes(`action="${SEED_LANE}"`),
+  // The Operations boundary, asserted of the LIVE surface as the live surface actually holds it:
+  // the T2 cockpit renders NO scheduler-health data at all. (The retired module additionally named
+  // the boundary with a link to /__ioi/operations; the seed never carried that affordance, so the
+  // link half is NOT asserted here — asserting it would be inventing a claim about a live surface
+  // rather than checking one. Operations owns scheduler health and check:operational-depth-era
+  // coverage of that surface lives with Operations, not here.)
+  ok("the LIVE T2 cockpit renders NO scheduler-health data — the Operations-owned boundary holds by absence, never by a duplicated read",
+    rendersNoSchedulerHealth(seedReadout.text),
     "");
+  ok("the retired /__ioi/automations-cockpit lane serves NO surface — it carries no registry ownership marker, so it is not a registered surface any more",
+    await (async () => {
+      const gone = await pageText(FRESH_LANE);
+      return !gone.headers.get("x-ioi-surface-owner") && !gone.headers.get("x-ioi-surface-route");
+    })(),
+    FRESH_LANE);
 
   // -- a real project (the automation's REQUIRED durable container) -----------
   const created = await fetch(`${SERVE}/api/ioi.v1.ProjectService/CreateProject`, {
@@ -272,6 +297,223 @@ async function run() {
   ok("the bootstrap session resolves a canonical principal ref (the binding subject for every INV-37 row below)",
     who.body?.authenticated === true && principalRef.startsWith("user://"),
     principalRef);
+
+  // -- M04.2 canonical four-lifetime family ---------------------------------
+  const graphHashV1 = `sha256:${"a".repeat(64)}`;
+  const graphHashV2 = `sha256:${"b".repeat(64)}`;
+  const forbiddenTemplateIdentity = await jd("/v1/hypervisor/workflow-templates", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "forged identity",
+      graph_ref: "workflow://graph/forged",
+      graph_hash: graphHashV1,
+      content_hash: graphHashV2,
+    }),
+  });
+  ok("GATE: WorkflowTemplate identity and content hash are daemon-owned — a client-supplied content_hash refuses typed",
+    forbiddenTemplateIdentity.status === 400
+      && forbiddenTemplateIdentity.body?.error?.code === "automation_contract_unknown_field",
+    `${forbiddenTemplateIdentity.status}/${forbiddenTemplateIdentity.body?.error?.code}`);
+  const templateCreate = await jd("/v1/hypervisor/workflow-templates", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Journey directed work",
+      version: "1.0.0",
+      graph_ref: "workflow://graph/journey-v1",
+      graph_hash: graphHashV1,
+      required_primitive_capabilities: ["prim:process.execute"],
+      registry_status: "released",
+    }),
+  });
+  const templateV1 = templateCreate.body?.workflow_template || {};
+  const templateTail = String(templateV1.workflow_template_id || "").replace("workflow-template://", "");
+  ok("WorkflowTemplate admits as an immutable content-addressed directed-work revision with no trigger, grant, or run state",
+    templateCreate.status === 201
+      && /^workflow-template:\/\/[^/]+\/revision\/sha256:[a-f0-9]{64}$/.test(templateV1.revision_ref || "")
+      && templateV1.content_hash?.startsWith("sha256:")
+      && !["trigger", "authority_grant_ref", "status", "run_id"].some((key) => Object.hasOwn(templateV1, key)),
+    templateV1.revision_ref || `status ${templateCreate.status}`);
+  const specCreate = await jd("/v1/hypervisor/automation-specs", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Journey standing activation",
+      workflow_template_revision_ref: templateV1.revision_ref,
+      workflow_template_content_hash: templateV1.content_hash,
+      activation_kind: "manual",
+      concurrency_policy_ref: "policy://automation/concurrency/serial",
+      idempotency_policy_ref: "policy://automation/idempotency/exact",
+      authority_requirement_refs: ["scope:process.execute"],
+      receipt_policy_ref: "policy://receipts/automation",
+      registry_status: "released",
+    }),
+  });
+  const specV1 = specCreate.body?.automation_spec || {};
+  ok("AutomationSpec is a distinct immutable standing-activation revision bound to the exact template tuple",
+    specCreate.status === 201
+      && specV1.workflow_template_revision_ref === templateV1.revision_ref
+      && specV1.workflow_template_content_hash === templateV1.content_hash
+      && /^automation:\/\/[^/]+\/revision\/sha256:[a-f0-9]{64}$/.test(specV1.revision_ref || "")
+      && !["enabled", "scope_ref", "status", "run_id"].some((key) => Object.hasOwn(specV1, key)),
+    specV1.revision_ref || `status ${specCreate.status}`);
+  const bindingCreate = await jd("/v1/hypervisor/automation-installations", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      scope_ref: principalRef,
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      enabled: true,
+      narrowed_activation_kinds: ["manual"],
+      narrowed_authority_requirement_refs: ["scope:process.execute"],
+      admission_receipt_ref: "receipt://automation-installation/journey-v1",
+      registry_status: "released",
+    }),
+  });
+  const bindingV1 = bindingCreate.body?.automation_installation_binding || {};
+  const bindingTail = String(bindingV1.binding_id || "").split("/").at(-1) || "";
+  ok("AutomationInstallationBinding is a third immutable lifetime: exact spec tuple plus local enablement and narrowing, never graph or trigger ownership",
+    bindingCreate.status === 201
+      && bindingV1.automation_spec_revision_ref === specV1.revision_ref
+      && bindingV1.enabled === true
+      && /^install:\/\/automation\/[^/]+\/revision\/sha256:[a-f0-9]{64}$/.test(bindingV1.revision_ref || "")
+      && !["graph_ref", "trigger_contract_ref", "run_history"].some((key) => Object.hasOwn(bindingV1, key)),
+    bindingV1.revision_ref || `status ${bindingCreate.status}`);
+  const forgedRun = await jd("/v1/hypervisor/automation-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: graphHashV2,
+      automation_installation_binding_revision_ref: bindingV1.revision_ref,
+      automation_installation_binding_hash: bindingV1.binding_hash,
+      activation_kind: "manual",
+    }),
+  });
+  ok("GATE: an AutomationRun refuses a mismatched exact spec hash before minting a run identity",
+    forgedRun.status === 409 && forgedRun.body?.error?.code === "automation_run_resolution_hash_mismatch",
+    `${forgedRun.status}/${forgedRun.body?.error?.code}`);
+  const runCreate = await jd("/v1/hypervisor/automation-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      automation_installation_binding_revision_ref: bindingV1.revision_ref,
+      automation_installation_binding_hash: bindingV1.binding_hash,
+      activation_kind: "manual",
+      activation_event_ref: "event://automation/journey-manual",
+    }),
+  });
+  const canonicalRun = runCreate.body?.automation_run || {};
+  const canonicalRunTail = String(canonicalRun.automation_run_ref || "").replace("automation-run://", "");
+  const frozenTuple = JSON.stringify({
+    template: [canonicalRun.workflow_template_revision_ref, canonicalRun.workflow_template_content_hash],
+    spec: [canonicalRun.automation_spec_revision_ref, canonicalRun.automation_spec_content_hash],
+    binding: [canonicalRun.automation_installation_binding_revision_ref, canonicalRun.automation_installation_binding_hash],
+    receipt: canonicalRun.resolution_receipt,
+  });
+  ok("AutomationRun is the fourth lifetime: admission freezes the exact template, spec, and binding tuple in one resolution receipt",
+    runCreate.status === 201
+      && canonicalRun.status === "queued"
+      && canonicalRun.workflow_template_revision_ref === templateV1.revision_ref
+      && canonicalRun.automation_spec_revision_ref === specV1.revision_ref
+      && canonicalRun.automation_installation_binding_revision_ref === bindingV1.revision_ref
+      && canonicalRun.resolution_receipt?.receipt_type === "automation_run_resolution"
+      && canonicalRun.resolution_receipt?.material?.automation_run_ref === canonicalRun.automation_run_ref,
+    canonicalRun.automation_run_ref || `status ${runCreate.status}`);
+  const anonymousCanonicalReads = await Promise.all([
+    jd("/v1/hypervisor/workflow-templates", undefined, false),
+    jd("/v1/hypervisor/automation-specs", undefined, false),
+    jd("/v1/hypervisor/automation-installations", undefined, false),
+    jd("/v1/hypervisor/automation-runs", undefined, false),
+    jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(canonicalRunTail)}`, undefined, false),
+  ]);
+  ok("GATE: canonical definition, installation, and run reads are identity-first — anonymous callers receive no list or exact-run existence oracle",
+    anonymousCanonicalReads.every((response) => response.status === 401
+      && response.body?.error?.code === "request_principal_required"),
+    JSON.stringify(anonymousCanonicalReads.map((response) => [response.status, response.body?.error?.code])));
+  const contractValidations = [
+    ["WorkflowTemplate", validateWorkflowTemplate, templateV1],
+    ["AutomationSpec", validateAutomationSpec, specV1],
+    ["AutomationInstallationBinding", validateAutomationInstallation, bindingV1],
+    ["AutomationRun", validateAutomationRun, canonicalRun],
+  ];
+  ok("all four live runtime records validate against their registered generated architecture contracts",
+    contractValidations.every(([, validate, value]) => validate(value)),
+    contractValidations.flatMap(([name, validate]) => (validate.errors || []).map((error) => `${name}${error.instancePath} ${error.message}`)).join("; "));
+  ok("receipt honesty: the admitted run carries no fabricated Agentgres operation or concrete grant/lease",
+    Array.isArray(canonicalRun.agentgres_operation_refs) && canonicalRun.agentgres_operation_refs.length === 0
+      && Array.isArray(canonicalRun.authority_lease_refs) && canonicalRun.authority_lease_refs.length === 0
+      && !JSON.stringify(canonicalRun).includes("authority_grant_ref"));
+
+  const templateSuccessor = await jd(`/v1/hypervisor/workflow-templates/${encodeURIComponent(templateTail)}/revisions`, {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Journey directed work",
+      version: "2.0.0",
+      graph_ref: "workflow://graph/journey-v2",
+      graph_hash: graphHashV2,
+      required_primitive_capabilities: ["prim:process.execute"],
+      registry_status: "released",
+    }),
+  });
+  const templateV2 = templateSuccessor.body?.workflow_template || {};
+  const runAfterTemplateEdit = await jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(canonicalRunTail)}`);
+  ok("editing a template creates a successor revision and cannot rewrite the already-admitted run tuple",
+    templateSuccessor.status === 201
+      && templateV2.predecessor_revision_ref === templateV1.revision_ref
+      && templateV2.revision_ref !== templateV1.revision_ref
+      && JSON.stringify({
+        template: [runAfterTemplateEdit.body?.automation_run?.workflow_template_revision_ref, runAfterTemplateEdit.body?.automation_run?.workflow_template_content_hash],
+        spec: [runAfterTemplateEdit.body?.automation_run?.automation_spec_revision_ref, runAfterTemplateEdit.body?.automation_run?.automation_spec_content_hash],
+        binding: [runAfterTemplateEdit.body?.automation_run?.automation_installation_binding_revision_ref, runAfterTemplateEdit.body?.automation_run?.automation_installation_binding_hash],
+        receipt: runAfterTemplateEdit.body?.automation_run?.resolution_receipt,
+      }) === frozenTuple,
+    `${templateV1.revision_ref} -> ${templateV2.revision_ref}`);
+
+  const bindingSuccessor = await jd(`/v1/hypervisor/automation-installations/${encodeURIComponent(bindingTail)}/revisions`, {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      scope_ref: principalRef,
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      enabled: false,
+      narrowed_activation_kinds: ["manual"],
+      narrowed_authority_requirement_refs: ["scope:process.execute"],
+      admission_receipt_ref: "receipt://automation-installation/journey-disabled",
+      registry_status: "released",
+    }),
+  });
+  const bindingV2 = bindingSuccessor.body?.automation_installation_binding || {};
+  const oldBindingRun = await jd("/v1/hypervisor/automation-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      automation_installation_binding_revision_ref: bindingV1.revision_ref,
+      automation_installation_binding_hash: bindingV1.binding_hash,
+      activation_kind: "manual",
+    }),
+  });
+  const disabledBindingRun = await jd("/v1/hypervisor/automation-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      automation_installation_binding_revision_ref: bindingV2.revision_ref,
+      automation_installation_binding_hash: bindingV2.binding_hash,
+      activation_kind: "manual",
+    }),
+  });
+  ok("successor-only local disablement is effective: the superseded enabled binding and its disabled successor both refuse new runs",
+    bindingSuccessor.status === 201
+      && bindingV2.predecessor_revision_ref === bindingV1.revision_ref
+      && oldBindingRun.status === 409 && oldBindingRun.body?.error?.code === "automation_run_installation_superseded"
+      && disabledBindingRun.status === 409 && disabledBindingRun.body?.error?.code === "automation_run_installation_ineligible",
+    `${oldBindingRun.body?.error?.code}/${disabledBindingRun.body?.error?.code}`);
 
   // -- create through the served grammar (session-carried), round-trip readback
   const createRes = await seedPost("", {
@@ -323,25 +565,10 @@ async function run() {
       && runsAfterAnonServe.length === 0,
     `status ${anonServeRun.status} · ${runsAfterAnonServe.length} runs`);
 
-  const listPage = await pageText(`/automations?project=${encodeURIComponent(projectId)}`);
-  // The trigger pill keeps the SEED grammar's own precedence (the `trigger` object — which the
-  // create handler defaults to {kind:"manual"} beside trigger_kind:"time" — wins over
-  // trigger_kind), rehomed verbatim; the stored trigger_kind truth is asserted on the round-trip
-  // row above and rendered on the detail grid.
-  ok("the canonical list renders the admitted spec (project filter lane + enabled pill + the spec id, seed card grammar verbatim)",
-    listPage.status === 200 && listPage.text.includes("journey-nightly") && listPage.text.includes(">enabled<")
-      && listPage.text.includes(automationId),
-    "");
-  let detail = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
-  ok("the canonical detail renders the spec grid + the daemon-owned verbs (Run now / Pause via the seed lanes) + the declared step",
-    detail.status === 200 && detail.text.includes("every 5m") && detail.text.includes("Run now")
-      && detail.text.includes("Pause schedule") && detail.text.includes("echo journey-effect")
-      && detail.text.includes(`action="${SEED_LANE}/${encodeURIComponent(automationId)}/run"`),
-    "");
-  ok("the detail's typed absences render disabled-with-reason (Versions + Session/GoalRun lineage) and scheduler-health rows stay absent",
-    detail.text.includes(">Versions<") && detail.text.includes("Serving Session / GoalRun lineage")
-      && detail.text.includes("no daemon fields exist") && rendersNoSchedulerHealth(detail.text),
-    "");
+  // E7 (2026-08-20): the three render assertions that read the RETIRED cockpit module's list and
+  // detail pages went with the module. The crossings below are unchanged — every one of them
+  // already posted to the LIVE seed cockpit's own action lanes (SEED_LANE), and every one is
+  // proven by a DAEMON readback, which is the load-bearing half.
 
   // -- daemon typed absences probed directly ----------------------------------
   const versions = await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/versions`);
@@ -355,10 +582,6 @@ async function run() {
   ok("pause crosses (302) and reads back: enabled false + next_run_at reset (the scheduler skips disabled specs)",
     paused.status === 302 && spec.automation?.enabled === false && spec.automation?.next_run_at === null,
     `enabled ${spec.automation?.enabled}`);
-  detail = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
-  ok("the canonical detail renders the paused truth (disabled pill + Resume verb)",
-    detail.status === 200 && detail.text.includes(">disabled<") && detail.text.includes("Resume schedule"),
-    "");
   const resumed = await seedPost(`/${encodeURIComponent(automationId)}/resume`, {});
   spec = await specGet(automationId);
   ok("resume crosses (302) and reads back enabled true", resumed.status === 302 && spec.automation?.enabled === true, "");
@@ -388,11 +611,6 @@ async function run() {
   ok("the unified proof stream carries the run with its transcript state_root (readback proof — the family's real evidence lane)",
     !!ledgerHit && JSON.stringify(ledgerHit).includes("state_root"),
     "");
-  detail = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
-  ok("the canonical run pane renders the execution with its terminal state and proof link",
-    detail.status === 200 && detail.text.includes(exec.execution_id || "@") && detail.text.includes("last run · done")
-      && detail.text.includes(`/__ioi/run-timeline/${encodeURIComponent(exec.execution_id || "")}`),
-    "");
 
   // -- webhook: rotate (hash-at-rest) + rejected trigger is a RECEIPTED event -
   const rotated = await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/webhook-rotate`, { method: "POST" });
@@ -413,11 +631,6 @@ async function run() {
     badTrigger.status === 401 && badTrigger.body?.reason === "invalid_token"
       && !!rejectedEvent && !!rejectedEvent.receipt_id && events.body?.rejected_count === 1,
     JSON.stringify({ status: badTrigger.status, receipt: rejectedEvent?.receipt_id }));
-  detail = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
-  ok("the canonical webhook band renders the endpoint truth + the receipted rejected event (its receipt id verbatim)",
-    detail.status === 200 && detail.text.includes("X-IOI-Trigger-Token") && detail.text.includes(">rejected<")
-      && detail.text.includes(rejectedEvent?.receipt_id || "@"),
-    "");
 
   // -- delete journey (throwaway spec — the canonical page stays honest after)
   const throwaway = await jd("/v1/hypervisor/automations", {
@@ -427,11 +640,9 @@ async function run() {
   const throwawayId = throwaway.body?.automation?.automation_id || "";
   const deleted = await seedPost(`/${encodeURIComponent(throwawayId)}/delete`, {});
   const deletedGet = await specGet(throwawayId);
-  const deletedPage = await pageText(`/automations?automation=${encodeURIComponent(throwawayId)}`);
-  ok("delete crosses through the seed lane and the record is GONE — daemon readback ok:false, canonical page renders the honest not-found (nothing inferred)",
-    throwaway.status === 201 && deleted.status === 302 && deletedGet.ok === false
-      && deletedPage.status === 200 && deletedPage.text.includes("Automation not found"),
-    "");
+  ok("delete crosses through the seed lane and the record is GONE — daemon readback ok:false (nothing inferred)",
+    throwaway.status === 201 && deleted.status === 302 && deletedGet.ok === false,
+    `create ${throwaway.status} · delete ${deleted.status} · readback ok=${deletedGet.ok}`);
 
   // -- restart: the spec + its history survive and the mount re-renders -------
   daemon.kill("SIGTERM");
@@ -445,14 +656,27 @@ async function run() {
       && !!spec.automation?.webhook_token_hash
       && runsAfter.some((r) => r.execution_id === exec.execution_id),
     "");
+  const canonicalRunAfterRestart = await jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(canonicalRunTail)}`);
+  ok("the canonical AutomationRun and its exact four-lifetime resolution receipt survive daemon restart byte-for-byte",
+    canonicalRunAfterRestart.status === 200
+      && JSON.stringify({
+        template: [canonicalRunAfterRestart.body?.automation_run?.workflow_template_revision_ref, canonicalRunAfterRestart.body?.automation_run?.workflow_template_content_hash],
+        spec: [canonicalRunAfterRestart.body?.automation_run?.automation_spec_revision_ref, canonicalRunAfterRestart.body?.automation_run?.automation_spec_content_hash],
+        binding: [canonicalRunAfterRestart.body?.automation_run?.automation_installation_binding_revision_ref, canonicalRunAfterRestart.body?.automation_run?.automation_installation_binding_hash],
+        receipt: canonicalRunAfterRestart.body?.automation_run?.resolution_receipt,
+      }) === frozenTuple,
+    `status ${canonicalRunAfterRestart.status}`);
+  // Re-aimed at the LIVE surface (E7): the retired module's mount is gone, so the render half of
+  // restart survival is asserted where the family actually serves today — the T2 cockpit's own
+  // detail lane, which is where every crossing above redirects back to.
   let reload = { status: 0, text: "" };
   for (let attempt = 0; attempt < 3; attempt++) {
     await new Promise((r) => setTimeout(r, 1500));
-    reload = await pageText(`/automations?automation=${encodeURIComponent(automationId)}`);
+    reload = await pageText(`${SEED_LANE}/${encodeURIComponent(automationId)}`);
     if (reload.status === 200 && reload.text.includes("journey-nightly")) break;
   }
-  ok("the canonical mount re-renders the surviving spec after restart",
-    reload.status === 200 && reload.text.includes("journey-nightly") && reload.text.includes("every 5m"),
+  ok("the LIVE Automations cockpit re-renders the surviving spec after restart",
+    reload.status === 200 && reload.text.includes("journey-nightly"),
     `status ${reload.status}`);
 
   // -- 3-posture matrix -------------------------------------------------------

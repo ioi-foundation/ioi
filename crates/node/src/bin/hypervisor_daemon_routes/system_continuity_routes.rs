@@ -1,4 +1,4 @@
-//! Named succession, migration, dissolution, and local-enrollment transitions.
+//! Named succession, migration, dissolution, and network-enrollment transitions.
 //!
 //! This is a distinct owner layer over the shared live-chain writer. It does
 //! not reuse the generic protected proposal family or any of its wallet scopes.
@@ -102,6 +102,7 @@ const SUCCESSOR_GOVERNANCE_SCOPES: &[&str] = &[
     "scope:autonomous_system.continuity.complete_dissolution",
     "scope:autonomous_system.network_enrollment.local.enroll",
     "scope:autonomous_system.network_enrollment.local.exit",
+    "scope:autonomous_system.network_enrollment_change",
 ];
 
 fn required(value: &Value, pointer: &str) -> Result<String, VErr> {
@@ -124,6 +125,7 @@ fn artifact_root(domain: &str, artifact: &Value) -> Result<String, VErr> {
 /// Durable live-chain inputs plus the active M1 lifecycle policy body.
 pub(crate) struct ContinuitySource {
     pub base: ProtectedTransitionSource,
+    pub constitution: Value,
     pub lifecycle_profile: Value,
     pub constitution_ref: String,
     pub current_enrollment: Option<Value>,
@@ -222,6 +224,7 @@ fn load_current_enrollment(
 /// Load and cross-check the active lifecycle profile from the admitted genesis
 /// bundle. Amendments preserve this profile body in the M1 selected profile.
 pub(crate) fn load_continuity_source(data_dir: &str, key: &str) -> Result<ContinuitySource, VErr> {
+    let policies = super::system_policy_routes::load_active_system_policies(data_dir, key)?;
     let admission = super::system_genesis_routes::load_verified_admission_by_key(data_dir, key)?
         .ok_or_else(|| verr("system_lifecycle_not_found", "no admitted genesis exists"))?;
     let (_system_id, exact) = super::system_amendment_routes::load_amendment_source(data_dir, key)?;
@@ -241,6 +244,12 @@ pub(crate) fn load_continuity_source(data_dir: &str, key: &str) -> Result<Contin
                 "admitted genesis lacks its lifecycle profile body",
             )
         })?;
+    if lifecycle_profile != policies.lifecycle_profile {
+        return Err(verr(
+            "system_policy_artifact_mismatch",
+            "continuity compiler did not resolve the active lifecycle policy body",
+        ));
+    }
     if lifecycle_profile
         .get("lifecycle_profile_id")
         .and_then(Value::as_str)
@@ -280,6 +289,7 @@ pub(crate) fn load_continuity_source(data_dir: &str, key: &str) -> Result<Contin
     )?;
     Ok(ContinuitySource {
         base,
+        constitution: policies.constitution,
         lifecycle_profile,
         constitution_ref,
         current_enrollment,
@@ -294,6 +304,29 @@ pub(crate) fn compile_from_source(
     trusted_successor_authority_binding: Option<&Value>,
     trusted_migration_destination_ack: Option<&Value>,
 ) -> Result<CompiledContinuityTransitionPlan, VErr> {
+    if op == ContinuityTransitionOp::ChangeNetworkEnrollment {
+        if source
+            .constitution
+            .get("constitution_id")
+            .and_then(Value::as_str)
+            != Some(source.constitution_ref.as_str())
+            || required(
+                &source.constitution,
+                "/policies/network_enrollment_constraint_ref",
+            )?
+            .is_empty()
+            || required(
+                &source.constitution,
+                "/policies/network_enrollment_change_decision_profile_ref",
+            )?
+            .is_empty()
+        {
+            return Err(verr(
+                "system_continuity_plan_invalid",
+                "active constitution does not bind network-enrollment change policy",
+            ));
+        }
+    }
     compile_continuity_transition_plan(
         op,
         &source.base.activation_effect,
@@ -2217,7 +2250,8 @@ pub(crate) async fn handle_get_transition(
             ContinuityTransitionOp::CompleteSuccession => status == "succession_pending",
             ContinuityTransitionOp::Migrate
             | ContinuityTransitionOp::EnrollLocal
-            | ContinuityTransitionOp::ExitLocalEnrollment => {
+            | ContinuityTransitionOp::ExitLocalEnrollment
+            | ContinuityTransitionOp::ChangeNetworkEnrollment => {
                 matches!(status.as_str(), "active" | "successor_governed")
             }
             ContinuityTransitionOp::OpenDissolutionDisposition => status == "dissolution_pending",
@@ -2258,6 +2292,7 @@ pub(crate) async fn handle_get_transition(
                 "verified_migration_root":op==ContinuityTransitionOp::Migrate,
                 "residual_disposition":matches!(op,ContinuityTransitionOp::CompleteDissolution|ContinuityTransitionOp::ExitLocalEnrollment),
                 "local_enrollment_body":matches!(op,ContinuityTransitionOp::EnrollLocal|ContinuityTransitionOp::ExitLocalEnrollment),
+                "network_enrollment_body":matches!(op,ContinuityTransitionOp::EnrollLocal|ContinuityTransitionOp::ExitLocalEnrollment|ContinuityTransitionOp::ChangeNetworkEnrollment),
                 "dissolution_disposition_record":op==ContinuityTransitionOp::OpenDissolutionDisposition,
                 "dissolution_domain_outcome":op==ContinuityTransitionOp::RecordDissolutionDomainOutcome
             },
@@ -2308,6 +2343,9 @@ fn migration_ack_source_at_plan(
                 "admitted genesis lacks its lifecycle profile body",
             )
         })?;
+    let constitution =
+        super::system_policy_routes::load_active_system_policies(data_dir, &source_tail)?
+            .constitution;
     let current_enrollment = load_current_enrollment(data_dir, &chain_head, &previous_step.state)?;
     let current_dissolution_disposition = load_current_dissolution_disposition(
         data_dir,
@@ -2321,6 +2359,7 @@ fn migration_ack_source_at_plan(
             chain_head: chain_head.clone(),
             operation_log,
         },
+        constitution,
         lifecycle_profile,
         constitution_ref: required(&chain_head, "/constitution_ref")?,
         current_enrollment,
@@ -2540,6 +2579,9 @@ fn source_at_plan(
                 "admitted genesis lacks its lifecycle profile body",
             )
         })?;
+    let constitution =
+        super::system_policy_routes::load_active_system_policies(data_dir, &source_tail)?
+            .constitution;
     let current_enrollment = load_current_enrollment(data_dir, &chain_head, &previous_step.state)?;
     let current_dissolution_disposition = load_current_dissolution_disposition(
         data_dir,
@@ -2553,6 +2595,7 @@ fn source_at_plan(
             chain_head,
             operation_log,
         },
+        constitution,
         lifecycle_profile,
         constitution_ref: required(&plan.authority_effect, "/constitution_ref")?,
         current_enrollment,
@@ -2880,6 +2923,7 @@ mod tests {
         lifecycle_profile["lifecycle_profile_id"] =
             chain["lifecycle_continuity_profile_ref"].clone();
         ContinuitySource {
+            constitution: fixture("autonomous-system-constitution-v1/positive-draft.json"),
             constitution_ref: required_string(&chain, "/constitution_ref").unwrap().into(),
             current_enrollment: None,
             current_dissolution_disposition: None,
@@ -3203,6 +3247,56 @@ mod tests {
     }
 
     #[test]
+    fn network_tier_declaration_builds_the_existing_durable_transition_graph() {
+        let mut source = source();
+        source.constitution["policies"]["network_enrollment_constraint_ref"] =
+            json!("policy://acme/network/tiers");
+        source.constitution["policies"]["network_enrollment_change_decision_profile_ref"] =
+            json!("policy://acme/network/change");
+        let mut enrollment = fixture("ioi-network-enrollment-v1/positive-local-only.json");
+        enrollment["network_enrollment_id"] =
+            json!("network-enrollment://acme/system-alpha/connected/revision/1");
+        enrollment["manifest_ref"] = source.base.chain_head["manifest_ref"].clone();
+        enrollment["profile"] = json!("ioi_connected");
+        enrollment["status"] = json!("pending");
+        enrollment["governing_decision_ref"] =
+            json!("decision://acme/system-alpha/continuity/sequence/3");
+        let declaration = ContinuityTransitionDeclaration {
+            trigger_evidence_refs: vec![],
+            successor_candidate_ref: None,
+            successor_authority_ref: None,
+            migration_destination_ack_ref: None,
+            migration_destination_ack_root: None,
+            residual_disposition_receipt_refs: vec![],
+            live_effect_refs: vec![],
+            network_enrollment: Some(enrollment.clone()),
+            dissolution_disposition: None,
+            dissolution_domain_outcome: None,
+        };
+        let plan = compile_from_source(
+            ContinuityTransitionOp::ChangeNetworkEnrollment,
+            &source,
+            &declaration,
+            None,
+            None,
+        )
+        .expect("compile tier declaration");
+        let artifacts =
+            build_continuity_artifacts(&plan, &source, &authority(), "2026-08-25T12:00:00Z")
+                .expect("build tier declaration graph");
+        assert_eq!(artifacts.step.transition["op"], "change_network_enrollment");
+        assert_eq!(
+            artifacts.step.transition["authority_effect_material"]["network_assurance_admitted"],
+            false
+        );
+        assert_eq!(
+            artifacts.chain["network_enrollment_ref"],
+            enrollment["network_enrollment_id"]
+        );
+        assert_eq!(artifacts.chain["latest_sequence"], 3);
+    }
+
+    #[test]
     fn succession_builds_a_contract_valid_live_chain_successor() {
         let source = source();
         let declaration = ContinuityTransitionDeclaration {
@@ -3242,6 +3336,7 @@ mod tests {
                 chain_head: artifacts.chain.clone(),
                 operation_log: artifacts.operation_log.clone(),
             },
+            constitution: source.constitution.clone(),
             lifecycle_profile: source.lifecycle_profile.clone(),
             constitution_ref: source.constitution_ref.clone(),
             current_enrollment: None,

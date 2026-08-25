@@ -495,7 +495,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     return ConsensusDecision::Stall;
                 }
             };
-            let parent_status: ChainStatus = match parent_view.get(STATUS_KEY).await {
+            let mut parent_status: ChainStatus = match parent_view.get(STATUS_KEY).await {
                 Ok(Some(b)) => codec::from_bytes_canonical(&b).unwrap_or_default(),
                 Ok(None) if height == 1 => ChainStatus::default(),
                 _ => {
@@ -509,6 +509,22 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     return ConsensusDecision::Stall;
                 }
             };
+            // Externally composed test fixtures can carry signed wall-clock
+            // evidence before their fresh deterministic AFT chain has
+            // produced height one.  Genesis may contain either no status or a
+            // default zero-timestamp status, so bridge both representations.
+            // The first ordinary block durably publishes this clock through
+            // ChainStatus.  The explicit testing namespace keeps production
+            // chains on their state-derived clock.
+            if height == 1 && parent_status.latest_timestamp_ms_or_legacy() == 0 {
+                if let Some(timestamp_ms) = std::env::var("IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS")
+                    .ok()
+                    .and_then(|value| value.parse::<u64>().ok())
+                    .filter(|value| *value > 0)
+                {
+                    parent_status.set_latest_timestamp_ms(timestamp_ms);
+                }
+            }
 
             let expected_ts_ms = compute_next_timestamp_ms(
                 &timing_params,

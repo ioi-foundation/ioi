@@ -1,0 +1,2472 @@
+{
+  "schema": "ioi.hypervisor.reference-family-atlas.v1",
+  "doctrine": "recorded reference interaction states per seed — landing + tab lanes + in-app sub-routes, each with its expressed-IA census (§3.2 evidence). A lane with no recorded state is not shippable.",
+  "origin": "http://localhost:9225",
+  "seeds": {
+    "monitors": {
+      "slug": "monitors",
+      "owner": "Automations",
+      "reference_base": "http://localhost:9225/workspace/object-monitoring/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/object-monitoring/"
+          },
+          "url": "http://localhost:9225/workspace/object-monitoring/",
+          "ia": {
+            "title": "Automate",
+            "headings": [
+              "Create and manage automations",
+              "Getting started",
+              "Active automations",
+              "Recently viewed",
+              "Recently triggered"
+            ],
+            "tabs": [
+              "Overview",
+              "Automations"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 17,
+            "empty_copy": "Get started by creating a new automation or adding yourself to existing automations.",
+            "text_len": 6016
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/monitors/landing.png"
+        },
+        {
+          "key": "tab:Overview",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/object-monitoring/",
+            "clickTab": "Overview"
+          },
+          "url": "http://localhost:9225/workspace/object-monitoring/",
+          "ia": {
+            "title": "Automate",
+            "headings": [
+              "Create and manage automations",
+              "Getting started",
+              "Active automations",
+              "Recently viewed",
+              "Recently triggered"
+            ],
+            "tabs": [
+              "Overview",
+              "Automations"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 17,
+            "empty_copy": "Get started by creating a new automation or adding yourself to existing automations.",
+            "text_len": 6016
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/monitors/tab_Overview.png"
+        },
+        {
+          "key": "tab:Automations",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/object-monitoring/",
+            "clickTab": "Automations"
+          },
+          "url": "http://localhost:9225/workspace/object-monitoring/",
+          "ia": {
+            "title": "Automate",
+            "headings": [
+              "Create and manage automations",
+              "Getting started",
+              "Active automations",
+              "Recently viewed",
+              "Recently triggered"
+            ],
+            "tabs": [
+              "Overview",
+              "Automations"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 17,
+            "empty_copy": "Get started by creating a new automation or adding yourself to existing automations.",
+            "text_len": 6016
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/monitors/tab_Automations.png"
+        },
+        {
+          "key": "tab_lane:/workspace/object-monitoring/automations",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/object-monitoring/automations"
+          },
+          "url": "http://localhost:9225/workspace/object-monitoring/automations",
+          "ia": {
+            "title": "Automate",
+            "headings": [
+              "Filters"
+            ],
+            "tabs": [
+              "Overview",
+              "Automations"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "STATUS",
+              "CONDITION",
+              "EFFECTS",
+              "RECEIVING NOTIFICATIONS",
+              "OWNER",
+              "CREATOR",
+              "EXPIRATION DATE"
+            ],
+            "rows": 0,
+            "cards": 1,
+            "empty_copy": "No automations",
+            "text_len": 476
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/monitors/tab_lane_workspace_object-monitoring_automations.png"
+        }
+      ],
+      "errors": []
+    },
+    "scheduler": {
+      "slug": "scheduler",
+      "owner": "Automations",
+      "reference_base": "http://localhost:9225/workspace/scheduler/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/scheduler/"
+          },
+          "url": "http://localhost:9225/workspace/scheduler/find?v=1&uid=fe77707c-1590-4b15-9dca-9f92e943d79d&s=LAST_UPDATED_DATE&dir=DESCENDING",
+          "ia": {
+            "title": "Find schedules",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No schedules found",
+            "text_len": 415
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/scheduler/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "registry": {
+      "slug": "registry",
+      "owner": "Marketplace",
+      "reference_base": "http://localhost:9225/workspace/artifacts/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/artifacts/"
+          },
+          "url": "http://localhost:9225/workspace/artifacts/",
+          "ia": {
+            "title": "Artifacts",
+            "headings": [
+              "Explore artifacts"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "",
+            "text_len": 735
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/registry/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "map": {
+      "slug": "map",
+      "owner": "Environments",
+      "reference_base": "http://localhost:9225/workspace/map/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/map/"
+          },
+          "url": "http://localhost:9225/workspace/map/",
+          "ia": {
+            "title": "New map",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "No layers",
+            "text_len": 800
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/map/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "approvals": {
+      "slug": "approvals",
+      "owner": "Governance",
+      "reference_base": "http://localhost:9225/workspace/approvals-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/approvals-app/"
+          },
+          "url": "http://localhost:9225/workspace/approvals-app/",
+          "ia": {
+            "title": "Approvals inbox",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No requests found",
+            "text_len": 515
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/approvals/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "changes": {
+      "slug": "changes",
+      "owner": "Improvement",
+      "reference_base": "http://localhost:9225/workspace/upgrade-assistant/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/upgrade-assistant/"
+          },
+          "url": "http://localhost:9225/workspace/upgrade-assistant/",
+          "ia": {
+            "title": "Upgrade Assistant",
+            "headings": [
+              "What's new in Upgrade Assistant"
+            ],
+            "tabs": [
+              "Active",
+              "Past due",
+              "Archived"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "UPGRADE PROGRESS",
+              "UPGRADE TYPE",
+              "SORT",
+              "NAME",
+              "TYPE",
+              "DUE DATE",
+              "MY ACTIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No pre",
+            "text_len": 1710
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/changes/landing.png"
+        },
+        {
+          "key": "tab:Active",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/upgrade-assistant/",
+            "clickTab": "Active"
+          },
+          "url": "http://localhost:9225/workspace/upgrade-assistant/?sortColumn=DATE&sortDirection=asc",
+          "ia": {
+            "title": "Upgrade Assistant",
+            "headings": [
+              "What's new in Upgrade Assistant"
+            ],
+            "tabs": [
+              "Active",
+              "Past due",
+              "Archived"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "UPGRADE PROGRESS",
+              "UPGRADE TYPE",
+              "SORT",
+              "NAME",
+              "TYPE",
+              "DUE DATE",
+              "MY ACTIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No pre",
+            "text_len": 1710
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/changes/tab_Active.png"
+        },
+        {
+          "key": "tab:Past due",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/upgrade-assistant/",
+            "clickTab": "Past due"
+          },
+          "url": "http://localhost:9225/workspace/upgrade-assistant/?tab=past-due-upgrade&sortColumn=DATE&sortDirection=desc",
+          "ia": {
+            "title": "Upgrade Assistant",
+            "headings": [
+              "What's new in Upgrade Assistant"
+            ],
+            "tabs": [
+              "Active",
+              "Past due",
+              "Archived"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "UPGRADE PROGRESS",
+              "UPGRADE TYPE",
+              "SORT",
+              "NAME",
+              "TYPE",
+              "DUE DATE",
+              "MY ACTIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No past due upgrades found",
+            "text_len": 1351
+          },
+          "expresses_ia": true,
+          "http_errors": [
+            "404 http://localhost:9225/interventions/api/interventions/ri.interventions.main.inte"
+          ],
+          "screenshot": ".artifacts/family-atlas/changes/tab_Past_due.png"
+        },
+        {
+          "key": "tab:Archived",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/upgrade-assistant/",
+            "clickTab": "Archived"
+          },
+          "url": "http://localhost:9225/workspace/upgrade-assistant/?tab=archived-upgrade&sortColumn=DATE&sortDirection=desc",
+          "ia": {
+            "title": "Upgrade Assistant",
+            "headings": [
+              "What's new in Upgrade Assistant"
+            ],
+            "tabs": [
+              "Active",
+              "Past due",
+              "Archived"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "UPGRADE PROGRESS",
+              "UPGRADE TYPE",
+              "SORT",
+              "NAME",
+              "TYPE",
+              "DUE DATE",
+              "MY ACTIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "no longer being updated",
+            "text_len": 1345
+          },
+          "expresses_ia": true,
+          "http_errors": [
+            "404 http://localhost:9225/interventions/api/interventions/ri.interventions.main.inte"
+          ],
+          "screenshot": ".artifacts/family-atlas/changes/tab_Archived.png"
+        }
+      ],
+      "errors": []
+    },
+    "devconsole": {
+      "slug": "devconsole",
+      "owner": "Developer Console",
+      "reference_base": "http://localhost:9225/workspace/developer-console/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/developer-console/"
+          },
+          "url": "http://localhost:9225/workspace/developer-console/",
+          "ia": {
+            "title": "Developer Console • Home page",
+            "headings": [
+              "Welcome to Developer Console"
+            ],
+            "tabs": [
+              "Applications",
+              "Standalone OAuth clientsLegacy"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "APPLICATION",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "No applications",
+            "text_len": 757
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/devconsole/landing.png"
+        },
+        {
+          "key": "tab:Applications",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/developer-console/",
+            "clickTab": "Applications"
+          },
+          "url": "http://localhost:9225/workspace/developer-console/",
+          "ia": {
+            "title": "Developer Console • Home page",
+            "headings": [
+              "Welcome to Developer Console"
+            ],
+            "tabs": [
+              "Applications",
+              "Standalone OAuth clientsLegacy"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "APPLICATION",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "No applications",
+            "text_len": 757
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/devconsole/tab_Applications.png"
+        },
+        {
+          "key": "tab:Standalone OAuth clientsLegacy",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/developer-console/",
+            "clickTab": "Standalone OAuth clientsLegacy"
+          },
+          "url": "http://localhost:9225/workspace/developer-console/",
+          "ia": {
+            "title": "Developer Console • Home page",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 256
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/devconsole/tab_Standalone_OAuth_clientsLegacy.png"
+        },
+        {
+          "key": "authoring:/workspace/developer-console/create/guided/basic-information",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/developer-console/create/guided/basic-information"
+          },
+          "url": "http://localhost:9225/workspace/developer-console/create/guided/basic-information",
+          "ia": {
+            "title": "Developer Console • Create a new application",
+            "headings": [
+              "Basic information"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "no projects",
+            "text_len": 981
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/devconsole/authoring_workspace_developer-console_create_guided_basic-information.png"
+        }
+      ],
+      "errors": []
+    },
+    "explorer": {
+      "slug": "explorer",
+      "owner": "Ontology",
+      "reference_base": "http://localhost:9225/workspace/hubble/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/hubble/"
+          },
+          "url": "http://localhost:9225/workspace/hubble/",
+          "ia": {
+            "title": "Object Explorer",
+            "headings": [],
+            "tabs": [
+              "New exploration"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "TYPE GROUP",
+              "OBJECT TYPE NAME",
+              "STATUS",
+              "OBJECT COUNT",
+              "USAGE",
+              "TYPE GROUPS",
+              "DESCRIPTION"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "No type groups",
+            "text_len": 3346
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/explorer/landing.png"
+        },
+        {
+          "key": "tab:New exploration",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/hubble/",
+            "clickTab": "New exploration"
+          },
+          "url": "http://localhost:9225/workspace/hubble/",
+          "ia": {
+            "title": "Object Explorer",
+            "headings": [],
+            "tabs": [
+              "New exploration"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "TYPE GROUP",
+              "OBJECT TYPE NAME",
+              "STATUS",
+              "OBJECT COUNT",
+              "USAGE",
+              "TYPE GROUPS",
+              "DESCRIPTION"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "No type groups",
+            "text_len": 3346
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/explorer/tab_New_exploration.png"
+        }
+      ],
+      "errors": []
+    },
+    "evalsuites": {
+      "slug": "evalsuites",
+      "owner": "Evaluations",
+      "reference_base": "http://localhost:9225/workspace/evals/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/evals/"
+          },
+          "url": "http://localhost:9225/workspace/evals/",
+          "ia": {
+            "title": "AIP Evals",
+            "headings": [
+              "AIP Evals",
+              "What's new in AIP Evals"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 5289
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/evalsuites/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/evals/create-new",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/evals/create-new"
+          },
+          "url": "http://localhost:9225/workspace/evals/create-new",
+          "ia": {
+            "title": "Create evaluation suite",
+            "headings": [
+              "What's new in AIP Evals"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 9,
+            "empty_copy": "",
+            "text_len": 734
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/evalsuites/authoring_workspace_evals_create-new.png"
+        }
+      ],
+      "errors": []
+    },
+    "sources": {
+      "slug": "sources",
+      "owner": "Data",
+      "reference_base": "http://localhost:9225/workspace/data-ingestion-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/splash",
+          "ia": {
+            "title": "Data Connection",
+            "headings": [
+              "Data Connection",
+              "What's new in Data Connection"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 9,
+            "empty_copy": "",
+            "text_len": 5979
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/landing.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/sources",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/sources"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/sources",
+          "ia": {
+            "title": "All sources | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "No sources",
+            "text_len": 469
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_sources.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/syncs",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/syncs"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/syncs",
+          "ia": {
+            "title": "All syncs | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [
+              "Name",
+              "Dataset",
+              "Source",
+              "Status",
+              "Next run",
+              "Actions"
+            ],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "No syncs",
+            "text_len": 492
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_syncs.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/agents",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/agents"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/agents",
+          "ia": {
+            "title": "All agents | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "No agents found",
+            "text_len": 389
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_agents.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/listeners",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/listeners"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/listeners",
+          "ia": {
+            "title": "All listeners | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "No listeners found",
+            "text_len": 340
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_listeners.png"
+        },
+        {
+          "key": "tab_lane:/workspace/data-ingestion-app/external-stacks",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/external-stacks"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/external-stacks",
+          "ia": {
+            "title": "External Stacks | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 256
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/tab_lane_workspace_data-ingestion-app_external-stacks.png"
+        },
+        {
+          "key": "authoring:/workspace/data-ingestion-app/sources/new",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/data-ingestion-app/sources/new"
+          },
+          "url": "http://localhost:9225/workspace/data-ingestion-app/sources/new",
+          "ia": {
+            "title": "New source | Data Connection",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "EXPERIMENTAL",
+              "ADP",
+              "BETA",
+              "HDFS",
+              "IBM AS400",
+              "IBM DB2 JCC",
+              "MYOB",
+              "RSS",
+              "SAP ERP",
+              "SAP HANA XSA",
+              "SAP SLT",
+              "SQS",
+              "FTP - FTPS",
+              "JDBC",
+              "LDAP"
+            ],
+            "rows": 0,
+            "cards": 219,
+            "empty_copy": "",
+            "text_len": 14564
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/sources/authoring_workspace_data-ingestion-app_sources_new.png"
+        }
+      ],
+      "errors": []
+    },
+    "designer": {
+      "slug": "designer",
+      "owner": "Studio",
+      "reference_base": "http://localhost:9225/workspace/solution-design/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/solution-design/"
+          },
+          "url": "http://localhost:9225/workspace/solution-design/splash",
+          "ia": {
+            "title": "Solution Designer",
+            "headings": [
+              "Solution Designer",
+              "Many ways to ingest data in Foundry",
+              "Generate Pipeline via No-code Tools",
+              "Generate Pipeline via Pro-code Tools"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "OBJECT",
+              "ACTIONS",
+              "FOUNDRY RULES",
+              "DATA CONNECTOR",
+              "WORKSHOP",
+              "DATASET",
+              "NOTIFICATIONS",
+              "EXTERNAL SYSTEM",
+              "WEBHOOK",
+              "USER GROUP",
+              "MODEL",
+              "MODELING OBJECTIVE",
+              "CODE REPOSITORY",
+              "PIPELINE BUILDER",
+              "NOTEPAD"
+            ],
+            "rows": 0,
+            "cards": 667,
+            "empty_copy": "",
+            "text_len": 35310
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/designer/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/solution-design/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/solution-design/create"
+          },
+          "url": "http://localhost:9225/workspace/solution-design/scratch",
+          "ia": {
+            "title": "Solution Designer",
+            "headings": [
+              "Welcome to Solution Designer"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "CONCEPT",
+              "COMPONENT",
+              "RESOURCE",
+              "BETA",
+              "AIP CRITIC"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "Get started by adding nodes, loading a graph from Data Lineage, or exploring reference exam",
+            "text_len": 674
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/designer/authoring_workspace_solution-design_create.png"
+        },
+        {
+          "key": "authoring:/workspace/solution-design/onboarding",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/solution-design/onboarding"
+          },
+          "url": "http://localhost:9225/workspace/solution-design/onboarding",
+          "ia": {
+            "title": "Solution Designer",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "",
+            "text_len": 692
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/designer/authoring_workspace_solution-design_onboarding.png"
+        }
+      ],
+      "errors": []
+    },
+    "machinery": {
+      "slug": "machinery",
+      "owner": "Studio",
+      "reference_base": "http://localhost:9225/workspace/machinery-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/machinery-app/"
+          },
+          "url": "http://localhost:9225/workspace/machinery-app/",
+          "ia": {
+            "title": "Machinery",
+            "headings": [
+              "Machinery"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 3,
+            "empty_copy": "",
+            "text_len": 4973
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/machinery/landing.png"
+        },
+        {
+          "key": "tab_lane:/workspace/machinery-app/process",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/machinery-app/process"
+          },
+          "url": "http://localhost:9225/workspace/machinery-app/process",
+          "ia": {
+            "title": "Machinery",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "NAVIGATION TREE"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "get started building your Machinery graph",
+            "text_len": 354
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/machinery/tab_lane_workspace_machinery-app_process.png"
+        }
+      ],
+      "errors": []
+    },
+    "ingest": {
+      "slug": "ingest",
+      "owner": "Data",
+      "reference_base": "http://localhost:9225/workspace/hyperauto/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/hyperauto/"
+          },
+          "url": "http://localhost:9225/workspace/hyperauto/pipeline",
+          "ia": {
+            "title": "HyperAuto",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "no existing HyperAuto pipelines",
+            "text_len": 398
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/ingest/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/hyperauto/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/hyperauto/create"
+          },
+          "url": "http://localhost:9225/workspace/hyperauto/create",
+          "ia": {
+            "title": "HyperAuto",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 11,
+            "empty_copy": "",
+            "text_len": 563
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/ingest/authoring_workspace_hyperauto_create.png"
+        }
+      ],
+      "errors": []
+    },
+    "incidents": {
+      "slug": "incidents",
+      "owner": "Missions",
+      "reference_base": "http://localhost:9225/workspace/issues-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/issues-app/"
+          },
+          "url": "http://localhost:9225/workspace/issues-app/",
+          "ia": {
+            "title": "Issues • Open (0)",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILTERS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No issues to display",
+            "text_len": 628
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/incidents/landing.png"
+        },
+        {
+          "key": "tab_lane:/workspace/issues-app/settings",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/issues-app/settings"
+          },
+          "url": "http://localhost:9225/workspace/issues-app/settings/labels",
+          "ia": {
+            "title": "Settings • Labels",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No labels yet",
+            "text_len": 324
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/incidents/tab_lane_workspace_issues-app_settings.png"
+        }
+      ],
+      "errors": []
+    },
+    "dataset": {
+      "slug": "dataset",
+      "owner": "Data",
+      "reference_base": "http://localhost:9225/workspace/dataset/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/dataset/"
+          },
+          "url": "http://localhost:9225/workspace/dataset/",
+          "ia": {
+            "title": "Palantir",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 190
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/dataset/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "modelstudio": {
+      "slug": "modelstudio",
+      "owner": "Foundry",
+      "reference_base": "http://localhost:9225/workspace/model-studio/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/model-studio/"
+          },
+          "url": "http://localhost:9225/workspace/model-studio/",
+          "ia": {
+            "title": "Model studio",
+            "headings": [
+              "Choose file location"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 289
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/modelstudio/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "inference": {
+      "slug": "inference",
+      "owner": "Foundry",
+      "reference_base": "http://localhost:9225/workspace/foundry-inference-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/foundry-inference-app/"
+          },
+          "url": "http://localhost:9225/workspace/foundry-inference-app/",
+          "ia": {
+            "title": "Palantir",
+            "headings": [
+              "What's new in Sensitive Data Scanner"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 941
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/inference/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "slate": {
+      "slug": "slate",
+      "owner": "Domain Apps",
+      "reference_base": "http://localhost:9225/workspace/slate/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/slate/"
+          },
+          "url": "http://localhost:9225/workspace/slate/",
+          "ia": {
+            "title": "Slate",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 172
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/slate/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/slate/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/slate/splash"
+          },
+          "url": "http://localhost:9225/workspace/slate/splash",
+          "ia": {
+            "title": "Slate",
+            "headings": [
+              "Slate"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 4482
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/slate/splash_alias_workspace_slate_splash.png"
+        }
+      ],
+      "errors": []
+    },
+    "fusion": {
+      "slug": "fusion",
+      "owner": "Domain Apps",
+      "reference_base": "http://localhost:9225/workspace/fusion/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/fusion/"
+          },
+          "url": "http://localhost:9225/workspace/fusion/workbook/ri.fusion.main.document.9afb5fc5-75e8-4554-817c-1e8ad37478f0/",
+          "ia": {
+            "title": "Palantir",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 260
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/fusion/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "vertex": {
+      "slug": "vertex",
+      "owner": "Provenance",
+      "reference_base": "http://localhost:9225/workspace/vertex/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/vertex/"
+          },
+          "url": "http://localhost:9225/workspace/vertex/",
+          "ia": {
+            "title": "Vertex",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "GRAPH",
+              "CREATOR",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "No recents",
+            "text_len": 1362
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/vertex/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/vertex/graph/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/vertex/graph/create"
+          },
+          "url": "http://localhost:9225/workspace/vertex/graph/create",
+          "ia": {
+            "title": "New Graph",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "get started.",
+            "text_len": 412
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/vertex/authoring_workspace_vertex_graph_create.png"
+        }
+      ],
+      "errors": []
+    },
+    "jobs": {
+      "slug": "jobs",
+      "owner": "Missions",
+      "reference_base": "http://localhost:9225/workspace/job-tracker/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/job-tracker/"
+          },
+          "url": "http://localhost:9225/workspace/job-tracker/builds",
+          "ia": {
+            "title": "Your builds · Builds",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No visible builds",
+            "text_len": 549
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/jobs/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/job-tracker/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/job-tracker/splash"
+          },
+          "url": "http://localhost:9225/workspace/job-tracker/builds",
+          "ia": {
+            "title": "Your builds · Builds",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No visible builds",
+            "text_len": 549
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/jobs/splash_alias_workspace_job-tracker_splash.png"
+        }
+      ],
+      "errors": []
+    },
+    "lineage": {
+      "slug": "lineage",
+      "owner": "Provenance",
+      "reference_base": "http://localhost:9225/workspace/monocle/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/landing.png"
+        },
+        {
+          "key": "tab:Preview",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "Preview"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_Preview.png"
+        },
+        {
+          "key": "tab:SQL scratchpad",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "SQL scratchpad"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_SQL_scratchpad.png"
+        },
+        {
+          "key": "tab:History",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "History"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_History.png"
+        },
+        {
+          "key": "tab:Code",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "Code"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_Code.png"
+        },
+        {
+          "key": "tab:Build timeline",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "Build timeline"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No resources on graph",
+            "text_len": 664
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_Build_timeline.png"
+        },
+        {
+          "key": "tab:Data health",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/monocle/",
+            "clickTab": "Data health"
+          },
+          "url": "http://localhost:9225/workspace/monocle/graph?coloring=monocle.color.resource-type",
+          "ia": {
+            "title": "Data Lineage",
+            "headings": [],
+            "tabs": [
+              "Preview",
+              "SQL scratchpad",
+              "History",
+              "Code",
+              "Build timeline",
+              "Data health"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No resources on graph",
+            "text_len": 947
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/lineage/tab_Data_health.png"
+        }
+      ],
+      "errors": []
+    },
+    "analysis": {
+      "slug": "analysis",
+      "owner": "Evaluations",
+      "reference_base": "http://localhost:9225/workspace/insight/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/insight/"
+          },
+          "url": "http://localhost:9225/workspace/insight/",
+          "ia": {
+            "title": "Insight",
+            "headings": [
+              "Insight"
+            ],
+            "tabs": [
+              "Workbooks",
+              "Object sets"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "NAME",
+              "CREATOR",
+              "PATHS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No workbooks found",
+            "text_len": 2391
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/analysis/landing.png"
+        },
+        {
+          "key": "tab:Workbooks",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/insight/",
+            "clickTab": "Workbooks"
+          },
+          "url": "http://localhost:9225/workspace/insight/",
+          "ia": {
+            "title": "Insight",
+            "headings": [
+              "Insight"
+            ],
+            "tabs": [
+              "Workbooks",
+              "Object sets"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "NAME",
+              "CREATOR",
+              "PATHS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No workbooks found",
+            "text_len": 2391
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/analysis/tab_Workbooks.png"
+        },
+        {
+          "key": "tab:Object sets",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/insight/",
+            "clickTab": "Object sets"
+          },
+          "url": "http://localhost:9225/workspace/insight/",
+          "ia": {
+            "title": "Insight",
+            "headings": [
+              "Insight"
+            ],
+            "tabs": [
+              "Workbooks",
+              "Object sets"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "NAME",
+              "CREATOR",
+              "OBJECT SET SUMMARY",
+              "PRIMARY WORKBOOK"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "No object sets found",
+            "text_len": 2423
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/analysis/tab_Object_sets.png"
+        }
+      ],
+      "errors": []
+    },
+    "logic": {
+      "slug": "logic",
+      "owner": "Domain Apps",
+      "reference_base": "http://localhost:9225/workspace/logic-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/logic-app/"
+          },
+          "url": "http://localhost:9225/workspace/logic-app/",
+          "ia": {
+            "title": "AIP Logic",
+            "headings": [
+              "Build no-code Ontology functions"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "LOGIC FILE",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 4980
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/logic/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/logic-app/create-new",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/logic-app/create-new"
+          },
+          "url": "http://localhost:9225/workspace/logic-app/create-new",
+          "ia": {
+            "title": "AIP Logic",
+            "headings": [
+              "Choose Logic file location"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 292
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/logic/authoring_workspace_logic-app_create-new.png"
+        }
+      ],
+      "errors": []
+    },
+    "contour": {
+      "slug": "contour",
+      "owner": "Domain Apps",
+      "reference_base": "http://localhost:9225/workspace/contour-app/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/contour-app/"
+          },
+          "url": "http://localhost:9225/workspace/contour-app/",
+          "ia": {
+            "title": "Contour Home",
+            "headings": [
+              "Contour"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 4960
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/contour/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/contour-app/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/contour-app/splash"
+          },
+          "url": "http://localhost:9225/workspace/contour-app/splash",
+          "ia": {
+            "title": "Contour Home",
+            "headings": [
+              "Contour"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 4960
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/contour/splash_alias_workspace_contour-app_splash.png"
+        },
+        {
+          "key": "authoring:/workspace/contour-app/overview/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/contour-app/overview/create"
+          },
+          "url": "http://localhost:9225/workspace/contour-app/overview/create",
+          "ia": {
+            "title": "Contour Home",
+            "headings": [
+              "Save"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 290
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/contour/authoring_workspace_contour-app_overview_create.png"
+        }
+      ],
+      "errors": []
+    },
+    "widgets": {
+      "slug": "widgets",
+      "owner": "Developer Console",
+      "reference_base": "http://localhost:9225/workspace/custom-widgets/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/custom-widgets/"
+          },
+          "url": "http://localhost:9225/workspace/custom-widgets/",
+          "ia": {
+            "title": "Custom Widgets",
+            "headings": [
+              "Custom Widgets"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 4484
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/widgets/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/custom-widgets/new",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/custom-widgets/new"
+          },
+          "url": "http://localhost:9225/workspace/custom-widgets/new",
+          "ia": {
+            "title": "Custom Widgets",
+            "headings": [
+              "Create New Widget Set"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 4,
+            "empty_copy": "no projects",
+            "text_len": 629
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/widgets/authoring_workspace_custom-widgets_new.png"
+        }
+      ],
+      "errors": []
+    },
+    "workspaces": {
+      "slug": "workspaces",
+      "owner": "Workbench",
+      "reference_base": "http://localhost:9225/workspace/code-workspaces/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/code-workspaces/"
+          },
+          "url": "http://localhost:9225/workspace/code-workspaces/splash",
+          "ia": {
+            "title": "Home page - Code Workspaces",
+            "headings": [
+              "Code Workspaces"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "WORKSPACES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST EDITED"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "no running workspaces",
+            "text_len": 1735
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/workspaces/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/code-workspaces/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/code-workspaces/splash"
+          },
+          "url": "http://localhost:9225/workspace/code-workspaces/splash",
+          "ia": {
+            "title": "Home page - Code Workspaces",
+            "headings": [
+              "Code Workspaces"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "WORKSPACES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST EDITED"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "no running workspaces",
+            "text_len": 1735
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/workspaces/splash_alias_workspace_code-workspaces_splash.png"
+        },
+        {
+          "key": "authoring:/workspace/code-workspaces/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/code-workspaces/create"
+          },
+          "url": "http://localhost:9225/workspace/code-templates/create?origin=code-workspaces&platform=VS+Code&platform=Jupyter&platform=R+Studio",
+          "ia": {
+            "title": "Code Templates",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "",
+            "text_len": 335
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/workspaces/authoring_workspace_code-workspaces_create.png"
+        },
+        {
+          "key": "authoring:/workspace/code-workspaces/quickCreate",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/code-workspaces/quickCreate"
+          },
+          "url": "http://localhost:9225/workspace/code-templates/create?origin=code-workspaces&platform=VS+Code&platform=Jupyter&platform=R+Studio",
+          "ia": {
+            "title": "Code Templates",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 6,
+            "empty_copy": "",
+            "text_len": 335
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/workspaces/authoring_workspace_code-workspaces_quickCreate.png"
+        }
+      ],
+      "errors": []
+    },
+    "notepad": {
+      "slug": "notepad",
+      "owner": "Workbench",
+      "reference_base": "http://localhost:9225/workspace/notepad/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/notepad/"
+          },
+          "url": "http://localhost:9225/workspace/notepad/",
+          "ia": {
+            "title": "Notepad Home",
+            "headings": [
+              "Notepad"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "RESOURCE",
+              "TYPE",
+              "AUTHOR",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 14,
+            "empty_copy": "Get started using example Notepad documents and templates from Marketplace",
+            "text_len": 1602
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/notepad/landing.png"
+        },
+        {
+          "key": "authoring:/workspace/notepad/create",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/notepad/create"
+          },
+          "url": "http://localhost:9225/workspace/notepad/create",
+          "ia": {
+            "title": "Palantir",
+            "headings": [
+              "Save"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 268
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/notepad/authoring_workspace_notepad_create.png"
+        },
+        {
+          "key": "authoring:/workspace/notepad/create-new-from-template",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/notepad/create-new-from-template"
+          },
+          "url": "http://localhost:9225/workspace/notepad/create-new-from-template",
+          "ia": {
+            "title": "Palantir",
+            "headings": [
+              "Choose template"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "RESOURCE",
+              "AUTHOR",
+              "LAST MODIFIED"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "No recently opened Notepad templates found",
+            "text_len": 418
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/notepad/authoring_workspace_notepad_create-new-from-template.png"
+        },
+        {
+          "key": "authoring:/workspace/notepad/create-template",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/notepad/create-template"
+          },
+          "url": "http://localhost:9225/workspace/notepad/create-template",
+          "ia": {
+            "title": "Palantir",
+            "headings": [
+              "Save"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 0,
+            "empty_copy": "",
+            "text_len": 268
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/notepad/authoring_workspace_notepad_create-template.png"
+        }
+      ],
+      "errors": []
+    },
+    "quiver": {
+      "slug": "quiver",
+      "owner": "Evaluations",
+      "reference_base": "http://localhost:9225/workspace/quiver/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/quiver/"
+          },
+          "url": "http://localhost:9225/workspace/quiver/views/create",
+          "ia": {
+            "title": "Quiver",
+            "headings": [
+              "Create new analysis"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 5,
+            "empty_copy": "Get started on analyzing your object and time series data",
+            "text_len": 816
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/quiver/landing.png"
+        },
+        {
+          "key": "splash_alias:/workspace/quiver/splash",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/quiver/splash"
+          },
+          "url": "http://localhost:9225/workspace/quiver/splash",
+          "ia": {
+            "title": "Quiver",
+            "headings": [
+              "Quiver"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "FILES",
+              "CREATOR",
+              "LAST EDITED BY",
+              "LAST VIEWED"
+            ],
+            "rows": 0,
+            "cards": 2,
+            "empty_copy": "",
+            "text_len": 4955
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/quiver/splash_alias_workspace_quiver_splash.png"
+        }
+      ],
+      "errors": []
+    },
+    "schema": {
+      "slug": "schema",
+      "owner": "Ontology",
+      "reference_base": "http://localhost:9225/workspace/ontology/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/ontology/"
+          },
+          "url": "http://localhost:9225/workspace/ontology/home/discover",
+          "ia": {
+            "title": "Ontology Manager",
+            "headings": [],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 7,
+            "empty_copy": "No description",
+            "text_len": 862
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/schema/landing.png"
+        }
+      ],
+      "errors": []
+    },
+    "models": {
+      "slug": "models",
+      "owner": "Foundry",
+      "reference_base": "http://localhost:9225/workspace/model-catalog/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/model-catalog/"
+          },
+          "url": "http://localhost:9225/workspace/model-catalog/home?tabId=palantirProvided",
+          "ia": {
+            "title": "Model Catalog",
+            "headings": [],
+            "tabs": [
+              "Palantir-provided models",
+              "Registered models"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "LIFECYCLE STATUS",
+              "TYPE",
+              "MODEL CREATOR",
+              "NVIDIA",
+              "GPT-5"
+            ],
+            "rows": 0,
+            "cards": 70,
+            "empty_copy": "",
+            "text_len": 15903
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/models/landing.png"
+        },
+        {
+          "key": "tab:Palantir-provided models",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/model-catalog/",
+            "clickTab": "Palantir-provided models"
+          },
+          "url": "http://localhost:9225/workspace/model-catalog/home?tabId=palantirProvided",
+          "ia": {
+            "title": "Model Catalog",
+            "headings": [],
+            "tabs": [
+              "Palantir-provided models",
+              "Registered models"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS",
+              "LIFECYCLE STATUS",
+              "TYPE",
+              "MODEL CREATOR",
+              "NVIDIA",
+              "GPT-5"
+            ],
+            "rows": 0,
+            "cards": 70,
+            "empty_copy": "",
+            "text_len": 15903
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/models/tab_Palantir-provided_models.png"
+        },
+        {
+          "key": "tab:Registered models",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/model-catalog/",
+            "clickTab": "Registered models"
+          },
+          "url": "http://localhost:9225/workspace/model-catalog/home?tabId=registeredModel",
+          "ia": {
+            "title": "Model Catalog",
+            "headings": [],
+            "tabs": [
+              "Palantir-provided models",
+              "Registered models"
+            ],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 1,
+            "empty_copy": "No model registered yet",
+            "text_len": 414
+          },
+          "expresses_ia": true,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/models/tab_Registered_models.png"
+        }
+      ],
+      "errors": []
+    },
+    "listings": {
+      "slug": "listings",
+      "owner": "Marketplace",
+      "reference_base": "http://localhost:9225/workspace/marketplace/",
+      "recorded_states": [
+        {
+          "key": "landing",
+          "reach": {
+            "goto": "http://localhost:9225/workspace/marketplace/"
+          },
+          "url": "http://localhost:9225/workspace/marketplace/home",
+          "ia": {
+            "title": "Marketplace",
+            "headings": [
+              "Marketplace",
+              "Upload and install a product",
+              "Stores",
+              "What's new in Marketplace"
+            ],
+            "tabs": [],
+            "columns": [],
+            "facet_groups": [
+              "APPLICATIONS"
+            ],
+            "rows": 0,
+            "cards": 3,
+            "empty_copy": "get started with new Foundry workflows.",
+            "text_len": 3552
+          },
+          "expresses_ia": false,
+          "http_errors": [],
+          "screenshot": ".artifacts/family-atlas/listings/landing.png"
+        }
+      ],
+      "errors": []
+    }
+  },
+  "recorded_at": "2026-08-20T01:35:35.824Z"
+}

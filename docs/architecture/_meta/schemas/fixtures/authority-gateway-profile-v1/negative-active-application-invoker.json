@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.components.daemon-runtime.authority-gateway-profile.v1",
+  "profile_ref": "authority-gateway://acme/browser/revision/1",
+  "profile_revision": 1,
+  "profile_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "predecessor_profile_hash": null,
+  "declaration": {
+    "adapter": {"adapter_ref":"adapter://acme/browser","adapter_revision":"1.0.0","adapter_kind":"browser_adapter","implementation_ref":"artifact://acme/browser/1.0.0","deployment_profile_ref":"deployment-profile://acme/browser"},
+    "action_surfaces": [{"surface":"browser","action_classes":["browser"],"mediation_mode":"active_pre_effect","primitive_capabilities":[],"authority_scopes":["scope:browser.download"],"final_invoker_ref":"application://browser","receipt_profile_refs":["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1"]}],
+    "subject_kinds": ["unattached"],
+    "policy_enforcement_point_ref": "runtime://hypervisor-daemon/authority-gateway",
+    "authority_provider_ref": "authority-provider://wallet.network",
+    "failure_posture": "fail_closed",
+    "required_enforcement_scope_refs": ["enforcement-scope://acme/browser"],
+    "run_on_graduation": {"agent_harness_adapter_revision_ref":null,"agent_harness_adapter_content_hash":null,"activation_source_kind":"gateway_adapter_context","implicit_approval_carryover":false,"implicit_grant_carryover":false,"implicit_credential_carryover":false,"implicit_scope_carryover":false}
+  },
+  "grants_authority": false,
+  "status": "declared",
+  "created_at": "2026-08-24T15:00:00Z",
+  "valid_until": "2026-09-24T15:00:00Z"
+}

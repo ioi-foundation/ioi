@@ -1,0 +1,28 @@
+{
+  "schema_version": "ioi.hypervisor.designated-native-surfaces.v1",
+  "admission_class": "designated_native",
+  "doctrine": "A native product surface is admitted only by an exact tracked row whose owner, runtime route, canonical route, and journey verifier match the live registry. Naming a slug in verifier code is not admission.",
+  "surfaces": [
+    {
+      "slug": "studio-home",
+      "owner": "Studio",
+      "route": "/__ioi/studio/workbench",
+      "canonical_route": "/studio",
+      "verifier_source": "scripts/verify-hypervisor-studio-journey.mjs"
+    },
+    {
+      "slug": "packages",
+      "owner": "Packages",
+      "route": "/__ioi/packages/registry",
+      "canonical_route": "/packages",
+      "verifier_source": "scripts/verify-hypervisor-packages-journey.mjs"
+    },
+    {
+      "slug": "packages-marketplace",
+      "owner": "Packages",
+      "route": "/__ioi/packages/marketplace",
+      "canonical_route": "/packages/marketplace",
+      "verifier_source": "scripts/verify-hypervisor-packages-journey.mjs"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/certificate-acceptance-receipt/v1",
+  "title": "CertificateAcceptanceReceipt",
+  "x-ioi-schema-version": "ioi.foundations.certificate-acceptance-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_ref", "receipt_hash", "certificate_ref", "certificate_hash", "policy_ref", "policy_hash", "verifier_identity_ref", "verifier_build_hash", "trust_input_hashes", "decision", "failure_codes", "accepted_object_refs", "accepted_revision", "mutation_applied", "target_state_before_hash", "target_state_after_hash", "observed_at", "valid_until"],
+  "properties": {
+    "schema_version": { "const": "ioi.foundations.certificate-acceptance-receipt.v1" },
+    "receipt_ref": { "$ref": "#/$defs/ref" },
+    "receipt_hash": { "$ref": "#/$defs/hash" },
+    "certificate_ref": { "$ref": "#/$defs/ref" },
+    "certificate_hash": { "$ref": "#/$defs/hash" },
+    "policy_ref": { "$ref": "#/$defs/ref" },
+    "policy_hash": { "$ref": "#/$defs/hash" },
+    "verifier_identity_ref": { "$ref": "#/$defs/ref" },
+    "verifier_build_hash": { "$ref": "#/$defs/hash" },
+    "trust_input_hashes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/hash" } },
+    "decision": { "enum": ["accepted", "rejected"] },
+    "failure_codes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/name" } },
+    "accepted_object_refs": { "type": "array", "maxItems": 1, "items": { "$ref": "#/$defs/ref" } },
+    "accepted_revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "mutation_applied": { "type": "boolean" },
+    "target_state_before_hash": { "$ref": "#/$defs/hash" },
+    "target_state_after_hash": { "$ref": "#/$defs/hash" },
+    "observed_at": { "$ref": "#/$defs/timestamp" },
+    "valid_until": { "$ref": "#/$defs/timestamp" }
+  },
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9._-]{0,127}$" },
+    "timestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" }
+  }
+}

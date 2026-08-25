@@ -603,7 +603,7 @@ async fn selected_wallet_mail_provider_hides_google_mail_tools() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn discovery_injects_runtime_backed_skills_without_scs() {
+async fn discovery_hides_skill_tools_without_an_admitted_runtime_contract() {
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
     let memory_runtime = MemoryRuntime::open_sqlite_in_memory().expect("memory runtime");
@@ -677,7 +677,7 @@ async fn discovery_injects_runtime_backed_skills_without_scs() {
     )
     .await;
 
-    assert!(tools
+    assert!(!tools
         .iter()
         .any(|tool| tool.name == "browser__open_dashboard"));
 }

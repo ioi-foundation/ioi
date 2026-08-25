@@ -934,6 +934,171 @@ impl ApprovalGrant {
     }
 }
 
+fn default_standing_approval_grant_schema_version() -> u16 {
+    1
+}
+
+#[derive(Debug, Serialize)]
+struct StandingApprovalGrantSigningMaterial<'a> {
+    schema_version: u16,
+    authority_id: [u8; 32],
+    standing_envelope_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    nonce: [u8; 32],
+    counter: u64,
+    issued_at_ms: u64,
+    expires_at_ms: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+    review_receipt_hash: [u8; 32],
+    approval_ceremony_context_hash: [u8; 32],
+    auth_factor_receipt_hash: [u8; 32],
+    approver_public_key: &'a [u8],
+    approver_suite: SignatureSuite,
+}
+
+/// A separately signed standing-authority grant.
+///
+/// This is deliberately not a relaxed [`ApprovalGrant`]. C7's exact-request
+/// signing bytes remain immutable; standing authority binds a registered facet
+/// envelope and its own cumulative limits, review evidence, and ceremony
+/// evidence under a distinct type and signature domain.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct StandingApprovalGrant {
+    /// Verification-rule version for this standing grant format.
+    #[serde(default = "default_standing_approval_grant_schema_version")]
+    pub schema_version: u16,
+    /// Stable identifier derived from the approver public key.
+    pub authority_id: [u8; 32],
+    /// Exact registered standing-envelope commitment authorized by this grant.
+    pub standing_envelope_hash: [u8; 32],
+    /// Exact admission-policy commitment authorized by this grant.
+    pub policy_hash: [u8; 32],
+    /// Wallet client permitted to draw from the grant.
+    pub audience: [u8; 32],
+    /// Replay-resistant grant nonce.
+    pub nonce: [u8; 32],
+    /// Monotonic authority counter.
+    pub counter: u64,
+    /// Beginning of the grant validity interval in milliseconds.
+    pub issued_at_ms: u64,
+    /// End of the grant validity interval in milliseconds.
+    pub expires_at_ms: u64,
+    /// Maximum number of admitted effects under this grant.
+    pub max_usages: u32,
+    /// Maximum cumulative provider deposits reserved under this grant.
+    pub max_cumulative_deposit_microusd: u64,
+    /// Maximum cumulative estimated or settled spend under this grant.
+    pub max_cumulative_spend_microusd: u64,
+    /// Commitment to the byte-derived authority review receipt.
+    pub review_receipt_hash: [u8; 32],
+    /// Commitment to the consent ceremony context.
+    pub approval_ceremony_context_hash: [u8; 32],
+    /// Commitment to the factor receipt that authenticated consent.
+    pub auth_factor_receipt_hash: [u8; 32],
+    /// Public key used to verify this grant.
+    pub approver_public_key: Vec<u8>,
+    /// Signature over [`Self::signing_bytes`].
+    pub approver_sig: Vec<u8>,
+    /// Signature suite used by the approver.
+    pub approver_suite: SignatureSuite,
+}
+
+impl StandingApprovalGrant {
+    /// Returns canonical signing bytes excluding the signature itself.
+    pub fn signing_bytes(&self) -> Result<Vec<u8>, ActionHashError> {
+        serde_jcs::to_vec(&StandingApprovalGrantSigningMaterial {
+            schema_version: self.schema_version,
+            authority_id: self.authority_id,
+            standing_envelope_hash: self.standing_envelope_hash,
+            policy_hash: self.policy_hash,
+            audience: self.audience,
+            nonce: self.nonce,
+            counter: self.counter,
+            issued_at_ms: self.issued_at_ms,
+            expires_at_ms: self.expires_at_ms,
+            max_usages: self.max_usages,
+            max_cumulative_deposit_microusd: self.max_cumulative_deposit_microusd,
+            max_cumulative_spend_microusd: self.max_cumulative_spend_microusd,
+            review_receipt_hash: self.review_receipt_hash,
+            approval_ceremony_context_hash: self.approval_ceremony_context_hash,
+            auth_factor_receipt_hash: self.auth_factor_receipt_hash,
+            approver_public_key: &self.approver_public_key,
+            approver_suite: self.approver_suite,
+        })
+        .map_err(|error| ActionHashError::Canonicalization(error.to_string()))
+    }
+
+    /// Returns the canonical content hash of the complete signed artifact.
+    pub fn artifact_hash(&self) -> Result<[u8; 32], ActionHashError> {
+        let canonical = serde_jcs::to_vec(self)
+            .map_err(|error| ActionHashError::Canonicalization(error.to_string()))?;
+        let digest =
+            Sha256::digest(&canonical).map_err(|error| ActionHashError::Hash(error.to_string()))?;
+        let mut out = [0u8; 32];
+        out.copy_from_slice(digest.as_ref());
+        Ok(out)
+    }
+
+    /// Verifies closed structure and signer-key self-consistency.
+    ///
+    /// Live admission must additionally verify the signature, resolve current
+    /// issuer authority and revocation, prove facet containment, and atomically
+    /// consume the wallet-owned cumulative counters.
+    pub fn verify(&self) -> Result<(), ActionHashError> {
+        if self.schema_version != default_standing_approval_grant_schema_version() {
+            return Err(ActionHashError::Canonicalization(
+                "standing approval grant schema mismatch".to_string(),
+            ));
+        }
+        for (label, value) in [
+            ("standing_envelope_hash", self.standing_envelope_hash),
+            ("policy_hash", self.policy_hash),
+            ("audience", self.audience),
+            ("nonce", self.nonce),
+            ("review_receipt_hash", self.review_receipt_hash),
+            (
+                "approval_ceremony_context_hash",
+                self.approval_ceremony_context_hash,
+            ),
+            ("auth_factor_receipt_hash", self.auth_factor_receipt_hash),
+        ] {
+            if value == [0u8; 32] {
+                return Err(ActionHashError::Hash(format!(
+                    "standing approval grant {label} must not be zero"
+                )));
+            }
+        }
+        if self.counter == 0
+            || self.issued_at_ms == 0
+            || self.expires_at_ms <= self.issued_at_ms
+            || self.max_usages == 0
+            || self.max_cumulative_deposit_microusd == 0
+            || self.max_cumulative_spend_microusd == 0
+            || self.max_cumulative_spend_microusd > self.max_cumulative_deposit_microusd
+        {
+            return Err(ActionHashError::Hash(
+                "standing approval grant bounds are invalid".to_string(),
+            ));
+        }
+        if self.approver_public_key.is_empty() || self.approver_sig.is_empty() {
+            return Err(ActionHashError::Hash(
+                "standing approval grant signer material is missing".to_string(),
+            ));
+        }
+        let derived = account_id_from_key_material(self.approver_suite, &self.approver_public_key)
+            .map_err(|error| ActionHashError::Canonicalization(error.to_string()))?;
+        if derived != self.authority_id {
+            return Err(ActionHashError::Hash(
+                "standing approval grant authority_id does not match public key".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 fn default_settlement_receipt_bundle_schema_version() -> u16 {
     1
 }

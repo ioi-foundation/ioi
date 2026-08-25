@@ -1,0 +1,37 @@
+{
+  "$id": "invariant://ioi/components/daemon-runtime/authority-effect-admission-receipt/pre-invocation-binding/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2",
+  "rules": [
+    {
+      "rule_id": "authority_effect_admission.grant_hash.matches_envelope",
+      "description": "The receipt envelope input is the exact v3 authority grant body hash.",
+      "expression": { "operator": "fields_equal", "paths": ["$.receipt_envelope.input_hash", "$.body.authority_grant_hash"] }
+    },
+    {
+      "rule_id": "authority_effect_admission.body_hash.matches_envelope",
+      "description": "The receipt envelope output binds the immutable admission body.",
+      "expression": { "operator": "fields_equal", "paths": ["$.receipt_envelope.output_hash", "$.body_hash"] }
+    },
+    {
+      "rule_id": "authority_effect_admission.grant_ref.matches_envelope",
+      "description": "The generic receipt envelope and admission body name the same grant.",
+      "expression": { "operator": "fields_equal", "paths": ["$.receipt_envelope.authority_grant_id", "$.body.authority_grant_ref"] }
+    },
+    {
+      "rule_id": "authority_effect_admission.policy_hash.matches_envelope",
+      "description": "The body and generic receipt envelope bind the same policy.",
+      "expression": { "operator": "fields_equal", "paths": ["$.receipt_envelope.policy_hash", "$.body.policy_hash"] }
+    },
+    {
+      "rule_id": "authority_effect_admission.pep.matches_envelope",
+      "description": "The generic receipt actor is the PEP that made the admission decision.",
+      "expression": { "operator": "fields_equal", "paths": ["$.receipt_envelope.actor_id", "$.body.policy_enforcement_point_ref"] }
+    },
+    {
+      "rule_id": "authority_effect_admission.timestamp.matches_envelope",
+      "description": "The generic receipt timestamp is the pre-invocation decision time.",
+      "expression": { "operator": "fields_equal", "paths": ["$.receipt_envelope.timestamp", "$.body.decided_at"] }
+    }
+  ]
+}

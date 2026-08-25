@@ -19,7 +19,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use axum::body::Body;
-use axum::extract::{Path as AxumPath, Query, State};
+use axum::extract::{OriginalUri, Path as AxumPath, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -99,7 +99,6 @@ use ioi_services::agentic::runtime::kernel::runtime_thread_event::{
 use ioi_services::agentic::runtime::kernel::runtime_thread_fork_control::{
     RuntimeThreadForkControlRequest, RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
 };
-use ioi_services::agentic::runtime::kernel::runtime_tool_catalog::RuntimeToolCatalogProjectionRequest;
 use ioi_services::agentic::runtime::kernel::runtime_workspace_change_control::{
     RuntimeWorkspaceChangeControlRequest, RuntimeWorkspaceChangeProjectionRequest,
     RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -148,6 +147,83 @@ fn read_agent_for_thread(st: &DaemonState, thread_id: &str) -> Option<Value> {
     read_record_dir(&st.data_dir, "agents")
         .into_iter()
         .find(|agent| agent.get("id").and_then(|v| v.as_str()) == Some(agent_id.as_str()))
+}
+
+fn thread_mcp_servers(st: &DaemonState, thread_id: &str) -> Vec<Value> {
+    read_agent_for_thread(st, thread_id)
+        .and_then(|agent| {
+            agent
+                .get("mcpRegistry")
+                .or_else(|| agent.get("mcp_registry"))
+                .and_then(|registry| registry.get("servers"))
+                .and_then(Value::as_array)
+                .cloned()
+        })
+        .unwrap_or_default()
+}
+
+fn thread_mcp_server_binds_contract(
+    st: &DaemonState,
+    thread_id: &str,
+    server_id: &str,
+    revision_ref: &str,
+) -> bool {
+    thread_mcp_servers(st, thread_id).iter().any(|server| {
+        server.get("id").and_then(Value::as_str) == Some(server_id)
+            && server.get("enabled").and_then(Value::as_bool) != Some(false)
+            && server
+                .get("runtime_tool_contract_revision_refs")
+                .and_then(Value::as_array)
+                .is_some_and(|refs| {
+                    refs.iter()
+                        .any(|value| value.as_str() == Some(revision_ref))
+                })
+    })
+}
+
+fn configured_thread_mcp_server(
+    st: &DaemonState,
+    thread_id: &str,
+    server_id: &str,
+) -> Option<Value> {
+    thread_mcp_servers(st, thread_id)
+        .into_iter()
+        .find(|server| server.get("id").and_then(Value::as_str) == Some(server_id))
+}
+
+fn thread_mcp_server_has_daemon_binding(
+    st: &DaemonState,
+    thread_id: &str,
+    server_id: &str,
+) -> bool {
+    configured_thread_mcp_server(st, thread_id, server_id).is_some_and(|server| {
+        server
+            .get("runtime_tool_contract_revision_refs")
+            .and_then(Value::as_array)
+            .is_some_and(|refs| !refs.is_empty())
+    })
+}
+
+fn thread_mcp_projection_servers(st: &DaemonState, thread_id: &str) -> Vec<Value> {
+    thread_mcp_servers(st, thread_id)
+        .into_iter()
+        .map(|mut server| {
+            let admitted_and_enabled = server.get("enabled").and_then(Value::as_bool)
+                != Some(false)
+                && server
+                    .get("runtime_tool_contract_revision_refs")
+                    .and_then(Value::as_array)
+                    .is_some_and(|refs| !refs.is_empty());
+            if !admitted_and_enabled {
+                if let Some(server) = server.as_object_mut() {
+                    server.insert("enabled".to_string(), Value::Bool(false));
+                    server.insert("allowed_tools".to_string(), json!([]));
+                    server.insert("tools".to_string(), json!([]));
+                }
+            }
+            server
+        })
+        .collect()
 }
 
 /// Coalesce a string field across camelCase / snake_case aliases.
@@ -1689,14 +1765,255 @@ fn apply_mcp_control(
     Ok(Json(response))
 }
 
+fn canonical_mcp_import_servers(body: &Value) -> Result<Vec<Value>, AppError> {
+    let servers = body
+        .get("servers")
+        .or_else(|| body.get("mcpServers"))
+        .unwrap_or(&Value::Null);
+    match servers {
+        Value::Array(entries) => Ok(entries.clone()),
+        Value::Object(entries) => entries
+            .iter()
+            .map(|(label, config)| {
+                let mut config = config.as_object().cloned().ok_or_else(|| {
+                    AppError(
+                        StatusCode::BAD_REQUEST,
+                        format!("MCP import server '{label}' must be an object"),
+                    )
+                })?;
+                config
+                    .entry("id".to_string())
+                    .or_insert_with(|| json!(label));
+                Ok(Value::Object(config))
+            })
+            .collect(),
+        Value::Null => Ok(Vec::new()),
+        _ => Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "MCP import servers must be an array or object".to_string(),
+        )),
+    }
+}
+
+fn strip_caller_mcp_admission_claims(server: &mut Value) {
+    if let Some(server) = server.as_object_mut() {
+        server.remove("runtime_tool_contract_revision_refs");
+        server.remove("runtimeToolContractRevisionRefs");
+    }
+}
+
+fn live_mcp_server_candidates(servers: &[Value]) -> Result<Vec<(String, Value)>, AppError> {
+    let mut candidates = Vec::new();
+    for config in servers {
+        let explicit_live_mode = matches!(
+            config.get("mode").and_then(Value::as_str),
+            Some("development" | "production")
+        );
+        if !explicit_live_mode {
+            continue;
+        }
+        if config.get("command").and_then(Value::as_str).is_none() {
+            return Err(AppError(
+                StatusCode::BAD_REQUEST,
+                "live MCP stdio configuration requires command".to_string(),
+            ));
+        }
+        let label = config
+            .get("id")
+            .and_then(Value::as_str)
+            .or_else(|| config.get("label").and_then(Value::as_str))
+            .or_else(|| config.get("name").and_then(Value::as_str))
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| {
+                AppError(
+                    StatusCode::BAD_REQUEST,
+                    "live MCP stdio configuration requires id, label, or name".to_string(),
+                )
+            })?;
+        candidates.push((label.to_string(), config.clone()));
+    }
+    Ok(candidates)
+}
+
+#[cfg(test)]
+mod mcp_live_import_tests {
+    use super::*;
+
+    #[test]
+    fn object_import_normalizes_labels_and_strips_forged_admission_refs() {
+        let body = json!({
+            "mcpServers": {
+                "fixture": {
+                    "command": "node",
+                    "args": ["fixture.mjs"],
+                    "mode": "development",
+                    "runtime_tool_contract_revision_refs": ["runtime-tool://forged"]
+                }
+            }
+        });
+        let mut servers = canonical_mcp_import_servers(&body)
+            .unwrap_or_else(|_| panic!("normalize object import"));
+        assert_eq!(servers[0]["id"], "fixture");
+        strip_caller_mcp_admission_claims(&mut servers[0]);
+        assert!(servers[0]
+            .get("runtime_tool_contract_revision_refs")
+            .is_none());
+        let live = live_mcp_server_candidates(&servers)
+            .unwrap_or_else(|_| panic!("explicit live candidate"));
+        assert_eq!(live.len(), 1);
+        assert_eq!(live[0].0, "fixture");
+    }
+
+    #[test]
+    fn command_without_explicit_mode_remains_an_unadmitted_candidate() {
+        let servers = vec![json!({
+            "id": "candidate",
+            "command": "node",
+            "args": ["candidate.mjs"]
+        })];
+        assert!(live_mcp_server_candidates(&servers)
+            .unwrap_or_else(|_| panic!("candidate parsing"))
+            .is_empty());
+    }
+}
+
+struct LiveMcpAdmission {
+    server_id: String,
+    revision_refs: Vec<String>,
+    tools: Vec<ioi_types::app::agentic::LlmToolDefinition>,
+}
+
+impl LiveMcpAdmission {
+    fn response(&self) -> Value {
+        json!({
+            "server_id": self.server_id,
+            "status": "live_admitted",
+            "runtime_tool_contract_revision_refs": self.revision_refs,
+            "protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+        })
+    }
+}
+
+async fn admit_live_mcp_candidates(
+    st: &DaemonState,
+    candidates: Vec<(String, Value)>,
+) -> Result<Vec<LiveMcpAdmission>, AppError> {
+    let mut admissions: Vec<LiveMcpAdmission> = Vec::with_capacity(candidates.len());
+    for (server_id, config) in candidates {
+        let revision_refs = match super::start_and_admit_mcp_server(st, &server_id, &config).await {
+            Ok(revision_refs) => revision_refs,
+            Err(error) => {
+                for admission in &admissions {
+                    let _ = st.mcp_manager.stop_server(&admission.server_id).await;
+                }
+                return Err(error);
+            }
+        };
+        let tools = match st
+            .mcp_manager
+            .list_admitted_tools_for_server(&server_id)
+            .await
+        {
+            Ok(tools) => tools,
+            Err(error) => {
+                let _ = st.mcp_manager.stop_server(&server_id).await;
+                for admission in &admissions {
+                    let _ = st.mcp_manager.stop_server(&admission.server_id).await;
+                }
+                return Err(AppError(StatusCode::BAD_GATEWAY, error.to_string()));
+            }
+        };
+        admissions.push(LiveMcpAdmission {
+            server_id,
+            revision_refs,
+            tools,
+        });
+    }
+    Ok(admissions)
+}
+
+fn bind_live_mcp_admissions(servers: &mut [Value], admissions: &[LiveMcpAdmission]) {
+    for admission in admissions {
+        let Some(server) = servers.iter_mut().find(|server| {
+            server.get("id").and_then(Value::as_str) == Some(admission.server_id.as_str())
+        }) else {
+            continue;
+        };
+        let Some(server) = server.as_object_mut() else {
+            continue;
+        };
+        server.insert(
+            "runtime_tool_contract_revision_refs".to_string(),
+            json!(admission.revision_refs),
+        );
+        server.insert(
+            "allowed_tools".to_string(),
+            Value::Array(
+                admission
+                    .tools
+                    .iter()
+                    .map(|tool| {
+                        let prefix = format!("{}__", admission.server_id);
+                        json!({
+                            "name": tool.name.strip_prefix(&prefix).unwrap_or(&tool.name),
+                            "description": tool.description,
+                            "input_schema": serde_json::from_str::<Value>(&tool.parameters)
+                                .unwrap_or_else(|_| json!({ "type": "object" })),
+                        })
+                    })
+                    .collect(),
+            ),
+        );
+    }
+}
+
+async fn stop_live_mcp_admissions(st: &DaemonState, admissions: &[LiveMcpAdmission]) {
+    for admission in admissions {
+        let _ = st.mcp_manager.stop_server(&admission.server_id).await;
+    }
+}
+
+fn attach_live_mcp_admissions(
+    mut response: Json<Value>,
+    admissions: &[LiveMcpAdmission],
+) -> Json<Value> {
+    if let Some(map) = response.0.as_object_mut() {
+        map.insert(
+            "live_server_admissions".to_string(),
+            Value::Array(admissions.iter().map(LiveMcpAdmission::response).collect()),
+        );
+    }
+    response
+}
+
 /// POST /v1/threads/:id/mcp/import — import an MCP server set.
 pub(crate) async fn handle_mcp_import(
     State(st): State<Arc<DaemonState>>,
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    let servers = body.get("servers").cloned().unwrap_or_else(|| json!([]));
-    apply_mcp_control(&st, &thread_id, "mcp_import", json!({ "servers": servers }))
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
+    }
+    let mut servers = canonical_mcp_import_servers(&body)?;
+    for server in &mut servers {
+        strip_caller_mcp_admission_claims(server);
+    }
+    let live_candidates = live_mcp_server_candidates(&servers)?;
+    let admissions = admit_live_mcp_candidates(&st, live_candidates).await?;
+    bind_live_mcp_admissions(&mut servers, &admissions);
+    let response =
+        match apply_mcp_control(&st, &thread_id, "mcp_import", json!({ "servers": servers })) {
+            Ok(response) => response,
+            Err(error) => {
+                stop_live_mcp_admissions(&st, &admissions).await;
+                return Err(error);
+            }
+        };
+    Ok(attach_live_mcp_admissions(response, &admissions))
 }
 
 /// POST /v1/threads/:id/mcp/servers — add a single MCP server.
@@ -1705,7 +2022,26 @@ pub(crate) async fn handle_mcp_add(
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(&st, &thread_id, "mcp_add", json!({ "server": body }))
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
+    }
+    let mut server = body;
+    strip_caller_mcp_admission_claims(&mut server);
+    let live_candidates = live_mcp_server_candidates(std::slice::from_ref(&server))?;
+    let admissions = admit_live_mcp_candidates(&st, live_candidates).await?;
+    bind_live_mcp_admissions(std::slice::from_mut(&mut server), &admissions);
+    let response = match apply_mcp_control(&st, &thread_id, "mcp_add", json!({ "server": server }))
+    {
+        Ok(response) => response,
+        Err(error) => {
+            stop_live_mcp_admissions(&st, &admissions).await;
+            return Err(error);
+        }
+    };
+    Ok(attach_live_mcp_admissions(response, &admissions))
 }
 
 /// POST /v1/threads/:id/tools/:name/invoke — invoke a coding-tool-pack tool against the
@@ -2827,12 +3163,20 @@ pub(crate) async fn handle_mcp_remove(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(
+    let owns_live_binding = thread_mcp_server_has_daemon_binding(&st, &thread_id, &server_id);
+    let response = apply_mcp_control(
         &st,
         &thread_id,
         "mcp_remove",
-        json!({ "server_id": server_id }),
-    )
+        json!({ "server_id": server_id.clone() }),
+    )?;
+    if owns_live_binding {
+        st.mcp_manager
+            .stop_server(&server_id)
+            .await
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    }
+    Ok(response)
 }
 
 /// POST /v1/threads/:id/mcp/servers/:server_id/enable — enable an MCP server.
@@ -2840,12 +3184,28 @@ pub(crate) async fn handle_mcp_enable(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(
+    let configured =
+        configured_thread_mcp_server(&st, &thread_id, &server_id).ok_or_else(|| {
+            AppError(
+                StatusCode::NOT_FOUND,
+                format!("MCP server not found for thread: {server_id}"),
+            )
+        })?;
+    let live_candidates = live_mcp_server_candidates(std::slice::from_ref(&configured))?;
+    let admissions = admit_live_mcp_candidates(&st, live_candidates).await?;
+    let response = match apply_mcp_control(
         &st,
         &thread_id,
         "mcp_enable",
         json!({ "server_id": server_id, "enabled": true }),
-    )
+    ) {
+        Ok(response) => response,
+        Err(error) => {
+            stop_live_mcp_admissions(&st, &admissions).await;
+            return Err(error);
+        }
+    };
+    Ok(attach_live_mcp_admissions(response, &admissions))
 }
 
 /// POST /v1/threads/:id/mcp/servers/:server_id/disable — disable an MCP server.
@@ -2853,20 +3213,28 @@ pub(crate) async fn handle_mcp_disable(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(
+    let owns_live_binding = thread_mcp_server_has_daemon_binding(&st, &thread_id, &server_id);
+    let response = apply_mcp_control(
         &st,
         &thread_id,
         "mcp_disable",
-        json!({ "server_id": server_id, "enabled": false }),
-    )
+        json!({ "server_id": server_id.clone(), "enabled": false }),
+    )?;
+    if owns_live_binding {
+        st.mcp_manager
+            .stop_server(&server_id)
+            .await
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    }
+    Ok(response)
 }
 
 /// POST /v1/threads/:id/mcp (or /mcp/status) — record an MCP manager status marker.
 ///
 /// Same kernel control planner as import/add/remove/enable/disable; control_kind
 /// `mcp_status` records the reported status onto the agent's MCP registry. Live
-/// tool invocation (`/mcp/invoke`, `/mcp/serve`) is NOT migrated here — those need
-/// live MCP transport admission and stay served by the JS client.
+/// Live invocation and admission are owned by the thread-scoped routes; this
+/// endpoint only records the caller's manager-status projection.
 pub(crate) async fn handle_mcp_status(
     State(st): State<Arc<DaemonState>>,
     AxumPath(thread_id): AxumPath<String>,
@@ -6043,21 +6411,27 @@ pub(crate) async fn handle_github_pr_create_plan(
 pub(crate) async fn handle_tools(
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, AppError> {
-    let mut request_json = json!({
-        "operation": "runtime_tool_catalog",
-        "operation_kind": "runtime.tool_catalog.projection.tools",
-        "projection_kind": "tools",
-        "source": "hypervisor_daemon./v1/tools",
-    });
-    if let (Some(object), Some(pack)) = (request_json.as_object_mut(), params.get("pack")) {
-        object.insert("pack".to_string(), json!(pack.to_lowercase()));
-    }
-    let request: RuntimeToolCatalogProjectionRequest = serde_json::from_value(request_json)
-        .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
-        .project_runtime_tool_catalog(&request)
-        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    Ok(Json(Value::Array(record.tools.clone())))
+    let registry =
+        ioi_services::agentic::runtime::runtime_tool_contract_registry::default_seeded_registry()
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    let pack = params
+        .get("pack")
+        .map(|value| value.trim().to_ascii_lowercase());
+    let tools = registry
+        .current_released()
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?
+        .into_iter()
+        .filter(|resolved| {
+            pack.as_deref().map_or(true, |pack| {
+                pack == "all"
+                    || resolved.contract.namespace == pack
+                    || resolved.contract.owner.to_ascii_lowercase().contains(pack)
+            })
+        })
+        .map(|resolved| serde_json::to_value(resolved.contract))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    Ok(Json(Value::Array(tools)))
 }
 
 /// GET /v1/hypervisor/core-taxonomy — the canonical Hypervisor Core taxonomy (static
@@ -8151,6 +8525,242 @@ fn catalog_slice(catalog: &Value, key: &str) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// GET /v1/threads/:id/mcp/status — project the canonical thread-scoped MCP
+/// manager status without mutating its control record.
+pub(crate) async fn handle_mcp_thread_status(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            "MCP thread not found".to_string(),
+        ));
+    }
+    let request: McpManagerCatalogProjectionRequest = serde_json::from_value(json!({
+        "schema_version": MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+        "servers": thread_mcp_projection_servers(&st, &thread_id),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let catalog = RuntimeKernelService::new()
+        .plan_mcp_manager_catalog_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let catalog = serde_json::to_value(catalog)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(json!({
+        "schema_version": "ioi.runtime.mcp-manager-status.v1",
+        "status": "ready",
+        "thread_id": thread_id,
+        "server_count": catalog.get("server_count").cloned().unwrap_or(json!(0)),
+        "tool_count": catalog.get("tool_count").cloned().unwrap_or(json!(0)),
+        "resource_count": catalog.get("resource_count").cloned().unwrap_or(json!(0)),
+        "prompt_count": catalog.get("prompt_count").cloned().unwrap_or(json!(0)),
+        "servers": catalog_slice(&catalog, "servers"),
+        "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+    })))
+}
+
+/// POST /v1/threads/:id/mcp/tools/:tool_id/invoke — execute one admitted MCP
+/// tool through the canonical RuntimeAgentService step/final-invoker path.
+pub(crate) async fn handle_mcp_tool_invoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, tool_id)): AxumPath<(String, String)>,
+    Json(mut body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "code": "mcp_thread_not_found",
+                    "message": "The MCP invocation thread does not exist.",
+                    "thread_id": thread_id,
+                }
+            })),
+        );
+    }
+    let server_id = body
+        .get("server_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let tool_name = body
+        .get("tool_name")
+        .or_else(|| body.get("tool"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if server_id.is_empty() || tool_name.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_coordinates_required",
+                    "message": "server_id and tool_name are required; route ids never infer authority coordinates",
+                }
+            })),
+        );
+    }
+    let namespaced_tool = format!("{server_id}__{tool_name}");
+    let stable_tool_id = format!("mcp.{server_id}.{tool_name}");
+    if tool_id != namespaced_tool && tool_id != stable_tool_id {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_identity_mismatch",
+                    "message": "The route tool id does not bind the supplied server/tool coordinates.",
+                    "route_tool_id": tool_id,
+                    "expected_ids": [namespaced_tool, stable_tool_id],
+                }
+            })),
+        );
+    }
+    let contract = match st.runtime_tool_contract_registry.read() {
+        Ok(registry) => registry.resolve_current_for_name(&namespaced_tool),
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": "runtime_tool_contract_registry_unavailable" } })),
+            )
+        }
+    };
+    let contract = match contract {
+        Ok(contract) if contract.contract.owner == format!("mcp-server://{server_id}") => contract,
+        Ok(_) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "error": { "code": "mcp_tool_owner_mismatch" } })),
+            )
+        }
+        Err(error) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({
+                    "error": {
+                        "code": error.code,
+                        "message": error.message,
+                    }
+                })),
+            )
+        }
+    };
+    if !thread_mcp_server_binds_contract(
+        &st,
+        &thread_id,
+        &server_id,
+        &contract.contract.revision_ref,
+    ) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_not_bound_to_thread",
+                    "message": "The admitted tool revision is not enabled by this thread's daemon-owned MCP mount.",
+                }
+            })),
+        );
+    }
+
+    let arguments = body
+        .get("arguments")
+        .cloned()
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({}));
+    let invocation_key = body
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| short_hash(&format!("{thread_id}:{namespaced_tool}:{arguments}")));
+    let session_ref = format!("mcp-invoke:{thread_id}:{invocation_key}");
+    let Some(host_body) = body.as_object_mut() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": { "code": "mcp_invoke_body_invalid" } })),
+        );
+    };
+    // This route owns one exact MCP action. Caller-supplied runtime-host directives
+    // must not exploit route-frame precedence to execute a different side effect.
+    for conflicting_directive in [
+        "file_write",
+        "shell_run",
+        "browser_navigate",
+        "mcp_tool_call",
+    ] {
+        host_body.remove(conflicting_directive);
+    }
+    host_body.insert("session_ref".to_string(), json!(session_ref));
+    host_body.insert(
+        "goal".to_string(),
+        json!(format!("Invoke admitted MCP tool {namespaced_tool}")),
+    );
+    host_body.insert("step".to_string(), json!(true));
+    host_body.insert(
+        "mcp_tool_call".to_string(),
+        json!({ "tool_name": namespaced_tool, "arguments": arguments }),
+    );
+
+    let (status, Json(host_result)) =
+        runtime_host::handle_runtime_host_session(State(st), Json(body)).await;
+    if status != StatusCode::OK {
+        return (status, Json(host_result));
+    }
+    let action = host_result["step"]["events"]
+        .as_array()
+        .and_then(|events| {
+            events.iter().find(|event| {
+                event.get("kind").and_then(Value::as_str) == Some("AgentActionResult")
+                    && event.get("tool_name").and_then(Value::as_str)
+                        == Some(namespaced_tool.as_str())
+            })
+        })
+        .cloned();
+    let Some(action) = action else {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "error": {
+                    "code": "mcp_final_invoker_result_missing",
+                    "message": "RuntimeAgentService returned without a matching final-invoker result.",
+                },
+                "runtime_host": host_result,
+            })),
+        );
+    };
+    if !action.get("error_class").is_none_or(Value::is_null) {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "error": {
+                    "code": "mcp_final_invoker_failed",
+                    "error_class": action.get("error_class"),
+                    "message": action.get("output"),
+                },
+                "runtime_host": host_result,
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.runtime.mcp-tool-invocation.v1",
+            "status": "executed",
+            "thread_id": thread_id,
+            "tool_id": tool_id,
+            "tool_name": namespaced_tool,
+            "runtime_tool_contract_revision_ref": contract.contract.revision_ref,
+            "runtime_tool_contract_admission_receipt_ref": contract.admission_receipt_ref,
+            "final_invoker": "RuntimeAgentService.handle_action_execution",
+            "result": action.get("output").cloned().unwrap_or(Value::Null),
+            "runtime_session_id": host_result.get("runtime_session_id"),
+            "runtime_host": host_result,
+        })),
+    )
+}
+
 /// GET /v1/mcp/servers?thread_id=&mcp_config_source_mode= — discover the MCP servers for a
 /// thread's workspace `.cursor/mcp.json` (+ the operator-home `~/.ioi/mcp.json`).
 pub(crate) async fn handle_mcp_discover_servers(
@@ -8239,6 +8849,7 @@ pub(crate) async fn handle_mcp_tool_search(
         .or_else(|| params.get("query"))
         .or_else(|| params.get("search"))
         .cloned();
+    let projection_servers = thread_mcp_projection_servers(&st, &thread_id);
     let request: McpToolSearchProjectionRequest = serde_json::from_value(json!({
         "schema_version": MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
         "status_schema_version": "ioi.runtime.mcp-tool-search.v1",
@@ -8246,7 +8857,7 @@ pub(crate) async fn handle_mcp_tool_search(
         "thread_id": thread_id,
         "agent_id": agent_id,
         "server_id": params.get("server_id"),
-        "servers": [],
+        "servers": projection_servers,
         "query": query,
         "tool_id": params.get("tool_id"),
         "limit": params.get("limit").and_then(|v| v.parse::<u64>().ok()),
@@ -8259,6 +8870,188 @@ pub(crate) async fn handle_mcp_tool_search(
     let projected = serde_json::to_value(&record)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(projected))
+}
+
+/// GET /v1/threads/:id/mcp/tools/:tool_id — return the admitted immutable
+/// RuntimeToolContract projection, never an unadmitted transport descriptor.
+pub(crate) async fn handle_mcp_tool_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, tool_id)): AxumPath<(String, String)>,
+) -> (StatusCode, Json<Value>) {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "mcp_thread_not_found" } })),
+        );
+    }
+    let contracts = match st.runtime_tool_contract_registry.read() {
+        Ok(registry) => registry.current_released(),
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": "runtime_tool_contract_registry_unavailable" } })),
+            )
+        }
+    };
+    let contracts = match contracts {
+        Ok(contracts) => contracts,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": error.code, "message": error.message } })),
+            )
+        }
+    };
+    let resolved = contracts.into_iter().find(|resolved| {
+        let contract = &resolved.contract;
+        let Some(server_id) = contract.owner.strip_prefix("mcp-server://") else {
+            return false;
+        };
+        let raw_name = contract
+            .display_name
+            .strip_prefix(&format!("{server_id}__"))
+            .unwrap_or(&contract.display_name);
+        tool_id == contract.display_name
+            || tool_id == contract.tool_id
+            || tool_id == format!("mcp.{server_id}.{raw_name}")
+    });
+    let Some(resolved) = resolved else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_contract_not_found",
+                    "message": "No admitted current RuntimeToolContract matches this tool id.",
+                },
+                "thread_id": thread_id,
+                "tool_id": tool_id,
+            })),
+        );
+    };
+    let server_id = resolved
+        .contract
+        .owner
+        .strip_prefix("mcp-server://")
+        .unwrap_or_default();
+    if !thread_mcp_server_binds_contract(
+        &st,
+        &thread_id,
+        server_id,
+        &resolved.contract.revision_ref,
+    ) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_not_bound_to_thread",
+                    "message": "The admitted tool revision is not enabled by this thread's daemon-owned MCP mount.",
+                },
+                "thread_id": thread_id,
+                "tool_id": tool_id,
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.runtime.mcp-tool-contract-projection.v1",
+            "status": "admitted",
+            "thread_id": thread_id,
+            "tool_id": tool_id,
+            "canonical_backing_ref": resolved.contract.revision_ref,
+            "effective_gateway_profile_revision": resolved.contract.version,
+            "policy_posture": {
+                "primitive_capabilities_required": resolved.contract.primitive_capabilities_required,
+                "authority_scopes_required": resolved.contract.authority_scopes_required,
+                "approval_required": resolved.contract.approval_required,
+                "data_class_allowlist": resolved.contract.data_class_allowlist,
+                "egress_policy": resolved.contract.egress_policy,
+            },
+            "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+            "normalization_decision": "RuntimeToolContract",
+            "runtime_tool_contract_admission_receipt_ref": resolved.admission_receipt_ref,
+            "contract": resolved.contract,
+        })),
+    )
+}
+
+fn mcp_unavailable_classification(path: &str) -> (&'static str, &'static str) {
+    if path.contains("/resources") {
+        (
+            "mcp.resource",
+            "PolicyBoundDataView|ArtifactRef|MemoryProjection+ContextLease",
+        )
+    } else if path.contains("/prompts") {
+        (
+            "mcp.prompt",
+            "tainted-import:SkillManifest|GoalRunProfile|invocation",
+        )
+    } else if path.contains("/elicitation-requests") {
+        ("mcp.elicitation", "typed-user-input-request")
+    } else if path.contains("/external-task-bindings") {
+        ("mcp.task", "HarnessInvocation.external-handle")
+    } else if path.contains("/apps") {
+        (
+            "mcp.app",
+            "sandboxed-extension_application-descriptor-and-surface",
+        )
+    } else {
+        ("mcp.serve", "RuntimeMcpServe")
+    }
+}
+
+fn mcp_normalization_unavailable_response(
+    st: &DaemonState,
+    thread_id: String,
+    object_id: Option<String>,
+    uri: &str,
+) -> (StatusCode, Json<Value>) {
+    if read_agent_for_thread(st, &thread_id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "mcp_thread_not_found" } })),
+        );
+    }
+    let (primitive, canonical_owner) = mcp_unavailable_classification(uri);
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(json!({
+            "schema_version": "ioi.runtime.mcp-normalization-decision.v1",
+            "status": "typed_unavailable",
+            "thread_id": thread_id,
+            "object_id": object_id,
+            "primitive": primitive,
+            "canonical_owner": canonical_owner,
+            "canonical_backing_ref": Value::Null,
+            "effective_gateway_profile_revision": Value::Null,
+            "policy_lease_posture": "not_minted",
+            "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+            "normalization_decision": "typed_unavailable",
+            "authority_granted": false,
+            "receipt_identity_granted": false,
+            "reason": "This MCP protocol object has no admitted canonical runtime normalization implementation.",
+        })),
+    )
+}
+
+/// Canonical MCP normalization routes without an object id. These surfaces are
+/// deliberately present but fail typed-unavailable until their owner can emit
+/// the required backing reference and policy/lease posture.
+pub(crate) async fn handle_mcp_normalization_unavailable_root(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    OriginalUri(uri): OriginalUri,
+) -> (StatusCode, Json<Value>) {
+    mcp_normalization_unavailable_response(&st, thread_id, None, uri.path())
+}
+
+/// Canonical MCP normalization routes naming a protocol object.
+pub(crate) async fn handle_mcp_normalization_unavailable_object(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, object_id)): AxumPath<(String, String)>,
+    OriginalUri(uri): OriginalUri,
+) -> (StatusCode, Json<Value>) {
+    mcp_normalization_unavailable_response(&st, thread_id, Some(object_id), uri.path())
 }
 
 /// POST /v1/runs/:id/cancel — cancel a run via plan_run_cancel_state_update.
@@ -9181,6 +9974,9 @@ pub(crate) async fn run_host_spawn_lane(
         .args(&argv[1..])
         .current_dir(workspace_root)
         .env_clear()
+        // A cancelled HTTP task or daemon shutdown drops this handle. Tokio otherwise leaves the
+        // child running, which would violate ACC-1's no-orphan guarantee on a partial chain.
+        .kill_on_drop(true)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
@@ -9338,6 +10134,8 @@ pub(crate) async fn run_host_spawn_lane(
 /// called after the execution authority gate admits `port_exposure`.
 async fn start_preview_server(
     workspace_root: String,
+    data_dir: String,
+    capability_lease_ref: String,
 ) -> std::io::Result<(
     u16,
     tokio::sync::oneshot::Sender<()>,
@@ -9348,7 +10146,11 @@ async fn start_preview_server(
     let app = axum::Router::new()
         .route("/", axum::routing::get(serve_preview_root))
         .route("/*preview_path", axum::routing::get(serve_preview_path))
-        .with_state(workspace_root);
+        .with_state(PreviewState {
+            workspace_root,
+            data_dir,
+            capability_lease_ref,
+        });
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     // Graceful shutdown so a revoke/teardown deterministically closes the socket:
     // once signalled, axum::serve stops accepting and its listener is dropped.
@@ -9362,15 +10164,43 @@ async fn start_preview_server(
     Ok((port, shutdown_tx, join))
 }
 
-async fn serve_preview_root(State(root): State<String>) -> Response {
-    serve_preview_file(&root, "index.html")
+#[derive(Clone)]
+struct PreviewState {
+    workspace_root: String,
+    data_dir: String,
+    capability_lease_ref: String,
+}
+
+fn preview_request_authorized(
+    state: &PreviewState,
+    query: &std::collections::HashMap<String, String>,
+) -> bool {
+    query.get("lease").map(String::as_str) == Some(state.capability_lease_ref.as_str())
+        && super::authority_routes::capability_lease_status(
+            &state.data_dir,
+            &state.capability_lease_ref,
+        ) == "active"
+}
+
+async fn serve_preview_root(
+    State(state): State<PreviewState>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
+) -> Response {
+    if !preview_request_authorized(&state, &query) {
+        return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
+    }
+    serve_preview_file(&state.workspace_root, "index.html")
 }
 
 async fn serve_preview_path(
-    State(root): State<String>,
+    State(state): State<PreviewState>,
+    Query(query): Query<std::collections::HashMap<String, String>>,
     AxumPath(rel): AxumPath<String>,
 ) -> Response {
-    serve_preview_file(&root, &rel)
+    if !preview_request_authorized(&state, &query) {
+        return (StatusCode::FORBIDDEN, "preview capability lease required").into_response();
+    }
+    serve_preview_file(&state.workspace_root, &rel)
 }
 
 /// Serve a file from the preview workspace with a real traversal guard: the
@@ -9416,6 +10246,74 @@ fn preview_content_type(path: &std::path::Path) -> &'static str {
     }
 }
 
+#[cfg(test)]
+mod preview_authority_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn preview_listener_requires_the_exact_live_capability_on_every_request() {
+        let data = tempfile::tempdir().unwrap();
+        let workspace = tempfile::tempdir().unwrap();
+        std::fs::write(workspace.path().join("index.html"), "owner-only-preview").unwrap();
+        let grant = super::super::authority_routes::issue_capability_lease(
+            data.path().to_str().unwrap(),
+            "user://preview-owner",
+            "environment.preview.read",
+            json!(["environment://local/env_preview"]),
+            300,
+        );
+        let lease_ref = grant["grant_ref"].as_str().unwrap().to_string();
+        let (port, shutdown, join) = start_preview_server(
+            workspace.path().to_string_lossy().into_owned(),
+            data.path().to_string_lossy().into_owned(),
+            lease_ref.clone(),
+        )
+        .await
+        .unwrap();
+
+        let client = reqwest::Client::new();
+        let base = format!("http://127.0.0.1:{port}/");
+        assert_eq!(
+            client.get(&base).send().await.unwrap().status().as_u16(),
+            403
+        );
+        assert_eq!(
+            client
+                .get(format!("{base}?lease=wrong"))
+                .send()
+                .await
+                .unwrap()
+                .status()
+                .as_u16(),
+            403
+        );
+        let admitted = client
+            .get(format!("{base}?lease={lease_ref}"))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(admitted.status().as_u16(), 200);
+        assert_eq!(admitted.text().await.unwrap(), "owner-only-preview");
+
+        assert!(super::super::authority_routes::revoke_lease(
+            data.path().to_str().unwrap(),
+            &lease_ref,
+        ));
+        assert_eq!(
+            client
+                .get(format!("{base}?lease={lease_ref}"))
+                .send()
+                .await
+                .unwrap()
+                .status()
+                .as_u16(),
+            403
+        );
+        let _ = shutdown.send(());
+        let _ = join.await;
+    }
+}
+
 /// Open (or replace) the session's preview listener for `workspace_root`, bound
 /// under the admitted `capability_lease_ref`, and return the canonical
 /// `HypervisorEnvironmentPort` value. Returns None if no listener could bind.
@@ -9425,10 +10323,14 @@ async fn open_session_preview_port(
     workspace_root: &str,
     capability_lease_ref: &str,
 ) -> Option<Value> {
-    let (port, shutdown, join) = start_preview_server(workspace_root.to_string())
-        .await
-        .ok()?;
-    let url = format!("http://127.0.0.1:{port}/");
+    let (port, shutdown, join) = start_preview_server(
+        workspace_root.to_string(),
+        st.data_dir.clone(),
+        capability_lease_ref.to_string(),
+    )
+    .await
+    .ok()?;
+    let url = format!("http://127.0.0.1:{port}/?lease={capability_lease_ref}");
     // Replace any prior listener for this session (signal the old one to shut down;
     // the new listener binds a fresh port, so we don't need to await the old close).
     if let Ok(mut servers) = st.preview_servers.lock() {
@@ -9637,16 +10539,19 @@ fn bind_env_workspace(
             "environment record identity does not match the requested environment_id".into(),
         );
     }
-    let environment_owner = v
-        .get("owner_ref")
-        .or_else(|| v.pointer("/spec/owner_ref"))
-        .and_then(Value::as_str);
-    let legacy_local_single_user = environment_owner.is_none()
-        && owner_ref == "user://local-operator"
-        && v.pointer("/status/tenant_posture").and_then(Value::as_str) == Some("single_user");
-    if environment_owner.is_some_and(|owner| owner != owner_ref)
-        || (environment_owner.is_none() && !legacy_local_single_user)
-    {
+    let environment_scope = super::substrate_store::read_request_scope(
+        data_dir,
+        super::environment_routes::ENVIRONMENT_SCOPE_KIND,
+        env_id,
+    )
+    .map_err(|error| {
+        format!(
+            "environment ownership substrate unavailable ({})",
+            error.code()
+        )
+    })?
+    .ok_or_else(|| "environment is unadopted; only deployment disposal is available".to_string())?;
+    if environment_scope.principal_ref != owner_ref {
         return Err("environment workspace is not owned by the resolved Session principal".into());
     }
     let workspace_root = v
@@ -11212,6 +12117,7 @@ fn prepare_session_execution(
     record: &Value,
     lane: &str,
     intent: &str,
+    launch_binding: &Value,
     capability_lease_ref: &str,
     receipt_ref: &str,
     started_at: &str,
@@ -11237,6 +12143,10 @@ fn prepare_session_execution(
                 "owner_ref":owner_ref,
                 "lane":lane,
                 "intent_hash":sha256_hex_bytes(intent.as_bytes()),
+                // Exact daemon-owned predecessors are durable BEFORE the external process starts.
+                // Recovery therefore never has to infer which launch/spawn/readiness/attach chain
+                // governed an ambiguous host effect.
+                "launch_binding":launch_binding,
                 "capability_lease_ref":capability_lease_ref,
                 "receipt_ref":receipt_ref,
                 "started_at":started_at
@@ -11275,6 +12185,25 @@ fn validate_pending_execution(
             .get("receipt_ref")
             .and_then(Value::as_str)
             .is_some_and(|reference| reference.starts_with("receipt://hypervisor/session-"))
+        || (pending.get("lane").and_then(Value::as_str) != Some("native_local")
+            && (!pending
+                .pointer("/launch_binding/launch_ref")
+                .and_then(Value::as_str)
+                .is_some_and(|reference| reference.starts_with("harness-session-launch:"))
+                || !pending
+                    .pointer("/launch_binding/spawn_ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reference| reference.starts_with("spawn:"))
+                || !pending
+                    .pointer("/launch_binding/readiness_ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reference| reference.starts_with("readiness:"))
+                || !pending
+                    .pointer("/launch_binding/terminal_attach_ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reference| {
+                        reference.starts_with("harness-session-terminal-attach:")
+                    })))
     {
         return Err("pending Session execution fails its identity or schema binding".to_string());
     }
@@ -11474,6 +12403,7 @@ fn recover_pending_session_execution(st: &DaemonState, mut record: Value) -> Res
         "session_ref":session_ref,
         "lane":pending.get("lane").cloned().unwrap_or(Value::Null),
         "intent_hash":pending.get("intent_hash").cloned().unwrap_or(Value::Null),
+        "launch_binding":pending.get("launch_binding").cloned().unwrap_or(Value::Null),
         "capability_lease_ref":pending.get("capability_lease_ref").cloned().unwrap_or(Value::Null),
         "exit_status":"interrupted_unconfirmed",
         "status":"recovered_without_reexecution",
@@ -11973,9 +12903,20 @@ pub(crate) async fn handle_session_create(
         // is still in scope. The commit path (`prepare_session_create_bundle`) binds from the
         // durable intent this preflight authorizes and never sees a request of its own, so gating
         // the reservation is what keeps the whole session lane behind the route's owner.
-        if let Err((status, body)) =
-            super::model_routes::authorize_session_route_binding(&st.data_dir, &headers, route_ref)
-        {
+        let route_authorization =
+            if super::orchestration_routes::internal_dispatch_authorized(&st, &headers) {
+                super::model_routes::authorize_internal_session_route_binding(
+                    &st.data_dir,
+                    route_ref,
+                )
+            } else {
+                super::model_routes::authorize_session_route_binding(
+                    &st.data_dir,
+                    &headers,
+                    route_ref,
+                )
+            };
+        if let Err((status, body)) = route_authorization {
             return (status, body);
         }
         if let Err(detail) = super::model_routes::bind_route_for_session_recoverable(
@@ -12287,6 +13228,137 @@ fn session_execute_intent(body: &Value) -> Option<String> {
     None
 }
 
+/// Admit (or replay) the one daemon-owned harness launch that a host execution consumes, then
+/// reduce its projection to the exact immutable predecessor refs carried by the execution WAL and
+/// receipt. This is the M01.5 mount: `/sessions/:id/execute` may no longer start a host process
+/// beside the canonical Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach chain.
+async fn admit_session_execution_launch(
+    st: &Arc<DaemonState>,
+    headers: &HeaderMap,
+    session_ref: &str,
+    execute_body: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let mut launch_body = json!({
+        "session_ref": session_ref,
+        // One default launch is the Session's durable execution mount. Callers that deliberately
+        // need a successor may name a bounded key without being allowed to supply predecessor refs.
+        "idempotency_key": execute_body
+            .get("launch_idempotency_key")
+            .and_then(Value::as_str)
+            .unwrap_or("launch:default"),
+    });
+    if let Some(delegation) = execute_body.get("delegation") {
+        launch_body["delegation"] = delegation.clone();
+    }
+    let (status, Json(projection)) =
+        handle_session_launch_create(State(st.clone()), headers.clone(), Json(launch_body)).await;
+    if !status.is_success() {
+        return Err((status, Json(projection)));
+    }
+
+    let steps = projection
+        .get("chain_step_refs")
+        .filter(|value| value.is_object());
+    let required_ref = |key: &str, prefix: &str| {
+        steps
+            .and_then(|value| value.get(key))
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with(prefix))
+            .map(str::to_string)
+    };
+    let exact = (
+        projection
+            .get("launch_ref")
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with("harness-session-launch:"))
+            .map(str::to_string),
+        projection
+            .get("launch_id")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        projection
+            .get("head")
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with("sha256:"))
+            .map(str::to_string),
+        required_ref("plan_ref", "harness-session-launch-plan:"),
+        required_ref("launch_recipe_ref", "target-binding:"),
+        required_ref("harness_binding_ref", "harness-session-binding:"),
+        required_ref(
+            "harness_profile_revision_ref",
+            "harness-profile://daemon-resolved/",
+        ),
+        required_ref("spawn_ref", "spawn:"),
+        required_ref("readiness_ref", "readiness:"),
+        required_ref("terminal_attach_ref", "harness-session-terminal-attach:"),
+        projection
+            .get("receipt_ref")
+            .and_then(Value::as_str)
+            .filter(|value| {
+                value.starts_with("receipt://hypervisor/harness-session-launch/produced/")
+            })
+            .map(str::to_string),
+    );
+    let (
+        Some(launch_ref),
+        Some(launch_id),
+        Some(launch_head),
+        Some(plan_ref),
+        Some(launch_recipe_ref),
+        Some(harness_binding_ref),
+        Some(harness_profile_revision_ref),
+        Some(spawn_ref),
+        Some(readiness_ref),
+        Some(terminal_attach_ref),
+        Some(launch_receipt_ref),
+    ) = exact
+    else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{
+                "code":"session_execute_launch_chain_incomplete",
+                "message":"Host execution requires the daemon-produced launch and every exact predecessor ref; the admitted projection was incomplete."
+            }})),
+        ));
+    };
+    if projection.get("session_ref").and_then(Value::as_str) != Some(session_ref)
+        || projection.get("lifecycle_state").and_then(Value::as_str) != Some("launched")
+        || projection.get("spawned").and_then(Value::as_bool) != Some(true)
+        || projection
+            .pointer("/readiness/decision")
+            .and_then(Value::as_str)
+            != Some("ready")
+    {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({"error":{
+                "code":"session_execute_launch_chain_not_ready",
+                "message":"The Session's canonical harness launch is not in the launched, spawn-admitted, readiness-admitted state.",
+                "launch_ref":launch_ref,
+                "lifecycle_state":projection.get("lifecycle_state"),
+            }})),
+        ));
+    }
+
+    Ok(json!({
+        "launch_ref": launch_ref,
+        "launch_id": launch_id,
+        "launch_head": launch_head,
+        "launch_receipt_ref": launch_receipt_ref,
+        "plan_ref": plan_ref,
+        "launch_recipe_ref": launch_recipe_ref,
+        "harness_binding_ref": harness_binding_ref,
+        "harness_profile_ref": steps.and_then(|value| value.get("harness_profile_ref")),
+        "harness_profile_revision_ref": harness_profile_revision_ref,
+        "session_profile_binding_ref": steps.and_then(|value| value.get("session_profile_binding_ref")),
+        "session_model_route_binding_ref": steps.and_then(|value| value.get("session_model_route_binding_ref")),
+        "spawn_ref": spawn_ref,
+        "readiness_ref": readiness_ref,
+        "terminal_attach_ref": terminal_attach_ref,
+        "runtimeTruthSource": "daemon-runtime",
+    }))
+}
+
 /// The wallet authority gate for a consequential execution. Daemon-derives the
 /// policy/request hashes (never from the body) and verifies a bound grant. Returns
 /// the admitted capability-lease ref, or the 403 challenge body exposing the hashes
@@ -12422,8 +13494,39 @@ pub(crate) struct CapabilityLeaseRequest {
     pub(crate) revocation_ref: String,
     /// Reason string surfaced on the 403 challenge (per-crossing for API clarity).
     pub(crate) authority_reason: String,
-    /// The wallet_approval_grant carried on the request body (Null → 403 challenge).
+    /// Exact grant evidence, or a portable grant-hash locator selected by the route. A locator is
+    /// never authority: the gateway resolves every signed binding from wallet-owned state.
     pub(crate) grant_value: Value,
+    /// Optional daemon-derived standing-envelope draw. Only a route that has validated every
+    /// effect facet against the registered envelope may construct this value.
+    pub(crate) standing_draw: Option<StandingCapabilityDraw>,
+}
+
+pub(crate) struct StandingCapabilityDraw {
+    pub(crate) grant_value: Value,
+    pub(crate) envelope_hash: [u8; 32],
+    pub(crate) policy_hash: [u8; 32],
+    pub(crate) estimated_deposit_microusd: u64,
+    pub(crate) estimated_spend_microusd: u64,
+    pub(crate) max_usages: u32,
+    pub(crate) max_cumulative_deposit_microusd: u64,
+    pub(crate) max_cumulative_spend_microusd: u64,
+}
+
+pub(crate) enum CapabilityAuthorityAdmission {
+    Exact(super::governed_authority::AdmittedDeploymentGrant),
+    Portable(super::governed_authority::AdmittedPortableAuthorityGrant),
+    Standing(super::governed_authority::AdmittedStandingGrant),
+}
+
+impl CapabilityAuthorityAdmission {
+    pub(crate) fn intent_ref(&self) -> &str {
+        match self {
+            Self::Exact(admitted) => &admitted.admission_intent_ref,
+            Self::Portable(admitted) => &admitted.admission_intent_ref,
+            Self::Standing(admitted) => &admitted.admission_intent_ref,
+        }
+    }
 }
 
 /// The authorized lease. `token` is for the daemon to USE; it is NEVER serialized or returned.
@@ -12437,7 +13540,7 @@ pub(crate) struct AuthorizedCapabilityLease {
     /// The wallet-owned admission this lease was issued under. Callers that reach a real final
     /// invoker MUST claim through this value rather than synthesizing a receipt reference from
     /// the lease id, so the identity the invoker records is the one the owner can resolve.
-    pub(crate) admitted: super::governed_authority::AdmittedDeploymentGrant,
+    pub(crate) admitted: CapabilityAuthorityAdmission,
 }
 
 fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
@@ -12458,6 +13561,74 @@ fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
         "scopes": req.scopes,
         "facets": req.request_facets,
     }))
+}
+
+/// Exact effect material consumed by the shared live-route authority PEP.
+/// Callers that must bind an outer immutable request to this crossing use this
+/// same constructor before authority consumption; a second reconstruction
+/// would let the preflight and the PEP drift apart.
+pub(crate) fn capability_lease_effect(req: &CapabilityLeaseRequest) -> Value {
+    json!({
+        "authority_provider_ref": req.authority_provider_ref,
+        "backing_provider": req.backing_provider,
+        "allowed_tools": req.allowed_tools,
+        "resource_refs": req.resource_refs,
+        "scopes": req.scopes,
+        "request_facets": req.request_facets,
+        "receipt_required": req.receipt_required,
+        "revocation_ref": req.revocation_ref,
+    })
+}
+
+fn portable_grant_locator(value: &Value) -> Result<Option<[u8; 32]>, String> {
+    let Some(reference) = value.as_str() else {
+        return Ok(None);
+    };
+    let hex_value = reference
+        .strip_prefix("sha256:")
+        .ok_or_else(|| "portable grant locator must be a sha256 reference".to_string())?;
+    if hex_value.len() != 64 || hex_value != hex_value.to_ascii_lowercase() {
+        return Err(
+            "portable grant locator must contain 32 lowercase hexadecimal bytes".to_string(),
+        );
+    }
+    let decoded = hex::decode(hex_value)
+        .map_err(|error| format!("portable grant locator is invalid hex: {error}"))?;
+    let hash: [u8; 32] = decoded
+        .try_into()
+        .map_err(|_| "portable grant locator must contain exactly 32 bytes".to_string())?;
+    if hash == [0; 32] {
+        return Err("portable grant locator must not be zero".to_string());
+    }
+    Ok(Some(hash))
+}
+
+#[cfg(test)]
+mod portable_grant_locator_tests {
+    use super::*;
+
+    #[test]
+    fn only_an_exact_sha256_string_selects_the_portable_path() {
+        assert_eq!(portable_grant_locator(&Value::Null).unwrap(), None);
+        assert_eq!(
+            portable_grant_locator(&json!({"grant":"signed"})).unwrap(),
+            None
+        );
+        assert_eq!(
+            portable_grant_locator(&json!(format!("sha256:{}", hex::encode([0x42; 32])))).unwrap(),
+            Some([0x42; 32])
+        );
+        assert!(portable_grant_locator(&json!("sha256:42")).is_err());
+        assert!(portable_grant_locator(&json!("grant://caller-text")).is_err());
+        assert!(portable_grant_locator(&json!(format!(
+            "sha256:{}",
+            hex::encode_upper([0xab; 32])
+        )))
+        .is_err());
+        assert!(
+            portable_grant_locator(&json!(format!("sha256:{}", hex::encode([0; 32])))).is_err()
+        );
+    }
 }
 
 /// Resolve a sealed credential record into a usable token + (source, key_source). Two kinds:
@@ -12648,29 +13819,70 @@ pub(crate) async fn authorize_capability_lease(
         .replace(['.', ':', '/'], "-");
     let required_scope = format!("scope:hypervisor.live-route.{operation}");
     let subject_ref = format!("capability-lease:{policy_hash}:{request_hash}");
-    let effect = json!({
-        "authority_provider_ref": req.authority_provider_ref,
-        "backing_provider": req.backing_provider,
-        "allowed_tools": req.allowed_tools,
-        "resource_refs": req.resource_refs,
-        "scopes": req.scopes,
-        "request_facets": req.request_facets,
-        "receipt_required": req.receipt_required,
-        "revocation_ref": req.revocation_ref,
-    });
-    let admitted = match super::governed_authority::authorize_deployment_grant(
-        &st.data_dir,
-        &req.grant_value,
-        &required_scope,
-        &policy_hash,
-        &request_hash,
-        &subject_ref,
-        &operation,
-        1,
-        &effect,
-    )
-    .await
-    {
+    let effect = capability_lease_effect(req);
+    let portable_locator = portable_grant_locator(&req.grant_value).map_err(|message| {
+        (
+            StatusCode::BAD_REQUEST,
+            json!({
+                "ok": false,
+                "decision": "blocked",
+                "reason": "portable_authority_locator_invalid",
+                "message": message,
+                "host_mutation": false,
+            }),
+        )
+    })?;
+    let admitted = match if let Some(draw) = req.standing_draw.as_ref() {
+        super::governed_authority::authorize_standing_deployment_grant(
+            &st.data_dir,
+            &draw.grant_value,
+            draw.envelope_hash,
+            draw.policy_hash,
+            &required_scope,
+            &request_hash,
+            &subject_ref,
+            &operation,
+            1,
+            &effect,
+            draw.estimated_deposit_microusd,
+            draw.estimated_spend_microusd,
+            draw.max_usages,
+            draw.max_cumulative_deposit_microusd,
+            draw.max_cumulative_spend_microusd,
+        )
+        .await
+        .map(CapabilityAuthorityAdmission::Standing)
+    } else if let Some(grant_hash) = portable_locator {
+        super::governed_authority::authorize_portable_authority_locator(
+            &st.data_dir,
+            super::governed_authority::LIVE_ROUTE_AUTHORITY,
+            grant_hash,
+            &required_scope,
+            &format!("policy://hypervisor/{operation}"),
+            &policy_hash,
+            &subject_ref,
+            &operation,
+            1,
+            &effect,
+            false,
+        )
+        .await
+        .map(CapabilityAuthorityAdmission::Portable)
+    } else {
+        super::governed_authority::authorize_deployment_grant(
+            &st.data_dir,
+            &req.grant_value,
+            &required_scope,
+            &policy_hash,
+            &request_hash,
+            &subject_ref,
+            &operation,
+            1,
+            &effect,
+        )
+        .await
+        .map(CapabilityAuthorityAdmission::Exact)
+    } {
         Ok(admitted) => admitted,
         Err((status, Json(challenge))) => {
             return Err((
@@ -12689,9 +13901,23 @@ pub(crate) async fn authorize_capability_lease(
             ));
         }
     };
-    if let Err(reason) =
-        super::governed_authority::revalidate_admission_receipt(&st.data_dir, &admitted).await
-    {
+    let revalidation = match &admitted {
+        CapabilityAuthorityAdmission::Exact(exact) => {
+            super::governed_authority::revalidate_admission_receipt(&st.data_dir, exact).await
+        }
+        CapabilityAuthorityAdmission::Portable(portable) => {
+            super::governed_authority::revalidate_portable_authority_admission(
+                &st.data_dir,
+                portable,
+            )
+            .await
+        }
+        CapabilityAuthorityAdmission::Standing(standing) => {
+            super::governed_authority::revalidate_standing_admission_receipt(&st.data_dir, standing)
+                .await
+        }
+    };
+    if let Err(reason) = revalidation {
         return Err((
             StatusCode::SERVICE_UNAVAILABLE,
             json!({
@@ -12705,22 +13931,39 @@ pub(crate) async fn authorize_capability_lease(
     }
 
     // 3) Issue + persist the lease (the 9-field shape). No secret in the descriptor.
-    let expires_at = req
-        .grant_value
+    let authority_grant_value = req
+        .standing_draw
+        .as_ref()
+        .map(|draw| &draw.grant_value)
+        .unwrap_or(&req.grant_value);
+    let expires_at = authority_grant_value
         .get("expires_at")
-        .or_else(|| req.grant_value.get("expiresAt"))
+        .or_else(|| authority_grant_value.get("expiresAt"))
+        .or_else(|| authority_grant_value.get("expires_at_ms"))
         .cloned()
         .unwrap_or(Value::Null);
     let lease_id = format!(
         "lease_{}",
         short_hash(&format!("{policy_hash}:{request_hash}"))
     );
-    let authority_provider_ref = if admitted.authorized.evidence.grant_ref.trim().is_empty() {
-        req.authority_provider_ref.clone()
-    } else {
-        "wallet.network".to_string()
+    let authority_provider_ref = "wallet.network".to_string();
+    let admitted_grant_ref = match &admitted {
+        CapabilityAuthorityAdmission::Exact(exact) => exact.authorized.evidence.grant_ref.clone(),
+        CapabilityAuthorityAdmission::Portable(portable) => {
+            portable.consumption_receipt.authority_grant_ref.clone()
+        }
+        CapabilityAuthorityAdmission::Standing(standing) => standing.grant_ref.clone(),
     };
-    let descriptor = json!({
+    let standing_receipt = match &admitted {
+        CapabilityAuthorityAdmission::Standing(standing) => Some(&standing.receipt),
+        CapabilityAuthorityAdmission::Exact(_) | CapabilityAuthorityAdmission::Portable(_) => None,
+    };
+    let authority_mode = match &admitted {
+        CapabilityAuthorityAdmission::Exact(_) => "exact_request",
+        CapabilityAuthorityAdmission::Portable(_) => "portable_v3",
+        CapabilityAuthorityAdmission::Standing(_) => "standing_envelope",
+    };
+    let mut descriptor = json!({
         "schema_version": "ioi.hypervisor.capability-lease.v1",
         "lease_id": lease_id,
         "authority_provider_ref": authority_provider_ref,
@@ -12732,13 +13975,24 @@ pub(crate) async fn authorize_capability_lease(
         "expires_at": expires_at,
         "receipt_required": req.receipt_required,
         "revocation_ref": req.revocation_ref,
-        "grant_ref": admitted.authorized.evidence.grant_ref.clone(),
-        "admission_intent_ref": admitted.admission_intent_ref.clone(),
+        "grant_ref": admitted_grant_ref,
+        "admission_intent_ref": admitted.intent_ref(),
+        "authority_mode": authority_mode,
         "state": "active",
         "remaining_calls": 0,
         "credential_source": credential_source,
         "issued_at": iso_now(),
     });
+    if let (Some(target), Some(receipt)) = (descriptor.as_object_mut(), standing_receipt) {
+        target.insert(
+            "standing_consumption_id".into(),
+            json!(hex::encode(receipt.consumption_id)),
+        );
+        target.insert(
+            "standing_consumption_receipt_hash".into(),
+            json!(hex::encode(receipt.receipt_hash)),
+        );
+    }
     // W1.2 / MEF-GAP-008 — this write was discarded. The lease descriptor IS the authority
     // audit trail (served by handle_capability_lease_list); an authority crossing must never
     // execute without its durable descriptor, so refuse before returning the lease.
@@ -12756,7 +14010,7 @@ pub(crate) async fn authorize_capability_lease(
     Ok(AuthorizedCapabilityLease {
         descriptor,
         token,
-        grant_ref: admitted.authorized.evidence.grant_ref.clone(),
+        grant_ref: admitted_grant_ref,
         credential_source,
         credential_key_source,
         admitted,
@@ -14160,6 +15414,7 @@ pub(crate) async fn handle_connector_invoke(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,
@@ -14373,7 +15628,22 @@ pub(crate) async fn handle_connector_mcp_tools(
         );
     }
     match mcp_list_tools(&base_url, &token.unwrap_or_default()).await {
-        Ok(tools) => (StatusCode::OK, Json(json!({ "ok": true, "tools": tools }))),
+        Ok(tool_candidates) => (
+            StatusCode::OK,
+            Json(json!({
+                "schema_version": "ioi.runtime.mcp-connector-candidates.v1",
+                "ok": true,
+                "status": "unadmitted_candidates",
+                "normalization_decision": "typed_unavailable",
+                "canonical_owner": "RuntimeToolContractRegistry",
+                "connector_id": id,
+                "tool_candidates": tool_candidates,
+                "tools": [],
+                "authority_granted": false,
+                "receipt_identity_granted": false,
+                "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+            })),
+        ),
         Err(e) => (
             StatusCode::BAD_GATEWAY,
             Json(json!({ "ok": false, "reason": e })),
@@ -14382,23 +15652,42 @@ pub(crate) async fn handle_connector_mcp_tools(
 }
 
 // SCM credentials are sealed at rest with the canonical ioi-crypto secret encryption (Argon2id KDF
-// + AEAD), keyed by the SAME wallet-secret passphrase the wallet.network secret model uses
-// (IOI_WALLET_SECRET_PASS → IOI_GUARDIAN_KEY_PASS → "local-mode" fallback). With a real passphrase
-// set this is genuine at-rest protection (key supplied out-of-band, never in the data dir); without
-// one it seals under the local-mode fallback (no plaintext at rest, but key is well-known — honest
-// label travels via key_source). Decrypt failure → token unavailable → publish fails closed.
-pub(crate) fn scm_secret_passphrase() -> String {
-    std::env::var("IOI_WALLET_SECRET_PASS")
-        .ok()
+// + AEAD), keyed by the SAME out-of-band custody key wallet.network uses. The well-known
+// `local-mode` value is available only to the explicitly development-cooperative profile. A
+// sovereign, production, remote-wallet, or brokered profile without a usable custody key refuses
+// sealing/decryption; it never silently downgrades. Decrypt failure makes the credential unavailable
+// and every dependent effect fails closed.
+fn scm_secret_passphrase_from(
+    wallet_secret_pass: Option<String>,
+    guardian_secret_pass: Option<String>,
+    custody_profile: Option<String>,
+    development_test_fixture: bool,
+) -> Option<String> {
+    wallet_secret_pass
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
         .or_else(|| {
-            std::env::var("IOI_GUARDIAN_KEY_PASS")
-                .ok()
+            guardian_secret_pass
                 .map(|v| v.trim().to_string())
                 .filter(|v| !v.is_empty())
         })
-        .unwrap_or_else(|| "local-mode".to_string())
+        .or_else(|| {
+            let profile = custody_profile
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            (profile == Some("development_cooperative")
+                || (profile.is_none() && development_test_fixture))
+                .then(|| "local-mode".to_string())
+        })
+}
+pub(crate) fn scm_secret_passphrase() -> Option<String> {
+    scm_secret_passphrase_from(
+        std::env::var("IOI_WALLET_SECRET_PASS").ok(),
+        std::env::var("IOI_GUARDIAN_KEY_PASS").ok(),
+        std::env::var("IOI_SECRET_CUSTODY_PROFILE").ok(),
+        cfg!(test),
+    )
 }
 pub(crate) fn scm_key_source() -> &'static str {
     let has = |k: &str| {
@@ -14408,19 +15697,77 @@ pub(crate) fn scm_key_source() -> &'static str {
     };
     if has("IOI_WALLET_SECRET_PASS") || has("IOI_GUARDIAN_KEY_PASS") {
         "wallet-secret-pass"
-    } else {
+    } else if std::env::var("IOI_SECRET_CUSTODY_PROFILE")
+        .ok()
+        .map(|value| value.trim() == "development_cooperative")
+        .unwrap_or(cfg!(test))
+    {
         "local-mode-fallback"
+    } else {
+        "custody-key-unavailable"
     }
 }
 pub(crate) fn seal_scm_token(token: &str) -> Option<String> {
-    ioi_crypto::key_store::encrypt_key(token.as_bytes(), &scm_secret_passphrase())
+    let passphrase = scm_secret_passphrase()?;
+    ioi_crypto::key_store::encrypt_key(token.as_bytes(), &passphrase)
         .ok()
         .map(hex::encode)
 }
 pub(crate) fn open_scm_token(sealed_hex: &str) -> Option<String> {
     let bytes = hex::decode(sealed_hex).ok()?;
-    let plain = ioi_crypto::key_store::decrypt_key(&bytes, &scm_secret_passphrase()).ok()?;
+    let passphrase = scm_secret_passphrase()?;
+    let plain = ioi_crypto::key_store::decrypt_key(&bytes, &passphrase).ok()?;
     String::from_utf8(plain.0.to_vec()).ok()
+}
+
+#[cfg(test)]
+mod secret_custody_profile_tests {
+    use super::scm_secret_passphrase_from;
+
+    #[test]
+    fn conforming_profiles_never_use_the_well_known_fallback() {
+        assert_eq!(
+            scm_secret_passphrase_from(
+                None,
+                None,
+                Some("development_cooperative".to_string()),
+                false,
+            )
+            .as_deref(),
+            Some("local-mode")
+        );
+        assert_eq!(scm_secret_passphrase_from(None, None, None, false), None);
+        assert_eq!(
+            scm_secret_passphrase_from(None, None, None, true).as_deref(),
+            Some("local-mode")
+        );
+        for profile in [
+            "sovereign_local_passphrase",
+            "brokered_local",
+            "remote_wallet",
+            "production",
+        ] {
+            assert_eq!(
+                scm_secret_passphrase_from(None, None, Some(profile.to_string()), false),
+                None,
+                "{profile} must fail closed without its custody key or broker"
+            );
+        }
+    }
+
+    #[test]
+    fn explicit_custody_key_is_usable_in_non_development_profiles() {
+        assert_eq!(
+            scm_secret_passphrase_from(
+                Some("wallet-key".to_string()),
+                None,
+                Some("sovereign_local_passphrase".to_string()),
+                false,
+            )
+            .as_deref(),
+            Some("wallet-key")
+        );
+    }
 }
 
 /// POST /v1/hypervisor/scm-connectors — register a named SCM remote target.
@@ -15660,7 +17007,7 @@ fn verify_password(pw: &str, stored_hex: &str) -> bool {
         Err(_) => false,
     }
 }
-fn gen_opaque(prefix: &str) -> String {
+pub(crate) fn gen_opaque(prefix: &str) -> String {
     format!(
         "{prefix}_{}{}",
         uuid::Uuid::new_v4().simple(),
@@ -17217,6 +18564,8 @@ const AUTH_GATE_EXEMPT_PATHS: &[&str] = &[
     "/v1/hypervisor/auth/portal-session-exchange",
     "/v1/hypervisor/auth/oidc/start",
     "/v1/hypervisor/auth/oidc/callback",
+    "/v1/hypervisor/auth/passkeys/login/start",
+    "/v1/hypervisor/auth/passkeys/login/finish",
     "/v1/hypervisor/org-invite/accept",
     "/v1/hypervisor/editor-targets",
     "/v1/hypervisor/cron-preview",
@@ -17344,7 +18693,11 @@ pub(crate) async fn handle_auth_login(
 
 /// Issue a session for a principal (shared by local login + OIDC/SSO callback). Returns the plaintext
 /// session token ONCE.
-fn issue_session(data_dir: &str, principal_id: &str, source: &str) -> (StatusCode, Value) {
+pub(crate) fn issue_session(
+    data_dir: &str,
+    principal_id: &str,
+    source: &str,
+) -> (StatusCode, Value) {
     issue_session_with_context(data_dir, principal_id, source, 7 * 24 * 3600, None)
 }
 
@@ -20455,7 +21808,10 @@ async fn mcp_request(
         .post(url)
         .header("Content-Type", "application/json")
         .header("Accept", "application/json, text/event-stream")
-        .header("MCP-Protocol-Version", "2025-06-18")
+        .header(
+            ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION_HEADER,
+            ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+        )
         .timeout(std::time::Duration::from_secs(25))
         .json(&Value::Object(body));
     if !token.is_empty() {
@@ -20467,7 +21823,7 @@ async fn mcp_request(
     let resp = rb.send().await.map_err(|e| e.to_string())?;
     let new_session = resp
         .headers()
-        .get("mcp-session-id")
+        .get(ioi_drivers::mcp::protocol::MCP_SESSION_ID_HEADER)
         .and_then(|v| v.to_str().ok())
         .map(str::to_string)
         .or_else(|| session.clone());
@@ -20506,7 +21862,7 @@ async fn mcp_request(
 
 const MCP_CLIENT_INIT: fn() -> Value = || {
     json!({
-        "protocolVersion": "2025-06-18",
+        "protocolVersion": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
         "capabilities": {},
         "clientInfo": { "name": "ioi-hypervisor", "version": "1" },
     })
@@ -20518,7 +21874,7 @@ async fn mcp_handshake(
     url: &str,
     token: &str,
 ) -> Result<Option<String>, String> {
-    let (_init, session) = mcp_request(
+    let (init, session) = mcp_request(
         client,
         url,
         token,
@@ -20528,6 +21884,16 @@ async fn mcp_handshake(
         Some(1),
     )
     .await?;
+    let negotiated = init
+        .get("protocolVersion")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "MCP initialize response omitted protocolVersion".to_string())?;
+    if negotiated != ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION {
+        return Err(format!(
+            "MCP initialize negotiated unsupported protocolVersion '{negotiated}'; expected '{}'",
+            ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION
+        ));
+    }
     let _ = mcp_request(
         client,
         url,
@@ -20662,6 +22028,7 @@ pub(crate) async fn handle_scm_abandon_pull_request(
             .get("wallet_approval_grant")
             .cloned()
             .unwrap_or(Value::Null),
+        standing_draw: None,
     };
     let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,
@@ -20969,6 +22336,11 @@ fn run_native_local_lane(
         record,
         "native_local",
         intent,
+        &json!({
+            "decision":"not_applicable_native_local",
+            "reason":"the deterministic native lane starts no external harness process",
+            "runtimeTruthSource":"daemon-runtime",
+        }),
         capability_lease_ref,
         &receipt_ref,
         &started_at,
@@ -21389,7 +22761,7 @@ pub(crate) async fn handle_session_execute(
     // #246): the typed 401 precedes the record load, so no existence oracle exists for
     // anonymous callers; the daemon's own orchestration dispatches cross with the per-boot
     // internal dispatch token.
-    let record = match load_owned_session_record_for_write(&st, &headers, &session_id) {
+    let mut record = match load_owned_session_record_for_write(&st, &headers, &session_id) {
         Ok((_acting_principal_ref, record)) => record,
         Err(response) => return response,
     };
@@ -21450,9 +22822,23 @@ pub(crate) async fn handle_session_execute(
         );
     }
 
-    // Lane A (host_spawn / container): honest fail-closed substrate checks FIRST so
-    // an absent model/harness surfaces as no_model_route / harness_unavailable
-    // BEFORE the authority gate (the offline contract), then the wallet gate, then spawn.
+    // M01.5: mount host execution on the canonical daemon-owned launch chain before any process
+    // can be prepared or spawned. The caller may select an idempotency key, but may not supply or
+    // forge predecessor refs. Reload the Session afterwards so the launch's durable subject
+    // attachment cannot be lost when the execution WAL writes its prepared record.
+    let launch_binding =
+        match admit_session_execution_launch(&st, &headers, &session_id, &body).await {
+            Ok(binding) => binding,
+            Err(response) => return response,
+        };
+    record = match load_owned_session_record_for_write(&st, &headers, &session_id) {
+        Ok((_acting_principal_ref, record)) => record,
+        Err(response) => return response,
+    };
+
+    // Lane A (host_spawn / container): after the canonical launch mount, honest fail-closed
+    // substrate checks still surface no_model_route / harness_unavailable BEFORE the wallet gate
+    // (the offline contract), then authority, the durable execution anchor, and only then spawn.
     let substrate = ExecutionSubstrate::probe();
     let blocked = if !substrate.model_route {
         Some((
@@ -21486,6 +22872,7 @@ pub(crate) async fn handle_session_execute(
                 "model_route": substrate.model_route,
                 "harness_binary": substrate.harness_binary.clone(),
                 "container_runtime": substrate.container_runtime.clone(),
+                "launch_binding": launch_binding,
                 // No execution happened: these are honestly empty, never fabricated.
                 "changed_file_groups": [],
                 "terminal_events": [],
@@ -21495,7 +22882,7 @@ pub(crate) async fn handle_session_execute(
     }
 
     // Wallet authority gate (daemon-derived hashes; 403 challenge when unbound). Runs
-    // AFTER the substrate check (offline contract) and BEFORE any spawn.
+    // AFTER launch admission + the substrate check (offline contract), and BEFORE any spawn.
     let capability_lease_ref =
         match execute_authority_gate(&st.data_dir, &body, &session_id, &workspace_root, &intent)
             .await
@@ -21550,6 +22937,7 @@ pub(crate) async fn handle_session_execute(
                     "reason": reason,
                     "message": message,
                     "harness": record.pointer("/harness_binding/harness").cloned().unwrap_or(Value::Null),
+                    "launch_binding": launch_binding,
                     "changed_file_groups": [],
                     "terminal_events": [],
                     "runtimeTruthSource": "daemon-runtime",
@@ -21569,6 +22957,7 @@ pub(crate) async fn handle_session_execute(
                         "decision": "blocked",
                         "reason": "harness_unavailable",
                         "message": "Host harness argv could not be resolved (node / shim missing).",
+                        "launch_binding": launch_binding,
                         "changed_file_groups": [],
                         "terminal_events": [],
                         "runtimeTruthSource": "daemon-runtime",
@@ -21593,6 +22982,7 @@ pub(crate) async fn handle_session_execute(
         &record,
         &format!("host_spawn:{harness_label}"),
         &intent,
+        &launch_binding,
         &capability_lease_ref,
         &lane_receipt_ref,
         &started_at,
@@ -21674,6 +23064,7 @@ pub(crate) async fn handle_session_execute(
         "model_source": model_source,
         "model_route_ref": model_route_ref,
         "model_route_binding_id": model_route_binding_id,
+        "launch_binding": launch_binding,
         "exit_status": exit_status,
         "exit_code": outcome.exit_code,
         "files_written": outcome.files_written,
@@ -21724,6 +23115,7 @@ pub(crate) async fn handle_session_execute(
                 "summary": outcome.summary,
                 "files_written": outcome.files_written,
                 "error": outcome.error,
+                "launch_binding": launch_binding,
                 "finished_at": finished_at,
             }),
         );
@@ -21783,6 +23175,7 @@ pub(crate) async fn handle_session_execute(
             "adapter_transcript_recorded": adapter_transcript_run.is_some(),
             "adapter_transcript_run_id": adapter_transcript_run,
             "model": model,
+            "launch_binding": launch_binding,
             "exit_status": exit_status,
             "exit_code": outcome.exit_code,
             "timed_out": outcome.timed_out,
@@ -22404,10 +23797,10 @@ pub(crate) async fn handle_session_teardown(
 // INV-37 principal-bound receipts, projection-time stamps (never recorded_at_ms=0),
 // idempotent replay-to-stored-record, and expected-head CAS on stop/archive. A
 // planner refusal returns BEFORE any durable write — denial fabricates no launch,
-// record, receipt, or subject attachment. Live model-driven execution (streamed
-// tokens) stays the W3.2 provider-runtime dependency behind
-// POST /v1/hypervisor/sessions/:id/execute; the launch chain owns admission,
-// binding, readiness, terminalization, and recovery/replay.
+// record, receipt, or subject attachment. Live model-driven output still depends on a reachable
+// provider route, while POST /v1/hypervisor/sessions/:id/execute now consumes this exact chain
+// before its durable execution anchor and process spawn. The launch chain owns admission, binding,
+// readiness, terminalization, and recovery/replay.
 // ===========================================================================
 
 const SESSION_LAUNCH_SCHEMA_VERSION: &str = "ioi.hypervisor.harness_session_launch.v1";
@@ -22442,11 +23835,21 @@ fn launch_head(session_ref: &str, launch_id: &str, lifecycle_state: &str, revisi
     )
 }
 
-fn launch_request_hash(session_ref: &str, owner_ref: &str, idempotency_key: &str) -> String {
-    format!(
-        "sha256:{}",
-        sha256_hex_bytes(format!("{session_ref}\u{0}{owner_ref}\u{0}{idempotency_key}").as_bytes())
-    )
+fn launch_request_hash(
+    session_ref: &str,
+    owner_ref: &str,
+    idempotency_key: &str,
+    delegation: Option<&Value>,
+) -> String {
+    launch_sha256_canonical(&json!({
+        "domain": "ioi.hypervisor.harness-session-launch-request.v1",
+        "session_ref": session_ref,
+        "owner_ref": owner_ref,
+        "idempotency_key": idempotency_key,
+        // Only an object changes launch semantics; absent, null, and malformed delegation all
+        // normalize to null so the hash binds the same body the fork composer actually consumes.
+        "delegation": delegation.filter(|value| value.is_object()),
+    }))
 }
 
 fn load_launch_record_owned(st: &DaemonState, owner_ref: &str, launch_id: &str) -> Option<Value> {
@@ -22526,9 +23929,8 @@ fn session_launch_recipe_request(project_ref: &str) -> Value {
     })
 }
 
-/// The seeded native-worker profile the launch binds — a REAL registry hp_* profile (Finding 2:
-/// never the registry-absent `default_harness_profile`). `hp_hypervisor_worker` is the daemon's
-/// Lane A native worker; `ensure_seed` admits it active with `execution_wiring = lane_a_host_spawn`.
+/// The seeded native-worker profile used when a Session has not already selected a REAL registry
+/// hp_* profile (Finding 2: never the registry-absent `default_harness_profile`).
 const LAUNCH_HARNESS_PROFILE_ID: &str = "hp_hypervisor_worker";
 
 /// The canonical HarnessSessionBinding governance-admission request (the exact profile / adapter /
@@ -22536,31 +23938,36 @@ const LAUNCH_HARNESS_PROFILE_ID: &str = "hp_hypervisor_worker";
 /// requires before a harness may launch). Same planner as
 /// POST /v1/hypervisor/harness-session-binding-admissions.
 ///
-/// Finding 2: the harness selection names the REAL seeded `hp_hypervisor_worker` profile (not the
-/// registry-absent `default_harness_profile`), and `model_route_availability_state` /
-/// `model_route_ref` are DERIVED from a launch-boundary recheck of the daemon-owned model-route
-/// registry — never a static `daemon_verified` literal. The caller computes `availability_state`
-/// from the real read (`model_route_launch_recheck`); an unavailable route is refused by the
-/// kernel planner rather than over-claimed here.
+/// The harness selection is the Session-selected REAL profile, or the seeded native-worker default.
+/// `model_route_availability_state` / `model_route_ref` are DERIVED from a launch-boundary recheck
+/// of the daemon-owned model-route registry — never a static `daemon_verified` literal. The caller
+/// computes `availability_state` from the real read (`model_route_launch_recheck`); an unavailable
+/// route is refused by the kernel planner rather than over-claimed here.
 fn session_harness_binding_request(
+    harness_profile_id: &str,
+    harness_label: &str,
     model_route_ref: &str,
     model_route_availability_state: &str,
 ) -> Value {
+    let safe_profile: String = harness_profile_id
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
     // The binding ref must ENCODE the session route (the planner's route-binding check): the first
     // segment is `session-route:sessions/mission.default/project:ioi` with every non-alphanumeric
     // replaced by `-`. These are the known-admitting canonical coordinates.
     json!({
         "schema_version": "ioi.hypervisor.harness_session_binding.v1",
-        "session_binding_ref": "harness-session-binding:session-route-sessions-mission-default-project-ioi:harness-profile-hp_hypervisor_worker:model-config-local-hypervisor-worker",
+        "session_binding_ref": format!("harness-session-binding:session-route-sessions-mission-default-project-ioi:harness-profile-{safe_profile}:model-config-local-{safe_profile}"),
         "session_route_ref": "session-route:sessions/mission.default/project:ioi",
-        "harness_selection_ref": "harness-profile:hp_hypervisor_worker",
+        "harness_selection_ref": format!("harness-profile:{harness_profile_id}"),
         "harness_selection_kind": "harness_profile",
-        "harness_label": "Hypervisor Worker (native)",
+        "harness_label": harness_label,
         "harness_truth_boundary": "daemon-owned",
-        "harness_launch_route_ref": "harness-route:hp-hypervisor-worker/local-model",
-        "harness_profile_ref": LAUNCH_HARNESS_PROFILE_ID,
-        "model_configuration_ref": "model-config:local/hypervisor-worker",
-        "model_configuration_label": "Local hypervisor-worker route",
+        "harness_launch_route_ref": format!("harness-route:{safe_profile}/local-model"),
+        "harness_profile_ref": harness_profile_id,
+        "model_configuration_ref": format!("model-config:local/{safe_profile}"),
+        "model_configuration_label": format!("Local {harness_label} route"),
         "model_route_ref": model_route_ref,
         "model_route_policy": "hypervisor_model_mount",
         "model_route_availability_state": model_route_availability_state,
@@ -22637,12 +24044,19 @@ struct ModelRouteRecheck {
 fn model_route_launch_recheck(
     data_dir: &str,
     substrate: &ExecutionSubstrate,
+    preferred_route_ref: Option<&str>,
     now: &str,
 ) -> ModelRouteRecheck {
     super::model_routes::ensure_seed(data_dir);
-    let route = read_record_dir(data_dir, super::model_routes::RECORD_DIR)
-        .into_iter()
-        .find(|r| r.get("default_route").and_then(Value::as_bool) == Some(true));
+    let routes = read_record_dir(data_dir, super::model_routes::RECORD_DIR);
+    let route = match preferred_route_ref.filter(|value| !value.is_empty()) {
+        Some(preferred) => routes
+            .into_iter()
+            .find(|record| record.get("route_ref").and_then(Value::as_str) == Some(preferred)),
+        None => routes
+            .into_iter()
+            .find(|record| record.get("default_route").and_then(Value::as_bool) == Some(true)),
+    };
     let route_ref = route
         .as_ref()
         .and_then(|r| r.get("route_ref").and_then(Value::as_str))
@@ -22670,6 +24084,7 @@ fn model_route_launch_recheck(
     };
     let evidence = json!({
         "recheck_source": "daemon-model-route-registry",
+        "preferred_route_ref": preferred_route_ref,
         "route_ref": route_ref,
         "route_resolved": resolved,
         "registry_lifecycle_status": lifecycle_status,
@@ -22950,7 +24365,7 @@ fn launch_readiness_record(
             "harness_binary": substrate.harness_binary.clone(),
             "checks": substrate.readiness_checks(),
         },
-        "readiness_note": "client-PTY-attach readiness; live model-driven execution is the W3.2 provider-runtime dependency behind /v1/hypervisor/sessions/:id/execute",
+        "readiness_note": "client-PTY-attach readiness; /v1/hypervisor/sessions/:id/execute consumes this exact launch chain before checking live model reachability and spawning",
         "receipt_refs": [format!("receipt://hypervisor/harness-session-launch/readiness/{launch_id}")],
         "agentgres_operation_refs": [format!("agentgres://operation/harness-session-launch/readiness/{launch_id}")],
         "readiness_at": now,
@@ -22964,6 +24379,10 @@ fn launch_readiness_record(
 fn launch_spawn_record(
     launch_id: &str,
     session_binding_ref: &str,
+    harness_profile_id: &str,
+    harness_name: &str,
+    model_configuration_ref: &str,
+    model_route_ref: &str,
     workspace_root: &str,
     now: &str,
 ) -> Value {
@@ -22977,17 +24396,17 @@ fn launch_spawn_record(
         "launch_id": format!("launch:{launch_id}"),
         "session_binding_ref": session_binding_ref,
         "session_route_ref": "session-route:sessions/mission.default/project:ioi",
-        "harness_selection_ref": "harness-profile:hp_hypervisor_worker",
-        "agent_harness_adapter_id": "generic_cli_local",
-        "model_configuration_ref": "model-config:local/hypervisor-worker",
-        "model_route_ref": "model-route:mrt_local_default",
-        "model_name": "hypervisor-worker",
+        "harness_selection_ref": format!("harness-profile:{harness_profile_id}"),
+        "agent_harness_adapter_id": harness_name,
+        "model_configuration_ref": model_configuration_ref,
+        "model_route_ref": model_route_ref,
+        "model_name": harness_name,
         "workspace_ref": format!("workspace://{launch_id}"),
         "workspace_root": workspace_root,
         "terminal_session_ref": format!("terminal:{launch_id}"),
         "command_contract_ref": format!("command-contract:{launch_id}"),
         "command_contract": { "pty_transport": "hypervisor_client_terminal_adapter" },
-        "terminal_attach_contract": { "command_line": "generic-cli-local", "rows": 40 },
+        "terminal_attach_contract": { "command_line": harness_name, "rows": 40 },
         "workspace_mount_policy": "ctee_private_workspace",
         "privacy_posture_ref": "privacy:ctee-private-workspace",
         "authority_scope_refs": ["scope:workspace.read"],
@@ -23097,6 +24516,8 @@ fn launch_projection(record: &Value, replayed: bool) -> Value {
             "thread_event_resulting_head": chain.pointer("/thread/initial_event/resulting_head").cloned().unwrap_or(Value::Null),
             "harness_profile_ref": launch_step_ref(&step("/harness_binding_evidence"), &["harness_profile_ref"]),
             "harness_profile_resolved": launch_step_ref(&step("/harness_binding_evidence"), &["harness_profile_resolved"]),
+            "session_profile_binding_ref": launch_step_ref(&step("/harness_binding_evidence"), &["session_profile_binding_ref"]),
+            "session_model_route_binding_ref": launch_step_ref(&step("/harness_binding_evidence"), &["session_model_route_binding_ref"]),
             "fork_decision": launch_step_ref(&step("/fork"), &["decision"]),
             "managed_session_decision": launch_step_ref(&step("/managed_session"), &["decision"]),
             "managed_session_ref": launch_step_ref(&step("/managed_session"), &["managed_session_ref"]),
@@ -23155,7 +24576,12 @@ pub(crate) async fn handle_session_launch_create(
         .to_string();
     let launch_id = launch_identity(&session_ref, &idempotency_key);
     let launch_ref = format!("harness-session-launch:{launch_id}");
-    let request_hash = launch_request_hash(&session_ref, &owner_ref, &idempotency_key);
+    let request_hash = launch_request_hash(
+        &session_ref,
+        &owner_ref,
+        &idempotency_key,
+        body.get("delegation"),
+    );
 
     // Idempotent replay-to-stored-record: the same owner + key + body replays the admitted launch;
     // a changed body under the same identity refuses typed. The subject attachment is re-asserted
@@ -23167,6 +24593,18 @@ pub(crate) async fn handle_session_launch_create(
                 Json(
                     json!({"error":{"code":"session_launch_idempotency_conflict","message":"This launch identity is already produced for a different request body."}}),
                 ),
+            );
+        }
+        if existing.get("session_harness_binding") != session_record.get("harness_binding")
+            || existing.get("session_model_route_binding")
+                != session_record.get("model_route_binding")
+        {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({"error":{
+                    "code":"session_launch_predecessor_binding_changed",
+                    "message":"The Session's harness or model-route binding changed after this launch was admitted; a successor launch_idempotency_key is required."
+                }})),
             );
         }
         if let Some(attachments) = existing.pointer("/chain/subject_attachments") {
@@ -23213,28 +24651,59 @@ pub(crate) async fn handle_session_launch_create(
         }
     };
 
-    // Finding 2 — exact-revision harness binding. Load the REAL seeded `hp_hypervisor_worker`
-    // profile from the registry and freeze its EXACT revision (sha256), and RECHECK the model route
-    // at the launch boundary with a real read of the daemon-owned registry. The binding's
-    // availability enum is derived from that read — never a static `daemon_verified` literal.
+    // Finding 2 — exact-revision harness binding. Resolve the Session's already-admitted profile
+    // binding (or the seeded default when the Session selected none), freeze that REAL profile's
+    // exact revision, and recheck the Session's exact model route at the launch boundary.
     super::harness_routes::ensure_seed(&st.data_dir);
-    // Whether the launch actually RESOLVED the seeded profile from the registry. A false here means
-    // the fallback stub was taken (no exact-revision binding is possible) — the evidence carries the
-    // marker so a reader can refuse to treat a stub-derived revision as real.
-    let harness_profile_record_opt =
-        super::harness_routes::load_profile_record(&st.data_dir, LAUNCH_HARNESS_PROFILE_ID);
-    let harness_profile_resolved = harness_profile_record_opt.is_some();
-    let harness_profile_record = harness_profile_record_opt
-        .unwrap_or_else(|| json!({"profile_ref": format!("harness-profile:{LAUNCH_HARNESS_PROFILE_ID}"), "profile_id": LAUNCH_HARNESS_PROFILE_ID, "harness": "hypervisor_worker"}));
+    let harness_profile_id = session_record
+        .pointer("/harness_binding/profile_ref")
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("harness-profile:"))
+        .filter(|value| !value.is_empty())
+        .unwrap_or(LAUNCH_HARNESS_PROFILE_ID);
+    let Some(harness_profile_record) =
+        super::harness_routes::load_profile_record(&st.data_dir, harness_profile_id)
+    else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{
+                "code":"session_launch_harness_profile_unresolved",
+                "message":"The Session's exact harness profile revision is unavailable; launch refuses instead of substituting a default or stub.",
+                "harness_profile_id":harness_profile_id,
+            }})),
+        );
+    };
+    let harness_profile_resolved = true;
+    let harness_name = harness_profile_record
+        .get("harness")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("hypervisor_worker");
+    let harness_label = harness_profile_record
+        .get("display_name")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(harness_name);
     let (harness_profile_revision_ref, harness_profile_content_hash) =
         harness_profile_frozen_revision(&harness_profile_record);
     let substrate = ExecutionSubstrate::probe();
-    let route_recheck = model_route_launch_recheck(&st.data_dir, &substrate, &now);
+    let preferred_model_route_ref = session_record
+        .pointer("/model_route_binding/route_ref")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            session_record
+                .pointer("/harness_binding/model_route_ref")
+                .and_then(Value::as_str)
+        });
+    let route_recheck =
+        model_route_launch_recheck(&st.data_dir, &substrate, preferred_model_route_ref, &now);
 
     // Step 9 — HarnessSessionBindingAdmission (canonical kernel planner), fed the rechecked
     // availability + real route ref. An unavailable route is refused by the planner, not over-claimed.
     let harness_binding_admission = match kernel.admit_harness_session_binding(
         &session_harness_binding_request(
+            harness_profile_id,
+            harness_label,
             &route_recheck.route_ref,
             route_recheck.availability_state,
         ),
@@ -23255,27 +24724,34 @@ pub(crate) async fn handle_session_launch_create(
         .and_then(Value::as_str)
         .unwrap_or("harness-session-binding:launch")
         .to_string();
+    let model_configuration_ref = harness_binding_admission
+        .get("model_configuration_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("model-config:unresolved")
+        .to_string();
 
-    // Step 10 — readiness evidence (real substrate probe, reused from the route recheck). Only a
-    // ready binding may spawn.
+    // Steps 10-11 — the admitted spawn record precedes readiness, and terminal attachment consumes
+    // those exact two records. A non-runnable Session produces only honest blocked readiness.
     let session_ready = !workspace_root.is_empty()
         && session_record
             .get("lifecycle_state")
             .and_then(Value::as_str)
             != Some("torn_down");
-    let readiness = launch_readiness_record(
-        &launch_id,
-        &session_binding_ref,
-        &substrate,
-        session_ready,
-        &now,
-    );
-
-    // Step 11 — spawn + terminal attachment (HarnessSessionTerminalAttach planner) when ready.
-    let (spawn, terminal_attach) = if session_ready {
-        let spawn = launch_spawn_record(&launch_id, &session_binding_ref, &workspace_root, &now);
+    let (spawn, readiness, terminal_attach) = if session_ready {
+        let spawn = launch_spawn_record(
+            &launch_id,
+            &session_binding_ref,
+            harness_profile_id,
+            harness_name,
+            &model_configuration_ref,
+            &route_recheck.route_ref,
+            &workspace_root,
+            &now,
+        );
+        let readiness =
+            launch_readiness_record(&launch_id, &session_binding_ref, &substrate, true, &now);
         let terminal_attach = match kernel.admit_harness_session_terminal_attach(
-            &json!({"session_spawn": spawn, "session_readiness": readiness}),
+            &json!({"session_spawn": &spawn, "session_readiness": &readiness}),
             &now,
         ) {
             Ok(record) => record,
@@ -23288,9 +24764,13 @@ pub(crate) async fn handle_session_launch_create(
                 )
             }
         };
-        (spawn, terminal_attach)
+        (spawn, readiness, terminal_attach)
     } else {
-        (Value::Null, Value::Null)
+        (
+            Value::Null,
+            launch_readiness_record(&launch_id, &session_binding_ref, &substrate, false, &now),
+            Value::Null,
+        )
     };
 
     // ---- Every refusable planner admitted. Steps 5-7 are the REAL kernel event-stream / planner
@@ -23390,6 +24870,8 @@ pub(crate) async fn handle_session_launch_create(
         "harness_profile_resolved": harness_profile_resolved,
         "harness_profile_revision_ref": harness_profile_revision_ref,
         "harness_profile_content_hash": harness_profile_content_hash,
+        "session_profile_binding_ref": session_record.pointer("/harness_binding/binding_id"),
+        "session_model_route_binding_ref": session_record.pointer("/model_route_binding/binding_id"),
         "model_route_recheck": route_recheck.evidence,
     });
     let subject_attachments = launch_subject_attachments(&launch_ref, project_ref.as_deref(), &now);
@@ -23774,8 +25256,9 @@ pub(crate) mod runtime_host {
     use ioi_memory::MemoryRuntime;
     use ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge;
     use ioi_services::agentic::runtime::service::{
-        install_constrained_browser_navigation_policy, install_constrained_shell_exec_policy,
-        install_constrained_workspace_write_policy, RuntimeAgentService,
+        install_constrained_browser_navigation_policy, install_constrained_extension_invoke_policy,
+        install_constrained_shell_exec_policy, install_constrained_workspace_write_policy,
+        RuntimeAgentService,
     };
     use ioi_services::agentic::runtime::types::{
         AgentMode, PostMessageParams, StartAgentParams, StepAgentParams,
@@ -23953,12 +25436,20 @@ pub(crate) mod runtime_host {
         memory: Arc<MemoryRuntime>,
         bridge: broadcast::Sender<KernelEvent>,
         events: broadcast::Sender<KernelEvent>,
+        mcp: Arc<ioi_drivers::mcp::McpManager>,
+        runtime_tool_contract_registry: Arc<
+            std::sync::RwLock<
+                ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry,
+            >,
+        >,
     ) -> RuntimeAgentService {
         let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
         let terminal = Arc::new(TerminalDriver::new());
         let browser = Arc::new(BrowserDriver::new());
         let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
         RuntimeAgentService::new(gui, terminal, browser, inference)
+            .with_mcp_manager(mcp)
+            .with_runtime_tool_contract_registry(runtime_tool_contract_registry)
             .with_workspace_path(workspace_path.to_string())
             .with_memory_runtime(memory)
             .with_event_sender(events)
@@ -23971,6 +25462,7 @@ pub(crate) mod runtime_host {
             KernelEvent::AgentActionResult {
                 step_index,
                 tool_name,
+                output,
                 error_class,
                 agent_status,
                 ..
@@ -23978,6 +25470,7 @@ pub(crate) mod runtime_host {
                 "kind": "AgentActionResult",
                 "step_index": step_index,
                 "tool_name": tool_name,
+                "output": output,
                 "error_class": error_class,
                 "agent_status": agent_status,
             }),
@@ -24177,6 +25670,41 @@ pub(crate) mod runtime_host {
         }
     }
 
+    fn mcp_tool_route_frame(tool_name: &str, arguments: &Value) -> RuntimeRouteFrame {
+        RuntimeRouteFrame {
+            intent_id: "extension.invoke".to_string(),
+            route_family: "mcp".to_string(),
+            output_intent: "tool_execution".to_string(),
+            direct_answer_allowed: false,
+            target: tool_name.to_string(),
+            target_kind: Some("mcp_tool".to_string()),
+            host_mutation: true,
+            required_capabilities: vec!["extension.invoke".to_string()],
+            typed_evidence: vec![
+                RuntimeIntentEvidence {
+                    evidence_kind: "mcp_tool_name".to_string(),
+                    value: tool_name.to_string(),
+                    source: "runtime_host".to_string(),
+                    confidence: Some(100),
+                },
+                RuntimeIntentEvidence {
+                    evidence_kind: "mcp_tool_arguments".to_string(),
+                    value: arguments.to_string(),
+                    source: "runtime_host".to_string(),
+                    confidence: Some(100),
+                },
+            ],
+            typed_required_capabilities: vec![RequiredCapability {
+                capability_id: "extension.invoke".to_string(),
+                reason: Some("admitted MCP tool invocation".to_string()),
+            }],
+            host_mutation_scope: None,
+            runtime_action: None,
+            install_request: None,
+            provenance: Some("runtime_host".to_string()),
+        }
+    }
+
     fn session_id_for_ref(session_ref: &str) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(session_ref.as_bytes());
@@ -24248,6 +25776,39 @@ pub(crate) mod runtime_host {
             .to_string_lossy()
             .into_owned();
 
+        // Validate an MCP directive before the execution-authority gate. Invalid input must not
+        // consume a grant or leave any runtime-host state behind.
+        let mcp_tool_directive_present = body.get("mcp_tool_call").is_some();
+        let mcp_tool_call: Option<(String, Value)> = body
+            .get("mcp_tool_call")
+            .and_then(Value::as_object)
+            .and_then(|call| {
+                let tool_name = call.get("tool_name")?.as_str()?.trim().to_string();
+                if !tool_name.contains("__")
+                    || ioi_types::app::agentic::AgentTool::is_reserved_tool_name(&tool_name)
+                {
+                    return None;
+                }
+                let arguments = call
+                    .get("arguments")
+                    .cloned()
+                    .filter(Value::is_object)
+                    .unwrap_or_else(|| json!({}));
+                Some((tool_name, arguments))
+            });
+        if mcp_tool_directive_present && mcp_tool_call.is_none() {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "code": "runtime_host_mcp_tool_call_invalid",
+                        "message": "mcp_tool_call requires a non-native namespaced tool_name and object arguments",
+                    },
+                    "session_ref": session_ref,
+                })),
+            );
+        }
+
         // A stepped request (5B) runs a consequential tool, so it is wallet-gated at the daemon
         // boundary BEFORE ANY state mutation. Everything above this point is pure derivation: the
         // agent record and the session workspace are written only after admission, so a refused
@@ -24299,7 +25860,14 @@ pub(crate) mod runtime_host {
         // High-volume KernelEvent capture for the step probe (Phase 5B). The receiver
         // must exist before the step so emitted events are observed, not dropped.
         let (events_tx, mut events_rx) = broadcast::channel::<KernelEvent>(512);
-        let host = build_runtime_agent_host(&workspace_path, memory, bridge.clone(), events_tx);
+        let host = build_runtime_agent_host(
+            &workspace_path,
+            memory,
+            bridge.clone(),
+            events_tx,
+            st.mcp_manager.clone(),
+            st.runtime_tool_contract_registry.clone(),
+        );
         let mut state = DaemonHostStateAccess::open(&st.data_dir);
         let services = synthetic_service_directory();
         let now_ns = std::time::SystemTime::now()
@@ -24361,12 +25929,18 @@ pub(crate) mod runtime_host {
             .as_deref()
             .map(browser_navigate_route_frame);
 
+        let mcp_tool_frame = mcp_tool_call
+            .as_ref()
+            .map(|(tool_name, arguments)| mcp_tool_route_frame(tool_name, arguments));
+
         // Exactly one pre-resolved tool frame may drive the constrained step (precedence:
-        // file write → shell → browser). Without a directive the step runs unconstrained cognition.
+        // file write → shell → browser → MCP). Without a directive the step runs
+        // unconstrained cognition.
         let has_file_write_directive = file_write_frame.is_some();
         let route_frame = file_write_frame
             .or(shell_run_frame)
-            .or(browser_navigate_frame);
+            .or(browser_navigate_frame)
+            .or(mcp_tool_frame);
 
         // start@v1 (canonical lifecycle op; deterministic — no inference).
         let start_params = StartAgentParams {
@@ -24416,6 +25990,16 @@ pub(crate) mod runtime_host {
         } else if browser_navigate_url.is_some() {
             if let Err(error) =
                 install_constrained_browser_navigation_policy(&mut state, session_id)
+            {
+                return host_error(
+                    &session_ref,
+                    "install_session_policy",
+                    &format!("{error:?}"),
+                );
+            }
+        } else if let Some((tool_name, _)) = mcp_tool_call.as_ref() {
+            if let Err(error) =
+                install_constrained_extension_invoke_policy(&mut state, session_id, tool_name)
             {
                 return host_error(
                     &session_ref,
@@ -24631,6 +26215,8 @@ mod launch_chain_composition_tests {
         let admitted = RuntimeKernelService::new()
             .admit_harness_session_binding(
                 &session_harness_binding_request(
+                    "hp_hypervisor_worker",
+                    "Hypervisor Worker (native)",
                     "model-route:mrt_local_default",
                     "daemon_verified",
                 ),
@@ -24684,8 +26270,16 @@ mod launch_chain_composition_tests {
         let spawn = launch_spawn_record(
             "abc",
             "harness-session-binding:b/1",
+            "hp_hypervisor_worker",
+            "hypervisor_worker",
+            "model-config:local/hp-hypervisor-worker",
+            "model-route:mrt_local_default",
             "/tmp/ws",
             "2026-08-11T00:00:00.000Z",
+        );
+        assert_eq!(
+            spawn["model_configuration_ref"],
+            "model-config:local/hp-hypervisor-worker"
         );
 
         RuntimeKernelService::new()
@@ -24708,5 +26302,19 @@ mod launch_chain_composition_tests {
         assert_eq!(a, b);
 
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn launch_request_hash_binds_semantic_delegation() {
+        let without = launch_request_hash("session:x", "owner:x", "key:x", None);
+        let with_null = launch_request_hash("session:x", "owner:x", "key:x", Some(&Value::Null));
+        let with_delegation = launch_request_hash(
+            "session:x",
+            "owner:x",
+            "key:x",
+            Some(&json!({"reason":"review","bounds":{"max_steps":1}})),
+        );
+        assert_eq!(without, with_null);
+        assert_ne!(without, with_delegation);
     }
 }

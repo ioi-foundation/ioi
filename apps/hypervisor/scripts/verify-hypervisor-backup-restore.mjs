@@ -256,10 +256,11 @@ const placementFor = (environmentId) => ({
 });
 
 /** Create + start one environment through the product routes and return its real workspace root. */
-async function provisionEnvironment(d, environmentId) {
-  await d.req("POST", "/v1/hypervisor/environments", { environment_id: environmentId, spec: {} });
+async function provisionEnvironment(d) {
+  const created = await d.req("POST", "/v1/hypervisor/environments", { spec: {} });
+  const environmentId = created.j?.environment?.id ?? "";
   const started = await d.req("POST", `/v1/hypervisor/environments/${environmentId}/start`);
-  return started.j?.environment?.status?.workspace_root ?? "";
+  return { environmentId, workspace: started.j?.environment?.status?.workspace_root ?? "" };
 }
 
 /** Declare one local_private storage profile carrying an explicit retention duty. */
@@ -493,8 +494,7 @@ async function run() {
     whoA.authenticated === true && A.owner === "org://local",
     `authenticated ${whoA.authenticated} owner ${A.owner}`);
 
-  const envA = "bkp-env-a";
-  const workspaceA = await provisionEnvironment(A, envA);
+  const { environmentId: envA, workspace: workspaceA } = await provisionEnvironment(A);
   ok("daemon A's environment materialized a REAL workspace inside its own data directory",
     workspaceA.length > 0 && fs.existsSync(workspaceA) && path.resolve(workspaceA).startsWith(path.resolve(A.dataDir)),
     workspaceA);
@@ -620,8 +620,7 @@ async function run() {
     B.countFiles("hypervisor-environment-backups") === 0 && B.countFiles("managed-backup-material") === 0,
     `records ${B.countFiles("hypervisor-environment-backups")} material ${B.countFiles("managed-backup-material")}`);
 
-  const envB = "bkp-env-b";
-  const workspaceB = await provisionEnvironment(B, envB);
+  const { environmentId: envB, workspace: workspaceB } = await provisionEnvironment(B);
   fs.writeFileSync(path.join(workspaceB, "only-on-daemon-b.txt"), "pre-restore\n");
   ok("PRECONDITION: daemon B's target workspace does NOT already contain daemon A's marker",
     workspaceB.length > 0 && !fs.existsSync(path.join(workspaceB, MARKER)),

@@ -197,6 +197,11 @@ pub(crate) fn authorize_wallet_method(
         | "grant_secret_injection@v1"
         | "register_approval_authority@v1"
         | "revoke_approval_authority@v1"
+        | "record_standing_approval_grant@v1"
+        | "record_portable_authority_grant_v3@v1"
+        | "refresh_portable_authority_grant_v3_evidence@v1"
+        | "revoke_portable_authority_grant_v3@v1"
+        | "revoke_standing_approval_grant@v1"
         | "panic_stop@v1" => ensure_wallet_client_role(state, ctx, WalletAuthRole::ControlPlane),
         "mail_connector_ensure_binding@v1"
         | "mail_read_latest@v1"
@@ -208,7 +213,10 @@ pub(crate) fn authorize_wallet_method(
         | "record_approval@v1"
         | "consume_approval_grant@v1"
         | "consume_approval_grant_for_effect@v1"
-        | "consume_approval_grant_for_effect@v2" => {
+        | "consume_approval_grant_for_effect@v2"
+        | "consume_standing_approval_grant_for_effect@v1"
+        | "consume_portable_authority_grant_v3_for_effect@v1"
+        | "settle_standing_approval_grant_consumption@v1" => {
             ensure_wallet_client_role(state, ctx, WalletAuthRole::Capability)
         }
         _ => Ok(()),

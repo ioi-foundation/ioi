@@ -6,7 +6,7 @@ Supersedes: older generic capability-grant wording when it conflicts with `scope
 Superseded by: none.
 Last alignment pass: 2026-08-12.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; all affected shared-verifier and governed-authority registrations now route structural evidence through independent issuer resolution, deterministic atomic consumption, opaque admission revalidation, and retained route/final-invoker, concurrency, crash, denial, and replay proof; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts; the wallet-interoperability surfaces — inbound external-wallet sign-in, outbound provider service, OIDC federation — are planned target contracts with no implementation, and the predecessor link_owner@v1 anchor store is superseded by them before any exposure)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action issuance/verification/admission plus embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, MPC vault, WalletReceipt v2, and wallet-interoperability surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -113,6 +113,14 @@ training, and system-governance owners.
 The gateway must be portable, revocable, policy-bound, receipted, and visible
 across local, hosted, enterprise, cTEE/private-workspace, DePIN, cloud, model,
 connector, marketplace, and domain-application routes.
+
+Secret custody is profile-explicit. `development_cooperative` may use the
+well-known `local-mode` sealing value solely as an honestly labelled fixture;
+it establishes neither secret non-possession nor a conforming custody claim.
+Sovereign, production, remote-wallet, and brokered profiles have no such
+fallback: absent their out-of-band custody key or authenticated broker, secret
+sealing, opening, and every dependent effect refuse. A profile label never
+substitutes for the key or broker it names.
 
 This is how Web4 moves autonomous-work authority outside provider trust by
 default. Model providers, cloud providers, connector providers, venues, and
@@ -278,10 +286,24 @@ execution/effect receipts
 ```
 
 The closed ceremony context, `AuthorityReviewReceiptV1`, context-bound
-`AuthorityGrantEnvelope` v3, `AuthorityEffectAdmissionReceiptV1`, and target
-`WalletReceipt` v2 are successor contracts. Current registered v1/v2 grants,
-the current WalletReceipt v1, and generic execution receipts remain unchanged
-and do not by themselves establish the end-to-end exact-action proof.
+`AuthorityGrantEnvelope` v3, and `AuthorityEffectAdmissionReceiptV2` are
+registered successor contracts; `WalletReceipt` v2 remains a target. The Rust
+wallet service verifies exact raw v3 grants, issuer keys, signed
+bounded-freshness revocation snapshots, parent-holder issuance, attenuation,
+replay, and the complete offline ancestor chain. Delegated chains additionally
+require an owner-supplied trusted allocation closure because immutable v3 does
+not carry signed depth, re-delegation, or global sibling-allocation facts;
+request-carried closure assertions are inadmissible. Current registered v1/v2
+grants, the current WalletReceipt v1, and generic execution receipts remain
+unchanged and do not by themselves establish the end-to-end exact-action proof.
+The same verifier path can construct a registered, canonically hashed v2
+pre-invocation admission receipt from the exact verified leaf and daemon effect;
+that pure constructor does not itself consume authority, persist the receipt, or
+authorize an invoker.
+Before registration, it can also verify the complete exact
+request/review/single-use-ceremony/signed-grant graph and request-to-grant
+non-widening. That sealed result is an admission input to wallet-owned durable
+state; it is not itself proof that the ceremony has been atomically consumed.
 
 A WebAuthn assertion can be evidence in an application consent or approval
 ceremony when its fresh server challenge is bound to
@@ -1023,10 +1045,14 @@ crates/types/src/app/wallet_network/
   Rust authority/session/connector/secret/receipt object types.
 
 crates/services/src/wallet_network/
-  Native wallet.network service transition logic and validation.
+  Native wallet.network service transition logic and validation, including
+  offline portable-v3 verification plus atomic owner registration, ceremony
+  consumption, evidence refresh, revocation, exact-effect metering, and
+  idempotent consumption receipts.
 
 crates/services/src/wallet_network/tests/
-  Service-level wallet authority, lease, connector, receipt, and replay tests.
+  Service-level wallet authority, lease, connector, receipt, replay, and
+  request-carried portable-key substitution tests.
 
 crates/cli/tests/wallet_network_session_channel_e2e/
   End-to-end session channel, lease, approval, secret injection, and mail

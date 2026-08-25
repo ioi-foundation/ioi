@@ -2701,16 +2701,12 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async threadMcpStatus(
     threadId: string,
-    input: RuntimeThreadMcpInput = {},
+    _input: RuntimeThreadMcpInput = {},
   ): Promise<RuntimeMcpStatus> {
     return this.request(
       "threadMcpStatus",
-      "POST",
+      "GET",
       `/v1/threads/${encodePath(threadId)}/mcp/status`,
-      {
-        source: "sdk_client",
-        ...input,
-      },
     );
   }
 

@@ -2,10 +2,11 @@ use super::{
     ensure_agent_running_or_resume_retry_pause, handle_step, maybe_direct_inline_author_tool_call,
     maybe_fail_step_resource_limits, maybe_run_optimizer_recovery,
     maybe_typed_runtime_browser_navigate_tool_call, maybe_typed_runtime_file_write_tool_call,
-    maybe_typed_runtime_install_resolve_tool_call, maybe_typed_runtime_shell_run_tool_call,
-    maybe_typed_runtime_web_search_tool_call, maybe_typed_runtime_workspace_context_tool_call,
-    queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
-    should_clear_stale_canonical_pending, typed_runtime_route_resolved_intent,
+    maybe_typed_runtime_install_resolve_tool_call, maybe_typed_runtime_mcp_tool_call,
+    maybe_typed_runtime_shell_run_tool_call, maybe_typed_runtime_web_search_tool_call,
+    maybe_typed_runtime_workspace_context_tool_call, queue_parent_playbook_await_request,
+    queue_root_playbook_delegate_request, should_clear_stale_canonical_pending,
+    typed_runtime_route_resolved_intent,
 };
 use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key};
 use crate::agentic::runtime::service::decision_loop::intent_resolver::is_tool_allowed_for_resolution;
@@ -39,6 +40,7 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 use ioi_types::error::{StateError, VmError};
+use serde_json::json;
 use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::path::Path;
@@ -214,6 +216,41 @@ fn typed_workspace_frame_with_evidence(evidence_kind: &str, value: &str) -> Runt
             confidence: Some(92),
         }],
         typed_required_capabilities: Vec::new(),
+        host_mutation_scope: None,
+        runtime_action: None,
+        install_request: None,
+        provenance: Some("test".to_string()),
+    }
+}
+
+fn typed_mcp_tool_frame(tool_name: &str, arguments: &str) -> RuntimeRouteFrame {
+    RuntimeRouteFrame {
+        intent_id: "extension.invoke".to_string(),
+        route_family: "mcp".to_string(),
+        output_intent: "tool_execution".to_string(),
+        direct_answer_allowed: false,
+        target: tool_name.to_string(),
+        target_kind: Some("mcp_tool".to_string()),
+        host_mutation: true,
+        required_capabilities: vec!["extension.invoke".to_string()],
+        typed_evidence: vec![
+            RuntimeIntentEvidence {
+                evidence_kind: "mcp_tool_name".to_string(),
+                value: tool_name.to_string(),
+                source: "test".to_string(),
+                confidence: Some(100),
+            },
+            RuntimeIntentEvidence {
+                evidence_kind: "mcp_tool_arguments".to_string(),
+                value: arguments.to_string(),
+                source: "test".to_string(),
+                confidence: Some(100),
+            },
+        ],
+        typed_required_capabilities: vec![RequiredCapability {
+            capability_id: "extension.invoke".to_string(),
+            reason: Some("test MCP invocation".to_string()),
+        }],
         host_mutation_scope: None,
         runtime_action: None,
         install_request: None,
@@ -613,6 +650,30 @@ fn typed_runtime_shell_frame_dispatches_explicit_command_plan() {
         .any(|action| { action.starts_with("runtime_route_frame_dispatch:shell__run") }));
 
     assert!(maybe_typed_runtime_shell_run_tool_call(&mut state).is_none());
+}
+
+#[test]
+fn typed_runtime_mcp_frame_dispatches_only_namespaced_extension_tools() {
+    let mut state = test_agent_state();
+    state.runtime_route_frame = Some(typed_mcp_tool_frame(
+        "calendar__create_event",
+        r#"{"title":"Planning"}"#,
+    ));
+
+    let tool_call = maybe_typed_runtime_mcp_tool_call(&mut state)
+        .expect("admitted MCP route frame should dispatch its dynamic tool");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&tool_call).unwrap(),
+        json!({
+            "name": "calendar__create_event",
+            "arguments": { "title": "Planning" },
+        })
+    );
+    assert!(maybe_typed_runtime_mcp_tool_call(&mut state).is_none());
+
+    let mut reserved = test_agent_state();
+    reserved.runtime_route_frame = Some(typed_mcp_tool_frame("file__write", r#"{}"#));
+    assert!(maybe_typed_runtime_mcp_tool_call(&mut reserved).is_none());
 }
 
 #[test]

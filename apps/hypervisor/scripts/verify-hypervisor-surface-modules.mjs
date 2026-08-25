@@ -83,7 +83,12 @@ async function run() {
   ok("registry binds the module (identity, not a copy)", !!hit && hit.impl.render === pipeline.render && hit.impl.load === pipeline.load, hit ? "bound" : "no binding for /__ioi/pipeline");
   const ctx = { url: new URL("http://x/__ioi/pipeline"), daemon: "http://127.0.0.1:1" };
   const model = await pipeline.load(ctx);
-  ok("dead daemon loads to honest empty lists", Object.values(model).every((v) => Array.isArray(v) && v.length === 0), `${Object.keys(model).length} list keys`);
+  // The load contract on a dead daemon: every LIST key honest-empty AND the typed degradation
+  // record present (the `degraded` key is the module's own truth about why the lists are empty —
+  // asserting all-arrays was stale once that key landed; empty lists WITHOUT the record would be
+  // the dishonest shape).
+  const { degraded: deg, ...deadLists } = model;
+  ok("dead daemon loads to honest empty lists + typed degradation record", Object.values(deadLists).every((v) => Array.isArray(v) && v.length === 0) && !!deg && typeof deg === "object", `${Object.keys(deadLists).length} list keys · degraded=${!!deg}`);
   const html = pipeline.render(model, ctx);
   ok("offline render keeps the certified shell landmarks", ["<title>Pipeline Builder</title>", "Pipeline outputs", "pb-shell", "APPLICATIONS"].every((m) => html.includes(m)));
   const selCtx = { url: new URL("http://x/__ioi/pipeline?ontology=does-not-exist"), daemon: "http://127.0.0.1:1" };
@@ -675,6 +680,60 @@ async function run() {
   const pl = proofLink({ href: '/__ioi/run-timeline/r?a=1&b=2', label: "timeline", external: true });
   ok("proofLink escapes href and marks external", pl.includes('href="/__ioi/run-timeline/r?a=1&amp;b=2"') && pl.includes('rel="noopener"') && pl.includes('data-testid="ioi-proof-link"'));
   ok("semanticMask tags the region by id", semanticMask("rows", "<tr></tr>") === '<span data-ioi-sem-mask="rows"><tr></tr></span>');
+
+  // 8. UNIFIED GAP CONTRACT (I-5, Reference-UX Remediation Program v2). One vocabulary estate-wide:
+  // every named gap emitted with aria-disabled="true" + a human title MUST also carry the
+  // machine-readable data-ioi-disabled-reason (the kit's disabledCommand shape). Checked at the
+  // EMISSION POINT (source scan of the serving corpus), not by grepping rendered pages — a gap
+  // authored without the machine reason is invisible to the journey verifiers that key on it.
+  // The scan is line-based because every ad-hoc emission is a single-line template string; the
+  // kit helper (multi-line, already compliant) is asserted separately above via disabledCommand.
+  {
+    const { readdirSync, statSync } = await import("node:fs");
+    const corpus = [join(APP, "scripts", "serve-product-ui.mjs")];
+    const walk = (dir) => { for (const e of readdirSync(dir)) { const f = join(dir, e); if (statSync(f).isDirectory()) walk(f); else if (f.endsWith(".mjs") && !/\.test\.mjs$/.test(f)) corpus.push(f); } };
+    walk(join(APP, "surfaces"));
+    let paired = 0; const unpaired = [];
+    for (const f of corpus) {
+      const lines = readFileSync(f, "utf8").split("\n");
+      lines.forEach((line, i) => {
+        if (!line.includes('aria-disabled="true"') || !line.includes("title=")) return;
+        if (line.includes("data-ioi-disabled-reason")) paired += 1;
+        else unpaired.push(`${f.replace(APP + "/", "")}:${i + 1}`);
+      });
+    }
+    ok("unified gap contract: ZERO titled aria-disabled emissions lack data-ioi-disabled-reason", unpaired.length === 0, unpaired.slice(0, 5).join(" · "));
+    // FLOOR (ratchet, verifier-floors pattern): the migrated corpus carries at least this many
+    // paired named-gap emissions; a refactor that silently drops gap declarations goes red here.
+    // Floor lowered 71→69 by AUT-2 (2026-08-19): the two monitors New-automation emissions became
+    // LIVE in-shell create links — a gap became a function, the direction the ratchet exists to allow.
+    // 69→68 by DAT-1 (2026-08-19): the sources Syncs tab emission became the LIVE lane link.
+    const GAP_EMISSION_FLOOR = 68;
+    ok(`unified gap contract: paired emission count >= floor (${GAP_EMISSION_FLOOR})`, paired >= GAP_EMISSION_FLOOR, `paired=${paired}`);
+  }
+
+  // 9. I-4 SPLASH-LANDING GRAMMAR (remediation v2, W3) — the one parameterized landing template
+  // the census-proven splash instances (module/logic/contour/slate + the ported landings) share.
+  // Contract: landmarks render; every gap control carries the unified contract; embed honors
+  // native_single_rail (no global rail); rows are caller-owned truth (never invented here).
+  {
+    const { renderSplashLanding } = await import("./splash-landing-grammar.mjs");
+    const fix = renderSplashLanding({
+      slug: "x-fixture", title: "Fixture App", appTileUri: "data:,", newLabel: "New thing",
+      newGapReason: "no authoring plane exists (typed absence)",
+      heroTitle: "Fixture hero", heroDesc: "Fixture description.",
+      columns: ["Files", "Creator", "Last viewed"],
+      rowsHtml: "", emptyCopy: "No records — renders real truth, never fabricates rows.",
+      footHtml: "evidence: fixture",
+    });
+    ok("I-4: landmarks render (title · store · New · Help · Recents · Favorites · columns · honest empty)", ["Fixture App", "New thing", "Help", "Recents", "Favorites", "Files", "never fabricates rows"].every((m) => fix.includes(m)));
+    ok("I-4: every gap control carries the UNIFIED contract (aria-disabled + title + data-ioi-disabled-reason)", (fix.match(/aria-disabled="true"/g) || []).length >= 4 && (fix.match(/aria-disabled="true"/g) || []).length === (fix.match(/data-ioi-disabled-reason=/g) || []).length);
+    const emb = renderSplashLanding({ slug: "x", title: "E", appTileUri: "data:,", newLabel: "N", newGapReason: "r", heroTitle: "h", heroDesc: "d", columns: ["a"], rowsHtml: "", emptyCopy: "e", embed: true });
+    ok("I-4: embed honors native_single_rail (no ported global rail)", !emb.includes("og-grail"));
+    const live = renderSplashLanding({ slug: "x", title: "L", appTileUri: "data:,", newLabel: "New", newHref: "/__ioi/x?new=1", heroTitle: "h", heroDesc: "d", columns: ["a"], rowsHtml: "", emptyCopy: "e" });
+    ok("I-4: a live New entry is an anchor, not a gap", live.includes(`href="/__ioi/x?new=1"`) && !live.includes(`data-ioi-disabled-reason="no authoring`));
+  }
+
 }
 
 run().then(() => {

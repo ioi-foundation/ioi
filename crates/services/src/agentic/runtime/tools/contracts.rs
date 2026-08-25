@@ -1,7 +1,418 @@
-use ioi_types::app::agentic::LlmToolDefinition;
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::agentic::{AgentTool, LlmToolDefinition};
 use ioi_types::app::{RuntimeToolContract, RUNTIME_CONTRACT_SCHEMA_VERSION_V1};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 
 const GENERIC_OUTPUT_SCHEMA: &str = r#"{"type":"object"}"#;
+pub const CANONICAL_RUNTIME_TOOL_CONTRACT_SCHEMA_VERSION: &str =
+    "ioi.components.connectors-tools.runtime-tool-contract.v1";
+
+/// The immutable, content-addressed contract used by invocation admission.
+///
+/// `RuntimeToolContract` in `ioi_types::app::runtime_contracts` remains the
+/// legacy discovery/catalog projection while callers migrate. This record is
+/// deliberately shaped like the registered architecture contract and is the
+/// execution truth consumed immediately before the final invoker.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdmittedRuntimeToolContract {
+    pub schema_version: String,
+    pub tool_id: String,
+    pub revision_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub predecessor_revision_ref: Option<String>,
+    pub content_hash: String,
+    pub namespace: String,
+    pub display_name: String,
+    pub version: String,
+    pub input_schema: Value,
+    pub output_schema: Value,
+    pub risk_class: String,
+    pub effect_class: String,
+    pub concurrency_class: String,
+    pub timeout: RuntimeToolTimeout,
+    pub primitive_capabilities_required: Vec<String>,
+    pub authority_scopes_required: Vec<String>,
+    pub approval_required: bool,
+    pub evidence_required: Vec<String>,
+    pub redaction_policy: String,
+    pub owner: String,
+    pub data_class_allowlist: Vec<String>,
+    pub egress_policy: RuntimeToolEgressPolicy,
+    pub registry_lifecycle_ref: Option<String>,
+    pub registry_status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RuntimeToolTimeout {
+    pub default_ms: u64,
+    pub max_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RuntimeToolEgressPolicy {
+    pub default: String,
+    pub allowed_destination_patterns: Vec<String>,
+}
+
+/// Runtime-only metadata that binds the immutable contract to the daemon's
+/// policy target. Adapter dispatch does not get to redefine either value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedRuntimeToolContract {
+    pub contract: AdmittedRuntimeToolContract,
+    pub policy_target: String,
+    pub action_target: String,
+}
+
+fn parse_schema(raw: &str) -> Value {
+    serde_json::from_str(raw).unwrap_or_else(|_| json!({"type": "object"}))
+}
+
+fn tool_slug(name: &str) -> String {
+    name.trim()
+        .to_ascii_lowercase()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '~' | '-' | '/') {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+pub fn runtime_tool_id_for_name(name: &str) -> String {
+    format!("tool://ioi/runtime/{}", tool_slug(name))
+}
+
+fn sha256_prefixed(bytes: &[u8]) -> Result<String, String> {
+    sha256(bytes)
+        .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
+        .map_err(|error| format!("RuntimeToolContract hash failed: {error}"))
+}
+
+/// Return the exact immutable JCS bytes committed to by `content_hash`.
+///
+/// The self-referential hash and mutable registry lifecycle projection are
+/// excluded by the registered architecture contract.
+pub fn runtime_tool_contract_canonical_hash_material(
+    contract: &AdmittedRuntimeToolContract,
+) -> Result<Vec<u8>, String> {
+    let mut value = serde_json::to_value(contract)
+        .map_err(|error| format!("RuntimeToolContract serialization failed: {error}"))?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "RuntimeToolContract did not serialize as an object".to_string())?;
+    object.remove("content_hash");
+    object.remove("registry_lifecycle_ref");
+    object.remove("registry_status");
+    serde_jcs::to_vec(&value)
+        .map_err(|error| format!("RuntimeToolContract canonicalization failed: {error}"))
+}
+
+fn revision_seed(name: &str, input_schema: &Value, owner: &str) -> Result<String, String> {
+    let bytes = serde_jcs::to_vec(&json!({
+        "name": name,
+        "input_schema": input_schema,
+        "owner": owner,
+        "generator": "ioi.runtime-tool-contract-admission.v1",
+    }))
+    .map_err(|error| format!("RuntimeToolContract revision seed failed: {error}"))?;
+    let hash = sha256_prefixed(&bytes)?;
+    Ok(hash.trim_start_matches("sha256:")[..16].to_string())
+}
+
+fn egress_policy_for(profile: &ToolContractProfile) -> RuntimeToolEgressPolicy {
+    let destinations = match profile.policy_target.as_str() {
+        "web::retrieve" | "net::fetch" => vec![
+            "http://*".to_string(),
+            "https://*".to_string(),
+            "provider://web-retrieval/bound".to_string(),
+        ],
+        "browser::inspect" | "browser::interact" => vec![
+            "browser-session://bound".to_string(),
+            "file://*".to_string(),
+            "http://*".to_string(),
+            "https://*".to_string(),
+        ],
+        target if target.starts_with("model::") => {
+            vec!["provider://model-runtime/bound".to_string()]
+        }
+        target
+            if target.starts_with("media::")
+                || target.starts_with("media__")
+                || target.starts_with("gallery__") =>
+        {
+            vec![
+                "provider://media-runtime/bound".to_string(),
+                "http://*".to_string(),
+                "https://*".to_string(),
+            ]
+        }
+        "ucp::checkout" | "ucp::discovery" => {
+            vec!["http://*".to_string(), "https://*".to_string()]
+        }
+        target if is_connector_tool_name(target) => {
+            vec![format!("connector://{}/*", tool_slug(target))]
+        }
+        _ => vec!["local://daemon".to_string()],
+    };
+    RuntimeToolEgressPolicy {
+        default: if profile
+            .primitive_capabilities
+            .iter()
+            .any(|capability| capability == "prim:net.request")
+            || is_connector_tool_name(&profile.policy_target)
+            || profile.policy_target.starts_with("model::")
+            || profile.policy_target.starts_with("media::")
+            || profile.policy_target.starts_with("media__")
+            || profile.policy_target.starts_with("gallery__")
+            || profile.policy_target.starts_with("ucp::")
+        {
+            "allow_declared".to_string()
+        } else {
+            "deny".to_string()
+        },
+        allowed_destination_patterns: destinations,
+    }
+}
+
+fn admitted_contract(
+    name: &str,
+    input_schema: Value,
+    output_schema: Value,
+    owner: String,
+    action_target: String,
+) -> Result<ResolvedRuntimeToolContract, String> {
+    let mut profile = ToolContractProfile::for_name(name);
+    if profile.primitive_capabilities.is_empty() && owner.contains("adapter://") {
+        profile
+            .primitive_capabilities
+            .push("prim:connector.invoke".to_string());
+    }
+    let slug = tool_slug(name);
+    if slug.is_empty() {
+        return Err("RuntimeToolContract tool name is empty".to_string());
+    }
+    let revision = revision_seed(name, &input_schema, &owner)?;
+    let tool_id = runtime_tool_id_for_name(&slug);
+    let mut contract = AdmittedRuntimeToolContract {
+        schema_version: CANONICAL_RUNTIME_TOOL_CONTRACT_SCHEMA_VERSION.to_string(),
+        tool_id: tool_id.clone(),
+        revision_ref: format!("{tool_id}/revision/{revision}"),
+        predecessor_revision_ref: None,
+        content_hash: String::new(),
+        namespace: namespace_for_tool_name(name),
+        display_name: name.to_string(),
+        version: format!("1-{revision}"),
+        input_schema,
+        output_schema,
+        risk_class: profile.risk_domain.to_string(),
+        effect_class: profile.effect_class.to_string(),
+        concurrency_class: match profile.concurrency_class {
+            "parallel_read" => "safe_parallel",
+            "serial_session" => "resource_scoped",
+            "exclusive_effect" => "exclusive",
+            _ => "serialized",
+        }
+        .to_string(),
+        timeout: RuntimeToolTimeout {
+            default_ms: profile.timeout_default_ms,
+            max_ms: profile.timeout_max_ms,
+        },
+        primitive_capabilities_required: profile.primitive_capabilities.clone(),
+        authority_scopes_required: profile
+            .authority_scope_requirements
+            .iter()
+            .map(|scope| scope.replace("::", "."))
+            .collect(),
+        approval_required: tool_approval_required(
+            profile.effect_class,
+            &profile.authority_scope_requirements,
+        ),
+        evidence_required: profile.evidence_requirements.clone(),
+        redaction_policy: if profile.redaction_policy.contains("hash") {
+            "hash_only"
+        } else if profile.redaction_policy.contains("private") {
+            "full_private"
+        } else {
+            "redact_body"
+        }
+        .to_string(),
+        owner,
+        data_class_allowlist: vec![
+            "public".to_string(),
+            "internal".to_string(),
+            "confidential".to_string(),
+            "private".to_string(),
+        ],
+        egress_policy: egress_policy_for(&profile),
+        registry_lifecycle_ref: Some(format!("agentgres://object/{tool_id}")),
+        registry_status: "released".to_string(),
+    };
+    contract.content_hash =
+        sha256_prefixed(&runtime_tool_contract_canonical_hash_material(&contract)?)?;
+    validate_admitted_runtime_tool_contract(&contract)?;
+    Ok(ResolvedRuntimeToolContract {
+        contract,
+        policy_target: profile.policy_target,
+        action_target,
+    })
+}
+
+pub fn admitted_runtime_tool_contract_for_native(
+    tool: &AgentTool,
+) -> Result<ResolvedRuntimeToolContract, String> {
+    let name = tool.name_string();
+    if !AgentTool::is_reserved_tool_name(&name) {
+        return Err(format!(
+            "no released native RuntimeToolContract owns tool '{name}'"
+        ));
+    }
+    admitted_contract(
+        &name,
+        json!({"type": "object"}),
+        json!({"type": "object"}),
+        format!("module://{}", owner_module_for_tool_name(&name)),
+        format!("{:?}", tool.target()),
+    )
+}
+
+pub fn admitted_runtime_tool_contract_for_native_name(
+    name: &str,
+) -> Result<AdmittedRuntimeToolContract, String> {
+    if !AgentTool::is_reserved_tool_name(name) {
+        return Err(format!(
+            "no released native RuntimeToolContract owns tool '{name}'"
+        ));
+    }
+    admitted_contract(
+        name,
+        json!({"type": "object"}),
+        json!({"type": "object"}),
+        format!("module://{}", owner_module_for_tool_name(name)),
+        "native-agent-tool".to_string(),
+    )
+    .map(|resolved| resolved.contract)
+}
+
+pub fn observed_runtime_tool_boundary(name: &str) -> Result<ResolvedRuntimeToolContract, String> {
+    if name.trim().is_empty() {
+        return Err("runtime tool name is empty".to_string());
+    }
+    let contract = admitted_contract(
+        name,
+        json!({"type": "object"}),
+        json!({"type": "object"}),
+        "runtime-boundary-observer://hypervisor-daemon".to_string(),
+        "observed-final-invoker".to_string(),
+    )?
+    .contract;
+    let profile = ToolContractProfile::for_name(name);
+    Ok(ResolvedRuntimeToolContract {
+        contract,
+        policy_target: profile.policy_target,
+        action_target: "native-agent-tool".to_string(),
+    })
+}
+
+pub fn admitted_runtime_tool_contract_for_definition(
+    tool: &LlmToolDefinition,
+    owner: impl Into<String>,
+    action_target: impl Into<String>,
+) -> Result<ResolvedRuntimeToolContract, String> {
+    admitted_contract(
+        &tool.name,
+        parse_schema(&tool.parameters),
+        parse_schema(GENERIC_OUTPUT_SCHEMA),
+        owner.into(),
+        action_target.into(),
+    )
+}
+
+pub fn admitted_runtime_tool_contract_for_mcp_definition(
+    tool: &LlmToolDefinition,
+    server_name: &str,
+) -> Result<ResolvedRuntimeToolContract, String> {
+    let server_name = server_name.trim();
+    if server_name.is_empty() {
+        return Err("MCP RuntimeToolContract server name is empty".to_string());
+    }
+    let mut resolved = admitted_runtime_tool_contract_for_definition(
+        tool,
+        format!("mcp-server://{server_name}"),
+        format!("Custom(mcp-adapter:{server_name})"),
+    )?;
+    resolved.contract.egress_policy = RuntimeToolEgressPolicy {
+        default: "allow_declared".to_string(),
+        allowed_destination_patterns: vec![format!("mcp-server://{server_name}/*")],
+    };
+    resolved.contract.content_hash = sha256_prefixed(
+        &runtime_tool_contract_canonical_hash_material(&resolved.contract)?,
+    )?;
+    Ok(resolved)
+}
+
+pub fn validate_admitted_runtime_tool_contract(
+    contract: &AdmittedRuntimeToolContract,
+) -> Result<(), String> {
+    if contract.schema_version != CANONICAL_RUNTIME_TOOL_CONTRACT_SCHEMA_VERSION {
+        return Err("RuntimeToolContract schema version mismatch".to_string());
+    }
+    let value = serde_json::to_value(contract)
+        .map_err(|error| format!("RuntimeToolContract projection failed: {error}"))?;
+    let typed: ioi_types::app::generated::architecture_contracts::RuntimeToolContractV1 =
+        serde_json::from_value(value.clone())
+            .map_err(|error| format!("RuntimeToolContract registered schema rejected: {error}"))?;
+    let projected = serde_json::to_value(typed)
+        .map_err(|error| format!("RuntimeToolContract projection failed: {error}"))?;
+    if projected != value {
+        return Err("RuntimeToolContract generated projection changed supplied bytes".to_string());
+    }
+    if contract.registry_status != "released" {
+        return Err("RuntimeToolContract revision is not released".to_string());
+    }
+    if !contract
+        .revision_ref
+        .starts_with(&format!("{}/revision/", contract.tool_id))
+    {
+        return Err("RuntimeToolContract revision_ref is not owned by tool_id".to_string());
+    }
+    if contract.timeout.default_ms == 0
+        || contract.timeout.max_ms == 0
+        || contract.timeout.default_ms > contract.timeout.max_ms
+    {
+        return Err("RuntimeToolContract timeout bounds are invalid".to_string());
+    }
+    if contract
+        .primitive_capabilities_required
+        .iter()
+        .any(|value| !value.starts_with("prim:"))
+    {
+        return Err("RuntimeToolContract contains a non-prim capability".to_string());
+    }
+    if contract
+        .authority_scopes_required
+        .iter()
+        .any(|value| !value.starts_with("scope:"))
+    {
+        return Err("RuntimeToolContract contains a non-scope authority requirement".to_string());
+    }
+    if contract.data_class_allowlist.is_empty()
+        || contract
+            .egress_policy
+            .allowed_destination_patterns
+            .is_empty()
+    {
+        return Err("RuntimeToolContract information-flow declarations are incomplete".to_string());
+    }
+    let expected_hash = sha256_prefixed(&runtime_tool_contract_canonical_hash_material(contract)?)?;
+    if contract.content_hash != expected_hash {
+        return Err("RuntimeToolContract content_hash mismatch".to_string());
+    }
+    Ok(())
+}
 
 pub fn runtime_tool_contract_for_definition(tool: &LlmToolDefinition) -> RuntimeToolContract {
     let profile = ToolContractProfile::for_name(&tool.name);
@@ -225,7 +636,6 @@ impl ToolContractProfile {
             "browser__inspect"
             | "browser__screenshot"
             | "browser__inspect_canvas"
-            | "browser__find_text"
             | "browser__list_options"
             | "browser__list_tabs" => Self::read_only(
                 "browser",
@@ -247,6 +657,7 @@ impl ToolContractProfile {
             | "browser__press_key"
             | "browser__copy"
             | "browser__paste"
+            | "browser__find_text"
             | "browser__wait"
             | "browser__upload"
             | "browser__select_option"
@@ -263,10 +674,10 @@ impl ToolContractProfile {
                 ],
                 "session_mutation",
             ),
-            "screen__inspect" | "screen__find" | "screen" => {
+            "screen__inspect" | "screen__find" => {
                 Self::read_only("gui", "gui::inspect", &["query"], "volatile_observation")
             }
-            "screen__click" | "screen__click_at" | "screen__type" | "screen__scroll"
+            "screen" | "screen__click" | "screen__click_at" | "screen__type" | "screen__scroll"
             | "window__focus" | "app__launch" => Self::mutation(
                 "gui",
                 gui_policy_target(name),
@@ -319,6 +730,13 @@ impl ToolContractProfile {
                 &["prompt", "path", "asset_id"],
                 &["asset_receipt", "content_policy_verdict", "output_hash"],
                 "generated_asset",
+            ),
+            "model__responses" => Self::external_effect(
+                "model",
+                "model::respond",
+                &["input", "model"],
+                &["model_invocation_receipt", "provider_response"],
+                "model_output",
             ),
             "model__embeddings" | "model__rerank" => Self::read_only(
                 "model",
@@ -423,7 +841,7 @@ impl ToolContractProfile {
                 )
             }
             "math__eval" => Self::read_only("math", "math::eval", &["expression"], "deterministic"),
-            name if name.starts_with("connector__") => Self::external_effect(
+            name if is_connector_tool_name(name) => Self::external_effect(
                 "connector",
                 name,
                 &["resource", "id", "query", "payload"],
@@ -589,6 +1007,12 @@ fn canonical_evidence(mut evidence: Vec<String>) -> Vec<String> {
 }
 
 fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
+    if policy_target == "gui::sequence" {
+        return vec![
+            "prim:ui.inspect".to_string(),
+            "prim:ui.interact".to_string(),
+        ];
+    }
     let mut capabilities = Vec::new();
     let primitive = match policy_target {
         "fs::read" => Some("prim:fs.read"),
@@ -598,21 +1022,24 @@ fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
         // same filesystem primitive as rollback restoring the prior content.
         "workspace_change::accept" => Some("prim:fs.write"),
         "workspace_change::rollback" => Some("prim:fs.write"),
-        "workspace_change::reject" => Some("prim:runtime.control"),
+        "workspace_change::reject" | "workspace_change__reject" => Some("prim:runtime.control"),
+        "workspace_change::status" | "workspace_change__status" => Some("prim:fs.read"),
         "sys::exec" | "software::install_execute" => Some("prim:sys.exec"),
+        "software::install_resolve" => Some("prim:software.resolve"),
         "browser::inspect" | "web::retrieve" | "net::fetch" => Some("prim:net.request"),
         "browser::interact" => Some("prim:browser.interact"),
         "gui::inspect" => Some("prim:ui.inspect"),
-        "gui::click" | "gui::type" | "gui::scroll" | "os::focus" | "os::launch_app" => {
-            Some("prim:ui.interact")
-        }
+        "gui::click" | "gui::type" | "gui::scroll" | "gui::mouse_move" | "os::focus"
+        | "os::launch_app" => Some("prim:ui.interact"),
+        "gui::screenshot" | "screen::cursor" => Some("prim:ui.inspect"),
         "clipboard::read" => Some("prim:clipboard.read"),
         "clipboard::write" => Some("prim:clipboard.write"),
-        "model::embed" | "model::rerank" => Some("prim:model.invoke"),
+        "model::respond" | "model::embed" | "model::rerank" => Some("prim:model.invoke"),
         "memory::search" | "memory::inspect" => Some("prim:memory.read"),
         _ if policy_target.starts_with("memory::") => Some("prim:memory.write"),
         "monitor__create" => Some("prim:automation.schedule"),
         "ucp::checkout" | "ucp::discovery" => Some("prim:commerce.request"),
+        "math::eval" => Some("prim:compute.eval"),
         _ if policy_target.starts_with("media::")
             || policy_target.starts_with("media__")
             || policy_target.starts_with("gallery__") =>
@@ -622,13 +1049,13 @@ fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
         _ if policy_target.starts_with("agent__") || policy_target.starts_with("chat__") => {
             Some("prim:runtime.control")
         }
-        _ if policy_target.starts_with("connector__") => Some("prim:connector.invoke"),
+        _ if is_connector_tool_name(policy_target) => Some("prim:connector.invoke"),
         _ if policy_target.starts_with("model_registry__")
             || policy_target.starts_with("backend__") =>
         {
             Some("prim:model.registry")
         }
-        _ => None,
+        _ => Some("prim:extension.invoke"),
     };
     if let Some(primitive) = primitive {
         capabilities.push(primitive.to_string());
@@ -638,12 +1065,18 @@ fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
     capabilities
 }
 
+/// Resolve the physical primitive set named by the daemon's actual
+/// `ActionTarget`, independently of the admitted tool-name profile.
+pub fn observed_primitive_capabilities_for_action_target(action_target: &str) -> Vec<String> {
+    primitive_capabilities_for(action_target)
+}
+
 fn authority_scopes_for(tool_name: &str, policy_target: &str, effect_class: &str) -> Vec<String> {
     let mut scopes = Vec::new();
     if effect_class != "read" {
         scopes.push(format!("scope:{}", policy_target));
     }
-    if tool_name.starts_with("connector__") {
+    if is_connector_tool_name(tool_name) {
         scopes.push("scope:connector.session".to_string());
     }
     if matches!(
@@ -660,6 +1093,13 @@ fn authority_scopes_for(tool_name: &str, policy_target: &str, effect_class: &str
     scopes.sort();
     scopes.dedup();
     scopes
+}
+
+fn is_connector_tool_name(name: &str) -> bool {
+    name.starts_with("connector__")
+        || name.starts_with("wallet_network__mail_")
+        || name.starts_with("wallet_mail_")
+        || name.starts_with("mail__")
 }
 
 fn namespace_for_tool_name(name: &str) -> String {
@@ -691,6 +1131,7 @@ fn owner_module_for_tool_name(name: &str) -> &'static str {
 
 fn gui_policy_target(name: &str) -> &'static str {
     match name {
+        "screen" => "gui::sequence",
         "screen__type" => "gui::type",
         "screen__scroll" => "gui::scroll",
         "window__focus" => "os::focus",
@@ -702,9 +1143,7 @@ fn gui_policy_target(name: &str) -> &'static str {
 fn media_policy_target(name: &str) -> String {
     match name {
         "media__extract_transcript" => "media::extract_transcript".to_string(),
-        "media__extract_evidence" | "media__vision_read" | "media__transcribe_audio" => {
-            "media::extract_multimodal_evidence".to_string()
-        }
+        "media__extract_evidence" => "media::extract_multimodal_evidence".to_string(),
         _ => name.to_string(),
     }
 }
@@ -843,5 +1282,18 @@ mod tests {
         assert_eq!(contract.credential_readiness, "unknown");
         assert_eq!(contract.workflow_availability, "ConnectorNode");
         assert_eq!(contract.marketplace_exposure_eligible, false);
+    }
+
+    #[test]
+    fn polymorphic_screen_contract_uses_its_maximum_effect_boundary() {
+        let contract = admitted_runtime_tool_contract_for_native_name("screen").unwrap();
+        assert_eq!(contract.effect_class, "mutation");
+        assert_eq!(
+            contract.primitive_capabilities_required,
+            vec!["prim:ui.inspect", "prim:ui.interact"]
+        );
+        assert!(contract
+            .authority_scopes_required
+            .contains(&"scope:gui.sequence".to_string()));
     }
 }

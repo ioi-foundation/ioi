@@ -1,0 +1,25 @@
+{
+  "schema_version": "ioi.components.hypervisor.c8-portable-evidence-bundle.v1",
+  "bundle_ref": "evidence-bundle://aft/campaign-42",
+  "bundle_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "certificate_ref": "certificate://c8/v3/42",
+  "certificate_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "certificate_file": "certificate.json",
+  "objects": [
+    {"ref":"certificate://c8/v2/42","hash":"sha256:0101010101010101010101010101010101010101010101010101010101010101","schema_ref":"schema://ioi/components/hypervisor/c8-certificate/v2","file":"predecessor.json"},
+    {"ref":"claim-manifest://c8/v3/42","hash":"sha256:0202020202020202020202020202020202020202020202020202020202020202","schema_ref":"schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1","file":"claims.json"},
+    {"ref":"isolation-binding://workrun/42","hash":"sha256:0303030303030303030303030303030303030303030303030303030303030303","schema_ref":"schema://ioi/components/hypervisor/workload-isolation-binding/v1","file":"isolation.json"},
+    {"ref":"certificate://u1/campaign-42","hash":"sha256:0404040404040404040404040404040404040404040404040404040404040404","schema_ref":"schema://ioi/components/hypervisor/u1-campaign-certificate/v1","file":"campaign.json"},
+    {"ref":"result://aft/campaign-42","hash":"sha256:0505050505050505050505050505050505050505050505050505050505050505","schema_ref":"schema://ioi/aft/u1-campaign-result/v1","file":"result.json"},
+    {"ref":"environment://aft/campaign-42","hash":"sha256:0606060606060606060606060606060606060606060606060606060606060606","schema_ref":"schema://ioi/aft/environment-manifest/v1","file":"environment.json"},
+    {"ref":"variance://aft/campaign-42","hash":"sha256:0707070707070707070707070707070707070707070707070707070707070707","schema_ref":"schema://ioi/aft/campaign-variance/v1","file":"variance.json"},
+    {"ref":"receipt://authority-draw/42","hash":"sha256:0808080808080808080808080808080808080808080808080808080808080808","schema_ref":"schema://ioi/foundations/standing-authority-consumption/v1","file":"authority-draw.json"},
+    {"ref":"trajectory-decision://ioi/42","hash":"sha256:0909090909090909090909090909090909090909090909090909090909090909","schema_ref":"schema://ioi/foundations/trajectory-admission-decision/v1","file":"trajectory.json"},
+    {"ref":"receipt://provider/settlement-42","hash":"sha256:1010101010101010101010101010101010101010101010101010101010101010","schema_ref":"schema://ioi/components/hypervisor/provider-settlement/v1","file":"settlement.json"}
+  ],
+  "trust_inputs": [
+    {"ref":"acceptance-policy://aft/measured-results/v1","hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","schema_ref":"schema://ioi/foundations/relying-party-acceptance-policy/v1","file":"policy.json"},
+    {"ref":"verifier-profile://aft/c8-v3","hash":"sha256:1212121212121212121212121212121212121212121212121212121212121212","schema_ref":"schema://ioi/foundations/verifier-independence-profile/v1","file":"verifier-profile.json"}
+  ],
+  "created_at": "2026-08-22T12:00:00Z"
+}

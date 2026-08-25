@@ -60,11 +60,17 @@ fn sha256_bytes(bytes: &[u8]) -> String {
 /// (Argon2id KDF + AEAD; key supplied out-of-band, never in the data dir). Public/decentralized
 /// backends only ever see this ciphertext.
 fn seal_archive_bytes(bytes: &[u8]) -> Result<Vec<u8>, String> {
-    ioi_crypto::key_store::encrypt_key(bytes, &scm_secret_passphrase())
+    let passphrase = scm_secret_passphrase().ok_or_else(|| {
+        "archive_seal_failed: custody key unavailable for selected profile".to_string()
+    })?;
+    ioi_crypto::key_store::encrypt_key(bytes, &passphrase)
         .map_err(|e| format!("archive_seal_failed: {e:?}"))
 }
 fn open_archive_bytes(sealed: &[u8]) -> Result<Vec<u8>, String> {
-    ioi_crypto::key_store::decrypt_key(sealed, &scm_secret_passphrase())
+    let passphrase = scm_secret_passphrase().ok_or_else(|| {
+        "archive_decrypt_failed — custody key unavailable for selected profile".to_string()
+    })?;
+    ioi_crypto::key_store::decrypt_key(sealed, &passphrase)
         .map(|plain| plain.0.to_vec())
         .map_err(|_| "archive_decrypt_failed — sealed archive bytes did not decrypt under the wallet-secret passphrase (wrong key or corrupt ciphertext)".to_string())
 }
@@ -1399,6 +1405,7 @@ async fn storage_lease(
         revocation_ref: format!("storage-backends/{account_id}/credential"),
         authority_reason: "storage_archive_authority_required".to_string(),
         grant_value,
+        standing_draw: None,
     };
     match authorize_capability_lease(st, &lease_req).await {
         Ok(lease) => Ok((lease.descriptor.clone(), lease.grant_ref.clone())),
