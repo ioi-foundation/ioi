@@ -192,6 +192,9 @@ impl AuthorityContract {
             "exit_local_enrollment" => {
                 "scope:autonomous_system.network_enrollment.local.exit".to_owned()
             }
+            "change_network_enrollment" => {
+                "scope:autonomous_system.network_enrollment_change".to_owned()
+            }
             _ => format!("{}.{op}", self.scope_prefix),
         }
     }

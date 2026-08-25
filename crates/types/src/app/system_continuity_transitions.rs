@@ -27,7 +27,8 @@ const CONTINUITY_STATE_HASH_PROFILE: &str = "ioi.autonomous-system-lifecycle-sta
 const CONTINUITY_OPERATION_HASH_PROFILE: &str =
     "ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1";
 
-/// Named M1.5d operations. Enrollment is intentionally local-only at M1.
+/// Named continuity operations. M1's local enrollment remains stable while
+/// M2 adds an explicit constitutional declaration lane for every tier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ContinuityTransitionOp {
@@ -49,11 +50,13 @@ pub enum ContinuityTransitionOp {
     EnrollLocal,
     /// Exit the current local-only enrollment.
     ExitLocalEnrollment,
+    /// Declare, renew, suspend, exit, or revoke a profile-tier enrollment.
+    ChangeNetworkEnrollment,
 }
 
 impl ContinuityTransitionOp {
     /// Every M1.5d operation in stable order.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::InitiateSuccession,
         Self::CompleteSuccession,
         Self::Migrate,
@@ -63,6 +66,7 @@ impl ContinuityTransitionOp {
         Self::CompleteDissolution,
         Self::EnrollLocal,
         Self::ExitLocalEnrollment,
+        Self::ChangeNetworkEnrollment,
     ];
 
     /// Stable wire operation name.
@@ -77,6 +81,7 @@ impl ContinuityTransitionOp {
             Self::CompleteDissolution => "complete_dissolution",
             Self::EnrollLocal => "enroll_local",
             Self::ExitLocalEnrollment => "exit_local_enrollment",
+            Self::ChangeNetworkEnrollment => "change_network_enrollment",
         }
     }
 
@@ -101,6 +106,7 @@ impl ContinuityTransitionOp {
             Self::CompleteDissolution => "scope:autonomous_system.continuity.complete_dissolution",
             Self::EnrollLocal => "scope:autonomous_system.network_enrollment.local.enroll",
             Self::ExitLocalEnrollment => "scope:autonomous_system.network_enrollment.local.exit",
+            Self::ChangeNetworkEnrollment => "scope:autonomous_system.network_enrollment_change",
         }
     }
 
@@ -115,7 +121,8 @@ impl ContinuityTransitionOp {
             Self::OpenDissolutionDisposition
             | Self::RecordDissolutionDomainOutcome
             | Self::EnrollLocal
-            | Self::ExitLocalEnrollment => None,
+            | Self::ExitLocalEnrollment
+            | Self::ChangeNetworkEnrollment => None,
         }
     }
 
@@ -126,7 +133,10 @@ impl ContinuityTransitionOp {
             Self::InitiateDissolution => "dissolution_pending",
             Self::OpenDissolutionDisposition | Self::RecordDissolutionDomainOutcome => "dissolving",
             Self::CompleteDissolution => "dissolved",
-            Self::Migrate | Self::EnrollLocal | Self::ExitLocalEnrollment => match predecessor {
+            Self::Migrate
+            | Self::EnrollLocal
+            | Self::ExitLocalEnrollment
+            | Self::ChangeNetworkEnrollment => match predecessor {
                 "successor_governed" => "successor_governed",
                 _ => "active",
             },
@@ -142,7 +152,10 @@ impl ContinuityTransitionOp {
                 )
             }
             Self::CompleteSuccession => predecessor == "succession_pending",
-            Self::Migrate | Self::EnrollLocal | Self::ExitLocalEnrollment => {
+            Self::Migrate
+            | Self::EnrollLocal
+            | Self::ExitLocalEnrollment
+            | Self::ChangeNetworkEnrollment => {
                 matches!(predecessor, "active" | "successor_governed")
             }
             Self::OpenDissolutionDisposition => predecessor == "dissolution_pending",
@@ -692,6 +705,7 @@ fn validate_declaration(
         ContinuityTransitionOp::CompleteDissolution => &[][..],
         ContinuityTransitionOp::EnrollLocal => &["network_enrollment"][..],
         ContinuityTransitionOp::ExitLocalEnrollment => &["network_enrollment"][..],
+        ContinuityTransitionOp::ChangeNetworkEnrollment => &["network_enrollment"][..],
     };
     if let Some(field) = only(allowed) {
         return Err(format!("{field} is not admitted for {}", op.as_str()));
@@ -769,6 +783,19 @@ fn validate_declaration(
             if declaration.network_enrollment.is_none() {
                 return Err(
                     "network enrollment operation requires the exact enrollment body".to_owned(),
+                );
+            }
+        }
+        ContinuityTransitionOp::ChangeNetworkEnrollment => {
+            if declaration.network_enrollment.is_none() {
+                return Err(
+                    "network enrollment operation requires the exact enrollment body".to_owned(),
+                );
+            }
+            if !declaration.trigger_evidence_refs.is_empty() {
+                return Err(
+                    "network enrollment declarations cannot attach trigger evidence until the transition contract admits it"
+                        .to_owned(),
                 );
             }
         }
@@ -898,6 +925,110 @@ fn validate_local_enrollment(
             }
         }
         _ => return Err("enrollment body supplied to a non-enrollment operation".to_owned()),
+    }
+    Ok(())
+}
+
+fn validate_declared_enrollment(
+    enrollment: &Value,
+    system_id: &str,
+    constitution_ref: &str,
+    manifest_ref: &str,
+    current_enrollment: Option<&Value>,
+    sequence: u64,
+) -> Result<(), String> {
+    validate_architecture_contract(NETWORK_ENROLLMENT_CONTRACT, enrollment)
+        .map_err(|error| format!("network enrollment is invalid: {error}"))?;
+    let expected_decision_ref = format!(
+        "decision://{}/continuity/sequence/{sequence}",
+        namespace(system_id)?
+    );
+    if enrollment.get("system_id").and_then(Value::as_str) != Some(system_id)
+        || enrollment.get("constitution_ref").and_then(Value::as_str) != Some(constitution_ref)
+        || enrollment.get("manifest_ref").and_then(Value::as_str) != Some(manifest_ref)
+        || enrollment
+            .get("governing_decision_ref")
+            .and_then(Value::as_str)
+            != Some(expected_decision_ref.as_str())
+    {
+        return Err(
+            "network enrollment must bind the exact System, constitution, manifest, and governing decision"
+                .to_owned(),
+        );
+    }
+    let current_ref = current_enrollment
+        .and_then(|value| value.get("network_enrollment_id"))
+        .and_then(Value::as_str);
+    let predecessor = enrollment
+        .get("predecessor_enrollment_ref")
+        .and_then(Value::as_str);
+    let resulting_ref = required_string(enrollment, "/network_enrollment_id")?;
+    if predecessor != current_ref || current_ref == Some(resulting_ref) {
+        return Err(
+            "network enrollment must compare-and-swap the exact predecessor into a fresh immutable revision"
+                .to_owned(),
+        );
+    }
+    let profile = required_string(enrollment, "/profile")?;
+    let status = required_string(enrollment, "/status")?;
+    if matches!(profile, "ioi_connected" | "ioi_secured") && status == "active" {
+        return Err(
+            "active connected or secured enrollment requires M11 service and assurance resolution"
+                .to_owned(),
+        );
+    }
+    if enrollment
+        .get("authority_grant_refs")
+        .and_then(Value::as_array)
+        .is_none_or(|values| !values.is_empty())
+        || enrollment
+            .get("transition_receipt_refs")
+            .and_then(Value::as_array)
+            .is_none_or(|values| !values.is_empty())
+    {
+        return Err(
+            "declaration cannot pre-author its authority grants or transition receipts".to_owned(),
+        );
+    }
+    if profile == "ioi_connected"
+        && enrollment.get("assurance_claim").and_then(Value::as_str) != Some("none")
+    {
+        return Err(
+            "a pending connected declaration cannot claim admitted network assurance".to_owned(),
+        );
+    }
+    if matches!(status, "suspended" | "revoked")
+        && enrollment
+            .get("suspension_reason_code")
+            .and_then(Value::as_str)
+            .is_none()
+    {
+        return Err("suspended or revoked enrollment requires a reason code".to_owned());
+    }
+    let current_profile = current_enrollment
+        .and_then(|value| value.get("profile"))
+        .and_then(Value::as_str);
+    let current_status = current_enrollment
+        .and_then(|value| value.get("status"))
+        .and_then(Value::as_str);
+    if current_profile.is_some_and(|value| value != profile)
+        && !matches!(status, "pending" | "local_only")
+    {
+        return Err("profile changes must enter pending or local-only posture".to_owned());
+    }
+    let lawful = match current_status {
+        None => matches!(status, "pending" | "local_only"),
+        Some(previous) if previous == status => true,
+        Some("pending") => matches!(status, "suspended" | "exiting" | "revoked"),
+        Some("suspended") => matches!(status, "pending" | "exiting" | "revoked"),
+        Some("exiting") => matches!(status, "exited" | "revoked"),
+        Some("local_only") => matches!(status, "pending" | "revoked"),
+        Some("exited" | "revoked") => matches!(status, "pending" | "local_only"),
+        Some("active") => matches!(status, "suspended" | "exiting" | "revoked"),
+        Some(_) => false,
+    };
+    if !lawful {
+        return Err("network enrollment status transition is not lawful".to_owned());
     }
     Ok(())
 }
@@ -1122,22 +1253,35 @@ pub fn compile_continuity_transition_plan(
     }
 
     if let Some(enrollment) = declaration.network_enrollment.as_ref() {
-        validate_local_enrollment(
-            op,
-            enrollment,
-            system_id,
-            constitution_ref,
-            current_enrollment,
-            sequence,
-        )?;
+        if op == ContinuityTransitionOp::ChangeNetworkEnrollment {
+            validate_declared_enrollment(
+                enrollment,
+                system_id,
+                constitution_ref,
+                required_string(chain_head, "/manifest_ref")?,
+                current_enrollment,
+                sequence,
+            )?;
+        } else {
+            validate_local_enrollment(
+                op,
+                enrollment,
+                system_id,
+                constitution_ref,
+                current_enrollment,
+                sequence,
+            )?;
+        }
     }
     let resulting_enrollment_ref = match op {
-        ContinuityTransitionOp::EnrollLocal => declaration
-            .network_enrollment
-            .as_ref()
-            .and_then(|value| value.get("network_enrollment_id"))
-            .cloned()
-            .unwrap_or(Value::Null),
+        ContinuityTransitionOp::EnrollLocal | ContinuityTransitionOp::ChangeNetworkEnrollment => {
+            declaration
+                .network_enrollment
+                .as_ref()
+                .and_then(|value| value.get("network_enrollment_id"))
+                .cloned()
+                .unwrap_or(Value::Null)
+        }
         ContinuityTransitionOp::ExitLocalEnrollment => Value::Null,
         _ => current_enrollment_ref.map_or(Value::Null, |value| json!(value)),
     };
@@ -1150,16 +1294,18 @@ pub fn compile_continuity_transition_plan(
         })
         .transpose()?;
     let resulting_enrollment_root = match op {
-        ContinuityTransitionOp::EnrollLocal => declaration
-            .network_enrollment
-            .as_ref()
-            .map(|value| {
-                jcs_hash(&json!({
-                    "domain":"ioi.autonomous-system-network-enrollment-artifact-jcs-sha256.v1",
-                    "artifact":value,
-                }))
-            })
-            .transpose()?,
+        ContinuityTransitionOp::EnrollLocal | ContinuityTransitionOp::ChangeNetworkEnrollment => {
+            declaration
+                .network_enrollment
+                .as_ref()
+                .map(|value| {
+                    jcs_hash(&json!({
+                        "domain":"ioi.autonomous-system-network-enrollment-artifact-jcs-sha256.v1",
+                        "artifact":value,
+                    }))
+                })
+                .transpose()?
+        }
         ContinuityTransitionOp::ExitLocalEnrollment => None,
         _ => current_enrollment_root.clone(),
     };
@@ -1946,5 +2092,135 @@ mod tests {
         )
         .unwrap_err()
         .contains("byte-exact"));
+    }
+
+    fn declared_enrollment(
+        profile: &str,
+        status: &str,
+        enrollment_id: &str,
+        predecessor: Option<&str>,
+    ) -> Value {
+        let mut enrollment = fixture("ioi-network-enrollment-v1/positive-local-only.json");
+        let chain = fixture("autonomous-system-chain-v1/positive-active-sequence-two.json");
+        enrollment["network_enrollment_id"] = json!(enrollment_id);
+        enrollment["system_id"] = json!("system://acme/system-alpha");
+        enrollment["constitution_ref"] = json!("constitution://acme/system-alpha/v1");
+        enrollment["manifest_ref"] = chain["manifest_ref"].clone();
+        enrollment["predecessor_enrollment_ref"] =
+            predecessor.map_or(Value::Null, |value| json!(value));
+        enrollment["profile"] = json!(profile);
+        enrollment["status"] = json!(status);
+        enrollment["governing_decision_ref"] =
+            json!("decision://acme/system-alpha/continuity/sequence/4");
+        enrollment
+    }
+
+    #[test]
+    fn declared_tiers_are_explicit_revocable_and_never_admit_assurance() {
+        let mut declaration = empty();
+        declaration.network_enrollment = Some(declared_enrollment(
+            "ioi_connected",
+            "pending",
+            "network-enrollment://acme/system-alpha/connected/revision/1",
+            None,
+        ));
+        assert!(compile(
+            ContinuityTransitionOp::ChangeNetworkEnrollment,
+            "active",
+            &declaration,
+        )
+        .unwrap_err()
+        .contains("transition contract admits it"));
+        declaration.trigger_evidence_refs.clear();
+        let plan = compile(
+            ContinuityTransitionOp::ChangeNetworkEnrollment,
+            "active",
+            &declaration,
+        )
+        .expect("pending connected declaration");
+        assert_eq!(
+            plan.authority_effect["required_scope"],
+            "scope:autonomous_system.network_enrollment_change"
+        );
+        assert_eq!(plan.authority_effect["network_assurance_admitted"], false);
+        assert_eq!(
+            plan.authority_effect["resulting_network_enrollment_ref"],
+            "network-enrollment://acme/system-alpha/connected/revision/1"
+        );
+
+        let current = declaration.network_enrollment.unwrap();
+        let mut revoked = declared_enrollment(
+            "ioi_connected",
+            "revoked",
+            "network-enrollment://acme/system-alpha/connected/revision/2",
+            current["network_enrollment_id"].as_str(),
+        );
+        revoked["suspension_reason_code"] = json!("owner_revoked");
+        validate_declared_enrollment(
+            &revoked,
+            "system://acme/system-alpha",
+            "constitution://acme/system-alpha/v1",
+            current["manifest_ref"].as_str().unwrap(),
+            Some(&current),
+            4,
+        )
+        .expect("explicit revocation");
+    }
+
+    #[test]
+    fn active_connected_or_secured_declarations_wait_for_m11_resolution() {
+        let mut active = declared_enrollment(
+            "ioi_connected",
+            "active",
+            "network-enrollment://acme/system-alpha/connected/revision/1",
+            None,
+        );
+        active["connection"]["network_ref"] = json!("network://ioi-l1");
+        active["selected_network_services"] = json!([{
+            "service_kind":"registry",
+            "service_ref":"service://ioi/registry",
+            "terms_ref":"terms://ioi/registry/v1",
+            "fee_basis_ref":null,
+            "bond_or_stake_ref":null,
+            "slashing_or_claim_policy_ref":null,
+            "assurance_profile_ref":null
+        }]);
+        active["assurance_claim"] = json!("connected_services_only");
+        active["authority_grant_refs"] = json!(["grant://wallet.network/approval/active"]);
+        active["transition_receipt_refs"] = json!(["receipt://network/active"]);
+        assert!(validate_declared_enrollment(
+            &active,
+            "system://acme/system-alpha",
+            "constitution://acme/system-alpha/v1",
+            active["manifest_ref"].as_str().unwrap(),
+            None,
+            4,
+        )
+        .unwrap_err()
+        .contains("requires M11"));
+
+        let mut secured = declared_enrollment(
+            "ioi_secured",
+            "pending",
+            "network-enrollment://acme/system-alpha/secured/revision/1",
+            None,
+        );
+        secured["connection"]["network_ref"] = json!("network://ioi-l1");
+        secured["selected_network_services"] = active["selected_network_services"].clone();
+        secured["selected_network_services"][0]["service_kind"] = json!("verifier");
+        secured["selected_network_services"][0]["assurance_profile_ref"] =
+            json!("assurance-profile://ioi/secured/v1");
+        secured["assurance_claim"] = json!("secured_profile");
+        secured["standard_das_conformance_profile_ref"] =
+            json!("conformance-profile://ioi/standard-das/v1");
+        validate_declared_enrollment(
+            &secured,
+            "system://acme/system-alpha",
+            "constitution://acme/system-alpha/v1",
+            secured["manifest_ref"].as_str().unwrap(),
+            None,
+            4,
+        )
+        .expect("pending secured declaration remains non-admitted");
     }
 }

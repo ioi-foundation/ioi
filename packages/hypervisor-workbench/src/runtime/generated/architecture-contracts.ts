@@ -5009,7 +5009,7 @@ export type AutonomousSystemNetworkEnrollmentTransitionV1 = {
   schema_version: "ioi.autonomous-system-network-enrollment-transition.v1";
   lifecycle_transition_id: string;
   system_id: string;
-  op: "enroll_local" | "exit_local_enrollment";
+  op: "enroll_local" | "exit_local_enrollment" | "change_network_enrollment";
   sequence: number;
   proposal_ref: string;
   proposal_root: string;
@@ -5024,9 +5024,9 @@ export type AutonomousSystemNetworkEnrollmentTransitionV1 = {
   operation_commitment: string;
   authority_effect_material: {
       schema_version: "ioi.autonomous-system-continuity-authority-effect.v1";
-      op: "enroll_local" | "exit_local_enrollment";
+      op: "enroll_local" | "exit_local_enrollment" | "change_network_enrollment";
       transition_kind: null;
-      required_scope: "scope:autonomous_system.network_enrollment.local.enroll" | "scope:autonomous_system.network_enrollment.local.exit";
+      required_scope: "scope:autonomous_system.network_enrollment.local.enroll" | "scope:autonomous_system.network_enrollment.local.exit" | "scope:autonomous_system.network_enrollment_change";
       sequence: number;
       system_id: string;
       genesis_ref: string;
@@ -22954,7 +22954,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-manifest/v1": "sha256:7560d4cf80b893c89133a6a3afddd523207791778da7fdc594e71bed18ebdc26",
   "schema://ioi/foundations/autonomous-system-membership-transition/v1": "sha256:298f8b5d54e8d8b95091260c297094087b45525d8e5c0ff57ee5e08c8ae079c2",
   "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1": "sha256:5ad0f84a10bb89f930e5d04fd2f76a56fb902faa1a464670faad1058ddc7d261",
-  "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1": "sha256:6a8401ac0ea076022e78b2103109842fac414269ab56a0fe39159f048491db4d",
+  "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1": "sha256:18bdd07bf52d52408a812549305d833eadd4653b7f3d8041d097ac9024067b59",
   "schema://ioi/foundations/autonomous-system-node-membership/v1": "sha256:5d24c7d31fb3197f26d51870ca20c8bbb2866b11d59317b419963e60f066cead",
   "schema://ioi/foundations/autonomous-system-operation-log/v1": "sha256:a9e9888c1f83d356b980f2f6f5c69ef5298ba93c6b7e5ce4861f9893abb3ec1a",
   "schema://ioi/foundations/autonomous-system-operation-log/v2": "sha256:6f79fef38132de438bdff306c51f0fa88799729c00df3a52d5ea7a2ba516b0a5",
@@ -60733,7 +60733,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
     "title": "AutonomousSystemNetworkEnrollmentTransition",
-    "description": "Committed compare-and-swap transition for local-only enrollment admission or exit.",
+    "description": "Committed compare-and-swap transition for local enrollment, explicit profile-tier declaration/change/revocation, or local exit.",
     "x-ioi-schema-version": "ioi.autonomous-system-network-enrollment-transition.v1",
     "type": "object",
     "additionalProperties": false,
@@ -60774,7 +60774,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "op": {
         "enum": [
           "enroll_local",
-          "exit_local_enrollment"
+          "exit_local_enrollment",
+          "change_network_enrollment"
         ]
       },
       "sequence": {
@@ -60869,7 +60870,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "op": {
             "enum": [
               "enroll_local",
-              "exit_local_enrollment"
+              "exit_local_enrollment",
+              "change_network_enrollment"
             ]
           },
           "transition_kind": {
@@ -60878,7 +60880,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "required_scope": {
             "enum": [
               "scope:autonomous_system.network_enrollment.local.enroll",
-              "scope:autonomous_system.network_enrollment.local.exit"
+              "scope:autonomous_system.network_enrollment.local.exit",
+              "scope:autonomous_system.network_enrollment_change"
             ]
           },
           "sequence": {
@@ -61042,7 +61045,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "if": {
           "properties": {
             "op": {
-              "const": "enroll_local"
+              "enum": [
+                "enroll_local",
+                "change_network_enrollment"
+              ]
             }
           }
         },
