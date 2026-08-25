@@ -13426,8 +13426,9 @@ fn reduce_launch_chain_primitive_facts(
         member("thread_event_kind", &["thread.started"]),
         steps
             .and_then(|value| value.get("thread_event_seq"))
-            .and_then(Value::as_u64)
-            .filter(|seq| *seq >= 1),
+            // Agentgres streams are zero-indexed: the launch's admitted
+            // `thread.started` event is legitimately sequence 0.
+            .and_then(Value::as_u64),
         steps
             .and_then(|value| value.get("thread_event_substrate_head"))
             .and_then(Value::as_str)
@@ -26480,7 +26481,7 @@ mod launch_chain_composition_tests {
                 "thread_ref": "thread:launch-abc",
                 "thread_event_ref": "thread-event:abc/opened",
                 "thread_event_kind": "thread.started",
-                "thread_event_seq": 1,
+                "thread_event_seq": 0,
                 "thread_event_substrate_head": "0f0f0f",
                 "thread_event_operation_ref": "agentgres://operation/event-stream/append/1",
                 "first_runtime_event_ref": "thread-event:abc/spawned",
@@ -26622,7 +26623,7 @@ mod launch_chain_composition_tests {
         assert_eq!(facts["thread_ref"], "thread:launch-abc");
         assert_eq!(facts["thread_event_ref"], "thread-event:abc/opened");
         assert_eq!(facts["thread_event_kind"], "thread.started");
-        assert_eq!(facts["thread_event_seq"], 1);
+        assert_eq!(facts["thread_event_seq"], 0);
         assert_eq!(facts["thread_event_substrate_head"], "0f0f0f");
         assert_eq!(facts["first_runtime_event_ref"], "thread-event:abc/spawned");
         // The fork / managed-session planners' honest typed absences ARE their facts.
@@ -26638,7 +26639,7 @@ mod launch_chain_composition_tests {
             ("thread_ref", Value::Null),
             ("thread_event_ref", json!("hae_1")),
             ("thread_event_kind", json!("thread.custom")),
-            ("thread_event_seq", json!(0)),
+            ("thread_event_seq", json!("0")),
             ("thread_event_substrate_head", json!("")),
             ("first_runtime_event_ref", Value::Null),
             ("fork_decision", json!("admitted")),
