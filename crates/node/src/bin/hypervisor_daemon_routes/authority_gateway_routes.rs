@@ -100,6 +100,151 @@ fn resolve_run_on_adapter(data_dir: &str, owner_ref: &str, profile: &Value) -> R
     }
 }
 
+/// The exact attach-lane evidence one admitted `ActionRequestEnvelope` offers the run-on
+/// lane. Every field is resolved by the gateway owner from retained bytes: nothing here is
+/// caller-supplied, no attach receipt is re-minted, and no approval, grant, credential, or
+/// scope crosses into the graduated GoalRun (INV-1).
+#[derive(Debug, Clone)]
+pub(crate) struct GatewayRunOnGraduation {
+    pub(crate) action_request_ref: String,
+    pub(crate) adapter_ref: String,
+    pub(crate) adapter_revision: String,
+    pub(crate) owner_ref: String,
+    pub(crate) authority_gateway_profile_ref: String,
+    pub(crate) authority_gateway_profile_hash: String,
+    pub(crate) agent_harness_adapter_revision_ref: String,
+    pub(crate) agent_harness_adapter_content_hash: String,
+    pub(crate) carried_receipt_refs: Vec<String>,
+    pub(crate) proposed_action_summary: String,
+}
+
+/// Resolve the run-on graduation evidence for one admitted action request owned by
+/// `owner_ref`. Read-only: it admits nothing and mints nothing.
+pub(crate) fn resolve_run_on_graduation(
+    data_dir: &str,
+    owner_ref: &str,
+    action_request_ref: &str,
+    now: &str,
+) -> Result<GatewayRunOnGraduation, String> {
+    let records = read_record_dir(data_dir, ACTION_DIR);
+    let mut matches = records.iter().filter(|record| {
+        record.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
+            && record
+                .pointer("/action_request/action_request_ref")
+                .and_then(Value::as_str)
+                == Some(action_request_ref)
+    });
+    let record = matches
+        .next()
+        .ok_or_else(|| "no owner-scoped admitted action request resolves that ref".to_string())?;
+    if matches.next().is_some() {
+        return Err("the named action request resolves ambiguously".into());
+    }
+    let request = record.get("action_request").cloned().unwrap_or(Value::Null);
+    validate_architecture_contract(REQUEST_CONTRACT, &request).map_err(|reason| {
+        format!("the retained action request is not registered-valid: {reason}")
+    })?;
+    let profiles = read_record_dir(data_dir, PROFILE_DIR);
+    let profile = current_profile(&profiles, &request, now, owner_ref)?;
+    exact_adapter_binding(profile, &request)?;
+    let graduation = profile
+        .pointer("/declaration/run_on_graduation")
+        .ok_or_else(|| "the current gateway profile declares no run-on graduation".to_string())?;
+    if graduation
+        .get("activation_source_kind")
+        .and_then(Value::as_str)
+        != Some("gateway_adapter_context")
+    {
+        return Err(
+            "the gateway profile does not graduate through the adapter-context crossing".into(),
+        );
+    }
+    // All four carryover flags are structurally false; an implementation that reads a missing
+    // flag as permission would be exactly the implicit carryover the lane forbids.
+    for flag in [
+        "implicit_approval_carryover",
+        "implicit_grant_carryover",
+        "implicit_credential_carryover",
+        "implicit_scope_carryover",
+    ] {
+        if graduation.get(flag).and_then(Value::as_bool) != Some(false) {
+            return Err(format!(
+                "the gateway profile does not declare {flag} false; no attach-lane authority carries into a run-on GoalRun"
+            ));
+        }
+    }
+    let (revision_ref, content_hash) =
+        match (
+            graduation
+                .get("agent_harness_adapter_revision_ref")
+                .and_then(Value::as_str),
+            graduation
+                .get("agent_harness_adapter_content_hash")
+                .and_then(Value::as_str),
+        ) {
+            (Some(revision_ref), Some(content_hash)) => (revision_ref, content_hash),
+            _ => return Err(
+                "the current gateway profile names no exact released AgentHarnessAdapter revision"
+                    .into(),
+            ),
+        };
+    super::goal_profile_contract_routes::resolve_released_agent_harness_adapter(
+        data_dir,
+        owner_ref,
+        revision_ref,
+        content_hash,
+    )?;
+    let adapter_ref = request
+        .pointer("/source_adapter/adapter_ref")
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("adapter://") && value.len() <= 400)
+        .ok_or_else(|| "the action request names no canonical adapter context".to_string())?;
+    // Attach-lane receipts stay valid, linkable evidence — carried, never re-minted.
+    let mut carried_receipt_refs: BTreeSet<String> = BTreeSet::new();
+    for pointer in [
+        "/admission_receipt_ref",
+        "/gateway_decision_receipt/receipt_ref",
+        "/gateway_execution_receipt/receipt_ref",
+        "/gateway_artifact_receipt/receipt_ref",
+    ] {
+        if let Some(reference) = record
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .filter(|value| value.contains("://") && value.len() <= 500)
+        {
+            carried_receipt_refs.insert(reference.to_string());
+        }
+    }
+    Ok(GatewayRunOnGraduation {
+        action_request_ref: action_request_ref.to_string(),
+        adapter_ref: adapter_ref.to_string(),
+        adapter_revision: request
+            .pointer("/source_adapter/adapter_revision")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        owner_ref: owner_ref.to_string(),
+        authority_gateway_profile_ref: profile
+            .get("profile_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        authority_gateway_profile_hash: profile
+            .get("profile_hash")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        agent_harness_adapter_revision_ref: revision_ref.to_string(),
+        agent_harness_adapter_content_hash: content_hash.to_string(),
+        carried_receipt_refs: carried_receipt_refs.into_iter().collect(),
+        proposed_action_summary: request
+            .pointer("/proposed_action/summary")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+    })
+}
+
 fn parse_time(value: &str, field: &str) -> Result<OffsetDateTime, String> {
     OffsetDateTime::parse(value, &Rfc3339)
         .map_err(|reason| format!("{field} is not canonical RFC3339: {reason}"))
@@ -2142,5 +2287,193 @@ mod tests {
             pre_native_refused["authority_effect_admission_receipt_ref"],
             admission.receipt_ref
         );
+    }
+
+    /// The canonical released AgentHarnessAdapter revision, content-addressed exactly as the
+    /// portable-definition registry recomputes it.
+    fn released_adapter(owner_ref: &str) -> (Value, String) {
+        let mut adapter = fixture("agent-harness-adapter-v1/positive-minimal.json");
+        adapter["owner_ref"] = json!(owner_ref);
+        let mut material = adapter.clone();
+        let object = material.as_object_mut().unwrap();
+        for field in [
+            "revision_ref",
+            "content_hash",
+            "registry_lifecycle_ref",
+            "registry_status",
+        ] {
+            object.remove(field);
+        }
+        let content_hash = canonical_hash(&json!({
+            "domain":"ioi.agent-harness-adapter-release-jcs-sha256.v1",
+            "kind":"agent_harness_adapter",
+            "body":material
+        }))
+        .unwrap();
+        adapter["content_hash"] = json!(content_hash);
+        adapter["revision_ref"] = json!(format!(
+            "agent-harness-adapter://local/revision/{content_hash}"
+        ));
+        let slot = format!("local--{}.json", content_hash.trim_start_matches("sha256:"));
+        (adapter, slot)
+    }
+
+    /// One current gateway profile whose run-on graduation names that exact adapter, with the
+    /// profile hash and the bound action request rebuilt over the mutated declaration.
+    fn graduation_records(adapter: &Value) -> (Value, Value, &'static str) {
+        let (mut profile, mut request, _, now) = current_records();
+        profile["declaration"]["run_on_graduation"]["agent_harness_adapter_revision_ref"] =
+            adapter["revision_ref"].clone();
+        profile["declaration"]["run_on_graduation"]["agent_harness_adapter_content_hash"] =
+            adapter["content_hash"].clone();
+        profile["profile_hash"] = json!(canonical_hash(&json!({
+            "domain":"ioi.authority-gateway-profile-hash-jcs-sha256.v1",
+            "profile_ref":profile["profile_ref"],
+            "profile_revision":profile["profile_revision"],
+            "predecessor_profile_hash":profile["predecessor_profile_hash"],
+            "declaration":profile["declaration"],
+            "created_at":profile["created_at"],
+            "valid_until":profile["valid_until"],
+        }))
+        .unwrap());
+        request["authority_gateway_profile_hash"] = profile["profile_hash"].clone();
+        request["request_hash"] = json!(canonical_hash(&json!({
+            "domain":"ioi.action-request-envelope-hash-jcs-sha256.v1",
+            "action_request_ref":request["action_request_ref"], "request_revision":request["request_revision"],
+            "authority_gateway_profile_ref":request["authority_gateway_profile_ref"], "authority_gateway_profile_hash":request["authority_gateway_profile_hash"],
+            "source_adapter":request["source_adapter"], "proposed_action":request["proposed_action"], "risk_class":request["risk_class"],
+            "primitive_capabilities_required":request["primitive_capabilities_required"], "authority_scopes_required":request["authority_scopes_required"],
+            "policy_decision":request["policy_decision"], "subject_refs":request["subject_refs"], "receipt_obligations":request["receipt_obligations"],
+            "created_at":request["created_at"], "expires_at":request["expires_at"],
+        })).unwrap());
+        (profile, request, now)
+    }
+
+    fn graduation_fixture_dir(tag: &str) -> (std::path::PathBuf, Value, Value, &'static str) {
+        let owner_ref = "user://owner";
+        let (adapter, _) = released_adapter(owner_ref);
+        let (profile, request, now) = graduation_records(&adapter);
+        let directory = std::env::temp_dir().join(format!(
+            "ioi-gateway-graduation-{tag}-{:x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(directory.join(PROFILE_DIR)).unwrap();
+        std::fs::create_dir_all(directory.join(ACTION_DIR)).unwrap();
+        std::fs::create_dir_all(directory.join("agent-harness-adapter-revisions")).unwrap();
+        std::fs::write(
+            directory.join(PROFILE_DIR).join("profile.json"),
+            serde_json::to_vec(&json!({"owner_ref":owner_ref,"profile":profile})).unwrap(),
+        )
+        .unwrap();
+        let record = json!({
+            "record_id":"gar_one",
+            "owner_ref":owner_ref,
+            "action_request":request,
+            "gateway_decision_receipt":{"receipt_ref":"receipt://ioi/authority-gateway/decision/one"},
+            "execution_status":"not_invoked",
+            "admission_receipt_ref":"receipt://ioi/authority-gateway/admission/one"
+        });
+        std::fs::write(
+            directory.join(ACTION_DIR).join("gar_one.json"),
+            serde_json::to_vec(&record).unwrap(),
+        )
+        .unwrap();
+        (directory, profile, adapter, now)
+    }
+
+    fn plant_adapter(directory: &std::path::Path, adapter: &Value) {
+        let slot = format!(
+            "local--{}.json",
+            adapter["content_hash"]
+                .as_str()
+                .unwrap()
+                .trim_start_matches("sha256:")
+        );
+        std::fs::write(
+            directory.join("agent-harness-adapter-revisions").join(slot),
+            serde_json::to_vec(adapter).unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn run_on_graduation_resolves_the_exact_released_adapter_and_carries_no_authority() {
+        let (directory, profile, adapter, now) = graduation_fixture_dir("resolves");
+        plant_adapter(&directory, &adapter);
+        let data_dir = directory.to_str().unwrap();
+        let graduation = resolve_run_on_graduation(
+            data_dir,
+            "user://owner",
+            "action-request://acme/gateway/req-001",
+            now,
+        )
+        .expect("the current adapter-bound profile graduates through the activation crossing");
+        assert_eq!(
+            graduation.agent_harness_adapter_revision_ref,
+            profile["declaration"]["run_on_graduation"]["agent_harness_adapter_revision_ref"]
+                .as_str()
+                .unwrap()
+        );
+        assert_eq!(graduation.adapter_ref, "adapter://acme/claude-code");
+        // Attach-lane receipts are carried as linkable evidence; nothing is re-minted and no
+        // approval, grant, credential, or scope comes with them.
+        assert_eq!(
+            graduation.carried_receipt_refs,
+            vec![
+                "receipt://ioi/authority-gateway/admission/one".to_string(),
+                "receipt://ioi/authority-gateway/decision/one".to_string()
+            ]
+        );
+
+        // A foreign principal cannot graduate another owner's attach-lane context.
+        assert!(resolve_run_on_graduation(
+            data_dir,
+            "user://outsider",
+            "action-request://acme/gateway/req-001",
+            now
+        )
+        .is_err());
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn graduation_refuses_an_unreleased_adapter_or_any_declared_carryover() {
+        let (directory, _, mut adapter, now) = graduation_fixture_dir("refuses");
+        adapter["registry_status"] = json!("draft");
+        plant_adapter(&directory, &adapter);
+        let data_dir = directory.to_str().unwrap();
+        let reason = resolve_run_on_graduation(
+            data_dir,
+            "user://owner",
+            "action-request://acme/gateway/req-001",
+            now,
+        )
+        .expect_err("an unreleased adapter revision cannot back a run-on graduation");
+        assert!(reason.contains("not released"), "{reason}");
+        let _ = std::fs::remove_dir_all(&directory);
+
+        let (directory, mut profile, adapter, now) = graduation_fixture_dir("carryover");
+        plant_adapter(&directory, &adapter);
+        profile["declaration"]["run_on_graduation"]["implicit_scope_carryover"] = json!(true);
+        std::fs::write(
+            directory.join(PROFILE_DIR).join("profile.json"),
+            serde_json::to_vec(&json!({"owner_ref":"user://owner","profile":profile})).unwrap(),
+        )
+        .unwrap();
+        let reason = resolve_run_on_graduation(
+            directory.to_str().unwrap(),
+            "user://owner",
+            "action-request://acme/gateway/req-001",
+            now,
+        )
+        .expect_err("a profile claiming implicit carryover cannot graduate");
+        assert!(
+            reason.contains("implicit_scope_carryover") || reason.contains("registered-valid"),
+            "{reason}"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
     }
 }

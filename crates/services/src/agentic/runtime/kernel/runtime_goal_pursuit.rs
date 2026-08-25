@@ -184,21 +184,29 @@ fn unique_refs(
     Ok(seen.into_iter().collect())
 }
 
-/// A canonical `scheme://tail` reference. Requirement predicates are owned by many
-/// different families, so their only structural law is the canonical ref shape.
+/// A canonical requirement reference. Requirement predicates are owned by many different
+/// families, so their only structural law is the canonical shape: either `scheme://tail`
+/// or the canonical primitive-capability form `prim:<capability>` used by the capability
+/// and gateway contracts.
 fn is_canonical_ref(value: &str) -> bool {
-    let Some((scheme, tail)) = value.split_once("://") else {
+    if value.is_empty() || value.len() > 500 || value.chars().any(char::is_whitespace) {
         return false;
+    }
+    let (scheme, tail) = match value.split_once("://") {
+        Some((scheme, tail)) => (scheme, tail),
+        None => match value.split_once(':') {
+            // A schemeless `prim:` capability is canonical; every other bare `x:y` is not.
+            Some(("prim", tail)) => ("prim", tail),
+            _ => return false,
+        },
     };
     !tail.is_empty()
-        && value.len() <= 500
         && scheme.starts_with(|character: char| character.is_ascii_lowercase())
         && scheme.chars().all(|character| {
             character.is_ascii_lowercase()
                 || character.is_ascii_digit()
                 || matches!(character, '+' | '.' | '_' | '-')
         })
-        && !value.chars().any(char::is_whitespace)
 }
 
 /// Read one optional requirement family as a deduplicated, canonically shaped set.
@@ -2253,7 +2261,8 @@ mod tests {
             "model-route-requirement://any-local"
         ]);
         request["primitive_capability_requirement_refs"] = json!([
-            "prim://filesystem.read",
+            // Primitive capabilities are canonical in their schemeless `prim:` form.
+            "prim:filesystem.read",
             // A requirement satisfied by an exact resolved component leaves the late set.
             "tool://search/revision/1"
         ]);
@@ -2265,7 +2274,7 @@ mod tests {
             resolution["resolution_receipt"]["unresolved_late_binding_requirement_refs"],
             json!([
                 "model-route-requirement://any-local",
-                "prim://filesystem.read",
+                "prim:filesystem.read",
                 "role-topology-requirement://pair",
                 "verifier-requirement://independent"
             ])

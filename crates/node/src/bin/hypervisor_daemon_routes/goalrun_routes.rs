@@ -70,7 +70,7 @@ const GOAL_RUN_ACTIVATION_DRAFT_REQUEST_SCHEMA_VERSION: &str =
     "ioi.goal-run-activation-draft-request.v1";
 const GOAL_RUN_ACTIVATION_SUBMIT_REQUEST_SCHEMA_VERSION: &str =
     "ioi.goal-run-activation-submit-request.v1";
-const BUILTIN_BOUNDED_ADMISSION_POLICY_KEY: &str = "bounded-direct-release-v1";
+const BUILTIN_BOUNDED_ADMISSION_POLICY_KEY: &str = "bounded-direct-release-v2";
 const BUILTIN_ZERO_EXECUTION_CEILING_KEY: &str = "ioi-goal-draft-zero-release-v1";
 const DIRECT_BOUNDED_CEILING_FAMILY: &str = "ioi-goal-run-direct-bounded";
 const DIRECT_BOUNDED_CEILING_KEY: &str = "ioi-goal-run-direct-bounded-release-v1";
@@ -97,7 +97,8 @@ pub(crate) static GOAL_RUN_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 /// GOAL_RUN_MUTATION_LOCK`. No `.await` executes while it is held.
 static INVOCATION_MUTATION_LOCK: Mutex<()> = Mutex::new(());
 
-/// Serializes the two-record Goal Chat draft/activation intake and the submit/admit crossing.
+/// Serializes the two-record activation draft/activation intake and the submit/admit crossing
+/// for EVERY activation source kind (ioi.ai chat drafts and gateway adapter-context graduations).
 /// No `.await` occurs while this lock is held. The lock makes the idempotency-key lookup and
 /// body-swap refusal atomic with respect to every writer in this module.
 static GOAL_RUN_ACTIVATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -754,7 +755,21 @@ fn bad_with_details(status: StatusCode, code: &str, message: &str, details: Valu
 /// result lane. Enforce that owner truth after authorization and before parsing or mutating any
 /// WorkResult/OutcomeDelta state.
 pub(crate) fn refuse_result_write_for_zero_execution_goal(goal_run: &Value) -> Option<HttpRefusal> {
-    if text(goal_run, "origin_surface") != "ioi_goal_chat" {
+    refuse_zero_execution_goal(goal_run)
+}
+
+/// A GoalRun admitted under the zero-execution ceiling family is intentionally resultless: it
+/// has no invocation capacity at all. The predicate is the run's ADMITTED CAPACITY, not its
+/// provenance tag — a gateway run-on graduation carries a bounded non-zero ceiling and is not
+/// refused here, while an ioi.ai chat draft is refused wherever effects would begin.
+fn refuse_zero_execution_goal(goal_run: &Value) -> Option<HttpRefusal> {
+    let ceiling_ref = goal_run
+        .get("goal_run_execution_ceiling_revision_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let zero_family = ceiling_ref
+        .starts_with("goal-run-execution-ceiling://ioi-goal-draft-zero/revision/sha256:");
+    if !zero_family && text(goal_run, "origin_surface") != "ioi_goal_chat" {
         return None;
     }
     let total = goal_run
@@ -763,18 +778,13 @@ pub(crate) fn refuse_result_write_for_zero_execution_goal(goal_run: &Value) -> O
     let parallel = goal_run
         .pointer("/declared_invocation_budget/max_parallel_invocations")
         .and_then(Value::as_u64);
-    let ceiling_ref = goal_run
-        .get("goal_run_execution_ceiling_revision_ref")
-        .and_then(Value::as_str)
-        .unwrap_or("");
     let ceiling_hash = goal_run
         .get("goal_run_execution_ceiling_content_hash")
         .and_then(Value::as_str)
         .unwrap_or("");
     if total != Some(0)
         || parallel != Some(0)
-        || !ceiling_ref
-            .starts_with("goal-run-execution-ceiling://ioi-goal-draft-zero/revision/sha256:")
+        || !zero_family
         || !ceiling_ref.ends_with(ceiling_hash)
     {
         return Some(bad(
@@ -890,7 +900,7 @@ fn activation_principal(
         return Err(bad(
             StatusCode::FORBIDDEN,
             "goal_run_activation_authenticated_principal_required",
-            "An exposed deployment cannot admit Goal Chat activation without enforced identity.",
+            "An exposed deployment cannot admit a GoalRun activation without enforced identity.",
         ));
     }
     if let Some(principal) = resolved {
@@ -911,7 +921,7 @@ fn activation_principal(
         return Err(bad(
             StatusCode::UNAUTHORIZED,
             "goal_run_activation_authentication_required",
-            "Authentication is required before a Goal Chat activation may be drafted or reviewed.",
+            "Authentication is required before a GoalRun activation may be drafted or reviewed.",
         ));
     }
     Ok((
@@ -1286,13 +1296,10 @@ fn execution_ceiling_release(
     Ok(record)
 }
 
-fn zero_execution_ceiling() -> Result<Value, HttpRefusal> {
-    execution_ceiling_release("ioi-goal-draft-zero", 0, 0)
-}
-
-fn validate_zero_execution_ceiling(record: &Value) -> Result<(), HttpRefusal> {
-    validate_execution_ceiling_release(record, "ioi-goal-draft-zero", 0, 0)
-}
+// There is deliberately NO `zero_execution_ceiling()` shortcut any more. Every activation
+// crossing resolves its ceiling through `activation_execution_bounds`, so the zero release is
+// reachable only as the ioi.ai chat lane's answer — a gateway graduation cannot fall into it by
+// calling a differently-named helper.
 
 fn validate_execution_ceiling_release(
     record: &Value,
@@ -1329,6 +1336,45 @@ fn validate_execution_ceiling_release(
             "A daemon-owned GoalRun execution ceiling must remain its exact immutable release.",
         ));
     }
+    Ok(())
+}
+
+/// Bind the exact released `AgentHarnessAdapter` revision the current `AuthorityGatewayProfile`
+/// selected into the definition-resolution closure, so the profile-resolution receipt commits
+/// it as a resolved component rather than a correlated adapter name.
+fn install_gateway_adapter_revision(
+    definition: &mut serde_json::Map<String, Value>,
+    graduation: &Value,
+) -> Result<(), HttpRefusal> {
+    let revision_ref = text(graduation, "agent_harness_adapter_revision_ref").to_string();
+    let content_hash = text(graduation, "agent_harness_adapter_content_hash").to_string();
+    if !revision_ref.starts_with("agent-harness-adapter://")
+        || !revision_ref.ends_with(&content_hash)
+        || !revision_ref.contains("/revision/sha256:")
+        || content_hash.is_empty()
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_activation_gateway_adapter_binding_invalid",
+            "The retained run-on graduation does not name one exact content-addressed AgentHarnessAdapter revision.",
+        ));
+    }
+    definition.insert(
+        "agent_harness_adapter_revision_refs".into(),
+        json!([revision_ref]),
+    );
+    definition
+        .entry("component_hashes")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_component_hashes_required",
+                "The daemon-resolved component hash closure is absent.",
+            )
+        })?
+        .insert(revision_ref, json!(content_hash));
     Ok(())
 }
 
@@ -1441,7 +1487,7 @@ fn activation_policy(component: &Value) -> Result<Value, HttpRefusal> {
         .unwrap_or_else(|_| GOAL_RUN_ACTIVATION_RECEIPT_TYPE.to_string());
     let mut record = json!({
         "schema_version": "ioi.goal-run-admission-policy.v1",
-        "allowed_source_kinds": ["ioi_goal_draft"],
+        "allowed_source_kinds": ["ioi_goal_draft", "gateway_adapter_context"],
         "allowed_result_profiles": ["research"],
         "allowed_managed_execution_modes": ["standard"],
         "allowed_contributor_scopes": ["my_workers"],
@@ -1585,8 +1631,90 @@ fn validate_activation_receipt_registry(policy: &Value) -> Result<(), HttpRefusa
     Ok(())
 }
 
+/// The execution bounds each activation source kind is admitted under. The ioi.ai chat draft
+/// lane is exactly zero — it is intentionally resultless. The gateway run-on lane is work that
+/// is meant to execute, so it is admitted under the same tightly bounded 1/1 ceiling family as
+/// the direct lane. No lane infers a budget from silence, and no lane widens another's.
+fn activation_execution_bounds(
+    source_kind: &str,
+) -> Result<(&'static str, &'static str, u64, u64), HttpRefusal> {
+    match source_kind {
+        "ioi_goal_draft" => Ok((
+            "ioi-goal-draft-zero",
+            BUILTIN_ZERO_EXECUTION_CEILING_KEY,
+            0,
+            0,
+        )),
+        "gateway_adapter_context" => Ok((
+            DIRECT_BOUNDED_CEILING_FAMILY,
+            DIRECT_BOUNDED_CEILING_KEY,
+            1,
+            1,
+        )),
+        _ => Err(bad_with_details(
+            StatusCode::CONFLICT,
+            "goal_run_activation_source_kind_unsupported",
+            "This activation crossing admits no execution bounds for that source kind.",
+            json!({ "source_kind": source_kind }),
+        )),
+    }
+}
+
+/// Correlation with a gateway request is NOT admission of an unrelated intent. A graduated run
+/// pursues exactly the action the gateway owner already reviewed, so the run's goal text is
+/// DERIVED from the retained ActionRequest `proposed_action.summary`. A caller-supplied
+/// `goal_text` is admitted only when it equals those retained bytes, and the returned intent is
+/// the retained bytes — never the submitted ones.
+fn bind_gateway_goal_intent(
+    submitted_goal_text: &str,
+    graduation: &super::authority_gateway_routes::GatewayRunOnGraduation,
+) -> Result<String, HttpRefusal> {
+    let retained_intent = graduation.proposed_action_summary.trim().to_string();
+    if !(4..=32_768).contains(&retained_intent.len()) {
+        return Err(bad_with_details(
+            StatusCode::CONFLICT,
+            "goal_run_activation_gateway_intent_unavailable",
+            "The named gateway action request retains no bounded proposed_action summary to graduate.",
+            json!({ "gateway_action_request_ref": graduation.action_request_ref }),
+        ));
+    }
+    if retained_intent != submitted_goal_text {
+        return Err(bad_with_details(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_activation_gateway_intent_mismatch",
+            "A graduated GoalRun must pursue the retained gateway proposed action; correlation alone is not admission.",
+            json!({
+                "gateway_action_request_ref": graduation.action_request_ref,
+                "retained_proposed_action_summary": retained_intent,
+                "submitted_goal_text": submitted_goal_text
+            }),
+        ));
+    }
+    Ok(retained_intent)
+}
+
+/// The bounds a retained activation control replays, resolved from its exact retained ceiling
+/// storage key rather than from the current request.
+fn retained_activation_execution_bounds(
+    execution_ceiling_key: &str,
+) -> Result<(&'static str, u64, u64), HttpRefusal> {
+    for source_kind in ["ioi_goal_draft", "gateway_adapter_context"] {
+        let (family, key, total, parallel) = activation_execution_bounds(source_kind)?;
+        if key == execution_ceiling_key {
+            return Ok((family, total, parallel));
+        }
+    }
+    Err(bad_with_details(
+        StatusCode::CONFLICT,
+        "goal_run_execution_ceiling_integrity_failure",
+        "The retained activation ceiling key names no daemon-owned release family.",
+        json!({ "execution_ceiling_key": execution_ceiling_key }),
+    ))
+}
+
 async fn ensure_activation_profile(
     st: &DaemonState,
+    source_kind: &str,
 ) -> Result<ActivationProfileResolution, HttpRefusal> {
     // Both registries are proved before any activation-family record is persisted. In
     // particular, do not let seed reconciliation overwrite a malformed canonical slot and then
@@ -1630,11 +1758,13 @@ async fn ensure_activation_profile(
         &component_key,
         &component,
     )?;
-    let execution_ceiling = zero_execution_ceiling()?;
+    let (ceiling_family, ceiling_key, max_total, max_parallel) =
+        activation_execution_bounds(source_kind)?;
+    let execution_ceiling = execution_ceiling_release(ceiling_family, max_total, max_parallel)?;
     persist_immutable_activation_record(
         &st.data_dir,
         GOAL_RUN_EXECUTION_CEILING_REVISION_KIND,
-        BUILTIN_ZERO_EXECUTION_CEILING_KEY,
+        ceiling_key,
         &execution_ceiling,
     )?;
     let policy = activation_policy(&component)?;
@@ -1669,7 +1799,7 @@ async fn ensure_activation_profile(
         profile_key,
         policy_key: BUILTIN_BOUNDED_ADMISSION_POLICY_KEY.to_string(),
         component_key,
-        execution_ceiling_key: BUILTIN_ZERO_EXECUTION_CEILING_KEY.to_string(),
+        execution_ceiling_key: ceiling_key.to_string(),
     })
 }
 
@@ -1763,7 +1893,16 @@ fn load_activation_profile(
         "harness_profile",
     )?;
     validate_activation_receipt_registry(&policy)?;
-    validate_zero_execution_ceiling(&execution_ceiling)?;
+    // The retained ceiling KEY decides which exact release must replay, so a chat draft can
+    // never replay as a run-on ceiling (or the reverse) by re-reading the current request.
+    let (ceiling_family, ceiling_total, ceiling_parallel) =
+        retained_activation_execution_bounds(&execution_ceiling_key)?;
+    validate_execution_ceiling_release(
+        &execution_ceiling,
+        ceiling_family,
+        ceiling_total,
+        ceiling_parallel,
+    )?;
     if control
         .pointer("/resolved_profile/revision_ref")
         .and_then(Value::as_str)
@@ -1890,8 +2029,8 @@ fn activation_definition_resolution_material(
         "goal_run_execution_ceiling_revision_ref": resolved.execution_ceiling.get("revision_ref"),
         "goal_run_execution_ceiling_content_hash": resolved.execution_ceiling.get("content_hash"),
         "declared_invocation_budget": {
-            "max_total_invocations": 0,
-            "max_parallel_invocations": 0
+            "max_total_invocations": resolved.execution_ceiling.get("max_total_invocations"),
+            "max_parallel_invocations": resolved.execution_ceiling.get("max_parallel_invocations")
         },
         "admitted_override_set_ref": Value::Null,
         "admitted_override_set_hash": Value::Null,
@@ -2003,8 +2142,8 @@ fn activation_admission_material(
         "goal_run_execution_ceiling_content_hash": resolved.execution_ceiling.get("content_hash"),
         "goal_run_execution_ceiling": resolved.execution_ceiling.clone(),
         "declared_invocation_budget": {
-            "max_total_invocations": 0,
-            "max_parallel_invocations": 0
+            "max_total_invocations": resolved.execution_ceiling.get("max_total_invocations"),
+            "max_parallel_invocations": resolved.execution_ceiling.get("max_parallel_invocations")
         },
         "effective_constraint_hash": effective_constraint_hash,
         "result_profile": result_profile,
@@ -2012,8 +2151,10 @@ fn activation_admission_material(
         "authority_refs": [authority_decision.get("decision_ref").cloned().unwrap_or(Value::Null)],
         "capability_requirement_refs": profile_capabilities,
         "runtime_facts": {
-            "single_bounded_work_subject": source_kind == "ioi_goal_draft"
-                && !text(goal_draft, "goal_text").trim().is_empty(),
+            "single_bounded_work_subject": matches!(
+                source_kind,
+                "ioi_goal_draft" | "gateway_adapter_context"
+            ) && !text(goal_draft, "goal_text").trim().is_empty(),
             "requires_system_membership": requires_system,
             "requires_shared_frontier": requires_frontier,
             "requires_outcome_room": requires_room,
@@ -2298,12 +2439,19 @@ fn admit_goal_run_state(
     Ok(record)
 }
 
-fn load_activation_state(data_dir: &str, root_ref: &str) -> Result<Value, HttpRefusal> {
+/// Load the admitted state one GoalRun names, whatever lane admitted it. `code_family` names
+/// the refusing surface so the activation projection keeps its exact pinned refusal codes
+/// while the general GoalRun reader refuses under lane-neutral ones.
+fn load_admitted_goal_run_state(
+    data_dir: &str,
+    root_ref: &str,
+    code_family: &str,
+) -> Result<Value, HttpRefusal> {
     let root = root_ref.rsplit('/').next().unwrap_or("");
     let key = activation_state_key(root).ok_or_else(|| {
         bad(
             StatusCode::CONFLICT,
-            "goal_run_activation_state_root_invalid",
+            &format!("{code_family}_root_invalid"),
             "The retained admitted-state ref is not content-addressed.",
         )
     })?;
@@ -2311,7 +2459,7 @@ fn load_activation_state(data_dir: &str, root_ref: &str) -> Result<Value, HttpRe
         .ok_or_else(|| {
             bad(
                 StatusCode::CONFLICT,
-                "goal_run_activation_state_evidence_missing",
+                &format!("{code_family}_evidence_missing"),
                 "The GoalRun names an admitted state root without its local owner-plane evidence.",
             )
         })?;
@@ -2321,7 +2469,7 @@ fn load_activation_state(data_dir: &str, root_ref: &str) -> Result<Value, HttpRe
     {
         return Err(bad(
             StatusCode::CONFLICT,
-            "goal_run_activation_state_integrity_failure",
+            &format!("{code_family}_integrity_failure"),
             "The retained admitted-state evidence no longer reproduces its root.",
         ));
     }
@@ -2334,12 +2482,18 @@ fn load_activation_state(data_dir: &str, root_ref: &str) -> Result<Value, HttpRe
     .map_err(|error| {
         bad_with_details(
             StatusCode::CONFLICT,
-            "goal_run_activation_state_backing_missing",
+            &format!("{code_family}_backing_missing"),
             "The retained state-root string has no exact Agentgres operation behind it.",
             json!({ "key": key, "error": error.to_string() }),
         )
     })?;
     Ok(record)
+}
+
+/// The activation projection's pinned refusal-code family. Its route contract names these
+/// exact codes, so the activation lane keeps them while general readback does not.
+fn load_activation_state(data_dir: &str, root_ref: &str) -> Result<Value, HttpRefusal> {
+    load_admitted_goal_run_state(data_dir, root_ref, "goal_run_activation_state")
 }
 
 /// Replay the admitted-state binding of ANY GoalRun, whatever lane admitted it. The record
@@ -2354,7 +2508,7 @@ fn verify_goal_run_admitted_state(data_dir: &str, run: &Value) -> Result<Value, 
             "The GoalRun does not name an admitted Agentgres state root.",
         ));
     }
-    let state = load_activation_state(data_dir, root_ref)?;
+    let state = load_admitted_goal_run_state(data_dir, root_ref, "goal_run_admitted_state")?;
     let null = Value::Null;
     let closure_matches = state.get("goal_run_ref") == run.get("goal_ref")
         && state.get("activation_ref").unwrap_or(&null)
@@ -2420,6 +2574,7 @@ fn verify_goal_run_admitted_state(data_dir: &str, run: &Value) -> Result<Value, 
 #[derive(Clone)]
 struct GoalRunActivationBinding {
     activation_ref: String,
+    source_kind: String,
     source_ref: String,
     source_owner_ref: String,
     project_ref: Value,
@@ -5347,8 +5502,17 @@ fn create_direct_goal_run(
             Err(error) => return pursuit_err(error),
         }
     };
-    if activation.is_some()
-        && (decision.get("goal_run_execution_ceiling_revision_ref")
+    // The admission decision and the definition-resolution closure must retain ONE exact
+    // execution ceiling, declared budget, and null override tuple. The exact numbers are the
+    // source kind's admitted bounds — zero for a chat draft, the bounded run-on ceiling for a
+    // gateway graduation — and neither lane may adopt the other's.
+    if let Some(binding) = activation {
+        let (_, _, expected_total, expected_parallel) =
+            match activation_execution_bounds(&binding.source_kind) {
+                Ok(bounds) => bounds,
+                Err(response) => return response,
+            };
+        if decision.get("goal_run_execution_ceiling_revision_ref")
             != resolution.get("goal_run_execution_ceiling_revision_ref")
             || decision.get("goal_run_execution_ceiling_content_hash")
                 != resolution.get("goal_run_execution_ceiling_content_hash")
@@ -5357,23 +5521,24 @@ fn create_direct_goal_run(
             || resolution
                 .pointer("/declared_invocation_budget/max_total_invocations")
                 .and_then(Value::as_u64)
-                != Some(0)
+                != Some(expected_total)
             || resolution
                 .pointer("/declared_invocation_budget/max_parallel_invocations")
                 .and_then(Value::as_u64)
-                != Some(0)
+                != Some(expected_parallel)
             || !resolution
                 .pointer("/resolution_receipt/admitted_override_set_ref")
                 .is_some_and(Value::is_null)
             || !resolution
                 .pointer("/resolution_receipt/admitted_override_set_hash")
-                .is_some_and(Value::is_null))
-    {
-        return bad(
-            StatusCode::CONFLICT,
-            "goal_run_activation_bounds_resolution_changed",
-            "The activation path and definition-resolution closure do not retain one exact zero-execution budget and null override tuple.",
-        );
+                .is_some_and(Value::is_null)
+        {
+            return bad(
+                StatusCode::CONFLICT,
+                "goal_run_activation_bounds_resolution_changed",
+                "The activation path and definition-resolution closure do not retain one exact admitted execution budget and null override tuple.",
+            );
+        }
     }
     if let Err(response) = persist_goal_run_definition_resolution_records(
         st,
@@ -5693,7 +5858,20 @@ fn create_direct_goal_run(
     });
     if let Some(binding) = activation {
         record["owner_ref"] = json!(binding.source_owner_ref.clone());
-        record["origin_surface"] = json!("ioi_goal_chat");
+        // An attach-lane graduation is a programmatic crossing, NOT an ioi.ai chat draft, so
+        // `ioi_goal_chat` would both misname it and borrow the chat lane's zero-execution
+        // posture. The honest tag for it is `authority_gateway`, but the registered
+        // `schema://ioi/applications/ioi-ai/goal-run/v1` enum admits only
+        // {ioi_goal_chat, hypervisor_new_session, hypervisor_session, automation,
+        // marketplace_instance, api} and the schema is outside this cut's ownership. `api` is
+        // the closest LEGAL member and is at least distinct from the chat lane; the exact
+        // crossing stays typed in `activation_ref`/`user_intent_ref` and in the retained
+        // GatewayAdapterContext source object. Reported as a schema gap, not papered over.
+        record["origin_surface"] = json!(if binding.source_kind == "gateway_adapter_context" {
+            "api"
+        } else {
+            "ioi_goal_chat"
+        });
         record["activation_ref"] = json!(binding.activation_ref.clone());
         record["source_context_binding"] = json!({
             "target_session_ref": Value::Null,
@@ -5812,7 +5990,7 @@ fn activation_projection(st: &DaemonState, id: &str, replayed: bool) -> Result<V
         return Err(bad(
             StatusCode::CONFLICT,
             "goal_run_activation_source_integrity_failure",
-            "The retained Goal Chat draft no longer matches the source admitted by the activation control.",
+            "The retained activation source draft no longer matches the source admitted by the activation control.",
         ));
     }
     let authority_request = required_activation_record(
@@ -6001,18 +6179,20 @@ fn activation_projection(st: &DaemonState, id: &str, replayed: bool) -> Result<V
                 "The admitted-state root no longer binds the exact GoalRun admission closure.",
             ));
         }
+        // The replayed run must retain the exact bounds of the ceiling release its retained
+        // activation resolved — zero for a chat draft, the bounded run-on ceiling otherwise.
         if run.get("goal_run_execution_ceiling_revision_ref")
             != resolved_profile.execution_ceiling.get("revision_ref")
             || run.get("goal_run_execution_ceiling_content_hash")
                 != resolved_profile.execution_ceiling.get("content_hash")
-            || run
-                .pointer("/declared_invocation_budget/max_total_invocations")
-                .and_then(Value::as_u64)
-                != Some(0)
-            || run
-                .pointer("/declared_invocation_budget/max_parallel_invocations")
-                .and_then(Value::as_u64)
-                != Some(0)
+            || run.pointer("/declared_invocation_budget/max_total_invocations")
+                != resolved_profile
+                    .execution_ceiling
+                    .get("max_total_invocations")
+            || run.pointer("/declared_invocation_budget/max_parallel_invocations")
+                != resolved_profile
+                    .execution_ceiling
+                    .get("max_parallel_invocations")
             || !run
                 .get("admitted_override_set_ref")
                 .is_some_and(Value::is_null)
@@ -6023,7 +6203,7 @@ fn activation_projection(st: &DaemonState, id: &str, replayed: bool) -> Result<V
             return Err(bad(
                 StatusCode::CONFLICT,
                 "goal_run_activation_bounds_binding_changed",
-                "The replayed GoalRun no longer binds its exact zero-execution ceiling, declared budget, and null override tuple.",
+                "The replayed GoalRun no longer binds its exact admitted execution ceiling, declared budget, and null override tuple.",
             ));
         }
         let resolution_receipt = required_activation_record(
@@ -6192,6 +6372,7 @@ pub(crate) async fn handle_goal_run_activation_draft(
             "project_ref",
             "result_profile",
             "idempotency_key",
+            "gateway_action_request_ref",
         ],
         "goal_run_activation_draft_request_invalid",
     ) {
@@ -6204,7 +6385,7 @@ pub(crate) async fn handle_goal_run_activation_draft(
             "The activation draft request must declare ioi.goal-run-activation-draft-request.v1.",
         );
     }
-    let goal_text = text(&body, "goal_text").trim().to_string();
+    let mut goal_text = text(&body, "goal_text").trim().to_string();
     if !(4..=32_768).contains(&goal_text.len()) {
         return bad(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -6239,7 +6420,50 @@ pub(crate) async fn handle_goal_run_activation_draft(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let resolved_profile = match ensure_activation_profile(&st).await {
+    // The attach lane graduates through this same crossing. Product code supplies ONE closed
+    // locator; the daemon resolves the source kind, adapter context, released adapter tuple,
+    // carried attach receipts, and the no-carryover boundary from retained gateway bytes.
+    let gateway_graduation = match body.get("gateway_action_request_ref") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(locator))
+            if locator.starts_with("action-request://") && locator.len() <= 400 =>
+        {
+            match super::authority_gateway_routes::resolve_run_on_graduation(
+                &st.data_dir,
+                &principal_ref,
+                locator,
+                &iso_now(),
+            ) {
+                Ok(graduation) => Some(graduation),
+                Err(detail) => {
+                    return bad_with_details(
+                        StatusCode::CONFLICT,
+                        "goal_run_activation_gateway_context_unresolved",
+                        "The named gateway action request does not resolve one current, adapter-bound run-on graduation.",
+                        json!({ "gateway_action_request_ref": locator, "detail": detail }),
+                    )
+                }
+            }
+        }
+        Some(_) => {
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_activation_gateway_locator_invalid",
+                "gateway_action_request_ref must be a bounded action-request:// locator.",
+            )
+        }
+    };
+    let source_kind = match gateway_graduation.as_ref() {
+        Some(_) => "gateway_adapter_context",
+        None => "ioi_goal_draft",
+    };
+    if let Some(graduation) = gateway_graduation.as_ref() {
+        goal_text = match bind_gateway_goal_intent(&goal_text, graduation) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+    }
+    let resolved_profile = match ensure_activation_profile(&st, source_kind).await {
         Ok(value) => value,
         Err(response) => return response,
     };
@@ -6250,7 +6474,11 @@ pub(crate) async fn handle_goal_run_activation_draft(
         "project_ref": project_ref,
         "result_profile": result_profile,
         "idempotency_key": idempotency_key,
-        "resolved_principal_ref": principal_ref
+        "resolved_principal_ref": principal_ref,
+        "gateway_action_request_ref": gateway_graduation
+            .as_ref()
+            .map(|graduation| json!(graduation.action_request_ref))
+            .unwrap_or(Value::Null)
     });
     let request_hash = sha256_canonical(&normalized_request);
     let idempotency_subject_hash = sha256_canonical(&json!({
@@ -6262,7 +6490,18 @@ pub(crate) async fn handle_goal_run_activation_draft(
         .unwrap_or(&idempotency_subject_hash);
     let id = format!("gra_{}", &digest[..24.min(digest.len())]);
     let reference = activation_ref(&id);
-    let source_ref = format!("intent://ioi-ai/{id}");
+    let source_ref = match gateway_graduation.as_ref() {
+        Some(graduation) => format!(
+            "adapter://{}/gateway-context/{id}",
+            safe(
+                graduation
+                    .adapter_ref
+                    .trim_start_matches("adapter://")
+                    .trim_matches('/')
+            )
+        ),
+        None => format!("intent://ioi-ai/{id}"),
+    };
     let constraint_ref = format!("constraint://goal-run-activation/{id}");
     let authority_decision_ref =
         format!("approval://goal-run-activation/{id}/principal-scope-resolution");
@@ -6272,7 +6511,7 @@ pub(crate) async fn handle_goal_run_activation_draft(
         "managed_execution_mode": "standard",
         "goal_execution_policy": "auto"
     }));
-    let goal_draft = json!({
+    let mut goal_draft = json!({
         "schema_version": "ioi.ioi-ai.goal-draft.v1",
         "object_class": "IoiAiGoalDraft",
         "draft_intent_ref": source_ref,
@@ -6291,6 +6530,35 @@ pub(crate) async fn handle_goal_run_activation_draft(
         "network_goal_budget_ref": Value::Null,
         "draft_status": "ready_for_admission"
     });
+    if let Some(graduation) = gateway_graduation.as_ref() {
+        // An attach-lane crossing is not an ioi.ai draft; the retained source object says so
+        // and carries the exact gateway evidence the daemon resolved.
+        goal_draft["schema_version"] = json!("ioi.goal-run-gateway-adapter-context.v1");
+        goal_draft["object_class"] = json!("GatewayAdapterContext");
+        goal_draft["gateway_adapter_context"] = json!({
+            "action_request_ref": graduation.action_request_ref,
+            // The gateway owner the request was resolved under, retained so the graduated
+            // source object names whose reviewed action it carries.
+            "gateway_owner_ref": graduation.owner_ref,
+            "adapter_ref": graduation.adapter_ref,
+            "adapter_revision": graduation.adapter_revision,
+            "authority_gateway_profile_ref": graduation.authority_gateway_profile_ref,
+            "authority_gateway_profile_hash": graduation.authority_gateway_profile_hash,
+            "agent_harness_adapter_revision_ref": graduation.agent_harness_adapter_revision_ref,
+            "agent_harness_adapter_content_hash": graduation.agent_harness_adapter_content_hash,
+            "carried_receipt_refs": graduation.carried_receipt_refs,
+            "proposed_action_summary": graduation.proposed_action_summary,
+            // Correlation with a gateway request is not admission, and nothing from the
+            // attach lane crosses implicitly: this run-on lane requests its own scopes.
+            "carryover": {
+                "approval": "none",
+                "grant": "none",
+                "credential": "none",
+                "scope": "none"
+            },
+            "attach_lane_receipts_reminted": false
+        });
+    }
     let authority_decision = sealed(json!({
         "schema_version": "ioi.goal-run-activation-authority-request.v1",
         "decision_ref": authority_decision_ref,
@@ -6319,15 +6587,19 @@ pub(crate) async fn handle_goal_run_activation_draft(
         "activation_id": reference,
         "activation_mode": "create",
         "source_context": {
-            "source_kind": "ioi_goal_draft",
+            "source_kind": source_kind,
             "source_ref": source_ref,
             "source_owner_ref": principal_ref
         },
         "requested_goal_run_profile_revision_ref": resolved_profile.profile.get("revision_ref").cloned().unwrap_or(Value::Null),
         "requested_goal_run_profile_content_hash": resolved_profile.profile.get("content_hash").cloned().unwrap_or(Value::Null),
         "existing_goal_ref": Value::Null,
-        "normalized_intent_ref": source_ref,
-        "carried_context_refs": [],
+        "normalized_intent_ref": if gateway_graduation.is_some() { Value::Null } else { json!(source_ref) },
+        // Attach-lane receipts remain valid, linkable evidence — carried as candidacy only.
+        "carried_context_refs": gateway_graduation
+            .as_ref()
+            .map(|graduation| json!(graduation.carried_receipt_refs))
+            .unwrap_or_else(|| json!([])),
         "requested_constraint_refs": if constraints.is_empty() { Vec::<Value>::new() } else { vec![json!(constraint_ref)] },
         "requesting_principal_ref": principal_ref,
         "authority_decision_ref": authority_decision_ref,
@@ -6358,6 +6630,24 @@ pub(crate) async fn handle_goal_run_activation_draft(
         "authority_decision_hash": sha256_canonical(&authority_decision),
         "draft_activation_hash": draft_activation_hash,
         "effective_constraint_hash": effective_constraint_hash,
+        // FREEZE, NOT REVALIDATE. The draft crossing resolves the gateway profile/adapter once
+        // and commits the exact content-addressed tuple here. Submit consumes THESE bytes and
+        // never re-reads current gateway state: an owner authorizes the prepared request they
+        // reviewed, so a later profile edit or adapter re-release must not silently change what
+        // gets admitted. Drift is therefore visible as a stale prepared request (the caller
+        // drafts again), never as an unreviewed substitution.
+        "gateway_run_on_graduation": gateway_graduation
+            .as_ref()
+            .map(|graduation| json!({
+                "action_request_ref": graduation.action_request_ref,
+                "adapter_ref": graduation.adapter_ref,
+                "authority_gateway_profile_ref": graduation.authority_gateway_profile_ref,
+                "authority_gateway_profile_hash": graduation.authority_gateway_profile_hash,
+                "agent_harness_adapter_revision_ref": graduation.agent_harness_adapter_revision_ref,
+                "agent_harness_adapter_content_hash": graduation.agent_harness_adapter_content_hash,
+                "carried_receipt_refs": graduation.carried_receipt_refs
+            }))
+            .unwrap_or(Value::Null),
         "resolved_profile": {
             "revision_ref": resolved_profile.profile.get("revision_ref").cloned().unwrap_or(Value::Null),
             "content_hash": resolved_profile.profile.get("content_hash").cloned().unwrap_or(Value::Null),
@@ -6685,6 +6975,15 @@ pub(crate) async fn handle_goal_run_activation_submit(
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    // The source kind is retained activation truth; the submitting caller supplies none of it.
+    let activation_source_kind = activation
+        .pointer("/source_context/source_kind")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if let Err(response) = activation_execution_bounds(&activation_source_kind) {
+        return response;
+    }
     let goal_draft = match activation_record_strict(
         &st.data_dir,
         GOAL_RUN_ACTIVATION_SOURCE_KIND,
@@ -6695,7 +6994,7 @@ pub(crate) async fn handle_goal_run_activation_submit(
             return bad(
                 StatusCode::CONFLICT,
                 "goal_run_activation_source_missing",
-                "The retained Goal Chat source is missing; admission fails closed.",
+                "The retained activation source is missing; admission fails closed.",
             )
         }
         Err(response) => return response,
@@ -6708,7 +7007,7 @@ pub(crate) async fn handle_goal_run_activation_submit(
         return bad(
             StatusCode::CONFLICT,
             "goal_run_activation_source_integrity_failure",
-            "The retained Goal Chat source or owner no longer matches the admitted draft commitment.",
+            "The retained activation source or owner no longer matches the admitted draft commitment.",
         );
     }
     let authority_request =
@@ -6860,6 +7159,33 @@ pub(crate) async fn handle_goal_run_activation_submit(
         &mut reusable_definition_body,
     ) {
         return response;
+    }
+    // The run-on lane admits the exact adapter revision the gateway owner retained before
+    // wallet authorization; the submitting caller supplies no adapter coordinate at all. This
+    // reads the FROZEN draft-prepared tuple out of the control record rather than re-resolving
+    // current gateway state — see the freeze note where the control is written.
+    if let Some(graduation) = control
+        .get("gateway_run_on_graduation")
+        .filter(|value| !value.is_null())
+        .cloned()
+    {
+        match reusable_definition_body
+            .get_mut("definition_resolution")
+            .and_then(Value::as_object_mut)
+        {
+            Some(definition) => {
+                if let Err(response) = install_gateway_adapter_revision(definition, &graduation) {
+                    return response;
+                }
+            }
+            None => {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_definition_resolution_required",
+                    "The activation lost its daemon-resolved definition-resolution request.",
+                )
+            }
+        }
     }
     let definition_resolution_request = reusable_definition_body
         .get("definition_resolution")
@@ -7360,13 +7686,14 @@ pub(crate) async fn handle_goal_run_activation_submit(
         let create_body = json!({
             "goal": text(&goal_draft, "goal_text"),
             "owner_ref": principal_ref,
-            "origin_surface": "ioi_goal_chat",
+            "origin_surface": if activation_source_kind == "gateway_adapter_context" { "api" } else { "ioi_goal_chat" },
             "authority_scope_refs": ["scope:goal.run.create"],
             "constraint_refs": activation.get("requested_constraint_refs").cloned().unwrap_or_else(|| json!([])),
             "definition_resolution": definition_resolution_request
         });
         let binding = GoalRunActivationBinding {
             activation_ref: reference.clone(),
+            source_kind: activation_source_kind.clone(),
             source_ref: source_ref.clone(),
             source_owner_ref: principal_ref.clone(),
             project_ref: goal_draft
@@ -12532,44 +12859,10 @@ pub(crate) async fn handle_goal_run_start(
     {
         return response;
     }
-    if text(&owner_snapshot, "origin_surface") == "ioi_goal_chat" {
-        let total = owner_snapshot
-            .pointer("/declared_invocation_budget/max_total_invocations")
-            .and_then(Value::as_u64);
-        let parallel = owner_snapshot
-            .pointer("/declared_invocation_budget/max_parallel_invocations")
-            .and_then(Value::as_u64);
-        let ceiling_ref = owner_snapshot
-            .get("goal_run_execution_ceiling_revision_ref")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        let ceiling_hash = owner_snapshot
-            .get("goal_run_execution_ceiling_content_hash")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-        if total != Some(0)
-            || parallel != Some(0)
-            || !ceiling_ref
-                .starts_with("goal-run-execution-ceiling://ioi-goal-draft-zero/revision/sha256:")
-            || !ceiling_ref.ends_with(ceiling_hash)
-        {
-            return bad(
-                StatusCode::CONFLICT,
-                "goal_run_execution_bounds_integrity_failure",
-                "The ioi_goal_draft GoalRun no longer retains its exact zero-execution ceiling and declared budget.",
-            );
-        }
-        return bad_with_details(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "goal_run_execution_budget_exhausted",
-            "This admitted GoalRun is intentionally resultless and has zero invocation capacity.",
-            json!({
-                "goal_run_ref": owner_snapshot.get("goal_ref"),
-                "goal_run_execution_ceiling_revision_ref": ceiling_ref,
-                "declared_invocation_budget": owner_snapshot.get("declared_invocation_budget"),
-                "effects_started": false
-            }),
-        );
+    // One owner for the zero-execution boundary: a run admitted with no invocation capacity
+    // cannot start, whichever surface asks. A bounded run-on ceiling is not refused here.
+    if let Some(refusal) = refuse_zero_execution_goal(&owner_snapshot) {
+        return refusal;
     }
     if text(&owner_snapshot, "status") != "draft" {
         return bad(
@@ -16772,7 +17065,7 @@ mod goal_run_seam_tests {
         ));
         assert_eq!(
             refusal_code(verify_goal_run_admitted_state(data_dir, &absent)),
-            "goal_run_activation_state_evidence_missing"
+            "goal_run_admitted_state_evidence_missing"
         );
 
         // A run whose retained closure drifted from the admitted root is not readable.
@@ -16804,7 +17097,7 @@ mod goal_run_seam_tests {
         .unwrap();
         assert_eq!(
             refusal_code(verify_goal_run_admitted_state(data_dir, &run)),
-            "goal_run_activation_state_integrity_failure"
+            "goal_run_admitted_state_integrity_failure"
         );
     }
 
@@ -16821,6 +17114,229 @@ mod goal_run_seam_tests {
         assert_eq!(
             refusal_code(verify_goal_run_admitted_state(data_dir, &relabelled)),
             "goal_run_admitted_state_source_context_changed"
+        );
+    }
+
+    #[test]
+    fn a_graduated_adapter_enters_the_closure_only_as_an_exact_content_addressed_revision() {
+        let content_hash = format!("sha256:{}", "1".repeat(64));
+        let revision_ref = format!("agent-harness-adapter://local/revision/{content_hash}");
+        let mut definition = json!({ "component_hashes": {} })
+            .as_object()
+            .cloned()
+            .unwrap();
+        install_gateway_adapter_revision(
+            &mut definition,
+            &json!({
+                "agent_harness_adapter_revision_ref": revision_ref,
+                "agent_harness_adapter_content_hash": content_hash
+            }),
+        )
+        .expect("the exact released adapter revision binds into the closure");
+        assert_eq!(
+            definition["agent_harness_adapter_revision_refs"],
+            json!([revision_ref])
+        );
+        assert_eq!(
+            definition["component_hashes"][&revision_ref],
+            json!(content_hash)
+        );
+
+        // A revision coordinate that does not bind its own content hash is not admissible,
+        // so an adapter name can never stand in for an exact released revision.
+        let mut unbound = json!({ "component_hashes": {} })
+            .as_object()
+            .cloned()
+            .unwrap();
+        assert_eq!(
+            refusal_code(
+                install_gateway_adapter_revision(
+                    &mut unbound,
+                    &json!({
+                        "agent_harness_adapter_revision_ref": "agent-harness-adapter://local/revision/1",
+                        "agent_harness_adapter_content_hash": content_hash
+                    }),
+                )
+                .map(|()| Value::Null)
+            ),
+            "goal_run_activation_gateway_adapter_binding_invalid"
+        );
+    }
+
+    fn graduation_fixture(
+        summary: &str,
+    ) -> super::super::authority_gateway_routes::GatewayRunOnGraduation {
+        let content_hash = format!("sha256:{}", "2".repeat(64));
+        super::super::authority_gateway_routes::GatewayRunOnGraduation {
+            action_request_ref: "action-request://acme/gateway/req-001".to_string(),
+            adapter_ref: "adapter://acme/claude-code".to_string(),
+            adapter_revision: "rev-1".to_string(),
+            owner_ref: "user://acme".to_string(),
+            authority_gateway_profile_ref: "authority-gateway-profile://acme/default".to_string(),
+            authority_gateway_profile_hash: content_hash.clone(),
+            agent_harness_adapter_revision_ref: format!(
+                "agent-harness-adapter://acme/revision/{content_hash}"
+            ),
+            agent_harness_adapter_content_hash: content_hash,
+            carried_receipt_refs: vec![],
+            proposed_action_summary: summary.to_string(),
+        }
+    }
+
+    #[test]
+    fn a_graduated_goal_intent_is_the_retained_proposed_action_not_a_correlated_substitute() {
+        let graduation = graduation_fixture("Advance the release branch to the reviewed commit.");
+
+        // The retained proposed action IS the admitted intent, returned as the retained bytes.
+        assert_eq!(
+            bind_gateway_goal_intent(
+                "Advance the release branch to the reviewed commit.",
+                &graduation,
+            )
+            .expect("the exact retained proposed action graduates"),
+            "Advance the release branch to the reviewed commit."
+        );
+        // Surrounding whitespace is not a different intent; the retained bytes still win.
+        assert_eq!(
+            bind_gateway_goal_intent(
+                "Advance the release branch to the reviewed commit.",
+                &graduation_fixture("  Advance the release branch to the reviewed commit.  "),
+            )
+            .expect("the trimmed retained proposed action graduates"),
+            "Advance the release branch to the reviewed commit."
+        );
+
+        // NEGATIVE: naming a gateway request while pursuing something else is correlation, not
+        // admission. An authenticated caller cannot smuggle unrelated intent through it.
+        assert_eq!(
+            refusal_code(
+                bind_gateway_goal_intent("Delete every production bucket.", &graduation)
+                    .map(Value::String)
+            ),
+            "goal_run_activation_gateway_intent_mismatch"
+        );
+        // A near-miss is still a mismatch: this is byte equality, not similarity.
+        assert_eq!(
+            refusal_code(
+                bind_gateway_goal_intent(
+                    "Advance the release branch to the reviewed commit",
+                    &graduation,
+                )
+                .map(Value::String)
+            ),
+            "goal_run_activation_gateway_intent_mismatch"
+        );
+        // A request with no bounded summary graduates nothing rather than falling back to
+        // whatever the caller typed.
+        assert_eq!(
+            refusal_code(bind_gateway_goal_intent("", &graduation_fixture("")).map(Value::String)),
+            "goal_run_activation_gateway_intent_unavailable"
+        );
+    }
+
+    #[test]
+    fn activation_execution_bounds_are_source_bound_and_never_inferred() {
+        assert_eq!(
+            activation_execution_bounds("ioi_goal_draft").expect("the chat lane is bounded"),
+            (
+                "ioi-goal-draft-zero",
+                BUILTIN_ZERO_EXECUTION_CEILING_KEY,
+                0,
+                0
+            )
+        );
+        assert_eq!(
+            activation_execution_bounds("gateway_adapter_context")
+                .expect("the run-on lane is bounded"),
+            (
+                DIRECT_BOUNDED_CEILING_FAMILY,
+                DIRECT_BOUNDED_CEILING_KEY,
+                1,
+                1
+            )
+        );
+        // No source kind gets a budget by default, and no lane borrows another's.
+        assert_eq!(
+            refusal_code(
+                activation_execution_bounds("marketplace_instance").map(|bounds| json!(bounds.0))
+            ),
+            "goal_run_activation_source_kind_unsupported"
+        );
+        // The retained storage key, not the current request, decides the replayed bounds.
+        assert_eq!(
+            retained_activation_execution_bounds(DIRECT_BOUNDED_CEILING_KEY)
+                .expect("the retained run-on key replays its own release"),
+            (DIRECT_BOUNDED_CEILING_FAMILY, 1, 1)
+        );
+        assert_eq!(
+            refusal_code(
+                retained_activation_execution_bounds("some-other-key")
+                    .map(|bounds| json!(bounds.0))
+            ),
+            "goal_run_execution_ceiling_integrity_failure"
+        );
+    }
+
+    fn goal_run_at_ceiling(
+        origin_surface: &str,
+        family_id: &str,
+        total: u64,
+        parallel: u64,
+    ) -> Value {
+        let ceiling = execution_ceiling_release(family_id, total, parallel)
+            .expect("the daemon-owned release resolves");
+        json!({
+            "goal_ref": "goal://gr_test",
+            "origin_surface": origin_surface,
+            "goal_run_execution_ceiling_revision_ref": ceiling["revision_ref"],
+            "goal_run_execution_ceiling_content_hash": ceiling["content_hash"],
+            "declared_invocation_budget": {
+                "max_total_invocations": total,
+                "max_parallel_invocations": parallel
+            }
+        })
+    }
+
+    #[test]
+    fn a_gateway_graduation_may_execute_while_an_ioi_ai_chat_draft_stays_resultless() {
+        // The ioi.ai chat lane is intentionally resultless wherever effects would begin.
+        let chat_draft = goal_run_at_ceiling("ioi_goal_chat", "ioi-goal-draft-zero", 0, 0);
+        let Json(chat_refusal) = refuse_zero_execution_goal(&chat_draft)
+            .expect("a chat draft is refused execution")
+            .1;
+        assert_eq!(
+            chat_refusal.pointer("/error/code").and_then(Value::as_str),
+            Some("goal_run_execution_budget_exhausted")
+        );
+        assert_eq!(
+            refuse_result_write_for_zero_execution_goal(&chat_draft)
+                .expect("a chat draft is refused a result write")
+                .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+
+        // A gateway run-on graduation is work that is MEANT to execute. It carries the bounded
+        // 1/1 run-on ceiling, so the zero-execution gate that blocks chat drafts does not
+        // refuse it — the same predicate `handle_goal_run_start` consults.
+        let graduated = goal_run_at_ceiling("api", DIRECT_BOUNDED_CEILING_FAMILY, 1, 1);
+        assert!(
+            refuse_zero_execution_goal(&graduated).is_none(),
+            "a bounded gateway graduation is not a zero-execution draft"
+        );
+        assert!(refuse_result_write_for_zero_execution_goal(&graduated).is_none());
+
+        // Capacity, not the provenance tag, decides: a run tagged for the chat lane that no
+        // longer retains its exact zero ceiling fails closed rather than executing.
+        let mut tampered = chat_draft.clone();
+        tampered["declared_invocation_budget"]["max_total_invocations"] = json!(1);
+        let Json(tampered_refusal) = refuse_zero_execution_goal(&tampered)
+            .expect("a chat draft with a widened budget is refused")
+            .1;
+        assert_eq!(
+            tampered_refusal
+                .pointer("/error/code")
+                .and_then(Value::as_str),
+            Some("goal_run_execution_bounds_integrity_failure")
         );
     }
 
