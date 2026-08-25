@@ -5,6 +5,7 @@ Doctrine status: canonical
 Implementation status: built (plane + ssh/vast/runpod/lambda_cloud/akash/aws/gcp lanes; k8s credential+preflight only; live paths env-gated)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
+  - `apps/hypervisor/scripts/verify-hypervisor-byo-provider-plane.mjs`
 Last implementation audit: 2026-07-05
 Canonical owner: this file for the ProviderAccount object plane, provider credential
 binding, snapshot custody, and provider spend posture. Provider/environment doctrine

@@ -46,7 +46,7 @@ plus an audit date and optional code refs:
 ```text
 Doctrine status: canonical | reference | archived
 Implementation status: built | partial | planned | speculative | mixed | n/a
-Implementation refs:            # only when built or partial
+Implementation refs:            # only when built or partial; built also names its verifier
   - path/or/route/ref
 Last implementation audit: YYYY-MM-DD   # required when built, partial, or mixed
 ```
@@ -64,6 +64,14 @@ Rules:
 - `Implementation status` says whether the described system exists today.
   `built` and `partial` name their code anchors in `Implementation refs`;
   `speculative` is a maturity statement, never a scope cut.
+- `built` additionally names its **verification anchor** among those refs: the
+  `verify-*`/`check-*`/`mutate-*` script (or `*.test.mjs`) that fails when the
+  claim stops being true. A source anchor cannot carry a `built` claim alone — it still
+  exists after the behavior breaks. The anchor must gate CI; a real but
+  hand-run verifier keeps its `built` claim only through the checker's
+  pinned baseline (`scripts/check-architecture-docs.mjs`,
+  `HAND_RUN_BUILT_BASELINE`), which names each exception with its reason and
+  only shrinks.
 - The axes are independent: a file may be canonical **and** speculative
   (future doctrine is still doctrine), or reference **and** built. Never
   demote doctrine because implementation is future.

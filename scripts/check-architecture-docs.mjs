@@ -17,6 +17,13 @@
 //   3. every canon doc declares `Canonical owner:` + both status-axis fields in its header
 //   4. every path named under `Implementation refs:` exists
 //   5. a doc declaring `built` or `partial` names its code anchors (doc-classes.md)
+//  5b. a doc declaring `built` names the verification anchor that proves it — a
+//      `verify-*`/`check-*`/`mutate-*` script or `*.test.mjs` among its refs — and
+//      that anchor gates CI (derived from ci.yml + package.json scripts, the same
+//      re-derived world the verifier-floors gate uses; never a hand list). Docs
+//      whose verifier is real but still hand-run live in HAND_RUN_BUILT_BASELINE,
+//      a typed shrink-only pin: a pinned doc that stops declaring `built`, or
+//      whose anchor becomes CI-bound, is RED until its pin is removed.
 //   6. every contract-registry `canonical_owner_ref` uses the one repo-root-absolute
 //      `canon://docs/architecture/...` form and resolves to a file that exists
 //   7. status-axis VALUES come from the doc-classes.md vocabulary — doctrine is
@@ -73,15 +80,74 @@ function walk(dir, out = []) {
   return out;
 }
 
-const files = workItemsOnly ? [] : ROOTS.flatMap((r) => walk(path.join(root, r)));
+const files = workItemsOnly
+  ? []
+  : ROOTS.flatMap((r) => walk(path.join(root, r)));
 const rel = (f) => path.relative(root, f);
+
+// 5b — the verification-anchor plane for `built` claims.
+//
+// A `built` claim resting on source anchors alone is the defect this rule closes: the
+// anchor still exists after the behavior breaks, so nothing fails when the claim stops
+// being true. A verification anchor is the script that DOES fail — and it must gate CI,
+// or greenness is a hand-run courtesy. CI-binding is re-derived from the workflow file
+// and the package manifests on every run (the floors-gate idiom), never hand-listed.
+//
+// The baseline below pins the docs whose verifier is real but hand-run today — each with
+// its reason — so no NEW `built` claim can land unbound while the debt stays typed and
+// visible. It only shrinks: wiring a pinned verifier into CI without deleting its row is
+// RED, as is a pin whose doc no longer declares `built`.
+const VERIFICATION_ANCHOR =
+  /(?:^|\/)(?:verify|check|mutate)-[^/]+\.mjs$|\.test\.mjs$/u;
+const HAND_RUN_BUILT_BASELINE = new Map([
+  [
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "verify-hypervisor-byo-provider-plane.mjs is hand-run against the shared dev daemon; the CI isolated-daemon lane boots no ssh fixture yet",
+  ],
+  [
+    "docs/architecture/components/storage-backends/filecoin-cas.md",
+    "verify-hypervisor-filecoin-cas-archive-custody.mjs is hand-run against the shared dev daemon; the live Filecoin lane is env-gated",
+  ],
+  [
+    "docs/architecture/domains/decentralized/cloud.md",
+    "verify-hypervisor-cloud-candidate-plane.mjs and the vast candidate/lifecycle pair are hand-run against the shared dev daemon",
+  ],
+]);
+
+const CI_WORKFLOW = ".github/workflows/ci.yml";
+const ciText = fs.existsSync(path.join(root, CI_WORKFLOW))
+  ? fs.readFileSync(path.join(root, CI_WORKFLOW), "utf8")
+  : null;
+const ciScripts = [];
+for (const manifest of ["package.json", "apps/hypervisor/package.json"]) {
+  try {
+    const scripts =
+      JSON.parse(fs.readFileSync(path.join(root, manifest), "utf8")).scripts ??
+      {};
+    ciScripts.push(...Object.entries(scripts));
+  } catch {
+    // Fail closed by omission: an unreadable manifest yields no bindings, so every
+    // `built` doc depending on it goes RED rather than silently passing.
+  }
+}
+function anchorIsCiBound(ref) {
+  if (ciText === null) return false;
+  const base = path.basename(ref);
+  if (ciText.includes(base)) return true;
+  return ciScripts.some(
+    ([name, cmd]) => cmd.includes(base) && ciText.includes(`npm run ${name}`),
+  );
+}
+const builtDocs = new Set();
 
 // A record path is evidence in THIS repository. An absolute path or one that
 // climbs out of the tree names something no reader can review from a checkout,
 // so it can never stand for status truth — reject it before touching the disk.
 function contains(base, target) {
   const relative = path.relative(base, target);
-  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  return (
+    relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative)
+  );
 }
 
 function insideRepo(candidate) {
@@ -103,7 +169,8 @@ for (const file of files) {
   // 1 + 2 — links resolve, and labels are not stale filenames.
   for (const match of source.matchAll(/\[([^\]]*)\]\(([^)\s]+)\)/gu)) {
     const [, label, target] = match;
-    if (/^[a-z][a-z0-9+.-]*:/iu.test(target) || target.startsWith("#")) continue;
+    if (/^[a-z][a-z0-9+.-]*:/iu.test(target) || target.startsWith("#"))
+      continue;
     const withoutFragment = target.split("#")[0];
     if (withoutFragment === "") continue;
 
@@ -132,26 +199,54 @@ for (const file of files) {
   // listings cannot false-positive; audit presence is whole-file because long
   // owner headers legitimately carry it past line 20. ADRs carry their own header.
   let declared;
-  if (file.includes(`${path.sep}docs${path.sep}architecture${path.sep}`) && !path.basename(file).startsWith("_")) {
+  if (
+    file.includes(`${path.sep}docs${path.sep}architecture${path.sep}`) &&
+    !path.basename(file).startsWith("_")
+  ) {
     const head = source.split("\n").slice(0, 20).join("\n");
-    for (const field of ["Doctrine status:", "Implementation status:", "Canonical owner:"]) {
-      if (!head.includes(field)) failures.push(`${rel(file)}: missing \`${field}\` in the header (first 20 lines)`);
+    for (const field of [
+      "Doctrine status:",
+      "Implementation status:",
+      "Canonical owner:",
+    ]) {
+      if (!head.includes(field))
+        failures.push(
+          `${rel(file)}: missing \`${field}\` in the header (first 20 lines)`,
+        );
     }
     const doctrine = head.match(/^Doctrine status:\s*(.+)$/mu)?.[1]?.trim();
-    if (doctrine !== undefined && !["canonical", "reference", "archived"].includes(doctrine)) {
-      failures.push(`${rel(file)}: Doctrine status must be exactly canonical | reference | archived — got \`${doctrine}\``);
+    if (
+      doctrine !== undefined &&
+      !["canonical", "reference", "archived"].includes(doctrine)
+    ) {
+      failures.push(
+        `${rel(file)}: Doctrine status must be exactly canonical | reference | archived — got \`${doctrine}\``,
+      );
     }
     const impl = head.match(/^Implementation status:\s*(.+)$/mu)?.[1]?.trim();
     if (impl !== undefined) {
-      const see = impl.match(/^see\s+(?:\[[^\]]*\]\(([^)\s]+)\)|`([^`\s]+)`|(\S+))/u);
+      const see = impl.match(
+        /^see\s+(?:\[[^\]]*\]\(([^)\s]+)\)|`([^`\s]+)`|(\S+))/u,
+      );
       if (see) {
         const target = (see[1] ?? see[2] ?? see[3]).split("#")[0];
         if (!fs.existsSync(path.resolve(dir, target))) {
-          failures.push(`${rel(file)}: Implementation status \`see\` target does not resolve — ${target}`);
+          failures.push(
+            `${rel(file)}: Implementation status \`see\` target does not resolve — ${target}`,
+          );
         }
       } else {
         declared = impl.match(/^([a-z/]+)/u)?.[1];
-        if (!["built", "partial", "planned", "speculative", "mixed", "n/a"].includes(declared)) {
+        if (
+          ![
+            "built",
+            "partial",
+            "planned",
+            "speculative",
+            "mixed",
+            "n/a",
+          ].includes(declared)
+        ) {
           failures.push(
             `${rel(file)}: Implementation status must open with built | partial | planned | speculative | mixed | n/a, or a resolving \`see\` form — got \`${impl}\``,
           );
@@ -160,7 +255,9 @@ for (const file of files) {
           ["built", "partial", "mixed"].includes(declared) &&
           !source.includes("Last implementation audit:")
         ) {
-          failures.push(`${rel(file)}: Implementation status \`${declared}\` declares no \`Last implementation audit:\``);
+          failures.push(
+            `${rel(file)}: Implementation status \`${declared}\` declares no \`Last implementation audit:\``,
+          );
         }
       }
     }
@@ -172,16 +269,57 @@ for (const file of files) {
     !/^Implementation refs:/mu.test(source) &&
     !file.includes(`${path.sep}_archive${path.sep}`)
   ) {
-    failures.push(`${rel(file)}: Implementation status \`${declared}\` declares no \`Implementation refs\``);
+    failures.push(
+      `${rel(file)}: Implementation status \`${declared}\` declares no \`Implementation refs\``,
+    );
   }
 
   // 4 — declared implementation refs resolve.
+  const refs = [];
   const block = source.match(/^Implementation refs:\n((?:\s+-\s+.*\n)+)/mu);
   for (const line of block?.[1].split("\n") ?? []) {
     const ref = line.match(/^\s+-\s+`?([^`\s]+)`?\s*$/u)?.[1];
     if (!ref || ref === "none") continue;
+    refs.push(ref);
     if (!fs.existsSync(path.resolve(root, ref))) {
       failures.push(`${rel(file)}: Implementation ref does not exist — ${ref}`);
+    }
+  }
+
+  // 5b — a `built` claim names its verification anchor, and that anchor gates CI.
+  if (
+    declared === "built" &&
+    !file.includes(`${path.sep}_archive${path.sep}`)
+  ) {
+    builtDocs.add(rel(file));
+    const anchors = refs.filter((ref) => VERIFICATION_ANCHOR.test(ref));
+    const pin = HAND_RUN_BUILT_BASELINE.get(rel(file));
+    if (anchors.length === 0) {
+      failures.push(
+        `${rel(file)}: Implementation status \`built\` names no verification anchor — a source anchor still exists after the behavior breaks; name the verify-*/check-* script that fails when this claim stops being true`,
+      );
+    } else if (anchors.some(anchorIsCiBound)) {
+      if (pin !== undefined) {
+        failures.push(
+          `${rel(file)}: pinned in HAND_RUN_BUILT_BASELINE but its verification anchor now gates CI — remove the pin (the baseline only shrinks)`,
+        );
+      }
+    } else if (pin === undefined) {
+      failures.push(
+        `${rel(file)}: Implementation status \`built\` rests on a hand-run verifier — none of [${anchors.map((a) => path.basename(a)).join(", ")}] gates CI (${CI_WORKFLOW}); wire it in, or pin the doc in HAND_RUN_BUILT_BASELINE with its reason`,
+      );
+    }
+  }
+}
+
+// 5b — the baseline stays exact: a pin for a doc that no longer declares `built`
+// (or no longer exists) is stale evidence and RED, never a silent leftover.
+if (!workItemsOnly) {
+  for (const pinned of HAND_RUN_BUILT_BASELINE.keys()) {
+    if (!builtDocs.has(pinned)) {
+      failures.push(
+        `${pinned}: pinned in HAND_RUN_BUILT_BASELINE but no longer declares \`built\` in docs/architecture — remove the stale pin`,
+      );
     }
   }
 }
@@ -190,14 +328,20 @@ for (const file of files) {
 // The markdown link gate above is airtight because it exists; this is the same
 // gate for the JSON reference plane, which had drifted 25-of-165 unnoticed —
 // 17 refs at a path that never existed and 8 in an incompatible relative form.
-const REGISTRY = "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json";
+const REGISTRY =
+  "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json";
 if (!workItemsOnly) {
   try {
-    const registry = JSON.parse(fs.readFileSync(path.join(root, REGISTRY), "utf8"));
+    const registry = JSON.parse(
+      fs.readFileSync(path.join(root, REGISTRY), "utf8"),
+    );
     for (const contract of registry.contracts ?? []) {
       const at = `${REGISTRY}: ${contract.contract_id}`;
       const ref = contract.canonical_owner_ref;
-      if (typeof ref !== "string" || !ref.startsWith("canon://docs/architecture/")) {
+      if (
+        typeof ref !== "string" ||
+        !ref.startsWith("canon://docs/architecture/")
+      ) {
         failures.push(
           `${at}: canonical_owner_ref must use the repo-root-absolute canon://docs/architecture/ form — got ${JSON.stringify(ref)}`,
         );
@@ -241,14 +385,23 @@ if (!workItemsOnly) {
   ];
   const mapRel = "docs/architecture/_meta/source-of-truth-map.md";
   const mapPath = path.join(root, mapRel);
-  const mapText = fs.existsSync(mapPath) ? fs.readFileSync(mapPath, "utf8") : "";
+  const mapText = fs.existsSync(mapPath)
+    ? fs.readFileSync(mapPath, "utf8")
+    : "";
 
-  for (const { marker: MARKER, rowPrefix, postureOwner, postures } of DORMANT_TARGETS) {
+  for (const {
+    marker: MARKER,
+    rowPrefix,
+    postureOwner,
+    postures,
+  } of DORMANT_TARGETS) {
     const an = /^[aeiou]/u.test(MARKER) ? "an" : "a";
     const row = mapText.split("\n").find((line) => line.startsWith(rowPrefix));
 
     if (!row) {
-      failures.push(`${mapRel}: the ${MARKER} lifecycle row is missing — the ownership map for a dormant target cannot be derived`);
+      failures.push(
+        `${mapRel}: the ${MARKER} lifecycle row is missing — the ownership map for a dormant target cannot be derived`,
+      );
       continue;
     }
     // Cells: [subject, owner(s), related, notes]. Owners MUST carry the block; related files are
@@ -269,22 +422,30 @@ if (!workItemsOnly) {
     const carrying = files
       .map(rel)
       .filter((f) => !f.startsWith("docs/architecture/_meta/"))
-      .filter((f) => fs.readFileSync(path.join(root, f), "utf8").includes(MARKER))
+      .filter((f) =>
+        fs.readFileSync(path.join(root, f), "utf8").includes(MARKER),
+      )
       .sort();
 
     for (const owner of owners) {
       if (!carrying.includes(owner)) {
-        failures.push(`${owner}: named as ${an} ${MARKER} OWNER by ${mapRel} but no longer carries the \`${MARKER}\` block — a dormant target may be withdrawn by an owner ruling, never by deletion`);
+        failures.push(
+          `${owner}: named as ${an} ${MARKER} OWNER by ${mapRel} but no longer carries the \`${MARKER}\` block — a dormant target may be withdrawn by an owner ruling, never by deletion`,
+        );
       }
     }
     for (const file of carrying) {
       if (!declared.has(file)) {
-        failures.push(`${file}: carries \`${MARKER}\` language but is not named in the ${mapRel} lifecycle row — a new target owner joins the ownership map in the same cut`);
+        failures.push(
+          `${file}: carries \`${MARKER}\` language but is not named in the ${mapRel} lifecycle row — a new target owner joins the ownership map in the same cut`,
+        );
       }
       // Dormancy is the load-bearing word. A block that stops typing itself dormant reads as a
       // live product commitment, which is exactly the claim a dormant target must not make.
       if (!fs.readFileSync(path.join(root, file), "utf8").includes("dormant")) {
-        failures.push(`${file}: carries \`${MARKER}\` language without typing it \`dormant\` — an untyped target block reads as a shipped commitment`);
+        failures.push(
+          `${file}: carries \`${MARKER}\` language without typing it \`dormant\` — an untyped target block reads as a shipped commitment`,
+        );
       }
     }
 
@@ -292,7 +453,9 @@ if (!workItemsOnly) {
       const text = fs.readFileSync(path.join(root, postureOwner), "utf8");
       for (const posture of postures) {
         if (!text.includes(posture)) {
-          failures.push(`${postureOwner}: the posture owner no longer names ${posture} — the resolved-posture vocabulary is incomplete`);
+          failures.push(
+            `${postureOwner}: the posture owner no longer names ${posture} — the resolved-posture vocabulary is incomplete`,
+          );
         }
       }
     }
@@ -310,12 +473,30 @@ if (!workItemsOnly) {
 //      words as image text.
 {
   const RETIRED_CLAIMS = [
-    ["programmable economy for hiring verifiable workers", "retired front-door tagline"],
-    ["prove outcomes", "whole-outcome proof claim; successor: attributable evidence supporting declared verification and acceptance"],
-    ["reference implementation of canonical web4", "designation exists only as an unsatisfied written contract"],
-    ["verified work, not weights", "flattened the assurance ladder; successor: bounded, attributable, challengeable work"],
-    ["verifiable autonomous outcomes", "retired sas claim (one-liner narrowing)"],
-    ["verified autonomous service outcomes", "retired sas claim (one-liner narrowing)"],
+    [
+      "programmable economy for hiring verifiable workers",
+      "retired front-door tagline",
+    ],
+    [
+      "prove outcomes",
+      "whole-outcome proof claim; successor: attributable evidence supporting declared verification and acceptance",
+    ],
+    [
+      "reference implementation of canonical web4",
+      "designation exists only as an unsatisfied written contract",
+    ],
+    [
+      "verified work, not weights",
+      "flattened the assurance ladder; successor: bounded, attributable, challengeable work",
+    ],
+    [
+      "verifiable autonomous outcomes",
+      "retired sas claim (one-liner narrowing)",
+    ],
+    [
+      "verified autonomous service outcomes",
+      "retired sas claim (one-liner narrowing)",
+    ],
   ];
   const scanTargets = [
     "README.md",
@@ -331,7 +512,9 @@ if (!workItemsOnly) {
     const text = fs.readFileSync(target, "utf8").toLowerCase();
     for (const [phrase, label] of RETIRED_CLAIMS) {
       if (text.includes(phrase)) {
-        failures.push(`${relFile}: carries the retired claim \`${phrase}\` (${label}) — canon retired this phrasing`);
+        failures.push(
+          `${relFile}: carries the retired claim \`${phrase}\` (${label}) — canon retired this phrasing`,
+        );
       }
     }
   }
@@ -342,7 +525,9 @@ if (!workItemsOnly) {
     "Keep your IDE. Keep your model. Put consequential execution behind IOI.",
   ]) {
     if (!readme.includes(anchor)) {
-      failures.push(`README.md: lost the successor formulation \`${anchor}\` — a retirement holds only while its replacement stands`);
+      failures.push(
+        `README.md: lost the successor formulation \`${anchor}\` — a retirement holds only while its replacement stands`,
+      );
     }
   }
 }
@@ -355,7 +540,8 @@ const records = fs.existsSync(workItemDir)
       .filter((name) => name.endsWith(".json"))
       .sort()
   : [];
-if (records.length === 0) failures.push(`${WORK_ITEMS}: no work-item records found`);
+if (records.length === 0)
+  failures.push(`${WORK_ITEMS}: no work-item records found`);
 let anchorCount = 0;
 
 for (const name of records) {
@@ -387,16 +573,27 @@ for (const name of records) {
 
   // 8 — code anchors exist and carry their literal; pr_open anchors may be pending.
   const anchors = record.code_anchors ?? [];
-  if (!Array.isArray(anchors)) failures.push(`${id}: code_anchors must be an array`);
-  for (const [index, anchor] of (Array.isArray(anchors) ? anchors : []).entries()) {
+  if (!Array.isArray(anchors))
+    failures.push(`${id}: code_anchors must be an array`);
+  for (const [index, anchor] of (Array.isArray(anchors)
+    ? anchors
+    : []
+  ).entries()) {
     anchorCount += 1;
     const at = `code_anchors[${index}]`;
-    if (anchor === null || typeof anchor !== "object" || Array.isArray(anchor) || typeof anchor.path !== "string") {
+    if (
+      anchor === null ||
+      typeof anchor !== "object" ||
+      Array.isArray(anchor) ||
+      typeof anchor.path !== "string"
+    ) {
       failures.push(`${id}: ${at} must be an object naming a \`path\` string`);
       continue;
     }
     if (!insideRepo(anchor.path)) {
-      failures.push(`${id}: ${at} path must be repository-relative evidence — ${anchor.path}`);
+      failures.push(
+        `${id}: ${at} path must be repository-relative evidence — ${anchor.path}`,
+      );
       continue;
     }
     const presence = anchor.present_when ?? "merged";
@@ -409,7 +606,9 @@ for (const name of records) {
     // Promotion to `verified` requires anchors that always validate. A held PR
     // branch never does, present in this checkout today or not.
     if (presence === "pr_open" && record.status === "verified") {
-      failures.push(`${id}: ${at} status \`verified\` cannot rest on a \`pr_open\` anchor — ${anchor.path}`);
+      failures.push(
+        `${id}: ${at} status \`verified\` cannot rest on a \`pr_open\` anchor — ${anchor.path}`,
+      );
       continue;
     }
 
@@ -417,12 +616,20 @@ for (const name of records) {
     const stat = fs.statSync(anchored, { throwIfNoEntry: false });
     if (!stat) {
       // A held PR branch is not merged truth and is not a defect either.
-      if (presence === "pr_open") pending.push(`${id}: ${at} pending — PR-open anchor absent here: ${anchor.path}`);
-      else failures.push(`${id}: ${at} code anchor does not exist — ${anchor.path}`);
+      if (presence === "pr_open")
+        pending.push(
+          `${id}: ${at} pending — PR-open anchor absent here: ${anchor.path}`,
+        );
+      else
+        failures.push(
+          `${id}: ${at} code anchor does not exist — ${anchor.path}`,
+        );
       continue;
     }
     if (escapesRepo(anchored)) {
-      failures.push(`${id}: ${at} code anchor leaves the repository through a symlink — ${anchor.path}`);
+      failures.push(
+        `${id}: ${at} code anchor leaves the repository through a symlink — ${anchor.path}`,
+      );
       continue;
     }
     if (!stat.isFile()) {
@@ -432,25 +639,33 @@ for (const name of records) {
     if (anchor.must_contain === undefined) continue;
     // An empty or blank literal is satisfied by every file, so it would pin nothing
     // while reading like a pinned anchor.
-    if (typeof anchor.must_contain !== "string" || anchor.must_contain.trim() === "") {
+    if (
+      typeof anchor.must_contain !== "string" ||
+      anchor.must_contain.trim() === ""
+    ) {
       failures.push(`${id}: ${at} must_contain must be a non-empty literal`);
       continue;
     }
     if (!fs.readFileSync(anchored, "utf8").includes(anchor.must_contain)) {
-      failures.push(`${id}: ${at} ${anchor.path} does not contain \`${anchor.must_contain}\``);
+      failures.push(
+        `${id}: ${at} ${anchor.path} does not contain \`${anchor.must_contain}\``,
+      );
     }
   }
 
   // 9 — evidence refs resolve.
   const refs = record.evidence_refs ?? [];
-  if (!Array.isArray(refs)) failures.push(`${id}: evidence_refs must be an array`);
+  if (!Array.isArray(refs))
+    failures.push(`${id}: evidence_refs must be an array`);
   for (const [index, ref] of (Array.isArray(refs) ? refs : []).entries()) {
     if (typeof ref !== "string") {
       failures.push(`${id}: evidence_refs[${index}] must be a path string`);
       continue;
     }
     if (!insideRepo(ref)) {
-      failures.push(`${id}: evidence_refs[${index}] must be repository-relative evidence — ${ref}`);
+      failures.push(
+        `${id}: evidence_refs[${index}] must be repository-relative evidence — ${ref}`,
+      );
       continue;
     }
     const referenced = path.resolve(root, ref);
@@ -459,7 +674,9 @@ for (const name of records) {
       continue;
     }
     if (escapesRepo(referenced)) {
-      failures.push(`${id}: evidence_refs[${index}] leaves the repository through a symlink — ${ref}`);
+      failures.push(
+        `${id}: evidence_refs[${index}] leaves the repository through a symlink — ${ref}`,
+      );
     }
   }
 }
@@ -468,11 +685,14 @@ for (const note of pending) console.log(note);
 
 if (failures.length > 0) {
   for (const failure of failures) console.error(failure);
-  console.error(`\n${failures.length} ${workItemsOnly ? "work-item record" : "architecture-doc"} integrity failures`);
+  console.error(
+    `\n${failures.length} ${workItemsOnly ? "work-item record" : "architecture-doc"} integrity failures`,
+  );
   process.exit(1);
 }
 const count = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
-if (!workItemsOnly) console.log(`Architecture docs OK — ${files.length} files, 10 rules.`);
+if (!workItemsOnly)
+  console.log(`Architecture docs OK — ${files.length} files, 11 rules.`);
 console.log(
   `Work-item records OK — ${count(records.length, "record")} checked, ${count(anchorCount, "code anchor")}, ${count(pending.length, "pending PR anchor")}.`,
 );

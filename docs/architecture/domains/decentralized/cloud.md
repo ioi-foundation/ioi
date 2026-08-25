@@ -13,6 +13,9 @@ Doctrine status: canonical
 Implementation status: built (candidate plane + quote sources + guarded lifecycles over the BYO provider plane)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs`
+  - `apps/hypervisor/scripts/verify-hypervisor-cloud-candidate-plane.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-vast-candidate-adapter.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-vast-lifecycle.mjs`
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
