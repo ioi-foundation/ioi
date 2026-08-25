@@ -147,6 +147,10 @@ pub(crate) enum WorkLifecycleStoreError {
     /// A snapshot binds a head the current record log no longer contains: a
     /// torn compaction. Resume fails closed rather than resume onto a fork.
     ResumeHeadUnbound,
+    /// A record stored under a stream tail does not derive that tail from its
+    /// own `object_ref`: a foreign or mis-filed record. It is rejected rather
+    /// than normalized into the requested object.
+    ForeignTailRecord,
 }
 
 impl WorkLifecycleStoreError {
@@ -160,6 +164,7 @@ impl WorkLifecycleStoreError {
             Self::ObjectRefInvalid => "work_lifecycle_object_ref_invalid".to_string(),
             Self::OwnerRefMissing => "work_lifecycle_owner_ref_missing".to_string(),
             Self::ResumeHeadUnbound => "work_lifecycle_resume_head_unbound".to_string(),
+            Self::ForeignTailRecord => "work_lifecycle_foreign_tail_record".to_string(),
         }
     }
 
@@ -179,6 +184,10 @@ impl WorkLifecycleStoreError {
             Self::OwnerRefMissing => "the object's durable owner_ref is missing".to_string(),
             Self::ResumeHeadUnbound => {
                 "the snapshot binds a head the current record log no longer contains".to_string()
+            }
+            Self::ForeignTailRecord => {
+                "a stored record does not derive its stream tail from its own object_ref"
+                    .to_string()
             }
         }
     }
@@ -202,6 +211,7 @@ impl WorkLifecycleStoreError {
             Self::ObjectRefInvalid => StatusCode::BAD_REQUEST,
             Self::OwnerRefMissing => StatusCode::INTERNAL_SERVER_ERROR,
             Self::ResumeHeadUnbound => StatusCode::CONFLICT,
+            Self::ForeignTailRecord => StatusCode::UNPROCESSABLE_ENTITY,
         }
     }
 }
@@ -231,8 +241,9 @@ impl WorkLifecycleStore {
 
     // --- substrate reads --------------------------------------------------
 
-    /// The kernel records for one stream tail, as stored (order not trusted).
-    fn record_payloads(&self, tail: &str) -> StoreResult<Vec<Value>> {
+    /// The raw kernel-record payloads on one stream tail, as stored (order not
+    /// trusted). Callers MUST validate tail scope before using these.
+    fn raw_record_payloads(&self, tail: &str) -> StoreResult<Vec<Value>> {
         Ok(
             substrate_store::read_event_stream_history(&self.data_dir, RECORDS_NS, tail)
                 .map_err(WorkLifecycleStoreError::Substrate)?
@@ -240,6 +251,56 @@ impl WorkLifecycleStore {
                 .map(|projection| projection.operation.payload)
                 .collect(),
         )
+    }
+
+    /// The records for one object, proving every stored record derives the
+    /// object's stream tail from its own `object_ref`.
+    ///
+    /// The stream is keyed by `object_stream_tail(object_ref)`, so a payload
+    /// whose `object_ref` differs is a foreign or mis-filed record. It is
+    /// rejected — never normalized into the requested object — so a read can
+    /// never fold another object's record into this one's chain or projection.
+    fn record_payloads_for(&self, object_ref: &str) -> StoreResult<Vec<Value>> {
+        let tail = object_stream_tail(object_ref);
+        let payloads = self.raw_record_payloads(&tail)?;
+        for payload in &payloads {
+            let stored = payload
+                .get("object_ref")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if stored != object_ref || object_stream_tail(stored) != tail {
+                return Err(WorkLifecycleStoreError::ForeignTailRecord);
+            }
+        }
+        Ok(payloads)
+    }
+
+    /// The records on one stream tail whose owning `object_ref` is not known to
+    /// the caller (the diagnostic census enumerates tails, not object refs).
+    ///
+    /// The owning object ref is taken from the stored records themselves and
+    /// must derive exactly this tail; every record must share it. This proves
+    /// the tail is derived from the records' `object_ref` without trusting a
+    /// caller-supplied ref.
+    fn record_payloads_by_tail(&self, tail: &str) -> StoreResult<Vec<Value>> {
+        let payloads = self.raw_record_payloads(tail)?;
+        let Some(first) = payloads.first() else {
+            return Ok(payloads);
+        };
+        let object_ref = first
+            .get("object_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if object_ref.is_empty() || object_stream_tail(&object_ref) != *tail {
+            return Err(WorkLifecycleStoreError::ForeignTailRecord);
+        }
+        for payload in &payloads {
+            if payload.get("object_ref").and_then(Value::as_str) != Some(object_ref.as_str()) {
+                return Err(WorkLifecycleStoreError::ForeignTailRecord);
+            }
+        }
+        Ok(payloads)
     }
 
     /// The current Agentgres head for one namespaced stream tail.
@@ -267,7 +328,7 @@ impl WorkLifecycleStore {
     /// tampered hash. Ports the precedent's `load_chain` onto the durable
     /// substrate.
     pub(crate) fn load_chain(&self, object_ref: &str) -> StoreResult<Vec<Value>> {
-        let payloads = self.record_payloads(&object_stream_tail(object_ref))?;
+        let payloads = self.record_payloads_for(object_ref)?;
         Ok(self.core.reconstruct_chain(&payloads)?)
     }
 
@@ -314,6 +375,14 @@ impl WorkLifecycleStore {
             .map(|projection| projection.operation.payload)
             .collect();
 
+        // The tail is keyed by this object's ref; a stored record with a foreign
+        // object_ref is a mis-filed record and is never folded into this chain.
+        for payload in &log {
+            if payload.get("object_ref").and_then(Value::as_str) != Some(object_ref.as_str()) {
+                return Err(WorkLifecycleStoreError::ForeignTailRecord);
+            }
+        }
+
         // Kernel admission first. This is the ONLY refusal that writes nothing;
         // it runs before any substrate crossing.
         let planned = match gate {
@@ -322,9 +391,35 @@ impl WorkLifecycleStore {
         }?;
 
         if planned.outcome == AppendOutcome::IdempotentReplay {
-            // Already durable. Rebuild the projection from the existing log so
-            // the caller still gets exact active state without a second write.
-            let projection = self.core.project(&log)?;
+            // The record is already durable, but a crash may have committed it
+            // BEFORE its projection checkpoint. Rebuild the projection as of the
+            // replayed record and persist it (keyed by that record's hash)
+            // before returning, so a retry converges: an already-durable
+            // checkpoint replays unchanged, a missing one is repaired. This is
+            // the only way a caller that crashed mid-append can heal by retry.
+            let chain = self.core.reconstruct_chain(&log)?;
+            let replayed_hash = planned
+                .record
+                .get("record_hash")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let boundary = chain.iter().position(|record| {
+                record.get("record_hash").and_then(Value::as_str) == Some(replayed_hash.as_str())
+            });
+            let prefix: Vec<Value> = match boundary {
+                Some(index) => chain[..=index].to_vec(),
+                None => chain.clone(),
+            };
+            let projection = self.core.project(&prefix)?;
+            self.persist_checkpoint(
+                PROJECTIONS_NS,
+                &tail,
+                PROJECTION_OP_KIND,
+                &projection,
+                &replayed_hash,
+                clamp_ms(&planned.record),
+            )?;
             return Ok(AppendReport {
                 replayed: true,
                 record: planned.record,
@@ -391,7 +486,7 @@ impl WorkLifecycleStore {
     /// record log with a complete strict census. Refuses a malformed, forked,
     /// gapped, or tampered log.
     pub(crate) fn read_projection(&self, object_ref: &str) -> StoreResult<Value> {
-        let payloads = self.record_payloads(&object_stream_tail(object_ref))?;
+        let payloads = self.record_payloads_for(object_ref)?;
         if payloads.is_empty() {
             return Err(WorkLifecycleStoreError::NotFound);
         }
@@ -457,7 +552,7 @@ impl WorkLifecycleStore {
     /// pruned here; the snapshot is a checkpoint, never a license to discard the
     /// archive or the record log.
     pub(crate) fn compact(&self, object_ref: &str, now_ms: i64) -> StoreResult<CompactionReport> {
-        let payloads = self.record_payloads(&object_stream_tail(object_ref))?;
+        let payloads = self.record_payloads_for(object_ref)?;
         if payloads.is_empty() {
             return Err(WorkLifecycleStoreError::NotFound);
         }
@@ -641,7 +736,7 @@ impl WorkLifecycleStore {
     }
 
     fn project_by_tail(&self, tail: &str) -> StoreResult<Value> {
-        let payloads = self.record_payloads(tail)?;
+        let payloads = self.record_payloads_by_tail(tail)?;
         Ok(self.core.project(&payloads)?)
     }
 
@@ -749,6 +844,7 @@ fn clamp_i64(value: i64) -> u64 {
 
 /// A refusal that reaches the wire WITH its machine code (the shared `AppError`
 /// renders only a message).
+#[derive(Debug)]
 pub(crate) struct Refused(StatusCode, Value);
 
 impl IntoResponse for Refused {
@@ -851,6 +947,31 @@ fn now_ms() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|delta| delta.as_millis() as i64)
         .unwrap_or_default()
+}
+
+/// Derive the cancellation requester from the authenticated principal.
+///
+/// `requested_by_ref` is authority, not a caller-carried field: a body that
+/// asserts a different requester is attempting to plan a cancellation as
+/// someone else. Any supplied value that is not the authenticated principal is
+/// refused, and the intent always carries `identity.principal_ref` — never the
+/// request body. (The owner-internal Rust API may still supply an owner-derived
+/// requester, because there the caller IS the daemon-owned kind owner.)
+fn cancellation_requester(
+    identity: &substrate_store::RequestIdentity,
+    body: &Value,
+) -> Result<String, Refused> {
+    if let Some(supplied) = body.get("requested_by_ref").and_then(Value::as_str) {
+        if !supplied.is_empty() && supplied != identity.principal_ref {
+            return Err(bad(
+                StatusCode::FORBIDDEN,
+                "work_lifecycle_requester_substitution",
+                "requested_by_ref is derived from the authenticated principal; a different \
+                 supplied value is caller-substituted authority",
+            ));
+        }
+    }
+    Ok(identity.principal_ref.clone())
 }
 
 #[derive(serde::Deserialize)]
@@ -956,8 +1077,10 @@ pub(crate) async fn handle_work_lifecycle_cancellation_plan(
     let store = WorkLifecycleStore::new(&st.data_dir);
     let _projection = owner_scoped_projection(&store, &identity, object_ref, owner_ref)?;
 
+    // The requester is the authenticated principal, never the request body.
+    let requested_by_ref = cancellation_requester(&identity, &body)?;
     let intent = CancellationIntent {
-        requested_by_ref: text(&body, "requested_by_ref").to_string(),
+        requested_by_ref,
         reason: text(&body, "reason").to_string(),
         compensation_policy_ref: body
             .get("compensation_policy_ref")
@@ -1304,5 +1427,177 @@ mod tests {
         assert_eq!(kinds[0]["object_kind"], json!("work_run"));
         assert_eq!(kinds[0]["object_count"], json!(1));
         assert_eq!(kinds[0]["record_count"], json!(2));
+    }
+
+    #[test]
+    fn idempotent_replay_repairs_a_missing_projection_checkpoint() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        substrate_store::reset_handle_for_test();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let store = WorkLifecycleStore::new(&data_dir);
+
+        // Simulate a crash between record commit and projection persist: admit
+        // ONLY the record event, exactly as `append` would, with no projection.
+        let core = WorkLifecycleLogCore;
+        let planned = core.plan_append(&[], &genesis()).expect("plan genesis");
+        assert_eq!(planned.outcome, AppendOutcome::Appended);
+        let tail = object_stream_tail(OBJECT);
+        let record_hash = planned.record["record_hash"].as_str().unwrap().to_string();
+        substrate_store::admit_event_stream_operation(
+            &data_dir,
+            RECORDS_NS,
+            &tail,
+            RECORD_OP_KIND,
+            None,
+            &planned.record,
+            clamp_ms(&planned.record),
+            &record_hash,
+        )
+        .expect("record admitted");
+
+        // The projection checkpoint is absent — the crash.
+        assert!(
+            substrate_store::read_event_stream_operation(&data_dir, PROJECTIONS_NS, &tail)
+                .unwrap()
+                .is_none(),
+            "precondition: projection checkpoint must be missing"
+        );
+
+        // An idempotent replay of the exact genesis restores the durable
+        // projection before returning, so a crashed caller heals by retry.
+        let report = store.append(&genesis()).expect("replay");
+        assert!(report.replayed);
+        let durable =
+            substrate_store::read_event_stream_operation(&data_dir, PROJECTIONS_NS, &tail)
+                .unwrap()
+                .expect("projection restored")
+                .operation
+                .payload;
+        assert_eq!(durable["active_phase"], json!("pending"));
+        assert_eq!(durable["record_count"], json!(1));
+        assert_eq!(durable["head"], json!(record_hash));
+    }
+
+    #[test]
+    fn cancellation_route_rejects_requester_substitution() {
+        let identity = substrate_store::request_identity_for_test(
+            "user://acme/op",
+            ["org://acme".to_string()],
+        );
+
+        // A body asserting a different requester is refused as substitution.
+        let foreign = json!({ "requested_by_ref": "user://intruder" });
+        let refused = cancellation_requester(&identity, &foreign)
+            .err()
+            .expect("refused");
+        assert_eq!(refused.0, StatusCode::FORBIDDEN);
+        assert_eq!(
+            refused.1["error"]["code"],
+            json!("work_lifecycle_requester_substitution")
+        );
+
+        // An omitted or matching field yields the authenticated principal.
+        assert_eq!(
+            cancellation_requester(&identity, &json!({})).unwrap(),
+            "user://acme/op"
+        );
+        assert_eq!(
+            cancellation_requester(&identity, &json!({ "requested_by_ref": "user://acme/op" }))
+                .unwrap(),
+            "user://acme/op"
+        );
+    }
+
+    #[test]
+    fn read_rejects_a_foreign_tail_record() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        substrate_store::reset_handle_for_test();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let store = WorkLifecycleStore::new(&data_dir);
+
+        // A legitimate genesis for run-1.
+        store.append(&genesis()).expect("genesis");
+        let tail = object_stream_tail(OBJECT);
+        let head = substrate_store::read_event_stream_operation(&data_dir, RECORDS_NS, &tail)
+            .unwrap()
+            .unwrap()
+            .head;
+
+        // Mis-file a foreign object's genesis record INTO run-1's stream tail.
+        let core = WorkLifecycleLogCore;
+        let mut foreign = genesis();
+        foreign["object_ref"] = json!("work_run://run-2");
+        foreign["idempotency_key"] = json!("genesis-2");
+        let foreign_record = core
+            .plan_append(&[], &foreign)
+            .expect("foreign plan")
+            .record;
+        let foreign_hash = foreign_record["record_hash"].as_str().unwrap().to_string();
+        substrate_store::admit_event_stream_operation(
+            &data_dir,
+            RECORDS_NS,
+            &tail,
+            RECORD_OP_KIND,
+            Some(head.as_str()),
+            &foreign_record,
+            clamp_ms(&foreign_record),
+            &foreign_hash,
+        )
+        .expect("foreign mis-filed");
+
+        // Reads for run-1 refuse the foreign-tail record rather than folding
+        // another object's record into this object's chain or projection.
+        assert_eq!(
+            store.read_records(OBJECT).unwrap_err().code(),
+            "work_lifecycle_foreign_tail_record"
+        );
+        assert_eq!(
+            store.read_projection(OBJECT).unwrap_err().code(),
+            "work_lifecycle_foreign_tail_record"
+        );
+    }
+
+    #[test]
+    fn compaction_repairs_a_missing_snapshot_after_a_persisted_archive() {
+        let (_dir, store) = fresh_store();
+        let head = store.append(&genesis()).expect("genesis").resulting_head;
+        store
+            .append(&attach("a", "k-a", "none", &head, 2_000))
+            .expect("attach");
+
+        // Persist ONLY the archive segment: a crash after the immutable archive
+        // is durable but before the snapshot.
+        let payloads = store.record_payloads_for(OBJECT).expect("payloads");
+        let through = payloads
+            .iter()
+            .filter_map(|record| record.get("resulting_head").and_then(Value::as_str))
+            .last()
+            .map(str::to_string)
+            .expect("head");
+        let head_hex = through.strip_prefix("sha256:").unwrap_or(&through);
+        let object_tail = object_stream_tail(OBJECT);
+        let archive_ref = format!("work-lifecycle-archive://{object_tail}/seg-{head_hex}");
+        let segment = WorkLifecycleLogCore
+            .plan_archive_segment(&archive_ref, &payloads, &through, 10)
+            .expect("segment");
+        store
+            .persist_archive(&archive_ref, &segment, 10)
+            .expect("archive persisted");
+        assert!(
+            store.latest_snapshot(OBJECT).unwrap().is_none(),
+            "precondition: snapshot must be missing"
+        );
+
+        // Compaction finds the durable archive and repairs the missing snapshot
+        // rather than re-minting the segment.
+        let report = store
+            .compact(OBJECT, 11)
+            .expect("compaction repairs snapshot");
+        assert_eq!(
+            report.archive_root,
+            segment["archive_root"].as_str().unwrap()
+        );
+        assert_eq!(report.snapshot["through_head"], json!(through));
+        assert!(store.latest_snapshot(OBJECT).unwrap().is_some());
     }
 }
