@@ -65,11 +65,27 @@ let collectiveProfileRevisionRef = "";
 let collectiveProfileContentHash = "";
 
 const checks = [];
-// 91 static check() sites execute as 99 assertions: the five-field runtime-substitution loop and
+// 95 static check() sites execute as 103 assertions: the five-field runtime-substitution loop and
 // the five-surface pending-intent fence loop each contribute four executions beyond their one
 // static call site. Any case-count change must update this explanation and the exact done bar.
-const EXPECTED_CHECKS = 99;
-const CLEAN_BASE_ENV = sanitizedVerifierBaseEnv();
+const EXPECTED_CHECKS = 103;
+// npm workspace scripts execute with apps/hypervisor as cwd, while the daemon's honest harness
+// probe resolves its shipped shim from either an explicit absolute path or the process cwd. Bind
+// the repository-owned verifier prerequisite explicitly so `npm run check:* --workspace=...`
+// exercises the same bytes as a direct repo-root invocation.
+const CLEAN_BASE_ENV = {
+  ...sanitizedVerifierBaseEnv(),
+  IOI_HYPERVISOR_HARNESS_SHIM: join(
+    REPO,
+    "packages",
+    "hypervisor-harness-shims",
+    "generic-cli-local.mjs",
+  ),
+};
+// Adapter profiles also carry repository-relative driver shim paths. Normalize the verifier's
+// process directory before any daemon launch so npm workspace execution and direct repo-root
+// execution exercise the same shipped substrate.
+process.chdir(REPO);
 const check = (name, pass, detail = "") =>
   checks.push({ name, pass: Boolean(pass), detail });
 const requireValue = (value, message) => {
@@ -1580,6 +1596,110 @@ try {
   collectiveGoal = requireValue(
     currentCollective.body.goal_run,
     "collective GoalRun disappeared after execution",
+  );
+  const invocationLaunchBinding = successfulInvocation.harness_session_launch_binding;
+  const durableInvocation = familyRecords(dataDir, "goal-run-invocations").find(
+    (record) =>
+      record.harness_invocation_id ===
+      successfulInvocation.harness_invocation_id,
+  );
+  const durableInvocationReceipt = familyRecords(dataDir, "receipts").find(
+    (record) => record.id === successfulInvocation.execution_receipt?.id,
+  );
+  const durableInvocationLaunch = familyRecords(
+    dataDir,
+    "harness-session-launches",
+  ).find((record) => record.launch_ref === invocationLaunchBinding?.launch_ref);
+  check(
+    "M04.5 COMPOSITION: the executed GoalRun invocation binds the exact complete Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach predecessor chain",
+    invocationLaunchBinding?.session_ref === successfulInvocation.session_ref &&
+      String(invocationLaunchBinding?.launch_ref || "").startsWith(
+        "harness-session-launch:",
+      ) &&
+      String(invocationLaunchBinding?.launch_head || "").startsWith("sha256:") &&
+      String(invocationLaunchBinding?.launch_receipt_ref || "").startsWith(
+        "receipt://hypervisor/harness-session-launch/produced/",
+      ) &&
+      String(invocationLaunchBinding?.plan_ref || "").startsWith(
+        "harness-session-launch-plan:",
+      ) &&
+      String(invocationLaunchBinding?.launch_recipe_ref || "").startsWith(
+        "target-binding:",
+      ) &&
+      String(invocationLaunchBinding?.harness_binding_ref || "").startsWith(
+        "harness-session-binding:",
+      ) &&
+      String(invocationLaunchBinding?.spawn_ref || "").startsWith("spawn:") &&
+      String(invocationLaunchBinding?.readiness_ref || "").startsWith(
+        "readiness:",
+      ) &&
+      String(invocationLaunchBinding?.terminal_attach_ref || "").startsWith(
+        "harness-session-terminal-attach:",
+      ),
+    JSON.stringify(invocationLaunchBinding),
+  );
+  check(
+    "M04.5 PRIMITIVES: the same binding carries admitted RuntimeThreadEvent, fork-control, and managed-session-control facts",
+    String(invocationLaunchBinding?.thread_ref || "").startsWith("thread:") &&
+      String(invocationLaunchBinding?.thread_event_ref || "").startsWith(
+        "thread-event:",
+      ) &&
+      invocationLaunchBinding?.thread_event_kind === "thread.started" &&
+      Number.isInteger(invocationLaunchBinding?.thread_event_seq) &&
+      invocationLaunchBinding.thread_event_seq >= 0 &&
+      typeof invocationLaunchBinding?.thread_event_substrate_head === "string" &&
+      invocationLaunchBinding.thread_event_substrate_head.length > 0 &&
+      String(invocationLaunchBinding?.first_runtime_event_ref || "").startsWith(
+        "thread-event:",
+      ) &&
+      ["not_requested", "forked", "refused"].includes(
+        invocationLaunchBinding?.fork_decision,
+      ) &&
+      ["controlled", "no_managed_session_at_launch"].includes(
+        invocationLaunchBinding?.managed_session_decision,
+      ),
+    `${invocationLaunchBinding?.thread_event_kind}/seq=${invocationLaunchBinding?.thread_event_seq}/fork=${invocationLaunchBinding?.fork_decision}/managed=${invocationLaunchBinding?.managed_session_decision}`,
+  );
+  check(
+    "M04.5 DURABILITY: invocation record, execution receipt, and implementation candidate retain one byte-identical launch binding",
+    durableInvocation != null &&
+      durableInvocationReceipt != null &&
+      JSON.stringify(durableInvocation.harness_session_launch_binding) ===
+        JSON.stringify(invocationLaunchBinding) &&
+      JSON.stringify(
+        durableInvocation.execution_receipt?.harness_session_launch_binding,
+      ) === JSON.stringify(invocationLaunchBinding) &&
+      JSON.stringify(
+        durableInvocation.implementation_result_candidate
+          ?.harness_session_launch_binding,
+      ) === JSON.stringify(invocationLaunchBinding) &&
+      JSON.stringify(
+        durableInvocationReceipt.harness_session_launch_binding,
+      ) === JSON.stringify(invocationLaunchBinding),
+    `${durableInvocation?.harness_invocation_id || "no-invocation"}/${durableInvocationReceipt?.id || "no-receipt"}`,
+  );
+  check(
+    "M04.5 OWNER TRUTH: the binding resolves to the one durable launch record while GoalRun identity stores only the invocation ref",
+    durableInvocationLaunch?.session_ref === successfulInvocation.session_ref &&
+      durableInvocationLaunch?.head === invocationLaunchBinding?.launch_head &&
+      durableInvocationLaunch?.chain?.plan_admission?.plan_ref ===
+        invocationLaunchBinding?.plan_ref &&
+      durableInvocationLaunch?.chain?.launch_recipe_admission
+        ?.target_binding_ref === invocationLaunchBinding?.launch_recipe_ref &&
+      durableInvocationLaunch?.chain?.harness_binding_admission
+        ?.session_binding_ref === invocationLaunchBinding?.harness_binding_ref &&
+      durableInvocationLaunch?.chain?.spawn?.spawn_id ===
+        invocationLaunchBinding?.spawn_ref &&
+      durableInvocationLaunch?.chain?.readiness?.readiness_id ===
+        invocationLaunchBinding?.readiness_ref &&
+      (durableInvocationLaunch?.chain?.terminal_attach?.terminal_attach_id ??
+        durableInvocationLaunch?.chain?.terminal_attach?.attach_id) ===
+        invocationLaunchBinding?.terminal_attach_ref &&
+      collectiveGoal?.harness_session_launch_binding === undefined &&
+      collectiveGoal?.invocation_refs?.includes(
+        successfulInvocation.harness_invocation_id,
+      ),
+    `${durableInvocationLaunch?.launch_ref || "no-launch"}/${collectiveGoal?.invocation_refs?.length || 0} invocation ref(s)`,
   );
 
   // 4. Room creation binds the exact active System and collective GoalRun. Same-body replay is
