@@ -85,12 +85,21 @@
     },
     "runOnGraduation": {
       "type": "object", "additionalProperties": false,
-      "required": ["agent_harness_adapter_ref", "activation_source_kind", "implicit_scope_carryover"],
+      "required": ["agent_harness_adapter_revision_ref", "agent_harness_adapter_content_hash", "activation_source_kind", "implicit_approval_carryover", "implicit_grant_carryover", "implicit_credential_carryover", "implicit_scope_carryover"],
       "properties": {
-        "agent_harness_adapter_ref": { "oneOf": [{ "type": "string", "pattern": "^adapter://[^\\s]{1,500}$" }, { "type": "null" }] },
+        "agent_harness_adapter_revision_ref": { "oneOf": [{ "type": "string", "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$" }, { "type": "null" }] },
+        "agent_harness_adapter_content_hash": { "oneOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
         "activation_source_kind": { "const": "gateway_adapter_context" },
+        "implicit_approval_carryover": { "const": false },
+        "implicit_grant_carryover": { "const": false },
+        "implicit_credential_carryover": { "const": false },
         "implicit_scope_carryover": { "const": false }
-      }
+      },
+      "allOf": [{
+        "if": { "properties": { "agent_harness_adapter_revision_ref": { "type": "null" } }, "required": ["agent_harness_adapter_revision_ref"] },
+        "then": { "properties": { "agent_harness_adapter_content_hash": { "type": "null" } } },
+        "else": { "properties": { "agent_harness_adapter_content_hash": { "$ref": "#/$defs/hash" } } }
+      }]
     },
     "positiveInteger": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
     "gatewayProfileRef": { "type": "string", "pattern": "^authority-gateway://[^\\s]{1,500}$" },

@@ -114,9 +114,9 @@
       "id": "goal-profile-contracts",
       "npm_script": "check:goal-profile-contracts",
       "source": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
-      "runtime_assertions": 13,
-      "assertion_names_sha256": "85eb97b425acdfd59d00efdb6395cb1ddec029cb697ce5611e53f626cddfe157",
-      "note": "M04.4 definition substrate: an isolated daemon proves separate immutable GoalRunProfile and AgentHarnessAdapter revision families, server-owned JCS identities, generated-contract validity, identity-first reads, exact content-addressed slots and read-time hash recomputation, successor-only lineage, definition-only non-grants, owner-scoped inventory, and restart replay."
+      "runtime_assertions": 16,
+      "assertion_names_sha256": "7cb363b2901806773475bae925a9dc34e3bf2ae764c059b193fedef59b7e7ba7",
+      "note": "M04.4 definition and gateway-binding substrate: an isolated daemon proves separate immutable GoalRunProfile and AgentHarnessAdapter revision families, server-owned JCS identities, generated-contract validity, identity-first reads, exact content-addressed slots and read-time hash recomputation, successor-only lineage, definition-only non-grants, tenant-owner admission, restart replay, hash-substitution refusal, and durable AuthorityGatewayProfile selection of one exact released adapter with no ambient authority carryover."
     },
     {
       "id": "command-execution-guardrails",

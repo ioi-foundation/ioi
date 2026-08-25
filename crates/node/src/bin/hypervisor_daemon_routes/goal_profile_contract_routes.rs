@@ -48,7 +48,10 @@ fn refuse(status: StatusCode, code: &str, message: impl Into<String>) -> Reply {
     )
 }
 
-fn identity(st: &DaemonState, headers: &HeaderMap) -> Result<String, Reply> {
+fn identity(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<super::substrate_store::RequestIdentity, Reply> {
     let posture = super::lifecycle_routes::deployment_auth_posture(&st.data_dir, headers);
     if posture == "exposed_untrusted" {
         return Err(refuse(
@@ -69,13 +72,57 @@ fn identity(st: &DaemonState, headers: &HeaderMap) -> Result<String, Reply> {
                 "the authenticated session did not resolve a principal identity",
             ));
         };
-        return Ok(format!("user://{principal_id}"));
+        let expected_principal = format!("user://{principal_id}");
+        let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
+            .map_err(|error| {
+                use super::substrate_store::RequestScopeRefusal;
+                let status = match error {
+                    RequestScopeRefusal::AuthenticationRequired
+                    | RequestScopeRefusal::PrincipalIdentityInvalid => StatusCode::UNAUTHORIZED,
+                    RequestScopeRefusal::TenantAuthorityRequired
+                    | RequestScopeRefusal::ResourceScopeRequired
+                    | RequestScopeRefusal::ResourceOwnerMismatch => StatusCode::FORBIDDEN,
+                    RequestScopeRefusal::SubstrateUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+                };
+                refuse(status, error.code(), error.message())
+            })?;
+        if identity.principal_ref != expected_principal {
+            return Err(refuse(
+                StatusCode::UNAUTHORIZED,
+                "goal_profile_principal_inconsistent",
+                "the authenticated principal and tenant-scoped identity disagree",
+            ));
+        }
+        return Ok(identity);
     }
     Err(refuse(
         StatusCode::UNAUTHORIZED,
         "goal_profile_authentication_required",
         "authentication is required before reading or admitting portable goal definitions",
     ))
+}
+
+fn authorized_owner(
+    body: &Map<String, Value>,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Result<String, Reply> {
+    let owner = required_text(body, "owner_ref")?;
+    if owner == identity.principal_ref || identity.authorizes_tenant(&owner) {
+        Ok(owner)
+    } else {
+        Err(refuse(
+            StatusCode::FORBIDDEN,
+            "goal_profile_owner_mismatch",
+            "owner_ref must be the authenticated principal or one of its current tenant owners",
+        ))
+    }
+}
+
+fn owner_visible(record: &Value, identity: &super::substrate_store::RequestIdentity) -> bool {
+    record
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|owner| owner == identity.principal_ref || identity.authorizes_tenant(owner))
 }
 
 fn object(value: &Value) -> Result<&Map<String, Value>, Reply> {
@@ -249,6 +296,42 @@ fn canonical_slot_name(family: &str, record: &Value) -> Result<String, String> {
     Ok(format!("{identity}--{}.json", digest_tail(&expected_hash)))
 }
 
+pub(crate) fn canonical_goal_profile_key(record: &Value) -> Result<String, String> {
+    canonical_slot_name(PROFILE_DIR, record).map(|name| name.trim_end_matches(".json").to_string())
+}
+
+fn reply_detail(reply: Reply) -> String {
+    let (_, Json(body)) = reply;
+    body.pointer("/error/message")
+        .and_then(Value::as_str)
+        .unwrap_or("portable definition registry refused resolution")
+        .to_string()
+}
+
+pub(crate) fn resolve_released_agent_harness_adapter(
+    data_dir: &str,
+    owner_ref: &str,
+    revision_ref: &str,
+    content_hash: &str,
+) -> Result<Value, String> {
+    let records = strict_records(data_dir, ADAPTER_DIR).map_err(reply_detail)?;
+    let mut matches = records.into_iter().filter(|record| {
+        record.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
+            && record.get("revision_ref").and_then(Value::as_str) == Some(revision_ref)
+            && record.get("content_hash").and_then(Value::as_str) == Some(content_hash)
+    });
+    let record = matches.next().ok_or_else(|| {
+        "the exact owner-scoped AgentHarnessAdapter revision is absent".to_string()
+    })?;
+    if matches.next().is_some() {
+        return Err("the exact owner-scoped AgentHarnessAdapter revision is ambiguous".to_string());
+    }
+    if record.get("registry_status").and_then(Value::as_str) != Some("released") {
+        return Err("the exact AgentHarnessAdapter revision is not released".to_string());
+    }
+    Ok(record)
+}
+
 fn tail(prefix: &str) -> String {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -342,7 +425,11 @@ fn strict_records(data_dir: &str, family: &str) -> Result<Vec<Value>, Reply> {
                 format!("non-canonical registry occupant {name}: {error}"),
             )
         })?;
-        if name != expected_name {
+        let verified_legacy_builtin = family == PROFILE_DIR
+            && name == "generic-adaptive-release-v1.json"
+            && record.get("goal_run_profile_id").and_then(Value::as_str)
+                == Some("goal-run-profile://generic-adaptive");
+        if name != expected_name && !verified_legacy_builtin {
             return Err(refuse(
                 StatusCode::CONFLICT,
                 "goal_profile_registry_unreadable",
@@ -470,25 +557,18 @@ const PROFILE_FIELDS: &[&str] = &[
 
 fn build_profile(
     body: &Map<String, Value>,
-    identity: &str,
+    owner_ref: &str,
     profile_tail: &str,
     predecessor: Option<&Value>,
 ) -> Result<Value, Reply> {
     ensure_allowed(body, PROFILE_FIELDS)?;
-    if required_text(body, "owner_ref")? != identity {
-        return Err(refuse(
-            StatusCode::FORBIDDEN,
-            "goal_profile_owner_mismatch",
-            "owner_ref must equal the authenticated principal",
-        ));
-    }
     let profile_id = format!("goal-run-profile://{profile_tail}");
     let mut material = json!({
         "schema_version":"ioi.goal-run-profile.v1",
         "goal_run_profile_id":profile_id,
         "version":optional_text(body,"version").unwrap_or_else(|| "1.0.0".into()),
         "predecessor_revision_ref":predecessor.and_then(|record| record.get("revision_ref")).cloned().unwrap_or(Value::Null),
-        "owner_ref":identity,
+        "owner_ref":owner_ref,
         "display_name":required_text(body,"display_name")?,
         "description":optional_text(body,"description").unwrap_or_default(),
         "applicable_goal_class_refs":string_array(body,"applicable_goal_class_refs")?,
@@ -557,24 +637,17 @@ const ADAPTER_FIELDS: &[&str] = &[
 
 fn build_adapter(
     body: &Map<String, Value>,
-    identity: &str,
+    owner_ref: &str,
     adapter_tail: &str,
     predecessor: Option<&Value>,
 ) -> Result<Value, Reply> {
     ensure_allowed(body, ADAPTER_FIELDS)?;
-    if required_text(body, "owner_ref")? != identity {
-        return Err(refuse(
-            StatusCode::FORBIDDEN,
-            "goal_profile_owner_mismatch",
-            "owner_ref must equal the authenticated principal",
-        ));
-    }
     let adapter_id = format!("agent-harness-adapter://{adapter_tail}");
     let mut material = json!({
         "schema_version":"ioi.agent-harness-adapter.v1",
         "adapter_id":adapter_id,
         "predecessor_revision_ref":predecessor.and_then(|record| record.get("revision_ref")).cloned().unwrap_or(Value::Null),
-        "owner_ref":identity,
+        "owner_ref":owner_ref,
         "adapter_family":required_text(body,"adapter_family")?,
         "transport_kind":required_text(body,"transport_kind")?,
         "compatible_harness_profile_revision_refs":string_array(body,"compatible_harness_profile_revision_refs")?,
@@ -619,16 +692,20 @@ async fn create_definition(
         Ok(value) => value,
         Err(reply) => return reply,
     };
+    let owner_ref = match authorized_owner(body, &identity) {
+        Ok(owner) => owner,
+        Err(reply) => return reply,
+    };
     let (family, record, response_field) = if kind == "profile" {
         let tail = tail("grp");
-        let record = match build_profile(body, &identity, &tail, None) {
+        let record = match build_profile(body, &owner_ref, &tail, None) {
             Ok(value) => value,
             Err(reply) => return reply,
         };
         (PROFILE_DIR, record, "goal_run_profile")
     } else {
         let tail = tail("aha");
-        let record = match build_adapter(body, &identity, &tail, None) {
+        let record = match build_adapter(body, &owner_ref, &tail, None) {
             Ok(value) => value,
             Err(reply) => return reply,
         };
@@ -693,7 +770,7 @@ async fn create_successor(
         Err(reply) => return reply,
     }
     .into_iter()
-    .filter(|record| record[identity_field] == object_id && record["owner_ref"] == identity)
+    .filter(|record| record[identity_field] == object_id && owner_visible(record, &identity))
     .collect::<Vec<_>>();
     let Some(predecessor) = chain_head(&records, "revision_ref", "predecessor_revision_ref") else {
         return refuse(
@@ -721,13 +798,28 @@ async fn create_successor(
         Ok(value) => value,
         Err(reply) => return reply,
     };
+    let owner_ref = match authorized_owner(body, &identity) {
+        Ok(owner)
+            if predecessor.get("owner_ref").and_then(Value::as_str) == Some(owner.as_str()) =>
+        {
+            owner
+        }
+        Ok(_) => {
+            return refuse(
+                StatusCode::FORBIDDEN,
+                "goal_profile_owner_mismatch",
+                "a successor must retain the exact definition owner",
+            )
+        }
+        Err(reply) => return reply,
+    };
     let record = if kind == "profile" {
-        match build_profile(body, &identity, &object_tail, Some(predecessor)) {
+        match build_profile(body, &owner_ref, &object_tail, Some(predecessor)) {
             Ok(value) => value,
             Err(reply) => return reply,
         }
     } else {
-        match build_adapter(body, &identity, &object_tail, Some(predecessor)) {
+        match build_adapter(body, &owner_ref, &object_tail, Some(predecessor)) {
             Ok(value) => value,
             Err(reply) => return reply,
         }
@@ -757,7 +849,7 @@ async fn list_definitions(st: Arc<DaemonState>, headers: HeaderMap, kind: &str) 
         Err(reply) => return reply,
     }
     .into_iter()
-    .filter(|record| record["owner_ref"] == identity)
+    .filter(|record| owner_visible(record, &identity))
     .collect::<Vec<_>>();
     records.sort_by_key(|record| record["revision_ref"].as_str().unwrap_or("").to_owned());
     reply(StatusCode::OK, success(response_field, json!(records)))

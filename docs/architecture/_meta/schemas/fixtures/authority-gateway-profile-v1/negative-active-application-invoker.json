@@ -12,7 +12,7 @@
     "authority_provider_ref": "authority-provider://wallet.network",
     "failure_posture": "fail_closed",
     "required_enforcement_scope_refs": ["enforcement-scope://acme/browser"],
-    "run_on_graduation": {"agent_harness_adapter_ref":null,"activation_source_kind":"gateway_adapter_context","implicit_scope_carryover":false}
+    "run_on_graduation": {"agent_harness_adapter_revision_ref":null,"agent_harness_adapter_content_hash":null,"activation_source_kind":"gateway_adapter_context","implicit_approval_carryover":false,"implicit_grant_carryover":false,"implicit_credential_carryover":false,"implicit_scope_carryover":false}
   },
   "grants_authority": false,
   "status": "declared",

@@ -71,6 +71,35 @@ fn validate_profile_content_hash(profile: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn resolve_run_on_adapter(data_dir: &str, owner_ref: &str, profile: &Value) -> Result<(), String> {
+    let graduation = profile
+        .pointer("/declaration/run_on_graduation")
+        .ok_or_else(|| "gateway profile lacks run_on_graduation".to_string())?;
+    match (
+        graduation
+            .get("agent_harness_adapter_revision_ref")
+            .and_then(Value::as_str),
+        graduation
+            .get("agent_harness_adapter_content_hash")
+            .and_then(Value::as_str),
+    ) {
+        (None, None) => Ok(()),
+        (Some(revision_ref), Some(content_hash)) => {
+            super::goal_profile_contract_routes::resolve_released_agent_harness_adapter(
+                data_dir,
+                owner_ref,
+                revision_ref,
+                content_hash,
+            )
+            .map(|_| ())
+        }
+        _ => Err(
+            "gateway run-on graduation requires an exact adapter revision and content hash together"
+                .to_string(),
+        ),
+    }
+}
+
 fn parse_time(value: &str, field: &str) -> Result<OffsetDateTime, String> {
     OffsetDateTime::parse(value, &Rfc3339)
         .map_err(|reason| format!("{field} is not canonical RFC3339: {reason}"))
@@ -881,6 +910,13 @@ pub(crate) async fn handle_profile_register(
     }
     let profile_ref = profile["profile_ref"].as_str().unwrap_or_default();
     let profile_hash = profile["profile_hash"].as_str().unwrap_or_default();
+    if let Err(reason) = resolve_run_on_adapter(&state.data_dir, &caller.owner_ref, &profile) {
+        return error(
+            StatusCode::CONFLICT,
+            "gateway_run_on_adapter_unresolved",
+            reason,
+        );
+    }
     let prior = match prior_admission_for_key(
         &state.data_dir,
         &caller,

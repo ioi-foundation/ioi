@@ -19,6 +19,12 @@ const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
 const validateProfile = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMAS, "goal-run-profile.v1.schema.json"), "utf8")));
 const validateAdapter = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMAS, "agent-harness-adapter.v1.schema.json"), "utf8")));
+const gatewayProfileTemplate = JSON.parse(fs.readFileSync(path.join(
+  SCHEMAS,
+  "fixtures",
+  "authority-gateway-profile-v1",
+  "positive-active-pre-effect.json",
+), "utf8"));
 
 const results = [];
 const ok = (name, pass, detail = "") => results.push({ name, pass: !!pass, detail });
@@ -33,6 +39,15 @@ const releaseHash = (record, domain, kind) => {
   for (const field of ["revision_ref", "content_hash", "registry_lifecycle_ref", "registry_status"]) delete body[field];
   return sha256({ domain, kind, body });
 };
+const gatewayProfileHash = (profile) => sha256({
+  domain: "ioi.authority-gateway-profile-hash-jcs-sha256.v1",
+  profile_ref: profile.profile_ref,
+  profile_revision: profile.profile_revision,
+  predecessor_profile_hash: profile.predecessor_profile_hash,
+  declaration: profile.declaration,
+  created_at: profile.created_at,
+  valid_until: profile.valid_until,
+});
 const freePort = () => new Promise((resolve, reject) => {
   const server = net.createServer();
   server.listen(0, "127.0.0.1", () => {
@@ -141,8 +156,10 @@ async function run() {
   const who = await jd("/v1/hypervisor/auth/whoami");
   const principalRef = who.body?.principal?.principal_ref
     || (who.body?.principal?.principal_id ? `user://${who.body.principal.principal_id}` : "");
+  const tenantOwner = (who.body?.principal?.tenant_refs ?? []).find((ref) => ref === "org://local") ?? "";
   ok("operator bootstrap resolves the definition owner from authenticated daemon identity",
-    session.startsWith("ioi_sess_") && principalRef.startsWith("user://"), principalRef);
+    session.startsWith("ioi_sess_") && principalRef.startsWith("user://") && tenantOwner === "org://local",
+    `${principalRef}/${tenantOwner}`);
 
   const index = await jd("/v1");
   const actual = routeInventory(index.body);
@@ -251,6 +268,63 @@ async function run() {
   ok("portable profile and adapter revision histories replay byte-for-byte after daemon restart",
     JSON.stringify(profilesAfter.body?.goal_run_profiles ?? []) === frozenProfiles
       && JSON.stringify(adaptersAfter.body?.agent_harness_adapters ?? []) === frozenAdapters);
+
+  const tenantAdapterResponse = await jd("/v1/hypervisor/agent-harness-adapters", {
+    method: "POST",
+    body: JSON.stringify(adapterBody(tenantOwner, "released", "evidence://adapter/tenant-gateway")),
+  });
+  const tenantAdapter = tenantAdapterResponse.body?.agent_harness_adapter ?? {};
+  ok("an authenticated tenant principal can admit an organization-owned released adapter",
+    tenantAdapterResponse.status === 201 && tenantAdapter.owner_ref === tenantOwner
+      && tenantAdapter.registry_status === "released" && validateAdapter(tenantAdapter),
+    `${tenantAdapterResponse.status}/${tenantAdapter.owner_ref ?? ""}`);
+
+  const gatewayProfile = structuredClone(gatewayProfileTemplate);
+  gatewayProfile.profile_ref = "authority-gateway://local/goal-profile-contracts/revision/1";
+  gatewayProfile.declaration.adapter.adapter_ref = "adapter://local/goal-profile-contracts";
+  gatewayProfile.declaration.adapter.implementation_ref = "artifact://local/goal-profile-contracts/1.0.0";
+  gatewayProfile.declaration.adapter.deployment_profile_ref = "deployment-profile://local/goal-profile-contracts";
+  gatewayProfile.declaration.run_on_graduation.agent_harness_adapter_revision_ref = tenantAdapter.revision_ref;
+  gatewayProfile.declaration.run_on_graduation.agent_harness_adapter_content_hash = `sha256:${"f".repeat(64)}`;
+  gatewayProfile.profile_hash = gatewayProfileHash(gatewayProfile);
+  const forgedGateway = await jd("/v1/authority-gateway/profiles", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: tenantOwner,
+      idempotency_key: "goal-profile-contracts-forged-gateway-v1",
+      profile: gatewayProfile,
+    }),
+  });
+  ok("GATE: a gateway profile cannot cite an unresolvable or hash-mismatched run-on adapter",
+    forgedGateway.status === 409
+      && forgedGateway.body?.error?.code === "gateway_run_on_adapter_unresolved"
+      && !fs.existsSync(path.join(dataDir, "authority-gateway-profiles")),
+    `${forgedGateway.status}/${forgedGateway.body?.error?.code}`);
+
+  gatewayProfile.declaration.run_on_graduation.agent_harness_adapter_content_hash = tenantAdapter.content_hash;
+  gatewayProfile.profile_hash = gatewayProfileHash(gatewayProfile);
+  const exactGateway = await jd("/v1/authority-gateway/profiles", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: tenantOwner,
+      idempotency_key: "goal-profile-contracts-exact-gateway-v1",
+      profile: gatewayProfile,
+    }),
+  });
+  const retainedGateway = exactGateway.body?.profile?.profile ?? {};
+  const graduation = retainedGateway.declaration?.run_on_graduation ?? {};
+  const persistedGateways = fs.readdirSync(path.join(dataDir, "authority-gateway-profiles"))
+    .filter((name) => name.endsWith(".json"))
+    .map((name) => JSON.parse(fs.readFileSync(path.join(dataDir, "authority-gateway-profiles", name), "utf8")));
+  ok("current gateway admission durably binds the exact released adapter and carries no ambient authority",
+    exactGateway.status === 201 && persistedGateways.length === 1
+      && graduation.agent_harness_adapter_revision_ref === tenantAdapter.revision_ref
+      && graduation.agent_harness_adapter_content_hash === tenantAdapter.content_hash
+      && graduation.implicit_approval_carryover === false
+      && graduation.implicit_grant_carryover === false
+      && graduation.implicit_credential_carryover === false
+      && graduation.implicit_scope_carryover === false,
+    `${exactGateway.status}/${graduation.agent_harness_adapter_revision_ref ?? ""}`);
 }
 
 try {

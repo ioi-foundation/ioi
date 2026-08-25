@@ -564,8 +564,12 @@ AuthorityGatewayProfile:
     failure_posture: fail_closed | audit_only | queue_without_authority
     required_enforcement_scope_refs: [enforcement-scope://...]
     run_on_graduation:
-      agent_harness_adapter_ref: adapter://... | null
+      agent_harness_adapter_revision_ref: agent-harness-adapter://.../revision/sha256:... | null
+      agent_harness_adapter_content_hash: sha256:... | null
       activation_source_kind: gateway_adapter_context
+      implicit_approval_carryover: false
+      implicit_grant_carryover: false
+      implicit_credential_carryover: false
       implicit_scope_carryover: false
   grants_authority: false
   status: declared | superseded | quarantined | revoked | expired
@@ -573,7 +577,10 @@ AuthorityGatewayProfile:
   valid_until: timestamp
 ```
 
-The profile hash binds the complete declaration and validity window. Active
+The profile hash binds the complete declaration and validity window. A non-null
+run-on graduation tuple names one exact released canonical AgentHarnessAdapter
+revision and content hash; attach adapter identity remains separately bound by
+`declaration.adapter`. All four carryover flags are structurally false. Active
 pre-effect surfaces name a daemon `runtime://` final invoker and both decision
 and execution receipt profiles. Audit, receipt-ingestion, and uncovered modes
 cannot declare authority scopes. Before accepting a request, the daemon resolves

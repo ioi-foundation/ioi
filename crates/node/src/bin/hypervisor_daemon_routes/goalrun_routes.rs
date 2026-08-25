@@ -69,7 +69,6 @@ const GOAL_RUN_ACTIVATION_DRAFT_REQUEST_SCHEMA_VERSION: &str =
     "ioi.goal-run-activation-draft-request.v1";
 const GOAL_RUN_ACTIVATION_SUBMIT_REQUEST_SCHEMA_VERSION: &str =
     "ioi.goal-run-activation-submit-request.v1";
-const BUILTIN_GENERIC_ADAPTIVE_PROFILE_KEY: &str = "generic-adaptive-release-v1";
 const BUILTIN_BOUNDED_ADMISSION_POLICY_KEY: &str = "bounded-direct-release-v1";
 const BUILTIN_ZERO_EXECUTION_CEILING_KEY: &str = "ioi-goal-draft-zero-release-v1";
 const GOAL_RUN_ACTIVATION_RECEIPT_TYPE: &str = "goal_run_activation";
@@ -1540,10 +1539,19 @@ async fn ensure_activation_profile(
     )?;
     validate_activation_receipt_registry(&policy)?;
     let profile = activation_profile(&policy, &component, &execution_ceiling)?;
+    let profile_key = super::goal_profile_contract_routes::canonical_goal_profile_key(&profile)
+        .map_err(|detail| {
+            bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_activation_profile_identity_invalid",
+                "The daemon-owned GoalRunProfile release has no canonical content-addressed slot.",
+                json!({ "detail": detail }),
+            )
+        })?;
     persist_immutable_activation_record(
         &st.data_dir,
         GOAL_RUN_PROFILE_REVISION_KIND,
-        BUILTIN_GENERIC_ADAPTIVE_PROFILE_KEY,
+        &profile_key,
         &profile,
     )?;
     Ok(ActivationProfileResolution {
@@ -1551,7 +1559,7 @@ async fn ensure_activation_profile(
         policy,
         component,
         execution_ceiling,
-        profile_key: BUILTIN_GENERIC_ADAPTIVE_PROFILE_KEY.to_string(),
+        profile_key,
         policy_key: BUILTIN_BOUNDED_ADMISSION_POLICY_KEY.to_string(),
         component_key,
         execution_ceiling_key: BUILTIN_ZERO_EXECUTION_CEILING_KEY.to_string(),

@@ -1452,8 +1452,12 @@ export type AuthorityGatewayProfileV1 = {
       failure_posture: "fail_closed" | "audit_only" | "queue_without_authority";
       required_enforcement_scope_refs: Array<string>;
       run_on_graduation: {
-            agent_harness_adapter_ref: string | null;
+            agent_harness_adapter_revision_ref: string | null;
+            agent_harness_adapter_content_hash: string | null;
             activation_source_kind: "gateway_adapter_context";
+            implicit_approval_carryover: false;
+            implicit_grant_carryover: false;
+            implicit_credential_carryover: false;
             implicit_scope_carryover: false;
           };
     };
@@ -23071,7 +23075,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": "sha256:d24b7088e5bac7d24b7d967aa9ae56920f38d063f468b96ba80379dd311fd25c",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": "sha256:6af61ba9d156c2e04c5641dbf78324ccc719d9da10d6269c87e358802d49feff",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2": "sha256:3c85c272d8f2901b66eb4e922accff02315ac0ee5d15803c7fd0e1e24f69a2bd",
-  "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1": "sha256:411cd31cb61eb7599dc4b99fd386142541503a3d53af038e1d2cc7f27c207da3",
+  "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1": "sha256:cfa5011714e9088b41f1bdf0a1d8e63899e47c3d379dd335ee4b52a0b5d1561b",
   "schema://ioi/components/daemon-runtime/declassification-receipt/v1": "sha256:3bd20027d03dcc1c41f63ffb4d886397ee85760e803138fa483d8bef7501ec7c",
   "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1": "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c",
   "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1": "sha256:99085cc128366a4ea81fda228061df69b2143aed1f9df299b84e7ca6f7a5e6fa",
@@ -35418,16 +35422,30 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "agent_harness_adapter_ref",
+          "agent_harness_adapter_revision_ref",
+          "agent_harness_adapter_content_hash",
           "activation_source_kind",
+          "implicit_approval_carryover",
+          "implicit_grant_carryover",
+          "implicit_credential_carryover",
           "implicit_scope_carryover"
         ],
         "properties": {
-          "agent_harness_adapter_ref": {
+          "agent_harness_adapter_revision_ref": {
             "oneOf": [
               {
                 "type": "string",
-                "pattern": "^adapter://[^\\s]{1,500}$"
+                "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "agent_harness_adapter_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/hash"
               },
               {
                 "type": "null"
@@ -35437,10 +35455,47 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "activation_source_kind": {
             "const": "gateway_adapter_context"
           },
+          "implicit_approval_carryover": {
+            "const": false
+          },
+          "implicit_grant_carryover": {
+            "const": false
+          },
+          "implicit_credential_carryover": {
+            "const": false
+          },
           "implicit_scope_carryover": {
             "const": false
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "agent_harness_adapter_revision_ref": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "agent_harness_adapter_revision_ref"
+              ]
+            },
+            "then": {
+              "properties": {
+                "agent_harness_adapter_content_hash": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "agent_harness_adapter_content_hash": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          }
+        ]
       },
       "positiveInteger": {
         "type": "integer",

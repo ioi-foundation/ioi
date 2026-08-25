@@ -2,7 +2,7 @@
   "schema_version": "ioi.components.daemon-runtime.authority-gateway-profile.v1",
   "profile_ref": "authority-gateway://acme/claude-code/revision/1",
   "profile_revision": 1,
-  "profile_hash": "sha256:10c47178fd6c91718565b53c120377ba9854736e7e440e8e98fc821ef7cfe84a",
+  "profile_hash": "sha256:81fd1d872350d616ce5ce5f1a105b98d7da117fc19ccc22af55c4888054d5cf1",
   "predecessor_profile_hash": null,
   "declaration": {
     "adapter": {
@@ -31,8 +31,12 @@
     "failure_posture": "fail_closed",
     "required_enforcement_scope_refs": ["enforcement-scope://acme/claude-code/cli-effects"],
     "run_on_graduation": {
-      "agent_harness_adapter_ref": "adapter://acme/claude-code",
+      "agent_harness_adapter_revision_ref": "agent-harness-adapter://local/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "agent_harness_adapter_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "activation_source_kind": "gateway_adapter_context",
+      "implicit_approval_carryover": false,
+      "implicit_grant_carryover": false,
+      "implicit_credential_carryover": false,
       "implicit_scope_carryover": false
     }
   },
