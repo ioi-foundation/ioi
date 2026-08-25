@@ -271,7 +271,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\\s]{1,500})$"
       }
     },
     "effective_learning_boundary_profile_ref": {
