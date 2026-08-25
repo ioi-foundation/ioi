@@ -2756,6 +2756,230 @@ fn install_profile_workflow_resolution(
     Ok(())
 }
 
+fn install_profile_harness_resolution(
+    st: &DaemonState,
+    profile: &Value,
+    body: &mut Value,
+) -> Result<(), HttpRefusal> {
+    let profile_refs = |field: &str| -> Result<Vec<String>, HttpRefusal> {
+        profile
+            .get(field)
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_profile_harness_selection_invalid",
+                    &format!("The selected GoalRunProfile has no canonical `{field}` set."),
+                )
+            })?
+            .iter()
+            .map(|value| {
+                value.as_str().map(str::to_owned).ok_or_else(|| {
+                    bad(
+                        StatusCode::CONFLICT,
+                        "goal_run_profile_harness_selection_invalid",
+                        &format!("Every `{field}` entry must be a reference string."),
+                    )
+                })
+            })
+            .collect()
+    };
+    let requirement_refs = profile_refs("harness_requirement_refs")?;
+    let pinned_refs = profile_refs("pinned_harness_profile_revision_refs")?;
+    let profiles = super::harness_routes::seeded_profiles_strict(st).map_err(|detail| {
+        bad_with_details(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "goal_run_harness_registry_unreadable",
+            "The complete seeded harness-profile registry cannot resolve the selected GoalRunProfile.",
+            json!({ "detail": detail }),
+        )
+    })?;
+    let active_profiles = profiles
+        .iter()
+        .filter(|candidate| {
+            candidate
+                .pointer("/lifecycle/status")
+                .and_then(Value::as_str)
+                == Some("active")
+        })
+        .collect::<Vec<_>>();
+    let mut components = Vec::new();
+    if !pinned_refs.is_empty() {
+        let derived = active_profiles
+            .iter()
+            .map(|source| activation_component_from_profile(source))
+            .collect::<Result<Vec<_>, _>>()?;
+        for pinned_ref in &pinned_refs {
+            let mut matches = derived.iter().filter(|component| {
+                component.get("revision_ref").and_then(Value::as_str) == Some(pinned_ref.as_str())
+            });
+            let component = matches.next().ok_or_else(|| {
+                bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_harness_resolution_unavailable",
+                    "A pinned harness-profile revision does not resolve from an active current owner record.",
+                )
+            })?;
+            if matches.next().is_some() {
+                return Err(bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_harness_resolution_ambiguous",
+                    "A pinned harness-profile revision resolves more than once.",
+                ));
+            }
+            if !requirement_refs.is_empty()
+                && !requirement_refs.contains(&format!(
+                    "harness://{}",
+                    component
+                        .get("harness")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                ))
+            {
+                return Err(bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_harness_resolution_incompatible",
+                    "A pinned harness-profile revision does not satisfy the profile's harness requirements.",
+                ));
+            }
+            components.push(component.clone());
+        }
+    } else if !requirement_refs.is_empty() {
+        for requirement_ref in &requirement_refs {
+            let harness = requirement_ref
+                .strip_prefix("harness://")
+                .filter(|value| !value.is_empty() && !value.contains('/'))
+                .ok_or_else(|| {
+                    bad(
+                        StatusCode::CONFLICT,
+                        "goal_run_harness_requirement_unsupported",
+                        "This resolution lane accepts exact `harness://<name>` requirements.",
+                    )
+                })?;
+            let source = super::harness_routes::unique_profile_by_harness(&profiles, harness)
+                .map_err(|detail| {
+                    bad_with_details(
+                        StatusCode::CONFLICT,
+                        "goal_run_harness_resolution_unavailable",
+                        "A harness requirement does not resolve exactly once in the current owner registry.",
+                        json!({ "requirement_ref": requirement_ref, "detail": detail }),
+                    )
+                })?;
+            if source.pointer("/lifecycle/status").and_then(Value::as_str) != Some("active") {
+                return Err(bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_harness_resolution_inactive",
+                    "A selected harness requirement resolves to an inactive profile.",
+                ));
+            }
+            components.push(activation_component_from_profile(source)?);
+        }
+    } else {
+        let mut defaults = active_profiles.iter().filter(|candidate| {
+            candidate.get("default_profile").and_then(Value::as_bool) == Some(true)
+        });
+        let source = defaults.next().ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_harness_default_unavailable",
+                "A profile without harness requirements requires one active default harness profile.",
+            )
+        })?;
+        if defaults.next().is_some() {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_harness_default_ambiguous",
+                "More than one active default harness profile is present.",
+            ));
+        }
+        components.push(activation_component_from_profile(source)?);
+    }
+    let mut seen = BTreeSet::new();
+    components.retain(|component| {
+        component
+            .get("revision_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|reference| seen.insert(reference.to_string()))
+    });
+    if components.is_empty() {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_harness_resolution_unavailable",
+            "The selected GoalRunProfile resolves no concrete harness revision.",
+        ));
+    }
+    let derived_refs = components
+        .iter()
+        .filter_map(|component| component.get("revision_ref").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let derived_ref_values =
+        Value::Array(derived_refs.iter().cloned().map(Value::String).collect());
+    let definition = body
+        .get_mut("definition_resolution")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_definition_resolution_required",
+                "Direct admission requires a definition-resolution object for the remaining component families.",
+            )
+        })?;
+    if definition
+        .get("harness_profile_revision_refs")
+        .is_some_and(|caller_refs| caller_refs != &derived_ref_values)
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_harness_resolution_substitution",
+            "A caller harness-profile selection differs from the daemon-resolved profile requirements.",
+        ));
+    }
+    let component_hashes = definition
+        .entry("component_hashes")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_component_hashes_invalid",
+                "component_hashes must be an object when remaining component families are supplied.",
+            )
+        })?;
+    if component_hashes.keys().any(|reference| {
+        reference.starts_with("harness-profile://") && !derived_refs.contains(reference)
+    }) {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_harness_resolution_substitution",
+            "component_hashes contains a harness-profile revision outside the daemon-resolved set.",
+        ));
+    }
+    for component in &components {
+        let revision_ref = component
+            .get("revision_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let content_hash = component
+            .get("content_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if component_hashes
+            .get(revision_ref)
+            .is_some_and(|caller_hash| caller_hash.as_str() != Some(content_hash))
+        {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_harness_resolution_substitution",
+                "A caller harness-profile hash differs from the daemon-resolved immutable component.",
+            ));
+        }
+        component_hashes.insert(revision_ref.to_string(), json!(content_hash));
+    }
+    definition.insert("harness_profile_revision_refs".into(), derived_ref_values);
+    Ok(())
+}
+
 pub(crate) async fn handle_goal_runs_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -2934,6 +3158,11 @@ pub(crate) async fn handle_goal_runs_create(
                 &selected_profile,
                 &mut direct_body,
             ) {
+                return response;
+            }
+            if let Err(response) =
+                install_profile_harness_resolution(&st, &selected_profile, &mut direct_body)
+            {
                 return response;
             }
             return create_direct_goal_run(

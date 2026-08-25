@@ -132,6 +132,7 @@ const profileBody = (ownerRef, version, description, workflowTemplateRevisionRef
   compatible_domain_object_schema_refs: ["schema://ioi/foundations/work-result/v3"],
   orchestration_policy_ref: "orchestration-policy://bounded-general",
   workflow_template_revision_refs: workflowTemplateRevisionRefs,
+  harness_requirement_refs: ["harness://hypervisor_worker"],
   input_contract_ref: "schema://ioi/ioi-ai/goal-draft/v1",
   output_contract_ref: "schema://ioi/foundations/work-result/v3",
   stop_policy_ref: "policy://ioi/goal-run/bounded-stop/v1",
@@ -353,7 +354,6 @@ async function run() {
     workflow_template_revision_refs: [workflowTemplate.revision_ref],
     skill_manifest_revision_refs: ["skill://literature/revision/2"],
     active_skill_entry_refs: ["skill-entry://literature/search"],
-    harness_profile_revision_refs: ["harness-profile://research/revision/3"],
     runtime_tool_contract_refs: ["tool://search/revision/1"],
     effective_constraint_envelope_ref: "constraint://research",
     effective_constraint_envelope_hash: H2,
@@ -368,7 +368,6 @@ async function run() {
     }],
     component_hashes: {
       "skill://literature/revision/2": H2,
-      "harness-profile://research/revision/3": H1,
       "tool://search/revision/1": H2,
     },
   };
@@ -437,6 +436,24 @@ async function run() {
       && familyCount("goal-runs") === goalRunsBefore,
     `${substitutedWorkflow.status}/${substitutedWorkflow.body?.error?.code}`);
 
+  const substitutedHarnessResolution = structuredClone(definitionResolution);
+  const substitutedHarnessRef = "harness-profile://substituted/revision/sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  substitutedHarnessResolution.harness_profile_revision_refs = [substitutedHarnessRef];
+  substitutedHarnessResolution.component_hashes[substitutedHarnessRef] = H1;
+  const substitutedHarness = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse a substituted harness-profile selection",
+      admission_path_request: pathRequest,
+      definition_resolution: substitutedHarnessResolution,
+    }),
+  });
+  ok("GATE: general GoalRun admission refuses a caller-substituted harness profile before persistence",
+    substitutedHarness.status === 409
+      && substitutedHarness.body?.error?.code === "goal_run_harness_resolution_substitution"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${substitutedHarness.status}/${substitutedHarness.body?.error?.code}`);
+
   const exactGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
     method: "POST",
     body: JSON.stringify({
@@ -445,13 +462,15 @@ async function run() {
       definition_resolution: definitionResolution,
     }),
   });
-  ok("the general GoalRun surface consumes the exact released profile and daemon-resolved WorkflowTemplate tuple",
+  ok("the general GoalRun surface consumes the exact profile plus daemon-resolved workflow and harness tuples",
     exactGoalRun.status === 201
       && exactGoalRun.body?.goal_run?.goal_run_profile_revision_ref === profileV2.revision_ref
       && exactGoalRun.body?.goal_run?.goal_run_profile_content_hash === profileV2.content_hash
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.goal_run_profile_content_hash === profileV2.content_hash
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.workflow_template_resolutions?.[0]?.revision_ref === workflowTemplate.revision_ref
-      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.workflow_template_resolutions?.[0]?.content_hash === workflowTemplate.content_hash,
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.workflow_template_resolutions?.[0]?.content_hash === workflowTemplate.content_hash
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_harness_profile_revisions?.[0]?.revision_ref?.startsWith("harness-profile://daemon-resolved/hypervisor_worker/revision/sha256:")
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_harness_profile_revisions?.[0]?.content_hash?.startsWith("sha256:"),
     `${exactGoalRun.status}/${exactGoalRun.body?.error?.code ?? ""}`);
 }
 

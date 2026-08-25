@@ -40,7 +40,6 @@ const definitionResolution = {
   workflow_template_revision_refs: ["workflow-template://research/revision/1"],
   skill_manifest_revision_refs: ["skill://literature/revision/2"],
   active_skill_entry_refs: ["skill-entry://literature/search"],
-  harness_profile_revision_refs: ["harness-profile://research/revision/3"],
   runtime_tool_contract_refs: ["tool://search/revision/1"],
   effective_constraint_envelope_ref: "constraint://research",
   effective_constraint_envelope_hash: H2,
@@ -56,7 +55,6 @@ const definitionResolution = {
   component_hashes: {
     "workflow-template://research/revision/1": H1,
     "skill://literature/revision/2": H2,
-    "harness-profile://research/revision/3": H1,
     "tool://search/revision/1": H2,
   },
 };
@@ -114,6 +112,7 @@ try {
       compatible_domain_object_schema_refs: ["schema://ioi/foundations/work-result/v3"],
       orchestration_policy_ref: "orchestration-policy://bounded-general",
       workflow_template_revision_refs: [workflow.revision_ref],
+      harness_requirement_refs: ["harness://hypervisor_worker"],
       input_contract_ref: "schema://ioi/ioi-ai/goal-draft/v1",
       output_contract_ref: "schema://ioi/foundations/work-result/v3",
       stop_policy_ref: "policy://ioi/goal-run/bounded-stop/v1",
@@ -176,7 +175,9 @@ try {
     const componentSnapshotPath = join(dataDir, "goal-run-component-snapshots", `${id}.json`);
     const exactComponentSnapshot = readFileSync(componentSnapshotPath);
     const changedComponentSnapshot = JSON.parse(exactComponentSnapshot.toString("utf8"));
-    changedComponentSnapshot.component_hashes["harness-profile://research/revision/3"] = H2;
+    const resolvedHarnessRef = Object.keys(changedComponentSnapshot.component_hashes)
+      .find((reference) => reference.startsWith("harness-profile://"));
+    changedComponentSnapshot.component_hashes[resolvedHarnessRef] = H2;
     writeFileSync(componentSnapshotPath, JSON.stringify(changedComponentSnapshot));
     const resultCountBeforeRefusal = count("work-result-registry");
     const changedSnapshotResult = await request(plane.daemonUrl, "POST", `/v1/goal-orchestration/goal-runs/${id}/results`, {

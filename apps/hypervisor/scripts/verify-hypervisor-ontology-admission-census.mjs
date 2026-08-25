@@ -276,9 +276,12 @@ const PINNED = {
   // M04.4 WorkflowTemplate consumption re-derivation (2026-08-25): the automation-owner strict
   // registry resolver and direct GoalRun integration add 74 source tokens and eight
   // foreign-qualified names. No ODK, writer, filesystem, or owner edge changes.
+  // M04.4 HarnessProfile consumption re-derivation (2026-08-25): strict seeded-profile
+  // resolution and direct GoalRun integration add 82 source tokens and seventeen
+  // foreign-qualified names. No ODK, writer, filesystem, or owner edge changes.
   modules: 98,
   familyMentions: 284,
-  tokenMentions: 118329,
+  tokenMentions: 118411,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 303 },
   productionFsCalls: 234,
@@ -299,7 +302,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3995,
+    "foreign-qualified": 4012,
     "opaque-initialiser": 1662,
     "bare-undeclared": 529,
     "ambiguous-module": 0,

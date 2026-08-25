@@ -685,19 +685,17 @@ fn strict_profile_census(data_dir: &str) -> Result<Vec<Value>, String> {
     Ok(profiles)
 }
 
-/// Strict, live profile facts for the M4 GoalRun lane. Existing bytes are proved before seeded
-/// records may be reconciled, every live probe is persisted, and a second complete census proves
-/// the facts returned to the caller. This is deliberately separate from compatibility reads.
+/// Strict read-only profile facts for preflight. This is deliberately separate from compatibility
+/// reads and from seed reconciliation so a caller can inspect retained bytes without causing it.
 pub(crate) fn existing_profiles_strict(st: &DaemonState) -> Result<Vec<Value>, String> {
     let mut profiles = strict_profile_census(&st.data_dir)?;
     profiles.sort_by(|a, b| s(a, "profile_id", "").cmp(&s(b, "profile_id", "")));
     Ok(profiles)
 }
 
-/// Read-only preflight above is intentionally separate from this reconciler. Callers that can
-/// refuse on already-retained facts must do so before invoking this function: seed repair and
-/// runnability probes are durable effects, even when a later admission would refuse.
-pub(crate) fn live_profiles_strict(st: &DaemonState) -> Result<Vec<Value>, String> {
+/// Reconcile the built-in definition set between two complete strict censuses, without claiming
+/// or persisting runnability. Definition consumers freeze this metadata into immutable revisions.
+pub(crate) fn seeded_profiles_strict(st: &DaemonState) -> Result<Vec<Value>, String> {
     let before = strict_profile_census(&st.data_dir)?;
     if !before.is_empty()
         && !before.iter().any(|profile| {
@@ -713,7 +711,16 @@ pub(crate) fn live_profiles_strict(st: &DaemonState) -> Result<Vec<Value>, Strin
         );
     }
     ensure_seed(&st.data_dir);
-    let profiles = strict_profile_census(&st.data_dir)?;
+    let mut profiles = strict_profile_census(&st.data_dir)?;
+    profiles.sort_by(|a, b| s(a, "profile_id", "").cmp(&s(b, "profile_id", "")));
+    Ok(profiles)
+}
+
+/// Strict, seeded and live profile facts for execution-bearing callers. Definition consumers
+/// use `seeded_profiles_strict` when they need immutable metadata but must not claim a runnability
+/// probe; execution admission adds and persists that live observation here.
+pub(crate) fn live_profiles_strict(st: &DaemonState) -> Result<Vec<Value>, String> {
+    let profiles = seeded_profiles_strict(st)?;
     for profile in &profiles {
         let profile_id = profile
             .get("profile_id")

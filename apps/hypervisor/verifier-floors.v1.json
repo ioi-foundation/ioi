@@ -114,9 +114,9 @@
       "id": "goal-profile-contracts",
       "npm_script": "check:goal-profile-contracts",
       "source": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
-      "runtime_assertions": 21,
-      "assertion_names_sha256": "df55fa6354c149d63875d859e53b006cc5faa11437c0efeeba619309b9ffc728",
-      "note": "M04.4 definition, gateway-binding, and general-profile substrate: an isolated daemon proves separate immutable GoalRunProfile and AgentHarnessAdapter revision families, server-owned JCS identities, generated-contract validity, identity-first reads, exact content-addressed slots and read-time hash recomputation, successor-only lineage, definition-only non-grants, tenant-owner admission, restart replay, hash-substitution refusal, durable AuthorityGatewayProfile selection of one exact released adapter with no ambient authority carryover, pre-write exact-profile resolution on the general GoalRun surface, and strict owner-registry resolution of the profile-selected released WorkflowTemplate tuple with tamper and caller-substitution refusal."
+      "runtime_assertions": 22,
+      "assertion_names_sha256": "f7fff7292c758272a603db11b9df79fe093ce1c7d9db41db39fb36118b63ec2e",
+      "note": "M04.4 definition, gateway-binding, and general-profile substrate: an isolated daemon proves separate immutable GoalRunProfile and AgentHarnessAdapter revision families, server-owned JCS identities, generated-contract validity, identity-first reads, exact content-addressed slots and read-time hash recomputation, successor-only lineage, definition-only non-grants, tenant-owner admission, restart replay, hash-substitution refusal, durable AuthorityGatewayProfile selection of one exact released adapter with no ambient authority carryover, pre-write exact-profile resolution on the general GoalRun surface, strict owner-registry resolution of the profile-selected released WorkflowTemplate tuple, and strict active harness-requirement resolution into a daemon-derived immutable component tuple with tamper and caller-substitution refusal."
     },
     {
       "id": "command-execution-guardrails",
