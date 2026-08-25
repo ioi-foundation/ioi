@@ -38,6 +38,8 @@ mod attempt_finding_routes;
 mod authority_gateway_routes;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
 mod authority_routes;
+#[path = "hypervisor_daemon_routes/automation_contract_routes.rs"]
+mod automation_contract_routes;
 #[path = "hypervisor_daemon_routes/aws_candidate_source.rs"]
 mod aws_candidate_source;
 #[path = "hypervisor_daemon_routes/azure_candidate_source.rs"]
@@ -1586,6 +1588,45 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/automations/:id/webhook-events",
             get(orchestration_routes::handle_automation_webhook_events),
+        )
+        // M04.2 canonical automation family. These immutable object lifetimes are separate from
+        // the predecessor AutomationWorkflow executor above; runs freeze exact template, spec,
+        // and successor-versioned installation revisions at admission.
+        .route(
+            "/v1/hypervisor/workflow-templates",
+            get(automation_contract_routes::list_workflow_templates)
+                .post(automation_contract_routes::create_workflow_template),
+        )
+        .route(
+            "/v1/hypervisor/workflow-templates/:id/revisions",
+            post(automation_contract_routes::create_workflow_template_successor),
+        )
+        .route(
+            "/v1/hypervisor/automation-specs",
+            get(automation_contract_routes::list_automation_specs)
+                .post(automation_contract_routes::create_automation_spec),
+        )
+        .route(
+            "/v1/hypervisor/automation-specs/:id/revisions",
+            post(automation_contract_routes::create_automation_spec_successor),
+        )
+        .route(
+            "/v1/hypervisor/automation-installations",
+            get(automation_contract_routes::list_automation_installations)
+                .post(automation_contract_routes::create_automation_installation),
+        )
+        .route(
+            "/v1/hypervisor/automation-installations/:id/revisions",
+            post(automation_contract_routes::create_automation_installation_successor),
+        )
+        .route(
+            "/v1/hypervisor/automation-runs",
+            get(automation_contract_routes::list_automation_runs)
+                .post(automation_contract_routes::admit_automation_run),
+        )
+        .route(
+            "/v1/hypervisor/automation-runs/:id",
+            get(automation_contract_routes::get_automation_run),
         )
         // Cron next-runs preview (pure helper for the schedule form).
         .route(

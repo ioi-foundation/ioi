@@ -98,9 +98,9 @@
       "id": "automations-journey",
       "npm_script": "check:automations-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-automations-journey.mjs",
-      "runtime_assertions": 34,
-      "assertion_names_sha256": "1adce8285b63d51495d777e82aea2ada3e4000c2549adc655c4aeda6bed427ba",
-      "note": "E7 cockpit retirement (2026-08-20): 45 -> 34. ELEVEN assertions read the RETIRED Automations cockpit module's rendered pages (landing grammar, monitors/machinery/scheduler boundaries, named absences, legacy-lane marker, new-automation view, list, detail, paused detail, run pane, webhook band) and were deleted with the module. Every daemon-truth half of those journeys is untouched, every crossing still posts to the LIVE T2 cockpit's own action lanes, the restart re-render was RE-AIMED at that live lane, and two assertions were ADDED (the retired lane serves no surface; the live cockpit renders no scheduler-health data). PRE-EXISTING PIN DRIFT recorded rather than hidden: this row read 44 while the branch's own measured run was 45 (ledger iteration 51), so the pin was already one below truth before this cut; 34 is measured, not derived from 44."
+      "runtime_assertions": 46,
+      "assertion_names_sha256": "43260b70b467c2d8574e87cfb8c11017aad7ebb12830c30b65cf36c2d56dbd62",
+      "note": "M04.2 closure: the 34-assertion live predecessor journey remains intact and twelve runtime assertions prove the canonical four-lifetime family — server-owned template identity, exact owner-scoped template/spec/binding resolution, identity-first reads, hash-substitution refusal, generated-contract validation, frozen run receipt, template-successor immutability, honest empty Agentgres/lease claims, successor-only disablement, stale-binding refusal, and restart persistence."
     },
     {
       "id": "command-execution-guardrails",

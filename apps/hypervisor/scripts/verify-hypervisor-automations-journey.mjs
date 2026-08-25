@@ -28,11 +28,20 @@ import os from "node:os";
 import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
+const SCHEMA_DIR = path.join(ROOT, "docs", "architecture", "_meta", "schemas");
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+addFormats(ajv);
+const validateWorkflowTemplate = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, "workflow-template.v1.schema.json"), "utf8")));
+const validateAutomationSpec = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, "automation-spec.v1.schema.json"), "utf8")));
+const validateAutomationInstallation = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, "automation-installation-binding.v1.schema.json"), "utf8")));
+const validateAutomationRun = ajv.compile(JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, "automation-run.v1.schema.json"), "utf8")));
 
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
@@ -130,7 +139,14 @@ const specGet = async (id) => (await jd(`/v1/hypervisor/automations/${encodeURIC
 function automationFamilyRoutes(index) {
   return (index.families ?? [])
     .flatMap((family) => family.paths ?? [])
-    .filter((row) => row.path.startsWith("/v1/hypervisor/automations") || row.path.startsWith("/v1/hypervisor/automation-executions"))
+    .filter((row) => [
+      "/v1/hypervisor/automations",
+      "/v1/hypervisor/automation-executions",
+      "/v1/hypervisor/workflow-templates",
+      "/v1/hypervisor/automation-specs",
+      "/v1/hypervisor/automation-installations",
+      "/v1/hypervisor/automation-runs",
+    ].some((prefix) => row.path.startsWith(prefix)))
     .map((row) => ({ path: row.path, methods: [...row.methods].sort() }))
     .sort((left, right) => left.path.localeCompare(right.path));
 }
@@ -166,8 +182,16 @@ async function run() {
     { path: "/v1/hypervisor/automations/:id/webhook", methods: ["POST"] },
     { path: "/v1/hypervisor/automations/:id/webhook-events", methods: ["GET"] },
     { path: "/v1/hypervisor/automations/:id/webhook-rotate", methods: ["POST"] },
+    { path: "/v1/hypervisor/workflow-templates", methods: ["GET", "POST"] },
+    { path: "/v1/hypervisor/workflow-templates/:id/revisions", methods: ["POST"] },
+    { path: "/v1/hypervisor/automation-specs", methods: ["GET", "POST"] },
+    { path: "/v1/hypervisor/automation-specs/:id/revisions", methods: ["POST"] },
+    { path: "/v1/hypervisor/automation-installations", methods: ["GET", "POST"] },
+    { path: "/v1/hypervisor/automation-installations/:id/revisions", methods: ["POST"] },
+    { path: "/v1/hypervisor/automation-runs", methods: ["GET", "POST"] },
+    { path: "/v1/hypervisor/automation-runs/:id", methods: ["GET"] },
   ].sort((left, right) => left.path.localeCompare(right.path));
-  ok("owned-verb inventory pinned: the automations family is EXACTLY list/create · get/patch/delete · start/runs · webhook/rotate/events · execution get/cancel — no versions/revisions, no separate activate, no binding plane",
+  ok("owned-verb inventory pinned: the mutable predecessor executor remains explicit while the canonical family separately owns immutable template/spec revisions, successor-only installations, and frozen runs",
     JSON.stringify(familyRoutes) === JSON.stringify(expectedRoutes)
       && !JSON.stringify(index.body).includes("/v1/hypervisor/automations/:id/versions")
       && !JSON.stringify(index.body).includes("/v1/hypervisor/automations/:id/activate"),
@@ -273,6 +297,223 @@ async function run() {
   ok("the bootstrap session resolves a canonical principal ref (the binding subject for every INV-37 row below)",
     who.body?.authenticated === true && principalRef.startsWith("user://"),
     principalRef);
+
+  // -- M04.2 canonical four-lifetime family ---------------------------------
+  const graphHashV1 = `sha256:${"a".repeat(64)}`;
+  const graphHashV2 = `sha256:${"b".repeat(64)}`;
+  const forbiddenTemplateIdentity = await jd("/v1/hypervisor/workflow-templates", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "forged identity",
+      graph_ref: "workflow://graph/forged",
+      graph_hash: graphHashV1,
+      content_hash: graphHashV2,
+    }),
+  });
+  ok("GATE: WorkflowTemplate identity and content hash are daemon-owned — a client-supplied content_hash refuses typed",
+    forbiddenTemplateIdentity.status === 400
+      && forbiddenTemplateIdentity.body?.error?.code === "automation_contract_unknown_field",
+    `${forbiddenTemplateIdentity.status}/${forbiddenTemplateIdentity.body?.error?.code}`);
+  const templateCreate = await jd("/v1/hypervisor/workflow-templates", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Journey directed work",
+      version: "1.0.0",
+      graph_ref: "workflow://graph/journey-v1",
+      graph_hash: graphHashV1,
+      required_primitive_capabilities: ["prim:process.execute"],
+      registry_status: "released",
+    }),
+  });
+  const templateV1 = templateCreate.body?.workflow_template || {};
+  const templateTail = String(templateV1.workflow_template_id || "").replace("workflow-template://", "");
+  ok("WorkflowTemplate admits as an immutable content-addressed directed-work revision with no trigger, grant, or run state",
+    templateCreate.status === 201
+      && /^workflow-template:\/\/[^/]+\/revision\/sha256:[a-f0-9]{64}$/.test(templateV1.revision_ref || "")
+      && templateV1.content_hash?.startsWith("sha256:")
+      && !["trigger", "authority_grant_ref", "status", "run_id"].some((key) => Object.hasOwn(templateV1, key)),
+    templateV1.revision_ref || `status ${templateCreate.status}`);
+  const specCreate = await jd("/v1/hypervisor/automation-specs", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Journey standing activation",
+      workflow_template_revision_ref: templateV1.revision_ref,
+      workflow_template_content_hash: templateV1.content_hash,
+      activation_kind: "manual",
+      concurrency_policy_ref: "policy://automation/concurrency/serial",
+      idempotency_policy_ref: "policy://automation/idempotency/exact",
+      authority_requirement_refs: ["scope:process.execute"],
+      receipt_policy_ref: "policy://receipts/automation",
+      registry_status: "released",
+    }),
+  });
+  const specV1 = specCreate.body?.automation_spec || {};
+  ok("AutomationSpec is a distinct immutable standing-activation revision bound to the exact template tuple",
+    specCreate.status === 201
+      && specV1.workflow_template_revision_ref === templateV1.revision_ref
+      && specV1.workflow_template_content_hash === templateV1.content_hash
+      && /^automation:\/\/[^/]+\/revision\/sha256:[a-f0-9]{64}$/.test(specV1.revision_ref || "")
+      && !["enabled", "scope_ref", "status", "run_id"].some((key) => Object.hasOwn(specV1, key)),
+    specV1.revision_ref || `status ${specCreate.status}`);
+  const bindingCreate = await jd("/v1/hypervisor/automation-installations", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      scope_ref: principalRef,
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      enabled: true,
+      narrowed_activation_kinds: ["manual"],
+      narrowed_authority_requirement_refs: ["scope:process.execute"],
+      admission_receipt_ref: "receipt://automation-installation/journey-v1",
+      registry_status: "released",
+    }),
+  });
+  const bindingV1 = bindingCreate.body?.automation_installation_binding || {};
+  const bindingTail = String(bindingV1.binding_id || "").split("/").at(-1) || "";
+  ok("AutomationInstallationBinding is a third immutable lifetime: exact spec tuple plus local enablement and narrowing, never graph or trigger ownership",
+    bindingCreate.status === 201
+      && bindingV1.automation_spec_revision_ref === specV1.revision_ref
+      && bindingV1.enabled === true
+      && /^install:\/\/automation\/[^/]+\/revision\/sha256:[a-f0-9]{64}$/.test(bindingV1.revision_ref || "")
+      && !["graph_ref", "trigger_contract_ref", "run_history"].some((key) => Object.hasOwn(bindingV1, key)),
+    bindingV1.revision_ref || `status ${bindingCreate.status}`);
+  const forgedRun = await jd("/v1/hypervisor/automation-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: graphHashV2,
+      automation_installation_binding_revision_ref: bindingV1.revision_ref,
+      automation_installation_binding_hash: bindingV1.binding_hash,
+      activation_kind: "manual",
+    }),
+  });
+  ok("GATE: an AutomationRun refuses a mismatched exact spec hash before minting a run identity",
+    forgedRun.status === 409 && forgedRun.body?.error?.code === "automation_run_resolution_hash_mismatch",
+    `${forgedRun.status}/${forgedRun.body?.error?.code}`);
+  const runCreate = await jd("/v1/hypervisor/automation-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      automation_installation_binding_revision_ref: bindingV1.revision_ref,
+      automation_installation_binding_hash: bindingV1.binding_hash,
+      activation_kind: "manual",
+      activation_event_ref: "event://automation/journey-manual",
+    }),
+  });
+  const canonicalRun = runCreate.body?.automation_run || {};
+  const canonicalRunTail = String(canonicalRun.automation_run_ref || "").replace("automation-run://", "");
+  const frozenTuple = JSON.stringify({
+    template: [canonicalRun.workflow_template_revision_ref, canonicalRun.workflow_template_content_hash],
+    spec: [canonicalRun.automation_spec_revision_ref, canonicalRun.automation_spec_content_hash],
+    binding: [canonicalRun.automation_installation_binding_revision_ref, canonicalRun.automation_installation_binding_hash],
+    receipt: canonicalRun.resolution_receipt,
+  });
+  ok("AutomationRun is the fourth lifetime: admission freezes the exact template, spec, and binding tuple in one resolution receipt",
+    runCreate.status === 201
+      && canonicalRun.status === "queued"
+      && canonicalRun.workflow_template_revision_ref === templateV1.revision_ref
+      && canonicalRun.automation_spec_revision_ref === specV1.revision_ref
+      && canonicalRun.automation_installation_binding_revision_ref === bindingV1.revision_ref
+      && canonicalRun.resolution_receipt?.receipt_type === "automation_run_resolution"
+      && canonicalRun.resolution_receipt?.material?.automation_run_ref === canonicalRun.automation_run_ref,
+    canonicalRun.automation_run_ref || `status ${runCreate.status}`);
+  const anonymousCanonicalReads = await Promise.all([
+    jd("/v1/hypervisor/workflow-templates", undefined, false),
+    jd("/v1/hypervisor/automation-specs", undefined, false),
+    jd("/v1/hypervisor/automation-installations", undefined, false),
+    jd("/v1/hypervisor/automation-runs", undefined, false),
+    jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(canonicalRunTail)}`, undefined, false),
+  ]);
+  ok("GATE: canonical definition, installation, and run reads are identity-first — anonymous callers receive no list or exact-run existence oracle",
+    anonymousCanonicalReads.every((response) => response.status === 401
+      && response.body?.error?.code === "request_principal_required"),
+    JSON.stringify(anonymousCanonicalReads.map((response) => [response.status, response.body?.error?.code])));
+  const contractValidations = [
+    ["WorkflowTemplate", validateWorkflowTemplate, templateV1],
+    ["AutomationSpec", validateAutomationSpec, specV1],
+    ["AutomationInstallationBinding", validateAutomationInstallation, bindingV1],
+    ["AutomationRun", validateAutomationRun, canonicalRun],
+  ];
+  ok("all four live runtime records validate against their registered generated architecture contracts",
+    contractValidations.every(([, validate, value]) => validate(value)),
+    contractValidations.flatMap(([name, validate]) => (validate.errors || []).map((error) => `${name}${error.instancePath} ${error.message}`)).join("; "));
+  ok("receipt honesty: the admitted run carries no fabricated Agentgres operation or concrete grant/lease",
+    Array.isArray(canonicalRun.agentgres_operation_refs) && canonicalRun.agentgres_operation_refs.length === 0
+      && Array.isArray(canonicalRun.authority_lease_refs) && canonicalRun.authority_lease_refs.length === 0
+      && !JSON.stringify(canonicalRun).includes("authority_grant_ref"));
+
+  const templateSuccessor = await jd(`/v1/hypervisor/workflow-templates/${encodeURIComponent(templateTail)}/revisions`, {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Journey directed work",
+      version: "2.0.0",
+      graph_ref: "workflow://graph/journey-v2",
+      graph_hash: graphHashV2,
+      required_primitive_capabilities: ["prim:process.execute"],
+      registry_status: "released",
+    }),
+  });
+  const templateV2 = templateSuccessor.body?.workflow_template || {};
+  const runAfterTemplateEdit = await jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(canonicalRunTail)}`);
+  ok("editing a template creates a successor revision and cannot rewrite the already-admitted run tuple",
+    templateSuccessor.status === 201
+      && templateV2.predecessor_revision_ref === templateV1.revision_ref
+      && templateV2.revision_ref !== templateV1.revision_ref
+      && JSON.stringify({
+        template: [runAfterTemplateEdit.body?.automation_run?.workflow_template_revision_ref, runAfterTemplateEdit.body?.automation_run?.workflow_template_content_hash],
+        spec: [runAfterTemplateEdit.body?.automation_run?.automation_spec_revision_ref, runAfterTemplateEdit.body?.automation_run?.automation_spec_content_hash],
+        binding: [runAfterTemplateEdit.body?.automation_run?.automation_installation_binding_revision_ref, runAfterTemplateEdit.body?.automation_run?.automation_installation_binding_hash],
+        receipt: runAfterTemplateEdit.body?.automation_run?.resolution_receipt,
+      }) === frozenTuple,
+    `${templateV1.revision_ref} -> ${templateV2.revision_ref}`);
+
+  const bindingSuccessor = await jd(`/v1/hypervisor/automation-installations/${encodeURIComponent(bindingTail)}/revisions`, {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      scope_ref: principalRef,
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      enabled: false,
+      narrowed_activation_kinds: ["manual"],
+      narrowed_authority_requirement_refs: ["scope:process.execute"],
+      admission_receipt_ref: "receipt://automation-installation/journey-disabled",
+      registry_status: "released",
+    }),
+  });
+  const bindingV2 = bindingSuccessor.body?.automation_installation_binding || {};
+  const oldBindingRun = await jd("/v1/hypervisor/automation-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      automation_installation_binding_revision_ref: bindingV1.revision_ref,
+      automation_installation_binding_hash: bindingV1.binding_hash,
+      activation_kind: "manual",
+    }),
+  });
+  const disabledBindingRun = await jd("/v1/hypervisor/automation-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      automation_spec_revision_ref: specV1.revision_ref,
+      automation_spec_content_hash: specV1.content_hash,
+      automation_installation_binding_revision_ref: bindingV2.revision_ref,
+      automation_installation_binding_hash: bindingV2.binding_hash,
+      activation_kind: "manual",
+    }),
+  });
+  ok("successor-only local disablement is effective: the superseded enabled binding and its disabled successor both refuse new runs",
+    bindingSuccessor.status === 201
+      && bindingV2.predecessor_revision_ref === bindingV1.revision_ref
+      && oldBindingRun.status === 409 && oldBindingRun.body?.error?.code === "automation_run_installation_superseded"
+      && disabledBindingRun.status === 409 && disabledBindingRun.body?.error?.code === "automation_run_installation_ineligible",
+    `${oldBindingRun.body?.error?.code}/${disabledBindingRun.body?.error?.code}`);
 
   // -- create through the served grammar (session-carried), round-trip readback
   const createRes = await seedPost("", {
@@ -415,6 +656,16 @@ async function run() {
       && !!spec.automation?.webhook_token_hash
       && runsAfter.some((r) => r.execution_id === exec.execution_id),
     "");
+  const canonicalRunAfterRestart = await jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(canonicalRunTail)}`);
+  ok("the canonical AutomationRun and its exact four-lifetime resolution receipt survive daemon restart byte-for-byte",
+    canonicalRunAfterRestart.status === 200
+      && JSON.stringify({
+        template: [canonicalRunAfterRestart.body?.automation_run?.workflow_template_revision_ref, canonicalRunAfterRestart.body?.automation_run?.workflow_template_content_hash],
+        spec: [canonicalRunAfterRestart.body?.automation_run?.automation_spec_revision_ref, canonicalRunAfterRestart.body?.automation_run?.automation_spec_content_hash],
+        binding: [canonicalRunAfterRestart.body?.automation_run?.automation_installation_binding_revision_ref, canonicalRunAfterRestart.body?.automation_run?.automation_installation_binding_hash],
+        receipt: canonicalRunAfterRestart.body?.automation_run?.resolution_receipt,
+      }) === frozenTuple,
+    `status ${canonicalRunAfterRestart.status}`);
   // Re-aimed at the LIVE surface (E7): the retired module's mount is gone, so the render half of
   // restart survival is asserted where the family actually serves today — the T2 cockpit's own
   // detail lane, which is where every crossing above redirects back to.

@@ -249,11 +249,16 @@ const RECORDED_TEST_WRITES = {
  * stops reaching a construct weakens all of them at once without failing any of them.
  */
 const PINNED = {
-  modules: 95,
+  // M04.2 re-derivation (2026-08-25): automation_contract_routes.rs adds one reachable module,
+  // 717 source tokens, one shared-writer call whose family is the store helper's runtime
+  // parameter, sixteen opaque initialisers (including the mutation lock and fork regression), and
+  // 59 foreign-qualified names. It contains zero ODK family mentions, zero raw-filesystem calls,
+  // and changes no owner/admitter edge.
+  modules: 96,
   familyMentions: 284,
-  tokenMentions: 116505,
+  tokenMentions: 117222,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 300 },
+  productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 301 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -272,8 +277,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3828,
-    "opaque-initialiser": 1627,
+    "foreign-qualified": 3887,
+    "opaque-initialiser": 1643,
     "bare-undeclared": 527,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

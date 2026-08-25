@@ -7210,6 +7210,108 @@ export type WorkflowTemplateV1 = {
   registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
 };
 
+export type HypervisorAutomationSpecV1 = {
+  schema_version: "ioi.hypervisor.automation-spec.v1";
+  automation_id: string;
+  revision_ref: string;
+  version: string;
+  predecessor_revision_ref: string | null;
+  content_hash: string;
+  owner_ref: string;
+  display_name: string;
+  description: string;
+  workflow_template_revision_ref: string;
+  workflow_template_content_hash: string;
+  activation_kind: "manual" | "schedule" | "webhook" | "event" | "monitor" | "service" | "queue";
+  activation_parameter_schema_ref: string | null;
+  trigger_contract_ref: string | null;
+  schedule_contract_ref: string | null;
+  monitor_contract_ref: string | null;
+  service_contract_ref: string | null;
+  queue_contract_ref: string | null;
+  review_contract_refs: Array<string>;
+  delivery_contract_ref: string | null;
+  concurrency_policy_ref: string | null;
+  idempotency_policy_ref: string | null;
+  authority_requirement_refs: Array<string>;
+  allowed_activation_override_schema_ref: string | null;
+  receipt_policy_ref: string | null;
+  registry_lifecycle_ref: string | null;
+  registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
+};
+
+export type HypervisorAutomationInstallationBindingV1 = {
+  schema_version: "ioi.hypervisor.automation-installation-binding.v1";
+  binding_id: string;
+  revision_ref: string;
+  predecessor_revision_ref: string | null;
+  binding_hash: string;
+  owner_ref: string;
+  scope_ref: string;
+  automation_spec_revision_ref: string;
+  automation_spec_content_hash: string;
+  enabled: boolean;
+  narrowed_activation_kinds: Array<"manual" | "schedule" | "webhook" | "event" | "monitor" | "service" | "queue">;
+  narrowed_authority_requirement_refs: Array<string>;
+  parameter_constraint_ref: string | null;
+  activation_override_constraint_ref: string | null;
+  admission_receipt_ref: string;
+  registry_lifecycle_ref: string | null;
+  registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
+};
+
+export type HypervisorAutomationRunV1 = {
+  schema_version: "ioi.hypervisor.automation-run.v1";
+  automation_run_ref: string;
+  automation_spec_revision_ref: string;
+  automation_spec_content_hash: string;
+  automation_installation_binding_revision_ref: string;
+  automation_installation_binding_hash: string;
+  workflow_template_revision_ref: string;
+  workflow_template_content_hash: string;
+  activation_kind: "manual" | "schedule" | "webhook" | "event" | "monitor" | "service" | "queue";
+  activation_event_ref: string | null;
+  admitted_parameter_set_ref: string | null;
+  admitted_parameter_set_hash: string | null;
+  admitted_activation_override_set_ref: string | null;
+  admitted_activation_override_set_hash: string | null;
+  resolution_receipt: {
+      schema_version: "ioi.automation-run-resolution-receipt.v1";
+      receipt_id: string;
+      receipt_type: "automation_run_resolution";
+      receipt_root: string;
+      assurance_stage: "attested";
+      material: {
+            domain: "ioi.automation-run-resolution-receipt-jcs-sha256.v1";
+            automation_run_ref: string;
+            automation_spec_revision_ref: string;
+            automation_spec_content_hash: string;
+            automation_installation_binding_revision_ref: string;
+            automation_installation_binding_hash: string;
+            automation_installation_admission_receipt_ref: string;
+            workflow_template_revision_ref: string;
+            workflow_template_content_hash: string;
+            activation_kind: "manual" | "schedule" | "webhook" | "event" | "monitor" | "service" | "queue";
+            activation_event_ref: string | null;
+            admitted_parameter_set_ref: string | null;
+            admitted_parameter_set_hash: string | null;
+            admitted_activation_override_set_ref: string | null;
+            admitted_activation_override_set_hash: string | null;
+            admitted_by_ref: string;
+            admitted_at: string;
+          };
+    };
+  status: "queued" | "running" | "waiting_for_approval" | "blocked" | "succeeded" | "failed" | "canceled" | "archived";
+  admitted_at: string;
+  session_refs: Array<string>;
+  work_run_refs: Array<string>;
+  work_result_refs: Array<string>;
+  authority_lease_refs: Array<string>;
+  artifact_refs: Array<string>;
+  receipt_refs: Array<string>;
+  agentgres_operation_refs: Array<string>;
+};
+
 export type WorkFrontierItemEnvelopeV1 = {
   schema_version: "ioi.foundations.work-frontier-item-envelope.v1";
   frontier_item_id: string;
@@ -13294,6 +13396,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/workflow-template/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/automation-spec/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/automation-spec-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/automation-spec/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/automation-spec-v1/negative-live-grant.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/automation-installation-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/positive-enabled.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/automation-installation-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/negative-owns-trigger.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/automation-run/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/automation-run-v1/positive-queued.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/automation-run/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/automation-run-v1/negative-unpaired-parameter-hash.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -20784,6 +20934,48 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-spec-v1/positive-minimal.json",
+    "contract_id": "schema://ioi/hypervisor/automation-spec/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-spec-v1/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-spec-v1/negative-live-grant.json",
+    "contract_id": "schema://ioi/hypervisor/automation-spec/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-spec-v1/negative-live-grant.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/positive-enabled.json",
+    "contract_id": "schema://ioi/hypervisor/automation-installation-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/positive-enabled.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/negative-owns-trigger.json",
+    "contract_id": "schema://ioi/hypervisor/automation-installation-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/negative-owns-trigger.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-run-v1/positive-queued.json",
+    "contract_id": "schema://ioi/hypervisor/automation-run/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-run-v1/positive-queued.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-run-v1/negative-unpaired-parameter-hash.json",
+    "contract_id": "schema://ioi/hypervisor/automation-run/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-run-v1/negative-unpaired-parameter-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json",
     "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json",
@@ -22461,6 +22653,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^authority-provider://[^\\s]{1,500}$",
   "^authority-request://[^\\s]+$",
   "^authority-request://[^\\s]{1,500}$",
+  "^automation-run://[^\\s/?#\\\\]{1,160}$",
+  "^automation://[^\\s/?#\\\\]{1,160}$",
+  "^automation://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^autonomous-system-chain://[A-Za-z0-9._:/-]+$",
   "^autonomous-system-chain://[^\\s]{1,248}$",
@@ -22587,6 +22782,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^incident://[^\\s]+$",
   "^install://\\S*$",
+  "^install://automation/[^\\s/?#\\\\]{1,160}$",
+  "^install://automation/[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$",
   "^ioi://publisher/[^\\s]{1,224}$",
   "^key://[^\\s]+$",
@@ -22685,6 +22882,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[^\\s]{1,500}$",
   "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
+  "^receipt://automation-run-resolution/[0-9a-f]{64}$",
   "^receipt://hypervisor/principal-tenant-membership/[0-9a-f]{64}$",
   "^receipt://ltr_[0-9a-f]{64}$",
   "^receipt[^\\s]{1,260}$",
@@ -22811,6 +23009,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^work_item://[^\\s]{1,500}$",
   "^work_run://[^\\s]{1,500}$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^workflow-template://[^\\s/?#\\\\]{1,160}$",
+  "^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workload://[^\\s]{1,248}$",
   "^workspace://[^\\s]{1,240}$",
@@ -22992,7 +23192,10 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
   "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd",
   "schema://ioi/foundations/work-result/v3": "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4",
-  "schema://ioi/foundations/workflow-template/v1": "sha256:77f96b713670707d3da8fead21bfab833169aadae340da8290afea549dea8ffd",
+  "schema://ioi/foundations/workflow-template/v1": "sha256:139186e591962523f5b88347f85eada2e9ac23b8e2a2a7acb405a83a2413cbe2",
+  "schema://ioi/hypervisor/automation-spec/v1": "sha256:3c6adbef251eb59305e8967a8211d00f1dc6ed88a43a3eabd7514d29057c4d57",
+  "schema://ioi/hypervisor/automation-installation-binding/v1": "sha256:600e141167b70aa4081a31499588a97aee301ccacd2e3a2d7ecfe7c418cb3bc5",
+  "schema://ioi/hypervisor/automation-run/v1": "sha256:54d49fd2bbc3d8b33103e1aef5e0e851e2d57ca340796aa4ad3f39b19da3cd20",
   "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": "sha256:a4c5da30ef6014112e6b6f336f9c641dd427f09f86ccc24166833678b157748e",
   "schema://ioi/foundations/objects/room-participant-lease-envelope/v1": "sha256:32e3f5385302de65a33fb455fd5e079e313f32805f3f816dd0807043adc5f48b",
   "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1": "sha256:ad637d27192a3087072ebfa5c7a90a17d6ca67a4aad5d275ecfba2749b6bc625",
@@ -78457,11 +78660,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "workflow_template_id": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^workflow-template://[^\\s/?#\\\\]{1,160}$"
       },
       "revision_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       },
       "version": {
         "type": "string"
@@ -78470,7 +78673,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            "pattern": "^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           {
             "type": "null"
@@ -78655,6 +78858,676 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "deprecated",
           "revoked"
         ]
+      }
+    }
+  },
+  "schema://ioi/hypervisor/automation-spec/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/hypervisor/automation-spec/v1",
+    "title": "HypervisorAutomationSpec",
+    "x-ioi-schema-version": "ioi.hypervisor.automation-spec.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "automation_id",
+      "revision_ref",
+      "version",
+      "predecessor_revision_ref",
+      "content_hash",
+      "owner_ref",
+      "display_name",
+      "description",
+      "workflow_template_revision_ref",
+      "workflow_template_content_hash",
+      "activation_kind",
+      "activation_parameter_schema_ref",
+      "trigger_contract_ref",
+      "schedule_contract_ref",
+      "monitor_contract_ref",
+      "service_contract_ref",
+      "queue_contract_ref",
+      "review_contract_refs",
+      "delivery_contract_ref",
+      "concurrency_policy_ref",
+      "idempotency_policy_ref",
+      "authority_requirement_refs",
+      "allowed_activation_override_schema_ref",
+      "receipt_policy_ref",
+      "registry_lifecycle_ref",
+      "registry_status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.automation-spec.v1"
+      },
+      "automation_id": {
+        "type": "string",
+        "pattern": "^automation://[^\\s/?#\\\\]{1,160}$"
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/specRevisionRef"
+      },
+      "version": {
+        "type": "string",
+        "minLength": 1
+      },
+      "predecessor_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/specRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "display_name": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": {
+        "type": "string"
+      },
+      "workflow_template_revision_ref": {
+        "$ref": "#/$defs/templateRevisionRef"
+      },
+      "workflow_template_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "activation_kind": {
+        "enum": [
+          "manual",
+          "schedule",
+          "webhook",
+          "event",
+          "monitor",
+          "service",
+          "queue"
+        ]
+      },
+      "activation_parameter_schema_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "trigger_contract_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "schedule_contract_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "monitor_contract_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "service_contract_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "queue_contract_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "review_contract_refs": {
+        "$ref": "#/$defs/refArray"
+      },
+      "delivery_contract_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "concurrency_policy_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "idempotency_policy_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "authority_requirement_refs": {
+        "$ref": "#/$defs/scopeArray"
+      },
+      "allowed_activation_override_schema_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "receipt_policy_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "registry_lifecycle_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "evaluable",
+          "released",
+          "deprecated",
+          "revoked"
+        ]
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "refArray": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "scopeArray": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[a-z][a-z0-9._-]*$"
+        }
+      },
+      "specRevisionRef": {
+        "type": "string",
+        "pattern": "^automation://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "templateRevisionRef": {
+        "type": "string",
+        "pattern": "^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "schema://ioi/hypervisor/automation-installation-binding/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/hypervisor/automation-installation-binding/v1",
+    "title": "HypervisorAutomationInstallationBinding",
+    "x-ioi-schema-version": "ioi.hypervisor.automation-installation-binding.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "binding_id",
+      "revision_ref",
+      "predecessor_revision_ref",
+      "binding_hash",
+      "owner_ref",
+      "scope_ref",
+      "automation_spec_revision_ref",
+      "automation_spec_content_hash",
+      "enabled",
+      "narrowed_activation_kinds",
+      "narrowed_authority_requirement_refs",
+      "parameter_constraint_ref",
+      "activation_override_constraint_ref",
+      "admission_receipt_ref",
+      "registry_lifecycle_ref",
+      "registry_status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.automation-installation-binding.v1"
+      },
+      "binding_id": {
+        "type": "string",
+        "pattern": "^install://automation/[^\\s/?#\\\\]{1,160}$"
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/bindingRevisionRef"
+      },
+      "predecessor_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/bindingRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "binding_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "scope_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "automation_spec_revision_ref": {
+        "$ref": "#/$defs/specRevisionRef"
+      },
+      "automation_spec_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "enabled": {
+        "type": "boolean"
+      },
+      "narrowed_activation_kinds": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "manual",
+            "schedule",
+            "webhook",
+            "event",
+            "monitor",
+            "service",
+            "queue"
+          ]
+        }
+      },
+      "narrowed_authority_requirement_refs": {
+        "$ref": "#/$defs/scopeArray"
+      },
+      "parameter_constraint_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "activation_override_constraint_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "admission_receipt_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "registry_lifecycle_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "evaluable",
+          "released",
+          "deprecated",
+          "revoked"
+        ]
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "scopeArray": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[a-z][a-z0-9._-]*$"
+        }
+      },
+      "specRevisionRef": {
+        "type": "string",
+        "pattern": "^automation://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "bindingRevisionRef": {
+        "type": "string",
+        "pattern": "^install://automation/[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "schema://ioi/hypervisor/automation-run/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/hypervisor/automation-run/v1",
+    "title": "HypervisorAutomationRun",
+    "x-ioi-schema-version": "ioi.hypervisor.automation-run.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "automation_run_ref",
+      "automation_spec_revision_ref",
+      "automation_spec_content_hash",
+      "automation_installation_binding_revision_ref",
+      "automation_installation_binding_hash",
+      "workflow_template_revision_ref",
+      "workflow_template_content_hash",
+      "activation_kind",
+      "activation_event_ref",
+      "admitted_parameter_set_ref",
+      "admitted_parameter_set_hash",
+      "admitted_activation_override_set_ref",
+      "admitted_activation_override_set_hash",
+      "resolution_receipt",
+      "status",
+      "admitted_at",
+      "session_refs",
+      "work_run_refs",
+      "work_result_refs",
+      "authority_lease_refs",
+      "artifact_refs",
+      "receipt_refs",
+      "agentgres_operation_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.automation-run.v1"
+      },
+      "automation_run_ref": {
+        "$ref": "#/$defs/runRef"
+      },
+      "automation_spec_revision_ref": {
+        "$ref": "#/$defs/specRevisionRef"
+      },
+      "automation_spec_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "automation_installation_binding_revision_ref": {
+        "$ref": "#/$defs/bindingRevisionRef"
+      },
+      "automation_installation_binding_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "workflow_template_revision_ref": {
+        "$ref": "#/$defs/templateRevisionRef"
+      },
+      "workflow_template_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "activation_kind": {
+        "$ref": "#/$defs/activationKind"
+      },
+      "activation_event_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "admitted_parameter_set_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "admitted_parameter_set_hash": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "admitted_activation_override_set_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "admitted_activation_override_set_hash": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "resolution_receipt": {
+        "$ref": "#/$defs/resolutionReceipt"
+      },
+      "status": {
+        "enum": [
+          "queued",
+          "running",
+          "waiting_for_approval",
+          "blocked",
+          "succeeded",
+          "failed",
+          "canceled",
+          "archived"
+        ]
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "session_refs": {
+        "$ref": "#/$defs/refArray"
+      },
+      "work_run_refs": {
+        "$ref": "#/$defs/refArray"
+      },
+      "work_result_refs": {
+        "$ref": "#/$defs/refArray"
+      },
+      "authority_lease_refs": {
+        "$ref": "#/$defs/refArray"
+      },
+      "artifact_refs": {
+        "$ref": "#/$defs/refArray"
+      },
+      "receipt_refs": {
+        "$ref": "#/$defs/refArray"
+      },
+      "agentgres_operation_refs": {
+        "$ref": "#/$defs/refArray"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "admitted_parameter_set_ref": {
+              "type": "null"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "admitted_parameter_set_hash": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "admitted_parameter_set_hash": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "admitted_activation_override_set_ref": {
+              "type": "null"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "admitted_activation_override_set_hash": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "admitted_activation_override_set_hash": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "refArray": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "runRef": {
+        "type": "string",
+        "pattern": "^automation-run://[^\\s/?#\\\\]{1,160}$"
+      },
+      "specRevisionRef": {
+        "type": "string",
+        "pattern": "^automation://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "bindingRevisionRef": {
+        "type": "string",
+        "pattern": "^install://automation/[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "templateRevisionRef": {
+        "type": "string",
+        "pattern": "^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "activationKind": {
+        "enum": [
+          "manual",
+          "schedule",
+          "webhook",
+          "event",
+          "monitor",
+          "service",
+          "queue"
+        ]
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "resolutionReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "receipt_id",
+          "receipt_type",
+          "receipt_root",
+          "assurance_stage",
+          "material"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.automation-run-resolution-receipt.v1"
+          },
+          "receipt_id": {
+            "type": "string",
+            "pattern": "^receipt://automation-run-resolution/[0-9a-f]{64}$"
+          },
+          "receipt_type": {
+            "const": "automation_run_resolution"
+          },
+          "receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "assurance_stage": {
+            "const": "attested"
+          },
+          "material": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "domain",
+              "automation_run_ref",
+              "automation_spec_revision_ref",
+              "automation_spec_content_hash",
+              "automation_installation_binding_revision_ref",
+              "automation_installation_binding_hash",
+              "automation_installation_admission_receipt_ref",
+              "workflow_template_revision_ref",
+              "workflow_template_content_hash",
+              "activation_kind",
+              "activation_event_ref",
+              "admitted_parameter_set_ref",
+              "admitted_parameter_set_hash",
+              "admitted_activation_override_set_ref",
+              "admitted_activation_override_set_hash",
+              "admitted_by_ref",
+              "admitted_at"
+            ],
+            "properties": {
+              "domain": {
+                "const": "ioi.automation-run-resolution-receipt-jcs-sha256.v1"
+              },
+              "automation_run_ref": {
+                "$ref": "#/$defs/runRef"
+              },
+              "automation_spec_revision_ref": {
+                "$ref": "#/$defs/specRevisionRef"
+              },
+              "automation_spec_content_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "automation_installation_binding_revision_ref": {
+                "$ref": "#/$defs/bindingRevisionRef"
+              },
+              "automation_installation_binding_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "automation_installation_admission_receipt_ref": {
+                "$ref": "#/$defs/ref"
+              },
+              "workflow_template_revision_ref": {
+                "$ref": "#/$defs/templateRevisionRef"
+              },
+              "workflow_template_content_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "activation_kind": {
+                "$ref": "#/$defs/activationKind"
+              },
+              "activation_event_ref": {
+                "$ref": "#/$defs/nullableRef"
+              },
+              "admitted_parameter_set_ref": {
+                "$ref": "#/$defs/nullableRef"
+              },
+              "admitted_parameter_set_hash": {
+                "$ref": "#/$defs/nullableHash"
+              },
+              "admitted_activation_override_set_ref": {
+                "$ref": "#/$defs/nullableRef"
+              },
+              "admitted_activation_override_set_hash": {
+                "$ref": "#/$defs/nullableHash"
+              },
+              "admitted_by_ref": {
+                "$ref": "#/$defs/ref"
+              },
+              "admitted_at": {
+                "$ref": "#/$defs/dateTime"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -94918,6 +95791,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/foundations/work-lifecycle-record/v1": [],
   "schema://ioi/foundations/work-result/v3": [],
   "schema://ioi/foundations/workflow-template/v1": [],
+  "schema://ioi/hypervisor/automation-spec/v1": [],
+  "schema://ioi/hypervisor/automation-installation-binding/v1": [],
+  "schema://ioi/hypervisor/automation-run/v1": [],
   "schema://ioi/foundations/objects/work-frontier-item-envelope/v1": [],
   "schema://ioi/foundations/objects/room-participant-lease-envelope/v1": [],
   "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1": [],
@@ -97043,6 +97919,24 @@ export function validateWorkflowTemplateV1(
   value: unknown,
 ): value is WorkflowTemplateV1 {
   return validateArchitectureContract("schema://ioi/foundations/workflow-template/v1", value).ok;
+}
+
+export function validateHypervisorAutomationSpecV1(
+  value: unknown,
+): value is HypervisorAutomationSpecV1 {
+  return validateArchitectureContract("schema://ioi/hypervisor/automation-spec/v1", value).ok;
+}
+
+export function validateHypervisorAutomationInstallationBindingV1(
+  value: unknown,
+): value is HypervisorAutomationInstallationBindingV1 {
+  return validateArchitectureContract("schema://ioi/hypervisor/automation-installation-binding/v1", value).ok;
+}
+
+export function validateHypervisorAutomationRunV1(
+  value: unknown,
+): value is HypervisorAutomationRunV1 {
+  return validateArchitectureContract("schema://ioi/hypervisor/automation-run/v1", value).ok;
 }
 
 export function validateWorkFrontierItemEnvelopeV1(

@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/hypervisor/automation-spec/v1",
+  "title": "HypervisorAutomationSpec",
+  "x-ioi-schema-version": "ioi.hypervisor.automation-spec.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "automation_id",
+    "revision_ref",
+    "version",
+    "predecessor_revision_ref",
+    "content_hash",
+    "owner_ref",
+    "display_name",
+    "description",
+    "workflow_template_revision_ref",
+    "workflow_template_content_hash",
+    "activation_kind",
+    "activation_parameter_schema_ref",
+    "trigger_contract_ref",
+    "schedule_contract_ref",
+    "monitor_contract_ref",
+    "service_contract_ref",
+    "queue_contract_ref",
+    "review_contract_refs",
+    "delivery_contract_ref",
+    "concurrency_policy_ref",
+    "idempotency_policy_ref",
+    "authority_requirement_refs",
+    "allowed_activation_override_schema_ref",
+    "receipt_policy_ref",
+    "registry_lifecycle_ref",
+    "registry_status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor.automation-spec.v1" },
+    "automation_id": {
+      "type": "string",
+      "pattern": "^automation://[^\\s/?#\\\\]{1,160}$"
+    },
+    "revision_ref": { "$ref": "#/$defs/specRevisionRef" },
+    "version": { "type": "string", "minLength": 1 },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        { "$ref": "#/$defs/specRevisionRef" },
+        { "type": "null" }
+      ]
+    },
+    "content_hash": { "$ref": "#/$defs/hash" },
+    "owner_ref": { "$ref": "#/$defs/ref" },
+    "display_name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "workflow_template_revision_ref": { "$ref": "#/$defs/templateRevisionRef" },
+    "workflow_template_content_hash": { "$ref": "#/$defs/hash" },
+    "activation_kind": {
+      "enum": ["manual", "schedule", "webhook", "event", "monitor", "service", "queue"]
+    },
+    "activation_parameter_schema_ref": { "$ref": "#/$defs/nullableRef" },
+    "trigger_contract_ref": { "$ref": "#/$defs/nullableRef" },
+    "schedule_contract_ref": { "$ref": "#/$defs/nullableRef" },
+    "monitor_contract_ref": { "$ref": "#/$defs/nullableRef" },
+    "service_contract_ref": { "$ref": "#/$defs/nullableRef" },
+    "queue_contract_ref": { "$ref": "#/$defs/nullableRef" },
+    "review_contract_refs": { "$ref": "#/$defs/refArray" },
+    "delivery_contract_ref": { "$ref": "#/$defs/nullableRef" },
+    "concurrency_policy_ref": { "$ref": "#/$defs/nullableRef" },
+    "idempotency_policy_ref": { "$ref": "#/$defs/nullableRef" },
+    "authority_requirement_refs": { "$ref": "#/$defs/scopeArray" },
+    "allowed_activation_override_schema_ref": { "$ref": "#/$defs/nullableRef" },
+    "receipt_policy_ref": { "$ref": "#/$defs/nullableRef" },
+    "registry_lifecycle_ref": { "$ref": "#/$defs/nullableRef" },
+    "registry_status": {
+      "enum": ["draft", "evaluable", "released", "deprecated", "revoked"]
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "nullableRef": {
+      "anyOf": [
+        { "$ref": "#/$defs/ref" },
+        { "type": "null" }
+      ]
+    },
+    "refArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ref" }
+    },
+    "scopeArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^scope:[a-z][a-z0-9._-]*$"
+      }
+    },
+    "specRevisionRef": {
+      "type": "string",
+      "pattern": "^automation://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "templateRevisionRef": {
+      "type": "string",
+      "pattern": "^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    }
+  }
+}

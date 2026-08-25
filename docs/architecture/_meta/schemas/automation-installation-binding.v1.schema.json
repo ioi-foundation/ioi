@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/hypervisor/automation-installation-binding/v1",
+  "title": "HypervisorAutomationInstallationBinding",
+  "x-ioi-schema-version": "ioi.hypervisor.automation-installation-binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "binding_id",
+    "revision_ref",
+    "predecessor_revision_ref",
+    "binding_hash",
+    "owner_ref",
+    "scope_ref",
+    "automation_spec_revision_ref",
+    "automation_spec_content_hash",
+    "enabled",
+    "narrowed_activation_kinds",
+    "narrowed_authority_requirement_refs",
+    "parameter_constraint_ref",
+    "activation_override_constraint_ref",
+    "admission_receipt_ref",
+    "registry_lifecycle_ref",
+    "registry_status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.hypervisor.automation-installation-binding.v1" },
+    "binding_id": {
+      "type": "string",
+      "pattern": "^install://automation/[^\\s/?#\\\\]{1,160}$"
+    },
+    "revision_ref": { "$ref": "#/$defs/bindingRevisionRef" },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        { "$ref": "#/$defs/bindingRevisionRef" },
+        { "type": "null" }
+      ]
+    },
+    "binding_hash": { "$ref": "#/$defs/hash" },
+    "owner_ref": { "$ref": "#/$defs/ref" },
+    "scope_ref": { "$ref": "#/$defs/ref" },
+    "automation_spec_revision_ref": { "$ref": "#/$defs/specRevisionRef" },
+    "automation_spec_content_hash": { "$ref": "#/$defs/hash" },
+    "enabled": { "type": "boolean" },
+    "narrowed_activation_kinds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["manual", "schedule", "webhook", "event", "monitor", "service", "queue"]
+      }
+    },
+    "narrowed_authority_requirement_refs": { "$ref": "#/$defs/scopeArray" },
+    "parameter_constraint_ref": { "$ref": "#/$defs/nullableRef" },
+    "activation_override_constraint_ref": { "$ref": "#/$defs/nullableRef" },
+    "admission_receipt_ref": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,500}$"
+    },
+    "registry_lifecycle_ref": { "$ref": "#/$defs/nullableRef" },
+    "registry_status": {
+      "enum": ["draft", "evaluable", "released", "deprecated", "revoked"]
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "nullableRef": {
+      "anyOf": [
+        { "$ref": "#/$defs/ref" },
+        { "type": "null" }
+      ]
+    },
+    "scopeArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^scope:[a-z][a-z0-9._-]*$"
+      }
+    },
+    "specRevisionRef": {
+      "type": "string",
+      "pattern": "^automation://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "bindingRevisionRef": {
+      "type": "string",
+      "pattern": "^install://automation/[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    }
+  }
+}

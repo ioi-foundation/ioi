@@ -8673,6 +8673,135 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/hypervisor/automation-spec/v1",
+      "canonical_name": "HypervisorAutomationSpec",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#hypervisor-automations",
+      "schema_version": "ioi.hypervisor.automation-spec.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "automation-spec.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorAutomationSpecV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorAutomationSpecV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/automation-spec-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/automation-spec-v1/negative-live-grant.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/hypervisor/automation-installation-binding/v1",
+      "canonical_name": "HypervisorAutomationInstallationBinding",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#hypervisor-automations",
+      "schema_version": "ioi.hypervisor.automation-installation-binding.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "automation-installation-binding.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorAutomationInstallationBindingV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorAutomationInstallationBindingV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/automation-installation-binding-v1/positive-enabled.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/automation-installation-binding-v1/negative-owns-trigger.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/hypervisor/automation-run/v1",
+      "canonical_name": "HypervisorAutomationRun",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#hypervisor-automations",
+      "schema_version": "ioi.hypervisor.automation-run.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "automation-run.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorAutomationRunV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorAutomationRunV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/automation-run-v1/positive-queued.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/automation-run-v1/negative-unpaired-parameter-hash.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
       "canonical_name": "WorkFrontierItemEnvelope",
       "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-pursuit.md#workfrontieritemenvelope",
