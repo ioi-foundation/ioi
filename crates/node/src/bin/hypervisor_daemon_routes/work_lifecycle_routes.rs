@@ -31,10 +31,10 @@
 //! missing, tampered, or owner-drifted evidence. Hot record logs are never
 //! pruned here.
 //!
-//! No GoalRun-specific integration lands in this wave. The status route reports
-//! `live_owner_route_bindings: []`; no owner route is re-homed onto this store,
-//! and none may claim append-only lifecycle integration merely because the
-//! shared mechanism now persists.
+//! The GoalRun create route composes this owner for its application-owned plan,
+//! ContextCell reference, and GoalRun lifecycle projection. That bounded binding
+//! does not transfer Session, launch, thread, HarnessInvocation, or other kernel
+//! truth to GoalRun, and no other object owner is implied to be wired here.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -91,8 +91,8 @@ fn archive_stream_tail(archive_ref: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Owner-internal Rust API. This is the seam a kind owner (e.g. GoalRun) would
-// compose in a later wave. It is unreferenced by any owner route here.
+// Owner-internal Rust API. GoalRun creation composes this seam with its own
+// LegalEdgeGate; subsequent owners must supply and prove their own gate.
 // ---------------------------------------------------------------------------
 
 /// The outcome of one durable append.
@@ -723,8 +723,13 @@ impl WorkLifecycleStore {
             },
             "per_kind_lifecycle_counts": per_kind_counts,
             "unreadable_objects": unreadable_objects,
-            "live_owner_route_bindings": [],
-            "nonclaim": "The shared work-lifecycle mechanism persists durably, but no owner route is bound to it: this route neither creates nor transitions a GoalRun, GoalGroundingLoop, WorkRun, AutomationRun, HarnessInvocation, ContextCell, or external handle, and no owner claims append-only integration merely because the mechanism exists. Hot record logs are never pruned; snapshots are checkpoints, never a license to discard the archive.",
+            "live_owner_route_bindings": [{
+                "object_kind": "goal_run",
+                "route": "POST /v1/goal-orchestration/goal-runs",
+                "admission_paths": ["direct_non_system", "system_activation"],
+                "owned_scope": ["application_plan", "context_cell_ref", "goal_run_lifecycle"],
+            }],
+            "nonclaim": "Only GoalRun creation is bound, and only for GoalRun-owned application plan/state and invocation references. Session, launch, thread, HarnessInvocation, and child-owner runtime truth remain with their kernel owners; GoalGroundingLoop, WorkRun, AutomationRun, ContextCell lifecycle, and external-handle owners are not generalized by this binding. Cancellation plans claim no child completion. Hot record logs are never pruned; snapshots are checkpoints, never a license to discard the archive.",
         }))
     }
 
@@ -1422,7 +1427,10 @@ mod tests {
             summary["durable_family_object_counts"][PROJECTIONS_NS],
             json!(1)
         );
-        assert_eq!(summary["live_owner_route_bindings"], json!([]));
+        assert_eq!(
+            summary.pointer("/live_owner_route_bindings/0/object_kind"),
+            Some(&json!("goal_run"))
+        );
         let kinds = summary["per_kind_lifecycle_counts"].as_array().unwrap();
         assert_eq!(kinds.len(), 1);
         assert_eq!(kinds[0]["object_kind"], json!("work_run"));

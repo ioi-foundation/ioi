@@ -19,14 +19,14 @@
 //! transition-authority table; the per-kind decision is delegated to a
 //! [`LegalEdgeGate`] the owning route/service supplies, so the shared kernel is
 //! the single bounding site without acquiring any domain object's write
-//! authority. No caller is re-homed here; the kernel is unreferenced by any
-//! route until that wiring lands in a later wave.
+//! authority. GoalRun creation now composes this kernel through its owner-side
+//! gate, without moving Session/launch/thread/HarnessInvocation truth into it.
 //!
 //! Records, plans, projections, archive segments, and snapshots are round-tripped
 //! through the generated projections whose `Deserialize` validates against the
 //! registered schema, so a non-conforming object cannot leave this module.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use ioi_types::app::generated::architecture_contracts::{
     CancellationFanoutPlanV1, WorkLifecycleArchiveSegmentV1, WorkLifecycleProjectionV1,
@@ -391,12 +391,13 @@ impl WorkLifecycleLogCore {
         // Per-kind legal-edge and authority gate. Runs after mechanics pass and
         // only for a genuine append, at the single bounding site.
         if let Some(gate) = gate {
-            gate.authorize(prior_head_record, candidate).map_err(|reason| {
-                WorkLifecycleLogError::new(
-                    "work_lifecycle_log_authority_refused",
-                    format!("transition refused by the kind-specific authority gate: {reason}"),
-                )
-            })?;
+            gate.authorize(prior_head_record, candidate)
+                .map_err(|reason| {
+                    WorkLifecycleLogError::new(
+                        "work_lifecycle_log_authority_refused",
+                        format!("transition refused by the kind-specific authority gate: {reason}"),
+                    )
+                })?;
         }
 
         let mut committed = object.clone();
@@ -536,16 +537,10 @@ impl WorkLifecycleLogCore {
 
     /// Rebuild the active typed child set from append-only attach/detach facts.
     pub fn project_active_children(&self, log: &[Value]) -> LogResult<Vec<ActiveChild>> {
-        Ok(self
-            .fold_children(log)?
-            .into_values()
-            .collect())
+        Ok(self.fold_children(log)?.into_values().collect())
     }
 
-    fn fold_children(
-        &self,
-        log: &[Value],
-    ) -> LogResult<BTreeMap<(String, String), ActiveChild>> {
+    fn fold_children(&self, log: &[Value]) -> LogResult<BTreeMap<(String, String), ActiveChild>> {
         let mut active: BTreeMap<(String, String), ActiveChild> = BTreeMap::new();
         for entry in log {
             let Some(object) = entry.as_object() else {
@@ -794,12 +789,14 @@ impl WorkLifecycleLogCore {
             "cancellation_intent": state.cancellation_intent.clone().unwrap_or(Value::Null),
             "receipt_lineage_refs": state.receipt_lineage,
         });
-        serde_json::from_value::<WorkLifecycleProjectionV1>(projection.clone()).map_err(|error| {
-            WorkLifecycleLogError::new(
-                "work_lifecycle_projection_invalid",
-                format!("projection does not satisfy the registered schema: {error}"),
-            )
-        })?;
+        serde_json::from_value::<WorkLifecycleProjectionV1>(projection.clone()).map_err(
+            |error| {
+                WorkLifecycleLogError::new(
+                    "work_lifecycle_projection_invalid",
+                    format!("projection does not satisfy the registered schema: {error}"),
+                )
+            },
+        )?;
         Ok(projection)
     }
 
@@ -1023,13 +1020,12 @@ impl WorkLifecycleLogCore {
                     "tail record is not an object",
                 )
             })?;
-            let record_expected =
-                str_field(object, "expected_head").ok_or_else(|| {
-                    WorkLifecycleLogError::new(
-                        "work_lifecycle_resume_tail_orphan",
-                        "tail record has no expected_head",
-                    )
-                })?;
+            let record_expected = str_field(object, "expected_head").ok_or_else(|| {
+                WorkLifecycleLogError::new(
+                    "work_lifecycle_resume_tail_orphan",
+                    "tail record has no expected_head",
+                )
+            })?;
             if record_expected != expected_head {
                 return Err(WorkLifecycleLogError::new(
                     "work_lifecycle_resume_tail_gap",
@@ -1042,7 +1038,10 @@ impl WorkLifecycleLogCore {
                     "owner_ref may not change across an object's chain",
                 ));
             }
-            let occurred = object.get("occurred_at_ms").and_then(Value::as_i64).unwrap_or(0);
+            let occurred = object
+                .get("occurred_at_ms")
+                .and_then(Value::as_i64)
+                .unwrap_or(0);
             if occurred < state.last_occurred_at_ms {
                 return Err(WorkLifecycleLogError::new(
                     "work_lifecycle_log_timestamp_regression",
@@ -1471,7 +1470,13 @@ mod tests {
         let err = core
             .plan_append(
                 &[],
-                &attach("a", "k-a", "none", &format!("sha256:{}", "0".repeat(64)), 2_000),
+                &attach(
+                    "a",
+                    "k-a",
+                    "none",
+                    &format!("sha256:{}", "0".repeat(64)),
+                    2_000,
+                ),
             )
             .unwrap_err();
         assert_eq!(err.code(), "work_lifecycle_log_orphan_successor");
@@ -1653,8 +1658,16 @@ mod tests {
         let core = WorkLifecycleLogCore;
         let mut log = Vec::new();
         let mut head = commit(&core, &mut log, genesis());
-        head = commit(&core, &mut log, attach("a", "k-a", "reversible", &head, 2_000));
-        commit(&core, &mut log, phase("p1", "k-run", "running", &head, 3_000));
+        head = commit(
+            &core,
+            &mut log,
+            attach("a", "k-a", "reversible", &head, 2_000),
+        );
+        commit(
+            &core,
+            &mut log,
+            phase("p1", "k-run", "running", &head, 3_000),
+        );
 
         let projection = core.project(&log).unwrap();
         assert_eq!(projection["active_phase"], json!("running"));
@@ -1670,7 +1683,9 @@ mod tests {
         struct DenyRunning;
         impl LegalEdgeGate for DenyRunning {
             fn authorize(&self, _prior: Option<&Value>, candidate: &Value) -> Result<(), String> {
-                let to = candidate["phase_transition"]["to_phase"].as_str().unwrap_or("");
+                let to = candidate["phase_transition"]["to_phase"]
+                    .as_str()
+                    .unwrap_or("");
                 if to == "running" {
                     Err("running not permitted by this authority".into())
                 } else {
@@ -1695,7 +1710,11 @@ mod tests {
 
         // A permitted edge still commits.
         let ok = core
-            .plan_append_gated(&log, &phase("p2", "k-wait", "waiting_for_input", &head, 2_000), &gate)
+            .plan_append_gated(
+                &log,
+                &phase("p2", "k-wait", "waiting_for_input", &head, 2_000),
+                &gate,
+            )
             .unwrap();
         assert_eq!(ok.outcome, AppendOutcome::Appended);
     }
@@ -1705,8 +1724,16 @@ mod tests {
         let core = WorkLifecycleLogCore;
         let mut full = Vec::new();
         let mut head = commit(&core, &mut full, genesis());
-        head = commit(&core, &mut full, attach("a", "k-a", "reversible", &head, 2_000));
-        head = commit(&core, &mut full, phase("p1", "k-run", "running", &head, 3_000));
+        head = commit(
+            &core,
+            &mut full,
+            attach("a", "k-a", "reversible", &head, 2_000),
+        );
+        head = commit(
+            &core,
+            &mut full,
+            phase("p1", "k-run", "running", &head, 3_000),
+        );
         head = commit(&core, &mut full, attach("b", "k-b", "none", &head, 4_000));
         let _ = head;
 
@@ -1734,7 +1761,9 @@ mod tests {
         assert_eq!(resumed.projection, full_projection);
 
         // Idempotency decisions survive the compaction boundary.
-        let full_state = core.fold_state(&core.reconstruct_chain(&full).unwrap()).unwrap();
+        let full_state = core
+            .fold_state(&core.reconstruct_chain(&full).unwrap())
+            .unwrap();
         assert_eq!(resumed.idempotency_record_hashes, full_state.idempotency);
         assert!(resumed.idempotency_record_hashes.contains_key("genesis-1"));
         assert!(resumed.idempotency_record_hashes.contains_key("k-a"));
@@ -1750,7 +1779,10 @@ mod tests {
         let segment = core
             .plan_archive_segment("work-lifecycle-archive://run-1/seg-1", &log, &head, 10)
             .unwrap();
-        assert!(segment["archive_root"].as_str().unwrap().starts_with("sha256:"));
+        assert!(segment["archive_root"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
 
         let snapshot = core
             .plan_snapshot("work-lifecycle-snapshot://run-1/snap-1", &segment, 11)
@@ -1790,7 +1822,11 @@ mod tests {
         let core = WorkLifecycleLogCore;
         let mut log = Vec::new();
         let head = commit(&core, &mut log, genesis());
-        let head = commit(&core, &mut log, attach("a", "k-a", "compensatable", &head, 2_000));
+        let head = commit(
+            &core,
+            &mut log,
+            attach("a", "k-a", "compensatable", &head, 2_000),
+        );
 
         let intent = CancellationIntent {
             requested_by_ref: "actor://owner".into(),
@@ -1811,7 +1847,11 @@ mod tests {
         let core = WorkLifecycleLogCore;
         let mut log = Vec::new();
         let head = commit(&core, &mut log, genesis());
-        let head = commit(&core, &mut log, attach("a", "k-a", "ambiguous", &head, 2_000));
+        let head = commit(
+            &core,
+            &mut log,
+            attach("a", "k-a", "ambiguous", &head, 2_000),
+        );
 
         let intent = CancellationIntent {
             requested_by_ref: "actor://owner".into(),
@@ -1832,7 +1872,11 @@ mod tests {
         let core = WorkLifecycleLogCore;
         let mut log = Vec::new();
         let head = commit(&core, &mut log, genesis());
-        let head = commit(&core, &mut log, attach("a", "k-a", "irreversible", &head, 2_000));
+        let head = commit(
+            &core,
+            &mut log,
+            attach("a", "k-a", "irreversible", &head, 2_000),
+        );
 
         let intent = CancellationIntent {
             requested_by_ref: "actor://owner".into(),
