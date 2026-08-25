@@ -332,6 +332,30 @@ pub(crate) fn resolve_released_agent_harness_adapter(
     Ok(record)
 }
 
+pub(crate) fn resolve_released_goal_run_profile(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    revision_ref: &str,
+    content_hash: &str,
+) -> Result<Value, String> {
+    let records = strict_records(data_dir, PROFILE_DIR).map_err(reply_detail)?;
+    let mut matches = records.into_iter().filter(|record| {
+        owner_visible(record, identity)
+            && record.get("revision_ref").and_then(Value::as_str) == Some(revision_ref)
+            && record.get("content_hash").and_then(Value::as_str) == Some(content_hash)
+    });
+    let record = matches
+        .next()
+        .ok_or_else(|| "the exact visible GoalRunProfile revision is absent".to_string())?;
+    if matches.next().is_some() {
+        return Err("the exact visible GoalRunProfile revision is ambiguous".to_string());
+    }
+    if record.get("registry_status").and_then(Value::as_str) != Some("released") {
+        return Err("the exact GoalRunProfile revision is not released".to_string());
+    }
+    Ok(record)
+}
+
 fn tail(prefix: &str) -> String {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)

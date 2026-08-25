@@ -28,6 +28,11 @@ const gatewayProfileTemplate = JSON.parse(fs.readFileSync(path.join(
 
 const results = [];
 const ok = (name, pass, detail = "") => results.push({ name, pass: !!pass, detail });
+const H1 = `sha256:${"1".repeat(64)}`;
+const H2 = `sha256:${"2".repeat(64)}`;
+const familyCount = (family) => {
+  try { return fs.readdirSync(path.join(dataDir, family)).filter((name) => name.endsWith(".json")).length; } catch { return 0; }
+};
 const canonical = (value) => {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -325,6 +330,71 @@ async function run() {
       && graduation.implicit_credential_carryover === false
       && graduation.implicit_scope_carryover === false,
     `${exactGateway.status}/${graduation.agent_harness_adapter_revision_ref ?? ""}`);
+
+  const definitionResolution = {
+    workflow_template_revision_refs: ["workflow-template://research/revision/1"],
+    skill_manifest_revision_refs: ["skill://literature/revision/2"],
+    active_skill_entry_refs: ["skill-entry://literature/search"],
+    harness_profile_revision_refs: ["harness-profile://research/revision/3"],
+    runtime_tool_contract_refs: ["tool://search/revision/1"],
+    effective_constraint_envelope_ref: "constraint://research",
+    effective_constraint_envelope_hash: H2,
+    orchestration_policy_ref: "orchestration-policy://bounded",
+    orchestration_policy_version_or_hash: "1",
+    resolved_skill_bindings: [{
+      skill_entry_ref: "skill-entry://literature/search",
+      skill_entry_binding_revision_ref: "skill-entry://literature/search/revision/1",
+      skill_entry_binding_hash: H1,
+      skill_manifest_revision_ref: "skill://literature/revision/2",
+      skill_manifest_content_hash: H2,
+    }],
+    component_hashes: {
+      "workflow-template://research/revision/1": H1,
+      "skill://literature/revision/2": H2,
+      "harness-profile://research/revision/3": H1,
+      "tool://search/revision/1": H2,
+    },
+  };
+  const pathRequest = {
+    requested_path: "direct_non_system",
+    goal_run_profile_revision_ref: profileV2.revision_ref,
+    goal_run_profile_content_hash: `sha256:${"f".repeat(64)}`,
+    effective_constraint_hash: H2,
+    result_profile: "research",
+    policy_refs: ["policy://bounded-research"],
+    authority_refs: ["grant://research"],
+    capability_requirement_refs: [],
+  };
+  const goalRunsBefore = familyCount("goal-runs");
+  const forgedGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Resolve an exact portable profile before admission",
+      admission_path_request: pathRequest,
+      definition_resolution: definitionResolution,
+    }),
+  });
+  ok("GATE: the general GoalRun surface refuses an unregistered profile hash before any run write",
+    forgedGoalRun.status === 409
+      && forgedGoalRun.body?.error?.code === "goal_run_profile_resolution_unavailable"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${forgedGoalRun.status}/${forgedGoalRun.body?.error?.code}`);
+
+  pathRequest.goal_run_profile_content_hash = profileV2.content_hash;
+  const exactGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Resolve an exact portable profile before admission",
+      admission_path_request: pathRequest,
+      definition_resolution: definitionResolution,
+    }),
+  });
+  ok("the general GoalRun surface consumes the exact released owner-visible profile revision",
+    exactGoalRun.status === 201
+      && exactGoalRun.body?.goal_run?.goal_run_profile_revision_ref === profileV2.revision_ref
+      && exactGoalRun.body?.goal_run?.goal_run_profile_content_hash === profileV2.content_hash
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.goal_run_profile_content_hash === profileV2.content_hash,
+    `${exactGoalRun.status}/${exactGoalRun.body?.error?.code ?? ""}`);
 }
 
 try {

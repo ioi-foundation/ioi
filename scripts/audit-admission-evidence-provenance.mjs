@@ -489,7 +489,6 @@ const H_BASELINE = [
   "environment_routes.rs::handle_idle_sweep",
   "goalrun_routes.rs::handle_goal_run_activation_draft",
   "goalrun_routes.rs::handle_goal_run_activation_submit",
-  "goalrun_routes.rs::handle_goal_runs_create",
   "harness_routes.rs::handle_harness_profile_select_default",
   "hypervisor_environment_routes.rs::handle_environment_transition",
   "hypervisoros_node_routes.rs::handle_node_transition",

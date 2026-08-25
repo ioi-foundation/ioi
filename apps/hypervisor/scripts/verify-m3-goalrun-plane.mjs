@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdtempSync, rmSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
@@ -14,8 +14,8 @@ const count = (family) => { try { return readdirSync(join(dataDir, family)).filt
 
 const pathRequest = {
   requested_path: "direct_non_system",
-  goal_run_profile_revision_ref: "goal-run-profile://generic-adaptive/revision/1",
-  goal_run_profile_content_hash: H1,
+  goal_run_profile_revision_ref: "",
+  goal_run_profile_content_hash: "",
   effective_constraint_hash: H2,
   result_profile: "research",
   policy_refs: ["policy://bounded-research"],
@@ -61,10 +61,14 @@ const definitionResolution = {
   },
 };
 
-async function request(base, method, path, body) {
+let session = "";
+async function request(base, method, path, body, authenticated = true) {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(authenticated && session ? { cookie: `ioi_session=${session}` } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   return { status: response.status, body: await response.json().catch(() => ({})) };
@@ -77,6 +81,44 @@ try {
     console.error("BLOCKED: build target/debug/hypervisor-daemon first");
     process.exitCode = 2;
   } else {
+    const daemonLogName = readdirSync(dataDir)
+      .filter((name) => name === "isolated-daemon.log" || name.startsWith("isolated-daemon-restart-"))
+      .sort()
+      .at(-1);
+    const daemonLog = daemonLogName ? readFileSync(join(dataDir, daemonLogName), "utf8") : "";
+    const bootstrapToken = daemonLog.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? "";
+    const bootstrap = await request(plane.daemonUrl, "POST", "/v1/hypervisor/auth/bootstrap", {
+      token: bootstrapToken,
+      password: "m3-goalrun-plane-v1",
+      email: "m3-goalrun@ioi.local",
+    }, false);
+    session = bootstrap.body?.session_token ?? "";
+    const who = await request(plane.daemonUrl, "GET", "/v1/hypervisor/auth/whoami");
+    const principalRef = who.body?.principal?.principal_ref
+      || (who.body?.principal?.principal_id ? `user://${who.body.principal.principal_id}` : "");
+    const profileAdmission = await request(plane.daemonUrl, "POST", "/v1/goal-orchestration/goal-run-profiles", {
+      owner_ref: principalRef,
+      display_name: "M3 bounded research",
+      description: "A canonical profile fixture for the general GoalRun verifier.",
+      version: "1.0.0",
+      applicable_goal_class_refs: ["schema://ioi/ioi-ai/goal-draft/v1"],
+      compatible_domain_object_schema_refs: ["schema://ioi/foundations/work-result/v3"],
+      orchestration_policy_ref: "orchestration-policy://bounded-general",
+      input_contract_ref: "schema://ioi/ioi-ai/goal-draft/v1",
+      output_contract_ref: "schema://ioi/foundations/work-result/v3",
+      stop_policy_ref: "policy://ioi/goal-run/bounded-stop/v1",
+      recovery_policy_ref: "policy://ioi/goal-run/bounded-recovery/v1",
+      escalation_policy_ref: "policy://ioi/goal-run/bounded-escalation/v1",
+      registry_status: "released",
+    });
+    const profile = profileAdmission.body?.goal_run_profile ?? {};
+    pathRequest.goal_run_profile_revision_ref = profile.revision_ref ?? "";
+    pathRequest.goal_run_profile_content_hash = profile.content_hash ?? "";
+    check("the verifier bootstraps a real principal and admits the selected portable profile",
+      session.startsWith("ioi_sess_") && principalRef.startsWith("user://")
+        && profileAdmission.status === 201 && pathRequest.goal_run_profile_revision_ref.includes("/revision/sha256:"),
+      `${bootstrap.status}/${profileAdmission.status}/${principalRef}`);
+
     const before = count("goal-runs");
     const invalidDefinitions = structuredClone(definitionResolution);
     invalidDefinitions.workflow_template_revision_refs = ["workflow-template://research"];
@@ -95,11 +137,11 @@ try {
       definition_resolution: definitionResolution,
     });
     const run = created.body.goal_run;
-    check("direct GoalRun admits active through exact profile resolution and daemon-derived ownership", created.status === 201 && run?.status === "active" && run?.schema_version === "ioi.goal-run.v1" && run?.admission_path_status === "direct_non_system" && run?.owner_ref === "user://local-operator", `${created.status}/${created.body?.error?.code}/${run?.owner_ref}`);
+    check("direct GoalRun admits active through exact profile resolution and daemon-derived ownership", created.status === 201 && run?.status === "active" && run?.schema_version === "ioi.goal-run.v1" && run?.admission_path_status === "direct_non_system" && run?.owner_ref === principalRef, `${created.status}/${created.body?.error?.code}/${run?.owner_ref}`);
     check("component, active-skill, resolution, and lifecycle records persist", count("goal-run-component-snapshots") === 1 && count("active-skill-set-snapshots") === 1 && count("goal-run-profile-resolution-receipts") === 1 && count("work-lifecycle-records") === 2);
     check("activation retained exact lifecycle and state commitments", String(run?.lifecycle_head).startsWith("sha256:") && String(run?.admitted_state_root_ref).startsWith("agentgres://state-root/") && run?.lifecycle_record_refs?.length === 2);
 
-    const id = String(run.goal_ref).replace("goal://", "");
+    const id = String(run?.goal_ref ?? "").replace("goal://", "");
     const result = await request(plane.daemonUrl, "POST", `/v1/goal-orchestration/goal-runs/${id}/results`, {
       work_result_id: "work-result://research/negative-1",
       result_profile: "research",
@@ -109,11 +151,33 @@ try {
       produced_by_ref: "worker://research",
       submitted_by_ref: "worker://research",
       claim_refs: [],
-      uncertainty: ["bounded uncertainty retained"],
+      uncertainty: "bounded uncertainty retained",
       supporting_evidence_refs: [],
       contradicting_evidence_refs: ["evidence://research/contradiction"],
     });
-    check("negative generic WorkResult is retained without success coercion", result.status === 201 && result.body?.admission?.work_result?.outcome_class === "negative" && result.body?.admission?.retention_disposition === "retained", `${result.status}/${result.body?.error?.code}`);
+    check("negative generic WorkResult is retained without success coercion", result.status === 201 && result.body?.admission?.work_result?.outcome_class === "negative" && result.body?.admission?.retention_disposition === "retained", `${result.status}/${result.body?.error?.code}/${result.body?.error?.message ?? ""}`);
+
+    const componentSnapshotPath = join(dataDir, "goal-run-component-snapshots", `${id}.json`);
+    const exactComponentSnapshot = readFileSync(componentSnapshotPath);
+    const changedComponentSnapshot = JSON.parse(exactComponentSnapshot.toString("utf8"));
+    changedComponentSnapshot.component_hashes["harness-profile://research/revision/3"] = H2;
+    writeFileSync(componentSnapshotPath, JSON.stringify(changedComponentSnapshot));
+    const resultCountBeforeRefusal = count("work-result-registry");
+    const changedSnapshotResult = await request(plane.daemonUrl, "POST", `/v1/goal-orchestration/goal-runs/${id}/results`, {
+      work_result_id: "work-result://research/changed-snapshot",
+      result_profile: "research",
+      outcome_class: "negative",
+      status: "failed",
+      result_payload_ref: "artifact://research/changed-snapshot",
+      produced_by_ref: "worker://research",
+      submitted_by_ref: "worker://research",
+    });
+    writeFileSync(componentSnapshotPath, exactComponentSnapshot);
+    check("a changed component snapshot refuses result admission before persistence",
+      changedSnapshotResult.status === 409
+        && changedSnapshotResult.body?.error?.code === "goal_run_component_snapshot_changed"
+        && count("work-result-registry") === resultCountBeforeRefusal,
+      `${changedSnapshotResult.status}/${changedSnapshotResult.body?.error?.code}`);
 
     await plane.stop();
     plane = await startIsolatedPlane({ dataDir });

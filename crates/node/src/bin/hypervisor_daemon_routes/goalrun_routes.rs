@@ -2652,6 +2652,18 @@ pub(crate) async fn handle_goal_runs_create(
         Ok(value) => value,
         Err(response) => return response,
     };
+    let request_identity =
+        match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+            Ok(identity) if identity.principal_ref == owner_ref => identity,
+            Ok(_) => {
+                return bad(
+                    StatusCode::UNAUTHORIZED,
+                    "goal_run_principal_inconsistent",
+                    "The authenticated principal and tenant-scoped request identity disagree.",
+                )
+            }
+            Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+        };
     if body
         .get("owner_ref")
         .filter(|value| !value.is_null())
@@ -2735,6 +2747,33 @@ pub(crate) async fn handle_goal_runs_create(
                 "goal_run_admission_path_request_unknown_field",
                 "Unknown admission-path request fields fail closed.",
                 json!({ "field": unknown }),
+            );
+        }
+        let requested_profile_ref = path_object
+            .get("goal_run_profile_revision_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let requested_profile_hash = path_object
+            .get("goal_run_profile_content_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if let Err(detail) = super::goal_profile_contract_routes::resolve_released_goal_run_profile(
+            &st.data_dir,
+            &request_identity,
+            &requested_profile_ref,
+            &requested_profile_hash,
+        ) {
+            return bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_profile_resolution_unavailable",
+                "The general GoalRun surface requires one exact released profile from a current owner-visible registry.",
+                json!({
+                    "goal_run_profile_revision_ref": requested_profile_ref,
+                    "goal_run_profile_content_hash": requested_profile_hash,
+                    "detail": detail,
+                }),
             );
         }
         path_object.insert("goal_run_ref".into(), json!(goal_ref));
@@ -8818,6 +8857,112 @@ fn converge_invocation_work_result(
     }
 }
 
+fn goal_run_result_producer_resolution(
+    data_dir: &str,
+    goal_run_id: &str,
+    goal_run: &Value,
+) -> Result<Value, HttpRefusal> {
+    let snapshot = super::durable_fs::read_record_durable(
+        data_dir,
+        "goal-run-component-snapshots",
+        goal_run_id,
+    )
+    .map_err(|message| {
+        bad(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "goal_run_component_snapshot_unreadable",
+            &format!("The exact GoalRun component snapshot cannot be read ({message})."),
+        )
+    })?
+    .ok_or_else(|| {
+        bad(
+            StatusCode::CONFLICT,
+            "goal_run_component_snapshot_unavailable",
+            "A retained WorkResult requires the GoalRun's exact persisted component snapshot.",
+        )
+    })?;
+    let expected_snapshot_ref = goal_run
+        .get("resolved_component_set_snapshot_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let expected_snapshot_hash = goal_run
+        .get("resolved_component_set_hash")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if !expected_snapshot_ref.starts_with("artifact://")
+        || expected_snapshot_hash != sha256_canonical(&snapshot)
+        || snapshot.get("goal_run_ref") != goal_run.get("goal_ref")
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_component_snapshot_changed",
+            "The persisted component snapshot no longer matches the GoalRun's admitted component commitment.",
+        ));
+    }
+    let harness_revisions = snapshot
+        .get("harness_profile_revision_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_result_producer_unresolved",
+                "The admitted component snapshot has no concrete harness revision set.",
+            )
+        })?;
+    if harness_revisions.len() != 1 {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_result_producer_ambiguous",
+            "A direct WorkResult requires exactly one concrete producing harness revision.",
+        ));
+    }
+    let revision_ref = harness_revisions[0].as_str().unwrap_or("");
+    let resolver_kind = if revision_ref.starts_with("harness-profile://") {
+        "harness_profile"
+    } else if revision_ref.starts_with("agent-harness-adapter://") {
+        "agent_harness_adapter"
+    } else {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_result_producer_unresolved",
+            "The admitted producing component is not a concrete harness profile or adapter revision.",
+        ));
+    };
+    if !revision_ref.contains("/revision/") {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_result_producer_revision_required",
+            "The admitted producing component must be an immutable revision reference.",
+        ));
+    }
+    let content_hash = snapshot
+        .get("component_hashes")
+        .and_then(Value::as_object)
+        .and_then(|hashes| hashes.get(revision_ref))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if content_hash.len() != 71
+        || !content_hash.starts_with("sha256:")
+        || !content_hash[7..]
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_result_producer_hash_required",
+            "The admitted producing component must retain its exact content hash.",
+        ));
+    }
+    Ok(json!({
+        "resolved_component_set_snapshot_ref": expected_snapshot_ref,
+        "resolved_component_set_hash": expected_snapshot_hash,
+        "component_resolution_receipt_ref": goal_run.get("goal_run_profile_resolution_receipt_ref").cloned().unwrap_or(Value::Null),
+        "resolver_kind": resolver_kind,
+        "resolver_revision_ref": revision_ref,
+        "resolver_content_hash": content_hash
+    }))
+}
+
 /// Admit and retain one generic WorkResult for a direct or System-bound GoalRun.
 pub(crate) async fn handle_goal_run_result_create(
     State(st): State<Arc<DaemonState>>,
@@ -8912,14 +9057,12 @@ pub(crate) async fn handle_goal_run_result_create(
     // The daemon owns producer truth. A caller-supplied producer resolution is never
     // preserved: it could otherwise substitute an unobserved component set for the
     // exact profile-resolution closure admitted on this direct GoalRun.
-    object.insert("producer_component_resolution".into(), json!({
-        "resolved_component_set_snapshot_ref": goal_run.get("resolved_component_set_snapshot_ref").cloned().unwrap_or(Value::Null),
-        "resolved_component_set_hash": goal_run.get("resolved_component_set_hash").cloned().unwrap_or(Value::Null),
-        "component_resolution_receipt_ref": goal_run.get("goal_run_profile_resolution_receipt_ref").cloned().unwrap_or(Value::Null),
-        "resolver_kind": "harness_profile",
-        "resolver_revision_ref": goal_run.get("goal_run_profile_revision_ref").cloned().unwrap_or(Value::Null),
-        "resolver_content_hash": goal_run.get("goal_run_profile_content_hash").cloned().unwrap_or(Value::Null)
-    }));
+    let producer_resolution =
+        match goal_run_result_producer_resolution(&st.data_dir, &id, &goal_run) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+    object.insert("producer_component_resolution".into(), producer_resolution);
     let admitted_at = iso_now();
     let admitted = match GoalPursuitCore.admit_work_result(&body, &admitted_at) {
         Ok(admitted) => admitted,

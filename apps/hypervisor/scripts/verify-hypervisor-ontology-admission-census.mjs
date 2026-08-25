@@ -267,9 +267,15 @@ const PINNED = {
   // built-in slots, and exact released gateway-adapter resolution add 29 source tokens and six
   // foreign-qualified names across the already-reachable modules. They change no ODK mention,
   // writer bucket, raw-filesystem count, opaque/bare bucket, or ontology owner/admitter edge.
+  // M04.4 general-profile consumption re-derivation (2026-08-25): strict owner-visible profile
+  // resolution on the general GoalRun surface adds 21 source tokens and two foreign-qualified
+  // names. It changes no other pinned traversal or adjudication population.
+  // M04.4 WorkResult producer-resolution re-derivation (2026-08-25): the strict persisted
+  // component-snapshot reader and exact concrete harness/adapter derivation add 37 source tokens
+  // and eight foreign-qualified names. No ODK, writer, filesystem, or owner edge changes.
   modules: 98,
   familyMentions: 284,
-  tokenMentions: 118197,
+  tokenMentions: 118255,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 303 },
   productionFsCalls: 234,
@@ -290,7 +296,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3977,
+    "foreign-qualified": 3987,
     "opaque-initialiser": 1662,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
