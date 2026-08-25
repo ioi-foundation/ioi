@@ -8077,6 +8077,54 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/state-transition-commitment/v1",
+      "canonical_name": "StateTransitionCommitment",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/interop-and-collaboration-terms.md#statetransitioncommitmentenvelope",
+      "schema_version": "ioi.state-transition-commitment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "state-transition-commitment.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/state-transition-commitment/exact-commitment/v1",
+          "path": "invariants/state-transition-commitment.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "StateTransitionCommitmentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "StateTransitionCommitmentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/outcome-delta/v3",
       "canonical_name": "OutcomeDelta",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#outcomedeltaenvelope",

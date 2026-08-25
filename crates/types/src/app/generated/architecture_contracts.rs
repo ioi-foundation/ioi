@@ -205,6 +205,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/oracle-evidence-profile/v1", "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1"),
     ("schema://ioi/foundations/ordering-admission-finality-profile/v1", "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3"),
     ("schema://ioi/foundations/ordering-finality-recovery/v1", "sha256:46db62b15166a669c4da0be29b85dbb60b14965fd64a56d1239dab71d2e0108c"),
+    ("schema://ioi/foundations/state-transition-commitment/v1", "sha256:f5df0490fd044e2202eb4a3e2671f0038bd1d7b495ba5b53b4efc5e1a7ee9f76"),
     ("schema://ioi/foundations/outcome-delta/v3", "sha256:ee040b737b47f68264dd0bff1d638b7c539ef4b9679691ca2924e2b4b56085a2"),
     ("schema://ioi/foundations/physical-action-execution-receipt/v1", "sha256:b6a77eae69259a122ccf374a885071b07e4497095aecbcebaecab9e566855e5a"),
     ("schema://ioi/foundations/receipt-checkpoint/v1", "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b"),
@@ -73397,6 +73398,241 @@ pub enum OrderingFinalityRecoveryV1Status {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct StateTransitionCommitmentV1 {
+    pub schema_version: StateTransitionCommitmentV1SchemaVersion,
+    pub state_transition_commitment_id: String,
+    pub system_id: String,
+    pub hypervisor_node_id: String,
+    pub acting_node_membership_ref: String,
+    pub ordering_admission_finality_profile_ref: String,
+    pub authority_mode: StateTransitionCommitmentV1AuthorityMode,
+    pub writer_epoch: Option<ArchitectureContractInteger>,
+    pub ordering_or_finality_proof_ref: Option<String>,
+    pub sequence: ArchitectureContractInteger,
+    pub expected_predecessor_commitment_ref: Option<String>,
+    pub operation_or_batch_commitment: String,
+    pub resulting_transition_commitment_ref: String,
+    pub admission_proof_ref: String,
+    pub transition_kind: StateTransitionCommitmentV1TransitionKind,
+    pub operation_ref: String,
+    pub predecessor_state_root: Option<String>,
+    pub resulting_state_root: String,
+    pub receipt_root: String,
+    pub ordering_recovery_ref: Option<String>,
+    pub external_settlement_ref: Option<String>,
+    pub status: StateTransitionCommitmentV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for StateTransitionCommitmentV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/state-transition-commitment/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/state-transition-commitment/v1","title":"StateTransitionCommitment","description":"The complete operational, non-economic commitment for one admitted System transition. It binds exact predecessor continuity, acting membership, the active ordering/finality profile, one profile-native authority proof, state and receipt roots, and an optional later settlement link.","x-ioi-schema-version":"ioi.state-transition-commitment.v1","type":"object","additionalProperties":false,"required":["schema_version","state_transition_commitment_id","system_id","hypervisor_node_id","acting_node_membership_ref","ordering_admission_finality_profile_ref","authority_mode","writer_epoch","ordering_or_finality_proof_ref","sequence","expected_predecessor_commitment_ref","operation_or_batch_commitment","resulting_transition_commitment_ref","admission_proof_ref","transition_kind","operation_ref","predecessor_state_root","resulting_state_root","receipt_root","ordering_recovery_ref","external_settlement_ref","status"],"properties":{"schema_version":{"const":"ioi.state-transition-commitment.v1"},"state_transition_commitment_id":{"type":"string","pattern":"^transition://state-transition/sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"hypervisor_node_id":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"acting_node_membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"ordering_admission_finality_profile_ref":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"authority_mode":{"enum":["writer_epoch","ordering_or_finality_proof"]},"writer_epoch":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"ordering_or_finality_proof_ref":{"anyOf":[{"$ref":"#/$defs/evidenceRef"},{"type":"null"}]},"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"expected_predecessor_commitment_ref":{"anyOf":[{"$ref":"#/$defs/commitmentRef"},{"type":"null"}]},"operation_or_batch_commitment":{"$ref":"#/$defs/hash"},"resulting_transition_commitment_ref":{"type":"string","pattern":"^commitment://state-transition/sha256:[0-9a-f]{64}$"},"admission_proof_ref":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"},"transition_kind":{"enum":["module_invocation","workflow_transition","authority_outcome","task_handoff","upgrade_decision","receipt_root","dispute_escalation","ordering_finality_recovery"]},"operation_ref":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,248}$"},"predecessor_state_root":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_state_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"ordering_recovery_ref":{"anyOf":[{"type":"string","pattern":"^ordering-recovery://[^\\s]{1,248}$"},{"type":"null"}]},"external_settlement_ref":{"anyOf":[{"type":"string","pattern":"^settlement://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"authority_mode":{"const":"writer_epoch"}},"required":["authority_mode"]},"then":{"properties":{"writer_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"ordering_or_finality_proof_ref":{"type":"null"}}}},{"if":{"properties":{"authority_mode":{"const":"ordering_or_finality_proof"}},"required":["authority_mode"]},"then":{"properties":{"writer_epoch":{"type":"null"},"ordering_or_finality_proof_ref":{"$ref":"#/$defs/evidenceRef"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"commitmentRef":{"type":"string","pattern":"^commitment://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<StateTransitionCommitmentV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_transition_commitment_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"state_transition_commitment_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"state_transition_commitment_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hypervisor_node_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hypervisor_node_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hypervisor_node_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acting_node_membership_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"acting_node_membership_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"acting_node_membership_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_admission_finality_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordering_admission_finality_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"ordering_admission_finality_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_mode: serde_json::from_value::<StateTransitionCommitmentV1AuthorityMode>(
+                object
+                    .remove(r#"authority_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            writer_epoch: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"writer_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"writer_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_or_finality_proof_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ordering_or_finality_proof_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ordering_or_finality_proof_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_predecessor_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_predecessor_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_predecessor_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_or_batch_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_or_batch_commitment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"operation_or_batch_commitment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_transition_commitment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resulting_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_proof_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_proof_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_proof_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_kind: serde_json::from_value::<StateTransitionCommitmentV1TransitionKind>(
+                object
+                    .remove(r#"transition_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_recovery_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ordering_recovery_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ordering_recovery_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_settlement_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"external_settlement_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"external_settlement_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<StateTransitionCommitmentV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StateTransitionCommitmentV1SchemaVersion {
+    #[serde(rename = r#"ioi.state-transition-commitment.v1"#)]
+    IoiStateTransitionCommitmentV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StateTransitionCommitmentV1AuthorityMode {
+    #[serde(rename = r#"writer_epoch"#)]
+    WriterEpoch,
+    #[serde(rename = r#"ordering_or_finality_proof"#)]
+    OrderingOrFinalityProof,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StateTransitionCommitmentV1TransitionKind {
+    #[serde(rename = r#"module_invocation"#)]
+    ModuleInvocation,
+    #[serde(rename = r#"workflow_transition"#)]
+    WorkflowTransition,
+    #[serde(rename = r#"authority_outcome"#)]
+    AuthorityOutcome,
+    #[serde(rename = r#"task_handoff"#)]
+    TaskHandoff,
+    #[serde(rename = r#"upgrade_decision"#)]
+    UpgradeDecision,
+    #[serde(rename = r#"receipt_root"#)]
+    ReceiptRoot,
+    #[serde(rename = r#"dispute_escalation"#)]
+    DisputeEscalation,
+    #[serde(rename = r#"ordering_finality_recovery"#)]
+    OrderingFinalityRecovery,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum StateTransitionCommitmentV1Status {
+    #[serde(rename = r#"committed"#)]
+    Committed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct OutcomeDeltaV3 {
     pub schema_version: OutcomeDeltaV3SchemaVersion,
     pub outcome_delta_id: String,
@@ -94203,6 +94439,22 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: Some("ordering_finality_recovery.trigger_evidence.bound_when_progressed"),
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/state-transition-commitment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/state-transition-commitment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/outcome-delta/v3",
         path: "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json",
         expected_accept: true,
@@ -103036,6 +103288,28 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json"#,
+        contract_id: r#"schema://ioi/foundations/state-transition-commitment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json"#,
+        contract_id: r#"schema://ioi/foundations/state-transition-commitment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json"#,
         contract_id: r#"schema://ioi/foundations/outcome-delta/v3"#,
         source_fixture_path: Some(
@@ -105769,6 +106043,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/oracle-evidence-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/oracle-evidence-profile/v1","title":"OracleEvidenceProfile","description":"Qualified, defeasible, scope-bound evidence admission profile for one System.","x-ioi-schema-version":"ioi.oracle-evidence-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","oracle_evidence_profile_id","system_id","version","fact_class_refs","source_requirements","aggregation","contradiction","challenge","admission","missing_or_stale_evidence_mode","source_replacement_policy_ref","privacy_policy_ref","retention_policy_ref","status"],"properties":{"schema_version":{"const":"ioi.oracle-evidence-profile.v1"},"oracle_evidence_profile_id":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"version":{"$ref":"#/$defs/version"},"fact_class_refs":{"$ref":"#/$defs/canonicalRefs"},"source_requirements":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_class","source_refs","evidence_schema_ref","signer_or_principal_refs","freshness_and_finality_policy_ref","independence_group_ref","required"],"properties":{"source_class":{"enum":["official_record","institutional_attestation","signed_sensor","contractual_notice","human_attestation","network_commitment","other"]},"source_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_schema_ref":{"$ref":"#/$defs/schemaRef"},"signer_or_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"freshness_and_finality_policy_ref":{"$ref":"#/$defs/policyRef"},"independence_group_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"required":{"type":"boolean"}},"allOf":[{"if":{"properties":{"required":{"type":"boolean","const":true}},"required":["required"]},"then":{"properties":{"source_refs":{"type":"array","minItems":1}}}}]},"minItems":1,"maxItems":64,"uniqueItems":true},"aggregation":{"type":"object","additionalProperties":false,"required":["rule","minimum_sources","minimum_independent_principals","threshold_policy_ref","correlated_failure_policy_ref","uncertainty_policy_ref"],"properties":{"rule":{"enum":["single_source","threshold","weighted","adjudicated"]},"minimum_sources":{"$ref":"#/$defs/positiveInteger"},"minimum_independent_principals":{"$ref":"#/$defs/positiveInteger"},"threshold_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"correlated_failure_policy_ref":{"$ref":"#/$defs/policyRef"},"uncertainty_policy_ref":{"$ref":"#/$defs/policyRef"}},"allOf":[{"if":{"properties":{"rule":{"enum":["threshold","weighted"]}},"required":["rule"]},"then":{"properties":{"threshold_policy_ref":{"$ref":"#/$defs/policyRef"}}}}]},"contradiction":{"type":"object","additionalProperties":false,"required":["policy","adjudicator_refs","dispute_policy_ref"],"properties":{"policy":{"enum":["fail_closed","hold_pending","escalate"]},"adjudicator_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_policy_ref":{"$ref":"#/$defs/policyRef"}}},"challenge":{"type":"object","additionalProperties":false,"required":["challenge_window_ref","verifier_refs","appeal_policy_ref"],"properties":{"challenge_window_ref":{"$ref":"#/$defs/policyRef"},"verifier_refs":{"$ref":"#/$defs/canonicalRefs"},"appeal_policy_ref":{"$ref":"#/$defs/policyRef"}}},"admission":{"type":"object","additionalProperties":false,"required":["decision_semantics","ontology_assertion_schema_refs","required_verifier_path_refs","ontology_action_contract_refs","permitted_applicability_scope_refs","permitted_consequence_scope_refs","maximum_assertion_validity_policy_ref","required_authority_refs","policy_ref","receipt_obligations"],"properties":{"decision_semantics":{"const":"qualified_scope_bound_operational_determination"},"ontology_assertion_schema_refs":{"$ref":"#/$defs/schemaRefs"},"required_verifier_path_refs":{"$ref":"#/$defs/canonicalRefs"},"ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_applicability_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"maximum_assertion_validity_policy_ref":{"$ref":"#/$defs/policyRef"},"required_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"policy_ref":{"$ref":"#/$defs/policyRef"},"receipt_obligations":{"type":"array","items":{"const":"oracle_evidence_admission"},"minItems":1,"maxItems":1,"uniqueItems":true}}},"missing_or_stale_evidence_mode":{"enum":["unknown","read_only","pause","escalate"]},"source_replacement_policy_ref":{"$ref":"#/$defs/policyRef"},"privacy_policy_ref":{"$ref":"#/$defs/policyRef"},"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"status":{"enum":["draft","active","superseded","revoked"]}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"},"schemaRefs":{"type":"array","items":{"$ref":"#/$defs/schemaRef"},"maxItems":128,"uniqueItems":true}}}"##),
     ("schema://ioi/foundations/ordering-admission-finality-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ordering-admission-finality-profile/v1","title":"OrderingAdmissionFinalityProfile","description":"Ordering, admission, cryptographic continuity, finality, and fault-model profile for one System.","x-ioi-schema-version":"ioi.ordering-admission-finality-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","ordering_profile_id","system_id","constitution_ref","version","profile","authority_distribution","ordering","admission","cryptographic_continuity","finality","fault_model_ref","liveness_policy_ref","membership_and_profile_change_policy_ref","conformance_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"ordering_profile_id":{"$ref":"#/$defs/orderingProfileRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"version":{"$ref":"#/$defs/version"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"authority_distribution":{"type":"object","additionalProperties":false,"required":["posture","principal_refs","independence_evidence_refs"],"properties":{"posture":{"enum":["single_principal","declared_multi_principal","external_network"]},"principal_refs":{"$ref":"#/$defs/canonicalRefs"},"independence_evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"ordering":{"type":"object","additionalProperties":false,"required":["rule_ref","member_node_membership_refs","writer_epoch_required","fencing_required","leader_or_sequencer_selection_ref","conflict_rule_ref"],"properties":{"rule_ref":{"$ref":"#/$defs/policyRef"},"member_node_membership_refs":{"type":"array","items":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"maxItems":256,"uniqueItems":true},"writer_epoch_required":{"type":"boolean"},"fencing_required":{"type":"boolean"},"leader_or_sequencer_selection_ref":{"$ref":"#/$defs/nullablePolicyRef"},"conflict_rule_ref":{"$ref":"#/$defs/policyRef"}}},"admission":{"type":"object","additionalProperties":false,"required":["deterministic_transition_function_ref","schema_root","policy_root","authority_rule_ref","threshold","require_expected_predecessor_root","receipt_obligations"],"properties":{"deterministic_transition_function_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,248}$"},"schema_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"authority_rule_ref":{"$ref":"#/$defs/policyRef"},"threshold":{"type":"object","additionalProperties":false,"required":["required","eligible"],"properties":{"required":{"$ref":"#/$defs/portableInteger"},"eligible":{"$ref":"#/$defs/portableInteger"}}},"require_expected_predecessor_root":{"type":"boolean","const":true},"receipt_obligations":{"$ref":"#/$defs/canonicalRefs"}}},"cryptographic_continuity":{"type":"object","additionalProperties":false,"required":["hash_and_signature_suite_ref","sequence_rule_ref","require_monotonic_sequence","require_expected_predecessor_commitment","operation_or_batch_commitment_schema_ref","admission_proof_schema_ref","require_resulting_state_root","require_receipt_root","checkpoint_and_compaction_policy_ref"],"properties":{"hash_and_signature_suite_ref":{"$ref":"#/$defs/schemaRef"},"sequence_rule_ref":{"$ref":"#/$defs/policyRef"},"require_monotonic_sequence":{"type":"boolean","const":true},"require_expected_predecessor_commitment":{"type":"boolean","const":true},"operation_or_batch_commitment_schema_ref":{"$ref":"#/$defs/schemaRef"},"admission_proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"require_resulting_state_root":{"type":"boolean","const":true},"require_receipt_root":{"type":"boolean","const":true},"checkpoint_and_compaction_policy_ref":{"$ref":"#/$defs/policyRef"}}},"finality":{"type":"object","additionalProperties":false,"required":["scope","rule_ref","proof_schema_ref","rollback_posture","external_network_ref","external_contract_ref","external_confirmation_policy_ref"],"properties":{"scope":{"enum":["local_operational","cross_domain","public_economic"]},"rule_ref":{"$ref":"#/$defs/policyRef"},"proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"rollback_posture":{"enum":["recoverable_before_final","compensation_only_after_final","irreversible_after_final"]},"external_network_ref":{"anyOf":[{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},{"type":"null"}]},"external_contract_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"external_confirmation_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"}}},"fault_model_ref":{"$ref":"#/$defs/policyRef"},"liveness_policy_ref":{"$ref":"#/$defs/policyRef"},"membership_and_profile_change_policy_ref":{"$ref":"#/$defs/policyRef"},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"status":{"enum":["draft","active","superseded","revoked"]}},"allOf":[{"if":{"properties":{"profile":{"const":"external_chain_finality"}},"required":["profile"]},"then":{"properties":{"authority_distribution":{"type":"object","properties":{"posture":{"const":"external_network"}}},"finality":{"type":"object","properties":{"external_network_ref":{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},"external_confirmation_policy_ref":{"$ref":"#/$defs/policyRef"}}}}}},{"if":{"properties":{"profile":{"enum":["single_authority","replicated_single_authority"]}},"required":["profile"]},"then":{"properties":{"authority_distribution":{"type":"object","properties":{"posture":{"const":"single_principal"},"principal_refs":{"type":"array","minItems":1,"maxItems":1}}}}}},{"if":{"properties":{"status":{"const":"draft"}},"required":["status"]},"then":{"properties":{"conformance_receipt_refs":{"type":"array","maxItems":0}}}},{"if":{"properties":{"status":{"const":"active"}},"required":["status"]},"then":{"properties":{"conformance_receipt_refs":{"type":"array","minItems":1}}}}],"$defs":{"portableInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true}}}"##),
     ("schema://ioi/foundations/ordering-finality-recovery/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ordering-finality-recovery/v1","title":"OrderingFinalityRecovery","description":"One admitted threshold, BFT, membership-reconfiguration, or external-finality recovery transition over an active ordering profile. Predecessor fields are compare-and-swap inputs, the recovery proof must satisfy the active profile, the resulting commitment preserves the cryptographic chain, and the object never invents authority. Single-writer promotion uses the writer-epoch-transition/fencing family instead of this envelope: no single-writer recovery class exists here.","x-ioi-schema-version":"ioi.ordering-finality-recovery.v1","type":"object","additionalProperties":false,"required":["schema_version","ordering_recovery_id","system_id","failover_profile_ref","ordering_admission_finality_profile_ref","recovery_class","predecessor","trigger_evidence_refs","governing_decision_ref","authority_grant_refs","transition","result","status"],"properties":{"schema_version":{"const":"ioi.ordering-finality-recovery.v1"},"ordering_recovery_id":{"type":"string","pattern":"^ordering-recovery://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"failover_profile_ref":{"type":"string","pattern":"^failover-profile://[^\\s]{1,248}$"},"ordering_admission_finality_profile_ref":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"recovery_class":{"enum":["threshold_view_or_round","bft_view_or_round","membership_reconfiguration","external_finality_rebind"]},"predecessor":{"type":"object","additionalProperties":false,"required":["sequence","transition_commitment_ref","state_root","membership_root","view_or_round","external_finality_ref"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"transition_commitment_ref":{"$ref":"#/$defs/commitmentRef"},"state_root":{"$ref":"#/$defs/hash"},"membership_root":{"$ref":"#/$defs/hash"},"view_or_round":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"external_finality_ref":{"anyOf":[{"$ref":"#/$defs/evidenceRef"},{"type":"null"}]}}},"trigger_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":32,"uniqueItems":true},"governing_decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":8,"uniqueItems":true},"transition":{"type":"object","additionalProperties":false,"required":["proposed_view_or_round","membership_transition_ref","expected_membership_root","resulting_membership_root","threshold_or_consensus_proof_refs","external_finality_recovery_ref","recovery_proof_ref"],"properties":{"proposed_view_or_round":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"membership_transition_ref":{"anyOf":[{"type":"string","pattern":"^(?:transition|decision)://[^\\s]{1,248}$"},{"type":"null"}]},"expected_membership_root":{"$ref":"#/$defs/hash"},"resulting_membership_root":{"$ref":"#/$defs/hash"},"threshold_or_consensus_proof_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"external_finality_recovery_ref":{"anyOf":[{"$ref":"#/$defs/evidenceRef"},{"type":"null"}]},"recovery_proof_ref":{"$ref":"#/$defs/evidenceRef"}}},"result":{"anyOf":[{"type":"object","additionalProperties":false,"required":["sequence","transition_commitment_ref","state_root","finality_proof_ref","receipt_ref"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"transition_commitment_ref":{"$ref":"#/$defs/commitmentRef"},"state_root":{"$ref":"#/$defs/hash"},"finality_proof_ref":{"$ref":"#/$defs/evidenceRef"},"receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]}}},{"type":"null"}]},"status":{"enum":["proposed","evidence_pending","authorized","admitted","committed","rejected","failed_closed"]}},"allOf":[{"if":{"properties":{"status":{"const":"committed"}},"type":"object"},"then":{"properties":{"result":{"type":"object"}},"type":"object"},"else":{"properties":{"result":{"type":"null"}},"type":"object"}},{"if":{"properties":{"status":{"enum":["authorized","admitted","committed"]}},"type":"object"},"then":{"properties":{"authority_grant_refs":{"minItems":1,"type":"array"}},"type":"object"}},{"if":{"properties":{"recovery_class":{"enum":["threshold_view_or_round","bft_view_or_round"]}},"type":"object"},"then":{"properties":{"transition":{"properties":{"proposed_view_or_round":{"type":"integer","minimum":0,"maximum":9007199254740991},"threshold_or_consensus_proof_refs":{"minItems":1,"type":"array"}},"type":"object"}},"type":"object"}},{"if":{"properties":{"recovery_class":{"const":"membership_reconfiguration"}},"type":"object"},"then":{"properties":{"transition":{"properties":{"membership_transition_ref":{"type":"string"}},"type":"object"}},"type":"object"}},{"if":{"properties":{"recovery_class":{"const":"external_finality_rebind"}},"type":"object"},"then":{"properties":{"transition":{"properties":{"external_finality_recovery_ref":{"type":"string"}},"type":"object"}},"type":"object"}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"commitmentRef":{"type":"string","pattern":"^commitment://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"}}}"##),
+    ("schema://ioi/foundations/state-transition-commitment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/state-transition-commitment/v1","title":"StateTransitionCommitment","description":"The complete operational, non-economic commitment for one admitted System transition. It binds exact predecessor continuity, acting membership, the active ordering/finality profile, one profile-native authority proof, state and receipt roots, and an optional later settlement link.","x-ioi-schema-version":"ioi.state-transition-commitment.v1","type":"object","additionalProperties":false,"required":["schema_version","state_transition_commitment_id","system_id","hypervisor_node_id","acting_node_membership_ref","ordering_admission_finality_profile_ref","authority_mode","writer_epoch","ordering_or_finality_proof_ref","sequence","expected_predecessor_commitment_ref","operation_or_batch_commitment","resulting_transition_commitment_ref","admission_proof_ref","transition_kind","operation_ref","predecessor_state_root","resulting_state_root","receipt_root","ordering_recovery_ref","external_settlement_ref","status"],"properties":{"schema_version":{"const":"ioi.state-transition-commitment.v1"},"state_transition_commitment_id":{"type":"string","pattern":"^transition://state-transition/sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"hypervisor_node_id":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"acting_node_membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"ordering_admission_finality_profile_ref":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"authority_mode":{"enum":["writer_epoch","ordering_or_finality_proof"]},"writer_epoch":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"ordering_or_finality_proof_ref":{"anyOf":[{"$ref":"#/$defs/evidenceRef"},{"type":"null"}]},"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"expected_predecessor_commitment_ref":{"anyOf":[{"$ref":"#/$defs/commitmentRef"},{"type":"null"}]},"operation_or_batch_commitment":{"$ref":"#/$defs/hash"},"resulting_transition_commitment_ref":{"type":"string","pattern":"^commitment://state-transition/sha256:[0-9a-f]{64}$"},"admission_proof_ref":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"},"transition_kind":{"enum":["module_invocation","workflow_transition","authority_outcome","task_handoff","upgrade_decision","receipt_root","dispute_escalation","ordering_finality_recovery"]},"operation_ref":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,248}$"},"predecessor_state_root":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_state_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"ordering_recovery_ref":{"anyOf":[{"type":"string","pattern":"^ordering-recovery://[^\\s]{1,248}$"},{"type":"null"}]},"external_settlement_ref":{"anyOf":[{"type":"string","pattern":"^settlement://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"authority_mode":{"const":"writer_epoch"}},"required":["authority_mode"]},"then":{"properties":{"writer_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"ordering_or_finality_proof_ref":{"type":"null"}}}},{"if":{"properties":{"authority_mode":{"const":"ordering_or_finality_proof"}},"required":["authority_mode"]},"then":{"properties":{"writer_epoch":{"type":"null"},"ordering_or_finality_proof_ref":{"$ref":"#/$defs/evidenceRef"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"commitmentRef":{"type":"string","pattern":"^commitment://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"}}}"##),
     ("schema://ioi/foundations/outcome-delta/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/outcome-delta/v3","title":"OutcomeDelta","x-ioi-schema-version":"ioi.foundations.outcome-delta.v3","type":"object","additionalProperties":false,"required":["schema_version","outcome_delta_id","work_subject_ref","system_binding","proposed_by_ref","target_ref","delta_kind","payload_ref","precondition_and_invariant_refs","expected_effect_ref","verifier_and_acceptance_refs","information_flow_label_refs","status"],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.foundations.outcome-delta.v3"},"outcome_delta_id":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"proposed_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"target_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"delta_kind":{"enum":["create","update","supersede","reject","merge","promote","rollback","course_correct","close"]},"payload_ref":{"type":"string","pattern":"^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$"},"precondition_and_invariant_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|gate|state)://[^\\s]{1,500}$"}},"expected_effect_ref":{"anyOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"verifier_and_acceptance_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|rubric|gate)://[^\\s]{1,500}$"}},"information_flow_label_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"}},"status":{"enum":["proposed","evaluating","admitted","rejected","superseded","rolled_back"]}}}"##),
     ("schema://ioi/foundations/physical-action-execution-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/physical-action-execution-receipt/v1","title":"PhysicalActionExecutionReceipt","description":"Portable physical-action execution receipt profile bundling one exact closed ReceiptEnvelope v1 with the domain-specific execution body.","x-ioi-schema-version":"ioi.physical-action-execution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.physical-action-execution-receipt.v1"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/physicalActionExecutionBody"},"body_hash":{"$ref":"#/$defs/sha256Hash","description":"SHA-256 over JCS of the exact receipt_envelope and body bundle."},"receipt_hash":{"$ref":"#/$defs/sha256Hash","description":"Domain-separated physical-action execution receipt hash over the same canonical bundle."}},"$defs":{"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"physical_action_execution"},"receipt_profile_ref":{"const":"schema://ioi/foundations/physical-action-execution-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"claim_scope_ref":{"anyOf":[{"$ref":"#/$defs/schemaOrPolicyRef"},{"type":"null"}]},"run_id":{"anyOf":[{"$ref":"#/$defs/runRef"},{"type":"null"}]},"task_id":{"anyOf":[{"$ref":"#/$defs/taskRef"},{"type":"null"}]},"actor_id":{"$ref":"#/$defs/protocolPrincipalOrRuntimeRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"anyOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"minItems":1,"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"minItems":1,"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"uniqueItems":true},"verification_ref":{"anyOf":[{"$ref":"#/$defs/verificationRef"},{"type":"null"}]},"acceptance_ref":{"anyOf":[{"$ref":"#/$defs/acceptanceRef"},{"type":"null"}]},"adjudication_ref":{"anyOf":[{"$ref":"#/$defs/adjudicationRef"},{"type":"null"}]},"settlement_ref":{"anyOf":[{"$ref":"#/$defs/settlementRef"},{"type":"null"}]},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"$ref":"#/$defs/publicCommitmentRef"},{"type":"null"}]}}},"physicalActionExecutionBody":{"type":"object","additionalProperties":false,"required":["idempotency_key","execution_request_hash","admission_id","admission_record_hash","work_subject","target_system_ref","resource_group_bindings","emergency_stop_authority_ref","controller_binding_ref","runtime_graph_manifest_ref","runtime_graph_manifest_hash","safety_envelope_ref","safety_envelope_hash","assurance_evidence_bundle_ref","assurance_evidence_bundle_hash","active_writer_lease_ref","active_writer_fencing_epoch","active_writer_fencing_token_hash","graph_timing_chain_ref","graph_timing_chain_hash","command_schema_ref","command_payload_hash","segment_commitment_receipt_refs","preflight_receipt_refs","sensor_evidence_receipt_refs","controller_operation_ref","dispatch_posture","dispatch_evidence_receipt_refs","controller_receipt_refs","outcome_normalization_error_codes","effect_status","state_root_before","state_root_after","previous_execution_receipt_hash","executed_at","incident_refs","reconciliation_state","agentgres_operation_refs","assurance_stage"],"properties":{"idempotency_key":{"type":"string","minLength":1},"execution_request_hash":{"$ref":"#/$defs/sha256Hash"},"admission_id":{"type":"string","pattern":"^physical-action-admission:[^\\s]+$"},"admission_record_hash":{"$ref":"#/$defs/sha256Hash"},"work_subject":{"$ref":"#/$defs/workSubject"},"target_system_ref":{"$ref":"#/$defs/physicalTargetRef"},"resource_group_bindings":{"type":"array","items":{"$ref":"#/$defs/resourceGroupBinding"},"minItems":1,"uniqueItems":true},"emergency_stop_authority_ref":{"$ref":"#/$defs/emergencyStopAuthorityRef"},"controller_binding_ref":{"$ref":"#/$defs/controllerBindingRef"},"runtime_graph_manifest_ref":{"$ref":"#/$defs/runtimeGraphManifestRef"},"runtime_graph_manifest_hash":{"$ref":"#/$defs/sha256Hash"},"safety_envelope_ref":{"$ref":"#/$defs/safetyEnvelopeRef"},"safety_envelope_hash":{"$ref":"#/$defs/sha256Hash"},"assurance_evidence_bundle_ref":{"$ref":"#/$defs/assuranceEvidenceBundleRef"},"assurance_evidence_bundle_hash":{"$ref":"#/$defs/sha256Hash"},"active_writer_lease_ref":{"$ref":"#/$defs/resourceLeaseRef"},"active_writer_fencing_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"active_writer_fencing_token_hash":{"$ref":"#/$defs/sha256Hash"},"graph_timing_chain_ref":{"$ref":"#/$defs/artifactRef"},"graph_timing_chain_hash":{"$ref":"#/$defs/sha256Hash"},"command_schema_ref":{"$ref":"#/$defs/actionSchemaRef"},"command_payload_hash":{"$ref":"#/$defs/sha256Hash"},"segment_commitment_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"preflight_receipt_refs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"minItems":1,"uniqueItems":true},"sensor_evidence_receipt_refs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"minItems":1,"uniqueItems":true},"controller_operation_ref":{"$ref":"#/$defs/effectRef"},"dispatch_posture":{"enum":["not_dispatched_proven","dispatched_observed","dispatch_ambiguous"]},"dispatch_evidence_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"controller_receipt_refs":{"$ref":"#/$defs/receiptRefArray"},"outcome_normalization_error_codes":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9_]*$"},"uniqueItems":true},"effect_status":{"enum":["committed","rejected","unknown"]},"state_root_before":{"type":"string","minLength":1},"state_root_after":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"previous_execution_receipt_hash":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"executed_at":{"$ref":"#/$defs/canonicalDateTime"},"incident_refs":{"type":"array","items":{"$ref":"#/$defs/incidentRef"},"uniqueItems":true},"reconciliation_state":{"enum":["confirmed","partially_confirmed","ambiguous_effect","compensation_required","non_retryable","failed"]},"agentgres_operation_refs":{"type":"array","items":{"$ref":"#/$defs/agentgresOperationRef"},"uniqueItems":true},"assurance_stage":{"enum":["attested","evidenced","verified","accepted","adjudicated","settled"]}},"allOf":[{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"committed"}}},"then":{"type":"object","properties":{"dispatch_posture":{"const":"dispatched_observed"},"controller_receipt_refs":{"type":"array","minItems":1},"state_root_after":{"type":"string","minLength":1},"outcome_normalization_error_codes":{"type":"array","maxItems":0},"reconciliation_state":{"const":"confirmed"}}}},{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"rejected"}}},"then":{"type":"object","properties":{"dispatch_posture":{"const":"not_dispatched_proven"},"state_root_after":{"type":"null"},"outcome_normalization_error_codes":{"type":"array","maxItems":0},"reconciliation_state":{"const":"failed"}}}},{"if":{"type":"object","required":["effect_status"],"properties":{"effect_status":{"const":"unknown"}}},"then":{"type":"object","properties":{"reconciliation_state":{"const":"ambiguous_effect"}}}}]},"workSubject":{"type":"object","additionalProperties":false,"required":["kind","ref"],"properties":{"kind":{"enum":["goal_run","automation_run","work_item","work_claim","service_order","physical_action_intent"]},"ref":{"$ref":"#/$defs/canonicalRef"}}},"resourceGroupBinding":{"type":"object","additionalProperties":false,"required":["group_revision_ref","membership_closure_hash","unit_refs","controller_binding_refs","sensor_refs","actuator_refs","physical_zone_refs","emergency_stop_authority_refs"],"properties":{"group_revision_ref":{"$ref":"#/$defs/resourceGroupRevisionRef"},"membership_closure_hash":{"$ref":"#/$defs/sha256Hash"},"unit_refs":{"type":"array","items":{"$ref":"#/$defs/embodiedUnitRef"},"minItems":1,"uniqueItems":true},"controller_binding_refs":{"type":"array","items":{"$ref":"#/$defs/controllerBindingRef"},"minItems":1,"uniqueItems":true},"sensor_refs":{"type":"array","items":{"$ref":"#/$defs/sensorRef"},"minItems":1,"uniqueItems":true},"actuator_refs":{"type":"array","items":{"$ref":"#/$defs/actuatorRef"},"minItems":1,"uniqueItems":true},"physical_zone_refs":{"type":"array","items":{"$ref":"#/$defs/physicalZoneRef"},"minItems":1,"uniqueItems":true},"emergency_stop_authority_refs":{"type":"array","items":{"$ref":"#/$defs/emergencyStopAuthorityRef"},"minItems":1,"uniqueItems":true}}},"receiptRefArray":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"uniqueItems":true},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]+$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]+$"},"runRef":{"type":"string","pattern":"^run://[^\\s]+$"},"taskRef":{"type":"string","pattern":"^task://[^\\s]+$"},"protocolPrincipalOrRuntimeRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]+$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"},"verificationRef":{"type":"string","pattern":"^(?:verifier-path|verification|receipt)://[^\\s]+$"},"acceptanceRef":{"type":"string","pattern":"^acceptance://[^\\s]+$"},"adjudicationRef":{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]+$"},"settlementRef":{"type":"string","pattern":"^settlement://[^\\s]+$"},"publicCommitmentRef":{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]+$"},"physicalTargetRef":{"type":"string","pattern":"^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$"},"resourceGroupRevisionRef":{"type":"string","pattern":"^embodied-resource-group-revision://[^\\s]+$"},"embodiedUnitRef":{"type":"string","pattern":"^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$","description":"Canonical physical-unit write reference. The hyphenated facility-system scheme is required; legacy underscore aliases are read-side migration input only."},"controllerBindingRef":{"type":"string","pattern":"^controller-binding://[^\\s]+$"},"sensorRef":{"type":"string","pattern":"^sensor://[^\\s]+$"},"actuatorRef":{"type":"string","pattern":"^actuator://[^\\s]+$"},"physicalZoneRef":{"type":"string","pattern":"^zone://[^\\s]+$"},"emergencyStopAuthorityRef":{"type":"string","pattern":"^estop://[^\\s]+$"},"runtimeGraphManifestRef":{"type":"string","pattern":"^embodied-runtime-graph-manifest://[^\\s]+$"},"safetyEnvelopeRef":{"type":"string","pattern":"^safety://[^\\s]+$"},"assuranceEvidenceBundleRef":{"type":"string","pattern":"^assurance-evidence://[^\\s]+$"},"resourceLeaseRef":{"type":"string","pattern":"^resource-lease://[^\\s]+$"},"actionSchemaRef":{"type":"string","pattern":"^action-schema://[^\\s]+$"},"effectRef":{"type":"string","pattern":"^effect://[^\\s]+$"},"incidentRef":{"type":"string","pattern":"^incident://[^\\s]+$"},"agentgresOperationRef":{"type":"string","pattern":"^agentgres://operation/[^\\s]+$"}}}"##),
     ("schema://ioi/foundations/receipt-checkpoint/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v1","title":"ReceiptCheckpoint","description":"Signed checkpoint over one versioned append-only receipt hash-chain accumulator.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v1","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","signature_domain","schema_hash","checkpoint_id","receipt_log_id","accumulator_algorithm","receipt_body_hash_profile","receipt_contract_id","receipt_schema_hash","accumulator_size","accumulator_root","previous_checkpoint_ref","previous_checkpoint_hash","previous_accumulator_size","previous_accumulator_root","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","issued_at","build_identity_ref","policy_posture_ref","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v1"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"signature_domain":{"const":"ioi.receipt-checkpoint.v1"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"receipt_log_id":{"$ref":"#/$defs/logRef"},"accumulator_algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"accumulator_size":{"type":"integer","minimum":1,"maximum":9007199254740991},"accumulator_root":{"$ref":"#/$defs/sha256Hash"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"previous_accumulator_size":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"previous_accumulator_root":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"issued_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"build_identity_ref":{"$ref":"#/$defs/buildRef"},"policy_posture_ref":{"$ref":"#/$defs/policyRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]+$"},"logRef":{"type":"string","pattern":"^receipt-log://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"buildRef":{"type":"string","pattern":"^build://[^\\s]+$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"##),
@@ -105974,6 +106249,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/oracle-evidence-profile/v1", r#"[{"rule_id":"oracle_evidence.contradiction.escalation_adjudicator.required","description":"Escalation names at least one adjudicator.","expression":{"operator":"non_empty_when_in","path":"$.contradiction.adjudicator_refs","when_path":"$.contradiction.policy","values":["escalate"]}}]"#),
     ("schema://ioi/foundations/ordering-admission-finality-profile/v1", r#"[{"rule_id":"ordering_admission_finality.threshold.required_lte_eligible","description":"The required admission threshold cannot exceed the eligible principal count.","expression":{"operator":"numbers_lte","paths":["$.admission.threshold.required","$.admission.threshold.eligible"]}}]"#),
     ("schema://ioi/foundations/ordering-finality-recovery/v1", r#"[{"rule_id":"ordering_finality_recovery.trigger_evidence.bound_when_progressed","description":"A recovery past proposal binds nonempty trigger evidence; authority is never invented from a bare status string.","expression":{"operator":"non_empty_when_in","when_path":"$.status","values":["evidence_pending","authorized","admitted","committed"],"path":"$.trigger_evidence_refs"}}]"#),
+    ("schema://ioi/foundations/state-transition-commitment/v1", r#"[{"rule_id":"state_transition_commitment.resulting_ref.recomputes","description":"The resulting commitment reference recomputes over every operational continuity field and excludes no authority, state, receipt, recovery, or settlement coordinate.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.state-transition-commitment-jcs-sha256.v1"},"system_id":{"path":"$.system_id"},"hypervisor_node_id":{"path":"$.hypervisor_node_id"},"acting_node_membership_ref":{"path":"$.acting_node_membership_ref"},"ordering_admission_finality_profile_ref":{"path":"$.ordering_admission_finality_profile_ref"},"authority_mode":{"path":"$.authority_mode"},"writer_epoch":{"path":"$.writer_epoch"},"ordering_or_finality_proof_ref":{"path":"$.ordering_or_finality_proof_ref"},"sequence":{"path":"$.sequence"},"expected_predecessor_commitment_ref":{"path":"$.expected_predecessor_commitment_ref"},"operation_or_batch_commitment":{"path":"$.operation_or_batch_commitment"},"admission_proof_ref":{"path":"$.admission_proof_ref"},"transition_kind":{"path":"$.transition_kind"},"operation_ref":{"path":"$.operation_ref"},"predecessor_state_root":{"path":"$.predecessor_state_root"},"resulting_state_root":{"path":"$.resulting_state_root"},"receipt_root":{"path":"$.receipt_root"},"ordering_recovery_ref":{"path":"$.ordering_recovery_ref"},"external_settlement_ref":{"path":"$.external_settlement_ref"}},"expected_path":"$.resulting_transition_commitment_ref","expected_encoding":"prefixed_ref","prefix":"commitment://state-transition/sha256:"}},{"rule_id":"state_transition_commitment.identity.matches_result","description":"The record identity and resulting commitment carry the same exact digest.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.state_transition_commitment_id","delimiter":"transition://state-transition/sha256:","target_path":"$.resulting_transition_commitment_ref","target_prefix":"commitment://state-transition/sha256:"}}]"#),
     ("schema://ioi/foundations/outcome-delta/v3", r#"[]"#),
     ("schema://ioi/foundations/physical-action-execution-receipt/v1", r#"[{"rule_id":"physical_action_execution.receipt.boundary_fact.required","description":"The bundled base receipt attests at least one physical execution boundary fact.","expression":{"operator":"non_empty","path":"$.receipt_envelope.attested_boundary_fact_refs"}},{"rule_id":"physical_action_execution.receipt.input_hash.matches_execution_request","description":"The bundled base receipt input hash is the exact execution request hash carried by the physical body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.input_hash","$.body.execution_request_hash"]}},{"rule_id":"physical_action_execution.receipt.timestamp.matches_execution_time","description":"The bundled base receipt timestamp is the physical execution timestamp.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.timestamp","$.body.executed_at"]}},{"rule_id":"physical_action_execution.dispatch.evidence.required_for_terminal_claim","description":"Committed and rejected terminal claims require nonempty controller dispatch evidence; unknown effects may remain evidence-incomplete pending reconciliation.","expression":{"operator":"non_empty_when_in","path":"$.body.dispatch_evidence_receipt_refs","when_path":"$.body.effect_status","values":["committed","rejected"]}}]"#),
     ("schema://ioi/foundations/receipt-checkpoint/v1", r#"[{"rule_id":"receipt_checkpoint.schema_hash.matches_contract","description":"The checkpoint binds the generated contract schema hash.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},{"rule_id":"receipt_checkpoint.signature_key.matches_issuer_key","description":"The signature key and declared issuer key are identical.","expression":{"operator":"fields_equal","paths":["$.signature_key_id","$.issuer_key_id"]}}]"#),
@@ -107328,6 +107604,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^commitment://state-transition/sha256:[0-9a-f]{64}$"#,
+        r#"^commitment://state-transition/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
         r#"^composition://[^\s]{1,500}$"#,
         r#"^composition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -108281,6 +108561,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^settlement://[^\s]+$"#,
         r#"^settlement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (
+        r#"^settlement://[^\s]{1,248}$"#,
+        r#"^settlement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
     (r#"^sha256:[0-9a-f]{64}$"#, r#"^sha256:[0-9a-f]{64}$"#),
     (r#"^sha256:[a-f0-9]{64}$"#, r#"^sha256:[a-f0-9]{64}$"#),
     (
@@ -108490,6 +108774,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^transition://[^\s]{1,248}$"#,
         r#"^transition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^transition://state-transition/sha256:[0-9a-f]{64}$"#,
+        r#"^transition://state-transition/sha256:[0-9a-f]{64}$"#,
     ),
     (
         r#"^user://[^\s/?#\\]+$"#,
@@ -110285,6 +110573,8 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json"))),
     ("docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-over-cardinality.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-over-cardinality.json"))),
@@ -111205,6 +111495,11 @@ mod tests {
         },
         "schema://ioi/foundations/ordering-finality-recovery/v1" => {
             serde_json::from_value::<OrderingFinalityRecoveryV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/state-transition-commitment/v1" => {
+            serde_json::from_value::<StateTransitionCommitmentV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -112224,6 +112519,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/state-transition-commitment/v1" => {
+            let projection = serde_json::from_value::<StateTransitionCommitmentV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/outcome-delta/v3" => {
             let projection = serde_json::from_value::<OutcomeDeltaV3>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -112560,8 +112860,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            688,
-            "the registered golden corpus must remain the explicit 688-fixture bar",
+            690,
+            "the registered golden corpus must remain the explicit 690-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -112803,7 +113103,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 670,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 673,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

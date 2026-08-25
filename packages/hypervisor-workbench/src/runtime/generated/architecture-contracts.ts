@@ -6806,6 +6806,31 @@ export type OrderingFinalityRecoveryV1 = {
   status: "proposed" | "evidence_pending" | "authorized" | "admitted" | "committed" | "rejected" | "failed_closed";
 };
 
+export type StateTransitionCommitmentV1 = {
+  schema_version: "ioi.state-transition-commitment.v1";
+  state_transition_commitment_id: string;
+  system_id: string;
+  hypervisor_node_id: string;
+  acting_node_membership_ref: string;
+  ordering_admission_finality_profile_ref: string;
+  authority_mode: "writer_epoch" | "ordering_or_finality_proof";
+  writer_epoch: number | null;
+  ordering_or_finality_proof_ref: string | null;
+  sequence: number;
+  expected_predecessor_commitment_ref: string | null;
+  operation_or_batch_commitment: string;
+  resulting_transition_commitment_ref: string;
+  admission_proof_ref: string;
+  transition_kind: "module_invocation" | "workflow_transition" | "authority_outcome" | "task_handoff" | "upgrade_decision" | "receipt_root" | "dispute_escalation" | "ordering_finality_recovery";
+  operation_ref: string;
+  predecessor_state_root: string | null;
+  resulting_state_root: string;
+  receipt_root: string;
+  ordering_recovery_ref: string | null;
+  external_settlement_ref: string | null;
+  status: "committed";
+};
+
 export type OutcomeDeltaV3 = {
   schema_version: "ioi.foundations.outcome-delta.v3";
   outcome_delta_id: string;
@@ -12961,6 +12986,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "ordering_finality_recovery.trigger_evidence.bound_when_progressed"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/state-transition-commitment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/state-transition-commitment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   },
   {
     "contract_id": "schema://ioi/foundations/outcome-delta/v3",
@@ -20470,6 +20511,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json",
+    "contract_id": "schema://ioi/foundations/state-transition-commitment/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json",
+    "contract_id": "schema://ioi/foundations/state-transition-commitment/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json",
     "contract_id": "schema://ioi/foundations/outcome-delta/v3",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json",
@@ -22432,6 +22487,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^commitment://[^\\s]{1,500}$",
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
+  "^commitment://state-transition/sha256:[0-9a-f]{64}$",
   "^composition://[^\\s]{1,500}$",
   "^compute://[^\\s]{1,500}$",
   "^conformance-profile://[^\\s]{1,248}$",
@@ -22678,6 +22734,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^session://[^\\s]{1,240}$",
   "^session://[^\\s]{1,500}$",
   "^settlement://[^\\s]+$",
+  "^settlement://[^\\s]{1,248}$",
   "^sha256:[0-9a-f]{64}$",
   "^sha256:[a-f0-9]{64}$",
   "^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$",
@@ -22732,6 +22789,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^trainpipe://[^\\s]{1,500}$",
   "^transition://[^\\s]{1,248}$",
+  "^transition://state-transition/sha256:[0-9a-f]{64}$",
   "^user://[^\\s/?#\\\\]+$",
   "^vault://[^\\s]{1,248}$",
   "^verification://[^\\s]{1,248}$",
@@ -22923,6 +22981,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/oracle-evidence-profile/v1": "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1",
   "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3",
   "schema://ioi/foundations/ordering-finality-recovery/v1": "sha256:46db62b15166a669c4da0be29b85dbb60b14965fd64a56d1239dab71d2e0108c",
+  "schema://ioi/foundations/state-transition-commitment/v1": "sha256:f5df0490fd044e2202eb4a3e2671f0038bd1d7b495ba5b53b4efc5e1a7ee9f76",
   "schema://ioi/foundations/outcome-delta/v3": "sha256:ee040b737b47f68264dd0bff1d638b7c539ef4b9679691ca2924e2b4b56085a2",
   "schema://ioi/foundations/physical-action-execution-receipt/v1": "sha256:b6a77eae69259a122ccf374a885071b07e4497095aecbcebaecab9e566855e5a",
   "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b",
@@ -75352,6 +75411,237 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/state-transition-commitment/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/state-transition-commitment/v1",
+    "title": "StateTransitionCommitment",
+    "description": "The complete operational, non-economic commitment for one admitted System transition. It binds exact predecessor continuity, acting membership, the active ordering/finality profile, one profile-native authority proof, state and receipt roots, and an optional later settlement link.",
+    "x-ioi-schema-version": "ioi.state-transition-commitment.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "state_transition_commitment_id",
+      "system_id",
+      "hypervisor_node_id",
+      "acting_node_membership_ref",
+      "ordering_admission_finality_profile_ref",
+      "authority_mode",
+      "writer_epoch",
+      "ordering_or_finality_proof_ref",
+      "sequence",
+      "expected_predecessor_commitment_ref",
+      "operation_or_batch_commitment",
+      "resulting_transition_commitment_ref",
+      "admission_proof_ref",
+      "transition_kind",
+      "operation_ref",
+      "predecessor_state_root",
+      "resulting_state_root",
+      "receipt_root",
+      "ordering_recovery_ref",
+      "external_settlement_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.state-transition-commitment.v1"
+      },
+      "state_transition_commitment_id": {
+        "type": "string",
+        "pattern": "^transition://state-transition/sha256:[0-9a-f]{64}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "hypervisor_node_id": {
+        "type": "string",
+        "pattern": "^node://[^\\s]{1,248}$"
+      },
+      "acting_node_membership_ref": {
+        "type": "string",
+        "pattern": "^node-membership://[^\\s]{1,248}$"
+      },
+      "ordering_admission_finality_profile_ref": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "authority_mode": {
+        "enum": [
+          "writer_epoch",
+          "ordering_or_finality_proof"
+        ]
+      },
+      "writer_epoch": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ordering_or_finality_proof_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/evidenceRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "expected_predecessor_commitment_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/commitmentRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "operation_or_batch_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "resulting_transition_commitment_ref": {
+        "type": "string",
+        "pattern": "^commitment://state-transition/sha256:[0-9a-f]{64}$"
+      },
+      "admission_proof_ref": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$"
+      },
+      "transition_kind": {
+        "enum": [
+          "module_invocation",
+          "workflow_transition",
+          "authority_outcome",
+          "task_handoff",
+          "upgrade_decision",
+          "receipt_root",
+          "dispute_escalation",
+          "ordering_finality_recovery"
+        ]
+      },
+      "operation_ref": {
+        "type": "string",
+        "pattern": "^agentgres://operation/[^\\s]{1,248}$"
+      },
+      "predecessor_state_root": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resulting_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "ordering_recovery_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^ordering-recovery://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "external_settlement_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^settlement://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "const": "committed"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "authority_mode": {
+              "const": "writer_epoch"
+            }
+          },
+          "required": [
+            "authority_mode"
+          ]
+        },
+        "then": {
+          "properties": {
+            "writer_epoch": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "ordering_or_finality_proof_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "authority_mode": {
+              "const": "ordering_or_finality_proof"
+            }
+          },
+          "required": [
+            "authority_mode"
+          ]
+        },
+        "then": {
+          "properties": {
+            "writer_epoch": {
+              "type": "null"
+            },
+            "ordering_or_finality_proof_ref": {
+              "$ref": "#/$defs/evidenceRef"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "commitmentRef": {
+        "type": "string",
+        "pattern": "^commitment://[^\\s]{1,248}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+      }
+    }
+  },
   "schema://ioi/foundations/outcome-delta/v3": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/outcome-delta/v3",
@@ -94435,6 +94725,89 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/state-transition-commitment/v1": [
+    {
+      "rule_id": "state_transition_commitment.resulting_ref.recomputes",
+      "description": "The resulting commitment reference recomputes over every operational continuity field and excludes no authority, state, receipt, recovery, or settlement coordinate.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.state-transition-commitment-jcs-sha256.v1"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "hypervisor_node_id": {
+            "path": "$.hypervisor_node_id"
+          },
+          "acting_node_membership_ref": {
+            "path": "$.acting_node_membership_ref"
+          },
+          "ordering_admission_finality_profile_ref": {
+            "path": "$.ordering_admission_finality_profile_ref"
+          },
+          "authority_mode": {
+            "path": "$.authority_mode"
+          },
+          "writer_epoch": {
+            "path": "$.writer_epoch"
+          },
+          "ordering_or_finality_proof_ref": {
+            "path": "$.ordering_or_finality_proof_ref"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "expected_predecessor_commitment_ref": {
+            "path": "$.expected_predecessor_commitment_ref"
+          },
+          "operation_or_batch_commitment": {
+            "path": "$.operation_or_batch_commitment"
+          },
+          "admission_proof_ref": {
+            "path": "$.admission_proof_ref"
+          },
+          "transition_kind": {
+            "path": "$.transition_kind"
+          },
+          "operation_ref": {
+            "path": "$.operation_ref"
+          },
+          "predecessor_state_root": {
+            "path": "$.predecessor_state_root"
+          },
+          "resulting_state_root": {
+            "path": "$.resulting_state_root"
+          },
+          "receipt_root": {
+            "path": "$.receipt_root"
+          },
+          "ordering_recovery_ref": {
+            "path": "$.ordering_recovery_ref"
+          },
+          "external_settlement_ref": {
+            "path": "$.external_settlement_ref"
+          }
+        },
+        "expected_path": "$.resulting_transition_commitment_ref",
+        "expected_encoding": "prefixed_ref",
+        "prefix": "commitment://state-transition/sha256:"
+      }
+    },
+    {
+      "rule_id": "state_transition_commitment.identity.matches_result",
+      "description": "The record identity and resulting commitment carry the same exact digest.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.state_transition_commitment_id",
+        "delimiter": "transition://state-transition/sha256:",
+        "target_path": "$.resulting_transition_commitment_ref",
+        "target_prefix": "commitment://state-transition/sha256:"
+      }
+    }
+  ],
   "schema://ioi/foundations/outcome-delta/v3": [],
   "schema://ioi/foundations/physical-action-execution-receipt/v1": [
     {
@@ -96592,6 +96965,12 @@ export function validateOrderingFinalityRecoveryV1(
   value: unknown,
 ): value is OrderingFinalityRecoveryV1 {
   return validateArchitectureContract("schema://ioi/foundations/ordering-finality-recovery/v1", value).ok;
+}
+
+export function validateStateTransitionCommitmentV1(
+  value: unknown,
+): value is StateTransitionCommitmentV1 {
+  return validateArchitectureContract("schema://ioi/foundations/state-transition-commitment/v1", value).ok;
 }
 
 export function validateOutcomeDeltaV3(

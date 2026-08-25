@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/state-transition-commitment/v1",
+  "title": "StateTransitionCommitment",
+  "description": "The complete operational, non-economic commitment for one admitted System transition. It binds exact predecessor continuity, acting membership, the active ordering/finality profile, one profile-native authority proof, state and receipt roots, and an optional later settlement link.",
+  "x-ioi-schema-version": "ioi.state-transition-commitment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "state_transition_commitment_id",
+    "system_id",
+    "hypervisor_node_id",
+    "acting_node_membership_ref",
+    "ordering_admission_finality_profile_ref",
+    "authority_mode",
+    "writer_epoch",
+    "ordering_or_finality_proof_ref",
+    "sequence",
+    "expected_predecessor_commitment_ref",
+    "operation_or_batch_commitment",
+    "resulting_transition_commitment_ref",
+    "admission_proof_ref",
+    "transition_kind",
+    "operation_ref",
+    "predecessor_state_root",
+    "resulting_state_root",
+    "receipt_root",
+    "ordering_recovery_ref",
+    "external_settlement_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.state-transition-commitment.v1" },
+    "state_transition_commitment_id": { "type": "string", "pattern": "^transition://state-transition/sha256:[0-9a-f]{64}$" },
+    "system_id": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "hypervisor_node_id": { "type": "string", "pattern": "^node://[^\\s]{1,248}$" },
+    "acting_node_membership_ref": { "type": "string", "pattern": "^node-membership://[^\\s]{1,248}$" },
+    "ordering_admission_finality_profile_ref": { "type": "string", "pattern": "^ordering-profile://[^\\s]{1,248}$" },
+    "authority_mode": { "enum": ["writer_epoch", "ordering_or_finality_proof"] },
+    "writer_epoch": { "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 9007199254740991 }, { "type": "null" }] },
+    "ordering_or_finality_proof_ref": { "anyOf": [{ "$ref": "#/$defs/evidenceRef" }, { "type": "null" }] },
+    "sequence": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "expected_predecessor_commitment_ref": { "anyOf": [{ "$ref": "#/$defs/commitmentRef" }, { "type": "null" }] },
+    "operation_or_batch_commitment": { "$ref": "#/$defs/hash" },
+    "resulting_transition_commitment_ref": { "type": "string", "pattern": "^commitment://state-transition/sha256:[0-9a-f]{64}$" },
+    "admission_proof_ref": { "type": "string", "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$" },
+    "transition_kind": { "enum": ["module_invocation", "workflow_transition", "authority_outcome", "task_handoff", "upgrade_decision", "receipt_root", "dispute_escalation", "ordering_finality_recovery"] },
+    "operation_ref": { "type": "string", "pattern": "^agentgres://operation/[^\\s]{1,248}$" },
+    "predecessor_state_root": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "resulting_state_root": { "$ref": "#/$defs/hash" },
+    "receipt_root": { "$ref": "#/$defs/hash" },
+    "ordering_recovery_ref": { "anyOf": [{ "type": "string", "pattern": "^ordering-recovery://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "external_settlement_ref": { "anyOf": [{ "type": "string", "pattern": "^settlement://[^\\s]{1,248}$" }, { "type": "null" }] },
+    "status": { "const": "committed" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "authority_mode": { "const": "writer_epoch" } }, "required": ["authority_mode"] },
+      "then": {
+        "properties": {
+          "writer_epoch": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+          "ordering_or_finality_proof_ref": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "authority_mode": { "const": "ordering_or_finality_proof" } }, "required": ["authority_mode"] },
+      "then": {
+        "properties": {
+          "writer_epoch": { "type": "null" },
+          "ordering_or_finality_proof_ref": { "$ref": "#/$defs/evidenceRef" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "commitmentRef": { "type": "string", "pattern": "^commitment://[^\\s]{1,248}$" },
+    "evidenceRef": { "type": "string", "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$" }
+  }
+}
