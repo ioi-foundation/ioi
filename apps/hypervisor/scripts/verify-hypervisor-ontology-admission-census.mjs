@@ -258,11 +258,16 @@ const PINNED = {
   // reachable module, 516 source tokens, one runtime-family shared-writer call, twelve opaque
   // initialisers, and 50 foreign-qualified names. They add no ODK mention, raw-filesystem call,
   // or ontology owner/admitter edge.
-  modules: 97,
+  // M04.4 definition-substrate re-derivation (2026-08-25):
+  // goal_profile_contract_routes.rs and its route mount add one reachable module, 430 source
+  // tokens, one runtime-family durable-writer call, seven opaque initialisers, two bare
+  // undeclared names, and 34 foreign-qualified names. They add no ODK mention, raw-filesystem
+  // call, or ontology owner/admitter edge.
+  modules: 98,
   familyMentions: 284,
-  tokenMentions: 117738,
+  tokenMentions: 118168,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 302 },
+  productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 303 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -281,9 +286,9 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 3937,
-    "opaque-initialiser": 1655,
-    "bare-undeclared": 527,
+    "foreign-qualified": 3971,
+    "opaque-initialiser": 1662,
+    "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,

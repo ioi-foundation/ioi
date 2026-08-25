@@ -395,45 +395,45 @@ export type GoalRunProfileV1 = {
   schema_version: "ioi.goal-run-profile.v1";
   goal_run_profile_id: string;
   revision_ref: string;
-  version?: string;
-  predecessor_revision_ref?: string | null;
+  version: string;
+  predecessor_revision_ref: string | null;
   content_hash: string;
   owner_ref: string;
   display_name: string;
-  description?: string;
-  applicable_goal_class_refs?: Array<string>;
-  compatible_domain_object_schema_refs?: Array<string>;
+  description: string;
+  applicable_goal_class_refs: Array<string>;
+  compatible_domain_object_schema_refs: Array<string>;
   orchestration_policy_ref: string;
-  constraint_derivation_policy_refs?: Array<string>;
-  workflow_template_revision_refs?: Array<string>;
-  role_topology_requirement_refs?: Array<string>;
-  harness_requirement_refs?: Array<string>;
-  pinned_harness_profile_revision_refs?: Array<string>;
-  skill_requirement_refs?: Array<string>;
-  pinned_skill_manifest_revision_refs?: Array<string>;
-  worker_requirement_refs?: Array<string>;
-  model_route_requirement_refs?: Array<string>;
-  service_requirement_refs?: Array<string>;
-  runtime_tool_contract_requirement_refs?: Array<string>;
-  primitive_capability_requirements?: Array<string>;
-  context_requirement_profile_refs?: Array<string>;
+  constraint_derivation_policy_refs: Array<string>;
+  workflow_template_revision_refs: Array<string>;
+  role_topology_requirement_refs: Array<string>;
+  harness_requirement_refs: Array<string>;
+  pinned_harness_profile_revision_refs: Array<string>;
+  skill_requirement_refs: Array<string>;
+  pinned_skill_manifest_revision_refs: Array<string>;
+  worker_requirement_refs: Array<string>;
+  model_route_requirement_refs: Array<string>;
+  service_requirement_refs: Array<string>;
+  runtime_tool_contract_requirement_refs: Array<string>;
+  primitive_capability_requirements: Array<string>;
+  context_requirement_profile_refs: Array<string>;
   input_contract_ref: string;
   output_contract_ref: string;
-  acceptance_contract_refs?: Array<string>;
-  verifier_requirement_refs?: Array<string>;
-  budget_time_and_resource_ceiling_refs?: Array<string>;
+  acceptance_contract_refs: Array<string>;
+  verifier_requirement_refs: Array<string>;
+  budget_time_and_resource_ceiling_refs: Array<string>;
   stop_policy_ref: string;
   recovery_policy_ref: string;
   escalation_policy_ref: string;
-  learning_boundary_requirement_ref?: string | null;
-  pinned_learning_boundary_profile_ref?: string | null;
-  allowed_override_schema_ref?: string | null;
-  compatibility_refs?: Array<string>;
-  provenance_refs?: Array<string>;
-  evaluation_and_benchmark_refs?: Array<string>;
-  promotion_policy_ref?: string | null;
-  revocation_and_recall_policy_ref?: string | null;
-  registry_lifecycle_ref?: string | null;
+  learning_boundary_requirement_ref: string | null;
+  pinned_learning_boundary_profile_ref: string | null;
+  allowed_override_schema_ref: string | null;
+  compatibility_refs: Array<string>;
+  provenance_refs: Array<string>;
+  evaluation_and_benchmark_refs: Array<string>;
+  promotion_policy_ref: string | null;
+  revocation_and_recall_policy_ref: string | null;
+  registry_lifecycle_ref: string | null;
   registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
 };
 
@@ -1294,20 +1294,20 @@ export type AgentHarnessAdapterV1 = {
   schema_version: "ioi.agent-harness-adapter.v1";
   adapter_id: string;
   revision_ref: string;
-  predecessor_revision_ref?: string | null;
+  predecessor_revision_ref: string | null;
   content_hash: string;
   owner_ref: string;
   adapter_family: "codex_cli" | "claude_code" | "openhands" | "hermes" | "deepseek_tui" | "local_agent" | "remote_agent_api" | "custom";
   transport_kind: "local_process" | "daemon_plugin" | "remote_api" | "aiip" | "mcp" | "custom";
   compatible_harness_profile_revision_refs: Array<string>;
-  supported_task_brief_schema_refs?: Array<string>;
-  supported_event_and_result_schema_refs?: Array<string>;
-  supported_runtime_and_model_route_refs?: Array<string>;
-  rendering_and_normalization_contract_refs?: Array<string>;
-  required_runtime_tool_contract_revision_refs?: Array<string>;
-  capability_and_context_requirement_refs?: Array<string>;
-  provenance_evaluation_and_conformance_refs?: Array<string>;
-  registry_lifecycle_ref?: string | null;
+  supported_task_brief_schema_refs: Array<string>;
+  supported_event_and_result_schema_refs: Array<string>;
+  supported_runtime_and_model_route_refs: Array<string>;
+  rendering_and_normalization_contract_refs: Array<string>;
+  required_runtime_tool_contract_revision_refs: Array<string>;
+  capability_and_context_requirement_refs: Array<string>;
+  provenance_evaluation_and_conformance_refs: Array<string>;
+  registry_lifecycle_ref: string | null;
   registry_status: "draft" | "evaluable" | "released" | "deprecated" | "revoked";
 };
 
@@ -22345,6 +22345,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:(?:implementation-result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$",
   "^(?:(?:implementation_result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$",
+  "^(?:(?:org|project|system|user)://[^\\s]{1,500}|ioi://publisher/[^\\s]{1,500})$",
+  "^(?:(?:org|project|system|user|domain)://[^\\s]{1,500}|ioi://publisher/[^\\s]{1,500})$",
   "^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$",
   "^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$",
   "^(?:(?:tool|connector|capability)://[^\\s]{1,500}|prim:[a-z0-9*._-]{1,200})$",
@@ -22616,6 +22618,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^actuator://[^\\s]+$",
   "^adapter://[^\\s]{1,500}$",
   "^afr_[a-z0-9]{8,64}$",
+  "^agent-harness-adapter://[^\\s?#\\\\]{1,160}$",
   "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^agent-harness-adapter:[^\\s]{1,200}$",
   "^agent://[^\\s]{1,500}$",
@@ -23041,7 +23044,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1": "sha256:9d0dbebfbcdc3a630d027b5ad7bb0e5d1332b978ad665c19f8079b15a34b7b03",
   "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1": "sha256:ede0138bfe5d32d8bffec8c085e51356aa53f4c8c44f6c3313d6fa143fd1b8cb",
   "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": "sha256:98b28124a2094d3f8c5659772d42a7ab40ae475d4bda88d24e52d51392f6f477",
-  "schema://ioi/applications/ioi-ai/goal-run-profile/v1": "sha256:8426a6ed08ae7ac05e720afdb565f6e92a2d27a8eb916b7cc6b82df4ae845863",
+  "schema://ioi/applications/ioi-ai/goal-run-profile/v1": "sha256:fbdd558781430936a00565c6edcb6c14962ab95664981514864556c2d44fa4a0",
   "schema://ioi/applications/ioi-ai/goal-run/v1": "sha256:03f2aa66af2424ebb30b6adb4c605d8a22fa50816b0f939d62c868a799c16cb5",
   "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1": "sha256:d98eec6115a535ad4a53cdffbefccf6e6b19302502b8e86bdf9db5c5fd4710f0",
   "schema://ioi/applications/ioi-ai/outcome-room/v2": "sha256:c422433e7cd1c76780075b3eed5b1b55e0e517daf6774d7cd99d29ed9cfe6246",
@@ -23065,7 +23068,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/connectors-tools/scm-publication-effect/v1": "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff",
   "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:acc0b12e275584302f9fa0d30937e7439bdb8bf9af7805edcba0b861e24e3ae5",
   "schema://ioi/components/daemon-runtime/action-request-envelope/v1": "sha256:7187aa163181dc69f8c40b219307ea6bd23b74cb7b246602032bc1b78688c4ad",
-  "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": "sha256:9243ba237b4624997f35edddfba804e2f30f8f1a3217d283cec4f19ff1ee65ec",
+  "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1": "sha256:d24b7088e5bac7d24b7d967aa9ae56920f38d063f468b96ba80379dd311fd25c",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1": "sha256:6af61ba9d156c2e04c5641dbf78324ccc719d9da10d6269c87e358802d49feff",
   "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2": "sha256:3c85c272d8f2901b66eb4e922accff02315ac0ee5d15803c7fd0e1e24f69a2bd",
   "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1": "sha256:411cd31cb61eb7599dc4b99fd386142541503a3d53af038e1d2cc7f27c207da3",
@@ -26541,12 +26544,42 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "content_hash",
       "owner_ref",
       "display_name",
+      "description",
+      "version",
+      "predecessor_revision_ref",
+      "applicable_goal_class_refs",
+      "compatible_domain_object_schema_refs",
       "orchestration_policy_ref",
+      "constraint_derivation_policy_refs",
+      "workflow_template_revision_refs",
+      "role_topology_requirement_refs",
+      "harness_requirement_refs",
+      "pinned_harness_profile_revision_refs",
+      "skill_requirement_refs",
+      "pinned_skill_manifest_revision_refs",
+      "worker_requirement_refs",
+      "model_route_requirement_refs",
+      "service_requirement_refs",
+      "runtime_tool_contract_requirement_refs",
+      "primitive_capability_requirements",
+      "context_requirement_profile_refs",
       "input_contract_ref",
       "output_contract_ref",
+      "acceptance_contract_refs",
+      "verifier_requirement_refs",
+      "budget_time_and_resource_ceiling_refs",
       "stop_policy_ref",
       "recovery_policy_ref",
       "escalation_policy_ref",
+      "learning_boundary_requirement_ref",
+      "pinned_learning_boundary_profile_ref",
+      "allowed_override_schema_ref",
+      "compatibility_refs",
+      "provenance_refs",
+      "evaluation_and_benchmark_refs",
+      "promotion_policy_ref",
+      "revocation_and_recall_policy_ref",
+      "registry_lifecycle_ref",
       "registry_status"
     ],
     "properties": {
@@ -26559,7 +26592,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "revision_ref": {
         "type": "string",
-        "pattern": "^goal-run-profile://[^\\s]+/revision/[^\\s]+$"
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       },
       "version": {
         "type": "string"
@@ -26568,7 +26601,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           {
             "type": "null"
@@ -26581,7 +26614,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "owner_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^(?:(?:org|project|system|user|domain)://[^\\s]{1,500}|ioi://publisher/[^\\s]{1,500})$"
       },
       "display_name": {
         "type": "string",
@@ -33820,11 +33853,20 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "schema_version",
       "adapter_id",
       "revision_ref",
+      "predecessor_revision_ref",
       "content_hash",
       "owner_ref",
       "adapter_family",
       "transport_kind",
       "compatible_harness_profile_revision_refs",
+      "supported_task_brief_schema_refs",
+      "supported_event_and_result_schema_refs",
+      "supported_runtime_and_model_route_refs",
+      "rendering_and_normalization_contract_refs",
+      "required_runtime_tool_contract_revision_refs",
+      "capability_and_context_requirement_refs",
+      "provenance_evaluation_and_conformance_refs",
+      "registry_lifecycle_ref",
       "registry_status"
     ],
     "properties": {
@@ -33833,17 +33875,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "adapter_id": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}$"
       },
       "revision_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       },
       "predecessor_revision_ref": {
         "anyOf": [
           {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           {
             "type": "null"
@@ -33856,7 +33898,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "owner_ref": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        "pattern": "^(?:(?:org|project|system|user)://[^\\s]{1,500}|ioi://publisher/[^\\s]{1,500})$"
       },
       "adapter_family": {
         "enum": [

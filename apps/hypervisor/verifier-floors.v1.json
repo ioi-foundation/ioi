@@ -111,6 +111,14 @@
       "note": "M04.3 closure: an isolated live daemon proves the immutable SkillManifest, successor-versioned owner SkillEntry binding, and exact run-scoped ActiveSkillSetSnapshot lifetimes; explicit legacy import, identity-first reads, admitted owner-scoped work-subject resolution, hash substitution, generated contracts, receipt honesty, stale/suspended bindings, and restart replay are all exercised."
     },
     {
+      "id": "goal-profile-contracts",
+      "npm_script": "check:goal-profile-contracts",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
+      "runtime_assertions": 13,
+      "assertion_names_sha256": "85eb97b425acdfd59d00efdb6395cb1ddec029cb697ce5611e53f626cddfe157",
+      "note": "M04.4 definition substrate: an isolated daemon proves separate immutable GoalRunProfile and AgentHarnessAdapter revision families, server-owned JCS identities, generated-contract validity, identity-first reads, exact content-addressed slots and read-time hash recomputation, successor-only lineage, definition-only non-grants, owner-scoped inventory, and restart replay."
+    },
+    {
       "id": "command-execution-guardrails",
       "npm_script": "check:command-execution-guardrails",
       "source": "apps/hypervisor/scripts/verify-command-execution-guardrail-coverage.mjs",

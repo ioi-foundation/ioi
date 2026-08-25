@@ -92,6 +92,8 @@ mod foundry_execution_routes;
 mod foundry_routes;
 #[path = "hypervisor_daemon_routes/gcp_candidate_source.rs"]
 mod gcp_candidate_source;
+#[path = "hypervisor_daemon_routes/goal_profile_contract_routes.rs"]
+mod goal_profile_contract_routes;
 #[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
 mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/governance_routes.rs"]
@@ -2334,6 +2336,24 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/goal-orchestration/goal-run-activations",
             post(goalrun_routes::handle_goal_run_activation_draft),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-run-profiles",
+            get(goal_profile_contract_routes::list_goal_run_profiles)
+                .post(goal_profile_contract_routes::create_goal_run_profile),
+        )
+        .route(
+            "/v1/goal-orchestration/goal-run-profiles/:id/revisions",
+            post(goal_profile_contract_routes::create_goal_run_profile_successor),
+        )
+        .route(
+            "/v1/hypervisor/agent-harness-adapters",
+            get(goal_profile_contract_routes::list_agent_harness_adapters)
+                .post(goal_profile_contract_routes::create_agent_harness_adapter),
+        )
+        .route(
+            "/v1/hypervisor/agent-harness-adapters/:id/revisions",
+            post(goal_profile_contract_routes::create_agent_harness_adapter_successor),
         )
         .route(
             "/v1/goal-orchestration/goal-run-activations/:id",

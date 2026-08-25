@@ -1,7 +1,8 @@
 {
   "schema_version": "ioi.agent-harness-adapter.v1",
   "adapter_id": "agent-harness-adapter://local",
-  "revision_ref": "agent-harness-adapter://local/revision/1",
+  "revision_ref": "agent-harness-adapter://local/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "predecessor_revision_ref": null,
   "content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "owner_ref": "system://ioi",
   "adapter_family": "local_agent",
@@ -9,6 +10,14 @@
   "compatible_harness_profile_revision_refs": [
     "harness-profile://research/revision/3"
   ],
+  "supported_task_brief_schema_refs": [],
+  "supported_event_and_result_schema_refs": [],
+  "supported_runtime_and_model_route_refs": [],
+  "rendering_and_normalization_contract_refs": [],
+  "required_runtime_tool_contract_revision_refs": [],
+  "capability_and_context_requirement_refs": [],
+  "provenance_evaluation_and_conformance_refs": [],
+  "registry_lifecycle_ref": null,
   "registry_status": "released",
   "unexpected": "must fail"
 }

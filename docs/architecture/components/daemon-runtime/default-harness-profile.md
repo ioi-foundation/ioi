@@ -10,10 +10,11 @@ Supersedes: standalone harness-profile wording that implies a peer runtime besid
 Superseded by: none.
 Last alignment pass: 2026-07-22.
 Doctrine status: canonical
-Implementation status: partial (the harness-profile registry and default profile are built; registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; production information-flow derivation/effect compilation and enforcement across HTTP connectors, MCP, hosted models, browsers, memory, ContextCell, OutcomeRoom, inbound connectors/webhooks, wider computer-use families, and adapter contracts remain planned)
+Implementation status: partial (the harness-profile registry and default profile are built; canonical AgentHarnessAdapter immutable revision admission is live, but adapter selection/invocation and the gateway attach-to-run-on crossing remain unimplemented; registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; production information-flow derivation/effect compilation and enforcement across HTTP connectors, MCP, hosted models, browsers, memory, ContextCell, OutcomeRoom, inbound connectors/webhooks, and wider computer-use families remain planned)
 Implementation refs:
   - `crates/types/src/app/harness/core.rs`
   - `crates/types/src/app/harness/receipts.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/goal_profile_contract_routes.rs`
 Last implementation audit: 2026-07-18
 
 ## Canonical Definition
