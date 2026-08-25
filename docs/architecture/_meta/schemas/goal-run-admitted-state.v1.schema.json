@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
   "title": "GoalRunAdmittedState",
-  "description": "Daemon-owned, content-addressed GoalRun activation state whose root is admitted through the required Agentgres boundary.",
+  "description": "Daemon-owned, content-addressed GoalRun admission state whose root is admitted through the required Agentgres boundary. Direct admissions retain a null activation reference; context-backed admissions retain the exact activation reference.",
   "x-ioi-schema-version": "ioi.goal-run-admitted-state.v1",
   "type": "object",
   "additionalProperties": false,
@@ -39,7 +39,12 @@
     },
     "state_root": { "$ref": "#/$defs/hash" },
     "goal_run_ref": { "type": "string", "pattern": "^goal://[^\\s]{1,500}$" },
-    "activation_ref": { "type": "string", "pattern": "^goal-run-activation://[^\\s]{1,500}$" },
+    "activation_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^goal-run-activation://[^\\s]{1,500}$" },
+        { "type": "null" }
+      ]
+    },
     "source_context_hash": { "$ref": "#/$defs/hash" },
     "requesting_principal_ref": { "$ref": "#/$defs/ref" },
     "authority_decision_ref": { "$ref": "#/$defs/ref" },
@@ -49,10 +54,20 @@
     },
     "goal_run_profile_content_hash": { "$ref": "#/$defs/hash" },
     "goal_run_execution_ceiling_revision_ref": {
-      "type": "string",
-      "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        { "type": "null" }
+      ]
     },
-    "goal_run_execution_ceiling_content_hash": { "$ref": "#/$defs/hash" },
+    "goal_run_execution_ceiling_content_hash": {
+      "anyOf": [
+        { "$ref": "#/$defs/hash" },
+        { "type": "null" }
+      ]
+    },
     "declared_invocation_budget": {
       "type": "object",
       "additionalProperties": false,
@@ -96,6 +111,26 @@
     "admitted_at": { "$ref": "#/$defs/canonicalDateTime" },
     "non_grants": { "$ref": "#/$defs/nonGrants" }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "goal_run_execution_ceiling_revision_ref": { "type": "null" }
+        },
+        "required": ["goal_run_execution_ceiling_revision_ref"]
+      },
+      "then": {
+        "properties": {
+          "goal_run_execution_ceiling_content_hash": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "goal_run_execution_ceiling_content_hash": { "$ref": "#/$defs/hash" }
+        }
+      }
+    }
+  ],
   "$defs": {
     "ref": {
       "type": "string",

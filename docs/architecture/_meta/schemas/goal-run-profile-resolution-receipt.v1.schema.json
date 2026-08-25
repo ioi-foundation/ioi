@@ -23,6 +23,7 @@
     "active_skill_set_snapshot_ref",
     "active_skill_set_hash",
     "resolved_harness_profile_revisions",
+    "resolved_agent_harness_adapter_revisions",
     "resolved_runtime_tool_contracts",
     "unresolved_late_binding_requirement_refs",
     "resolved_component_set_snapshot_ref",
@@ -157,6 +158,28 @@
           "revision_ref": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "resolved_agent_harness_adapter_revisions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           "content_hash": {
             "type": "string",

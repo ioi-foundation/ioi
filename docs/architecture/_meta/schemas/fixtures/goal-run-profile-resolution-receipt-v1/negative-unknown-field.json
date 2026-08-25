@@ -27,6 +27,7 @@
       "content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
     }
   ],
+  "resolved_agent_harness_adapter_revisions": [],
   "resolved_runtime_tool_contracts": [],
   "unresolved_late_binding_requirement_refs": [],
   "resolved_component_set_snapshot_ref": "artifact://goal-run/research/components",
