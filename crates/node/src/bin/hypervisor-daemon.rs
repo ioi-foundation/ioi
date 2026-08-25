@@ -218,6 +218,8 @@ mod verifier_challenge_routes;
 mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/work_frontier_claim_routes.rs"]
 mod work_frontier_claim_routes;
+#[path = "hypervisor_daemon_routes/work_lifecycle_routes.rs"]
+mod work_lifecycle_routes;
 #[path = "hypervisor_daemon_routes/work_result_routes.rs"]
 mod work_result_routes;
 #[path = "hypervisor_daemon_routes/workload_effect_boundary.rs"]
@@ -2407,6 +2409,30 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/goal-orchestration/goal-runs/:id/events",
             get(goalrun_routes::handle_goal_run_events),
+        )
+        // Shared WorkLifecycle durable mechanism — read-only status/projection
+        // diagnostics and owner-scoped cancellation planning/compaction over the
+        // accepted kernel. No generic append mutation is exposed on the wire;
+        // append is an owner-internal Rust API for a later owner-route wave.
+        .route(
+            "/v1/hypervisor/work-lifecycle/status",
+            get(work_lifecycle_routes::handle_work_lifecycle_status),
+        )
+        .route(
+            "/v1/hypervisor/work-lifecycle/projection",
+            get(work_lifecycle_routes::handle_work_lifecycle_projection),
+        )
+        .route(
+            "/v1/hypervisor/work-lifecycle/records",
+            get(work_lifecycle_routes::handle_work_lifecycle_records),
+        )
+        .route(
+            "/v1/hypervisor/work-lifecycle/cancellation-plan",
+            post(work_lifecycle_routes::handle_work_lifecycle_cancellation_plan),
+        )
+        .route(
+            "/v1/hypervisor/work-lifecycle/compaction",
+            post(work_lifecycle_routes::handle_work_lifecycle_compaction),
         )
         .route(
             "/v1/hypervisor/domain-apps/overview",
