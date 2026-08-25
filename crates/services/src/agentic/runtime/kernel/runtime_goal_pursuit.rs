@@ -561,6 +561,43 @@ impl GoalPursuitCore {
             required_ref(binding, "skill_manifest_revision_ref", "skill://")?;
             required_hash(binding, "skill_manifest_content_hash")?;
         }
+        let canonical_active_skill_set = match (
+            request.get("active_skill_set_snapshot_ref"),
+            request.get("active_skill_set_hash"),
+            request.get("active_skill_set_resolution_receipt_ref"),
+        ) {
+            (None, None, None) => None,
+            (Some(_), Some(_), Some(_)) => {
+                let snapshot_ref = required_ref(
+                    request,
+                    "active_skill_set_snapshot_ref",
+                    "active-skill-set://snapshot/sha256:",
+                )?;
+                let active_set_hash = required_hash(request, "active_skill_set_hash")?;
+                if !snapshot_ref.ends_with(active_set_hash) {
+                    return Err(GoalPursuitError::new(
+                        "goal_run_active_skill_set_binding_mismatch",
+                        "the canonical active-skill-set snapshot reference does not bind its content hash",
+                    ));
+                }
+                let receipt_ref = required_ref(
+                    request,
+                    "active_skill_set_resolution_receipt_ref",
+                    "receipt://active-skill-set-resolution/",
+                )?;
+                Some((
+                    snapshot_ref.to_string(),
+                    active_set_hash.to_string(),
+                    receipt_ref.to_string(),
+                ))
+            }
+            _ => {
+                return Err(GoalPursuitError::new(
+                    "goal_run_active_skill_set_closure_incomplete",
+                    "canonical active-skill-set snapshot reference, hash, and resolution receipt are required together",
+                ))
+            }
+        };
         let mut snapshot_body = json!({
             "goal_run_ref": goal_ref,
             "goal_run_profile_revision_ref": profile_ref,
@@ -590,21 +627,32 @@ impl GoalPursuitCore {
             "compatibility_revocation_and_admission_decision_refs": request.get("compatibility_revocation_and_admission_decision_refs").cloned().unwrap_or_else(|| json!([])),
             "agentgres_operation_refs": request.get("agentgres_operation_refs").cloned().unwrap_or_else(|| json!([])),
         });
+        if let Some((snapshot_ref, active_set_hash, receipt_ref)) = &canonical_active_skill_set {
+            snapshot_body["active_skill_set_snapshot_ref"] = json!(snapshot_ref);
+            snapshot_body["active_skill_set_hash"] = json!(active_set_hash);
+            snapshot_body["active_skill_set_resolution_receipt_ref"] = json!(receipt_ref);
+        }
         if let Some((revision_ref, content_hash, budget)) = &execution_ceiling {
             snapshot_body["goal_run_execution_ceiling_revision_ref"] = json!(revision_ref);
             snapshot_body["goal_run_execution_ceiling_content_hash"] = json!(content_hash);
             snapshot_body["declared_invocation_budget"] = budget.clone();
         }
         let snapshot_hash = hash(&snapshot_body);
-        let active_skill_set_hash = hash(&json!({
-            "work_subject_ref": goal_ref,
-            "resolved_skill_bindings": resolved_skill_bindings,
-        }));
         let safe_goal = goal_ref
             .trim_start_matches("goal://")
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
         let component_snapshot_ref = format!("artifact://goal-run/{safe_goal}/resolved-components");
-        let active_skill_snapshot_ref = format!("active-skill-set://goal-run/{safe_goal}");
+        let (active_skill_snapshot_ref, active_skill_set_hash, active_skill_receipt_ref) =
+            canonical_active_skill_set.unwrap_or_else(|| {
+                (
+                    format!("active-skill-set://goal-run/{safe_goal}"),
+                    hash(&json!({
+                        "work_subject_ref": goal_ref,
+                        "resolved_skill_bindings": resolved_skill_bindings,
+                    })),
+                    String::new(),
+                )
+            });
         let resolution_receipt_ref = format!("receipt://goal-run/{safe_goal}/profile-resolution");
         let workflow_template_resolutions: Vec<Value> = workflow_refs
             .iter()
@@ -692,6 +740,9 @@ impl GoalPursuitCore {
             "definitions_grant_authority": false,
             "resolved_at": now,
         });
+        if !active_skill_receipt_ref.is_empty() {
+            resolution["active_skill_set_resolution_receipt_ref"] = json!(active_skill_receipt_ref);
+        }
         if let Some((revision_ref, content_hash, budget)) = &execution_ceiling {
             resolution["goal_run_execution_ceiling_revision_ref"] = json!(revision_ref);
             resolution["goal_run_execution_ceiling_content_hash"] = json!(content_hash);

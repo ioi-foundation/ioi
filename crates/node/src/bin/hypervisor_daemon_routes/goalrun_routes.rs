@@ -3319,6 +3319,131 @@ fn install_profile_runtime_tool_resolution(
     Ok(())
 }
 
+fn install_canonical_goal_run_skill_snapshot(
+    owner_ref: &str,
+    goal_ref: &str,
+    profile: &Value,
+    body: &mut Value,
+) -> Result<(), HttpRefusal> {
+    let definition = body
+        .get_mut("definition_resolution")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_definition_resolution_required",
+                "Direct admission requires a definition-resolution object for the remaining component families.",
+            )
+        })?;
+    for field in [
+        "active_skill_set_snapshot_ref",
+        "active_skill_set_hash",
+        "active_skill_set_resolution_receipt_ref",
+    ] {
+        if definition.contains_key(field) {
+            return Err(bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_active_skill_set_substitution",
+                "Canonical active-skill-set coordinates are minted by the skill owner and cannot be supplied by the caller.",
+                json!({ "field": field }),
+            ));
+        }
+    }
+    let bindings = definition
+        .get("resolved_skill_bindings")
+        .and_then(Value::as_array)
+        .cloned()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_skill_bindings_required",
+                "The daemon-resolved skill binding closure is absent.",
+            )
+        })?;
+    let tool_refs = definition
+        .get("runtime_tool_contract_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_runtime_tool_resolution_required",
+                "The daemon-resolved runtime-tool closure is absent.",
+            )
+        })?;
+    let component_hashes = definition
+        .get("component_hashes")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_component_hashes_required",
+                "The daemon-resolved component hash closure is absent.",
+            )
+        })?;
+    let resolved_runtime_tools = tool_refs
+        .iter()
+        .map(|reference| {
+            let revision_ref = reference.as_str().ok_or_else(|| {
+                bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_runtime_tool_resolution_invalid",
+                    "A resolved runtime-tool revision is not a reference string.",
+                )
+            })?;
+            let content_hash = component_hashes.get(revision_ref).cloned().ok_or_else(|| {
+                bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_runtime_tool_hash_missing",
+                    "A resolved runtime-tool revision has no immutable content hash.",
+                )
+            })?;
+            Ok(json!({
+                "revision_ref": revision_ref,
+                "content_hash": content_hash,
+            }))
+        })
+        .collect::<Result<Vec<_>, HttpRefusal>>()?;
+    let profile_revision_ref = profile
+        .get("revision_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_profile_revision_required",
+                "The selected GoalRunProfile has no immutable revision reference.",
+            )
+        })?;
+    let admitted = super::skill_contract_routes::prepare_goal_run_active_skill_set(
+        owner_ref,
+        goal_ref,
+        &bindings,
+        &resolved_runtime_tools,
+        &[profile_revision_ref.to_string()],
+    )
+    .map_err(|detail| {
+        bad_with_details(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_active_skill_set_admission_failed",
+            "The canonical skill owner could not admit the daemon-resolved GoalRun skill closure.",
+            json!({ "detail": detail }),
+        )
+    })?;
+    definition.insert(
+        "active_skill_set_snapshot_ref".into(),
+        admitted.snapshot["active_skill_set_snapshot_id"].clone(),
+    );
+    definition.insert(
+        "active_skill_set_hash".into(),
+        admitted.snapshot["active_set_hash"].clone(),
+    );
+    definition.insert(
+        "active_skill_set_resolution_receipt_ref".into(),
+        admitted.resolution_receipt["receipt_ref"].clone(),
+    );
+    Ok(())
+}
+
 fn profile_string_values(profile: &Value, field: &str) -> Result<Vec<String>, HttpRefusal> {
     profile
         .get(field)
@@ -3849,6 +3974,14 @@ pub(crate) async fn handle_goal_runs_create(
             ) {
                 return response;
             }
+            if let Err(response) = install_canonical_goal_run_skill_snapshot(
+                &owner_ref,
+                &goal_ref,
+                &selected_profile,
+                &mut direct_body,
+            ) {
+                return response;
+            }
             if let Err(response) = install_profile_admission_resolution(
                 &st,
                 &owner_ref,
@@ -4360,6 +4493,86 @@ pub(crate) async fn handle_goal_runs_create(
     )
 }
 
+fn persist_canonical_goal_run_skill_snapshot(
+    st: &DaemonState,
+    body: &Value,
+    goal_ref: &str,
+    resolution_request: &Value,
+    resolution: &Value,
+) -> Result<(), HttpRefusal> {
+    if !resolution
+        .get("active_skill_set_snapshot_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|reference| reference.starts_with("active-skill-set://snapshot/sha256:"))
+    {
+        return Ok(());
+    }
+    let bindings = resolution_request
+        .get("resolved_skill_bindings")
+        .and_then(Value::as_array)
+        .cloned()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_skill_bindings_required",
+                "The resolved GoalRun lost its canonical skill binding closure.",
+            )
+        })?;
+    let resolved_runtime_tools = resolution
+        .pointer("/resolution_receipt/resolved_runtime_tool_contracts")
+        .and_then(Value::as_array)
+        .cloned()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_runtime_tool_resolution_required",
+                "The resolved GoalRun lost its canonical runtime-tool closure.",
+            )
+        })?;
+    let owner_ref = body.get("owner_ref").and_then(Value::as_str).unwrap_or("");
+    let profile_revision_ref = resolution_request
+        .get("goal_run_profile_revision_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let admission = super::skill_contract_routes::prepare_goal_run_active_skill_set(
+        owner_ref,
+        goal_ref,
+        &bindings,
+        &resolved_runtime_tools,
+        &[profile_revision_ref.to_string()],
+    )
+    .map_err(|detail| {
+        bad_with_details(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_active_skill_set_admission_failed",
+            "The canonical skill owner could not reproduce the resolved GoalRun skill closure.",
+            json!({ "detail": detail }),
+        )
+    })?;
+    if admission.snapshot.get("active_skill_set_snapshot_id")
+        != resolution.get("active_skill_set_snapshot_ref")
+        || admission.snapshot.get("active_set_hash") != resolution.get("active_skill_set_hash")
+        || admission.resolution_receipt.get("receipt_ref")
+            != resolution.get("active_skill_set_resolution_receipt_ref")
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_active_skill_set_resolution_changed",
+            "The canonical active-skill-set records do not reproduce the definition-resolution tuple.",
+        ));
+    }
+    super::skill_contract_routes::persist_goal_run_active_skill_set(st, &admission).map_err(
+        |detail| {
+            bad_with_details(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_active_skill_set_persist_failed",
+                "The canonical active-skill-set snapshot and resolution receipt did not persist.",
+                json!({ "detail": detail }),
+            )
+        },
+    )
+}
+
 fn create_direct_goal_run(
     st: &DaemonState,
     body: &Value,
@@ -4435,6 +4648,15 @@ fn create_direct_goal_run(
             "The activation path and definition-resolution closure do not retain one exact zero-execution budget and null override tuple.",
         );
     }
+    if let Err(response) = persist_canonical_goal_run_skill_snapshot(
+        st,
+        body,
+        goal_ref,
+        &resolution_request,
+        &resolution,
+    ) {
+        return response;
+    }
     if persist_record(
         &st.data_dir,
         "goal-run-component-snapshots",
@@ -4478,49 +4700,55 @@ fn create_direct_goal_run(
             "The profile-resolution receipt did not persist.",
         );
     }
-    let selected_skills: Vec<Value> = resolution_request
-        .get("resolved_skill_bindings")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .map(|binding| {
-            json!({
-                "skill_entry_ref":binding.get("skill_entry_ref"),
-                "skill_entry_binding_revision_ref":binding.get("skill_entry_binding_revision_ref"),
-                "skill_entry_binding_hash":binding.get("skill_entry_binding_hash"),
-                "skill_revision_ref":binding.get("skill_manifest_revision_ref"),
-                "manifest_content_hash":binding.get("skill_manifest_content_hash"),
-                "inclusion_basis_refs":[]
-            })
-        })
-        .collect();
-    let active_skill_snapshot = json!({
-        "schema_version":"ioi.active-skill-set-snapshot.v1",
-        "active_skill_set_snapshot_id":resolution.get("active_skill_set_snapshot_ref"),
-        "work_subject_ref":goal_ref,
-        "selected_skills":selected_skills,
-        "excluded_candidates":[],
-        "compatibility_and_evaluation_result_refs":[],
-        "active_set_hash":resolution.get("active_skill_set_hash"),
-        "resolved_runtime_tool_contracts":resolution.pointer("/resolution_receipt/resolved_runtime_tool_contracts").cloned().unwrap_or_else(|| json!([])),
-        "context_lease_refs":[],
-        "resolution_receipt_ref":resolution.get("resolution_receipt_ref"),
-        "registry_lifecycle_ref":Value::Null,
-        "registry_status":"active"
-    });
-    if persist_record(
-        &st.data_dir,
-        "active-skill-set-snapshots",
-        goal_run_id,
-        &active_skill_snapshot,
-    )
-    .is_err()
+    if !resolution
+        .get("active_skill_set_snapshot_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|reference| reference.starts_with("active-skill-set://snapshot/sha256:"))
     {
-        return bad(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "goal_run_active_skill_snapshot_persist_failed",
-            "The exact active skill-set snapshot did not persist.",
-        );
+        let selected_skills: Vec<Value> = resolution_request
+            .get("resolved_skill_bindings")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(|binding| {
+                json!({
+                    "skill_entry_ref":binding.get("skill_entry_ref"),
+                    "skill_entry_binding_revision_ref":binding.get("skill_entry_binding_revision_ref"),
+                    "skill_entry_binding_hash":binding.get("skill_entry_binding_hash"),
+                    "skill_revision_ref":binding.get("skill_manifest_revision_ref"),
+                    "manifest_content_hash":binding.get("skill_manifest_content_hash"),
+                    "inclusion_basis_refs":[]
+                })
+            })
+            .collect();
+        let active_skill_snapshot = json!({
+            "schema_version":"ioi.active-skill-set-snapshot.v1",
+            "active_skill_set_snapshot_id":resolution.get("active_skill_set_snapshot_ref"),
+            "work_subject_ref":goal_ref,
+            "selected_skills":selected_skills,
+            "excluded_candidates":[],
+            "compatibility_and_evaluation_result_refs":[],
+            "active_set_hash":resolution.get("active_skill_set_hash"),
+            "resolved_runtime_tool_contracts":resolution.pointer("/resolution_receipt/resolved_runtime_tool_contracts").cloned().unwrap_or_else(|| json!([])),
+            "context_lease_refs":[],
+            "resolution_receipt_ref":resolution.get("resolution_receipt_ref"),
+            "registry_lifecycle_ref":Value::Null,
+            "registry_status":"active"
+        });
+        if persist_record(
+            &st.data_dir,
+            "active-skill-set-snapshots",
+            goal_run_id,
+            &active_skill_snapshot,
+        )
+        .is_err()
+        {
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_active_skill_snapshot_persist_failed",
+                "The exact legacy active skill-set snapshot did not persist.",
+            );
+        }
     }
     let now = iso_now();
     let mut lifecycle = WorkLifecycleCore::default();
@@ -4547,6 +4775,12 @@ fn create_direct_goal_run(
             .cloned()
             .unwrap_or(Value::Null),
     ];
+    if let Some(receipt_ref) = resolution
+        .get("active_skill_set_resolution_receipt_ref")
+        .filter(|value| !value.is_null())
+    {
+        active_receipt_refs.push(receipt_ref.clone());
+    }
     if let Some(binding) = activation {
         genesis_evidence_refs.push(json!(binding.activation_ref.clone()));
         genesis_receipt_refs.push(json!(binding.review_decision_ref.clone()));
@@ -4629,6 +4863,12 @@ fn create_direct_goal_run(
             .cloned()
             .unwrap_or(Value::Null),
     ];
+    if let Some(receipt_ref) = resolution
+        .get("active_skill_set_resolution_receipt_ref")
+        .filter(|value| !value.is_null())
+    {
+        record_receipt_refs.push(receipt_ref.clone());
+    }
     let mut receipt_obligations = vec![
         json!({
             "obligation_id": format!("receipt-obligation://goal-run/{goal_run_id}/admission"),

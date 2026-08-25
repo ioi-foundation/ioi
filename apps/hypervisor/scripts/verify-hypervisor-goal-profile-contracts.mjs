@@ -33,6 +33,14 @@ const H2 = `sha256:${"2".repeat(64)}`;
 const familyCount = (family) => {
   try { return fs.readdirSync(path.join(dataDir, family)).filter((name) => name.endsWith(".json")).length; } catch { return 0; }
 };
+const onlyFamilyRecord = (family) => {
+  try {
+    const files = fs.readdirSync(path.join(dataDir, family)).filter((name) => name.endsWith(".json"));
+    return files.length === 1
+      ? JSON.parse(fs.readFileSync(path.join(dataDir, family, files[0]), "utf8"))
+      : {};
+  } catch { return {}; }
+};
 const canonical = (value) => {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -731,6 +739,24 @@ async function run() {
       && familyCount("goal-runs") === goalRunsBefore,
     `${substitutedTool.status}/${substitutedTool.body?.error?.code}`);
 
+  const substitutedActiveSkillSetResolution = structuredClone(definitionResolution);
+  substitutedActiveSkillSetResolution.active_skill_set_snapshot_ref = `active-skill-set://snapshot/${H1}`;
+  const substitutedActiveSkillSet = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse caller-minted canonical active-skill coordinates",
+      admission_path_request: pathRequest,
+      definition_resolution: substitutedActiveSkillSetResolution,
+    }),
+  });
+  ok("GATE: canonical active-skill-set coordinates are minted only by the skill owner",
+    substitutedActiveSkillSet.status === 409
+      && substitutedActiveSkillSet.body?.error?.code === "goal_run_active_skill_set_substitution"
+      && familyCount("canonical-active-skill-set-snapshots") === 0
+      && familyCount("canonical-active-skill-set-resolution-receipts") === 0
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${substitutedActiveSkillSet.status}/${substitutedActiveSkillSet.body?.error?.code}`);
+
   const directPolicyDir = path.join(dataDir, "goal-run-admission-policy-revisions");
   const directPolicySlot = path.join(
     directPolicyDir,
@@ -766,6 +792,8 @@ async function run() {
   const exactResolution = exactGoalRun.body?.definition_resolution ?? {};
   const exactReceipt = exactResolution.resolution_receipt ?? {};
   const exactSnapshot = exactResolution.resolved_component_set ?? {};
+  const canonicalSkillSnapshot = onlyFamilyRecord("canonical-active-skill-set-snapshots");
+  const canonicalSkillReceipt = onlyFamilyRecord("canonical-active-skill-set-resolution-receipts");
   ok("the general GoalRun surface consumes exact daemon-resolved workflow, harness, skill, and transitive runtime-tool tuples",
     exactGoalRun.status === 201
       && exactGoalRun.body?.goal_run?.goal_run_profile_revision_ref === profileV2.revision_ref
@@ -781,6 +809,34 @@ async function run() {
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.some((contract) => contract.revision_ref?.startsWith("tool://ioi/runtime/file__read/revision/") && contract.content_hash?.startsWith("sha256:"))
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.some((contract) => contract.revision_ref?.startsWith("tool://ioi/runtime/file__list/revision/") && contract.content_hash?.startsWith("sha256:")),
     `${exactGoalRun.status}/${exactGoalRun.body?.error?.code ?? ""}`);
+  const canonicalSkillMaterial = {
+    domain: "ioi.active-skill-set-jcs-sha256.v1",
+    work_subject_ref: canonicalSkillSnapshot.work_subject_ref,
+    selected_skills: canonicalSkillSnapshot.selected_skills,
+    excluded_candidates: canonicalSkillSnapshot.excluded_candidates,
+    compatibility_and_evaluation_result_refs: canonicalSkillSnapshot.compatibility_and_evaluation_result_refs,
+    resolved_runtime_tool_contracts: canonicalSkillSnapshot.resolved_runtime_tool_contracts,
+    context_lease_refs: canonicalSkillSnapshot.context_lease_refs,
+  };
+  ok("the GoalRun consumes the canonical skill-owner snapshot and resolution receipt without a legacy duplicate",
+    familyCount("canonical-active-skill-set-snapshots") === 1
+      && familyCount("canonical-active-skill-set-resolution-receipts") === 1
+      && familyCount("active-skill-set-snapshots") === 0
+      && canonicalSkillSnapshot.work_subject_ref === exactGoalRun.body?.goal_run?.goal_ref
+      && canonicalSkillSnapshot.selected_skills?.length === 2
+      && canonicalSkillSnapshot.selected_skills?.every((skill) => skill.inclusion_basis_refs?.includes(profileV2.revision_ref))
+      && canonicalSkillSnapshot.active_set_hash === sha256(canonicalSkillMaterial)
+      && canonicalSkillSnapshot.active_skill_set_snapshot_id === `active-skill-set://snapshot/${canonicalSkillSnapshot.active_set_hash}`
+      && canonicalSkillSnapshot.active_skill_set_snapshot_id === exactResolution.active_skill_set_snapshot_ref
+      && canonicalSkillSnapshot.active_set_hash === exactResolution.active_skill_set_hash
+      && canonicalSkillSnapshot.resolution_receipt_ref === canonicalSkillReceipt.receipt_ref
+      && canonicalSkillReceipt.receipt_hash === sha256(canonicalSkillReceipt.material)
+      && canonicalSkillReceipt.material?.resolved_by_ref === principalRef
+      && exactResolution.active_skill_set_resolution_receipt_ref === canonicalSkillReceipt.receipt_ref
+      && exactReceipt.active_skill_set_snapshot_ref === canonicalSkillSnapshot.active_skill_set_snapshot_id
+      && exactReceipt.active_skill_set_hash === canonicalSkillSnapshot.active_set_hash
+      && exactGoalRun.body?.goal_run?.receipt_refs?.includes(canonicalSkillReceipt.receipt_ref),
+    `${exactGoalRun.status}/${canonicalSkillSnapshot.active_skill_set_snapshot_id ?? ""}`);
   ok("the direct closure freezes daemon-owned policy, constraints, null overrides, and empty unresolved requirements into the snapshot hash",
     exactReceipt.orchestration_policy_ref?.startsWith("orchestration-policy://bounded-general/revision/sha256:")
       && exactReceipt.orchestration_policy_version_or_hash?.startsWith("sha256:")

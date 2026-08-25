@@ -286,9 +286,13 @@ const PINNED = {
   // policy release, derived constraint, and snapshot closure add 192 source tokens and fifteen
   // foreign-qualified names; replacing the plain GoalRun writer with the durable atomic owner
   // removes one non-ODK literal writer. No ODK, filesystem, or owner edge changes.
+  // M04.4 canonical GoalRun ActiveSkillSetSnapshot convergence re-derivation (2026-08-25): the
+  // shared canonical builder, predetermined GoalRun preparation/persistence seam, and exact
+  // resolution cross-check add 105 source tokens, fourteen foreign-qualified names, and one
+  // opaque mutation-lock reference. No ODK mention, writer, filesystem, or owner edge changes.
   modules: 98,
   familyMentions: 284,
-  tokenMentions: 118808,
+  tokenMentions: 118913,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 236, runtimeParameter: 303 },
   productionFsCalls: 234,
@@ -309,8 +313,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4048,
-    "opaque-initialiser": 1662,
+    "foreign-qualified": 4062,
+    "opaque-initialiser": 1663,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

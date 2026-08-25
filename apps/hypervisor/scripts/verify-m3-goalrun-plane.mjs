@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { mkdtempSync, readFileSync, rmSync, readdirSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
@@ -11,6 +12,18 @@ const dataDir = mkdtempSync(join(tmpdir(), "ioi-m3-goalrun-"));
 const checks = [];
 const check = (name, condition, detail = "") => checks.push({ name, pass: Boolean(condition), detail });
 const count = (family) => { try { return readdirSync(join(dataDir, family)).filter((name) => name.endsWith(".json")).length; } catch { return 0; } };
+const onlyRecord = (family) => {
+  try {
+    const files = readdirSync(join(dataDir, family)).filter((name) => name.endsWith(".json"));
+    return files.length === 1 ? JSON.parse(readFileSync(join(dataDir, family, files[0]), "utf8")) : {};
+  } catch { return {}; }
+};
+const canonical = (value) => {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+};
+const sha256 = (value) => `sha256:${createHash("sha256").update(canonical(value)).digest("hex")}`;
 
 const pathRequest = {
   requested_path: "direct_non_system",
@@ -134,7 +147,33 @@ try {
     });
     const run = created.body.goal_run;
     check("direct GoalRun admits active through exact profile resolution and daemon-derived ownership", created.status === 201 && run?.status === "active" && run?.schema_version === "ioi.goal-run.v1" && run?.admission_path_status === "direct_non_system" && run?.owner_ref === principalRef, `${created.status}/${created.body?.error?.code}/${run?.owner_ref}`);
-    check("component, active-skill, resolution, and lifecycle records persist", count("goal-run-component-snapshots") === 1 && count("active-skill-set-snapshots") === 1 && count("goal-run-profile-resolution-receipts") === 1 && count("work-lifecycle-records") === 2);
+    check("component, canonical active-skill, resolution, and lifecycle records persist without the legacy GoalRun-local family",
+      count("goal-run-component-snapshots") === 1
+        && count("canonical-active-skill-set-snapshots") === 1
+        && count("canonical-active-skill-set-resolution-receipts") === 1
+        && count("active-skill-set-snapshots") === 0
+        && count("goal-run-profile-resolution-receipts") === 1
+        && count("work-lifecycle-records") === 2);
+    const canonicalSkillSnapshot = onlyRecord("canonical-active-skill-set-snapshots");
+    const canonicalSkillReceipt = onlyRecord("canonical-active-skill-set-resolution-receipts");
+    const canonicalSkillMaterial = {
+      domain: "ioi.active-skill-set-jcs-sha256.v1",
+      work_subject_ref: canonicalSkillSnapshot.work_subject_ref,
+      selected_skills: canonicalSkillSnapshot.selected_skills,
+      excluded_candidates: canonicalSkillSnapshot.excluded_candidates,
+      compatibility_and_evaluation_result_refs: canonicalSkillSnapshot.compatibility_and_evaluation_result_refs,
+      resolved_runtime_tool_contracts: canonicalSkillSnapshot.resolved_runtime_tool_contracts,
+      context_lease_refs: canonicalSkillSnapshot.context_lease_refs,
+    };
+    check("the GoalRun and canonical skill owner bind one reproducible snapshot and resolution receipt",
+      canonicalSkillSnapshot.work_subject_ref === run?.goal_ref
+        && canonicalSkillSnapshot.active_set_hash === sha256(canonicalSkillMaterial)
+        && canonicalSkillSnapshot.active_skill_set_snapshot_id === `active-skill-set://snapshot/${canonicalSkillSnapshot.active_set_hash}`
+        && canonicalSkillSnapshot.active_skill_set_snapshot_id === run?.active_skill_set_snapshot_ref
+        && canonicalSkillSnapshot.active_set_hash === run?.active_skill_set_hash
+        && canonicalSkillSnapshot.resolution_receipt_ref === canonicalSkillReceipt.receipt_ref
+        && canonicalSkillReceipt.receipt_hash === sha256(canonicalSkillReceipt.material)
+        && run?.receipt_refs?.includes(canonicalSkillReceipt.receipt_ref));
     check("activation retained exact lifecycle and state commitments", String(run?.lifecycle_head).startsWith("sha256:") && String(run?.admitted_state_root_ref).startsWith("agentgres://state-root/") && run?.lifecycle_record_refs?.length === 2);
 
     const id = String(run?.goal_ref ?? "").replace("goal://", "");

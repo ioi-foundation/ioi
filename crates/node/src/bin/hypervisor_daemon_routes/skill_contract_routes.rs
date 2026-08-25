@@ -1268,6 +1268,158 @@ fn typed_object_array(body: &Map<String, Value>, key: &str) -> Result<Vec<Value>
     })
 }
 
+fn build_active_skill_set_records(
+    resolved_by_ref: &str,
+    work_subject_ref: &str,
+    mut selected_skills: Vec<Value>,
+    mut excluded_candidates: Vec<Value>,
+    compatibility_and_evaluation_result_refs: Value,
+    mut resolved_runtime_tool_contracts: Vec<Value>,
+    context_lease_refs: Value,
+) -> Result<(Value, Value), Reply> {
+    selected_skills.sort_by(|left, right| {
+        left.get("skill_entry_binding_revision_ref")
+            .and_then(Value::as_str)
+            .cmp(
+                &right
+                    .get("skill_entry_binding_revision_ref")
+                    .and_then(Value::as_str),
+            )
+    });
+    excluded_candidates.sort_by(|left, right| {
+        left.get("candidate_ref")
+            .and_then(Value::as_str)
+            .cmp(&right.get("candidate_ref").and_then(Value::as_str))
+    });
+    resolved_runtime_tool_contracts.sort_by(|left, right| {
+        left.get("revision_ref")
+            .and_then(Value::as_str)
+            .cmp(&right.get("revision_ref").and_then(Value::as_str))
+    });
+    let set_material = json!({
+        "domain": "ioi.active-skill-set-jcs-sha256.v1",
+        "work_subject_ref": work_subject_ref,
+        "selected_skills": selected_skills,
+        "excluded_candidates": excluded_candidates,
+        "compatibility_and_evaluation_result_refs": compatibility_and_evaluation_result_refs,
+        "resolved_runtime_tool_contracts": resolved_runtime_tool_contracts,
+        "context_lease_refs": context_lease_refs,
+    });
+    let active_set_hash = hash(&set_material)?;
+    let snapshot_id = format!("active-skill-set://snapshot/{active_set_hash}");
+    let receipt_material = json!({
+        "domain": "ioi.active-skill-set-resolution-receipt-jcs-sha256.v1",
+        "active_skill_set_snapshot_id": snapshot_id,
+        "active_set_hash": active_set_hash,
+        "work_subject_ref": work_subject_ref,
+        "resolved_by_ref": resolved_by_ref,
+    });
+    let receipt_hash = hash(&receipt_material)?;
+    let receipt_ref = format!(
+        "receipt://active-skill-set-resolution/{}",
+        digest_tail(&receipt_hash)
+    );
+    let record = json!({
+        "schema_version": "ioi.active-skill-set-snapshot.v1",
+        "active_skill_set_snapshot_id": receipt_material["active_skill_set_snapshot_id"],
+        "work_subject_ref": set_material["work_subject_ref"],
+        "selected_skills": set_material["selected_skills"],
+        "excluded_candidates": set_material["excluded_candidates"],
+        "compatibility_and_evaluation_result_refs": set_material["compatibility_and_evaluation_result_refs"],
+        "active_set_hash": receipt_material["active_set_hash"],
+        "resolved_runtime_tool_contracts": set_material["resolved_runtime_tool_contracts"],
+        "context_lease_refs": set_material["context_lease_refs"],
+        "resolution_receipt_ref": receipt_ref,
+        "registry_lifecycle_ref": null,
+        "registry_status": "admitted",
+    });
+    validate_contract(
+        "schema://ioi/foundations/active-skill-set-snapshot/v1",
+        &record,
+    )?;
+    let receipt = json!({
+        "schema_version": "ioi.active-skill-set-resolution-receipt.v1",
+        "receipt_ref": record["resolution_receipt_ref"],
+        "receipt_hash": receipt_hash,
+        "material": receipt_material,
+    });
+    Ok((record, receipt))
+}
+
+pub(crate) struct GoalRunActiveSkillSetAdmission {
+    pub(crate) snapshot: Value,
+    pub(crate) resolution_receipt: Value,
+}
+
+/// Admit the exact canonical active skill set selected internally by the GoalRun owner. The
+/// public snapshot route retains its AutomationRun subject check; this integration accepts only
+/// a predetermined `goal://` subject and never trusts caller-selected bindings or tool tuples.
+pub(crate) fn prepare_goal_run_active_skill_set(
+    resolved_by_ref: &str,
+    goal_ref: &str,
+    bindings: &[Value],
+    resolved_runtime_tools: &[Value],
+    inclusion_basis_refs: &[String],
+) -> Result<GoalRunActiveSkillSetAdmission, String> {
+    if !goal_ref.starts_with("goal://") || goal_ref.len() <= "goal://".len() {
+        return Err("canonical GoalRun skill snapshot requires a goal:// subject".to_string());
+    }
+    let selected_skills = bindings
+        .iter()
+        .map(|binding| {
+            json!({
+                "skill_entry_ref": binding.get("skill_entry_ref"),
+                "skill_entry_binding_revision_ref": binding.get("skill_entry_binding_revision_ref"),
+                "skill_entry_binding_hash": binding.get("skill_entry_binding_hash"),
+                "skill_revision_ref": binding.get("skill_manifest_revision_ref"),
+                "manifest_content_hash": binding.get("skill_manifest_content_hash"),
+                "inclusion_basis_refs": inclusion_basis_refs,
+            })
+        })
+        .collect::<Vec<_>>();
+    let (snapshot, resolution_receipt) = build_active_skill_set_records(
+        resolved_by_ref,
+        goal_ref,
+        selected_skills,
+        Vec::new(),
+        json!([]),
+        resolved_runtime_tools.to_vec(),
+        json!([]),
+    )
+    .map_err(|reply| reply.1 .0.to_string())?;
+    Ok(GoalRunActiveSkillSetAdmission {
+        snapshot,
+        resolution_receipt,
+    })
+}
+
+pub(crate) fn persist_goal_run_active_skill_set(
+    st: &DaemonState,
+    admission: &GoalRunActiveSkillSetAdmission,
+) -> Result<(), String> {
+    let key = digest_tail(admission.snapshot["active_set_hash"].as_str().unwrap_or(""));
+    let _mutation = SKILL_CONTRACT_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    store_exact_or_replay(
+        st,
+        RESOLUTION_RECEIPT_DIR,
+        key,
+        "receipt_ref",
+        &admission.resolution_receipt,
+    )
+    .map_err(|reply| reply.1 .0.to_string())?;
+    store_exact_or_replay(
+        st,
+        SNAPSHOT_DIR,
+        key,
+        "active_skill_set_snapshot_id",
+        &admission.snapshot,
+    )
+    .map_err(|reply| reply.1 .0.to_string())?;
+    Ok(())
+}
+
 pub(crate) async fn create_active_skill_set_snapshot(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -1291,83 +1443,38 @@ pub(crate) async fn create_active_skill_set_snapshot(
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let mut excluded_candidates = match typed_object_array(body, "excluded_candidates") {
+    let excluded_candidates = match typed_object_array(body, "excluded_candidates") {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    excluded_candidates.sort_by(|left, right| {
-        left.get("candidate_ref")
-            .and_then(Value::as_str)
-            .cmp(&right.get("candidate_ref").and_then(Value::as_str))
-    });
-    let mut resolved_tools = match typed_object_array(body, "resolved_runtime_tool_contracts") {
+    let resolved_tools = match typed_object_array(body, "resolved_runtime_tool_contracts") {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    resolved_tools.sort_by(|left, right| {
-        left.get("revision_ref")
-            .and_then(Value::as_str)
-            .cmp(&right.get("revision_ref").and_then(Value::as_str))
-    });
     let subject_ref = match work_subject_ref(&st, body, &identity) {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let set_material = json!({
-        "domain": "ioi.active-skill-set-jcs-sha256.v1",
-        "work_subject_ref": subject_ref,
-        "selected_skills": selected_skills,
-        "excluded_candidates": excluded_candidates,
-        "compatibility_and_evaluation_result_refs": match string_array(body, "compatibility_and_evaluation_result_refs") { Ok(value) => value, Err(reply) => return reply },
-        "resolved_runtime_tool_contracts": resolved_tools,
-        "context_lease_refs": match string_array(body, "context_lease_refs") { Ok(value) => value, Err(reply) => return reply },
-    });
-    let active_set_hash = match hash(&set_material) {
+    let compatibility_refs = match string_array(body, "compatibility_and_evaluation_result_refs") {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let snapshot_id = format!("active-skill-set://snapshot/{active_set_hash}");
-    let receipt_material = json!({
-        "domain": "ioi.active-skill-set-resolution-receipt-jcs-sha256.v1",
-        "active_skill_set_snapshot_id": snapshot_id,
-        "active_set_hash": active_set_hash,
-        "work_subject_ref": set_material["work_subject_ref"],
-        "resolved_by_ref": identity,
-    });
-    let receipt_hash = match hash(&receipt_material) {
+    let context_lease_refs = match string_array(body, "context_lease_refs") {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let receipt_ref = format!(
-        "receipt://active-skill-set-resolution/{}",
-        digest_tail(&receipt_hash)
-    );
-    let record = json!({
-        "schema_version": "ioi.active-skill-set-snapshot.v1",
-        "active_skill_set_snapshot_id": receipt_material["active_skill_set_snapshot_id"],
-        "work_subject_ref": set_material["work_subject_ref"],
-        "selected_skills": set_material["selected_skills"],
-        "excluded_candidates": set_material["excluded_candidates"],
-        "compatibility_and_evaluation_result_refs": set_material["compatibility_and_evaluation_result_refs"],
-        "active_set_hash": receipt_material["active_set_hash"],
-        "resolved_runtime_tool_contracts": set_material["resolved_runtime_tool_contracts"],
-        "context_lease_refs": set_material["context_lease_refs"],
-        "resolution_receipt_ref": receipt_ref,
-        "registry_lifecycle_ref": null,
-        "registry_status": "admitted",
-    });
-    if let Err(reply) = validate_contract(
-        "schema://ioi/foundations/active-skill-set-snapshot/v1",
-        &record,
+    let (record, receipt) = match build_active_skill_set_records(
+        &identity,
+        &subject_ref,
+        selected_skills,
+        excluded_candidates,
+        json!(compatibility_refs),
+        resolved_tools,
+        json!(context_lease_refs),
     ) {
-        return reply;
-    }
-    let receipt = json!({
-        "schema_version": "ioi.active-skill-set-resolution-receipt.v1",
-        "receipt_ref": record["resolution_receipt_ref"],
-        "receipt_hash": receipt_hash,
-        "material": receipt_material,
-    });
+        Ok(value) => value,
+        Err(reply) => return reply,
+    };
     let key = digest_tail(record["active_set_hash"].as_str().unwrap_or(""));
     // Receipt first makes a process death recoverable: a retry accepts the exact deterministic
     // receipt, then admits the snapshot. A response-loss retry accepts both byte-identical records.
