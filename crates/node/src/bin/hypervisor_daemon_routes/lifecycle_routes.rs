@@ -12903,9 +12903,20 @@ pub(crate) async fn handle_session_create(
         // is still in scope. The commit path (`prepare_session_create_bundle`) binds from the
         // durable intent this preflight authorizes and never sees a request of its own, so gating
         // the reservation is what keeps the whole session lane behind the route's owner.
-        if let Err((status, body)) =
-            super::model_routes::authorize_session_route_binding(&st.data_dir, &headers, route_ref)
-        {
+        let route_authorization =
+            if super::orchestration_routes::internal_dispatch_authorized(&st, &headers) {
+                super::model_routes::authorize_internal_session_route_binding(
+                    &st.data_dir,
+                    route_ref,
+                )
+            } else {
+                super::model_routes::authorize_session_route_binding(
+                    &st.data_dir,
+                    &headers,
+                    route_ref,
+                )
+            };
+        if let Err((status, body)) = route_authorization {
             return (status, body);
         }
         if let Err(detail) = super::model_routes::bind_route_for_session_recoverable(

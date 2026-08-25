@@ -5,7 +5,7 @@
 // GoalRunActivation boundary. Durable goal truth requires the separately labelled, two-step
 // daemon review/admission affordance. This verifier owns a fresh daemon + product-ui process.
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -53,9 +53,16 @@ let browser = null;
 let authorityResolver = null;
 let verifierPhase = "startup";
 try {
+  const ioiAiRebind = join(REPO, "apps", "ioi-ai", "IOI-REBIND.md");
   check(
-    "SCOPE: no parallel apps/ioi-ai workspace was introduced",
-    !existsSync(join(REPO, "apps", "ioi-ai")),
+    "SCOPE: apps/ioi-ai is the owner-ratified single application and claims no second runtime",
+    existsSync(ioiAiRebind) &&
+      readFileSync(ioiAiRebind, "utf8").includes(
+        "`apps/ioi-ai` is the **one** ioi.ai application",
+      ) &&
+      readFileSync(ioiAiRebind, "utf8").includes(
+        "There is no second ioi.ai runtime.",
+      ),
   );
   authorityResolver = await startRealWalletNetworkPrincipalAuthorityFixture({
     baseEnv: CLEAN_BASE_ENV,

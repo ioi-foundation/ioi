@@ -296,7 +296,7 @@ const PINNED = {
   // foreign-qualified names. No ODK mention, writer, filesystem, or owner edge changes.
   modules: 98,
   familyMentions: 284,
-  tokenMentions: 118934,
+  tokenMentions: 119094,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 236, runtimeParameter: 303 },
   productionFsCalls: 234,
@@ -317,7 +317,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4064,
+    "foreign-qualified": 4076,
     "opaque-initialiser": 1663,
     "bare-undeclared": 529,
     "ambiguous-module": 0,

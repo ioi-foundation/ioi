@@ -1424,7 +1424,7 @@ fn activation_profile(
         "pinned_learning_boundary_profile_ref": Value::Null,
         "allowed_override_schema_ref": Value::Null,
         "compatibility_refs": [],
-        "provenance_refs": [component.get("source_profile_ref").cloned().unwrap_or(Value::Null)],
+        "provenance_refs": [component.get("revision_ref").cloned().unwrap_or(Value::Null)],
         "evaluation_and_benchmark_refs": [],
         "promotion_policy_ref": Value::Null,
         "revocation_and_recall_policy_ref": Value::Null,
@@ -1441,6 +1441,18 @@ fn activation_profile(
         "goal-run-profile://generic-adaptive/revision/{}",
         text(&record, "content_hash")
     ));
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
+        &record,
+    )
+    .map_err(|error| {
+        bad_with_details(
+            StatusCode::CONFLICT,
+            "goal_run_activation_profile_contract_invalid",
+            "The daemon-owned activation GoalRunProfile does not satisfy its registered contract.",
+            json!({ "error": error }),
+        )
+    })?;
     Ok(record)
 }
 
@@ -2769,6 +2781,22 @@ fn install_profile_harness_resolution(
     profile: &Value,
     body: &mut Value,
 ) -> Result<(), HttpRefusal> {
+    let profiles = super::harness_routes::seeded_profiles_strict(st).map_err(|detail| {
+        bad_with_details(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "goal_run_harness_registry_unreadable",
+            "The complete seeded harness-profile registry cannot resolve the selected GoalRunProfile.",
+            json!({ "detail": detail }),
+        )
+    })?;
+    install_profile_harness_resolution_from_census(profile, body, &profiles)
+}
+
+fn install_profile_harness_resolution_from_census(
+    profile: &Value,
+    body: &mut Value,
+    profiles: &[Value],
+) -> Result<(), HttpRefusal> {
     let profile_refs = |field: &str| -> Result<Vec<String>, HttpRefusal> {
         profile
             .get(field)
@@ -2794,14 +2822,6 @@ fn install_profile_harness_resolution(
     };
     let requirement_refs = profile_refs("harness_requirement_refs")?;
     let pinned_refs = profile_refs("pinned_harness_profile_revision_refs")?;
-    let profiles = super::harness_routes::seeded_profiles_strict(st).map_err(|detail| {
-        bad_with_details(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "goal_run_harness_registry_unreadable",
-            "The complete seeded harness-profile registry cannot resolve the selected GoalRunProfile.",
-            json!({ "detail": detail }),
-        )
-    })?;
     let active_profiles = profiles
         .iter()
         .filter(|candidate| {
@@ -2864,7 +2884,7 @@ fn install_profile_harness_resolution(
                         "This resolution lane accepts exact `harness://<name>` requirements.",
                     )
                 })?;
-            let source = super::harness_routes::unique_profile_by_harness(&profiles, harness)
+            let source = super::harness_routes::unique_profile_by_harness(profiles, harness)
                 .map_err(|detail| {
                     bad_with_details(
                         StatusCode::CONFLICT,
@@ -3459,8 +3479,26 @@ fn install_profile_reusable_definition_resolution(
     profile: &Value,
     body: &mut Value,
 ) -> Result<(), HttpRefusal> {
+    install_profile_reusable_definition_resolution_from_harness_census(
+        st, identity, owner_ref, goal_ref, profile, body, None,
+    )
+}
+
+fn install_profile_reusable_definition_resolution_from_harness_census(
+    st: &DaemonState,
+    identity: &super::substrate_store::RequestIdentity,
+    owner_ref: &str,
+    goal_ref: &str,
+    profile: &Value,
+    body: &mut Value,
+    harness_profiles: Option<&[Value]>,
+) -> Result<(), HttpRefusal> {
     install_profile_workflow_resolution(&st.data_dir, identity, profile, body)?;
-    install_profile_harness_resolution(st, profile, body)?;
+    if let Some(profiles) = harness_profiles {
+        install_profile_harness_resolution_from_census(profile, body, profiles)?;
+    } else {
+        install_profile_harness_resolution(st, profile, body)?;
+    }
     let skill_tool_requirements = install_profile_skill_resolution(st, owner_ref, profile, body)?;
     install_profile_runtime_tool_resolution(st, profile, &skill_tool_requirements, body)?;
     install_canonical_goal_run_skill_snapshot(owner_ref, goal_ref, profile, body)
@@ -3861,6 +3899,43 @@ pub(crate) async fn handle_goal_runs_create(
             "A bounded normalized goal is required.",
         );
     }
+    // Resolve an explicitly named Session before definition/path parsing. Owner authorization is
+    // not a validation detail: a foreign caller must never use later admission errors as an
+    // oracle over another principal's Session/workspace.
+    let requested_session_ref = text(&body, "session_ref").to_string();
+    let requested_target_session = if requested_session_ref.is_empty() {
+        None
+    } else {
+        let session = match super::lifecycle_routes::load_session_record_strict(
+            &st,
+            &requested_session_ref,
+        ) {
+            Ok(Some(session)) => session,
+            Ok(None) => {
+                return bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "goal_run_target_session_unresolved",
+                    "A GoalRun binds to an existing session (its workspace is the reconciliation target).",
+                )
+            }
+            Err(message) => {
+                return bad_with_details(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "goal_run_target_session_unreadable",
+                    "The target Session owner record cannot be strictly resolved.",
+                    json!({ "error": message }),
+                )
+            }
+        };
+        if session.get("owner_ref").and_then(Value::as_str) != Some(owner_ref.as_str()) {
+            return bad(
+                StatusCode::FORBIDDEN,
+                "goal_run_target_session_owner_mismatch",
+                "The authenticated GoalRun owner does not own the target Session/workspace.",
+            );
+        }
+        Some(session)
+    };
     let direct_origin_surface = match body.get("origin_surface") {
         None | Some(Value::Null) => "api".to_string(),
         Some(Value::String(origin))
@@ -3895,6 +3970,8 @@ pub(crate) async fn handle_goal_runs_create(
     let mut path_decision: Option<Value> = None;
     let mut path_fact_resolution: Option<Value> = None;
     let mut deferred_system_path_request: Option<Value> = None;
+    let mut deferred_system_profile: Option<Value> = None;
+    let mut deferred_system_constraint_material: Option<Value> = None;
     if let Some(mut path_request) = body.get("admission_path_request").cloned() {
         let Some(path_object) = path_request.as_object_mut() else {
             return bad(
@@ -3957,13 +4034,89 @@ pub(crate) async fn handle_goal_runs_create(
                 }
             };
         path_object.insert("goal_run_ref".into(), json!(goal_ref));
-        let requested_system_path = text(&path_request, "requested_path") == "system_bound"
-            || policy_requests_hosted_collective(&path_request)
+        let requested_system_path = path_object.get("requested_path").and_then(Value::as_str)
+            == Some("system_bound")
+            || path_object
+                .get("policy_refs")
+                .and_then(Value::as_array)
+                .is_some_and(|references| {
+                    references.iter().any(|reference| {
+                        reference.as_str() == Some(M4_HOSTED_COLLECTIVE_POLICY_REF)
+                    })
+                })
             || body
                 .get("target_system_id")
                 .is_some_and(|value| !value.is_null());
         if requested_system_path {
+            let target_system_id = body
+                .get("target_system_id")
+                .and_then(Value::as_str)
+                .filter(|value| value.starts_with("system://") && value.len() <= 320)
+                .unwrap_or("");
+            if target_system_id.is_empty() {
+                return bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "goal_run_target_system_required",
+                    "A requested System-bound GoalRun must name one exact target_system_id for daemon resolution.",
+                );
+            }
+            let constraint_material = json!({
+                "schema_version": "ioi.goal-run-system-effective-constraint.v1",
+                "goal_run_ref": goal_ref,
+                "requester_ref": owner_ref,
+                "normalized_goal": goal,
+                "target_system_id": target_system_id,
+                "goal_run_profile_revision_ref": selected_profile.get("revision_ref"),
+                "goal_run_profile_content_hash": selected_profile.get("content_hash"),
+                "result_profile": path_object.get("result_profile").cloned().unwrap_or(Value::Null),
+                "orchestration_policy_ref": M4_HOSTED_COLLECTIVE_POLICY_REF,
+                "status": "active"
+            });
+            let constraint_hash = sha256_canonical(&json!({
+                "domain": "ioi.goal-run-system-effective-constraint-jcs-sha256.v1",
+                "material": constraint_material
+            }));
+            if path_object
+                .get("effective_constraint_hash")
+                .is_some_and(|value| {
+                    !value.is_null() && value.as_str() != Some(constraint_hash.as_str())
+                })
+            {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_constraint_resolution_substitution",
+                    "A caller effective-constraint hash differs from the daemon-derived System material.",
+                );
+            }
+            let expected_policy_refs = json!([M4_HOSTED_COLLECTIVE_POLICY_REF]);
+            if path_object.get("policy_refs").is_some_and(|value| {
+                !value.is_null() && value != &json!([]) && value != &expected_policy_refs
+            }) || path_object
+                .get("authority_refs")
+                .is_some_and(|value| !value.is_null() && value != &json!([]))
+                || path_object
+                    .get("capability_requirement_refs")
+                    .is_some_and(|value| !value.is_null() && value != &json!([]))
+            {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_admission_material_substitution",
+                    "Caller policy, authority, or capability material differs from the daemon-owned System closure.",
+                );
+            }
+            path_object.insert("effective_constraint_hash".into(), json!(constraint_hash));
+            path_object.insert("policy_refs".into(), expected_policy_refs);
+            path_object.insert("authority_refs".into(), json!([]));
+            path_object.insert("capability_requirement_refs".into(), json!([]));
+            body["constraint_refs"] = json!([format!(
+                "constraint://goal-run-system/{}/{}",
+                safe(&goal_ref),
+                constraint_hash
+            )]);
+            body["authority_scope_refs"] = json!([]);
             deferred_system_path_request = Some(path_request);
+            deferred_system_profile = Some(selected_profile);
+            deferred_system_constraint_material = Some(constraint_material);
         } else {
             let mut direct_body = body.clone();
             if let Err(response) = install_profile_reusable_definition_resolution(
@@ -4025,33 +4178,22 @@ pub(crate) async fn handle_goal_runs_create(
         }
     }
 
-    let session_ref = text(&body, "session_ref").to_string();
-    let target_session = match super::lifecycle_routes::load_session_record_strict(
-        &st,
-        &session_ref,
-    ) {
-        Ok(Some(session)) => session,
-        Ok(None) => return bad(
+    if deferred_system_path_request.is_none() {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_admission_path_request_required",
+            "A Session-bound GoalRun requires an exact admitted System path request; the legacy implicit path is retired.",
+        );
+    }
+
+    let session_ref = requested_session_ref;
+    let Some(target_session) = requested_target_session else {
+        return bad(
             StatusCode::UNPROCESSABLE_ENTITY,
             "goal_run_target_session_unresolved",
             "A GoalRun binds to an existing session (its workspace is the reconciliation target).",
-        ),
-        Err(message) => {
-            return bad_with_details(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "goal_run_target_session_unreadable",
-                "The target Session owner record cannot be strictly resolved.",
-                json!({ "error": message }),
-            )
-        }
-    };
-    if target_session.get("owner_ref").and_then(Value::as_str) != Some(owner_ref.as_str()) {
-        return bad(
-            StatusCode::FORBIDDEN,
-            "goal_run_target_session_owner_mismatch",
-            "The authenticated GoalRun owner does not own the target Session/workspace.",
         );
-    }
+    };
     let target_workspace = text(&target_session, "workspace_root").to_string();
     if target_workspace.is_empty() {
         return bad(
@@ -4298,6 +4440,128 @@ pub(crate) async fn handle_goal_runs_create(
         );
     }
 
+    let selected_profile = match deferred_system_profile.as_ref() {
+        Some(profile) => profile,
+        None => {
+            return bad(
+                StatusCode::CONFLICT,
+                "goal_run_system_profile_resolution_missing",
+                "The System-bound path lost its exact released GoalRunProfile closure.",
+            )
+        }
+    };
+    let constraint_material = match deferred_system_constraint_material.as_ref() {
+        Some(material) => material,
+        None => {
+            return bad(
+                StatusCode::CONFLICT,
+                "goal_run_system_constraint_resolution_missing",
+                "The System-bound path lost its daemon-derived constraint closure.",
+            )
+        }
+    };
+    let fact_resolution =
+        match path_fact_resolution.as_ref() {
+            Some(resolution) => resolution,
+            None => return bad(
+                StatusCode::CONFLICT,
+                "goal_run_system_fact_resolution_missing",
+                "The System-bound path lost its daemon-owned System and topology fact resolution.",
+            ),
+        };
+    let decision = match path_decision.as_ref() {
+        Some(decision) => decision,
+        None => {
+            return bad(
+                StatusCode::CONFLICT,
+                "goal_run_system_admission_decision_missing",
+                "The System-bound path lost its daemon-owned admission decision.",
+            )
+        }
+    };
+    let topology_hash = sha256_canonical(&topology);
+    let topology_ref = format!("role-topology://goal-run/{goal_run_id}/revision/{topology_hash}");
+    let policy_material = json!({
+        "schema_version": "ioi.goal-run-system-orchestration-policy.v1",
+        "policy_family_ref": M4_HOSTED_COLLECTIVE_POLICY_REF,
+        "goal_run_ref": goal_ref,
+        "target_system_id": body.get("target_system_id").cloned().unwrap_or(Value::Null),
+        "package_id": OUTCOME_ROOM_PACKAGE_REF,
+        "admission_fact_resolution_root": fact_resolution.get("resolution_root").cloned().unwrap_or(Value::Null),
+        "initial_role_topology_revision_ref": topology_ref,
+        "initial_role_topology_content_hash": topology_hash,
+        "max_parallel_invocations": 2,
+        "status": "active"
+    });
+    let policy_hash = sha256_canonical(&json!({
+        "domain": "ioi.goal-run-system-orchestration-policy-jcs-sha256.v1",
+        "material": policy_material
+    }));
+    let policy_ref = format!("orchestration-policy://ioi/m4/hosted-only/revision/{policy_hash}");
+    let constraint_hash = text(decision, "effective_constraint_hash").to_string();
+    let constraint_ref = format!(
+        "constraint://goal-run-system/{}/{}",
+        safe(&goal_ref),
+        constraint_hash
+    );
+    let mut system_definition_body = json!({
+        "owner_ref": owner_ref,
+        "definition_resolution": {
+            "goal_run_ref": goal_ref,
+            "goal_run_profile_revision_ref": selected_profile.get("revision_ref"),
+            "goal_run_profile_content_hash": selected_profile.get("content_hash"),
+            "admitted_override_set_ref": Value::Null,
+            "admitted_override_set_hash": Value::Null,
+            "effective_constraint_envelope_ref": constraint_ref,
+            "effective_constraint_envelope_hash": constraint_hash,
+            "effective_constraint_envelope": constraint_material,
+            "orchestration_policy_ref": policy_ref,
+            "orchestration_policy_version_or_hash": policy_hash,
+            "component_hashes": {},
+            "role_topology_requirement_refs": selected_profile.get("role_topology_requirement_refs").cloned().unwrap_or_else(|| json!([])),
+            "worker_model_service_and_verifier_requirement_refs": [],
+            "primitive_capability_requirement_refs": selected_profile.get("primitive_capability_requirements").cloned().unwrap_or_else(|| json!([])),
+            "initial_role_topology_revision_ref": topology_ref,
+            "initial_role_topology_content_hash": topology_hash,
+            "initial_role_topology_decision_ref": decision.get("decision_ref").cloned().unwrap_or(Value::Null),
+            "unresolved_late_binding_requirement_refs": [],
+            "effective_learning_boundary_profile_ref": Value::Null,
+            "effective_learning_policy_hash": Value::Null,
+            "compatibility_revocation_and_admission_decision_refs": [decision.get("decision_ref").cloned().unwrap_or(Value::Null)],
+            "agentgres_operation_refs": []
+        }
+    });
+    if let Err(response) = install_profile_reusable_definition_resolution_from_harness_census(
+        &st,
+        &request_identity,
+        &owner_ref,
+        &goal_ref,
+        selected_profile,
+        &mut system_definition_body,
+        Some(&profiles),
+    ) {
+        return response;
+    }
+    let system_definition_request = system_definition_body
+        .get("definition_resolution")
+        .cloned()
+        .expect("reusable definition installer retains its request object");
+    let system_definition_resolution =
+        match GoalPursuitCore.resolve_definitions(&system_definition_request, &iso_now()) {
+            Ok(resolution) => resolution,
+            Err(error) => return pursuit_err(error),
+        };
+    if let Err(response) = persist_goal_run_definition_resolution_records(
+        &st,
+        &system_definition_body,
+        &goal_run_id,
+        &goal_ref,
+        &system_definition_request,
+        &system_definition_resolution,
+    ) {
+        return response;
+    }
+
     // The typed ladder — durable coordination objects. The goal text lives ONCE as the
     // normalized goal; the task brief is the durable implementer contract (no raw prompts).
     let implementer_refs: Vec<String> = topology
@@ -4399,6 +4663,25 @@ pub(crate) async fn handle_goal_runs_create(
     }));
 
     let now = iso_now();
+    let definition_receipt_refs = [
+        system_definition_resolution.get("resolution_receipt_ref"),
+        system_definition_resolution.get("active_skill_set_resolution_receipt_ref"),
+    ]
+    .into_iter()
+    .flatten()
+    .filter(|value| {
+        value
+            .as_str()
+            .is_some_and(|reference| !reference.is_empty())
+    })
+    .cloned()
+    .collect::<Vec<_>>();
+    let mut admission_receipt_refs = admission
+        .get("receipt_refs")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    admission_receipt_refs.extend(definition_receipt_refs.clone());
     let record = json!({
         "schema_version": GOAL_RUN_SCHEMA_VERSION,
         "goal_run_id": goal_run_id,
@@ -4406,13 +4689,20 @@ pub(crate) async fn handle_goal_runs_create(
         "owner_ref": owner_ref,
         "origin_surface": "api",
         "normalized_goal": goal,
+        "goal_run_profile_revision_ref": selected_profile.get("revision_ref"),
+        "goal_run_profile_content_hash": selected_profile.get("content_hash"),
+        "resolved_component_set_snapshot_ref": system_definition_resolution.get("resolved_component_set_snapshot_ref"),
+        "resolved_component_set_hash": system_definition_resolution.get("resolved_component_set_hash"),
+        "active_skill_set_snapshot_ref": system_definition_resolution.get("active_skill_set_snapshot_ref"),
+        "active_skill_set_hash": system_definition_resolution.get("active_skill_set_hash"),
+        "goal_run_profile_resolution_receipt_ref": system_definition_resolution.get("resolution_receipt_ref"),
         "target_session_ref": session_ref,
         "target_workspace_root": target_workspace,
         "project_ref": project_ref,
         "orchestration_policy": "parallel_implement_reconcile",
         "max_parallel_invocations": 2,
         "role_topology": topology,
-        "role_topology_ref": format!("role-topology://rt_{goal_run_id}"),
+        "role_topology_ref": topology_ref,
         "grounding_loop": {
             "goal_loop_id": format!("goal-loop://gl_{goal_run_id}"),
             "goal_ref": goal_ref,
@@ -4438,10 +4728,11 @@ pub(crate) async fn handle_goal_runs_create(
             "replay_required": false,
             "status": "active",
         },
-        "admission": { "admission_id": text(&admission, "admission_id"), "receipt_refs": admission.get("receipt_refs").cloned().unwrap_or(json!([])) },
+        "admission": { "admission_id": text(&admission, "admission_id"), "receipt_refs": admission_receipt_refs },
+        "receipt_refs": definition_receipt_refs,
         "admission_path_decision": path_decision,
         "admission_path_fact_resolution": path_fact_resolution,
-        "admission_path_status": if path_decision.is_some() { "system_bound" } else { "legacy_system_bound_first_cut" },
+        "admission_path_status": "system_bound",
         "target_system_id": body.get("target_system_id").cloned().unwrap_or(Value::Null),
         // Optional launch-policy provenance (IOI Agent lane) — advanced/proof metadata only.
         "policy_ref": body.get("policy_ref").cloned().unwrap_or(Value::Null),
@@ -4483,7 +4774,9 @@ pub(crate) async fn handle_goal_runs_create(
     }
     (
         StatusCode::CREATED,
-        Json(json!({ "ok": true, "goal_run": record })),
+        Json(
+            json!({ "ok": true, "goal_run": record, "definition_resolution": system_definition_resolution }),
+        ),
     )
 }
 
@@ -4567,6 +4860,62 @@ fn persist_canonical_goal_run_skill_snapshot(
     )
 }
 
+fn persist_goal_run_definition_resolution_records(
+    st: &DaemonState,
+    body: &Value,
+    goal_run_id: &str,
+    goal_ref: &str,
+    resolution_request: &Value,
+    resolution: &Value,
+) -> Result<(), HttpRefusal> {
+    persist_canonical_goal_run_skill_snapshot(st, body, goal_ref, resolution_request, resolution)?;
+    if persist_record(
+        &st.data_dir,
+        "goal-run-component-snapshots",
+        goal_run_id,
+        resolution
+            .get("resolved_component_set")
+            .unwrap_or(&Value::Null),
+    )
+    .is_err()
+    {
+        return Err(bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_component_snapshot_persist_failed",
+            "The exact resolved component snapshot did not persist.",
+        ));
+    }
+    let receipt = resolution.get("resolution_receipt").unwrap_or(&Value::Null);
+    if let Err(error) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
+            receipt,
+        )
+    {
+        return Err(bad_with_details(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_resolution_receipt_contract_invalid",
+            "The generated profile-resolution receipt does not satisfy its registered contract.",
+            json!({ "error": error }),
+        ));
+    }
+    if persist_record(
+        &st.data_dir,
+        "goal-run-profile-resolution-receipts",
+        goal_run_id,
+        receipt,
+    )
+    .is_err()
+    {
+        return Err(bad(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "goal_run_resolution_receipt_persist_failed",
+            "The profile-resolution receipt did not persist.",
+        ));
+    }
+    Ok(())
+}
+
 fn create_direct_goal_run(
     st: &DaemonState,
     body: &Value,
@@ -4642,57 +4991,15 @@ fn create_direct_goal_run(
             "The activation path and definition-resolution closure do not retain one exact zero-execution budget and null override tuple.",
         );
     }
-    if let Err(response) = persist_canonical_goal_run_skill_snapshot(
+    if let Err(response) = persist_goal_run_definition_resolution_records(
         st,
         body,
+        goal_run_id,
         goal_ref,
         &resolution_request,
         &resolution,
     ) {
         return response;
-    }
-    if persist_record(
-        &st.data_dir,
-        "goal-run-component-snapshots",
-        goal_run_id,
-        resolution
-            .get("resolved_component_set")
-            .unwrap_or(&Value::Null),
-    )
-    .is_err()
-    {
-        return bad(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "goal_run_component_snapshot_persist_failed",
-            "The exact resolved component snapshot did not persist.",
-        );
-    }
-    if let Err(error) =
-        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-            "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
-            resolution.get("resolution_receipt").unwrap_or(&Value::Null),
-        )
-    {
-        return bad_with_details(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "goal_run_resolution_receipt_contract_invalid",
-            "The generated profile-resolution receipt does not satisfy its registered contract.",
-            json!({ "error": error }),
-        );
-    }
-    if persist_record(
-        &st.data_dir,
-        "goal-run-profile-resolution-receipts",
-        goal_run_id,
-        resolution.get("resolution_receipt").unwrap_or(&Value::Null),
-    )
-    .is_err()
-    {
-        return bad(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "goal_run_resolution_receipt_persist_failed",
-            "The profile-resolution receipt did not persist.",
-        );
     }
     if !resolution
         .get("active_skill_set_snapshot_ref")
