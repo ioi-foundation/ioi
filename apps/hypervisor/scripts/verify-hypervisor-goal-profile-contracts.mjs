@@ -123,7 +123,7 @@ function routeInventory(index) {
     .sort((left, right) => left.path.localeCompare(right.path));
 }
 
-const profileBody = (ownerRef, version, description) => ({
+const profileBody = (ownerRef, version, description, workflowTemplateRevisionRefs = []) => ({
   owner_ref: ownerRef,
   display_name: "Portable bounded pursuit",
   description,
@@ -131,6 +131,7 @@ const profileBody = (ownerRef, version, description) => ({
   applicable_goal_class_refs: ["schema://ioi/ioi-ai/goal-draft/v1"],
   compatible_domain_object_schema_refs: ["schema://ioi/foundations/work-result/v3"],
   orchestration_policy_ref: "orchestration-policy://bounded-general",
+  workflow_template_revision_refs: workflowTemplateRevisionRefs,
   input_contract_ref: "schema://ioi/ioi-ai/goal-draft/v1",
   output_contract_ref: "schema://ioi/foundations/work-result/v3",
   stop_policy_ref: "policy://ioi/goal-run/bounded-stop/v1",
@@ -166,6 +167,23 @@ async function run() {
     session.startsWith("ioi_sess_") && principalRef.startsWith("user://") && tenantOwner === "org://local",
     `${principalRef}/${tenantOwner}`);
 
+  const workflowResponse = await jd("/v1/hypervisor/workflow-templates", {
+    method: "POST",
+    body: JSON.stringify({
+      owner_ref: principalRef,
+      display_name: "Goal profile bounded workflow",
+      version: "1.0.0",
+      graph_ref: "workflow://graph/goal-profile-bounded-v1",
+      graph_hash: H1,
+      registry_status: "released",
+    }),
+  });
+  const workflowTemplate = workflowResponse.body?.workflow_template ?? {};
+  ok("the automation owner admits the exact released WorkflowTemplate used by the portable profile",
+    workflowResponse.status === 201
+      && workflowTemplate.revision_ref === `${workflowTemplate.workflow_template_id}/revision/${workflowTemplate.content_hash}`,
+    `${workflowResponse.status}/${workflowTemplate.revision_ref ?? ""}`);
+
   const index = await jd("/v1");
   const actual = routeInventory(index.body);
   const expected = [
@@ -186,14 +204,14 @@ async function run() {
 
   const forged = await jd("/v1/goal-orchestration/goal-run-profiles", {
     method: "POST",
-    body: JSON.stringify({ ...profileBody(principalRef, "1.0.0", "forged"), content_hash: `sha256:${"f".repeat(64)}` }),
+    body: JSON.stringify({ ...profileBody(principalRef, "1.0.0", "forged", [workflowTemplate.revision_ref]), content_hash: `sha256:${"f".repeat(64)}` }),
   });
   ok("GATE: profile identity and content hash are daemon-owned",
     forged.status === 400 && forged.body?.error?.code === "goal_profile_unknown_field",
     `${forged.status}/${forged.body?.error?.code}`);
 
   const createdProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
-    method: "POST", body: JSON.stringify(profileBody(principalRef, "1.0.0", "first immutable revision")),
+    method: "POST", body: JSON.stringify(profileBody(principalRef, "1.0.0", "first immutable revision", [workflowTemplate.revision_ref])),
   });
   const profileV1 = createdProfileResponse.body?.goal_run_profile ?? {};
   const profileTail = String(profileV1.goal_run_profile_id ?? "").replace("goal-run-profile://", "");
@@ -221,7 +239,7 @@ async function run() {
     [profileV1, adapterV1].every((record) => ["goal_ref", "execution_ref", "authority_grant_ref", "credential_ref", "receipt_ref"].every((field) => !Object.hasOwn(record, field))));
 
   const profileV2Response = await jd(`/v1/goal-orchestration/goal-run-profiles/${encodeURIComponent(profileTail)}/revisions`, {
-    method: "POST", body: JSON.stringify(profileBody(principalRef, "2.0.0", "successor revision")),
+    method: "POST", body: JSON.stringify(profileBody(principalRef, "2.0.0", "successor revision", [workflowTemplate.revision_ref])),
   });
   const profileV2 = profileV2Response.body?.goal_run_profile ?? {};
   const adapterV2Response = await jd(`/v1/hypervisor/agent-harness-adapters/${encodeURIComponent(adapterTail)}/revisions`, {
@@ -332,7 +350,7 @@ async function run() {
     `${exactGateway.status}/${graduation.agent_harness_adapter_revision_ref ?? ""}`);
 
   const definitionResolution = {
-    workflow_template_revision_refs: ["workflow-template://research/revision/1"],
+    workflow_template_revision_refs: [workflowTemplate.revision_ref],
     skill_manifest_revision_refs: ["skill://literature/revision/2"],
     active_skill_entry_refs: ["skill-entry://literature/search"],
     harness_profile_revision_refs: ["harness-profile://research/revision/3"],
@@ -349,7 +367,6 @@ async function run() {
       skill_manifest_content_hash: H2,
     }],
     component_hashes: {
-      "workflow-template://research/revision/1": H1,
       "skill://literature/revision/2": H2,
       "harness-profile://research/revision/3": H1,
       "tool://search/revision/1": H2,
@@ -381,6 +398,45 @@ async function run() {
     `${forgedGoalRun.status}/${forgedGoalRun.body?.error?.code}`);
 
   pathRequest.goal_run_profile_content_hash = profileV2.content_hash;
+  const workflowTail = String(workflowTemplate.workflow_template_id).replace("workflow-template://", "");
+  const workflowSlot = path.join(dataDir, "workflow-template-revisions", `${workflowTail}--${workflowTemplate.content_hash.replace("sha256:", "")}.json`);
+  const workflowBytes = fs.readFileSync(workflowSlot);
+  const changedWorkflow = JSON.parse(workflowBytes.toString("utf8"));
+  changedWorkflow.description = "changed after immutable WorkflowTemplate admission";
+  fs.writeFileSync(workflowSlot, JSON.stringify(changedWorkflow));
+  const changedWorkflowRun = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse changed WorkflowTemplate registry truth",
+      admission_path_request: pathRequest,
+      definition_resolution: definitionResolution,
+    }),
+  });
+  fs.writeFileSync(workflowSlot, workflowBytes);
+  ok("GATE: general GoalRun admission refuses changed WorkflowTemplate registry bytes before persistence",
+    changedWorkflowRun.status === 409
+      && changedWorkflowRun.body?.error?.code === "goal_run_workflow_resolution_unavailable"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${changedWorkflowRun.status}/${changedWorkflowRun.body?.error?.code}`);
+
+  const substitutedResolution = structuredClone(definitionResolution);
+  substitutedResolution.workflow_template_revision_refs = ["workflow-template://substituted/revision/sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"];
+  delete substitutedResolution.component_hashes[workflowTemplate.revision_ref];
+  substitutedResolution.component_hashes[substitutedResolution.workflow_template_revision_refs[0]] = H1;
+  const substitutedWorkflow = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse a substituted WorkflowTemplate selection",
+      admission_path_request: pathRequest,
+      definition_resolution: substitutedResolution,
+    }),
+  });
+  ok("GATE: general GoalRun admission refuses a caller-substituted WorkflowTemplate before persistence",
+    substitutedWorkflow.status === 409
+      && substitutedWorkflow.body?.error?.code === "goal_run_workflow_resolution_substitution"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${substitutedWorkflow.status}/${substitutedWorkflow.body?.error?.code}`);
+
   const exactGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
     method: "POST",
     body: JSON.stringify({
@@ -389,11 +445,13 @@ async function run() {
       definition_resolution: definitionResolution,
     }),
   });
-  ok("the general GoalRun surface consumes the exact released owner-visible profile revision",
+  ok("the general GoalRun surface consumes the exact released profile and daemon-resolved WorkflowTemplate tuple",
     exactGoalRun.status === 201
       && exactGoalRun.body?.goal_run?.goal_run_profile_revision_ref === profileV2.revision_ref
       && exactGoalRun.body?.goal_run?.goal_run_profile_content_hash === profileV2.content_hash
-      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.goal_run_profile_content_hash === profileV2.content_hash,
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.goal_run_profile_content_hash === profileV2.content_hash
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.workflow_template_resolutions?.[0]?.revision_ref === workflowTemplate.revision_ref
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.workflow_template_resolutions?.[0]?.content_hash === workflowTemplate.content_hash,
     `${exactGoalRun.status}/${exactGoalRun.body?.error?.code ?? ""}`);
 }
 

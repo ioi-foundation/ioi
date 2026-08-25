@@ -2643,6 +2643,119 @@ pub(crate) fn verify_collective_admission_fact_resolution(
     Ok(())
 }
 
+fn install_profile_workflow_resolution(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    profile: &Value,
+    body: &mut Value,
+) -> Result<(), HttpRefusal> {
+    let profile_refs = profile
+        .get("workflow_template_revision_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_profile_workflow_selection_invalid",
+                "The selected GoalRunProfile does not retain a canonical WorkflowTemplate revision set.",
+            )
+        })?
+        .iter()
+        .map(|value| {
+            value.as_str().map(str::to_owned).ok_or_else(|| {
+                bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_profile_workflow_selection_invalid",
+                    "Every selected WorkflowTemplate must be an exact revision reference.",
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let resolved = super::automation_contract_routes::resolve_released_workflow_templates(
+        data_dir,
+        identity,
+        &profile_refs,
+    )
+    .map_err(|detail| {
+        bad_with_details(
+            StatusCode::CONFLICT,
+            "goal_run_workflow_resolution_unavailable",
+            "The selected GoalRunProfile's complete WorkflowTemplate revision set must resolve through the current owner registry.",
+            json!({ "detail": detail }),
+        )
+    })?;
+    let definition = body
+        .get_mut("definition_resolution")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_definition_resolution_required",
+                "Direct admission requires a definition-resolution object for the remaining component families.",
+            )
+        })?;
+    if let Some(caller_refs) = definition.get("workflow_template_revision_refs") {
+        let exact_echo = caller_refs.as_array().is_some_and(|values| {
+            Some(values) == profile["workflow_template_revision_refs"].as_array()
+        });
+        if !exact_echo {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_workflow_resolution_substitution",
+                "A caller WorkflowTemplate selection differs from the exact set owned by the selected GoalRunProfile.",
+            ));
+        }
+    }
+    let component_hashes = definition
+        .entry("component_hashes")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_component_hashes_invalid",
+                "component_hashes must be an object when remaining component families are supplied.",
+            )
+        })?;
+    if component_hashes.keys().any(|reference| {
+        reference.starts_with("workflow-template://") && !profile_refs.contains(reference)
+    }) {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_workflow_resolution_substitution",
+            "component_hashes contains a WorkflowTemplate outside the selected profile's exact set.",
+        ));
+    }
+    for record in &resolved {
+        let revision_ref = record
+            .get("revision_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let content_hash = record
+            .get("content_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if component_hashes
+            .get(revision_ref)
+            .is_some_and(|caller_hash| caller_hash.as_str() != Some(content_hash))
+        {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_workflow_resolution_substitution",
+                "A caller WorkflowTemplate hash differs from the daemon-resolved immutable revision.",
+            ));
+        }
+        component_hashes.insert(revision_ref.to_string(), json!(content_hash));
+    }
+    definition.insert(
+        "workflow_template_revision_refs".into(),
+        profile
+            .get("workflow_template_revision_refs")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+    );
+    Ok(())
+}
+
 pub(crate) async fn handle_goal_runs_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -2759,23 +2872,27 @@ pub(crate) async fn handle_goal_runs_create(
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string();
-        if let Err(detail) = super::goal_profile_contract_routes::resolve_released_goal_run_profile(
-            &st.data_dir,
-            &request_identity,
-            &requested_profile_ref,
-            &requested_profile_hash,
-        ) {
-            return bad_with_details(
-                StatusCode::CONFLICT,
-                "goal_run_profile_resolution_unavailable",
-                "The general GoalRun surface requires one exact released profile from a current owner-visible registry.",
-                json!({
-                    "goal_run_profile_revision_ref": requested_profile_ref,
-                    "goal_run_profile_content_hash": requested_profile_hash,
-                    "detail": detail,
-                }),
-            );
-        }
+        let selected_profile =
+            match super::goal_profile_contract_routes::resolve_released_goal_run_profile(
+                &st.data_dir,
+                &request_identity,
+                &requested_profile_ref,
+                &requested_profile_hash,
+            ) {
+                Ok(profile) => profile,
+                Err(detail) => {
+                    return bad_with_details(
+                        StatusCode::CONFLICT,
+                        "goal_run_profile_resolution_unavailable",
+                        "The general GoalRun surface requires one exact released profile from a current owner-visible registry.",
+                        json!({
+                            "goal_run_profile_revision_ref": requested_profile_ref,
+                            "goal_run_profile_content_hash": requested_profile_hash,
+                            "detail": detail,
+                        }),
+                    )
+                }
+            };
         path_object.insert("goal_run_ref".into(), json!(goal_ref));
         let requested_system_path = text(&path_request, "requested_path") == "system_bound"
             || policy_requests_hosted_collective(&path_request)
@@ -2810,9 +2927,18 @@ pub(crate) async fn handle_goal_runs_create(
                     ),
                 );
             }
+            let mut direct_body = body.clone();
+            if let Err(response) = install_profile_workflow_resolution(
+                &st.data_dir,
+                &request_identity,
+                &selected_profile,
+                &mut direct_body,
+            ) {
+                return response;
+            }
             return create_direct_goal_run(
                 &st,
-                &body,
+                &direct_body,
                 &goal_run_id,
                 &goal_ref,
                 &goal,

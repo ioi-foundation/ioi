@@ -197,6 +197,125 @@ fn find_owned_by(
     })
 }
 
+fn workflow_template_slot(record: &Value) -> Result<String, String> {
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        "schema://ioi/foundations/workflow-template/v1",
+        record,
+    )
+    .map_err(|error| format!("contract-invalid WorkflowTemplate: {error}"))?;
+    let template_tail = record
+        .get("workflow_template_id")
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("workflow-template://"))
+        .ok_or_else(|| "WorkflowTemplate identity is not canonical".to_string())?;
+    let stored_hash = record
+        .get("content_hash")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "WorkflowTemplate content_hash is absent".to_string())?;
+    let mut material = record.clone();
+    let object = material
+        .as_object_mut()
+        .ok_or_else(|| "WorkflowTemplate is not an object".to_string())?;
+    for field in [
+        "revision_ref",
+        "content_hash",
+        "registry_lifecycle_ref",
+        "registry_status",
+    ] {
+        object.remove(field);
+    }
+    let expected_hash = serde_jcs::to_vec(&material)
+        .map(|bytes| format!("sha256:{:x}", Sha256::digest(bytes)))
+        .map_err(|error| format!("WorkflowTemplate is not canonicalizable: {error}"))?;
+    if stored_hash != expected_hash {
+        return Err(format!(
+            "WorkflowTemplate content hash changed: stored {stored_hash}, recomputed {expected_hash}"
+        ));
+    }
+    let expected_revision = format!("workflow-template://{template_tail}/revision/{expected_hash}");
+    if record.get("revision_ref").and_then(Value::as_str) != Some(expected_revision.as_str()) {
+        return Err("WorkflowTemplate revision_ref does not bind its exact content".to_string());
+    }
+    Ok(format!(
+        "{template_tail}--{}.json",
+        digest_tail(&expected_hash)
+    ))
+}
+
+fn strict_workflow_templates(data_dir: &str) -> Result<Vec<Value>, String> {
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, TEMPLATE_DIR) {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(format!(
+                "WorkflowTemplate registry cannot be pinned: {error}"
+            ))
+        }
+    };
+    let mut names = super::durable_fs::enumerate_pinned(&directory)
+        .map_err(|error| format!("WorkflowTemplate registry cannot be enumerated: {error}"))?;
+    names.sort();
+    let mut records = Vec::with_capacity(names.len());
+    for name in names {
+        if !name.ends_with(".json") {
+            return Err(format!(
+                "unexpected WorkflowTemplate registry occupant: {name}"
+            ));
+        }
+        let bytes = super::durable_fs::read_slot_strict(&directory, &name)
+            .map_err(|error| format!("WorkflowTemplate slot {name} is unreadable: {error}"))?
+            .ok_or_else(|| format!("WorkflowTemplate slot {name} vanished during census"))?
+            .1;
+        let record: Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("WorkflowTemplate slot {name} is malformed: {error}"))?;
+        let expected_name = workflow_template_slot(&record)?;
+        if name != expected_name {
+            return Err(format!(
+                "WorkflowTemplate slot {name} belongs at {expected_name}"
+            ));
+        }
+        records.push(record);
+    }
+    Ok(records)
+}
+
+pub(crate) fn resolve_released_workflow_templates(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    revision_refs: &[String],
+) -> Result<Vec<Value>, String> {
+    if revision_refs.iter().collect::<BTreeSet<_>>().len() != revision_refs.len() {
+        return Err("WorkflowTemplate revision selection contains a duplicate".to_string());
+    }
+    let records = strict_workflow_templates(data_dir)?;
+    revision_refs
+        .iter()
+        .map(|revision_ref| {
+            let mut matches = records.iter().filter(|record| {
+                let owner = record
+                    .get("owner_ref")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                (owner == identity.principal_ref.as_str() || identity.authorizes_tenant(owner))
+                    && record.get("revision_ref").and_then(Value::as_str)
+                        == Some(revision_ref.as_str())
+            });
+            let record = matches.next().ok_or_else(|| {
+                format!("released visible WorkflowTemplate {revision_ref} is absent")
+            })?;
+            if matches.next().is_some() {
+                return Err(format!(
+                    "released visible WorkflowTemplate {revision_ref} is ambiguous"
+                ));
+            }
+            if record.get("registry_status").and_then(Value::as_str) != Some("released") {
+                return Err(format!("WorkflowTemplate {revision_ref} is not released"));
+            }
+            Ok(record.clone())
+        })
+        .collect()
+}
+
 fn run_is_owned_by(record: &Value, identity: &str) -> bool {
     record
         .pointer("/resolution_receipt/material/admitted_by_ref")

@@ -96,6 +96,15 @@ try {
     const who = await request(plane.daemonUrl, "GET", "/v1/hypervisor/auth/whoami");
     const principalRef = who.body?.principal?.principal_ref
       || (who.body?.principal?.principal_id ? `user://${who.body.principal.principal_id}` : "");
+    const workflowAdmission = await request(plane.daemonUrl, "POST", "/v1/hypervisor/workflow-templates", {
+      owner_ref: principalRef,
+      display_name: "M3 bounded research workflow",
+      version: "1.0.0",
+      graph_ref: "workflow://graph/m3-bounded-research-v1",
+      graph_hash: H1,
+      registry_status: "released",
+    });
+    const workflow = workflowAdmission.body?.workflow_template ?? {};
     const profileAdmission = await request(plane.daemonUrl, "POST", "/v1/goal-orchestration/goal-run-profiles", {
       owner_ref: principalRef,
       display_name: "M3 bounded research",
@@ -104,6 +113,7 @@ try {
       applicable_goal_class_refs: ["schema://ioi/ioi-ai/goal-draft/v1"],
       compatible_domain_object_schema_refs: ["schema://ioi/foundations/work-result/v3"],
       orchestration_policy_ref: "orchestration-policy://bounded-general",
+      workflow_template_revision_refs: [workflow.revision_ref],
       input_contract_ref: "schema://ioi/ioi-ai/goal-draft/v1",
       output_contract_ref: "schema://ioi/foundations/work-result/v3",
       stop_policy_ref: "policy://ioi/goal-run/bounded-stop/v1",
@@ -114,10 +124,13 @@ try {
     const profile = profileAdmission.body?.goal_run_profile ?? {};
     pathRequest.goal_run_profile_revision_ref = profile.revision_ref ?? "";
     pathRequest.goal_run_profile_content_hash = profile.content_hash ?? "";
-    check("the verifier bootstraps a real principal and admits the selected portable profile",
+    delete definitionResolution.component_hashes["workflow-template://research/revision/1"];
+    definitionResolution.workflow_template_revision_refs = [workflow.revision_ref];
+    check("the verifier bootstraps a real principal and admits the selected workflow and portable profile",
       session.startsWith("ioi_sess_") && principalRef.startsWith("user://")
-        && profileAdmission.status === 201 && pathRequest.goal_run_profile_revision_ref.includes("/revision/sha256:"),
-      `${bootstrap.status}/${profileAdmission.status}/${principalRef}`);
+        && workflowAdmission.status === 201 && profileAdmission.status === 201
+        && pathRequest.goal_run_profile_revision_ref.includes("/revision/sha256:"),
+      `${bootstrap.status}/${workflowAdmission.status}/${profileAdmission.status}/${principalRef}`);
 
     const before = count("goal-runs");
     const invalidDefinitions = structuredClone(definitionResolution);
@@ -127,7 +140,10 @@ try {
       admission_path_request: pathRequest,
       definition_resolution: invalidDefinitions,
     });
-    check("mutable definition is refused before persistence", refused.status === 422 && count("goal-runs") === before, `${refused.status}/${refused.body?.error?.code}`);
+    check("a caller-substituted workflow definition is refused before persistence",
+      refused.status === 409 && refused.body?.error?.code === "goal_run_workflow_resolution_substitution"
+        && count("goal-runs") === before,
+      `${refused.status}/${refused.body?.error?.code}`);
 
     const created = await request(plane.daemonUrl, "POST", "/v1/goal-orchestration/goal-runs", {
       goal: "Research the bounded selected profile",
