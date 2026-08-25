@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..", "..");
@@ -11,7 +12,12 @@ const daemonPath = path.join(root, "crates/node/src/bin/hypervisor-daemon.rs");
 const source = fs.readFileSync(providerPath, "utf8");
 const daemon = fs.readFileSync(daemonPath, "utf8");
 const failures = [];
-const assert = (condition, code, detail) => { if (!condition) failures.push({ code, detail }); };
+const results = [];
+const assert = (condition, code, detail) => {
+  const pass = Boolean(condition);
+  results.push({ name: code, pass });
+  if (!pass) failures.push({ code, detail });
+};
 
 function analyze(text, routerText) {
   const findings = [];
@@ -38,7 +44,30 @@ function analyze(text, routerText) {
   return findings;
 }
 
-for (const finding of analyze(source, daemon)) failures.push({ code: finding, detail: "source invariant failed" });
+const sourceInvariantNames = [
+  "inline_assertion_not_refused",
+  "opaque_proposal_ref_absent",
+  "durable_admission_absent",
+  "durable_consumption_absent",
+  "principal_binding_absent",
+  "session_binding_absent",
+  "proposal_idempotency_namespace_absent",
+  "approved_operation_binding_absent",
+  "request_binding_absent",
+  "resource_binding_absent",
+  "expiry_binding_absent",
+  "one_time_nonce_absent",
+  "atomic_compare_and_swap_absent",
+  "replay_refusal_absent",
+  "admission_receipt_absent",
+  "consumption_receipt_absent",
+  "caller_asserted_literal_admission_restored",
+  "issuance_route_absent",
+];
+const sourceFindings = analyze(source, daemon);
+for (const name of sourceInvariantNames) {
+  assert(!sourceFindings.includes(name), `source:${name}`, "source invariant failed");
+}
 
 // Mutation drill: restoring the old literal-only admission must make this verifier red.
 const mutated = `${source}\n// mutation probe\nRuntimeHypervisorApprovedOperationAdmissionCore`;
@@ -74,10 +103,11 @@ if (failures.length) {
   console.error(JSON.stringify({ ok: false, schema_version: "ioi.check.provider-proposal-provenance.v1", failures }, null, 2));
   process.exit(1);
 }
+emitVerifierCensus({ verifierId: "provider-proposal-provenance", sourceUrl: import.meta.url, results });
 console.log(JSON.stringify({
   ok: true,
   schema_version: "ioi.check.provider-proposal-provenance.v1",
-  assertions: 22,
+  assertions: results.length,
   mutation_probe: "old literal-only admission detected",
   tests: "daemon-issued admission/consume, replay, inline, tamper, session substitution and proposal/operation idempotency separation",
 }, null, 2));

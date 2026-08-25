@@ -281,6 +281,7 @@ jobs:
           npm run check:command-execution-guardrails --workspace=@ioi/hypervisor-app
           npm run check:enforcement-coverage-producer --workspace=@ioi/hypervisor-app
           npm run check:runtime-tool-contract-admission --workspace=@ioi/hypervisor-app
+          npm run check:provider-proposal-provenance --workspace=@ioi/hypervisor-app
           npm run check:operational-depth --workspace=@ioi/hypervisor-app
           npm run check:ontology-backend-families --workspace=@ioi/hypervisor-app
           npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app

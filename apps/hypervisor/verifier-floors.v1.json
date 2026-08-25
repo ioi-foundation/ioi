@@ -103,6 +103,14 @@
       "note": "M01.3 verification-floor closure: eight immutable-admission source invariants, nine planted bypass mutations, and eight focused behavioral-test execution checks now emit a source-bound runtime census."
     },
     {
+      "id": "provider-proposal-provenance",
+      "npm_script": "check:provider-proposal-provenance",
+      "source": "apps/hypervisor/scripts/verify-provider-proposal-provenance.mjs",
+      "runtime_assertions": 23,
+      "assertion_names_sha256": "507c820ed5cf8edc4f8c5a623544303ca22d8a569042a94f5b1e32b0f4645782",
+      "note": "M01.8 global-floor promotion: eighteen opaque proposal source/route invariants, the planted inline-literal bypass, and four focused behavioral-test execution checks emit a source-bound runtime census."
+    },
+    {
       "id": "launch-chain",
       "npm_script": "check:launch-chain",
       "source": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
