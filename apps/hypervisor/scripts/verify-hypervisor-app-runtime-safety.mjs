@@ -188,6 +188,9 @@ async function run() {
   ok("registry covers every certified seed", certified.every((s) => regBySlug.has(s.slug)), `${SURFACES.length} registry vs ${certified.length} certified`);
   const certifiedSlugs = new Set(certified.map((s) => s.slug));
   const contractReadOnly = SURFACES.filter((s) => !certifiedSlugs.has(s.slug));
+  const designatedNative = JSON.parse(readFileSync(join(APP, "designated-native-surfaces.v1.json"), "utf8"));
+  const designatedRows = designatedNative.surfaces || [];
+  const designatedBySlug = new Map(designatedRows.map((row) => [row.slug, row]));
   // Re-aimed (remediation v2, 2026-08-20): the registry grew two legitimate admission classes
   // beyond the original read_only_by_contract additions.
   //  a) read_only_by_contract rows — the original contract-evidence chain (unchanged).
@@ -196,19 +199,39 @@ async function run() {
   //     (reference_url_override or a live-tenant atlas ref) — the same sanction contract the
   //     clean-sweep gate enforces.
   //  c) DESIGNATED NATIVE rows — owner surfaces whose completeness is pinned by their own
-  //     committed journey verifier (named here; the file must exist and pin the row's route).
+  //     committed journey verifier and an exact tracked admission row.
   // E7 CODE REMOVAL LANDED (2026-08-20): the eight legacy cockpit rows this gate used to admit BY
   // NAME left the registry with their modules and their dedicated verifiers, so the named list
   // went inert and was DELETED with them — as its own contract required. EVERY registry addition
   // beyond the certified seeds must now resolve committed evidence through one of the three real
   // classes below; nothing is admitted by being named.
-  const DESIGNATED_NATIVE = {
-    "studio-home": "verify-hypervisor-studio-journey.mjs",
-    "packages": "verify-hypervisor-packages-journey.mjs",
-    "packages-marketplace": "verify-hypervisor-packages-journey.mjs",
-  };
   const sanctionedAdjudication = /reference-(seed-adjudications|gap-adjudication)/;
   const matrixByRoute = new Map((matrix.seeds || []).filter((s) => s.candidate_surface).map((s) => [s.candidate_surface.split("?")[0], s]));
+  const designatedCandidates = contractReadOnly.filter((s) =>
+    s.operational_state !== "read_only_by_contract"
+      && matrixByRoute.get(s.route)?.parity_class !== "reference_ported");
+  const designatedKeys = ["canonical_route", "owner", "route", "slug", "verifier_source"];
+  ok("designated-native admission is an exact tracked class, not a verifier-local name list",
+    designatedNative.schema_version === "ioi.hypervisor.designated-native-surfaces.v1"
+      && designatedNative.admission_class === "designated_native"
+      && designatedRows.length === designatedBySlug.size
+      && designatedRows.every((row) => Object.keys(row).sort().join(",") === designatedKeys.join(","))
+      && designatedCandidates.length === designatedRows.length
+      && designatedCandidates.every((surface) => {
+        const row = designatedBySlug.get(surface.slug);
+        return row?.owner === surface.owner && row?.route === surface.route
+          && row?.canonical_route === surface.canonical_route
+          && row?.verifier_source === surface.verifier;
+      }),
+    `${designatedRows.length} tracked rows / ${designatedCandidates.length} derived candidates`);
+  const designatedAdmission = (s, admission = designatedBySlug.get(s.slug)) => {
+    if (admission?.owner === s.owner && admission?.route === s.route
+      && admission?.canonical_route === s.canonical_route
+      && admission?.verifier_source === s.verifier) {
+      try { return readFileSync(join(APP, admission.verifier_source), "utf8").includes(s.route); } catch { return false; }
+    }
+    return false;
+  };
   const additionAdmitted = (s) => {
     if (s.operational_state === "read_only_by_contract") return contractCatalogAdmission(s, atlas).admitted;
     const m = matrixByRoute.get(s.route);
@@ -216,11 +239,7 @@ async function run() {
       const originLane = m.reference_url_override || /reference-live-tenant(-deep)?-atlas\.v1\.json#/.test(m.adjudication_ref || "");
       return !!(sanctionedAdjudication.test(m.adjudication_ref || "") && originLane);
     }
-    const verifier = DESIGNATED_NATIVE[s.slug];
-    if (verifier) {
-      try { return readFileSync(join(HERE, verifier), "utf8").includes(s.route); } catch { return false; }
-    }
-    return false;
+    return designatedAdmission(s);
   };
   ok("registry additions beyond certified seeds resolve committed evidence for their class (contract chain | sanctioned reference_ported adjudication | designated-native journey verifier — NO legacy exclusion: the E7 named list was deleted with the rows it carried)",
     contractReadOnly.every((s) => additionAdmitted(s)),
@@ -245,6 +264,11 @@ async function run() {
   });
   ok("negative control: a second self-labeled read-only surface cannot enter the catalog without exact evidence",
     !adversarialCatalog.apps.some((app) => app.slug === unproven.slug));
+  const designatedProbe = designatedCandidates[0];
+  const designatedProbeRow = designatedBySlug.get(designatedProbe?.slug);
+  ok("negative control: a forged designated-native route cannot inherit admission by slug",
+    !!designatedProbe && !!designatedProbeRow
+      && !designatedAdmission(designatedProbe, { ...designatedProbeRow, route: `${designatedProbeRow.route}/forged` }));
   ok("registry routes match matrix candidate surfaces", certified.every((s) => regBySlug.get(s.slug)?.route === s.candidate_surface.split("?")[0]));
   ok("registry certification paths match matrix artifacts", certified.every((s) => regBySlug.get(s.slug)?.certification === s.shell_pixel_certification_artifact));
   ok("registry entries carry owner + title + icon", SURFACES.every((s) => s.owner && s.title && s.icon));

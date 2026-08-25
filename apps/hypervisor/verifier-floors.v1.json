@@ -31,9 +31,9 @@
       "id": "app-runtime-safety",
       "npm_script": "check:app-runtime-safety",
       "source": "apps/hypervisor/scripts/verify-hypervisor-app-runtime-safety.mjs",
-      "runtime_assertions": 30,
-      "assertion_names_sha256": "4387b79f64638da1e4b7b25aa15a42801603e4ec10b80e40b7bc3adb3310343f",
-      "note": "M08.2 closure: registry admission, route-fault isolation, dead-daemon posture, bounded Operations degradation, and no-undef teeth now emit a source-bound runtime census."
+      "runtime_assertions": 32,
+      "assertion_names_sha256": "07400f9e701b9c14da06fc95d3d4e1ec814919ef893dbe2048e66d248f6b84dc",
+      "note": "M08.2/M08.4 closure: registry admission includes an exact tracked designated-native class and a forged-route negative control; route-fault isolation, dead-daemon posture, bounded Operations degradation, and no-undef teeth emit a source-bound runtime census."
     },
     {
       "id": "native-shell",
