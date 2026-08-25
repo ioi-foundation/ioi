@@ -270,6 +270,9 @@ jobs:
           npm run check:automations-journey --workspace=@ioi/hypervisor-app
           npm run check:skill-contracts --workspace=@ioi/hypervisor-app
           npm run check:goal-profile-contracts --workspace=@ioi/hypervisor-app
+          npm run check:m3-goalrun-plane --workspace=@ioi/hypervisor-app
+          npm run check:m4-goalrun-activation-plane --workspace=@ioi/hypervisor-app
+          npm run check:m4-outcome-room-system-spine --workspace=@ioi/hypervisor-app
           npm run check:launch-chain --workspace=@ioi/hypervisor-app
           npm run check:session-authority --workspace=@ioi/hypervisor-app
           npm run check:landing-designations --workspace=@ioi/hypervisor-app

@@ -27,6 +27,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 import {
   DAEMON_BINARY,
@@ -6927,6 +6928,7 @@ for (const result of checks) {
   );
 }
 const passed = checks.filter((result) => result.pass).length;
+emitVerifierCensus({ verifierId: "m4-outcome-room-system-spine", sourceUrl: import.meta.url, results: checks });
 console.log(`${passed}/${checks.length} passed`);
 const coverageMismatch = checks.length !== EXPECTED_CHECKS;
 if (coverageMismatch) {

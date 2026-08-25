@@ -6416,6 +6416,21 @@ pub(crate) async fn handle_goal_run_activation_draft(
         Ok(value) => value,
         Err(response) => return response,
     };
+    let request_identity =
+        match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+            Ok(identity) if identity.principal_ref == principal_ref => identity,
+            Err(_) if principal_resolution_source == "local_development_operator" => {
+                super::substrate_store::RequestIdentity::local_development_operator(&principal_ref)
+            }
+            Ok(_) => {
+                return bad(
+                    StatusCode::UNAUTHORIZED,
+                    "goal_run_activation_principal_inconsistent",
+                    "The activation principal and tenant-scoped request identity disagree.",
+                )
+            }
+            Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+        };
     let project_ref = match resolve_activation_project(&st.data_dir, body.get("project_ref")) {
         Ok(value) => value,
         Err(response) => return response,
@@ -6430,7 +6445,7 @@ pub(crate) async fn handle_goal_run_activation_draft(
         {
             match super::authority_gateway_routes::resolve_run_on_graduation(
                 &st.data_dir,
-                &principal_ref,
+                &request_identity,
                 locator,
                 &iso_now(),
             ) {

@@ -118,17 +118,21 @@ pub(crate) struct GatewayRunOnGraduation {
     pub(crate) proposed_action_summary: String,
 }
 
-/// Resolve the run-on graduation evidence for one admitted action request owned by
-/// `owner_ref`. Read-only: it admits nothing and mints nothing.
+/// Resolve the run-on graduation evidence for one admitted action request under a tenant the
+/// authenticated caller is currently authorized to operate. Read-only: it admits nothing and
+/// mints nothing. The public locator never supplies or substitutes the gateway owner.
 pub(crate) fn resolve_run_on_graduation(
     data_dir: &str,
-    owner_ref: &str,
+    identity: &super::substrate_store::RequestIdentity,
     action_request_ref: &str,
     now: &str,
 ) -> Result<GatewayRunOnGraduation, String> {
     let records = read_record_dir(data_dir, ACTION_DIR);
     let mut matches = records.iter().filter(|record| {
-        record.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
+        record
+            .get("owner_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|owner_ref| identity.authorizes_tenant(owner_ref))
             && record
                 .pointer("/action_request/action_request_ref")
                 .and_then(Value::as_str)
@@ -140,6 +144,10 @@ pub(crate) fn resolve_run_on_graduation(
     if matches.next().is_some() {
         return Err("the named action request resolves ambiguously".into());
     }
+    let owner_ref = record
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "the admitted action request has no canonical owner".to_string())?;
     let request = record.get("action_request").cloned().unwrap_or(Value::Null);
     validate_architecture_contract(REQUEST_CONTRACT, &request).map_err(|reason| {
         format!("the retained action request is not registered-valid: {reason}")
@@ -2350,7 +2358,7 @@ mod tests {
     }
 
     fn graduation_fixture_dir(tag: &str) -> (std::path::PathBuf, Value, Value, &'static str) {
-        let owner_ref = "user://owner";
+        let owner_ref = "org://owner";
         let (adapter, _) = released_adapter(owner_ref);
         let (profile, request, now) = graduation_records(&adapter);
         let directory = std::env::temp_dir().join(format!(
@@ -2404,9 +2412,13 @@ mod tests {
         let (directory, profile, adapter, now) = graduation_fixture_dir("resolves");
         plant_adapter(&directory, &adapter);
         let data_dir = directory.to_str().unwrap();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://operator",
+            ["org://owner".to_string()],
+        );
         let graduation = resolve_run_on_graduation(
             data_dir,
-            "user://owner",
+            &identity,
             "action-request://acme/gateway/req-001",
             now,
         )
@@ -2429,9 +2441,13 @@ mod tests {
         );
 
         // A foreign principal cannot graduate another owner's attach-lane context.
+        let outsider = super::super::substrate_store::request_identity_for_test(
+            "user://outsider",
+            ["org://other".to_string()],
+        );
         assert!(resolve_run_on_graduation(
             data_dir,
-            "user://outsider",
+            &outsider,
             "action-request://acme/gateway/req-001",
             now
         )
@@ -2445,9 +2461,13 @@ mod tests {
         adapter["registry_status"] = json!("draft");
         plant_adapter(&directory, &adapter);
         let data_dir = directory.to_str().unwrap();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://operator",
+            ["org://owner".to_string()],
+        );
         let reason = resolve_run_on_graduation(
             data_dir,
-            "user://owner",
+            &identity,
             "action-request://acme/gateway/req-001",
             now,
         )
@@ -2460,12 +2480,16 @@ mod tests {
         profile["declaration"]["run_on_graduation"]["implicit_scope_carryover"] = json!(true);
         std::fs::write(
             directory.join(PROFILE_DIR).join("profile.json"),
-            serde_json::to_vec(&json!({"owner_ref":"user://owner","profile":profile})).unwrap(),
+            serde_json::to_vec(&json!({"owner_ref":"org://owner","profile":profile})).unwrap(),
         )
         .unwrap();
+        let identity = super::super::substrate_store::request_identity_for_test(
+            "user://operator",
+            ["org://owner".to_string()],
+        );
         let reason = resolve_run_on_graduation(
             directory.to_str().unwrap(),
-            "user://owner",
+            &identity,
             "action-request://acme/gateway/req-001",
             now,
         )
