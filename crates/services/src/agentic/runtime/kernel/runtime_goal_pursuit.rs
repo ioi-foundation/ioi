@@ -184,6 +184,65 @@ fn unique_refs(
     Ok(seen.into_iter().collect())
 }
 
+/// A canonical requirement reference. Requirement predicates are owned by many different
+/// families, so their only structural law is the canonical shape: either `scheme://tail`
+/// or the canonical primitive-capability form `prim:<capability>` used by the capability
+/// and gateway contracts.
+fn is_canonical_ref(value: &str) -> bool {
+    if value.is_empty() || value.len() > 500 || value.chars().any(char::is_whitespace) {
+        return false;
+    }
+    let (scheme, tail) = match value.split_once("://") {
+        Some((scheme, tail)) => (scheme, tail),
+        None => match value.split_once(':') {
+            // A schemeless `prim:` capability is canonical; every other bare `x:y` is not.
+            Some(("prim", tail)) => ("prim", tail),
+            _ => return false,
+        },
+    };
+    !tail.is_empty()
+        && scheme.starts_with(|character: char| character.is_ascii_lowercase())
+        && scheme.chars().all(|character| {
+            character.is_ascii_lowercase()
+                || character.is_ascii_digit()
+                || matches!(character, '+' | '.' | '_' | '-')
+        })
+}
+
+/// Read one optional requirement family as a deduplicated, canonically shaped set.
+/// An absent, null, or empty family is "nothing declared", never a silent default.
+fn requirement_refs(value: &Value, field: &str) -> PursuitResult<Vec<String>> {
+    let Some(declared) = value.get(field).filter(|value| !value.is_null()) else {
+        return Ok(Vec::new());
+    };
+    let entries = declared.as_array().ok_or_else(|| {
+        GoalPursuitError::new(
+            "goal_pursuit_refs_required",
+            format!("{field} must be an array"),
+        )
+    })?;
+    let mut seen = BTreeSet::new();
+    for entry in entries {
+        let reference = entry
+            .as_str()
+            .map(str::trim)
+            .filter(|reference| is_canonical_ref(reference))
+            .ok_or_else(|| {
+                GoalPursuitError::new(
+                    "goal_pursuit_ref_invalid",
+                    format!("{field} contains an invalid canonical reference"),
+                )
+            })?;
+        if !seen.insert(reference.to_string()) {
+            return Err(GoalPursuitError::new(
+                "goal_pursuit_ref_duplicate",
+                format!("{field} contains duplicate {reference}"),
+            ));
+        }
+    }
+    Ok(seen.into_iter().collect())
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct GoalPursuitCore;
 
@@ -491,6 +550,26 @@ impl GoalPursuitCore {
             ));
         }
         let tool_refs = unique_refs(request, "runtime_tool_contract_refs", "tool://", true)?;
+        // The gateway run-on lane admits the exact released AgentHarnessAdapter revision the
+        // current AuthorityGatewayProfile selected. Every other lane resolves none.
+        let adapter_refs = match request.get("agent_harness_adapter_revision_refs") {
+            None | Some(Value::Null) => Vec::new(),
+            Some(_) => unique_refs(
+                request,
+                "agent_harness_adapter_revision_refs",
+                "agent-harness-adapter://",
+                true,
+            )?,
+        };
+        if adapter_refs
+            .iter()
+            .any(|reference| !reference.contains("/revision/sha256:"))
+        {
+            return Err(GoalPursuitError::new(
+                "agent_harness_adapter_revision_required",
+                "agent harness adapters must name exact content-addressed revisions",
+            ));
+        }
         let component_hashes = request
             .get("component_hashes")
             .and_then(Value::as_object)
@@ -507,6 +586,7 @@ impl GoalPursuitCore {
             .collect();
         required_components.extend(harness_refs.iter().map(String::as_str));
         required_components.extend(tool_refs.iter().map(String::as_str));
+        required_components.extend(adapter_refs.iter().map(String::as_str));
         if let Some((revision_ref, _, _)) = &execution_ceiling {
             required_components.push(revision_ref.as_str());
         }
@@ -526,6 +606,64 @@ impl GoalPursuitCore {
                 "component_hashes contains an unresolved or unselected component",
             ));
         }
+        // Honest requirement closure. A profile may legitimately declare role-topology,
+        // worker/model/service/verifier, context, and primitive-capability predicates that no
+        // admission-time owner resolves; those stay frozen as still-unresolved late bindings and
+        // are never renamed "resolved". A requirement that IS satisfied by an exact resolved
+        // component revision leaves the unresolved set. The caller may not author that set: a
+        // supplied non-empty set must equal the daemon-derived one exactly.
+        let role_topology_requirement_refs =
+            requirement_refs(request, "role_topology_requirement_refs")?;
+        let worker_model_service_and_verifier_requirement_refs = requirement_refs(
+            request,
+            "worker_model_service_and_verifier_requirement_refs",
+        )?;
+        let primitive_capability_requirement_refs =
+            requirement_refs(request, "primitive_capability_requirement_refs")?;
+        // Context requirement profiles are late-binding predicates with no receipt array of
+        // their own; they are named exactly once, in the unresolved set, never renamed a
+        // capability or a resolved component.
+        let context_requirement_profile_refs =
+            requirement_refs(request, "context_requirement_profile_refs")?;
+        let resolved_component_refs: BTreeSet<&str> = required_components.iter().copied().collect();
+        let role_topology_resolved = request
+            .get("initial_role_topology_revision_ref")
+            .is_some_and(|value| !value.is_null());
+        let mut unresolved_late_binding_requirement_refs: BTreeSet<String> = BTreeSet::new();
+        if !role_topology_resolved {
+            for reference in &role_topology_requirement_refs {
+                if !resolved_component_refs.contains(reference.as_str()) {
+                    unresolved_late_binding_requirement_refs.insert(reference.clone());
+                }
+            }
+        }
+        for reference in worker_model_service_and_verifier_requirement_refs
+            .iter()
+            .chain(primitive_capability_requirement_refs.iter())
+            .chain(context_requirement_profile_refs.iter())
+        {
+            if !resolved_component_refs.contains(reference.as_str()) {
+                unresolved_late_binding_requirement_refs.insert(reference.clone());
+            }
+        }
+        let declared_late_bindings =
+            requirement_refs(request, "unresolved_late_binding_requirement_refs")?;
+        if !declared_late_bindings.is_empty()
+            && declared_late_bindings
+                .iter()
+                .cloned()
+                .collect::<BTreeSet<_>>()
+                != unresolved_late_binding_requirement_refs
+        {
+            return Err(GoalPursuitError::new(
+                "goal_run_late_binding_requirement_substitution",
+                "unresolved_late_binding_requirement_refs must be exactly the still-unresolved declared requirement predicates",
+            ));
+        }
+        let unresolved_late_binding_requirement_refs: Vec<String> =
+            unresolved_late_binding_requirement_refs
+                .into_iter()
+                .collect();
         let active_skills =
             unique_refs(request, "active_skill_entry_refs", "skill-entry://", true)?;
         let constraint_ref = required_ref(
@@ -614,14 +752,16 @@ impl GoalPursuitCore {
             "active_skill_entry_refs": active_skills,
             "harness_profile_revision_refs": harness_refs,
             "runtime_tool_contract_refs": tool_refs,
+            "agent_harness_adapter_revision_refs": adapter_refs,
             "component_hashes": component_hashes,
-            "role_topology_requirement_refs": request.get("role_topology_requirement_refs").cloned().unwrap_or_else(|| json!([])),
-            "worker_model_service_and_verifier_requirement_refs": request.get("worker_model_service_and_verifier_requirement_refs").cloned().unwrap_or_else(|| json!([])),
-            "primitive_capability_requirement_refs": request.get("primitive_capability_requirement_refs").cloned().unwrap_or_else(|| json!([])),
+            "role_topology_requirement_refs": role_topology_requirement_refs,
+            "worker_model_service_and_verifier_requirement_refs": worker_model_service_and_verifier_requirement_refs,
+            "primitive_capability_requirement_refs": primitive_capability_requirement_refs,
+            "context_requirement_profile_refs": context_requirement_profile_refs,
             "initial_role_topology_revision_ref": request.get("initial_role_topology_revision_ref").cloned().unwrap_or(Value::Null),
             "initial_role_topology_content_hash": request.get("initial_role_topology_content_hash").cloned().unwrap_or(Value::Null),
             "initial_role_topology_decision_ref": request.get("initial_role_topology_decision_ref").cloned().unwrap_or(Value::Null),
-            "unresolved_late_binding_requirement_refs": request.get("unresolved_late_binding_requirement_refs").cloned().unwrap_or_else(|| json!([])),
+            "unresolved_late_binding_requirement_refs": unresolved_late_binding_requirement_refs,
             "effective_learning_boundary_profile_ref": request.get("effective_learning_boundary_profile_ref").cloned().unwrap_or(Value::Null),
             "effective_learning_policy_hash": request.get("effective_learning_policy_hash").cloned().unwrap_or(Value::Null),
             "compatibility_revocation_and_admission_decision_refs": request.get("compatibility_revocation_and_admission_decision_refs").cloned().unwrap_or_else(|| json!([])),
@@ -672,6 +812,15 @@ impl GoalPursuitCore {
                 })
             })
             .collect();
+        let resolved_agent_harness_adapter_revisions: Vec<Value> = adapter_refs
+            .iter()
+            .map(|reference| {
+                json!({
+                    "revision_ref": reference,
+                    "content_hash": component_hashes.get(reference).cloned().unwrap_or(Value::Null),
+                })
+            })
+            .collect();
         let resolved_runtime_tool_contracts: Vec<Value> = tool_refs
             .iter()
             .map(|reference| {
@@ -699,14 +848,15 @@ impl GoalPursuitCore {
             "active_skill_set_snapshot_ref": active_skill_snapshot_ref,
             "active_skill_set_hash": active_skill_set_hash,
             "resolved_harness_profile_revisions": resolved_harness_profile_revisions,
+            "resolved_agent_harness_adapter_revisions": resolved_agent_harness_adapter_revisions,
             "resolved_runtime_tool_contracts": resolved_runtime_tool_contracts,
-            "role_topology_requirement_refs": request.get("role_topology_requirement_refs").cloned().unwrap_or_else(|| json!([])),
-            "worker_model_service_and_verifier_requirement_refs": request.get("worker_model_service_and_verifier_requirement_refs").cloned().unwrap_or_else(|| json!([])),
-            "primitive_capability_requirement_refs": request.get("primitive_capability_requirement_refs").cloned().unwrap_or_else(|| json!([])),
+            "role_topology_requirement_refs": role_topology_requirement_refs,
+            "worker_model_service_and_verifier_requirement_refs": worker_model_service_and_verifier_requirement_refs,
+            "primitive_capability_requirement_refs": primitive_capability_requirement_refs,
             "initial_role_topology_revision_ref": request.get("initial_role_topology_revision_ref").cloned().unwrap_or(Value::Null),
             "initial_role_topology_content_hash": request.get("initial_role_topology_content_hash").cloned().unwrap_or(Value::Null),
             "initial_role_topology_decision_ref": request.get("initial_role_topology_decision_ref").cloned().unwrap_or(Value::Null),
-            "unresolved_late_binding_requirement_refs": request.get("unresolved_late_binding_requirement_refs").cloned().unwrap_or_else(|| json!([])),
+            "unresolved_late_binding_requirement_refs": unresolved_late_binding_requirement_refs,
             "effective_learning_boundary_profile_ref": request.get("effective_learning_boundary_profile_ref").cloned().unwrap_or(Value::Null),
             "effective_learning_policy_hash": request.get("effective_learning_policy_hash").cloned().unwrap_or(Value::Null),
             "compatibility_revocation_and_admission_decision_refs": request.get("compatibility_revocation_and_admission_decision_refs").cloned().unwrap_or_else(|| json!([])),
@@ -2088,6 +2238,137 @@ mod tests {
                 .unwrap_err()
                 .code(),
             "goal_run_component_hash_missing"
+        );
+    }
+
+    #[test]
+    fn declared_requirements_freeze_as_late_bindings_and_are_never_called_resolved() {
+        let mut request = definitions();
+        request["worker_model_service_and_verifier_requirement_refs"] = json!([
+            "verifier-requirement://independent",
+            "model-route-requirement://any-local",
+            "verifier-requirement://independent"
+        ]);
+        assert_eq!(
+            GoalPursuitCore
+                .resolve_definitions(&request, "now")
+                .unwrap_err()
+                .code(),
+            "goal_pursuit_ref_duplicate"
+        );
+        request["worker_model_service_and_verifier_requirement_refs"] = json!([
+            "verifier-requirement://independent",
+            "model-route-requirement://any-local"
+        ]);
+        request["primitive_capability_requirement_refs"] = json!([
+            // Primitive capabilities are canonical in their schemeless `prim:` form.
+            "prim:filesystem.read",
+            // A requirement satisfied by an exact resolved component leaves the late set.
+            "tool://search/revision/1"
+        ]);
+        request["role_topology_requirement_refs"] = json!(["role-topology-requirement://pair"]);
+        let resolution = GoalPursuitCore
+            .resolve_definitions(&request, "now")
+            .expect("declared later predicates are admissible, not fatal");
+        assert_eq!(
+            resolution["resolution_receipt"]["unresolved_late_binding_requirement_refs"],
+            json!([
+                "model-route-requirement://any-local",
+                "prim:filesystem.read",
+                "role-topology-requirement://pair",
+                "verifier-requirement://independent"
+            ])
+        );
+        assert_eq!(
+            resolution["resolved_component_set"]["unresolved_late_binding_requirement_refs"],
+            resolution["resolution_receipt"]["unresolved_late_binding_requirement_refs"]
+        );
+        // A resolved initial topology decision resolves the topology predicate honestly.
+        let mut resolved_topology = request.clone();
+        resolved_topology["initial_role_topology_revision_ref"] =
+            json!("role-topology://goal-run/research-1/revision/1");
+        let resolution = GoalPursuitCore
+            .resolve_definitions(&resolved_topology, "now")
+            .unwrap();
+        assert!(
+            !resolution["resolution_receipt"]["unresolved_late_binding_requirement_refs"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("role-topology-requirement://pair"))
+        );
+    }
+
+    #[test]
+    fn a_caller_cannot_author_or_shrink_the_unresolved_late_binding_set() {
+        let mut request = definitions();
+        request["worker_model_service_and_verifier_requirement_refs"] =
+            json!(["verifier-requirement://independent"]);
+        request["unresolved_late_binding_requirement_refs"] = json!([]);
+        assert_eq!(
+            GoalPursuitCore
+                .resolve_definitions(&request, "now")
+                .unwrap()["resolution_receipt"]["unresolved_late_binding_requirement_refs"],
+            json!(["verifier-requirement://independent"])
+        );
+        request["unresolved_late_binding_requirement_refs"] =
+            json!(["verifier-requirement://something-else"]);
+        assert_eq!(
+            GoalPursuitCore
+                .resolve_definitions(&request, "now")
+                .unwrap_err()
+                .code(),
+            "goal_run_late_binding_requirement_substitution"
+        );
+        let mut invented = definitions();
+        invented["unresolved_late_binding_requirement_refs"] =
+            json!(["verifier-requirement://invented"]);
+        assert_eq!(
+            GoalPursuitCore
+                .resolve_definitions(&invented, "now")
+                .unwrap_err()
+                .code(),
+            "goal_run_late_binding_requirement_substitution"
+        );
+    }
+
+    #[test]
+    fn agent_harness_adapter_revisions_are_exact_hashed_components_or_absent() {
+        let resolution = GoalPursuitCore
+            .resolve_definitions(&definitions(), "now")
+            .unwrap();
+        assert_eq!(
+            resolution["resolution_receipt"]["resolved_agent_harness_adapter_revisions"],
+            json!([])
+        );
+        let mut request = definitions();
+        request["agent_harness_adapter_revision_refs"] =
+            json!(["agent-harness-adapter://external/revision/1"]);
+        assert_eq!(
+            GoalPursuitCore
+                .resolve_definitions(&request, "now")
+                .unwrap_err()
+                .code(),
+            "agent_harness_adapter_revision_required"
+        );
+        let exact = format!("agent-harness-adapter://external/revision/{H2}");
+        request["agent_harness_adapter_revision_refs"] = json!([exact]);
+        assert_eq!(
+            GoalPursuitCore
+                .resolve_definitions(&request, "now")
+                .unwrap_err()
+                .code(),
+            "goal_run_component_hash_missing"
+        );
+        request["component_hashes"]
+            .as_object_mut()
+            .unwrap()
+            .insert(exact.clone(), json!(H2));
+        let resolution = GoalPursuitCore
+            .resolve_definitions(&request, "now")
+            .expect("an exact released adapter revision resolves");
+        assert_eq!(
+            resolution["resolution_receipt"]["resolved_agent_harness_adapter_revisions"],
+            json!([{ "revision_ref": exact, "content_hash": H2 }])
         );
     }
 

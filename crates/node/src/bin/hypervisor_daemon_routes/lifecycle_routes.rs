@@ -13228,26 +13228,24 @@ fn session_execute_intent(body: &Value) -> Option<String> {
     None
 }
 
-/// Admit (or replay) the one daemon-owned harness launch that a host execution consumes, then
-/// reduce its projection to the exact immutable predecessor refs carried by the execution WAL and
-/// receipt. This is the M01.5 mount: `/sessions/:id/execute` may no longer start a host process
-/// beside the canonical Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach chain.
-async fn admit_session_execution_launch(
+/// Admit (or replay) the one daemon-owned harness launch a host effect consumes and return its
+/// FULL projection. Split from the reduction below so every consumer — `/sessions/:id/execute` and
+/// the GoalRun invocation lane — crosses the same producer, the same idempotency identity, and the
+/// same predecessor checks instead of growing a second admission path.
+async fn admit_launch_chain_projection(
     st: &Arc<DaemonState>,
     headers: &HeaderMap,
     session_ref: &str,
-    execute_body: &Value,
+    idempotency_key: &str,
+    delegation: Option<&Value>,
 ) -> Result<Value, (StatusCode, Json<Value>)> {
     let mut launch_body = json!({
         "session_ref": session_ref,
         // One default launch is the Session's durable execution mount. Callers that deliberately
         // need a successor may name a bounded key without being allowed to supply predecessor refs.
-        "idempotency_key": execute_body
-            .get("launch_idempotency_key")
-            .and_then(Value::as_str)
-            .unwrap_or("launch:default"),
+        "idempotency_key": idempotency_key,
     });
-    if let Some(delegation) = execute_body.get("delegation") {
+    if let Some(delegation) = delegation {
         launch_body["delegation"] = delegation.clone();
     }
     let (status, Json(projection)) =
@@ -13255,7 +13253,18 @@ async fn admit_session_execution_launch(
     if !status.is_success() {
         return Err((status, Json(projection)));
     }
+    Ok(projection)
+}
 
+/// Reduce an admitted launch projection to the exact immutable predecessor refs carried by an
+/// execution WAL and receipt. Pure over the projection so the incomplete/stale ladder is testable
+/// without a live substrate. This is the M01.5 mount's fail-before-effect gate: a host process may
+/// not start beside the canonical Recipe -> Binding -> Launch -> Spawn -> Readiness ->
+/// TerminalAttach chain, and an incomplete or not-ready chain refuses here.
+fn reduce_launch_chain_binding(
+    session_ref: &str,
+    projection: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
     let steps = projection
         .get("chain_step_refs")
         .filter(|value| value.is_object());
@@ -13357,6 +13366,153 @@ async fn admit_session_execution_launch(
         "terminal_attach_ref": terminal_attach_ref,
         "runtimeTruthSource": "daemon-runtime",
     }))
+}
+
+/// The M01.5 mount for `/sessions/:id/execute`: admit (or replay) the Session's one canonical
+/// launch and reduce it to the exact predecessor refs. Signature and returned shape are unchanged
+/// by the M04.5 split above — the GoalRun lane crosses the SAME producer through its own entry
+/// point below rather than widening this one.
+async fn admit_session_execution_launch(
+    st: &Arc<DaemonState>,
+    headers: &HeaderMap,
+    session_ref: &str,
+    execute_body: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let projection = admit_launch_chain_projection(
+        st,
+        headers,
+        session_ref,
+        execute_body
+            .get("launch_idempotency_key")
+            .and_then(Value::as_str)
+            .unwrap_or("launch:default"),
+        execute_body.get("delegation"),
+    )
+    .await?;
+    reduce_launch_chain_binding(session_ref, &projection)
+}
+
+/// The exact daemon-owned orchestration primitives a launch composed, reduced from the SAME
+/// projection the predecessor refs come from (ADR 0031: an application-owned GoalRun composes the
+/// kernel owners; it does not recreate them). A launch that cannot show its admitted
+/// `RuntimeThreadEvent` identity + substrate sequence, or that carries no
+/// `RuntimeThreadForkControl` / `RuntimeManagedSessionControl` planner decision, is refused here —
+/// BEFORE the caller may reach a host effect. The fork/managed-session planners' honest typed
+/// absences (`not_requested` / `no_managed_session_at_launch`) ARE their facts and are admitted as
+/// such; what is refused is a MISSING or unknown decision, which would mean the planner never ran.
+fn reduce_launch_chain_primitive_facts(
+    projection: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let steps = projection
+        .get("chain_step_refs")
+        .filter(|value| value.is_object());
+    let string_fact = |key: &str, prefix: &str| {
+        steps
+            .and_then(|value| value.get(key))
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with(prefix) && !value.is_empty())
+            .map(str::to_string)
+    };
+    let member = |key: &str, allowed: &[&str]| {
+        steps
+            .and_then(|value| value.get(key))
+            .and_then(Value::as_str)
+            .filter(|value| allowed.contains(value))
+            .map(str::to_string)
+    };
+    let facts = (
+        string_fact("thread_ref", "thread:"),
+        string_fact("thread_event_ref", "thread-event:"),
+        member("thread_event_kind", &["thread.started"]),
+        steps
+            .and_then(|value| value.get("thread_event_seq"))
+            // Agentgres streams are zero-indexed: the launch's admitted
+            // `thread.started` event is legitimately sequence 0.
+            .and_then(Value::as_u64),
+        steps
+            .and_then(|value| value.get("thread_event_substrate_head"))
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
+        string_fact("first_runtime_event_ref", "thread-event:"),
+        member("fork_decision", &["not_requested", "forked", "refused"]),
+        member(
+            "managed_session_decision",
+            &["controlled", "no_managed_session_at_launch"],
+        ),
+    );
+    let (
+        Some(thread_ref),
+        Some(thread_event_ref),
+        Some(thread_event_kind),
+        Some(thread_event_seq),
+        Some(thread_event_substrate_head),
+        Some(first_runtime_event_ref),
+        Some(fork_decision),
+        Some(managed_session_decision),
+    ) = facts
+    else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{
+                "code":"launch_chain_primitive_facts_incomplete",
+                "message":"Bounded execution requires the launch's exact admitted thread-event, fork-control, and managed-session-control facts; the admitted projection did not carry them.",
+                "chain_step_refs": projection.get("chain_step_refs"),
+            }})),
+        ));
+    };
+    Ok(json!({
+        "thread_ref": thread_ref,
+        "thread_event_ref": thread_event_ref,
+        "thread_event_kind": thread_event_kind,
+        "thread_event_seq": thread_event_seq,
+        "thread_event_substrate_head": thread_event_substrate_head,
+        "thread_event_operation_ref": steps.and_then(|value| value.get("thread_event_operation_ref")),
+        "first_runtime_event_ref": first_runtime_event_ref,
+        "fork_decision": fork_decision,
+        "managed_session_decision": managed_session_decision,
+        "managed_session_ref": steps.and_then(|value| value.get("managed_session_ref")),
+    }))
+}
+
+/// The daemon's own per-boot dispatch identity. A GoalRun invocation worker runs with no caller
+/// `HeaderMap` in scope and creates its candidate Session through this same token (#240/#246), so
+/// the launch it then admits must resolve the IDENTICAL owner — otherwise the launch would be
+/// owner-refused against the very Session the daemon just created.
+fn internal_dispatch_headers(st: &DaemonState) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    if let Ok(value) = axum::http::HeaderValue::from_str(&st.internal_dispatch_token) {
+        headers.insert("x-ioi-internal-dispatch", value);
+    }
+    headers
+}
+
+/// M04.5 — the GoalRun invocation lane's mount onto the SAME daemon-owned launch chain. An
+/// admitted bounded GoalRun invocation may not reach a harness effect beside the canonical chain:
+/// this admits (or idempotently replays) the candidate Session's launch, requires every exact
+/// predecessor ref, and requires the exact kernel-primitive facts the launch composed. The
+/// returned value is refs and derived status only — the authoritative records stay in their
+/// owning families.
+pub(crate) async fn admit_goal_run_invocation_launch(
+    st: &Arc<DaemonState>,
+    session_ref: &str,
+    idempotency_key: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let headers = internal_dispatch_headers(st);
+    let projection =
+        admit_launch_chain_projection(st, &headers, session_ref, idempotency_key, None).await?;
+    let mut binding = reduce_launch_chain_binding(session_ref, &projection)?;
+    let facts = reduce_launch_chain_primitive_facts(&projection)?;
+    if let (Some(object), Some(facts)) = (binding.as_object_mut(), facts.as_object()) {
+        for (key, value) in facts {
+            object.insert(key.clone(), value.clone());
+        }
+    }
+    if let Some(object) = binding.as_object_mut() {
+        object.insert("session_ref".into(), json!(session_ref));
+        object.insert("launch_replayed".into(), json!(projection.get("replayed")));
+    }
+    Ok(binding)
 }
 
 /// The wallet authority gate for a consequential execution. Daemon-derives the
@@ -26302,6 +26458,201 @@ mod launch_chain_composition_tests {
         assert_eq!(a, b);
 
         assert_ne!(a, c);
+    }
+
+    // ---- M04.5: the launch-chain reduction every host effect (Session execute AND GoalRun
+    // invocation) must cross before a harness runs. These are pure over the projection, so the
+    // incomplete / stale / fabricated ladders are provable without a live substrate.
+
+    fn complete_launch_projection(session_ref: &str) -> Value {
+        json!({
+            "schema_version": SESSION_LAUNCH_PROJECTION_SCHEMA_VERSION,
+            "launch_ref": "harness-session-launch:abc",
+            "launch_id": "abc",
+            "session_ref": session_ref,
+            "lifecycle_state": "launched",
+            "head": "sha256:deadbeef",
+            "spawned": true,
+            "readiness": { "decision": "ready" },
+            "receipt_ref": "receipt://hypervisor/harness-session-launch/produced/abc",
+            "replayed": false,
+            "chain_step_refs": {
+                "plan_ref": "harness-session-launch-plan:abc",
+                "thread_ref": "thread:launch-abc",
+                "thread_event_ref": "thread-event:abc/opened",
+                "thread_event_kind": "thread.started",
+                "thread_event_seq": 0,
+                "thread_event_substrate_head": "0f0f0f",
+                "thread_event_operation_ref": "agentgres://operation/event-stream/append/1",
+                "first_runtime_event_ref": "thread-event:abc/spawned",
+                "harness_profile_ref": "hp_hypervisor_worker",
+                "session_profile_binding_ref": "hpb_1",
+                "session_model_route_binding_ref": "mrb_1",
+                "fork_decision": "not_requested",
+                "managed_session_decision": "no_managed_session_at_launch",
+                "managed_session_ref": null,
+                "launch_recipe_ref": "target-binding:new-session/workbench-default/ioi",
+                "harness_binding_ref": "harness-session-binding:session-route-x:harness-profile-y:model-config-z",
+                "harness_profile_revision_ref": "harness-profile://daemon-resolved/hypervisor-worker/revision/sha256:aa",
+                "readiness_ref": "readiness:abc",
+                "spawn_ref": "spawn:abc",
+                "terminal_attach_ref": "harness-session-terminal-attach:abc",
+            },
+        })
+    }
+
+    fn refusal_code(result: &Result<Value, (StatusCode, Json<Value>)>) -> String {
+        match result {
+            Ok(_) => "ok".to_string(),
+            Err((_, Json(body))) => body
+                .pointer("/error/code")
+                .and_then(Value::as_str)
+                .unwrap_or("missing")
+                .to_string(),
+        }
+    }
+
+    #[test]
+    fn launch_chain_binding_reduces_every_exact_predecessor_ref() {
+        let projection = complete_launch_projection("session:goalrun-gr_a-impl");
+        let binding = reduce_launch_chain_binding("session:goalrun-gr_a-impl", &projection)
+            .expect("a complete, launched, ready chain reduces");
+        assert_eq!(binding["launch_ref"], "harness-session-launch:abc");
+        assert_eq!(binding["plan_ref"], "harness-session-launch-plan:abc");
+        assert_eq!(
+            binding["launch_recipe_ref"],
+            "target-binding:new-session/workbench-default/ioi"
+        );
+        assert_eq!(binding["spawn_ref"], "spawn:abc");
+        assert_eq!(binding["readiness_ref"], "readiness:abc");
+        assert_eq!(
+            binding["terminal_attach_ref"],
+            "harness-session-terminal-attach:abc"
+        );
+        assert_eq!(binding["session_model_route_binding_ref"], "mrb_1");
+    }
+
+    #[test]
+    fn launch_chain_binding_refuses_an_incomplete_chain_before_any_effect() {
+        // Every predecessor is REQUIRED and prefix-typed: dropping any one of them, or
+        // substituting a differently-typed ref for it, refuses instead of reducing.
+        for (key, substitute) in [
+            ("plan_ref", Value::Null),
+            ("launch_recipe_ref", Value::Null),
+            ("harness_binding_ref", Value::Null),
+            (
+                "harness_profile_revision_ref",
+                json!("hp_hypervisor_worker"),
+            ),
+            ("spawn_ref", Value::Null),
+            ("readiness_ref", Value::Null),
+            ("terminal_attach_ref", json!("terminal:abc")),
+        ] {
+            let mut projection = complete_launch_projection("session:x");
+            projection["chain_step_refs"][key] = substitute;
+            assert_eq!(
+                refusal_code(&reduce_launch_chain_binding("session:x", &projection)),
+                "session_execute_launch_chain_incomplete",
+                "{key} must be an exact required predecessor"
+            );
+        }
+        let mut projection = complete_launch_projection("session:x");
+        projection["receipt_ref"] = json!("receipt://hypervisor/other/abc");
+        assert_eq!(
+            refusal_code(&reduce_launch_chain_binding("session:x", &projection)),
+            "session_execute_launch_chain_incomplete"
+        );
+    }
+
+    #[test]
+    fn launch_chain_binding_refuses_a_stale_or_unready_chain() {
+        // A launch produced for ANOTHER Session, or one that never reached the launched /
+        // spawn-admitted / readiness-admitted state, may not authorize a host effect.
+        let projection = complete_launch_projection("session:other");
+        assert_eq!(
+            refusal_code(&reduce_launch_chain_binding("session:mine", &projection)),
+            "session_execute_launch_chain_not_ready"
+        );
+        let mutations: [fn(&mut Value); 3] = [
+            |p| p["lifecycle_state"] = json!("admitted_not_spawned"),
+            |p| p["spawned"] = json!(false),
+            |p| p["readiness"] = json!({ "decision": "blocked" }),
+        ];
+        for mutate in mutations {
+            let mut projection = complete_launch_projection("session:mine");
+            mutate(&mut projection);
+            assert_eq!(
+                refusal_code(&reduce_launch_chain_binding("session:mine", &projection)),
+                "session_execute_launch_chain_not_ready"
+            );
+        }
+    }
+
+    #[test]
+    fn launch_chain_binding_is_idempotent_across_replay() {
+        // The launch producer replays to the stored record; the reduction over a replayed
+        // projection is byte-identical, so a re-run invocation consumes the SAME launch identity
+        // instead of minting a second one.
+        let first = reduce_launch_chain_binding(
+            "session:mine",
+            &complete_launch_projection("session:mine"),
+        )
+        .expect("first reduction");
+        let mut replayed = complete_launch_projection("session:mine");
+        replayed["replayed"] = json!(true);
+        let second =
+            reduce_launch_chain_binding("session:mine", &replayed).expect("replayed reduction");
+        assert_eq!(first, second);
+        // The launch identity itself is a pure function of (session, idempotency key), so the
+        // GoalRun lane's per-role key resolves to one stable launch across retries.
+        assert_eq!(
+            launch_identity("session:mine", "goal-run-invocation:implementer_a"),
+            launch_identity("session:mine", "goal-run-invocation:implementer_a")
+        );
+        assert_ne!(
+            launch_identity("session:mine", "goal-run-invocation:implementer_a"),
+            launch_identity("session:mine", "goal-run-invocation:implementer_b")
+        );
+    }
+
+    #[test]
+    fn launch_chain_primitive_facts_require_every_kernel_owner() {
+        let facts =
+            reduce_launch_chain_primitive_facts(&complete_launch_projection("session:mine"))
+                .expect("a complete chain carries every kernel-owner fact");
+        assert_eq!(facts["thread_ref"], "thread:launch-abc");
+        assert_eq!(facts["thread_event_ref"], "thread-event:abc/opened");
+        assert_eq!(facts["thread_event_kind"], "thread.started");
+        assert_eq!(facts["thread_event_seq"], 0);
+        assert_eq!(facts["thread_event_substrate_head"], "0f0f0f");
+        assert_eq!(facts["first_runtime_event_ref"], "thread-event:abc/spawned");
+        // The fork / managed-session planners' honest typed absences ARE their facts.
+        assert_eq!(facts["fork_decision"], "not_requested");
+        assert_eq!(
+            facts["managed_session_decision"],
+            "no_managed_session_at_launch"
+        );
+
+        // A missing admitted-event identity or sequence, or a decision outside the real planners'
+        // vocabulary (i.e. the planner never ran), refuses BEFORE any host effect.
+        for (key, substitute) in [
+            ("thread_ref", Value::Null),
+            ("thread_event_ref", json!("hae_1")),
+            ("thread_event_kind", json!("thread.custom")),
+            ("thread_event_seq", json!("0")),
+            ("thread_event_substrate_head", json!("")),
+            ("first_runtime_event_ref", Value::Null),
+            ("fork_decision", json!("admitted")),
+            ("managed_session_decision", Value::Null),
+        ] {
+            let mut projection = complete_launch_projection("session:mine");
+            projection["chain_step_refs"][key] = substitute;
+            assert_eq!(
+                refusal_code(&reduce_launch_chain_primitive_facts(&projection)),
+                "launch_chain_primitive_facts_incomplete",
+                "{key} must be an exact consumed kernel-owner fact"
+            );
+        }
     }
 
     #[test]

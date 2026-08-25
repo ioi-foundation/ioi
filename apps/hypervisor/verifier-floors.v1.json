@@ -115,8 +115,32 @@
       "npm_script": "check:goal-profile-contracts",
       "source": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
       "runtime_assertions": 37,
-      "assertion_names_sha256": "03bd210426d8730d84afbc72c733f6425738dc91829292eb3296b9d229666e4b",
-      "note": "M04.4 definition, gateway-binding, and general-profile substrate: an isolated daemon proves separate immutable GoalRunProfile and AgentHarnessAdapter revision families, server-owned JCS identities, generated-contract validity, identity-first reads, exact content-addressed slots and read-time hash recomputation, successor-only lineage, definition-only non-grants, tenant-owner admission, restart replay, hash-substitution refusal, durable AuthorityGatewayProfile selection of one exact released adapter with no ambient authority carryover, pre-write exact-profile resolution on the general GoalRun surface, strict owner-registry resolution of WorkflowTemplate, harness, SkillManifest dependency, and direct/transitive RuntimeToolContract selections, plus a deliberately bounded daemon-owned direct policy release, daemon-derived effective-constraint commitment, null-only override set, empty derived late-binding set, complete snapshot hashing, canonical GoalRun-subject ActiveSkillSetSnapshot and receipt persistence with no legacy duplicate, owner-only canonical-coordinate minting, and typed refusal for unsupported policy/requirement families, tampered policy bytes, and caller substitution."
+      "assertion_names_sha256": "d0a927ee36627292dfaef38146ed89c2e8ee50df0a612105b381a0b2e2fc44fb",
+      "note": "M04.4 generalized definition admission: 37 isolated-daemon assertions prove immutable GoalRunProfile and AgentHarnessAdapter revisions, strict owner-visible WorkflowTemplate/harness/SkillManifest/RuntimeToolContract resolution, exact gateway-adapter selection, canonical skill-owner snapshots, bounded daemon policy/constraints/null overrides, and nonempty topology/worker/model-route/service/primitive/context/verifier requirement-owner classification. Changed registry bytes, unavailable components, caller substitution, and unsupported policy/override families still fail before GoalRun persistence."
+    },
+    {
+      "id": "m3-goalrun-plane",
+      "npm_script": "check:m3-goalrun-plane",
+      "source": "apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
+      "runtime_assertions": 11,
+      "assertion_names_sha256": "585d49c3007e31922200f595c9b88b03cc029dce97586a445fd9de3030d7dd5c",
+      "note": "M04.4 general direct-admission closure: the live plane proves exact reusable-definition resolution, canonical skill-owner records, an Agentgres-backed reproducible admitted-state root, typed receipt/source/authority bindings, missing-state-evidence refusal, negative generic result truth, component tamper refusal, and restart lineage."
+    },
+    {
+      "id": "m4-goalrun-activation-plane",
+      "npm_script": "check:m4-goalrun-activation-plane",
+      "source": "apps/hypervisor/scripts/verify-m4-goalrun-activation-plane.mjs",
+      "runtime_assertions": 52,
+      "assertion_names_sha256": "7156b387d56ebd3915552eecfd8cf9cec955eb4f128d16642c01cdeadc498414",
+      "note": "M04.4 activation closure: 52 fresh-process assertions cover the zero-execution ioi.ai draft lane and tenant-owned gateway_adapter_context run-on lane, including exact adapter/1:1 ceiling closure, retained intent, fresh authority, no attach carryover or receipt remint, admitted-state evidence, complete-census ownership, restart replay, and durability-fault recovery."
+    },
+    {
+      "id": "m4-outcome-room-system-spine",
+      "npm_script": "check:m4-outcome-room-system-spine",
+      "source": "apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs",
+      "runtime_assertions": 103,
+      "assertion_names_sha256": "b09aa67c538bb2b8c96af0e180d0fe7fbfd4bee414a003b19bcc62b3b1d28e75",
+      "note": "M04.5 live execution closure: the retained M4 room/System spine now proves that one successful bounded GoalRun invocation consumes the exact daemon-owned launch predecessor chain and thread/fork/managed-session facts, persists one byte-identical binding across invocation, receipt, and candidate, resolves it back to the launch owner record, and keeps GoalRun identity invocation-ref-only."
     },
     {
       "id": "command-execution-guardrails",
@@ -154,8 +178,9 @@
       "id": "launch-chain",
       "npm_script": "check:launch-chain",
       "source": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
-      "runtime_assertions": 56,
-      "assertion_names_sha256": "26584a80ebff2eca2597e89fedee40e9050a27f08a024e2a6db163b0a5292273"
+      "runtime_assertions": 58,
+      "assertion_names_sha256": "a20d1a6f6cf72b851169f4eadc11ad5c666ebde298aded8b15459a7726c99f2d",
+      "note": "M04.5 shared execution mount: the live Session launch-chain proof remains intact and two source-bound assertions pin bounded GoalRun invocation ordering before adapter/spawn plus reuse of the same launch producer/reducer with invocation-ref-only GoalRun state."
     },
     {
       "id": "session-authority",

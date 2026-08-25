@@ -33,6 +33,7 @@ import {
 } from "./lib/isolated-daemon.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const DEPLOYMENT_AUTHORITY_REF = "domain://acme-host";
 const GOAL_RUN_CREATE_SCOPE = "scope:goal.run.create";
@@ -110,6 +111,36 @@ const profileResolutionReceiptSchema = JSON.parse(
     "utf8",
   ),
 );
+const gatewayProfileTemplate = JSON.parse(
+  readFileSync(
+    join(
+      REPO,
+      "docs",
+      "architecture",
+      "_meta",
+      "schemas",
+      "fixtures",
+      "authority-gateway-profile-v1",
+      "positive-active-pre-effect.json",
+    ),
+    "utf8",
+  ),
+);
+const gatewayActionRequestTemplate = JSON.parse(
+  readFileSync(
+    join(
+      REPO,
+      "docs",
+      "architecture",
+      "_meta",
+      "schemas",
+      "fixtures",
+      "action-request-envelope-v1",
+      "positive-external-effect.json",
+    ),
+    "utf8",
+  ),
+);
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
 const validateActivation = ajv.compile(activationSchema);
@@ -155,6 +186,38 @@ function executionCeilingHash(record) {
     max_parallel_invocations: record.max_parallel_invocations,
   };
   return `sha256:${createHash("sha256").update(canonicalJson(material)).digest("hex")}`;
+}
+
+function gatewayProfileHash(profile) {
+  return sha256({
+    domain: "ioi.authority-gateway-profile-hash-jcs-sha256.v1",
+    profile_ref: profile.profile_ref,
+    profile_revision: profile.profile_revision,
+    predecessor_profile_hash: profile.predecessor_profile_hash,
+    declaration: profile.declaration,
+    created_at: profile.created_at,
+    valid_until: profile.valid_until,
+  });
+}
+
+function gatewayActionRequestHash(request) {
+  return sha256({
+    domain: "ioi.action-request-envelope-hash-jcs-sha256.v1",
+    action_request_ref: request.action_request_ref,
+    request_revision: request.request_revision,
+    authority_gateway_profile_ref: request.authority_gateway_profile_ref,
+    authority_gateway_profile_hash: request.authority_gateway_profile_hash,
+    source_adapter: request.source_adapter,
+    proposed_action: request.proposed_action,
+    risk_class: request.risk_class,
+    primitive_capabilities_required: request.primitive_capabilities_required,
+    authority_scopes_required: request.authority_scopes_required,
+    policy_decision: request.policy_decision,
+    subject_refs: request.subject_refs,
+    receipt_obligations: request.receipt_obligations,
+    created_at: request.created_at,
+    expires_at: request.expires_at,
+  });
 }
 
 function durableTreeByteSnapshot(root) {
@@ -237,7 +300,7 @@ const unknownReceiptDataDir = mkdtempSync(
   join(tmpdir(), "ioi-m4-goalrun-activation-unknown-receipt-"),
 );
 const checks = [];
-const EXPECTED_CHECKS = 45;
+const EXPECTED_CHECKS = 52;
 const check = (name, pass, detail = "") => checks.push({ name, pass: Boolean(pass), detail });
 const familyCount = (family, root = dataDir) => {
   try {
@@ -1911,6 +1974,277 @@ try {
       `goal=${exposedGoalList.status}/${exposedGoalGet.status} result=${exposedResultList.status}/${exposedResultGet.status} delta=${exposedDeltaList.status}/${exposedDeltaGet.status} uniform=${[exposedGoalList, exposedGoalGet, exposedResultList, exposedResultGet, exposedDeltaList, exposedDeltaGet].every((response) => response.raw === anonymousUniformRefusalRaw)}`,
     );
 
+    // M04.4 attach-to-run-on handoff. Build one real current gateway context through the public
+    // owner routes, then prove this SAME activation crossing derives its intent and exact released
+    // AgentHarnessAdapter tuple from retained gateway bytes while requesting fresh run-on authority.
+    const operatorWhoami = await request(
+      plane.daemonUrl,
+      "GET",
+      "/v1/hypervisor/auth/whoami",
+      undefined,
+      operatorHeaders,
+    );
+    const operatorPrincipalRef = operatorWhoami.body?.principal?.principal_ref;
+    const gatewayOwnerRef = "org://local";
+    const gatewayAdapterResponse = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/hypervisor/agent-harness-adapters",
+      {
+        owner_ref: gatewayOwnerRef,
+        adapter_family: "remote_agent_api",
+        transport_kind: "remote_api",
+        supported_task_brief_schema_refs: ["schema://ioi/agentic/task-brief/v1"],
+        supported_event_and_result_schema_refs: [
+          "schema://ioi/foundations/work-result/v3",
+        ],
+        provenance_evaluation_and_conformance_refs: [
+          "evidence://m4/gateway-run-on-adapter",
+        ],
+        registry_status: "released",
+      },
+      operatorHeaders,
+    );
+    const gatewayAdapter = gatewayAdapterResponse.body?.agent_harness_adapter ?? {};
+    const gatewayProfile = structuredClone(gatewayProfileTemplate);
+    gatewayProfile.profile_ref = "authority-gateway://local/m4-run-on/revision/1";
+    gatewayProfile.declaration.adapter.adapter_ref = "adapter://local/m4-run-on";
+    gatewayProfile.declaration.adapter.implementation_ref =
+      "artifact://local/m4-run-on-adapter/1.0.0";
+    gatewayProfile.declaration.adapter.deployment_profile_ref =
+      "deployment-profile://local/m4-run-on";
+    gatewayProfile.declaration.run_on_graduation.agent_harness_adapter_revision_ref =
+      gatewayAdapter.revision_ref;
+    gatewayProfile.declaration.run_on_graduation.agent_harness_adapter_content_hash =
+      gatewayAdapter.content_hash;
+    gatewayProfile.profile_hash = gatewayProfileHash(gatewayProfile);
+    const gatewayProfileResponse = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/authority-gateway/profiles",
+      {
+        owner_ref: gatewayOwnerRef,
+        idempotency_key: "m4-gateway-run-on-profile-v1",
+        profile: gatewayProfile,
+      },
+      operatorHeaders,
+    );
+    const retainedGatewayProfile = gatewayProfileResponse.body?.profile?.profile ?? {};
+    const gatewayActionRequest = structuredClone(gatewayActionRequestTemplate);
+    gatewayActionRequest.action_request_ref = "action-request://local/m4/run-on-001";
+    gatewayActionRequest.authority_gateway_profile_ref = retainedGatewayProfile.profile_ref;
+    gatewayActionRequest.authority_gateway_profile_hash = retainedGatewayProfile.profile_hash;
+    gatewayActionRequest.source_adapter = structuredClone(
+      retainedGatewayProfile.declaration?.adapter,
+    );
+    gatewayActionRequest.proposed_action.summary =
+      "Advance the retained M04.4 gateway action through a bounded GoalRun";
+    gatewayActionRequest.receipt_obligations[0].bound_fact_requirement_refs = [
+      gatewayActionRequest.action_request_ref,
+    ];
+    gatewayActionRequest.receipt_obligations[2].bound_fact_requirement_refs = [
+      gatewayActionRequest.action_request_ref,
+    ];
+    gatewayActionRequest.created_at = new Date(Date.now() - 60_000).toISOString();
+    gatewayActionRequest.expires_at = new Date(Date.now() + 30 * 60_000).toISOString();
+    gatewayActionRequest.request_hash = gatewayActionRequestHash(gatewayActionRequest);
+    const gatewayActionResponse = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/action-requests",
+      {
+        owner_ref: gatewayOwnerRef,
+        idempotency_key: "m4-gateway-run-on-action-v1",
+        action_request: gatewayActionRequest,
+      },
+      operatorHeaders,
+    );
+    const retainedGatewayAction = gatewayActionResponse.body?.action_request ?? {};
+    check(
+      "the public gateway owner path admits one current action bound to one exact released run-on adapter",
+      operatorWhoami.status === 200 &&
+        /^user:\/\//u.test(String(operatorPrincipalRef || "")) &&
+        gatewayAdapterResponse.status === 201 &&
+        gatewayProfileResponse.status === 201 &&
+        gatewayActionResponse.status === 201 &&
+        retainedGatewayAction.owner_ref === gatewayOwnerRef &&
+        retainedGatewayProfile.declaration?.run_on_graduation
+          ?.agent_harness_adapter_revision_ref === gatewayAdapter.revision_ref &&
+        retainedGatewayProfile.declaration?.run_on_graduation
+          ?.agent_harness_adapter_content_hash === gatewayAdapter.content_hash,
+      `whoami=${operatorWhoami.status}/${operatorPrincipalRef || ""} adapter=${gatewayAdapterResponse.status} profile=${gatewayProfileResponse.status}/${gatewayProfileResponse.body?.error?.code || ""} action=${gatewayActionResponse.status}/${gatewayActionResponse.body?.error?.code || ""}`,
+    );
+
+    const goalsBeforeGatewayDraft = familyCount("goal-runs");
+    const activationsBeforeGatewayDraft = familyCount("goal-run-activations");
+    const mismatchedGatewayDraft = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/goal-orchestration/goal-run-activations",
+      {
+        schema_version: "ioi.goal-run-activation-draft-request.v1",
+        goal_text: "A correlated but unrelated caller-authored objective",
+        constraints: [],
+        project_ref: null,
+        result_profile: "research",
+        idempotency_key: "m4-gateway-run-on-intent-mismatch-v1",
+        gateway_action_request_ref: gatewayActionRequest.action_request_ref,
+      },
+      operatorHeaders,
+    );
+    check(
+      "correlation with an admitted gateway request cannot substitute a different GoalRun intent",
+      mismatchedGatewayDraft.status === 422 &&
+        mismatchedGatewayDraft.body?.error?.code ===
+          "goal_run_activation_gateway_intent_mismatch" &&
+        familyCount("goal-runs") === goalsBeforeGatewayDraft &&
+        familyCount("goal-run-activations") === activationsBeforeGatewayDraft,
+      `${mismatchedGatewayDraft.status}/${mismatchedGatewayDraft.body?.error?.code}`,
+    );
+
+    const gatewayDraft = await request(
+      plane.daemonUrl,
+      "POST",
+      "/v1/goal-orchestration/goal-run-activations",
+      {
+        schema_version: "ioi.goal-run-activation-draft-request.v1",
+        goal_text: gatewayActionRequest.proposed_action.summary,
+        constraints: [],
+        project_ref: null,
+        result_profile: "research",
+        idempotency_key: "m4-gateway-run-on-positive-v1",
+        gateway_action_request_ref: gatewayActionRequest.action_request_ref,
+      },
+      operatorHeaders,
+    );
+    const gatewayActivation = gatewayDraft.body?.activation ?? {};
+    const gatewayActivationId = activationId(gatewayActivation);
+    check(
+      "gateway run-on drafting retains a typed adapter context and carries attach receipts only as evidence candidates",
+      gatewayDraft.status === 201 &&
+        gatewayActivation.source_context?.source_kind === "gateway_adapter_context" &&
+        gatewayActivation.normalized_intent_ref === null &&
+        gatewayActivation.carried_context_refs?.length >= 2 &&
+        gatewayActivation.carried_context_refs?.includes(
+          retainedGatewayAction.admission_receipt_ref,
+        ) &&
+        gatewayActivation.carried_context_refs?.includes(
+          retainedGatewayAction.gateway_decision_receipt?.receipt_ref,
+        ),
+      `${gatewayDraft.status}/${gatewayDraft.body?.error?.code || ""}/${JSON.stringify(gatewayActivation.carried_context_refs || [])}`,
+    );
+    const gatewayChallenge = await request(
+      plane.daemonUrl,
+      "POST",
+      `/v1/goal-orchestration/goal-run-activations/${gatewayActivationId}/submit`,
+      {
+        schema_version: "ioi.goal-run-activation-submit-request.v1",
+        expected_activation_hash: gatewayDraft.body?.activation_hash,
+        review_decision: "approve",
+      },
+      operatorHeaders,
+    );
+    check(
+      "gateway run-on submit requests a fresh GoalRun grant before admitting any new run",
+      gatewayChallenge.status === 403 &&
+        gatewayChallenge.body?.error?.code === "goal_run_activation_authority_required" &&
+        gatewayChallenge.body?.error?.required_scope === GOAL_RUN_CREATE_SCOPE &&
+        familyCount("goal-runs") === goalsBeforeGatewayDraft,
+      `${gatewayChallenge.status}/${gatewayChallenge.body?.error?.code}`,
+    );
+    const gatewayGrant = await mintActivationGrant(gatewayChallenge);
+    const admittedGatewayRun = await request(
+      plane.daemonUrl,
+      "POST",
+      `/v1/goal-orchestration/goal-run-activations/${gatewayActivationId}/submit`,
+      {
+        schema_version: "ioi.goal-run-activation-submit-request.v1",
+        expected_activation_hash: gatewayDraft.body?.activation_hash,
+        review_decision: "approve",
+        wallet_approval_grant: gatewayGrant,
+      },
+      operatorHeaders,
+    );
+    const gatewayGoalRun = admittedGatewayRun.body?.goal_run ?? {};
+    const gatewayResolutionReceiptPath = recordPath(
+      "goal-run-profile-resolution-receipts",
+      (record) =>
+        record.receipt_id ===
+        admittedGatewayRun.body?.admitted_state?.profile_resolution_receipt_ref,
+    );
+    const gatewayResolutionReceipt = gatewayResolutionReceiptPath
+      ? JSON.parse(readFileSync(gatewayResolutionReceiptPath, "utf8"))
+      : {};
+    check(
+      "admission freezes the exact gateway-selected adapter and the bounded 1/1 run-on ceiling",
+      admittedGatewayRun.status === 201 &&
+        admittedGatewayRun.body?.activation?.status === "admitted" &&
+        gatewayGoalRun.origin_surface === "api" &&
+        gatewayGoalRun.declared_invocation_budget?.max_total_invocations === 1 &&
+        gatewayGoalRun.declared_invocation_budget?.max_parallel_invocations === 1 &&
+        gatewayGoalRun.goal_run_execution_ceiling_revision_ref?.includes(
+          "goal-run-execution-ceiling://ioi-goal-run-direct-bounded/",
+        ) &&
+        gatewayResolutionReceipt.resolved_agent_harness_adapter_revisions?.some(
+          (entry) =>
+            entry.revision_ref === gatewayAdapter.revision_ref &&
+            entry.content_hash === gatewayAdapter.content_hash,
+        ) &&
+        admittedGatewayRun.body?.admitted_state?.state_root_ref ===
+          gatewayGoalRun.admitted_state_root_ref,
+      `${admittedGatewayRun.status}/${admittedGatewayRun.body?.error?.code || ""}/${gatewayGoalRun.goal_run_execution_ceiling_revision_ref || ""}`,
+    );
+    const gatewaySourcePath = recordPath(
+      "ioi-ai-goal-drafts",
+      (record) => record.draft_intent_ref === gatewayActivation.source_context?.source_ref,
+    );
+    const gatewaySource = gatewaySourcePath
+      ? JSON.parse(readFileSync(gatewaySourcePath, "utf8"))
+      : {};
+    check(
+      "the retained GatewayAdapterContext carries no approval, grant, credential, or scope and re-mints no attach receipt",
+      gatewaySource.schema_version === "ioi.goal-run-gateway-adapter-context.v1" &&
+        gatewaySource.gateway_adapter_context?.gateway_owner_ref === gatewayOwnerRef &&
+        gatewaySource.gateway_adapter_context?.proposed_action_summary ===
+          gatewayActionRequest.proposed_action.summary &&
+        gatewaySource.gateway_adapter_context?.attach_lane_receipts_reminted === false &&
+        ["approval", "grant", "credential", "scope"].every(
+          (field) => gatewaySource.gateway_adapter_context?.carryover?.[field] === "none",
+        ),
+      JSON.stringify(gatewaySource.gateway_adapter_context ?? {}),
+    );
+    const gatewayBeforeRestart = {
+      goalRef: gatewayGoalRun.goal_ref,
+      stateRootRef: gatewayGoalRun.admitted_state_root_ref,
+      adapterRevisions: gatewayResolutionReceipt.resolved_agent_harness_adapter_revisions,
+    };
+    await plane.stop();
+    plane = await startActivationPlane({ dataDir });
+    const replayedGatewayActivation = await request(
+      plane.daemonUrl,
+      "GET",
+      `/v1/goal-orchestration/goal-run-activations/${gatewayActivationId}`,
+      undefined,
+      operatorHeaders,
+    );
+    const replayedGatewayResolutionReceipt = gatewayResolutionReceiptPath
+      ? JSON.parse(readFileSync(gatewayResolutionReceiptPath, "utf8"))
+      : {};
+    check(
+      "restart replays the same gateway activation, admitted state root, and adapter closure",
+      replayedGatewayActivation.status === 200 &&
+        replayedGatewayActivation.body?.activation?.admitted_goal_ref ===
+          gatewayBeforeRestart.goalRef &&
+        replayedGatewayActivation.body?.goal_run?.admitted_state_root_ref ===
+          gatewayBeforeRestart.stateRootRef &&
+        replayedGatewayActivation.body?.admitted_state?.profile_resolution_receipt_ref ===
+          gatewayResolutionReceipt.receipt_id &&
+        JSON.stringify(
+          replayedGatewayResolutionReceipt.resolved_agent_harness_adapter_revisions,
+        ) === JSON.stringify(gatewayBeforeRestart.adapterRevisions),
+      `${replayedGatewayActivation.status}/${replayedGatewayActivation.body?.error?.code || ""}`,
+    );
+
     // Force the durable writer's post-rename uncertainty exactly at the GoalRun record. The first
     // response must refuse success even though the new record is visible. A fresh process with the
     // fault removed must certify that exact GoalRun and finish the already-submitted activation;
@@ -2014,6 +2348,7 @@ for (const item of checks) {
   console.log(`${item.pass ? "PASS" : "FAIL"} ${item.name}${item.detail ? ` — ${item.detail}` : ""}`);
 }
 const failed = checks.filter((item) => !item.pass);
+emitVerifierCensus({ verifierId: "m4-goalrun-activation-plane", sourceUrl: import.meta.url, results: checks });
 if (checks.length !== EXPECTED_CHECKS) {
   console.error(`FAIL verifier coverage changed: expected ${EXPECTED_CHECKS}, got ${checks.length}`);
   process.exitCode = 1;

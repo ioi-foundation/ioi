@@ -292,14 +292,14 @@ export type GoalRunAdmittedStateV1 = {
   state_root_ref: string;
   state_root: string;
   goal_run_ref: string;
-  activation_ref: string;
+  activation_ref: string | null;
   source_context_hash: string;
   requesting_principal_ref: string;
   authority_decision_ref: string;
   goal_run_profile_revision_ref: string;
   goal_run_profile_content_hash: string;
-  goal_run_execution_ceiling_revision_ref: string;
-  goal_run_execution_ceiling_content_hash: string;
+  goal_run_execution_ceiling_revision_ref: string | null;
+  goal_run_execution_ceiling_content_hash: string | null;
   declared_invocation_budget: {
       max_total_invocations: number;
       max_parallel_invocations: number;
@@ -366,6 +366,10 @@ export type GoalRunProfileResolutionReceiptV1 = {
   active_skill_set_snapshot_ref: string;
   active_skill_set_hash: string;
   resolved_harness_profile_revisions: Array<{
+        revision_ref: string;
+        content_hash: string;
+      }>;
+  resolved_agent_harness_adapter_revisions: Array<{
         revision_ref: string;
         content_hash: string;
       }>;
@@ -22475,6 +22479,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:policy|room-discovery|aiip)://[^\\s]{1,500}$",
   "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$",
   "^(?:policy|storage-policy)(?:://|:)[^\\s]{1,500}$",
+  "^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\\s]{1,500})$",
   "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$",
   "^(?:profile|environment-profile)://[^\\s]{1,500}$",
   "^(?:projection|message)://[^\\s]{1,500}$",
@@ -23045,9 +23050,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1": "sha256:59fc95ab0db7dea0fa7ea5310d53e9a112bcb52d57e318bc71d02f21a8ac68f0",
   "schema://ioi/applications/ioi-ai/goal-run-activation/v1": "sha256:ede21f480591582d0e4db34f3d258a392faf85c5bb5b0080abdc1d077639dfd3",
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1": "sha256:a38a908eb1ecf0ee91162b8d7b24d642cc440903e774d027123c25bd6901c1e4",
-  "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1": "sha256:9d0dbebfbcdc3a630d027b5ad7bb0e5d1332b978ad665c19f8079b15a34b7b03",
+  "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1": "sha256:0746542d7754a88b937e10d7336f94c561b8e7a8d8a57246d8a8193de5049f10",
   "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1": "sha256:ede0138bfe5d32d8bffec8c085e51356aa53f4c8c44f6c3313d6fa143fd1b8cb",
-  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": "sha256:98b28124a2094d3f8c5659772d42a7ab40ae475d4bda88d24e52d51392f6f477",
+  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": "sha256:3505a87702e6c46dccd4f92d88bbf0066bc83a47c79268485af41c2bbd59d286",
   "schema://ioi/applications/ioi-ai/goal-run-profile/v1": "sha256:fbdd558781430936a00565c6edcb6c14962ab95664981514864556c2d44fa4a0",
   "schema://ioi/applications/ioi-ai/goal-run/v1": "sha256:03f2aa66af2424ebb30b6adb4c605d8a22fa50816b0f939d62c868a799c16cb5",
   "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1": "sha256:d98eec6115a535ad4a53cdffbefccf6e6b19302502b8e86bdf9db5c5fd4710f0",
@@ -25876,7 +25881,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
     "title": "GoalRunAdmittedState",
-    "description": "Daemon-owned, content-addressed GoalRun activation state whose root is admitted through the required Agentgres boundary.",
+    "description": "Daemon-owned, content-addressed GoalRun admission state whose root is admitted through the required Agentgres boundary. Direct admissions retain a null activation reference; context-backed admissions retain the exact activation reference.",
     "x-ioi-schema-version": "ioi.goal-run-admitted-state.v1",
     "type": "object",
     "additionalProperties": false,
@@ -25921,8 +25926,15 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^goal://[^\\s]{1,500}$"
       },
       "activation_ref": {
-        "type": "string",
-        "pattern": "^goal-run-activation://[^\\s]{1,500}$"
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^goal-run-activation://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "source_context_hash": {
         "$ref": "#/$defs/hash"
@@ -25941,11 +25953,25 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/hash"
       },
       "goal_run_execution_ceiling_revision_ref": {
-        "type": "string",
-        "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "goal_run_execution_ceiling_content_hash": {
-        "$ref": "#/$defs/hash"
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
       },
       "declared_invocation_budget": {
         "type": "object",
@@ -26019,6 +26045,34 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/nonGrants"
       }
     },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "goal_run_execution_ceiling_revision_ref": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "goal_run_execution_ceiling_revision_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "goal_run_execution_ceiling_content_hash": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "goal_run_execution_ceiling_content_hash": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    ],
     "$defs": {
       "ref": {
         "type": "string",
@@ -26186,6 +26240,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "active_skill_set_snapshot_ref",
       "active_skill_set_hash",
       "resolved_harness_profile_revisions",
+      "resolved_agent_harness_adapter_revisions",
       "resolved_runtime_tool_contracts",
       "unresolved_late_binding_requirement_refs",
       "resolved_component_set_snapshot_ref",
@@ -26339,6 +26394,28 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           }
         }
       },
+      "resolved_agent_harness_adapter_revisions": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "revision_ref",
+            "content_hash"
+          ],
+          "properties": {
+            "revision_ref": {
+              "type": "string",
+              "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+            },
+            "content_hash": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      },
       "resolved_runtime_tool_contracts": {
         "type": "array",
         "items": {
@@ -26381,7 +26458,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "uniqueItems": true,
         "items": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          "pattern": "^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\\s]{1,500})$"
         }
       },
       "initial_role_topology_revision_ref": {
@@ -26422,7 +26499,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "uniqueItems": true,
         "items": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          "pattern": "^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\\s]{1,500})$"
         }
       },
       "effective_learning_boundary_profile_ref": {

@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const H1 = `sha256:${"1".repeat(64)}`;
 const H2 = `sha256:${"2".repeat(64)}`;
@@ -174,9 +175,47 @@ try {
         && canonicalSkillSnapshot.resolution_receipt_ref === canonicalSkillReceipt.receipt_ref
         && canonicalSkillReceipt.receipt_hash === sha256(canonicalSkillReceipt.material)
         && run?.receipt_refs?.includes(canonicalSkillReceipt.receipt_ref));
-    check("activation retained exact lifecycle and state commitments", String(run?.lifecycle_head).startsWith("sha256:") && String(run?.admitted_state_root_ref).startsWith("agentgres://state-root/") && run?.lifecycle_record_refs?.length === 2);
+    const admittedState = onlyRecord("goal-run-activation-admitted-states");
+    const admittedStateCommitment = structuredClone(admittedState);
+    admittedStateCommitment.state_root = null;
+    admittedStateCommitment.state_root_ref = null;
+    check("direct admission retains a reproducible Agentgres-backed state root instead of a prefix-shaped placeholder",
+      count("goal-run-activation-admitted-states") === 1
+        && admittedState.activation_ref === null
+        && admittedState.goal_run_ref === run?.goal_ref
+        && admittedState.requesting_principal_ref === principalRef
+        && admittedState.declared_invocation_budget?.max_total_invocations === 1
+        && admittedState.declared_invocation_budget?.max_parallel_invocations === 1
+        && admittedState.state_root === sha256(admittedStateCommitment)
+        && admittedState.state_root_ref === run?.admitted_state_root_ref
+        && admittedState.state_root_ref?.endsWith(`/${admittedState.state_root}`),
+      `${admittedState.state_root_ref ?? "missing"}`);
+    check("direct admission retains exact lifecycle and typed receipt obligations",
+      String(run?.lifecycle_head).startsWith("sha256:")
+        && run?.lifecycle_record_refs?.length === 2
+        && run?.receipt_obligations?.length === 2
+        && run?.source_context_binding?.target_session_ref === null
+        && run?.source_context_binding?.project_ref === null
+        && run?.authority_scope_refs?.length === 0);
 
     const id = String(run?.goal_ref ?? "").replace("goal://", "");
+    const admittedStateDir = join(dataDir, "goal-run-activation-admitted-states");
+    const admittedStatePath = join(
+      admittedStateDir,
+      readdirSync(admittedStateDir).find((name) => name.endsWith(".json")),
+    );
+    const admittedStateBytes = readFileSync(admittedStatePath);
+    rmSync(admittedStatePath);
+    const missingAdmittedState = await request(
+      plane.daemonUrl,
+      "GET",
+      `/v1/goal-orchestration/goal-runs/${id}`,
+    );
+    writeFileSync(admittedStatePath, admittedStateBytes);
+    check("general GoalRun readback refuses a retained state-root ref with missing owner evidence",
+      missingAdmittedState.status === 409
+        && missingAdmittedState.body?.error?.code === "goal_run_admitted_state_evidence_missing",
+      `${missingAdmittedState.status}/${missingAdmittedState.body?.error?.code}`);
     const result = await request(plane.daemonUrl, "POST", `/v1/goal-orchestration/goal-runs/${id}/results`, {
       work_result_id: "work-result://research/negative-1",
       result_profile: "research",
@@ -228,5 +267,6 @@ try {
 
 for (const item of checks) console.log(`${item.pass ? "PASS" : "FAIL"} ${item.name}${item.detail ? ` — ${item.detail}` : ""}`);
 const failed = checks.filter((item) => !item.pass);
+emitVerifierCensus({ verifierId: "m3-goalrun-plane", sourceUrl: import.meta.url, results: checks });
 if (failed.length) process.exitCode = 1;
 else if (process.exitCode !== 2) console.log(`M3 GoalRun isolated plane: PASS (${checks.length}/${checks.length})`);

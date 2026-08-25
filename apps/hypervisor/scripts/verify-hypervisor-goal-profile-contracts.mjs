@@ -514,32 +514,20 @@ async function run() {
       && familyCount("goal-runs") === goalRunsBefore,
     `${unsupportedPolicy.status}/${unsupportedPolicy.body?.error?.code}`);
 
-  const unsupportedRequirementProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
+  const lateBindingProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
     method: "POST",
     body: JSON.stringify({
-      ...profileBody(principalRef, "1.0.0", "unsupported primitive requirement", [workflowTemplate.revision_ref], [skillManifest.skill_id]),
+      ...profileBody(principalRef, "1.0.0", "portable late-binding requirements", [workflowTemplate.revision_ref], [skillManifest.skill_id]),
+      role_topology_requirement_refs: ["requirement://topology/bounded-review"],
+      worker_requirement_refs: ["requirement://worker/researcher"],
+      model_route_requirement_refs: ["requirement://model-route/private"],
+      service_requirement_refs: ["requirement://service/artifact-store"],
       primitive_capability_requirements: ["prim:network.egress"],
+      context_requirement_profile_refs: ["context-requirement://repo/read-only"],
+      verifier_requirement_refs: ["requirement://verifier/independent"],
     }),
   });
-  const unsupportedRequirementProfile = unsupportedRequirementProfileResponse.body?.goal_run_profile ?? {};
-  const unsupportedRequirement = await jd("/v1/goal-orchestration/goal-runs", {
-    method: "POST",
-    body: JSON.stringify({
-      goal: "Refuse an unresolved primitive requirement",
-      admission_path_request: {
-        ...pathRequest,
-        goal_run_profile_revision_ref: unsupportedRequirementProfile.revision_ref,
-        goal_run_profile_content_hash: unsupportedRequirementProfile.content_hash,
-      },
-      definition_resolution: definitionResolution,
-    }),
-  });
-  ok("GATE: unsupported nonempty profile requirement families fail closed before persistence",
-    unsupportedRequirementProfileResponse.status === 201
-      && unsupportedRequirement.status === 409
-      && unsupportedRequirement.body?.error?.code === "goal_run_profile_requirement_resolution_unavailable"
-      && familyCount("goal-runs") === goalRunsBefore,
-    `${unsupportedRequirement.status}/${unsupportedRequirement.body?.error?.code}`);
+  const lateBindingProfile = lateBindingProfileResponse.body?.goal_run_profile ?? {};
 
   const substitutedConstraintResolution = structuredClone(definitionResolution);
   substitutedConstraintResolution.effective_constraint_envelope_hash = H2;
@@ -844,6 +832,7 @@ async function run() {
       && exactReceipt.effective_constraint_envelope_hash?.startsWith("sha256:")
       && exactReceipt.admitted_override_set_ref === null
       && exactReceipt.admitted_override_set_hash === null
+      && exactReceipt.resolved_agent_harness_adapter_revisions?.length === 0
       && exactReceipt.unresolved_late_binding_requirement_refs?.length === 0
       && exactSnapshot.orchestration_policy_ref === exactReceipt.orchestration_policy_ref
       && exactSnapshot.effective_constraint_envelope_hash === exactReceipt.effective_constraint_envelope_hash
@@ -853,6 +842,37 @@ async function run() {
       && exactGoalRun.body?.goal_run?.authority_scope_refs?.length === 0
       && familyCount("goal-run-admission-policy-revisions") === 1,
     `${exactGoalRun.status}/${exactReceipt.orchestration_policy_ref ?? ""}`);
+
+  const lateBindingGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Freeze portable late-binding predicates without false resolution",
+      admission_path_request: {
+        ...pathRequest,
+        goal_run_profile_revision_ref: lateBindingProfile.revision_ref,
+        goal_run_profile_content_hash: lateBindingProfile.content_hash,
+      },
+      definition_resolution: definitionResolution,
+    }),
+  });
+  const lateBindingReceipt = lateBindingGoalRun.body?.definition_resolution?.resolution_receipt ?? {};
+  ok("nonempty portable requirement families are frozen under their exact admission-time or later-binding owners",
+    lateBindingProfileResponse.status === 201
+      && lateBindingGoalRun.status === 201
+      && JSON.stringify(lateBindingReceipt.role_topology_requirement_refs) ===
+        JSON.stringify(lateBindingProfile.role_topology_requirement_refs)
+      && JSON.stringify(lateBindingReceipt.primitive_capability_requirement_refs) ===
+        JSON.stringify(lateBindingProfile.primitive_capability_requirements)
+      && [
+        ...lateBindingProfile.worker_requirement_refs,
+        ...lateBindingProfile.model_route_requirement_refs,
+        ...lateBindingProfile.service_requirement_refs,
+        ...lateBindingProfile.verifier_requirement_refs,
+      ].every((reference) =>
+        lateBindingReceipt.worker_model_service_and_verifier_requirement_refs?.includes(reference))
+      && lateBindingProfile.context_requirement_profile_refs.every((reference) =>
+        lateBindingReceipt.unresolved_late_binding_requirement_refs?.includes(reference)),
+    `${lateBindingGoalRun.status}/${lateBindingGoalRun.body?.error?.code ?? ""}`);
 }
 
 try {

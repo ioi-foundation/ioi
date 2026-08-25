@@ -297,9 +297,13 @@ const PINNED = {
   // Origin Akash two-stage merge re-derivation (2026-08-25): exact SDL/bid admission,
   // compensation, and fail-closed restart recovery add 100 reachable source tokens. They change
   // no ODK mention, writer bucket, filesystem call, adjudication bucket, or owner/admitter edge.
+  // M04.5 GoalRun launch-chain composition re-derivation (2026-08-25): shared launch reduction,
+  // primitive-fact validation, execution eligibility/budget tests, and the zero-indexed event
+  // correction add 1,012 reachable source tokens and 21 foreign-qualified names. They change no
+  // ODK mention, writer bucket, filesystem call, other adjudication bucket, or owner/admitter edge.
   modules: 98,
   familyMentions: 284,
-  tokenMentions: 119194,
+  tokenMentions: 120206,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 236, runtimeParameter: 303 },
   productionFsCalls: 234,
@@ -320,7 +324,7 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4076,
+    "foreign-qualified": 4097,
     "opaque-initialiser": 1663,
     "bare-undeclared": 529,
     "ambiguous-module": 0,

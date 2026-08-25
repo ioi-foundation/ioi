@@ -42,6 +42,10 @@ const LIFECYCLE_SOURCE = fs.readFileSync(
   path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs"),
   "utf8",
 );
+const GOALRUN_SOURCE = fs.readFileSync(
+  path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs"),
+  "utf8",
+);
 
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
@@ -316,6 +320,22 @@ async function run() {
     hostLaneStart >= 0
       && hostLaneBlock.indexOf(".kill_on_drop(true)") >= 0
       && hostLaneBlock.indexOf(".kill_on_drop(true)") < hostLaneBlock.indexOf("command.spawn()"));
+  const goalInvocationStart = GOALRUN_SOURCE.indexOf("async fn run_invocation");
+  const goalInvocationEnd = GOALRUN_SOURCE.indexOf("pub(crate) async fn handle_goal_run_start", goalInvocationStart);
+  const goalInvocationBlock = goalInvocationStart >= 0 && goalInvocationEnd > goalInvocationStart
+    ? GOALRUN_SOURCE.slice(goalInvocationStart, goalInvocationEnd)
+    : "";
+  const goalLaunchCall = goalInvocationBlock.indexOf("admit_goal_run_invocation_launch(");
+  ok("M04.5 execution mount: GoalRun invocation admits the shared launch chain before adapter resolution and before any host spawn",
+    goalLaunchCall >= 0
+      && goalLaunchCall < goalInvocationBlock.indexOf("resolve_adapter_driver(")
+      && goalLaunchCall < goalInvocationBlock.indexOf("run_host_spawn_lane("));
+  ok("M04.5 owner composition: GoalRun and Session execution enter the same launch producer and reducer, while the GoalRun stores only invocation refs",
+    LIFECYCLE_SOURCE.includes("admit_goal_run_invocation_launch(")
+      && LIFECYCLE_SOURCE.includes("admit_session_execution_launch(")
+      && (LIFECYCLE_SOURCE.match(/admit_launch_chain_projection\(/gu) || []).length >= 3
+      && (LIFECYCLE_SOURCE.match(/reduce_launch_chain_binding\(/gu) || []).length >= 4
+      && GOALRUN_SOURCE.includes('object.insert("invocation_refs".into(), json!(invocation_refs))'));
 
   // -- identity-first negatives (rule E): anon writes refuse BEFORE any record load -------------
   const anonProduce = await jd(LAUNCHES, { method: "POST", body: JSON.stringify({ session_ref: "session:does-not-exist" }) }, false);
