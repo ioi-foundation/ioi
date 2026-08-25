@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..", "..");
@@ -68,7 +69,21 @@ function analyze(candidate) {
   return failures;
 }
 
-const failures = analyze(sources).map((code) => ({ code, detail: "source invariant failed" }));
+const sourceInvariantNames = [
+  "agentgres_lifecycle_missing",
+  "second_durable_plane_restored",
+  "profile_registration_overclaims",
+  "observed_action_proof_missing",
+  "create_execute_posture_split_missing",
+  "lifecycle_resolver_bypass",
+  "loose_evidence_truth_restored",
+];
+const sourceFailures = analyze(sources);
+const results = sourceInvariantNames.map((name) => ({
+  name: `source:${name}`,
+  pass: !sourceFailures.includes(name),
+}));
+const failures = sourceFailures.map((code) => ({ code, detail: "source invariant failed" }));
 const mutations = [
   ["producer", "admit_owner_scoped_write(", "agentgres_lifecycle_missing"],
   ["producer", "list_event_stream_tails(data_dir, OWNER_NAMESPACE)", "agentgres_lifecycle_missing"],
@@ -78,7 +93,9 @@ const mutations = [
 ];
 for (const [file, needle, expected] of mutations) {
   const mutated = { ...sources, [file]: sources[file].replaceAll(needle, "removed_by_mutation") };
-  if (!analyze(mutated).includes(expected)) {
+  const pass = analyze(mutated).includes(expected);
+  results.push({ name: `mutation:${expected}`, pass });
+  if (!pass) {
     failures.push({ code: "mutation_false_green", detail: `${expected}: ${needle}` });
   }
 }
@@ -92,10 +109,15 @@ for (const [filter, expected] of [
     ["test", "--locked", "-p", "ioi-node", "--bin", "hypervisor-daemon", filter, "--no-fail-fast"],
     { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
   );
+  results.push({ name: `behavior:${filter}:passes`, pass: test.status === 0 });
   if (test.status !== 0) {
     failures.push({ code: "behavioral_tests_failed", detail: (test.stderr || test.stdout).slice(-4000) });
-  } else if (!(test.stdout || "").includes(expected)) {
-    failures.push({ code: "focused_test_not_executed", detail: expected });
+  } else {
+    const pass = (test.stdout || "").includes(expected);
+    results.push({ name: `behavior:${expected}`, pass });
+    if (!pass) {
+      failures.push({ code: "focused_test_not_executed", detail: expected });
+    }
   }
 }
 
@@ -103,6 +125,7 @@ if (failures.length) {
   console.error(JSON.stringify({ ok: false, schema_version: "ioi.check.enforcement-coverage-producer.v1", failures }, null, 2));
   process.exit(1);
 }
+emitVerifierCensus({ verifierId: "enforcement-coverage-producer", sourceUrl: import.meta.url, results });
 console.log(JSON.stringify({
   ok: true,
   schema_version: "ioi.check.enforcement-coverage-producer.v1",

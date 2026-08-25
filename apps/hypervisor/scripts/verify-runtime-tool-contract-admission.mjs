@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..", "..");
@@ -104,7 +105,22 @@ function analyze(candidate) {
   return failures;
 }
 
-const failures = analyze(sources).map((code) => ({ code, detail: "source invariant failed" }));
+const sourceInvariantNames = [
+  "universal_pre_invocation_gate_missing",
+  "registry_resolution_or_boundary_comparison_missing",
+  "bounded_grant_or_receipt_missing",
+  "immutable_registry_lifecycle_missing",
+  "immutable_registry_canonical_bytes_missing",
+  "closed_native_seed_missing",
+  "closed_native_census_incomplete",
+  "catalog_not_projected_from_registry",
+];
+const sourceFailures = analyze(sources);
+const results = sourceInvariantNames.map((name) => ({
+  name: `source:${name}`,
+  pass: !sourceFailures.includes(name),
+}));
+const failures = sourceFailures.map((code) => ({ code, detail: "source invariant failed" }));
 const mutations = [
   ["action", "admit_runtime_tool_invocation(", "universal_pre_invocation_gate_missing"],
   ["admission", "resolve_current_for_name", "registry_resolution_or_boundary_comparison_missing"],
@@ -118,7 +134,9 @@ const mutations = [
 ];
 for (const [file, needle, expected] of mutations) {
   const mutated = { ...sources, [file]: sources[file].replaceAll(needle, "removed_by_mutation") };
-  if (!analyze(mutated).includes(expected)) {
+  const pass = analyze(mutated).includes(expected);
+  results.push({ name: `mutation:${expected}`, pass });
+  if (!pass) {
     failures.push({ code: "mutation_false_green", detail: `${expected}: ${needle}` });
   }
 }
@@ -134,10 +152,15 @@ for (const [packageName, filter, expected] of [
     ["test", "--locked", "-p", packageName, filter, "--lib", "--", "--nocapture"],
     { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
   );
+  results.push({ name: `behavior:${packageName}:${filter}:passes`, pass: test.status === 0 });
   if (test.status !== 0) {
     failures.push({ code: "behavioral_tests_failed", detail: (test.stderr || test.stdout).slice(-4000) });
-  } else if (!(test.stdout || "").includes(expected)) {
-    failures.push({ code: "focused_test_not_executed", detail: expected });
+  } else {
+    const pass = (test.stdout || "").includes(expected);
+    results.push({ name: `behavior:${expected}`, pass });
+    if (!pass) {
+      failures.push({ code: "focused_test_not_executed", detail: expected });
+    }
   }
 }
 
@@ -145,6 +168,7 @@ if (failures.length) {
   console.error(JSON.stringify({ ok: false, schema_version: "ioi.check.runtime-tool-contract-admission.v1", failures }, null, 2));
   process.exit(1);
 }
+emitVerifierCensus({ verifierId: "runtime-tool-contract-admission", sourceUrl: import.meta.url, results });
 console.log(JSON.stringify({
   ok: true,
   schema_version: "ioi.check.runtime-tool-contract-admission.v1",

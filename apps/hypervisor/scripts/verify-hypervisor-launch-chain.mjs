@@ -1,14 +1,14 @@
-// verify-hypervisor-launch-chain — W3.1 the shared harness-session launch chain
+// verify-hypervisor-launch-chain — the shared harness-session launch chain, mounted by M01.5
 // (check:launch-chain). Proves, live against an ISOLATED daemon + serve pair, that the typed
 // Launch producer composes §6.1 steps 4-11 into ONE identity-first, receipted, idempotent,
-// recoverable chain over exactly one owned Session — and that denial and missing authority
-// fabricate no launch, record, receipt, or subject attachment.
+// recoverable chain over exactly one owned Session — and that the real host-execution route
+// consumes those exact durable predecessors before it may prepare or spawn a process.
 //
 // Named `-chain` (not `-journey`): the chain owns admission → thread/event → managed-session +
 // subject attachment → launch-recipe → harness-binding → readiness → spawn/terminal-attach →
-// stop/archive → daemon kill/restart → recovery/replay. Live model-driven execution (streamed
-// tokens) is the W3.2 provider-runtime dependency behind POST /v1/hypervisor/sessions/:id/execute
-// and is asserted here only as the honest readiness boundary, never fabricated.
+// execution mount → stop/archive → daemon kill/restart → recovery/replay. Live model-driven output
+// remains provider-dependent; this isolated proof intentionally uses an unreachable model endpoint
+// and asserts that even the honest no-model refusal has already consumed the canonical chain.
 //
 // What it proves:
 //   - the typed HarnessSessionLaunch producer family is LIVE at /v1 (the flipped absence);
@@ -38,6 +38,10 @@ import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
+const LIFECYCLE_SOURCE = fs.readFileSync(
+  path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs"),
+  "utf8",
+);
 
 const results = [];
 const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
@@ -306,6 +310,12 @@ async function run() {
     idxStr.includes("/v1/hypervisor/session-launch-recipe-admissions")
       && idxStr.includes("/v1/hypervisor/harness-session-binding-admissions")
       && idxStr.includes("/v1/hypervisor/harness-session-terminal-attachments"));
+  const hostLaneStart = LIFECYCLE_SOURCE.indexOf("pub(crate) async fn run_host_spawn_lane");
+  const hostLaneBlock = hostLaneStart >= 0 ? LIFECYCLE_SOURCE.slice(hostLaneStart, hostLaneStart + 9000) : "";
+  ok("M01.5 partial-cancellation safety: the canonical host lane arms kill-on-drop before Command::spawn, so request cancellation or daemon shutdown cannot orphan the harness process",
+    hostLaneStart >= 0
+      && hostLaneBlock.indexOf(".kill_on_drop(true)") >= 0
+      && hostLaneBlock.indexOf(".kill_on_drop(true)") < hostLaneBlock.indexOf("command.spawn()"));
 
   // -- identity-first negatives (rule E): anon writes refuse BEFORE any record load -------------
   const anonProduce = await jd(LAUNCHES, { method: "POST", body: JSON.stringify({ session_ref: "session:does-not-exist" }) }, false);
@@ -358,6 +368,38 @@ async function run() {
       && typeof steps.terminal_attach_ref === "string" && steps.terminal_attach_ref.startsWith("harness-session-terminal-attach:")
       && typeof steps.first_runtime_event_ref === "string" && steps.first_runtime_event_ref.includes("/spawned"),
     JSON.stringify(steps));
+
+  // -- M01.5: the actual host execution route consumes THIS exact chain -------------------------
+  // The isolated daemon has an intentionally unreachable model endpoint, so execution must stop
+  // before wallet authority or process spawn. It must nevertheless admit/replay the canonical
+  // launch first and return the exact durable predecessor binding. Removing the composition call,
+  // moving it after the substrate refusal, or substituting caller-supplied refs turns this RED.
+  const executeBlocked = await jd(
+    `/v1/hypervisor/sessions/${encodeURIComponent(sessionRef)}/execute`,
+    { method: "POST", body: JSON.stringify({ intent: "launch-chain execution mount probe" }) },
+  );
+  const executionBinding = executeBlocked.body?.launch_binding || {};
+  ok("M01.5 execution mount: the real /sessions/:id/execute path consumes the exact durable launch/spawn/readiness/terminal-attach predecessors before its honest no-model refusal",
+    executeBlocked.status === 503
+      && executeBlocked.body?.reason === "no_model_route"
+      && executionBinding.launch_ref === launchRef
+      && executionBinding.launch_head === launch?.head
+      && executionBinding.launch_receipt_ref === launch?.receipt_ref
+      && executionBinding.plan_ref === steps.plan_ref
+      && executionBinding.launch_recipe_ref === steps.launch_recipe_ref
+      && executionBinding.harness_binding_ref === steps.harness_binding_ref
+      && executionBinding.harness_profile_revision_ref === steps.harness_profile_revision_ref
+      && executionBinding.spawn_ref === steps.spawn_ref
+      && executionBinding.readiness_ref === steps.readiness_ref
+      && executionBinding.terminal_attach_ref === steps.terminal_attach_ref,
+    `${executeBlocked.status} ${executeBlocked.body?.reason} ${executionBinding.launch_ref || "no-launch-binding"}`);
+  ok("M01.5 partial-failure safety: the blocked execution starts no independent effect and replays the one existing launch instead of minting a parallel chain",
+    Array.isArray(executeBlocked.body?.changed_file_groups)
+      && executeBlocked.body.changed_file_groups.length === 0
+      && Array.isArray(executeBlocked.body?.terminal_events)
+      && executeBlocked.body.terminal_events.length === 0
+      && readFamilyRecords("harness-session-launches").filter((r) => r.json?.launch_id === launchId).length === 1,
+    `${readFamilyRecords("harness-session-launches").length} durable launch record(s)`);
 
   // Load the DURABLE launch record ONCE, early — it is RECOVERY TRUTH (what the daemon serves after
   // restart). The provenance and key-set assertions below read from it, so a durable-only forgery

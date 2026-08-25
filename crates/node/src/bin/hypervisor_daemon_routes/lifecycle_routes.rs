@@ -9974,6 +9974,9 @@ pub(crate) async fn run_host_spawn_lane(
         .args(&argv[1..])
         .current_dir(workspace_root)
         .env_clear()
+        // A cancelled HTTP task or daemon shutdown drops this handle. Tokio otherwise leaves the
+        // child running, which would violate ACC-1's no-orphan guarantee on a partial chain.
+        .kill_on_drop(true)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
@@ -12114,6 +12117,7 @@ fn prepare_session_execution(
     record: &Value,
     lane: &str,
     intent: &str,
+    launch_binding: &Value,
     capability_lease_ref: &str,
     receipt_ref: &str,
     started_at: &str,
@@ -12139,6 +12143,10 @@ fn prepare_session_execution(
                 "owner_ref":owner_ref,
                 "lane":lane,
                 "intent_hash":sha256_hex_bytes(intent.as_bytes()),
+                // Exact daemon-owned predecessors are durable BEFORE the external process starts.
+                // Recovery therefore never has to infer which launch/spawn/readiness/attach chain
+                // governed an ambiguous host effect.
+                "launch_binding":launch_binding,
                 "capability_lease_ref":capability_lease_ref,
                 "receipt_ref":receipt_ref,
                 "started_at":started_at
@@ -12177,6 +12185,25 @@ fn validate_pending_execution(
             .get("receipt_ref")
             .and_then(Value::as_str)
             .is_some_and(|reference| reference.starts_with("receipt://hypervisor/session-"))
+        || (pending.get("lane").and_then(Value::as_str) != Some("native_local")
+            && (!pending
+                .pointer("/launch_binding/launch_ref")
+                .and_then(Value::as_str)
+                .is_some_and(|reference| reference.starts_with("harness-session-launch:"))
+                || !pending
+                    .pointer("/launch_binding/spawn_ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reference| reference.starts_with("spawn:"))
+                || !pending
+                    .pointer("/launch_binding/readiness_ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reference| reference.starts_with("readiness:"))
+                || !pending
+                    .pointer("/launch_binding/terminal_attach_ref")
+                    .and_then(Value::as_str)
+                    .is_some_and(|reference| {
+                        reference.starts_with("harness-session-terminal-attach:")
+                    })))
     {
         return Err("pending Session execution fails its identity or schema binding".to_string());
     }
@@ -12376,6 +12403,7 @@ fn recover_pending_session_execution(st: &DaemonState, mut record: Value) -> Res
         "session_ref":session_ref,
         "lane":pending.get("lane").cloned().unwrap_or(Value::Null),
         "intent_hash":pending.get("intent_hash").cloned().unwrap_or(Value::Null),
+        "launch_binding":pending.get("launch_binding").cloned().unwrap_or(Value::Null),
         "capability_lease_ref":pending.get("capability_lease_ref").cloned().unwrap_or(Value::Null),
         "exit_status":"interrupted_unconfirmed",
         "status":"recovered_without_reexecution",
@@ -13187,6 +13215,137 @@ fn session_execute_intent(body: &Value) -> Option<String> {
         }
     }
     None
+}
+
+/// Admit (or replay) the one daemon-owned harness launch that a host execution consumes, then
+/// reduce its projection to the exact immutable predecessor refs carried by the execution WAL and
+/// receipt. This is the M01.5 mount: `/sessions/:id/execute` may no longer start a host process
+/// beside the canonical Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach chain.
+async fn admit_session_execution_launch(
+    st: &Arc<DaemonState>,
+    headers: &HeaderMap,
+    session_ref: &str,
+    execute_body: &Value,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let mut launch_body = json!({
+        "session_ref": session_ref,
+        // One default launch is the Session's durable execution mount. Callers that deliberately
+        // need a successor may name a bounded key without being allowed to supply predecessor refs.
+        "idempotency_key": execute_body
+            .get("launch_idempotency_key")
+            .and_then(Value::as_str)
+            .unwrap_or("launch:default"),
+    });
+    if let Some(delegation) = execute_body.get("delegation") {
+        launch_body["delegation"] = delegation.clone();
+    }
+    let (status, Json(projection)) =
+        handle_session_launch_create(State(st.clone()), headers.clone(), Json(launch_body)).await;
+    if !status.is_success() {
+        return Err((status, Json(projection)));
+    }
+
+    let steps = projection
+        .get("chain_step_refs")
+        .filter(|value| value.is_object());
+    let required_ref = |key: &str, prefix: &str| {
+        steps
+            .and_then(|value| value.get(key))
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with(prefix))
+            .map(str::to_string)
+    };
+    let exact = (
+        projection
+            .get("launch_ref")
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with("harness-session-launch:"))
+            .map(str::to_string),
+        projection
+            .get("launch_id")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        projection
+            .get("head")
+            .and_then(Value::as_str)
+            .filter(|value| value.starts_with("sha256:"))
+            .map(str::to_string),
+        required_ref("plan_ref", "harness-session-launch-plan:"),
+        required_ref("launch_recipe_ref", "target-binding:"),
+        required_ref("harness_binding_ref", "harness-session-binding:"),
+        required_ref(
+            "harness_profile_revision_ref",
+            "harness-profile://daemon-resolved/",
+        ),
+        required_ref("spawn_ref", "spawn:"),
+        required_ref("readiness_ref", "readiness:"),
+        required_ref("terminal_attach_ref", "harness-session-terminal-attach:"),
+        projection
+            .get("receipt_ref")
+            .and_then(Value::as_str)
+            .filter(|value| {
+                value.starts_with("receipt://hypervisor/harness-session-launch/produced/")
+            })
+            .map(str::to_string),
+    );
+    let (
+        Some(launch_ref),
+        Some(launch_id),
+        Some(launch_head),
+        Some(plan_ref),
+        Some(launch_recipe_ref),
+        Some(harness_binding_ref),
+        Some(harness_profile_revision_ref),
+        Some(spawn_ref),
+        Some(readiness_ref),
+        Some(terminal_attach_ref),
+        Some(launch_receipt_ref),
+    ) = exact
+    else {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{
+                "code":"session_execute_launch_chain_incomplete",
+                "message":"Host execution requires the daemon-produced launch and every exact predecessor ref; the admitted projection was incomplete."
+            }})),
+        ));
+    };
+    if projection.get("session_ref").and_then(Value::as_str) != Some(session_ref)
+        || projection.get("lifecycle_state").and_then(Value::as_str) != Some("launched")
+        || projection.get("spawned").and_then(Value::as_bool) != Some(true)
+        || projection
+            .pointer("/readiness/decision")
+            .and_then(Value::as_str)
+            != Some("ready")
+    {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({"error":{
+                "code":"session_execute_launch_chain_not_ready",
+                "message":"The Session's canonical harness launch is not in the launched, spawn-admitted, readiness-admitted state.",
+                "launch_ref":launch_ref,
+                "lifecycle_state":projection.get("lifecycle_state"),
+            }})),
+        ));
+    }
+
+    Ok(json!({
+        "launch_ref": launch_ref,
+        "launch_id": launch_id,
+        "launch_head": launch_head,
+        "launch_receipt_ref": launch_receipt_ref,
+        "plan_ref": plan_ref,
+        "launch_recipe_ref": launch_recipe_ref,
+        "harness_binding_ref": harness_binding_ref,
+        "harness_profile_ref": steps.and_then(|value| value.get("harness_profile_ref")),
+        "harness_profile_revision_ref": harness_profile_revision_ref,
+        "session_profile_binding_ref": steps.and_then(|value| value.get("session_profile_binding_ref")),
+        "session_model_route_binding_ref": steps.and_then(|value| value.get("session_model_route_binding_ref")),
+        "spawn_ref": spawn_ref,
+        "readiness_ref": readiness_ref,
+        "terminal_attach_ref": terminal_attach_ref,
+        "runtimeTruthSource": "daemon-runtime",
+    }))
 }
 
 /// The wallet authority gate for a consequential execution. Daemon-derives the
@@ -22166,6 +22325,11 @@ fn run_native_local_lane(
         record,
         "native_local",
         intent,
+        &json!({
+            "decision":"not_applicable_native_local",
+            "reason":"the deterministic native lane starts no external harness process",
+            "runtimeTruthSource":"daemon-runtime",
+        }),
         capability_lease_ref,
         &receipt_ref,
         &started_at,
@@ -22586,7 +22750,7 @@ pub(crate) async fn handle_session_execute(
     // #246): the typed 401 precedes the record load, so no existence oracle exists for
     // anonymous callers; the daemon's own orchestration dispatches cross with the per-boot
     // internal dispatch token.
-    let record = match load_owned_session_record_for_write(&st, &headers, &session_id) {
+    let mut record = match load_owned_session_record_for_write(&st, &headers, &session_id) {
         Ok((_acting_principal_ref, record)) => record,
         Err(response) => return response,
     };
@@ -22647,9 +22811,23 @@ pub(crate) async fn handle_session_execute(
         );
     }
 
-    // Lane A (host_spawn / container): honest fail-closed substrate checks FIRST so
-    // an absent model/harness surfaces as no_model_route / harness_unavailable
-    // BEFORE the authority gate (the offline contract), then the wallet gate, then spawn.
+    // M01.5: mount host execution on the canonical daemon-owned launch chain before any process
+    // can be prepared or spawned. The caller may select an idempotency key, but may not supply or
+    // forge predecessor refs. Reload the Session afterwards so the launch's durable subject
+    // attachment cannot be lost when the execution WAL writes its prepared record.
+    let launch_binding =
+        match admit_session_execution_launch(&st, &headers, &session_id, &body).await {
+            Ok(binding) => binding,
+            Err(response) => return response,
+        };
+    record = match load_owned_session_record_for_write(&st, &headers, &session_id) {
+        Ok((_acting_principal_ref, record)) => record,
+        Err(response) => return response,
+    };
+
+    // Lane A (host_spawn / container): after the canonical launch mount, honest fail-closed
+    // substrate checks still surface no_model_route / harness_unavailable BEFORE the wallet gate
+    // (the offline contract), then authority, the durable execution anchor, and only then spawn.
     let substrate = ExecutionSubstrate::probe();
     let blocked = if !substrate.model_route {
         Some((
@@ -22683,6 +22861,7 @@ pub(crate) async fn handle_session_execute(
                 "model_route": substrate.model_route,
                 "harness_binary": substrate.harness_binary.clone(),
                 "container_runtime": substrate.container_runtime.clone(),
+                "launch_binding": launch_binding,
                 // No execution happened: these are honestly empty, never fabricated.
                 "changed_file_groups": [],
                 "terminal_events": [],
@@ -22692,7 +22871,7 @@ pub(crate) async fn handle_session_execute(
     }
 
     // Wallet authority gate (daemon-derived hashes; 403 challenge when unbound). Runs
-    // AFTER the substrate check (offline contract) and BEFORE any spawn.
+    // AFTER launch admission + the substrate check (offline contract), and BEFORE any spawn.
     let capability_lease_ref =
         match execute_authority_gate(&st.data_dir, &body, &session_id, &workspace_root, &intent)
             .await
@@ -22747,6 +22926,7 @@ pub(crate) async fn handle_session_execute(
                     "reason": reason,
                     "message": message,
                     "harness": record.pointer("/harness_binding/harness").cloned().unwrap_or(Value::Null),
+                    "launch_binding": launch_binding,
                     "changed_file_groups": [],
                     "terminal_events": [],
                     "runtimeTruthSource": "daemon-runtime",
@@ -22766,6 +22946,7 @@ pub(crate) async fn handle_session_execute(
                         "decision": "blocked",
                         "reason": "harness_unavailable",
                         "message": "Host harness argv could not be resolved (node / shim missing).",
+                        "launch_binding": launch_binding,
                         "changed_file_groups": [],
                         "terminal_events": [],
                         "runtimeTruthSource": "daemon-runtime",
@@ -22790,6 +22971,7 @@ pub(crate) async fn handle_session_execute(
         &record,
         &format!("host_spawn:{harness_label}"),
         &intent,
+        &launch_binding,
         &capability_lease_ref,
         &lane_receipt_ref,
         &started_at,
@@ -22871,6 +23053,7 @@ pub(crate) async fn handle_session_execute(
         "model_source": model_source,
         "model_route_ref": model_route_ref,
         "model_route_binding_id": model_route_binding_id,
+        "launch_binding": launch_binding,
         "exit_status": exit_status,
         "exit_code": outcome.exit_code,
         "files_written": outcome.files_written,
@@ -22921,6 +23104,7 @@ pub(crate) async fn handle_session_execute(
                 "summary": outcome.summary,
                 "files_written": outcome.files_written,
                 "error": outcome.error,
+                "launch_binding": launch_binding,
                 "finished_at": finished_at,
             }),
         );
@@ -22980,6 +23164,7 @@ pub(crate) async fn handle_session_execute(
             "adapter_transcript_recorded": adapter_transcript_run.is_some(),
             "adapter_transcript_run_id": adapter_transcript_run,
             "model": model,
+            "launch_binding": launch_binding,
             "exit_status": exit_status,
             "exit_code": outcome.exit_code,
             "timed_out": outcome.timed_out,
@@ -23601,10 +23786,10 @@ pub(crate) async fn handle_session_teardown(
 // INV-37 principal-bound receipts, projection-time stamps (never recorded_at_ms=0),
 // idempotent replay-to-stored-record, and expected-head CAS on stop/archive. A
 // planner refusal returns BEFORE any durable write — denial fabricates no launch,
-// record, receipt, or subject attachment. Live model-driven execution (streamed
-// tokens) stays the W3.2 provider-runtime dependency behind
-// POST /v1/hypervisor/sessions/:id/execute; the launch chain owns admission,
-// binding, readiness, terminalization, and recovery/replay.
+// record, receipt, or subject attachment. Live model-driven output still depends on a reachable
+// provider route, while POST /v1/hypervisor/sessions/:id/execute now consumes this exact chain
+// before its durable execution anchor and process spawn. The launch chain owns admission, binding,
+// readiness, terminalization, and recovery/replay.
 // ===========================================================================
 
 const SESSION_LAUNCH_SCHEMA_VERSION: &str = "ioi.hypervisor.harness_session_launch.v1";
@@ -23639,11 +23824,21 @@ fn launch_head(session_ref: &str, launch_id: &str, lifecycle_state: &str, revisi
     )
 }
 
-fn launch_request_hash(session_ref: &str, owner_ref: &str, idempotency_key: &str) -> String {
-    format!(
-        "sha256:{}",
-        sha256_hex_bytes(format!("{session_ref}\u{0}{owner_ref}\u{0}{idempotency_key}").as_bytes())
-    )
+fn launch_request_hash(
+    session_ref: &str,
+    owner_ref: &str,
+    idempotency_key: &str,
+    delegation: Option<&Value>,
+) -> String {
+    launch_sha256_canonical(&json!({
+        "domain": "ioi.hypervisor.harness-session-launch-request.v1",
+        "session_ref": session_ref,
+        "owner_ref": owner_ref,
+        "idempotency_key": idempotency_key,
+        // Only an object changes launch semantics; absent, null, and malformed delegation all
+        // normalize to null so the hash binds the same body the fork composer actually consumes.
+        "delegation": delegation.filter(|value| value.is_object()),
+    }))
 }
 
 fn load_launch_record_owned(st: &DaemonState, owner_ref: &str, launch_id: &str) -> Option<Value> {
@@ -23723,9 +23918,8 @@ fn session_launch_recipe_request(project_ref: &str) -> Value {
     })
 }
 
-/// The seeded native-worker profile the launch binds — a REAL registry hp_* profile (Finding 2:
-/// never the registry-absent `default_harness_profile`). `hp_hypervisor_worker` is the daemon's
-/// Lane A native worker; `ensure_seed` admits it active with `execution_wiring = lane_a_host_spawn`.
+/// The seeded native-worker profile used when a Session has not already selected a REAL registry
+/// hp_* profile (Finding 2: never the registry-absent `default_harness_profile`).
 const LAUNCH_HARNESS_PROFILE_ID: &str = "hp_hypervisor_worker";
 
 /// The canonical HarnessSessionBinding governance-admission request (the exact profile / adapter /
@@ -23733,31 +23927,36 @@ const LAUNCH_HARNESS_PROFILE_ID: &str = "hp_hypervisor_worker";
 /// requires before a harness may launch). Same planner as
 /// POST /v1/hypervisor/harness-session-binding-admissions.
 ///
-/// Finding 2: the harness selection names the REAL seeded `hp_hypervisor_worker` profile (not the
-/// registry-absent `default_harness_profile`), and `model_route_availability_state` /
-/// `model_route_ref` are DERIVED from a launch-boundary recheck of the daemon-owned model-route
-/// registry — never a static `daemon_verified` literal. The caller computes `availability_state`
-/// from the real read (`model_route_launch_recheck`); an unavailable route is refused by the
-/// kernel planner rather than over-claimed here.
+/// The harness selection is the Session-selected REAL profile, or the seeded native-worker default.
+/// `model_route_availability_state` / `model_route_ref` are DERIVED from a launch-boundary recheck
+/// of the daemon-owned model-route registry — never a static `daemon_verified` literal. The caller
+/// computes `availability_state` from the real read (`model_route_launch_recheck`); an unavailable
+/// route is refused by the kernel planner rather than over-claimed here.
 fn session_harness_binding_request(
+    harness_profile_id: &str,
+    harness_label: &str,
     model_route_ref: &str,
     model_route_availability_state: &str,
 ) -> Value {
+    let safe_profile: String = harness_profile_id
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect();
     // The binding ref must ENCODE the session route (the planner's route-binding check): the first
     // segment is `session-route:sessions/mission.default/project:ioi` with every non-alphanumeric
     // replaced by `-`. These are the known-admitting canonical coordinates.
     json!({
         "schema_version": "ioi.hypervisor.harness_session_binding.v1",
-        "session_binding_ref": "harness-session-binding:session-route-sessions-mission-default-project-ioi:harness-profile-hp_hypervisor_worker:model-config-local-hypervisor-worker",
+        "session_binding_ref": format!("harness-session-binding:session-route-sessions-mission-default-project-ioi:harness-profile-{safe_profile}:model-config-local-{safe_profile}"),
         "session_route_ref": "session-route:sessions/mission.default/project:ioi",
-        "harness_selection_ref": "harness-profile:hp_hypervisor_worker",
+        "harness_selection_ref": format!("harness-profile:{harness_profile_id}"),
         "harness_selection_kind": "harness_profile",
-        "harness_label": "Hypervisor Worker (native)",
+        "harness_label": harness_label,
         "harness_truth_boundary": "daemon-owned",
-        "harness_launch_route_ref": "harness-route:hp-hypervisor-worker/local-model",
-        "harness_profile_ref": LAUNCH_HARNESS_PROFILE_ID,
-        "model_configuration_ref": "model-config:local/hypervisor-worker",
-        "model_configuration_label": "Local hypervisor-worker route",
+        "harness_launch_route_ref": format!("harness-route:{safe_profile}/local-model"),
+        "harness_profile_ref": harness_profile_id,
+        "model_configuration_ref": format!("model-config:local/{safe_profile}"),
+        "model_configuration_label": format!("Local {harness_label} route"),
         "model_route_ref": model_route_ref,
         "model_route_policy": "hypervisor_model_mount",
         "model_route_availability_state": model_route_availability_state,
@@ -23834,12 +24033,19 @@ struct ModelRouteRecheck {
 fn model_route_launch_recheck(
     data_dir: &str,
     substrate: &ExecutionSubstrate,
+    preferred_route_ref: Option<&str>,
     now: &str,
 ) -> ModelRouteRecheck {
     super::model_routes::ensure_seed(data_dir);
-    let route = read_record_dir(data_dir, super::model_routes::RECORD_DIR)
-        .into_iter()
-        .find(|r| r.get("default_route").and_then(Value::as_bool) == Some(true));
+    let routes = read_record_dir(data_dir, super::model_routes::RECORD_DIR);
+    let route = match preferred_route_ref.filter(|value| !value.is_empty()) {
+        Some(preferred) => routes
+            .into_iter()
+            .find(|record| record.get("route_ref").and_then(Value::as_str) == Some(preferred)),
+        None => routes
+            .into_iter()
+            .find(|record| record.get("default_route").and_then(Value::as_bool) == Some(true)),
+    };
     let route_ref = route
         .as_ref()
         .and_then(|r| r.get("route_ref").and_then(Value::as_str))
@@ -23867,6 +24073,7 @@ fn model_route_launch_recheck(
     };
     let evidence = json!({
         "recheck_source": "daemon-model-route-registry",
+        "preferred_route_ref": preferred_route_ref,
         "route_ref": route_ref,
         "route_resolved": resolved,
         "registry_lifecycle_status": lifecycle_status,
@@ -24147,7 +24354,7 @@ fn launch_readiness_record(
             "harness_binary": substrate.harness_binary.clone(),
             "checks": substrate.readiness_checks(),
         },
-        "readiness_note": "client-PTY-attach readiness; live model-driven execution is the W3.2 provider-runtime dependency behind /v1/hypervisor/sessions/:id/execute",
+        "readiness_note": "client-PTY-attach readiness; /v1/hypervisor/sessions/:id/execute consumes this exact launch chain before checking live model reachability and spawning",
         "receipt_refs": [format!("receipt://hypervisor/harness-session-launch/readiness/{launch_id}")],
         "agentgres_operation_refs": [format!("agentgres://operation/harness-session-launch/readiness/{launch_id}")],
         "readiness_at": now,
@@ -24161,6 +24368,10 @@ fn launch_readiness_record(
 fn launch_spawn_record(
     launch_id: &str,
     session_binding_ref: &str,
+    harness_profile_id: &str,
+    harness_name: &str,
+    model_configuration_ref: &str,
+    model_route_ref: &str,
     workspace_root: &str,
     now: &str,
 ) -> Value {
@@ -24174,17 +24385,17 @@ fn launch_spawn_record(
         "launch_id": format!("launch:{launch_id}"),
         "session_binding_ref": session_binding_ref,
         "session_route_ref": "session-route:sessions/mission.default/project:ioi",
-        "harness_selection_ref": "harness-profile:hp_hypervisor_worker",
-        "agent_harness_adapter_id": "generic_cli_local",
-        "model_configuration_ref": "model-config:local/hypervisor-worker",
-        "model_route_ref": "model-route:mrt_local_default",
-        "model_name": "hypervisor-worker",
+        "harness_selection_ref": format!("harness-profile:{harness_profile_id}"),
+        "agent_harness_adapter_id": harness_name,
+        "model_configuration_ref": model_configuration_ref,
+        "model_route_ref": model_route_ref,
+        "model_name": harness_name,
         "workspace_ref": format!("workspace://{launch_id}"),
         "workspace_root": workspace_root,
         "terminal_session_ref": format!("terminal:{launch_id}"),
         "command_contract_ref": format!("command-contract:{launch_id}"),
         "command_contract": { "pty_transport": "hypervisor_client_terminal_adapter" },
-        "terminal_attach_contract": { "command_line": "generic-cli-local", "rows": 40 },
+        "terminal_attach_contract": { "command_line": harness_name, "rows": 40 },
         "workspace_mount_policy": "ctee_private_workspace",
         "privacy_posture_ref": "privacy:ctee-private-workspace",
         "authority_scope_refs": ["scope:workspace.read"],
@@ -24294,6 +24505,8 @@ fn launch_projection(record: &Value, replayed: bool) -> Value {
             "thread_event_resulting_head": chain.pointer("/thread/initial_event/resulting_head").cloned().unwrap_or(Value::Null),
             "harness_profile_ref": launch_step_ref(&step("/harness_binding_evidence"), &["harness_profile_ref"]),
             "harness_profile_resolved": launch_step_ref(&step("/harness_binding_evidence"), &["harness_profile_resolved"]),
+            "session_profile_binding_ref": launch_step_ref(&step("/harness_binding_evidence"), &["session_profile_binding_ref"]),
+            "session_model_route_binding_ref": launch_step_ref(&step("/harness_binding_evidence"), &["session_model_route_binding_ref"]),
             "fork_decision": launch_step_ref(&step("/fork"), &["decision"]),
             "managed_session_decision": launch_step_ref(&step("/managed_session"), &["decision"]),
             "managed_session_ref": launch_step_ref(&step("/managed_session"), &["managed_session_ref"]),
@@ -24352,7 +24565,12 @@ pub(crate) async fn handle_session_launch_create(
         .to_string();
     let launch_id = launch_identity(&session_ref, &idempotency_key);
     let launch_ref = format!("harness-session-launch:{launch_id}");
-    let request_hash = launch_request_hash(&session_ref, &owner_ref, &idempotency_key);
+    let request_hash = launch_request_hash(
+        &session_ref,
+        &owner_ref,
+        &idempotency_key,
+        body.get("delegation"),
+    );
 
     // Idempotent replay-to-stored-record: the same owner + key + body replays the admitted launch;
     // a changed body under the same identity refuses typed. The subject attachment is re-asserted
@@ -24364,6 +24582,18 @@ pub(crate) async fn handle_session_launch_create(
                 Json(
                     json!({"error":{"code":"session_launch_idempotency_conflict","message":"This launch identity is already produced for a different request body."}}),
                 ),
+            );
+        }
+        if existing.get("session_harness_binding") != session_record.get("harness_binding")
+            || existing.get("session_model_route_binding")
+                != session_record.get("model_route_binding")
+        {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({"error":{
+                    "code":"session_launch_predecessor_binding_changed",
+                    "message":"The Session's harness or model-route binding changed after this launch was admitted; a successor launch_idempotency_key is required."
+                }})),
             );
         }
         if let Some(attachments) = existing.pointer("/chain/subject_attachments") {
@@ -24410,28 +24640,59 @@ pub(crate) async fn handle_session_launch_create(
         }
     };
 
-    // Finding 2 — exact-revision harness binding. Load the REAL seeded `hp_hypervisor_worker`
-    // profile from the registry and freeze its EXACT revision (sha256), and RECHECK the model route
-    // at the launch boundary with a real read of the daemon-owned registry. The binding's
-    // availability enum is derived from that read — never a static `daemon_verified` literal.
+    // Finding 2 — exact-revision harness binding. Resolve the Session's already-admitted profile
+    // binding (or the seeded default when the Session selected none), freeze that REAL profile's
+    // exact revision, and recheck the Session's exact model route at the launch boundary.
     super::harness_routes::ensure_seed(&st.data_dir);
-    // Whether the launch actually RESOLVED the seeded profile from the registry. A false here means
-    // the fallback stub was taken (no exact-revision binding is possible) — the evidence carries the
-    // marker so a reader can refuse to treat a stub-derived revision as real.
-    let harness_profile_record_opt =
-        super::harness_routes::load_profile_record(&st.data_dir, LAUNCH_HARNESS_PROFILE_ID);
-    let harness_profile_resolved = harness_profile_record_opt.is_some();
-    let harness_profile_record = harness_profile_record_opt
-        .unwrap_or_else(|| json!({"profile_ref": format!("harness-profile:{LAUNCH_HARNESS_PROFILE_ID}"), "profile_id": LAUNCH_HARNESS_PROFILE_ID, "harness": "hypervisor_worker"}));
+    let harness_profile_id = session_record
+        .pointer("/harness_binding/profile_ref")
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("harness-profile:"))
+        .filter(|value| !value.is_empty())
+        .unwrap_or(LAUNCH_HARNESS_PROFILE_ID);
+    let Some(harness_profile_record) =
+        super::harness_routes::load_profile_record(&st.data_dir, harness_profile_id)
+    else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":{
+                "code":"session_launch_harness_profile_unresolved",
+                "message":"The Session's exact harness profile revision is unavailable; launch refuses instead of substituting a default or stub.",
+                "harness_profile_id":harness_profile_id,
+            }})),
+        );
+    };
+    let harness_profile_resolved = true;
+    let harness_name = harness_profile_record
+        .get("harness")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("hypervisor_worker");
+    let harness_label = harness_profile_record
+        .get("display_name")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(harness_name);
     let (harness_profile_revision_ref, harness_profile_content_hash) =
         harness_profile_frozen_revision(&harness_profile_record);
     let substrate = ExecutionSubstrate::probe();
-    let route_recheck = model_route_launch_recheck(&st.data_dir, &substrate, &now);
+    let preferred_model_route_ref = session_record
+        .pointer("/model_route_binding/route_ref")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            session_record
+                .pointer("/harness_binding/model_route_ref")
+                .and_then(Value::as_str)
+        });
+    let route_recheck =
+        model_route_launch_recheck(&st.data_dir, &substrate, preferred_model_route_ref, &now);
 
     // Step 9 — HarnessSessionBindingAdmission (canonical kernel planner), fed the rechecked
     // availability + real route ref. An unavailable route is refused by the planner, not over-claimed.
     let harness_binding_admission = match kernel.admit_harness_session_binding(
         &session_harness_binding_request(
+            harness_profile_id,
+            harness_label,
             &route_recheck.route_ref,
             route_recheck.availability_state,
         ),
@@ -24452,27 +24713,34 @@ pub(crate) async fn handle_session_launch_create(
         .and_then(Value::as_str)
         .unwrap_or("harness-session-binding:launch")
         .to_string();
+    let model_configuration_ref = harness_binding_admission
+        .get("model_configuration_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("model-config:unresolved")
+        .to_string();
 
-    // Step 10 — readiness evidence (real substrate probe, reused from the route recheck). Only a
-    // ready binding may spawn.
+    // Steps 10-11 — the admitted spawn record precedes readiness, and terminal attachment consumes
+    // those exact two records. A non-runnable Session produces only honest blocked readiness.
     let session_ready = !workspace_root.is_empty()
         && session_record
             .get("lifecycle_state")
             .and_then(Value::as_str)
             != Some("torn_down");
-    let readiness = launch_readiness_record(
-        &launch_id,
-        &session_binding_ref,
-        &substrate,
-        session_ready,
-        &now,
-    );
-
-    // Step 11 — spawn + terminal attachment (HarnessSessionTerminalAttach planner) when ready.
-    let (spawn, terminal_attach) = if session_ready {
-        let spawn = launch_spawn_record(&launch_id, &session_binding_ref, &workspace_root, &now);
+    let (spawn, readiness, terminal_attach) = if session_ready {
+        let spawn = launch_spawn_record(
+            &launch_id,
+            &session_binding_ref,
+            harness_profile_id,
+            harness_name,
+            &model_configuration_ref,
+            &route_recheck.route_ref,
+            &workspace_root,
+            &now,
+        );
+        let readiness =
+            launch_readiness_record(&launch_id, &session_binding_ref, &substrate, true, &now);
         let terminal_attach = match kernel.admit_harness_session_terminal_attach(
-            &json!({"session_spawn": spawn, "session_readiness": readiness}),
+            &json!({"session_spawn": &spawn, "session_readiness": &readiness}),
             &now,
         ) {
             Ok(record) => record,
@@ -24485,9 +24753,13 @@ pub(crate) async fn handle_session_launch_create(
                 )
             }
         };
-        (spawn, terminal_attach)
+        (spawn, readiness, terminal_attach)
     } else {
-        (Value::Null, Value::Null)
+        (
+            Value::Null,
+            launch_readiness_record(&launch_id, &session_binding_ref, &substrate, false, &now),
+            Value::Null,
+        )
     };
 
     // ---- Every refusable planner admitted. Steps 5-7 are the REAL kernel event-stream / planner
@@ -24587,6 +24859,8 @@ pub(crate) async fn handle_session_launch_create(
         "harness_profile_resolved": harness_profile_resolved,
         "harness_profile_revision_ref": harness_profile_revision_ref,
         "harness_profile_content_hash": harness_profile_content_hash,
+        "session_profile_binding_ref": session_record.pointer("/harness_binding/binding_id"),
+        "session_model_route_binding_ref": session_record.pointer("/model_route_binding/binding_id"),
         "model_route_recheck": route_recheck.evidence,
     });
     let subject_attachments = launch_subject_attachments(&launch_ref, project_ref.as_deref(), &now);
@@ -25930,6 +26204,8 @@ mod launch_chain_composition_tests {
         let admitted = RuntimeKernelService::new()
             .admit_harness_session_binding(
                 &session_harness_binding_request(
+                    "hp_hypervisor_worker",
+                    "Hypervisor Worker (native)",
                     "model-route:mrt_local_default",
                     "daemon_verified",
                 ),
@@ -25983,8 +26259,16 @@ mod launch_chain_composition_tests {
         let spawn = launch_spawn_record(
             "abc",
             "harness-session-binding:b/1",
+            "hp_hypervisor_worker",
+            "hypervisor_worker",
+            "model-config:local/hp-hypervisor-worker",
+            "model-route:mrt_local_default",
             "/tmp/ws",
             "2026-08-11T00:00:00.000Z",
+        );
+        assert_eq!(
+            spawn["model_configuration_ref"],
+            "model-config:local/hp-hypervisor-worker"
         );
 
         RuntimeKernelService::new()
@@ -26007,5 +26291,19 @@ mod launch_chain_composition_tests {
         assert_eq!(a, b);
 
         assert_ne!(a, c);
+    }
+
+    #[test]
+    fn launch_request_hash_binds_semantic_delegation() {
+        let without = launch_request_hash("session:x", "owner:x", "key:x", None);
+        let with_null = launch_request_hash("session:x", "owner:x", "key:x", Some(&Value::Null));
+        let with_delegation = launch_request_hash(
+            "session:x",
+            "owner:x",
+            "key:x",
+            Some(&json!({"reason":"review","bounds":{"max_steps":1}})),
+        );
+        assert_eq!(without, with_null);
+        assert_ne!(without, with_delegation);
     }
 }

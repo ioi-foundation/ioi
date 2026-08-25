@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..", "..");
@@ -112,7 +113,26 @@ function analyze(candidate) {
   return failures;
 }
 
-const failures = analyze(sources).map((code) => ({ code, detail: "source invariant failed" }));
+const sourceInvariantNames = [
+  "shared_refusal_owner_missing",
+  "environment_second_refusal_owner_restored",
+  "host_resolved_task_bypass",
+  "service_healthcheck_bypass",
+  "guest_resolved_task_bypass",
+  "mounted_exec_bypass",
+  "supervisor_exec_bypass",
+  "supervisor_shared_owner_not_used",
+  "provider_shared_owner_not_used",
+  "environment_indeterminacy_collapsed_to_absence",
+  "static_provider_workrun_bypass",
+  "account_provider_workrun_bypass",
+];
+const sourceFailures = analyze(sources);
+const results = sourceInvariantNames.map((name) => ({
+  name: `source:${name}`,
+  pass: !sourceFailures.includes(name),
+}));
+const failures = sourceFailures.map((code) => ({ code, detail: "source invariant failed" }));
 
 const mutations = [
   ["environment", "fn run_task(", "/// Run a resolution's tasks", "guardrail_refusal_response", "host_resolved_task_bypass"],
@@ -126,7 +146,9 @@ for (const [file, start, end, guardNeedle, expected] of mutations) {
   const body = segment(original, start, end);
   const mutatedBody = body.replace(guardNeedle, "guardrail_removed_by_mutation");
   const mutated = { ...sources, [file]: original.replace(body, mutatedBody) };
-  if (!analyze(mutated).includes(expected)) {
+  const pass = analyze(mutated).includes(expected);
+  results.push({ name: `mutation:${expected}`, pass });
+  if (!pass) {
     failures.push({ code: "mutation_false_green", detail: `${expected} removal was not detected` });
   }
 }
@@ -135,7 +157,9 @@ for (const [needle, expected] of [
   ["provider_workrun_guardrail_refusal(data_dir, &kind, &env_ref, command)", "account_provider_workrun_bypass"],
 ]) {
   const mutated = { ...sources, provider: sources.provider.replace(needle, "provider_guard_removed()") };
-  if (!analyze(mutated).includes(expected)) {
+  const pass = analyze(mutated).includes(expected);
+  results.push({ name: `mutation:${expected}`, pass });
+  if (!pass) {
     failures.push({ code: "mutation_false_green", detail: `${expected} removal was not detected` });
   }
 }
@@ -144,7 +168,9 @@ for (const [needle, expected] of [
     ...sources,
     provider: sources.provider.replace("load_env_guardrail_context(data_dir, env_ref)", "load_env(data_dir, env_ref)"),
   };
-  if (!analyze(mutated).includes("provider_shared_owner_not_used")) {
+  const pass = analyze(mutated).includes("provider_shared_owner_not_used");
+  results.push({ name: "mutation:provider_environment_indeterminacy", pass });
+  if (!pass) {
     failures.push({ code: "mutation_false_green", detail: "provider environment indeterminacy collapse was not detected" });
   }
 }
@@ -154,6 +180,7 @@ const tests = spawnSync(
   ["test", "--locked", "-p", "ioi-node", "--bin", "hypervisor-daemon", "command_guardrail_tests", "--no-fail-fast"],
   { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
 );
+results.push({ name: "behavior:command_guardrail_tests_pass", pass: tests.status === 0 });
 if (tests.status !== 0) {
   failures.push({ code: "cross_surface_tests_failed", detail: (tests.stderr || tests.stdout).slice(-4000) });
 }
@@ -161,7 +188,9 @@ for (const name of [
   "supervisor_exec_uses_the_shared_fail_closed_refusal_before_spawn",
   "every_provider_workrun_entry_can_use_the_shared_fail_closed_refusal",
 ]) {
-  if (!(tests.stdout || "").includes(name)) {
+  const pass = (tests.stdout || "").includes(name);
+  results.push({ name: `behavior:${name}`, pass });
+  if (!pass) {
     failures.push({ code: "focused_test_not_executed", detail: name });
   }
 }
@@ -170,10 +199,13 @@ const environmentTest = spawnSync(
   ["test", "--locked", "-p", "ioi-node", "--bin", "hypervisor-daemon", "resolved_tasks_and_service_healthchecks_refuse_before_host_process_spawn", "--no-fail-fast"],
   { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
 );
+results.push({ name: "behavior:resolved_task_healthcheck_tests_pass", pass: environmentTest.status === 0 });
 if (environmentTest.status !== 0) {
   failures.push({ code: "task_healthcheck_test_failed", detail: (environmentTest.stderr || environmentTest.stdout).slice(-4000) });
 }
-if (!(environmentTest.stdout || "").includes("resolved_tasks_and_service_healthchecks_refuse_before_host_process_spawn")) {
+const environmentTestExecuted = (environmentTest.stdout || "").includes("resolved_tasks_and_service_healthchecks_refuse_before_host_process_spawn");
+results.push({ name: "behavior:resolved_tasks_and_service_healthchecks_refuse_before_host_process_spawn", pass: environmentTestExecuted });
+if (!environmentTestExecuted) {
   failures.push({ code: "focused_test_not_executed", detail: "resolved task / healthcheck refusal" });
 }
 
@@ -181,6 +213,7 @@ if (failures.length) {
   console.error(JSON.stringify({ ok: false, schema_version: "ioi.check.command-execution-guardrail-coverage.v1", failures }, null, 2));
   process.exit(1);
 }
+emitVerifierCensus({ verifierId: "command-execution-guardrails", sourceUrl: import.meta.url, results });
 console.log(JSON.stringify({
   ok: true,
   schema_version: "ioi.check.command-execution-guardrail-coverage.v1",

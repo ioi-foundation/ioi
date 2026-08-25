@@ -79,11 +79,35 @@
       "note": "E7 cockpit retirement (2026-08-20): 45 -> 34. ELEVEN assertions read the RETIRED Automations cockpit module's rendered pages (landing grammar, monitors/machinery/scheduler boundaries, named absences, legacy-lane marker, new-automation view, list, detail, paused detail, run pane, webhook band) and were deleted with the module. Every daemon-truth half of those journeys is untouched, every crossing still posts to the LIVE T2 cockpit's own action lanes, the restart re-render was RE-AIMED at that live lane, and two assertions were ADDED (the retired lane serves no surface; the live cockpit renders no scheduler-health data). PRE-EXISTING PIN DRIFT recorded rather than hidden: this row read 44 while the branch's own measured run was 45 (ledger iteration 51), so the pin was already one below truth before this cut; 34 is measured, not derived from 44."
     },
     {
+      "id": "command-execution-guardrails",
+      "npm_script": "check:command-execution-guardrails",
+      "source": "apps/hypervisor/scripts/verify-command-execution-guardrail-coverage.mjs",
+      "runtime_assertions": 25,
+      "assertion_names_sha256": "200c7a34ac65b648aab73af023d1f16487700674ac83d177c49706863dccf046",
+      "note": "M01.1 verification-floor closure: twelve named source invariants, eight planted bypass mutations, and five focused behavioral-test execution checks now emit a source-bound runtime census instead of relying on an uncounted fail-only array."
+    },
+    {
+      "id": "enforcement-coverage-producer",
+      "npm_script": "check:enforcement-coverage-producer",
+      "source": "apps/hypervisor/scripts/verify-enforcement-coverage-producer.mjs",
+      "runtime_assertions": 16,
+      "assertion_names_sha256": "8fc4458ae2af9f9a32ff8ee1765ec273e0173a6659b158d58e72534e3ece4fea",
+      "note": "M01.2 verification-floor closure: seven unique source invariants, five producer mutations, and four focused behavioral-test execution checks now emit a source-bound runtime census."
+    },
+    {
+      "id": "runtime-tool-contract-admission",
+      "npm_script": "check:runtime-tool-contract-admission",
+      "source": "apps/hypervisor/scripts/verify-runtime-tool-contract-admission.mjs",
+      "runtime_assertions": 25,
+      "assertion_names_sha256": "ea77618ea6d1c694dbdbb974d67e4495f2631f3e79eeaa1212249dfeb7bee8b8",
+      "note": "M01.3 verification-floor closure: eight immutable-admission source invariants, nine planted bypass mutations, and eight focused behavioral-test execution checks now emit a source-bound runtime census."
+    },
+    {
       "id": "launch-chain",
       "npm_script": "check:launch-chain",
       "source": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
-      "runtime_assertions": 53,
-      "assertion_names_sha256": "9146d786e4518fec65774ac48588432145b5a8ce0449a0abf93e4d83405cc154"
+      "runtime_assertions": 56,
+      "assertion_names_sha256": "26584a80ebff2eca2597e89fedee40e9050a27f08a024e2a6db163b0a5292273"
     },
     {
       "id": "session-authority",
@@ -91,7 +115,7 @@
       "source": "apps/hypervisor/scripts/verify-hypervisor-session-authority.mjs",
       "runtime_assertions": 24,
       "assertion_names_sha256": "5c1a667527e308ae9d1053457838e1d1b47b1d09578871a5c8bbf05242482c92",
-      "note": "E7 cockpit retirement (2026-08-20): this row was `work-cockpit` (51). The Work cockpit slice it verified was removed with its registry rows and module, so every assertion that drove a rendered /work \u00b7 /work/sessions \u00b7 /work/new-session page went with the surface. The 24 that remain have LIVE subjects and are the estate's only coverage of them \u2014 the session family's owned-verb inventory, its identity GATE (rule-E 401s, forged internal-dispatch, exposure-marked create), the INV-37 provision + teardown receipts, the served /sessions typed 410, the protected seeds, and a positive check that the eight retired lanes now serve no surface. The surface journey they used to ride is proven end to end by check:launch-chain (53)."
+      "note": "E7 cockpit retirement (2026-08-20): this row was `work-cockpit` (51). The Work cockpit slice it verified was removed with its registry rows and module, so every assertion that drove a rendered /work \u00b7 /work/sessions \u00b7 /work/new-session page went with the surface. The 24 that remain have LIVE subjects and are the estate's only coverage of them \u2014 the session family's owned-verb inventory, its identity GATE (rule-E 401s, forged internal-dispatch, exposure-marked create), the INV-37 provision + teardown receipts, the served /sessions typed 410, the protected seeds, and a positive check that the eight retired lanes now serve no surface. The surface journey they used to ride is proven end to end by check:launch-chain (56)."
     },
     {
       "id": "projects-saga",
