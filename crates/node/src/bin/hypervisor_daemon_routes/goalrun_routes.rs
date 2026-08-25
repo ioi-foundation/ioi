@@ -806,6 +806,82 @@ fn refuse_zero_execution_goal(goal_run: &Value) -> Option<HttpRefusal> {
     ))
 }
 
+/// M04.5 — start eligibility is the run's DERIVED PRE-EXECUTION state, not a `draft` label.
+///
+/// The M04.4 admission lanes commit a bounded GoalRun directly at `active` (its admitted-state
+/// root, ceiling, and budget are already closed), while the System-bound lane commits at `draft`.
+/// Reading `status == "draft"` as "may start" therefore locked every admitted bounded run out of
+/// execution. Relabelling an admitted run back to `draft` would erase admitted truth, so the
+/// incompatibility resolves SEMANTICALLY: a run may start exactly while it has crossed no
+/// authority, bound no invocation, and still sits on its opening loop phase. Every later state —
+/// `starting`, `reconciling`, a finalized `active` run at phase `verify` — fails the predicate, so
+/// `start` stays one-shot for both lanes.
+///
+/// Returns the OBSERVED status, which the reservation records as `from_status` so a pre-effect
+/// release restores the run to exactly the state it was admitted in.
+fn goal_run_start_from_status(run: &Value) -> Result<&'static str, HttpRefusal> {
+    let already_started = || {
+        bad(
+            StatusCode::CONFLICT,
+            "goal_run_already_started",
+            "This GoalRun has already been started.",
+        )
+    };
+    let from_status = match text(run, "status") {
+        "draft" => "draft",
+        "active" => "active",
+        _ => return Err(already_started()),
+    };
+    let no_invocations = run
+        .get("invocation_refs")
+        .map(|value| value.as_array().is_some_and(|refs| refs.is_empty()))
+        .unwrap_or(true);
+    let no_authority_crossing = run
+        .get("capability_lease_ref")
+        .map(Value::is_null)
+        .unwrap_or(true);
+    let opening_phase = text(run, "active_loop_phase") == "receive_intent";
+    if !no_invocations || !no_authority_crossing || !opening_phase {
+        return Err(already_started());
+    }
+    Ok(from_status)
+}
+
+/// Whether the run carries the implementer plan material a start needs. Read from the SAME
+/// `context_cells` the admission lane wrote — this is a pre-reservation precheck, not a second
+/// plan source.
+fn goal_run_has_implementer_cell(run: &Value) -> bool {
+    run.get("context_cells")
+        .and_then(Value::as_array)
+        .is_some_and(|cells| cells.iter().any(|cell| text(cell, "role") == "implementer"))
+}
+
+/// The admitted invocation ceiling a start may not exceed. The numbers are the run's own admitted
+/// budget (a fresh gateway graduation carries 1/1); an absent budget is not a licence to widen —
+/// the System-bound lane keeps its planner-enforced parallel bound instead. Refuses BEFORE any
+/// authority crossing or host effect, and never silently truncates the admitted plan set.
+fn refuse_plan_set_over_declared_budget(run: &Value, admitted_plans: usize) -> Option<HttpRefusal> {
+    let bound = |field: &str| {
+        run.pointer(&format!("/declared_invocation_budget/{field}"))
+            .and_then(Value::as_u64)
+    };
+    let exceeded = |field: &str| bound(field).is_some_and(|max| admitted_plans as u64 > max);
+    if !exceeded("max_total_invocations") && !exceeded("max_parallel_invocations") {
+        return None;
+    }
+    Some(bad_with_details(
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "goal_run_execution_budget_exceeded",
+        "The admitted implementer plan set exceeds this GoalRun's admitted invocation budget.",
+        json!({
+            "goal_run_ref": run.get("goal_ref"),
+            "declared_invocation_budget": run.get("declared_invocation_budget"),
+            "admitted_plan_count": admitted_plans,
+            "effects_started": false,
+        }),
+    ))
+}
+
 fn durable_write(
     data_dir: &str,
     family: &str,
@@ -12593,6 +12669,58 @@ async fn run_invocation(
         }
     };
 
+    // M04.5 — THE ORCHESTRATION SEAM (ADR 0031). Actual bounded GoalRun execution composes the
+    // daemon-owned Session launch chain instead of driving a harness beside it. This admits (or
+    // idempotently replays) the candidate Session's canonical
+    // Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach chain and its exact
+    // RuntimeThreadEvent / RuntimeThreadForkControl / RuntimeManagedSessionControl /
+    // HypervisorSessionLaunchRecipeAdmission / HarnessSessionBindingAdmission facts. It runs
+    // BEFORE driver resolution and BEFORE any host spawn: an incomplete, unready, or
+    // owner-refused chain fails the invocation with no harness effect at all. The launch identity
+    // is keyed by (candidate session, role) so a replayed invocation re-reads the SAME launch
+    // rather than minting a second one.
+    let launch_binding = match super::lifecycle_routes::admit_goal_run_invocation_launch(
+        &st,
+        &candidate_session_ref,
+        &format!("goal-run-invocation:{}", plan.role_key),
+    )
+    .await
+    {
+        Ok(binding) => binding,
+        Err((status, Json(refusal))) => {
+            return fail(
+                "candidate_session_launch_chain_unavailable",
+                format!(
+                    "the canonical harness-session launch chain refused before any host effect ({}: {})",
+                    status.as_u16(),
+                    refusal
+                        .pointer("/error/code")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                ),
+                &candidate_session_ref,
+                &workspace,
+            )
+        }
+    };
+    // EXACT PREDECESSOR BINDING: the admitted launch must name THIS candidate Session and the
+    // exact model-route binding this invocation already re-proved. A launch produced against a
+    // superseded binding is stale truth and must not authorize a spawn.
+    if launch_binding.get("session_ref").and_then(Value::as_str)
+        != Some(candidate_session_ref.as_str())
+        || launch_binding
+            .get("session_model_route_binding_ref")
+            .and_then(Value::as_str)
+            != retained_binding_id
+    {
+        return fail(
+            "candidate_session_launch_chain_predecessor_mismatch",
+            "the admitted launch chain does not bind this candidate Session's exact retained model-route binding".to_string(),
+            &candidate_session_ref,
+            &workspace,
+        );
+    }
+
     let driver = match resolve_adapter_driver(
         &session_record,
         &bound_route.model_id,
@@ -12708,6 +12836,9 @@ async fn run_invocation(
             "model_route_base_url": bound_route.base_url,
             "model_route_execution_endpoint": bound_route.execution_endpoint,
             "session_ref": candidate_session_ref,
+            // The exact daemon-owned launch chain this effect was authorized by — typed refs and
+            // derived status only; the authoritative records stay in their owning families.
+            "harness_session_launch_binding": launch_binding,
             "command_contract_ref":command_contract_ref,
             "exit_status": exit_status,
             "exit_code": outcome.exit_code,
@@ -12806,6 +12937,10 @@ async fn run_invocation(
         "model_route_execution_endpoint": bound_route.execution_endpoint,
         "session_ref": candidate_session_ref,
         "candidate_workspace_root": workspace,
+        // ADR 0031 composition proof: the exact kernel orchestration refs this invocation
+        // consumed before its harness effect. GoalRun identity survives Session turnover by
+        // projecting continuity from these admitted refs, not by owning their lifecycle.
+        "harness_session_launch_binding": launch_binding,
         "status": if outcome.ok { "waiting_on_conductor" } else { "failed" },
         "adapter_event_refs": adapter_event_refs,
         "adapter_event_count": outcome.adapter_events.len(),
@@ -12832,6 +12967,7 @@ async fn run_invocation(
             "model_route_base_url": bound_route.base_url,
             "model_route_execution_endpoint": bound_route.execution_endpoint,
             "memory_projection_ref": plan.memory_projection_ref,
+            "harness_session_launch_binding": launch_binding,
             "command_contract_ref": command_contract_ref,
             "workspace_ref": format!("workspace://goal-run/{}/{}", goal_run_id, plan.role_key),
             "workspace_root": workspace,
@@ -12879,11 +13015,24 @@ pub(crate) async fn handle_goal_run_start(
     if let Some(refusal) = refuse_zero_execution_goal(&owner_snapshot) {
         return refusal;
     }
-    if text(&owner_snapshot, "status") != "draft" {
+    // M04.5: eligibility is the derived pre-execution state, so an M04.4-admitted bounded run
+    // (committed at `active`) reaches execution without being relabelled a draft.
+    let from_status = match goal_run_start_from_status(&owner_snapshot) {
+        Ok(status) => status,
+        Err(refusal) => return refusal,
+    };
+    // A run that carries no implementer plan material refuses BEFORE the reservation, not after
+    // it. Widening eligibility to admitted `active` runs made this ordering consequential: an
+    // activation-backed GoalRun is re-validated against its registered contract by the activation
+    // projection, and that contract admits neither the reservation's `lifecycle_op` nor its
+    // `starting` status — so reserving a run only to release it would open a window (and, on a
+    // failed release, a durable state) in which the run's own projection refuses itself. Checking
+    // the plan material first means such a run is never reserved at all.
+    if !goal_run_has_implementer_cell(&owner_snapshot) {
         return bad(
             StatusCode::CONFLICT,
-            "goal_run_already_started",
-            "This GoalRun has already been started.",
+            "goal_run_no_implementer_cells",
+            "This GoalRun has no implementer context cells.",
         );
     }
     // Resolve every registry occupant and the exact retained route BEFORE reserving the GoalRun,
@@ -12934,19 +13083,22 @@ pub(crate) async fn handle_goal_run_start(
                     "GoalRun ownership changed after lifecycle authorization.".to_string(),
                 ));
             }
-            if text(fresh, "status") != "draft" {
-                return Err((
+            // The CAS re-evaluates the SAME derived predicate against the fresh record, so a
+            // concurrent winner (whose commit bound invocations or crossed authority) makes the
+            // loser refuse — the one-shot property never rested on the `draft` label itself.
+            match goal_run_start_from_status(fresh) {
+                Ok(fresh_status) if fresh_status == from_status => Ok(()),
+                _ => Err((
                     "goal_run_already_started".to_string(),
                     "This GoalRun has already been started.".to_string(),
-                ));
+                )),
             }
-            Ok(())
         },
         |obj| {
             obj.insert("status".into(), json!("starting"));
             obj.insert(
                 "lifecycle_op".into(),
-                json!({ "op": "start", "token": op_token.clone(), "reserved_at": reserved_at, "from_status": "draft" }),
+                json!({ "op": "start", "token": op_token.clone(), "reserved_at": reserved_at, "from_status": from_status }),
             );
         },
     ) {
@@ -12985,7 +13137,7 @@ pub(crate) async fn handle_goal_run_start(
         Ok(lease) => lease,
         Err(challenge) => {
             if let Err((rcode, rmsg)) =
-                release_lifecycle_reservation(&st.data_dir, &id, &op_token, "draft")
+                release_lifecycle_reservation(&st.data_dir, &id, &op_token, from_status)
             {
                 return bad(
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -13083,9 +13235,10 @@ pub(crate) async fn handle_goal_run_start(
         }
     }
     if admitted_plans.is_empty() && invocations.is_empty() {
-        // Refused with no durable side effect — release the reservation (draft is re-runnable).
+        // Refused with no durable side effect — release the reservation (the run is re-runnable
+        // in exactly the state it was admitted in).
         if let Err((rcode, rmsg)) =
-            release_lifecycle_reservation(&st.data_dir, &id, &op_token, "draft")
+            release_lifecycle_reservation(&st.data_dir, &id, &op_token, from_status)
         {
             return bad(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -13098,6 +13251,20 @@ pub(crate) async fn handle_goal_run_start(
             "goal_run_no_implementer_cells",
             "This GoalRun has no implementer context cells.",
         );
+    }
+    // The admitted budget binds the plan set BEFORE any harness effect: a fresh gateway
+    // graduation's 1/1 ceiling can never fan out, whichever lane admitted the run.
+    if let Some(refusal) = refuse_plan_set_over_declared_budget(&run, admitted_plans.len()) {
+        if let Err((rcode, rmsg)) =
+            release_lifecycle_reservation(&st.data_dir, &id, &op_token, from_status)
+        {
+            return bad(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "goal_run_release_failed",
+                &format!("the start refused (admitted budget exceeded) AND the reservation release did not commit ({rcode}: {rmsg}) — manual inspection required"),
+            );
+        }
+        return refusal;
     }
 
     // Bounded parallel execution (budget ≤ 2, planner-enforced at create).
@@ -13313,6 +13480,11 @@ pub(crate) async fn handle_goal_run_start(
                 "continuation_state".into(),
                 json!(if any_verified { "verifying" } else { "blocked" }),
             );
+            // ADR 0031 sub-ruling 3 — GoalRun continuity PROJECTS from admitted refs rather than
+            // storing a second copy of them: `invocation_refs` reaches the invocation records,
+            // each of which names the exact launch chain its effect consumed. No new GoalRun
+            // property is minted here; the registered goal-run contract is closed and is not this
+            // cut's to widen.
             object.insert("invocation_refs".into(), json!(invocation_refs));
             object.insert("verification_refs".into(), json!(verification_refs));
             object.insert("blockers".into(), json!(blockers));
@@ -15237,6 +15409,119 @@ mod goal_run_seam_tests {
             }
         }
         records
+    }
+
+    // ---- M04.5: the active-vs-draft start seam ------------------------------------------------
+
+    /// An M04.4-admitted bounded run: committed at `active`, opening loop phase, nothing executed.
+    fn admitted_bounded_run(status: &str) -> Value {
+        json!({
+            "goal_run_id": "gr_admitted",
+            "goal_ref": "goal://gr_admitted",
+            "status": status,
+            "active_loop_phase": "receive_intent",
+            "continuation_state": "open",
+            "declared_invocation_budget": {
+                "max_total_invocations": 1,
+                "max_parallel_invocations": 1
+            },
+        })
+    }
+
+    #[test]
+    fn an_admitted_active_goal_run_is_start_eligible_without_being_relabelled_a_draft() {
+        // The System-bound lane's `draft` and the M04.4 lanes' admitted `active` are BOTH
+        // pre-execution, and the reservation records the OBSERVED status so a pre-effect release
+        // restores exactly what was admitted — no run is relabelled to reach execution.
+        assert_eq!(
+            goal_run_start_from_status(&admitted_bounded_run("active")).ok(),
+            Some("active")
+        );
+        assert_eq!(
+            goal_run_start_from_status(&admitted_bounded_run("draft")).ok(),
+            Some("draft")
+        );
+    }
+
+    #[test]
+    fn a_run_that_already_crossed_execution_is_never_start_eligible() {
+        let code = |run: &Value| match goal_run_start_from_status(run) {
+            Ok(status) => status.to_string(),
+            Err((_, Json(body))) => body
+                .pointer("/error/code")
+                .and_then(Value::as_str)
+                .unwrap_or("missing")
+                .to_string(),
+        };
+        // Reserved / in-flight / finished lifecycle states.
+        for status in ["starting", "reconciling", "complete", "failed"] {
+            assert_eq!(
+                code(&admitted_bounded_run(status)),
+                "goal_run_already_started",
+                "{status} is not a pre-execution state"
+            );
+        }
+        // A FINALIZED start leaves the run at `active` again — the derived facts, not the label,
+        // are what keep `start` one-shot for the M04.4 lanes.
+        let mut finalized = admitted_bounded_run("active");
+        finalized["active_loop_phase"] = json!("verify");
+        assert_eq!(code(&finalized), "goal_run_already_started");
+
+        let mut with_invocations = admitted_bounded_run("active");
+        with_invocations["invocation_refs"] = json!(["harness-invocation://hi_1"]);
+        assert_eq!(code(&with_invocations), "goal_run_already_started");
+
+        let mut with_authority = admitted_bounded_run("active");
+        with_authority["capability_lease_ref"] = json!("admission-intent://ai_1");
+        assert_eq!(code(&with_authority), "goal_run_already_started");
+    }
+
+    #[test]
+    fn a_run_with_no_implementer_plan_material_is_refused_before_it_is_ever_reserved() {
+        // Widening eligibility to admitted `active` runs makes this ordering consequential: the
+        // reservation writes `lifecycle_op` + status `starting`, neither of which the registered
+        // goal-run contract admits, and an activation-backed run is re-validated against that
+        // contract by its own activation projection. A run with no implementer cell must never
+        // reach the reservation at all.
+        assert!(!goal_run_has_implementer_cell(&admitted_bounded_run(
+            "active"
+        )));
+        let mut conductor_only = admitted_bounded_run("draft");
+        conductor_only["context_cells"] = json!([{ "role": "conductor", "role_key": "c" }]);
+        assert!(!goal_run_has_implementer_cell(&conductor_only));
+        let mut with_implementer = admitted_bounded_run("draft");
+        with_implementer["context_cells"] = json!([
+            { "role": "conductor", "role_key": "c" },
+            { "role": "implementer", "role_key": "a" },
+        ]);
+        assert!(goal_run_has_implementer_cell(&with_implementer));
+    }
+
+    #[test]
+    fn the_admitted_budget_binds_the_plan_set_before_any_effect() {
+        let run = admitted_bounded_run("active");
+        // A fresh gateway graduation's 1/1 ceiling admits exactly one implementer plan.
+        assert!(refuse_plan_set_over_declared_budget(&run, 1).is_none());
+        let (status, Json(body)) = refuse_plan_set_over_declared_budget(&run, 2)
+            .expect("a 1/1 ceiling refuses a two-plan fan-out");
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            body.pointer("/error/code").and_then(Value::as_str),
+            Some("goal_run_execution_budget_exceeded")
+        );
+        assert_eq!(
+            body.pointer("/error/details/effects_started")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+        // An absent budget is not a licence to widen and not a new cap either: the System-bound
+        // lane keeps its planner-enforced bound untouched.
+        let mut unbudgeted = admitted_bounded_run("draft");
+        unbudgeted
+            .as_object_mut()
+            .unwrap()
+            .remove("declared_invocation_budget");
+        assert!(refuse_plan_set_over_declared_budget(&unbudgeted, 2).is_none());
     }
 
     #[test]
