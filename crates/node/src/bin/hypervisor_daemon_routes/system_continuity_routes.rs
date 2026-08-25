@@ -222,6 +222,7 @@ fn load_current_enrollment(
 /// Load and cross-check the active lifecycle profile from the admitted genesis
 /// bundle. Amendments preserve this profile body in the M1 selected profile.
 pub(crate) fn load_continuity_source(data_dir: &str, key: &str) -> Result<ContinuitySource, VErr> {
+    let policies = super::system_policy_routes::load_active_system_policies(data_dir, key)?;
     let admission = super::system_genesis_routes::load_verified_admission_by_key(data_dir, key)?
         .ok_or_else(|| verr("system_lifecycle_not_found", "no admitted genesis exists"))?;
     let (_system_id, exact) = super::system_amendment_routes::load_amendment_source(data_dir, key)?;
@@ -241,6 +242,12 @@ pub(crate) fn load_continuity_source(data_dir: &str, key: &str) -> Result<Contin
                 "admitted genesis lacks its lifecycle profile body",
             )
         })?;
+    if lifecycle_profile != policies.lifecycle_profile {
+        return Err(verr(
+            "system_policy_artifact_mismatch",
+            "continuity compiler did not resolve the active lifecycle policy body",
+        ));
+    }
     if lifecycle_profile
         .get("lifecycle_profile_id")
         .and_then(Value::as_str)

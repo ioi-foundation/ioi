@@ -564,6 +564,8 @@ pub(crate) fn load_protected_source(
     data_dir: &str,
     system_id: &str,
 ) -> Result<ProtectedTransitionSource, VErr> {
+    let key = super::system_genesis_routes::record_tail(system_id);
+    let _policies = super::system_policy_routes::load_active_system_policies(data_dir, &key)?;
     let chain_head = load_chain_head(data_dir, system_id)?;
     let operation_log = load_log_for_chain(data_dir, &chain_head)?;
     let previous_step = load_previous_step(data_dir, &operation_log)?;

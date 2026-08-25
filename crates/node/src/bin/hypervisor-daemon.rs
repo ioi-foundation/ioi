@@ -186,6 +186,8 @@ mod system_continuity_routes;
 mod system_genesis_routes;
 #[path = "hypervisor_daemon_routes/system_membership_routes.rs"]
 mod system_membership_routes;
+#[path = "hypervisor_daemon_routes/system_policy_routes.rs"]
+mod system_policy_routes;
 #[path = "hypervisor_daemon_routes/system_projection_routes.rs"]
 mod system_projection_routes;
 #[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]

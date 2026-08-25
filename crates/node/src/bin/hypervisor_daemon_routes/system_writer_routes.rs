@@ -243,6 +243,8 @@ pub(crate) struct WriterTrustedInputs {
 }
 
 pub(crate) fn load_writer_source(data_dir: &str, key: &str) -> Result<WriterSource, VErr> {
+    let policies = super::system_policy_routes::load_active_system_policies(data_dir, key)?;
+    super::system_policy_routes::require_single_writer_plane(&policies.ordering_profile)?;
     let membership = load_membership_source(data_dir, key)?;
     let continuity = super::system_continuity_routes::load_continuity_source(data_dir, key)?;
     let chain = &continuity.base.chain_head;
