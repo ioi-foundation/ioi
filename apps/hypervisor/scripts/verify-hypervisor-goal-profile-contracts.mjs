@@ -133,6 +133,7 @@ const profileBody = (ownerRef, version, description, workflowTemplateRevisionRef
   orchestration_policy_ref: "orchestration-policy://bounded-general",
   workflow_template_revision_refs: workflowTemplateRevisionRefs,
   harness_requirement_refs: ["harness://hypervisor_worker"],
+  runtime_tool_contract_requirement_refs: ["tool://ioi/runtime/file__read"],
   input_contract_ref: "schema://ioi/ioi-ai/goal-draft/v1",
   output_contract_ref: "schema://ioi/foundations/work-result/v3",
   stop_policy_ref: "policy://ioi/goal-run/bounded-stop/v1",
@@ -354,7 +355,6 @@ async function run() {
     workflow_template_revision_refs: [workflowTemplate.revision_ref],
     skill_manifest_revision_refs: ["skill://literature/revision/2"],
     active_skill_entry_refs: ["skill-entry://literature/search"],
-    runtime_tool_contract_refs: ["tool://search/revision/1"],
     effective_constraint_envelope_ref: "constraint://research",
     effective_constraint_envelope_hash: H2,
     orchestration_policy_ref: "orchestration-policy://bounded",
@@ -368,7 +368,6 @@ async function run() {
     }],
     component_hashes: {
       "skill://literature/revision/2": H2,
-      "tool://search/revision/1": H2,
     },
   };
   const pathRequest = {
@@ -382,6 +381,34 @@ async function run() {
     capability_requirement_refs: [],
   };
   const goalRunsBefore = familyCount("goal-runs");
+  const unresolvedToolProfileResponse = await jd("/v1/goal-orchestration/goal-run-profiles", {
+    method: "POST",
+    body: JSON.stringify({
+      ...profileBody(principalRef, "1.0.0", "unresolvable runtime-tool requirement", [workflowTemplate.revision_ref]),
+      runtime_tool_contract_requirement_refs: ["tool://ioi/runtime/unregistered_goal_profile_tool"],
+    }),
+  });
+  const unresolvedToolProfile = unresolvedToolProfileResponse.body?.goal_run_profile ?? {};
+  const unresolvedToolPath = {
+    ...pathRequest,
+    goal_run_profile_revision_ref: unresolvedToolProfile.revision_ref,
+    goal_run_profile_content_hash: unresolvedToolProfile.content_hash,
+  };
+  const unresolvedTool = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse an unresolvable runtime-tool requirement",
+      admission_path_request: unresolvedToolPath,
+      definition_resolution: definitionResolution,
+    }),
+  });
+  ok("GATE: a profile runtime-tool requirement must resolve from the current released owner registry before persistence",
+    unresolvedToolProfileResponse.status === 201
+      && unresolvedTool.status === 409
+      && unresolvedTool.body?.error?.code === "goal_run_runtime_tool_resolution_unavailable"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${unresolvedTool.status}/${unresolvedTool.body?.error?.code}`);
+
   const forgedGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
     method: "POST",
     body: JSON.stringify({
@@ -454,6 +481,24 @@ async function run() {
       && familyCount("goal-runs") === goalRunsBefore,
     `${substitutedHarness.status}/${substitutedHarness.body?.error?.code}`);
 
+  const substitutedToolResolution = structuredClone(definitionResolution);
+  const substitutedToolRef = "tool://substituted/revision/sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  substitutedToolResolution.runtime_tool_contract_refs = [substitutedToolRef];
+  substitutedToolResolution.component_hashes[substitutedToolRef] = H1;
+  const substitutedTool = await jd("/v1/goal-orchestration/goal-runs", {
+    method: "POST",
+    body: JSON.stringify({
+      goal: "Refuse a substituted runtime-tool selection",
+      admission_path_request: pathRequest,
+      definition_resolution: substitutedToolResolution,
+    }),
+  });
+  ok("GATE: general GoalRun admission refuses a caller-substituted runtime-tool contract before persistence",
+    substitutedTool.status === 409
+      && substitutedTool.body?.error?.code === "goal_run_runtime_tool_resolution_substitution"
+      && familyCount("goal-runs") === goalRunsBefore,
+    `${substitutedTool.status}/${substitutedTool.body?.error?.code}`);
+
   const exactGoalRun = await jd("/v1/goal-orchestration/goal-runs", {
     method: "POST",
     body: JSON.stringify({
@@ -462,7 +507,7 @@ async function run() {
       definition_resolution: definitionResolution,
     }),
   });
-  ok("the general GoalRun surface consumes the exact profile plus daemon-resolved workflow and harness tuples",
+  ok("the general GoalRun surface consumes the exact profile plus daemon-resolved workflow, harness, and runtime-tool tuples",
     exactGoalRun.status === 201
       && exactGoalRun.body?.goal_run?.goal_run_profile_revision_ref === profileV2.revision_ref
       && exactGoalRun.body?.goal_run?.goal_run_profile_content_hash === profileV2.content_hash
@@ -470,7 +515,9 @@ async function run() {
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.workflow_template_resolutions?.[0]?.revision_ref === workflowTemplate.revision_ref
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.workflow_template_resolutions?.[0]?.content_hash === workflowTemplate.content_hash
       && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_harness_profile_revisions?.[0]?.revision_ref?.startsWith("harness-profile://daemon-resolved/hypervisor_worker/revision/sha256:")
-      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_harness_profile_revisions?.[0]?.content_hash?.startsWith("sha256:"),
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_harness_profile_revisions?.[0]?.content_hash?.startsWith("sha256:")
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.[0]?.revision_ref?.startsWith("tool://ioi/runtime/file__read/revision/")
+      && exactGoalRun.body?.definition_resolution?.resolution_receipt?.resolved_runtime_tool_contracts?.[0]?.content_hash?.startsWith("sha256:"),
     `${exactGoalRun.status}/${exactGoalRun.body?.error?.code ?? ""}`);
 }
 

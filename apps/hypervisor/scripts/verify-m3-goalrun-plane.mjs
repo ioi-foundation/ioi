@@ -40,7 +40,6 @@ const definitionResolution = {
   workflow_template_revision_refs: ["workflow-template://research/revision/1"],
   skill_manifest_revision_refs: ["skill://literature/revision/2"],
   active_skill_entry_refs: ["skill-entry://literature/search"],
-  runtime_tool_contract_refs: ["tool://search/revision/1"],
   effective_constraint_envelope_ref: "constraint://research",
   effective_constraint_envelope_hash: H2,
   orchestration_policy_ref: "orchestration-policy://bounded",
@@ -55,7 +54,6 @@ const definitionResolution = {
   component_hashes: {
     "workflow-template://research/revision/1": H1,
     "skill://literature/revision/2": H2,
-    "tool://search/revision/1": H2,
   },
 };
 
@@ -113,6 +111,7 @@ try {
       orchestration_policy_ref: "orchestration-policy://bounded-general",
       workflow_template_revision_refs: [workflow.revision_ref],
       harness_requirement_refs: ["harness://hypervisor_worker"],
+      runtime_tool_contract_requirement_refs: ["tool://ioi/runtime/file__read"],
       input_contract_ref: "schema://ioi/ioi-ai/goal-draft/v1",
       output_contract_ref: "schema://ioi/foundations/work-result/v3",
       stop_policy_ref: "policy://ioi/goal-run/bounded-stop/v1",

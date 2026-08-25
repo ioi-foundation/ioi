@@ -2980,6 +2980,175 @@ fn install_profile_harness_resolution(
     Ok(())
 }
 
+fn install_profile_runtime_tool_resolution(
+    st: &DaemonState,
+    profile: &Value,
+    body: &mut Value,
+) -> Result<(), HttpRefusal> {
+    let requirement_refs = profile
+        .get("runtime_tool_contract_requirement_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_profile_runtime_tool_selection_invalid",
+                "The selected GoalRunProfile has no canonical runtime-tool requirement set.",
+            )
+        })?
+        .iter()
+        .map(|value| {
+            value.as_str().map(str::to_owned).ok_or_else(|| {
+                bad(
+                    StatusCode::CONFLICT,
+                    "goal_run_profile_runtime_tool_selection_invalid",
+                    "Every runtime-tool requirement must be a reference string.",
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if requirement_refs
+        .iter()
+        .any(|reference| !reference.starts_with("tool://"))
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_runtime_tool_requirement_unsupported",
+            "This resolution lane accepts exact tool-family or tool-revision requirements.",
+        ));
+    }
+    let released = if requirement_refs.is_empty() {
+        Vec::new()
+    } else {
+        st.runtime_tool_contract_registry
+            .read()
+            .map_err(|_| {
+                bad(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "goal_run_runtime_tool_registry_unreadable",
+                    "The runtime-tool contract registry lock is poisoned.",
+                )
+            })?
+            .current_released()
+            .map_err(|error| {
+                bad_with_details(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "goal_run_runtime_tool_registry_unreadable",
+                    "The complete released runtime-tool contract registry cannot resolve the selected GoalRunProfile.",
+                    json!({ "code": error.code, "detail": error.message }),
+                )
+            })?
+    };
+    let mut components = Vec::new();
+    for requirement_ref in &requirement_refs {
+        let exact_revision = requirement_ref.contains("/revision/");
+        let mut matches = released.iter().filter(|candidate| {
+            if exact_revision {
+                candidate.contract.revision_ref == *requirement_ref
+            } else {
+                candidate.contract.tool_id == *requirement_ref
+            }
+        });
+        let component = matches.next().ok_or_else(|| {
+            bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_runtime_tool_resolution_unavailable",
+                "A runtime-tool requirement does not resolve to a current released, unrevoked contract.",
+                json!({ "requirement_ref": requirement_ref }),
+            )
+        })?;
+        if matches.next().is_some() {
+            return Err(bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_runtime_tool_resolution_ambiguous",
+                "A runtime-tool requirement resolves more than once.",
+                json!({ "requirement_ref": requirement_ref }),
+            ));
+        }
+        components.push(json!({
+            "revision_ref": component.contract.revision_ref,
+            "content_hash": component.contract.content_hash,
+        }));
+    }
+    let mut seen = BTreeSet::new();
+    components.retain(|component| {
+        component
+            .get("revision_ref")
+            .and_then(Value::as_str)
+            .is_some_and(|reference| seen.insert(reference.to_string()))
+    });
+    let derived_refs = components
+        .iter()
+        .filter_map(|component| component.get("revision_ref").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let derived_ref_values =
+        Value::Array(derived_refs.iter().cloned().map(Value::String).collect());
+    let definition = body
+        .get_mut("definition_resolution")
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_definition_resolution_required",
+                "Direct admission requires a definition-resolution object for the remaining component families.",
+            )
+        })?;
+    if definition
+        .get("runtime_tool_contract_refs")
+        .is_some_and(|caller_refs| caller_refs != &derived_ref_values)
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_runtime_tool_resolution_substitution",
+            "A caller runtime-tool selection differs from the daemon-resolved profile requirements.",
+        ));
+    }
+    let component_hashes = definition
+        .entry("component_hashes")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "goal_run_component_hashes_invalid",
+                "component_hashes must be an object when remaining component families are supplied.",
+            )
+        })?;
+    if component_hashes
+        .keys()
+        .any(|reference| reference.starts_with("tool://") && !derived_refs.contains(reference))
+    {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_runtime_tool_resolution_substitution",
+            "component_hashes contains a runtime-tool revision outside the daemon-resolved set.",
+        ));
+    }
+    for component in &components {
+        let revision_ref = component
+            .get("revision_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let content_hash = component
+            .get("content_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if component_hashes
+            .get(revision_ref)
+            .is_some_and(|caller_hash| caller_hash.as_str() != Some(content_hash))
+        {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_runtime_tool_resolution_substitution",
+                "A caller runtime-tool hash differs from the daemon-resolved immutable contract.",
+            ));
+        }
+        component_hashes.insert(revision_ref.to_string(), json!(content_hash));
+    }
+    definition.insert("runtime_tool_contract_refs".into(), derived_ref_values);
+    Ok(())
+}
+
 pub(crate) async fn handle_goal_runs_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -3162,6 +3331,11 @@ pub(crate) async fn handle_goal_runs_create(
             }
             if let Err(response) =
                 install_profile_harness_resolution(&st, &selected_profile, &mut direct_body)
+            {
+                return response;
+            }
+            if let Err(response) =
+                install_profile_runtime_tool_resolution(&st, &selected_profile, &mut direct_body)
             {
                 return response;
             }
