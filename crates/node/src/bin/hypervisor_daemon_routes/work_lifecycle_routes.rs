@@ -391,35 +391,36 @@ impl WorkLifecycleStore {
         }?;
 
         if planned.outcome == AppendOutcome::IdempotentReplay {
-            // The record is already durable, but a crash may have committed it
-            // BEFORE its projection checkpoint. Rebuild the projection as of the
-            // replayed record and persist it (keyed by that record's hash)
-            // before returning, so a retry converges: an already-durable
-            // checkpoint replays unchanged, a missing one is repaired. This is
-            // the only way a caller that crashed mid-append can heal by retry.
+            // The replayed record is already durable, but a crash may have left
+            // the CURRENT projection checkpoint unwritten. Rebuild the FULL
+            // current projection and persist it keyed by the CURRENT chain head
+            // record — never the (possibly older) replayed record.
+            //
+            // Keying by the replayed record would be wrong two ways when an old
+            // idempotency key is replayed after later appends landed: it could
+            // append an older prefix projection on top of the latest one and
+            // regress the durable latest projection, and its bytes could differ
+            // from an existing checkpoint under that key. Keying by the current
+            // head both repairs the current checkpoint (crash-after-current
+            // case) and converges (an already-durable current projection
+            // replays unchanged, leaving the latest at the current head).
             let chain = self.core.reconstruct_chain(&log)?;
-            let replayed_hash = planned
-                .record
-                .get("record_hash")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string();
-            let boundary = chain.iter().position(|record| {
-                record.get("record_hash").and_then(Value::as_str) == Some(replayed_hash.as_str())
-            });
-            let prefix: Vec<Value> = match boundary {
-                Some(index) => chain[..=index].to_vec(),
-                None => chain.clone(),
-            };
-            let projection = self.core.project(&prefix)?;
-            self.persist_checkpoint(
-                PROJECTIONS_NS,
-                &tail,
-                PROJECTION_OP_KIND,
-                &projection,
-                &replayed_hash,
-                clamp_ms(&planned.record),
-            )?;
+            let projection = self.core.project(&chain)?;
+            if let Some(current) = chain.last() {
+                let current_hash = current
+                    .get("record_hash")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string();
+                self.persist_checkpoint(
+                    PROJECTIONS_NS,
+                    &tail,
+                    PROJECTION_OP_KIND,
+                    &projection,
+                    &current_hash,
+                    clamp_ms(current),
+                )?;
+            }
             return Ok(AppendReport {
                 replayed: true,
                 record: planned.record,
@@ -1476,6 +1477,50 @@ mod tests {
         assert_eq!(durable["active_phase"], json!("pending"));
         assert_eq!(durable["record_count"], json!(1));
         assert_eq!(durable["head"], json!(record_hash));
+    }
+
+    #[test]
+    fn replaying_an_old_record_keeps_the_latest_projection_at_the_current_head() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        substrate_store::reset_handle_for_test();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        let store = WorkLifecycleStore::new(&data_dir);
+
+        // Land a genesis and then a later phase, so the current head is beyond
+        // the genesis record.
+        let head = store.append(&genesis()).expect("genesis").resulting_head;
+        let running = store
+            .append(&phase("p1", "k-run", "running", &head, 2_000))
+            .expect("phase");
+        let current_head = running.resulting_head.clone();
+        let tail = object_stream_tail(OBJECT);
+        let records_before = store.read_records(OBJECT).expect("chain").len();
+
+        // Replay the OLD genesis idempotency key after the later phase landed.
+        let report = store.append(&genesis()).expect("replay old genesis");
+        assert!(report.replayed);
+        // The returned projection reflects the CURRENT head, not the old genesis
+        // state — a replay of an earlier record never regresses the projection.
+        assert_eq!(report.projection["active_phase"], json!("running"));
+        assert_eq!(report.projection["record_count"], json!(2));
+        assert_eq!(report.projection["head"], json!(current_head));
+
+        // The durable LATEST projection is still at the current head/phase.
+        let durable =
+            substrate_store::read_event_stream_operation(&data_dir, PROJECTIONS_NS, &tail)
+                .unwrap()
+                .expect("projection")
+                .operation
+                .payload;
+        assert_eq!(durable["active_phase"], json!("running"));
+        assert_eq!(durable["record_count"], json!(2));
+        assert_eq!(durable["head"], json!(current_head));
+
+        // The replay wrote no new lifecycle record.
+        assert_eq!(
+            store.read_records(OBJECT).expect("chain").len(),
+            records_before
+        );
     }
 
     #[test]
