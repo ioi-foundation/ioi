@@ -12,11 +12,14 @@
     "record_type",
     "object_kind",
     "object_ref",
+    "owner_ref",
     "expected_head",
     "resulting_head",
     "idempotency_key",
     "authority_class",
     "authority_ref",
+    "authority_grant_refs",
+    "decision_receipt_ref",
     "evidence_refs",
     "receipt_refs",
     "phase_transition",
@@ -54,7 +57,11 @@
     },
     "object_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
     },
     "expected_head": {
       "anyOf": [
@@ -94,14 +101,33 @@
     },
     "authority_ref": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "authority_grant_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "decision_receipt_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "evidence_refs": {
       "type": "array",
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       }
     },
     "receipt_refs": {
@@ -109,7 +135,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
       }
     },
     "phase_transition": {

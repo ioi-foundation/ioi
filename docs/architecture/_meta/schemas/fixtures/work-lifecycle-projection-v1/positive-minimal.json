@@ -1,0 +1,24 @@
+{
+  "schema_version": "ioi.work-lifecycle-projection.v1",
+  "object_kind": "work_run",
+  "object_ref": "work_run://run-42",
+  "owner_ref": "project://alpha",
+  "active_phase": "running",
+  "head": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "last_record_ref": "work-lifecycle://work_run_42/2",
+  "last_occurred_at_ms": 2,
+  "record_count": 2,
+  "active_children": {
+    "harness_invocation": [
+      {
+        "child_ref": "harness_invocation://inv-1",
+        "effect_recovery_class": "reversible"
+      }
+    ]
+  },
+  "cancellation_intent": null,
+  "receipt_lineage_refs": [
+    "receipt://work-run/create",
+    "receipt://work-run/attach"
+  ]
+}

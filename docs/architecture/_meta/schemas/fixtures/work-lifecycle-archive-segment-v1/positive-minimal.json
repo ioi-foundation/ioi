@@ -1,0 +1,40 @@
+{
+  "schema_version": "ioi.work-lifecycle-archive-segment.v1",
+  "archive_ref": "work-lifecycle-archive://work_run_42/seg-1",
+  "object_kind": "work_run",
+  "object_ref": "work_run://run-42",
+  "through_head": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "archive_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "records": [
+    {
+      "schema_version": "ioi.work-lifecycle-record.v1",
+      "record_id": "work-lifecycle://work_run_42/1",
+      "record_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "record_type": "phase_transition",
+      "object_kind": "work_run",
+      "object_ref": "work_run://run-42",
+      "owner_ref": "project://alpha",
+      "expected_head": null,
+      "resulting_head": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "idempotency_key": "create",
+      "authority_class": "daemon",
+      "authority_ref": "authority://daemon",
+      "authority_grant_refs": [],
+      "decision_receipt_ref": null,
+      "evidence_refs": [],
+      "receipt_refs": [
+        "receipt://work-run/create"
+      ],
+      "phase_transition": {
+        "from_phase": null,
+        "to_phase": "pending"
+      },
+      "child_reference": null,
+      "occurred_at_ms": 1
+    }
+  ],
+  "receipt_lineage_refs": [
+    "receipt://work-run/create"
+  ],
+  "created_at_ms": 10
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.work-lifecycle-archive-segment.v1",
+  "archive_ref": "work-lifecycle-archive://work_run_42/seg-1",
+  "object_kind": "work_run",
+  "object_ref": "work_run://run-42",
+  "through_head": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "archive_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "records": [
+    {
+      "record_id": "work-lifecycle://work_run_42/1"
+    }
+  ],
+  "receipt_lineage_refs": [
+    "receipt://work-run/create"
+  ],
+  "created_at_ms": 10,
+  "unexpected_field": true
+}

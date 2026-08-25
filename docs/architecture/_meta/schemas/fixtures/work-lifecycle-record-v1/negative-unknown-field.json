@@ -5,11 +5,14 @@
   "record_type": "phase_transition",
   "object_kind": "goal_run",
   "object_ref": "goal://research-1",
+  "owner_ref": "user://researcher-1",
   "expected_head": null,
   "resulting_head": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "idempotency_key": "create",
   "authority_class": "daemon",
   "authority_ref": "authority://daemon",
+  "authority_grant_refs": [],
+  "decision_receipt_ref": null,
   "evidence_refs": [],
   "receipt_refs": [
     "receipt://goal-run/create"

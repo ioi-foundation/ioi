@@ -214,7 +214,10 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/skill-entry/v1", "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699"),
     ("schema://ioi/foundations/skill-manifest/v1", "sha256:ef38326ea2082a928b2ff7c86f8a27c5b4e885c81eaf58615d8446c1a46df403"),
     ("schema://ioi/foundations/system-scoped-object-binding/v1", "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917"),
-    ("schema://ioi/foundations/work-lifecycle-record/v1", "sha256:b04465b2aba647773c44bf8631d2d03f91a7aa6dbb1aeb11bc3e5e59276ad7cd"),
+    ("schema://ioi/foundations/work-lifecycle-record/v1", "sha256:c1d376aeb74133db80036d46e8e8a46b3d8a09bf910207fc449d18d3627261fd"),
+    ("schema://ioi/foundations/work-lifecycle-projection/v1", "sha256:9e42ac6dea720315eb43707e8792e552c5e44956de5b81470650c2788d6b0585"),
+    ("schema://ioi/foundations/work-lifecycle-archive-segment/v1", "sha256:e1ec92b486607a03c999811720294016e121930289326dd1ccc829980001a604"),
+    ("schema://ioi/foundations/work-lifecycle-snapshot/v1", "sha256:b7cff958008f64d7c015b0ecff8c808e65b0e0a55b4eb68921b99edb8488fb96"),
     ("schema://ioi/foundations/work-result/v3", "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4"),
     ("schema://ioi/foundations/workflow-template/v1", "sha256:139186e591962523f5b88347f85eada2e9ac23b8e2a2a7acb405a83a2413cbe2"),
     ("schema://ioi/hypervisor/automation-spec/v1", "sha256:3c6adbef251eb59305e8967a8211d00f1dc6ed88a43a3eabd7514d29057c4d57"),
@@ -76512,11 +76515,14 @@ pub struct WorkLifecycleRecordV1 {
     pub record_type: WorkLifecycleRecordV1RecordType,
     pub object_kind: WorkLifecycleRecordV1ObjectKind,
     pub object_ref: String,
+    pub owner_ref: String,
     pub expected_head: Option<String>,
     pub resulting_head: String,
     pub idempotency_key: String,
     pub authority_class: WorkLifecycleRecordV1AuthorityClass,
     pub authority_ref: String,
+    pub authority_grant_refs: Vec<String>,
+    pub decision_receipt_ref: Option<String>,
     pub evidence_refs: Vec<String>,
     pub receipt_refs: Vec<String>,
     pub phase_transition: Option<serde_json::Value>,
@@ -76532,7 +76538,7 @@ impl<'de> serde::Deserialize<'de> for WorkLifecycleRecordV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/work-lifecycle-record/v1"#,
-            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-record/v1","title":"WorkLifecycleRecord","x-ioi-schema-version":"ioi.work-lifecycle-record.v1","type":"object","additionalProperties":false,"required":["schema_version","record_id","record_hash","record_type","object_kind","object_ref","expected_head","resulting_head","idempotency_key","authority_class","authority_ref","evidence_refs","receipt_refs","phase_transition","child_reference","occurred_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-record.v1"},"record_id":{"type":"string","pattern":"^work-lifecycle://[^\\s]+$"},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"record_type":{"enum":["phase_transition","child_reference"]},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"expected_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"authority_class":{"enum":["owner","goal_kernel","conductor","verifier","daemon","operator","reviewer","automation_controller","harness_adapter","external_protocol_adapter","reconciler","governance"]},"authority_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"phase_transition":{"anyOf":[{"type":"object"},{"type":"null"}]},"child_reference":{"anyOf":[{"type":"object"},{"type":"null"}]},"occurred_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-record/v1","title":"WorkLifecycleRecord","x-ioi-schema-version":"ioi.work-lifecycle-record.v1","type":"object","additionalProperties":false,"required":["schema_version","record_id","record_hash","record_type","object_kind","object_ref","owner_ref","expected_head","resulting_head","idempotency_key","authority_class","authority_ref","authority_grant_refs","decision_receipt_ref","evidence_refs","receipt_refs","phase_transition","child_reference","occurred_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-record.v1"},"record_id":{"type":"string","pattern":"^work-lifecycle://[^\\s]+$"},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"record_type":{"enum":["phase_transition","child_reference"]},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"expected_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"authority_class":{"enum":["owner","goal_kernel","conductor","verifier","daemon","operator","reviewer","automation_controller","harness_adapter","external_protocol_adapter","reconciler","governance"]},"authority_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authority_grant_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"decision_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"phase_transition":{"anyOf":[{"type":"object"},{"type":"null"}]},"child_reference":{"anyOf":[{"type":"object"},{"type":"null"}]},"occurred_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -76577,6 +76583,12 @@ impl<'de> serde::Deserialize<'de> for WorkLifecycleRecordV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"object_ref"#))?,
             )
             .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             expected_head: serde_json::from_value::<Option<String>>(
                 object
                     .remove(r#"expected_head"#)
@@ -76605,6 +76617,18 @@ impl<'de> serde::Deserialize<'de> for WorkLifecycleRecordV1 {
                 object
                     .remove(r#"authority_ref"#)
                     .ok_or_else(|| serde::de::Error::missing_field(r#"authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_receipt_ref"#))?,
             )
             .map_err(serde::de::Error::custom)?,
             evidence_refs: serde_json::from_value::<Vec<String>>(
@@ -76699,6 +76723,379 @@ pub enum WorkLifecycleRecordV1AuthorityClass {
     Reconciler,
     #[serde(rename = r#"governance"#)]
     Governance,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkLifecycleProjectionV1 {
+    pub schema_version: WorkLifecycleProjectionV1SchemaVersion,
+    pub object_kind: WorkLifecycleProjectionV1ObjectKind,
+    pub object_ref: String,
+    pub owner_ref: String,
+    pub active_phase: String,
+    pub head: String,
+    pub last_record_ref: String,
+    pub last_occurred_at_ms: ArchitectureContractInteger,
+    pub record_count: ArchitectureContractInteger,
+    pub active_children: serde_json::Value,
+    pub cancellation_intent: Option<serde_json::Value>,
+    pub receipt_lineage_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkLifecycleProjectionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/work-lifecycle-projection/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-projection/v1","title":"WorkLifecycleProjection","x-ioi-schema-version":"ioi.work-lifecycle-projection.v1","type":"object","additionalProperties":false,"required":["schema_version","object_kind","object_ref","owner_ref","active_phase","head","last_record_ref","last_occurred_at_ms","record_count","active_children","cancellation_intent","receipt_lineage_refs"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-projection.v1"},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_phase":{"type":"string","minLength":1,"maxLength":200},"head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"last_record_ref":{"type":"string","pattern":"^work-lifecycle://[^\\s]+$"},"last_occurred_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"record_count":{"type":"integer","minimum":1,"maximum":9007199254740991},"active_children":{"type":"object"},"cancellation_intent":{"anyOf":[{"type":"object"},{"type":"null"}]},"receipt_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WorkLifecycleProjectionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_kind: serde_json::from_value::<WorkLifecycleProjectionV1ObjectKind>(
+                object
+                    .remove(r#"object_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"object_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_phase: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_phase"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_phase"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_record_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"last_record_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"last_record_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_occurred_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"last_occurred_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"last_occurred_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"record_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_children: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"active_children"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_children"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cancellation_intent: serde_json::from_value::<Option<serde_json::Value>>(
+                object
+                    .remove(r#"cancellation_intent"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cancellation_intent"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_lineage_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_lineage_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_lineage_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkLifecycleProjectionV1SchemaVersion {
+    #[serde(rename = r#"ioi.work-lifecycle-projection.v1"#)]
+    IoiWorkLifecycleProjectionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkLifecycleProjectionV1ObjectKind {
+    #[serde(rename = r#"goal_run"#)]
+    GoalRun,
+    #[serde(rename = r#"goal_grounding_loop"#)]
+    GoalGroundingLoop,
+    #[serde(rename = r#"work_run"#)]
+    WorkRun,
+    #[serde(rename = r#"automation_run"#)]
+    AutomationRun,
+    #[serde(rename = r#"harness_invocation"#)]
+    HarnessInvocation,
+    #[serde(rename = r#"context_cell"#)]
+    ContextCell,
+    #[serde(rename = r#"external_handle"#)]
+    ExternalHandle,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkLifecycleArchiveSegmentV1 {
+    pub schema_version: WorkLifecycleArchiveSegmentV1SchemaVersion,
+    pub archive_ref: String,
+    pub object_kind: WorkLifecycleArchiveSegmentV1ObjectKind,
+    pub object_ref: String,
+    pub through_head: String,
+    pub archive_root: String,
+    pub records: Vec<serde_json::Value>,
+    pub receipt_lineage_refs: Vec<String>,
+    pub created_at_ms: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkLifecycleArchiveSegmentV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/work-lifecycle-archive-segment/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-archive-segment/v1","title":"WorkLifecycleArchiveSegment","x-ioi-schema-version":"ioi.work-lifecycle-archive-segment.v1","type":"object","additionalProperties":false,"required":["schema_version","archive_ref","object_kind","object_ref","through_head","archive_root","records","receipt_lineage_refs","created_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-archive-segment.v1"},"archive_ref":{"type":"string","pattern":"^work-lifecycle-archive://[^\\s]+$"},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"through_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"archive_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"records":{"type":"array","minItems":1,"items":{"type":"object"}},"receipt_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"created_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WorkLifecycleArchiveSegmentV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            archive_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"archive_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"archive_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_kind: serde_json::from_value::<WorkLifecycleArchiveSegmentV1ObjectKind>(
+                object
+                    .remove(r#"object_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"object_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            through_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"through_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"through_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            archive_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"archive_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"archive_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            records: serde_json::from_value::<Vec<serde_json::Value>>(
+                object
+                    .remove(r#"records"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"records"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_lineage_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_lineage_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_lineage_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"created_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkLifecycleArchiveSegmentV1SchemaVersion {
+    #[serde(rename = r#"ioi.work-lifecycle-archive-segment.v1"#)]
+    IoiWorkLifecycleArchiveSegmentV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkLifecycleArchiveSegmentV1ObjectKind {
+    #[serde(rename = r#"goal_run"#)]
+    GoalRun,
+    #[serde(rename = r#"goal_grounding_loop"#)]
+    GoalGroundingLoop,
+    #[serde(rename = r#"work_run"#)]
+    WorkRun,
+    #[serde(rename = r#"automation_run"#)]
+    AutomationRun,
+    #[serde(rename = r#"harness_invocation"#)]
+    HarnessInvocation,
+    #[serde(rename = r#"context_cell"#)]
+    ContextCell,
+    #[serde(rename = r#"external_handle"#)]
+    ExternalHandle,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkLifecycleSnapshotV1 {
+    pub schema_version: WorkLifecycleSnapshotV1SchemaVersion,
+    pub snapshot_ref: String,
+    pub archive_ref: String,
+    pub archive_root: String,
+    pub through_head: String,
+    pub resume_state: WorkLifecycleSnapshotV1ResumeState,
+    pub receipt_lineage_refs: Vec<String>,
+    pub created_at_ms: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkLifecycleSnapshotV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/work-lifecycle-snapshot/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-snapshot/v1","title":"WorkLifecycleSnapshot","x-ioi-schema-version":"ioi.work-lifecycle-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","snapshot_ref","archive_ref","archive_root","through_head","resume_state","receipt_lineage_refs","created_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-snapshot.v1"},"snapshot_ref":{"type":"string","pattern":"^work-lifecycle-snapshot://[^\\s]+$"},"archive_ref":{"type":"string","pattern":"^work-lifecycle-archive://[^\\s]+$"},"archive_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"through_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resume_state":{"type":"object","additionalProperties":false,"required":["projection","idempotency_record_hashes"],"properties":{"projection":{"type":"object"},"idempotency_record_hashes":{"type":"object"}}},"receipt_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"created_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<WorkLifecycleSnapshotV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"snapshot_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"snapshot_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            archive_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"archive_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"archive_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            archive_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"archive_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"archive_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            through_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"through_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"through_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resume_state: serde_json::from_value::<WorkLifecycleSnapshotV1ResumeState>(
+                object
+                    .remove(r#"resume_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resume_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_lineage_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_lineage_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_lineage_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"created_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkLifecycleSnapshotV1SchemaVersion {
+    #[serde(rename = r#"ioi.work-lifecycle-snapshot.v1"#)]
+    IoiWorkLifecycleSnapshotV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct WorkLifecycleSnapshotV1ResumeState {
+    pub projection: serde_json::Value,
+    pub idempotency_record_hashes: serde_json::Value,
+}
+
+impl<'de> serde::Deserialize<'de> for WorkLifecycleSnapshotV1ResumeState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/work-lifecycle-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["projection","idempotency_record_hashes"],"properties":{"projection":{"type":"object"},"idempotency_record_hashes":{"type":"object"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            projection: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"projection"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_record_hashes: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"idempotency_record_hashes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"idempotency_record_hashes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -96031,7 +96428,63 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/work-lifecycle-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-lifecycle-record/v1",
         path: "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-lifecycle-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-lifecycle-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-lifecycle-archive-segment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-lifecycle-archive-segment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-lifecycle-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/work-lifecycle-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -105020,10 +105473,87 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json"#,
+        contract_id: r#"schema://ioi/foundations/work-lifecycle-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json"#,
         contract_id: r#"schema://ioi/foundations/work-lifecycle-record/v1"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/work-lifecycle-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/work-lifecycle-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/work-lifecycle-archive-segment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/work-lifecycle-archive-segment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json"#,
+        contract_id: r#"schema://ioi/foundations/work-lifecycle-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/work-lifecycle-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -107509,7 +108039,10 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/skill-entry/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-entry/v1","title":"SkillEntry","x-ioi-schema-version":"ioi.skill-entry.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_entry_id","binding_revision_ref","predecessor_binding_revision_ref","binding_hash","skill_revision_ref","skill_manifest_content_hash","owner_scope_ref","memory_space_ref","compatibility_decision_ref","configuration_ref","allowed_goal_run_profile_revision_refs","policy_refs","admitted_by_ref","admission_receipt_ref","revocation_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-entry.v1"},"skill_entry_id":{"type":"string","pattern":"^skill-entry://[^\\s/?#\\\\]{1,160}$"},"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"predecessor_binding_revision_ref":{"anyOf":[{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_scope_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"memory_space_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"compatibility_decision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"configuration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"allowed_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"admitted_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"admission_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revocation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["proposed","active","suspended","archived","revoked"]}}}"#),
     ("schema://ioi/foundations/skill-manifest/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-manifest/v1","title":"SkillManifest","x-ioi-schema-version":"ioi.skill-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_id","revision_ref","version","predecessor_revision_ref","content_hash","owner_ref","display_name","description","instruction_entrypoint_ref","procedure_and_reference_refs","example_refs","support_asset_refs","dependency_skill_revision_refs","runtime_tool_contract_requirement_refs","capability_requirement_refs","input_and_output_contract_refs","context_requirement_profile_refs","compatible_goal_run_profile_revision_refs","compatible_harness_profile_revision_refs","compatible_runtime_and_kernel_refs","provenance_refs","source_rights_and_license_refs","evaluation_and_benchmark_refs","promotion_policy_ref","revocation_and_recall_policy_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-manifest.v1"},"skill_id":{"type":"string","pattern":"^skill://[^\\s/?#\\\\]{1,160}$"},"revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"version":{"type":"string"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project|system|user|ioi)://[^\\s]{1,500}$"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"instruction_entrypoint_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,500}$"},"procedure_and_reference_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"}},"example_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"support_asset_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"dependency_skill_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_tool_contract_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"capability_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"input_and_output_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_requirement_profile_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_harness_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_runtime_and_kernel_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"source_rights_and_license_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"evaluation_and_benchmark_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"promotion_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_and_recall_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
     ("schema://ioi/foundations/system-scoped-object-binding/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/system-scoped-object-binding/v1","title":"SystemScopedObjectBinding","x-ioi-schema-version":"ioi.foundations.system-scoped-object-binding.v1","type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#),
-    ("schema://ioi/foundations/work-lifecycle-record/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-record/v1","title":"WorkLifecycleRecord","x-ioi-schema-version":"ioi.work-lifecycle-record.v1","type":"object","additionalProperties":false,"required":["schema_version","record_id","record_hash","record_type","object_kind","object_ref","expected_head","resulting_head","idempotency_key","authority_class","authority_ref","evidence_refs","receipt_refs","phase_transition","child_reference","occurred_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-record.v1"},"record_id":{"type":"string","pattern":"^work-lifecycle://[^\\s]+$"},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"record_type":{"enum":["phase_transition","child_reference"]},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"expected_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"authority_class":{"enum":["owner","goal_kernel","conductor","verifier","daemon","operator","reviewer","automation_controller","harness_adapter","external_protocol_adapter","reconciler","governance"]},"authority_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"phase_transition":{"anyOf":[{"type":"object"},{"type":"null"}]},"child_reference":{"anyOf":[{"type":"object"},{"type":"null"}]},"occurred_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#),
+    ("schema://ioi/foundations/work-lifecycle-record/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-record/v1","title":"WorkLifecycleRecord","x-ioi-schema-version":"ioi.work-lifecycle-record.v1","type":"object","additionalProperties":false,"required":["schema_version","record_id","record_hash","record_type","object_kind","object_ref","owner_ref","expected_head","resulting_head","idempotency_key","authority_class","authority_ref","authority_grant_refs","decision_receipt_ref","evidence_refs","receipt_refs","phase_transition","child_reference","occurred_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-record.v1"},"record_id":{"type":"string","pattern":"^work-lifecycle://[^\\s]+$"},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"record_type":{"enum":["phase_transition","child_reference"]},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"expected_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"authority_class":{"enum":["owner","goal_kernel","conductor","verifier","daemon","operator","reviewer","automation_controller","harness_adapter","external_protocol_adapter","reconciler","governance"]},"authority_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"authority_grant_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"decision_receipt_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"phase_transition":{"anyOf":[{"type":"object"},{"type":"null"}]},"child_reference":{"anyOf":[{"type":"object"},{"type":"null"}]},"occurred_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#),
+    ("schema://ioi/foundations/work-lifecycle-projection/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-projection/v1","title":"WorkLifecycleProjection","x-ioi-schema-version":"ioi.work-lifecycle-projection.v1","type":"object","additionalProperties":false,"required":["schema_version","object_kind","object_ref","owner_ref","active_phase","head","last_record_ref","last_occurred_at_ms","record_count","active_children","cancellation_intent","receipt_lineage_refs"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-projection.v1"},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_phase":{"type":"string","minLength":1,"maxLength":200},"head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"last_record_ref":{"type":"string","pattern":"^work-lifecycle://[^\\s]+$"},"last_occurred_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"record_count":{"type":"integer","minimum":1,"maximum":9007199254740991},"active_children":{"type":"object"},"cancellation_intent":{"anyOf":[{"type":"object"},{"type":"null"}]},"receipt_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}}}}"#),
+    ("schema://ioi/foundations/work-lifecycle-archive-segment/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-archive-segment/v1","title":"WorkLifecycleArchiveSegment","x-ioi-schema-version":"ioi.work-lifecycle-archive-segment.v1","type":"object","additionalProperties":false,"required":["schema_version","archive_ref","object_kind","object_ref","through_head","archive_root","records","receipt_lineage_refs","created_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-archive-segment.v1"},"archive_ref":{"type":"string","pattern":"^work-lifecycle-archive://[^\\s]+$"},"object_kind":{"enum":["goal_run","goal_grounding_loop","work_run","automation_run","harness_invocation","context_cell","external_handle"]},"object_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"through_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"archive_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"records":{"type":"array","minItems":1,"items":{"type":"object"}},"receipt_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"created_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#),
+    ("schema://ioi/foundations/work-lifecycle-snapshot/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-lifecycle-snapshot/v1","title":"WorkLifecycleSnapshot","x-ioi-schema-version":"ioi.work-lifecycle-snapshot.v1","type":"object","additionalProperties":false,"required":["schema_version","snapshot_ref","archive_ref","archive_root","through_head","resume_state","receipt_lineage_refs","created_at_ms"],"properties":{"schema_version":{"const":"ioi.work-lifecycle-snapshot.v1"},"snapshot_ref":{"type":"string","pattern":"^work-lifecycle-snapshot://[^\\s]+$"},"archive_ref":{"type":"string","pattern":"^work-lifecycle-archive://[^\\s]+$"},"archive_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"through_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resume_state":{"type":"object","additionalProperties":false,"required":["projection","idempotency_record_hashes"],"properties":{"projection":{"type":"object"},"idempotency_record_hashes":{"type":"object"}}},"receipt_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"created_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"#),
     ("schema://ioi/foundations/work-result/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/work-result/v3","title":"WorkResult","x-ioi-schema-version":"ioi.foundations.work-result.v3","type":"object","additionalProperties":false,"required":["schema_version","work_result_id","work_subject_ref","system_binding","produced_by_ref","submitted_by_ref","operator_and_affiliation_refs","invocation_or_run_ref","result_profile","result_profile_ref","result_payload_ref","producer_component_resolution","declared_method_and_lineage_refs","information_flow_label_refs","outcome_class","status","claim_refs","uncertainty","supporting_evidence_refs","contradicting_evidence_refs","artifact_receipt_and_trace_refs","resource_and_cost_refs","authority_and_policy_refs","blocker_and_decision_request_refs","verifier_refs","license_disclosure_retention_and_export_refs","reproduction_state","reproduction_refs","acceptance_ref","supersedes_work_result_ref","superseded_by_ref","summary_ref","next_action","outcome_delta_refs","observation_refs","review_refs"],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nullableHash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},"producerResolution":{"type":"object","additionalProperties":false,"required":["resolved_component_set_snapshot_ref","resolved_component_set_hash","component_resolution_receipt_ref","resolver_kind","resolver_revision_ref","resolver_content_hash"],"properties":{"resolved_component_set_snapshot_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},{"type":"null"}]},"resolved_component_set_hash":{"$ref":"#/$defs/nullableHash"},"component_resolution_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}/revision/[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"$ref":"#/$defs/nullableHash"}}}},"properties":{"schema_version":{"const":"ioi.foundations.work-result.v3"},"work_result_id":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"produced_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"submitted_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"operator_and_affiliation_refs":{"$ref":"#/$defs/refs"},"invocation_or_run_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"result_profile":{"enum":["software_implementation","research","ontology_mutation","incident_resolution","service_delivery","physical_mission","review","evaluation","custom"]},"result_profile_ref":{"anyOf":[{"type":"string","pattern":"^(?:schema|profile)://[^\\s]{1,500}$"},{"type":"null"}]},"result_payload_ref":{"anyOf":[{"type":"string","pattern":"^(?:(?:implementation-result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},{"type":"null"}]},"producer_component_resolution":{"$ref":"#/$defs/producerResolution"},"declared_method_and_lineage_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"information_flow_label_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"}},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"outcome_delta_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"}},"claim_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"}},"uncertainty":{"anyOf":[{"type":"number"},{"type":"string"},{"type":"object"},{"type":"null"}]},"supporting_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"}},"artifact_receipt_and_trace_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"}},"resource_and_cost_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"}},"authority_and_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"blocker_and_decision_request_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"}},"verifier_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|worker|gate|receipt)://[^\\s]{1,500}$"}},"license_disclosure_retention_and_export_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy|restricted-view|receipt)://[^\\s]{1,500}$"}},"reproduction_state":{"anyOf":[{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},{"type":"null"}]},"reproduction_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"}},"acceptance_ref":{"anyOf":[{"type":"string","pattern":"^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"supersedes_work_result_ref":{"anyOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"superseded_by_ref":{"anyOf":[{"type":"string","pattern":"^(?:work-result|outcome-delta)://[^\\s]{1,500}$"},{"type":"null"}]},"summary_ref":{"anyOf":[{"type":"string","pattern":"^(?:message|artifact)://[^\\s]{1,500}$"},{"type":"null"}]},"next_action":{"enum":["none","repair","review","verify","replicate","synthesize","ask_user","escalate","update_work_queue"]},"observation_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"review_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}}}"##),
     ("schema://ioi/foundations/workflow-template/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/workflow-template/v1","title":"WorkflowTemplate","x-ioi-schema-version":"ioi.workflow-template.v1","type":"object","additionalProperties":false,"required":["schema_version","workflow_template_id","revision_ref","content_hash","owner_ref","display_name","graph_ref","graph_hash","registry_status"],"properties":{"schema_version":{"const":"ioi.workflow-template.v1"},"workflow_template_id":{"type":"string","pattern":"^workflow-template://[^\\s/?#\\\\]{1,160}$"},"revision_ref":{"type":"string","pattern":"^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"version":{"type":"string"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"graph_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"graph_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"parameter_schema_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"input_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"output_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"step_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"dependency_and_handoff_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"acceptance_and_review_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"delivery_contract_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"selection_hint_refs":{"type":"object"},"runtime_tool_contract_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"required_primitive_capabilities":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":500}},"authority_scope_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"resource_and_budget_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"receipt_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"allowed_override_schema_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"evaluation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
     ("schema://ioi/hypervisor/automation-spec/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/hypervisor/automation-spec/v1","title":"HypervisorAutomationSpec","x-ioi-schema-version":"ioi.hypervisor.automation-spec.v1","type":"object","additionalProperties":false,"required":["schema_version","automation_id","revision_ref","version","predecessor_revision_ref","content_hash","owner_ref","display_name","description","workflow_template_revision_ref","workflow_template_content_hash","activation_kind","activation_parameter_schema_ref","trigger_contract_ref","schedule_contract_ref","monitor_contract_ref","service_contract_ref","queue_contract_ref","review_contract_refs","delivery_contract_ref","concurrency_policy_ref","idempotency_policy_ref","authority_requirement_refs","allowed_activation_override_schema_ref","receipt_policy_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.hypervisor.automation-spec.v1"},"automation_id":{"type":"string","pattern":"^automation://[^\\s/?#\\\\]{1,160}$"},"revision_ref":{"$ref":"#/$defs/specRevisionRef"},"version":{"type":"string","minLength":1},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/specRevisionRef"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/hash"},"owner_ref":{"$ref":"#/$defs/ref"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"workflow_template_revision_ref":{"$ref":"#/$defs/templateRevisionRef"},"workflow_template_content_hash":{"$ref":"#/$defs/hash"},"activation_kind":{"enum":["manual","schedule","webhook","event","monitor","service","queue"]},"activation_parameter_schema_ref":{"$ref":"#/$defs/nullableRef"},"trigger_contract_ref":{"$ref":"#/$defs/nullableRef"},"schedule_contract_ref":{"$ref":"#/$defs/nullableRef"},"monitor_contract_ref":{"$ref":"#/$defs/nullableRef"},"service_contract_ref":{"$ref":"#/$defs/nullableRef"},"queue_contract_ref":{"$ref":"#/$defs/nullableRef"},"review_contract_refs":{"$ref":"#/$defs/refArray"},"delivery_contract_ref":{"$ref":"#/$defs/nullableRef"},"concurrency_policy_ref":{"$ref":"#/$defs/nullableRef"},"idempotency_policy_ref":{"$ref":"#/$defs/nullableRef"},"authority_requirement_refs":{"$ref":"#/$defs/scopeArray"},"allowed_activation_override_schema_ref":{"$ref":"#/$defs/nullableRef"},"receipt_policy_ref":{"$ref":"#/$defs/nullableRef"},"registry_lifecycle_ref":{"$ref":"#/$defs/nullableRef"},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refArray":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"scopeArray":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"}},"specRevisionRef":{"type":"string","pattern":"^automation://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"templateRevisionRef":{"type":"string","pattern":"^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"}}}"##),
@@ -107719,6 +108252,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/skill-manifest/v1", r#"[]"#),
     ("schema://ioi/foundations/system-scoped-object-binding/v1", r#"[]"#),
     ("schema://ioi/foundations/work-lifecycle-record/v1", r#"[]"#),
+    ("schema://ioi/foundations/work-lifecycle-projection/v1", r#"[]"#),
+    ("schema://ioi/foundations/work-lifecycle-archive-segment/v1", r#"[]"#),
+    ("schema://ioi/foundations/work-lifecycle-snapshot/v1", r#"[]"#),
     ("schema://ioi/foundations/work-result/v3", r#"[]"#),
     ("schema://ioi/foundations/workflow-template/v1", r#"[]"#),
     ("schema://ioi/hypervisor/automation-spec/v1", r#"[]"#),
@@ -110372,6 +110908,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^work-item://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^work-lifecycle-archive://[^\s]+$"#,
+        r#"^work-lifecycle-archive://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^work-lifecycle-snapshot://[^\s]+$"#,
+        r#"^work-lifecycle-snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^work-lifecycle://[^\s]+$"#,
         r#"^work-lifecycle://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -112147,7 +112691,14 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json"))),
     ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json"))),
     ("docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-array-uncertainty.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-array-uncertainty.json"))),
@@ -113094,6 +113645,21 @@ mod tests {
         },
         "schema://ioi/foundations/work-lifecycle-record/v1" => {
             serde_json::from_value::<WorkLifecycleRecordV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-lifecycle-projection/v1" => {
+            serde_json::from_value::<WorkLifecycleProjectionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-lifecycle-archive-segment/v1" => {
+            serde_json::from_value::<WorkLifecycleArchiveSegmentV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-lifecycle-snapshot/v1" => {
+            serde_json::from_value::<WorkLifecycleSnapshotV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -114133,6 +114699,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/work-lifecycle-projection/v1" => {
+            let projection = serde_json::from_value::<WorkLifecycleProjectionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-lifecycle-archive-segment/v1" => {
+            let projection = serde_json::from_value::<WorkLifecycleArchiveSegmentV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/work-lifecycle-snapshot/v1" => {
+            let projection = serde_json::from_value::<WorkLifecycleSnapshotV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/work-result/v3" => {
             let projection = serde_json::from_value::<WorkResultV3>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -114439,8 +115020,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            696,
-            "the registered golden corpus must remain the explicit 696-fixture bar",
+            703,
+            "the registered golden corpus must remain the explicit 703-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -114682,7 +115263,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 693,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 695,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

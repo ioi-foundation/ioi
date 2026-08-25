@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/work-lifecycle-archive-segment/v1",
+  "title": "WorkLifecycleArchiveSegment",
+  "x-ioi-schema-version": "ioi.work-lifecycle-archive-segment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "archive_ref",
+    "object_kind",
+    "object_ref",
+    "through_head",
+    "archive_root",
+    "records",
+    "receipt_lineage_refs",
+    "created_at_ms"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.work-lifecycle-archive-segment.v1"
+    },
+    "archive_ref": {
+      "type": "string",
+      "pattern": "^work-lifecycle-archive://[^\\s]+$"
+    },
+    "object_kind": {
+      "enum": [
+        "goal_run",
+        "goal_grounding_loop",
+        "work_run",
+        "automation_run",
+        "harness_invocation",
+        "context_cell",
+        "external_handle"
+      ]
+    },
+    "object_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "through_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "archive_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object"
+      }
+    },
+    "receipt_lineage_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "created_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}

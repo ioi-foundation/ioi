@@ -8568,11 +8568,141 @@
         }
       ],
       "positive_fixture_refs": [
-        "fixtures/work-lifecycle-record-v1/positive-minimal.json"
+        "fixtures/work-lifecycle-record-v1/positive-minimal.json",
+        "fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json"
       ],
       "negative_fixture_refs": [
         {
           "path": "fixtures/work-lifecycle-record-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/work-lifecycle-projection/v1",
+      "canonical_name": "WorkLifecycleProjection",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#worklifecyclearchivesegmentenvelope-and-worklifecyclesnapshotenvelope",
+      "schema_version": "ioi.work-lifecycle-projection.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-lifecycle-projection.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkLifecycleProjectionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkLifecycleProjectionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-lifecycle-projection-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-lifecycle-projection-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/work-lifecycle-archive-segment/v1",
+      "canonical_name": "WorkLifecycleArchiveSegment",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#worklifecyclearchivesegmentenvelope-and-worklifecyclesnapshotenvelope",
+      "schema_version": "ioi.work-lifecycle-archive-segment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-lifecycle-archive-segment.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkLifecycleArchiveSegmentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkLifecycleArchiveSegmentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/work-lifecycle-snapshot/v1",
+      "canonical_name": "WorkLifecycleSnapshot",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/work-results-and-lifecycle.md#worklifecyclearchivesegmentenvelope-and-worklifecyclesnapshotenvelope",
+      "schema_version": "ioi.work-lifecycle-snapshot.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "work-lifecycle-snapshot.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "WorkLifecycleSnapshotV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "WorkLifecycleSnapshotV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/work-lifecycle-snapshot-v1/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]

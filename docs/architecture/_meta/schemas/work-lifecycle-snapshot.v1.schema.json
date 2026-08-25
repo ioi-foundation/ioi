@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/work-lifecycle-snapshot/v1",
+  "title": "WorkLifecycleSnapshot",
+  "x-ioi-schema-version": "ioi.work-lifecycle-snapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "snapshot_ref",
+    "archive_ref",
+    "archive_root",
+    "through_head",
+    "resume_state",
+    "receipt_lineage_refs",
+    "created_at_ms"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.work-lifecycle-snapshot.v1"
+    },
+    "snapshot_ref": {
+      "type": "string",
+      "pattern": "^work-lifecycle-snapshot://[^\\s]+$"
+    },
+    "archive_ref": {
+      "type": "string",
+      "pattern": "^work-lifecycle-archive://[^\\s]+$"
+    },
+    "archive_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "through_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "resume_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projection",
+        "idempotency_record_hashes"
+      ],
+      "properties": {
+        "projection": {
+          "type": "object"
+        },
+        "idempotency_record_hashes": {
+          "type": "object"
+        }
+      }
+    },
+    "receipt_lineage_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "created_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}

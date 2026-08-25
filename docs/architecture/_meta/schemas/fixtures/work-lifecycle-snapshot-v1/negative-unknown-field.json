@@ -1,0 +1,14 @@
+{
+  "schema_version": "ioi.work-lifecycle-snapshot.v1",
+  "snapshot_ref": "work-lifecycle-snapshot://work_run_42/snap-1",
+  "archive_ref": "work-lifecycle-archive://work_run_42/seg-1",
+  "archive_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "through_head": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "resume_state": {
+    "projection": {},
+    "idempotency_record_hashes": {}
+  },
+  "receipt_lineage_refs": [],
+  "created_at_ms": 10,
+  "unexpected_field": true
+}

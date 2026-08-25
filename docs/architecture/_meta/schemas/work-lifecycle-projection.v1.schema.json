@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/work-lifecycle-projection/v1",
+  "title": "WorkLifecycleProjection",
+  "x-ioi-schema-version": "ioi.work-lifecycle-projection.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object_kind",
+    "object_ref",
+    "owner_ref",
+    "active_phase",
+    "head",
+    "last_record_ref",
+    "last_occurred_at_ms",
+    "record_count",
+    "active_children",
+    "cancellation_intent",
+    "receipt_lineage_refs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.work-lifecycle-projection.v1"
+    },
+    "object_kind": {
+      "enum": [
+        "goal_run",
+        "goal_grounding_loop",
+        "work_run",
+        "automation_run",
+        "harness_invocation",
+        "context_cell",
+        "external_handle"
+      ]
+    },
+    "object_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "active_phase": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "last_record_ref": {
+      "type": "string",
+      "pattern": "^work-lifecycle://[^\\s]+$"
+    },
+    "last_occurred_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "record_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "active_children": {
+      "type": "object"
+    },
+    "cancellation_intent": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receipt_lineage_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    }
+  }
+}
