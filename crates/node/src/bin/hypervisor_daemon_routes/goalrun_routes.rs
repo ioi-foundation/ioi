@@ -63,6 +63,7 @@ const GOAL_RUN_ADMISSION_POLICY_REVISION_KIND: &str = "goal-run-admission-policy
 const GOAL_RUN_RESOLVED_COMPONENT_KIND: &str = "goal-run-resolved-component-revisions";
 const GOAL_RUN_EXECUTION_CEILING_REVISION_KIND: &str = "goal-run-execution-ceiling-revisions";
 const GOAL_RUN_ADMITTED_STATE_KIND: &str = "goal-run-activation-admitted-states";
+const GOAL_RUN_AUTHORITY_DECISION_KIND: &str = "goal-run-authority-decisions";
 
 const GOAL_RUN_ACTIVATION_SCHEMA_VERSION: &str = "ioi.goal-run-activation.v1";
 const GOAL_RUN_ACTIVATION_DRAFT_REQUEST_SCHEMA_VERSION: &str =
@@ -71,6 +72,10 @@ const GOAL_RUN_ACTIVATION_SUBMIT_REQUEST_SCHEMA_VERSION: &str =
     "ioi.goal-run-activation-submit-request.v1";
 const BUILTIN_BOUNDED_ADMISSION_POLICY_KEY: &str = "bounded-direct-release-v1";
 const BUILTIN_ZERO_EXECUTION_CEILING_KEY: &str = "ioi-goal-draft-zero-release-v1";
+const DIRECT_BOUNDED_CEILING_FAMILY: &str = "ioi-goal-run-direct-bounded";
+const DIRECT_BOUNDED_CEILING_KEY: &str = "ioi-goal-run-direct-bounded-release-v1";
+const SYSTEM_BOUNDED_CEILING_FAMILY: &str = "ioi-goal-run-system-bounded";
+const SYSTEM_BOUNDED_CEILING_KEY: &str = "ioi-goal-run-system-bounded-release-v1";
 const GOAL_RUN_ACTIVATION_RECEIPT_TYPE: &str = "goal_run_activation";
 const GOAL_RUN_ACTIVATION_RECEIPT_PROFILE: &str =
     "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1";
@@ -1249,28 +1254,52 @@ fn execution_ceiling_commitment(record: &Value) -> Value {
     })
 }
 
-fn zero_execution_ceiling() -> Result<Value, HttpRefusal> {
+/// One immutable, daemon-owned execution-ceiling release. Every admitted GoalRun state names
+/// an exact content-addressed ceiling; no lane infers a budget from silence.
+fn execution_ceiling_release(
+    family_id: &str,
+    max_total_invocations: u64,
+    max_parallel_invocations: u64,
+) -> Result<Value, HttpRefusal> {
     let mut record = json!({
         "schema_version": "ioi.goal-run-execution-ceiling.v1",
-        "goal_run_execution_ceiling_id": "goal-run-execution-ceiling://ioi-goal-draft-zero",
+        "goal_run_execution_ceiling_id": format!("goal-run-execution-ceiling://{family_id}"),
         "revision_ref": Value::Null,
         "content_hash": Value::Null,
         "owner_ref": "system://ioi",
-        "max_total_invocations": 0,
-        "max_parallel_invocations": 0,
+        "max_total_invocations": max_total_invocations,
+        "max_parallel_invocations": max_parallel_invocations,
         "registry_status": "released"
     });
     let content_hash = sha256_canonical(&execution_ceiling_commitment(&record));
     record["content_hash"] = json!(content_hash);
     record["revision_ref"] = json!(format!(
-        "goal-run-execution-ceiling://ioi-goal-draft-zero/revision/{}",
+        "goal-run-execution-ceiling://{family_id}/revision/{}",
         text(&record, "content_hash")
     ));
-    validate_zero_execution_ceiling(&record)?;
+    validate_execution_ceiling_release(
+        &record,
+        family_id,
+        max_total_invocations,
+        max_parallel_invocations,
+    )?;
     Ok(record)
 }
 
+fn zero_execution_ceiling() -> Result<Value, HttpRefusal> {
+    execution_ceiling_release("ioi-goal-draft-zero", 0, 0)
+}
+
 fn validate_zero_execution_ceiling(record: &Value) -> Result<(), HttpRefusal> {
+    validate_execution_ceiling_release(record, "ioi-goal-draft-zero", 0, 0)
+}
+
+fn validate_execution_ceiling_release(
+    record: &Value,
+    family_id: &str,
+    max_total_invocations: u64,
+    max_parallel_invocations: u64,
+) -> Result<(), HttpRefusal> {
     ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
         "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
         record,
@@ -1286,19 +1315,84 @@ fn validate_zero_execution_ceiling(record: &Value) -> Result<(), HttpRefusal> {
     let recomputed = sha256_canonical(&execution_ceiling_commitment(record));
     if text(record, "content_hash") != recomputed
         || text(record, "revision_ref")
-            != format!("goal-run-execution-ceiling://ioi-goal-draft-zero/revision/{recomputed}")
-        || record.get("max_total_invocations").and_then(Value::as_u64) != Some(0)
+            != format!("goal-run-execution-ceiling://{family_id}/revision/{recomputed}")
+        || record.get("max_total_invocations").and_then(Value::as_u64)
+            != Some(max_total_invocations)
         || record
             .get("max_parallel_invocations")
             .and_then(Value::as_u64)
-            != Some(0)
+            != Some(max_parallel_invocations)
     {
         return Err(bad(
             StatusCode::CONFLICT,
             "goal_run_execution_ceiling_integrity_failure",
-            "The M4 ioi_goal_draft ceiling must remain the exact immutable zero-execution release.",
+            "A daemon-owned GoalRun execution ceiling must remain its exact immutable release.",
         ));
     }
+    Ok(())
+}
+
+/// Retain one daemon-owned ceiling release and bind it into the definition-resolution closure
+/// so the profile-resolution receipt and the admitted state commit the same exact budget.
+fn install_bounded_execution_ceiling(
+    data_dir: &str,
+    definition: &mut serde_json::Map<String, Value>,
+    family_id: &str,
+    storage_key: &str,
+    max_total_invocations: u64,
+    max_parallel_invocations: u64,
+) -> Result<(), HttpRefusal> {
+    for field in [
+        "goal_run_execution_ceiling_revision_ref",
+        "goal_run_execution_ceiling_content_hash",
+        "declared_invocation_budget",
+    ] {
+        if definition.get(field).is_some_and(|value| !value.is_null()) {
+            return Err(bad_with_details(
+                StatusCode::CONFLICT,
+                "goal_run_admission_material_substitution",
+                "A caller execution ceiling or declared budget cannot enter the daemon-owned closure.",
+                json!({ "field": field }),
+            ));
+        }
+    }
+    let ceiling =
+        execution_ceiling_release(family_id, max_total_invocations, max_parallel_invocations)?;
+    persist_immutable_activation_record(
+        data_dir,
+        GOAL_RUN_EXECUTION_CEILING_REVISION_KIND,
+        storage_key,
+        &ceiling,
+    )?;
+    let revision_ref = text(&ceiling, "revision_ref").to_string();
+    let content_hash = text(&ceiling, "content_hash").to_string();
+    definition.insert(
+        "goal_run_execution_ceiling_revision_ref".into(),
+        json!(revision_ref),
+    );
+    definition.insert(
+        "goal_run_execution_ceiling_content_hash".into(),
+        json!(content_hash),
+    );
+    definition.insert(
+        "declared_invocation_budget".into(),
+        json!({
+            "max_total_invocations": max_total_invocations,
+            "max_parallel_invocations": max_parallel_invocations
+        }),
+    );
+    definition
+        .entry("component_hashes")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .ok_or_else(|| {
+            bad(
+                StatusCode::CONFLICT,
+                "goal_run_component_hashes_required",
+                "The daemon-resolved component hash closure is absent.",
+            )
+        })?
+        .insert(revision_ref, json!(content_hash));
     Ok(())
 }
 
@@ -2048,15 +2142,81 @@ fn activation_state_key(root: &str) -> Option<String> {
         .map(|tail| format!("gras_{tail}"))
 }
 
-fn admit_activation_state(
+/// The daemon-derived source-context commitment for a lane that carries no typed source
+/// object. Direct and System-bound admissions have no draft to hash, so the commitment is
+/// over the source coordinates the daemon itself resolved — and readback recomputes it.
+fn goal_run_source_context_commitment(
+    source_kind: &str,
+    source_ref: &Value,
+    source_owner_ref: &str,
+) -> Value {
+    json!({
+        "domain": "ioi.goal-run-source-context-jcs-sha256.v1",
+        "source_kind": source_kind,
+        "source_ref": source_ref,
+        "source_owner_ref": source_owner_ref
+    })
+}
+
+fn goal_run_non_grants() -> Value {
+    json!({
+        "authority_widening": "none",
+        "context_declassification": "none",
+        "room_membership": "none",
+        "budget_creation": "none"
+    })
+}
+
+/// Retain the daemon-owned principal/scope resolution one direct or System-bound admission
+/// was decided under. It is evidence of a resolution, never a grant: nothing is widened and
+/// no other lane's approval carries into it.
+fn admit_goal_run_authority_decision(
     data_dir: &str,
-    activation_ref: &str,
+    goal_run_id: &str,
+    goal_ref: &str,
+    principal_ref: &str,
+    admission_path: &str,
+    decided_at: &str,
+) -> Result<String, HttpRefusal> {
+    let decision_ref = format!("approval://goal-run/{goal_run_id}/principal-scope-resolution");
+    let record = sealed(json!({
+        "schema_version": "ioi.goal-run-authority-decision.v1",
+        "decision_ref": decision_ref,
+        "goal_run_ref": goal_ref,
+        "goal_run_id": goal_run_id,
+        "principal_ref": principal_ref,
+        "admission_path": admission_path,
+        "required_scope": GOAL_RUN_CREATE_AUTHORITY_SCOPE,
+        "decision": "principal_scope_resolved",
+        "admission_bearing": false,
+        "non_grant": true,
+        "grant_ref": Value::Null,
+        "decided_at": decided_at,
+        "non_grants": goal_run_non_grants()
+    }));
+    durable_write(
+        data_dir,
+        GOAL_RUN_AUTHORITY_DECISION_KIND,
+        goal_run_id,
+        &record,
+    )?;
+    Ok(decision_ref)
+}
+
+/// The one content-addressed, Agentgres-admitted GoalRun state writer. Every admission lane —
+/// direct, activation-backed, and System-bound — mints its admitted state here; a direct
+/// admission retains a null activation ref (`goal-run-execution.md` state-commitment binding).
+#[allow(clippy::too_many_arguments)]
+fn admit_goal_run_state(
+    data_dir: &str,
+    activation_ref: Option<&str>,
     source_context_hash: &str,
     principal_ref: &str,
     authority_decision_ref: &str,
     goal_ref: &str,
     profile: &Value,
     resolution: &Value,
+    declared_invocation_budget: &Value,
     decision: &Value,
     obligations: &[Value],
     admitted_at: &str,
@@ -2076,7 +2236,7 @@ fn admit_activation_state(
         "goal_run_profile_content_hash": profile.get("content_hash").cloned().unwrap_or(Value::Null),
         "goal_run_execution_ceiling_revision_ref": resolution.get("goal_run_execution_ceiling_revision_ref").cloned().unwrap_or(Value::Null),
         "goal_run_execution_ceiling_content_hash": resolution.get("goal_run_execution_ceiling_content_hash").cloned().unwrap_or(Value::Null),
-        "declared_invocation_budget": resolution.get("declared_invocation_budget").cloned().unwrap_or(Value::Null),
+        "declared_invocation_budget": declared_invocation_budget,
         "admitted_override_set_ref": resolution.pointer("/resolution_receipt/admitted_override_set_ref").cloned().unwrap_or(Value::Null),
         "admitted_override_set_hash": resolution.pointer("/resolution_receipt/admitted_override_set_hash").cloned().unwrap_or(Value::Null),
         "resolved_component_set_snapshot_ref": resolution.get("resolved_component_set_snapshot_ref").cloned().unwrap_or(Value::Null),
@@ -2180,6 +2340,81 @@ fn load_activation_state(data_dir: &str, root_ref: &str) -> Result<Value, HttpRe
         )
     })?;
     Ok(record)
+}
+
+/// Replay the admitted-state binding of ANY GoalRun, whatever lane admitted it. The record
+/// names the Agentgres state root its admission closure was committed under; an absent,
+/// unbacked, or drifted root is uncertainty, never a readable run (INV-8, INV-12).
+fn verify_goal_run_admitted_state(data_dir: &str, run: &Value) -> Result<Value, HttpRefusal> {
+    let root_ref = text(run, "admitted_state_root_ref");
+    if root_ref.is_empty() {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_admitted_state_binding_missing",
+            "The GoalRun does not name an admitted Agentgres state root.",
+        ));
+    }
+    let state = load_activation_state(data_dir, root_ref)?;
+    let null = Value::Null;
+    let closure_matches = state.get("goal_run_ref") == run.get("goal_ref")
+        && state.get("activation_ref").unwrap_or(&null)
+            == run.get("activation_ref").unwrap_or(&null)
+        && state.get("requesting_principal_ref") == run.get("owner_ref")
+        && state.get("goal_run_profile_revision_ref") == run.get("goal_run_profile_revision_ref")
+        && state.get("goal_run_profile_content_hash") == run.get("goal_run_profile_content_hash")
+        && state
+            .get("goal_run_execution_ceiling_revision_ref")
+            .unwrap_or(&null)
+            == run
+                .get("goal_run_execution_ceiling_revision_ref")
+                .unwrap_or(&null)
+        && state
+            .get("goal_run_execution_ceiling_content_hash")
+            .unwrap_or(&null)
+            == run
+                .get("goal_run_execution_ceiling_content_hash")
+                .unwrap_or(&null)
+        && state.get("declared_invocation_budget").unwrap_or(&null)
+            == run.get("declared_invocation_budget").unwrap_or(&null)
+        && state.get("resolved_component_set_snapshot_ref")
+            == run.get("resolved_component_set_snapshot_ref")
+        && state.get("resolved_component_set_hash") == run.get("resolved_component_set_hash")
+        && state.get("profile_resolution_receipt_ref")
+            == run.get("goal_run_profile_resolution_receipt_ref")
+        && state.get("receipt_obligations").unwrap_or(&null)
+            == run.get("receipt_obligations").unwrap_or(&null);
+    if !closure_matches {
+        return Err(bad(
+            StatusCode::CONFLICT,
+            "goal_run_admitted_state_binding_changed",
+            "The admitted-state root no longer binds the exact GoalRun admission closure.",
+        ));
+    }
+    // A lane with no typed source object commits to the coordinates the daemon itself
+    // resolved, so readback recomputes that commitment instead of trusting the retained hash.
+    if state.get("activation_ref").is_some_and(Value::is_null) {
+        let (source_kind, source_ref) = if text(run, "admission_path_status") == "system_bound" {
+            (
+                "system_bound",
+                run.get("target_system_id").cloned().unwrap_or(Value::Null),
+            )
+        } else {
+            ("direct_api", Value::Null)
+        };
+        let expected = sha256_canonical(&goal_run_source_context_commitment(
+            source_kind,
+            &source_ref,
+            text(run, "owner_ref"),
+        ));
+        if state.get("source_context_hash").and_then(Value::as_str) != Some(expected.as_str()) {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "goal_run_admitted_state_source_context_changed",
+                "The admitted-state source commitment does not reproduce the run's daemon-derived source coordinates.",
+            ));
+        }
+    }
+    Ok(state)
 }
 
 #[derive(Clone)]
@@ -3591,16 +3826,12 @@ fn install_profile_admission_resolution(
     path_request: &mut Value,
     body: &mut Value,
 ) -> Result<(), HttpRefusal> {
+    // Requirement families that bind AT admission — constraint derivation, acceptance, and
+    // budget ceilings — still have no canonical direct-admission owner. Freezing them as
+    // "later" would be a false resolution, so a profile that declares them fails closed.
     for field in [
         "constraint_derivation_policy_refs",
-        "role_topology_requirement_refs",
-        "worker_requirement_refs",
-        "model_route_requirement_refs",
-        "service_requirement_refs",
-        "primitive_capability_requirements",
-        "context_requirement_profile_refs",
         "acceptance_contract_refs",
-        "verifier_requirement_refs",
         "budget_time_and_resource_ceiling_refs",
     ] {
         if !profile_string_values(profile, field)?.is_empty() {
@@ -3612,6 +3843,27 @@ fn install_profile_admission_resolution(
             ));
         }
     }
+    // The later worker/model/service/verifier/context/capability and role-topology predicates
+    // are legitimately unresolved at admission (`goal-pursuit.md`). Admit them as the exact
+    // declared requirement sets so the resolution receipt freezes them as still-unresolved
+    // late bindings; nothing here calls a later choice resolved.
+    let profile_role_topology_requirement_refs =
+        profile_string_values(profile, "role_topology_requirement_refs")?;
+    let mut profile_worker_model_service_and_verifier_requirement_refs =
+        std::collections::BTreeSet::new();
+    for field in [
+        "worker_requirement_refs",
+        "model_route_requirement_refs",
+        "service_requirement_refs",
+        "verifier_requirement_refs",
+    ] {
+        profile_worker_model_service_and_verifier_requirement_refs
+            .extend(profile_string_values(profile, field)?);
+    }
+    let profile_primitive_capability_requirement_refs =
+        profile_string_values(profile, "primitive_capability_requirements")?;
+    let profile_context_requirement_profile_refs =
+        profile_string_values(profile, "context_requirement_profile_refs")?;
     for field in [
         "learning_boundary_requirement_ref",
         "pinned_learning_boundary_profile_ref",
@@ -3828,13 +4080,33 @@ fn install_profile_admission_resolution(
     definition.insert("effective_constraint_envelope".into(), constraint_material);
     definition.insert("admitted_override_set_ref".into(), Value::Null);
     definition.insert("admitted_override_set_hash".into(), Value::Null);
-    definition.insert("role_topology_requirement_refs".into(), json!([]));
+    definition.insert(
+        "role_topology_requirement_refs".into(),
+        json!(profile_role_topology_requirement_refs),
+    );
     definition.insert(
         "worker_model_service_and_verifier_requirement_refs".into(),
-        json!([]),
+        json!(profile_worker_model_service_and_verifier_requirement_refs),
     );
-    definition.insert("primitive_capability_requirement_refs".into(), json!([]));
-    definition.insert("unresolved_late_binding_requirement_refs".into(), json!([]));
+    definition.insert(
+        "primitive_capability_requirement_refs".into(),
+        json!(profile_primitive_capability_requirement_refs),
+    );
+    definition.insert(
+        "context_requirement_profile_refs".into(),
+        json!(profile_context_requirement_profile_refs),
+    );
+    // The still-unresolved late-binding set is derived by the kernel resolver from exactly
+    // these declared predicates; the caller never authors it.
+    definition.remove("unresolved_late_binding_requirement_refs");
+    install_bounded_execution_ceiling(
+        &st.data_dir,
+        definition,
+        DIRECT_BOUNDED_CEILING_FAMILY,
+        DIRECT_BOUNDED_CEILING_KEY,
+        1,
+        1,
+    )?;
     definition.insert(
         "compatibility_revocation_and_admission_decision_refs".into(),
         json!([]),
@@ -4504,6 +4776,21 @@ pub(crate) async fn handle_goal_runs_create(
         safe(&goal_ref),
         constraint_hash
     );
+    // The hosted lane's later worker/model/service/verifier predicates come from the exact
+    // released profile, deduplicated; the kernel resolver freezes whatever stays unresolved.
+    let mut system_worker_model_service_and_verifier_requirement_refs =
+        std::collections::BTreeSet::new();
+    for field in [
+        "worker_requirement_refs",
+        "model_route_requirement_refs",
+        "service_requirement_refs",
+        "verifier_requirement_refs",
+    ] {
+        match profile_string_values(selected_profile, field) {
+            Ok(values) => system_worker_model_service_and_verifier_requirement_refs.extend(values),
+            Err(response) => return response,
+        }
+    }
     let mut system_definition_body = json!({
         "owner_ref": owner_ref,
         "definition_resolution": {
@@ -4519,12 +4806,12 @@ pub(crate) async fn handle_goal_runs_create(
             "orchestration_policy_version_or_hash": policy_hash,
             "component_hashes": {},
             "role_topology_requirement_refs": selected_profile.get("role_topology_requirement_refs").cloned().unwrap_or_else(|| json!([])),
-            "worker_model_service_and_verifier_requirement_refs": [],
+            "worker_model_service_and_verifier_requirement_refs": system_worker_model_service_and_verifier_requirement_refs,
             "primitive_capability_requirement_refs": selected_profile.get("primitive_capability_requirements").cloned().unwrap_or_else(|| json!([])),
+            "context_requirement_profile_refs": selected_profile.get("context_requirement_profile_refs").cloned().unwrap_or_else(|| json!([])),
             "initial_role_topology_revision_ref": topology_ref,
             "initial_role_topology_content_hash": topology_hash,
             "initial_role_topology_decision_ref": decision.get("decision_ref").cloned().unwrap_or(Value::Null),
-            "unresolved_late_binding_requirement_refs": [],
             "effective_learning_boundary_profile_ref": Value::Null,
             "effective_learning_policy_hash": Value::Null,
             "compatibility_revocation_and_admission_decision_refs": [decision.get("decision_ref").cloned().unwrap_or(Value::Null)],
@@ -4541,6 +4828,30 @@ pub(crate) async fn handle_goal_runs_create(
         Some(&profiles),
     ) {
         return response;
+    }
+    match system_definition_body
+        .get_mut("definition_resolution")
+        .and_then(Value::as_object_mut)
+    {
+        Some(definition) => {
+            if let Err(response) = install_bounded_execution_ceiling(
+                &st.data_dir,
+                definition,
+                SYSTEM_BOUNDED_CEILING_FAMILY,
+                SYSTEM_BOUNDED_CEILING_KEY,
+                2,
+                2,
+            ) {
+                return response;
+            }
+        }
+        None => {
+            return bad(
+                StatusCode::CONFLICT,
+                "goal_run_definition_resolution_required",
+                "The System-bound path lost its daemon-resolved definition-resolution request.",
+            )
+        }
     }
     let system_definition_request = system_definition_body
         .get("definition_resolution")
@@ -4682,6 +4993,69 @@ pub(crate) async fn handle_goal_runs_create(
         .cloned()
         .unwrap_or_default();
     admission_receipt_refs.extend(definition_receipt_refs.clone());
+    // The four admission bindings this record must retain (`goal-run-execution.md`): the
+    // activation crossing (null on this daemon-owned lane), the daemon-verified source
+    // context, the admitted Agentgres state root, and the typed receipt obligations.
+    let system_receipt_obligations = vec![
+        json!({
+            "obligation_id": format!("receipt-obligation://goal-run/{goal_run_id}/admission"),
+            "boundary_event":"admission",
+            "receipt_type":"goal_run_admission_path_decision",
+            "receipt_profile_ref":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
+            "bound_fact_requirement_refs":[
+                decision.get("decision_ref").cloned().unwrap_or(Value::Null),
+                json!(goal_ref)
+            ],
+            "required":true
+        }),
+        json!({
+            "obligation_id": format!("receipt-obligation://goal-run/{goal_run_id}/close-or-escalate"),
+            "boundary_event":"close_or_escalate",
+            "receipt_type":"work_result",
+            "receipt_profile_ref":"schema://ioi/foundations/work-result/v3",
+            "bound_fact_requirement_refs":[goal_ref],
+            "required":true
+        }),
+    ];
+    let system_declared_invocation_budget = system_definition_resolution
+        .get("declared_invocation_budget")
+        .filter(|value| !value.is_null())
+        .cloned()
+        .unwrap_or_else(|| json!({"max_total_invocations":2,"max_parallel_invocations":2}));
+    let system_authority_decision_ref = match admit_goal_run_authority_decision(
+        &st.data_dir,
+        &goal_run_id,
+        &goal_ref,
+        &owner_ref,
+        "system_bound",
+        &now,
+    ) {
+        Ok(reference) => reference,
+        Err(response) => return response,
+    };
+    let system_source_context_hash = sha256_canonical(&goal_run_source_context_commitment(
+        "system_bound",
+        body.get("target_system_id").unwrap_or(&Value::Null),
+        &owner_ref,
+    ));
+    let system_admitted_state = match admit_goal_run_state(
+        &st.data_dir,
+        None,
+        &system_source_context_hash,
+        &owner_ref,
+        &system_authority_decision_ref,
+        &goal_ref,
+        selected_profile,
+        &system_definition_resolution,
+        &system_declared_invocation_budget,
+        decision,
+        &system_receipt_obligations,
+        &now,
+        &goal_run_non_grants(),
+    ) {
+        Ok(state) => state,
+        Err(response) => return response,
+    };
     let record = json!({
         "schema_version": GOAL_RUN_SCHEMA_VERSION,
         "goal_run_id": goal_run_id,
@@ -4696,6 +5070,16 @@ pub(crate) async fn handle_goal_runs_create(
         "active_skill_set_snapshot_ref": system_definition_resolution.get("active_skill_set_snapshot_ref"),
         "active_skill_set_hash": system_definition_resolution.get("active_skill_set_hash"),
         "goal_run_profile_resolution_receipt_ref": system_definition_resolution.get("resolution_receipt_ref"),
+        "activation_ref": Value::Null,
+        "source_context_binding": {
+            "target_session_ref": session_ref,
+            "project_ref": project_ref
+        },
+        "goal_run_execution_ceiling_revision_ref": system_definition_resolution.get("goal_run_execution_ceiling_revision_ref"),
+        "goal_run_execution_ceiling_content_hash": system_definition_resolution.get("goal_run_execution_ceiling_content_hash"),
+        "declared_invocation_budget": system_declared_invocation_budget,
+        "receipt_obligations": system_receipt_obligations,
+        "admitted_state_root_ref": text(&system_admitted_state, "state_root_ref"),
         "target_session_ref": session_ref,
         "target_workspace_root": target_workspace,
         "project_ref": project_ref,
@@ -5196,11 +5580,66 @@ fn create_direct_goal_run(
         record_receipt_refs.push(json!(binding.activation_receipt_ref.clone()));
         receipt_obligations = binding.receipt_obligations.clone();
     }
+    // A direct admission carries no explicit execution ceiling, so its declared budget is the
+    // bounded one-invocation floor — an admitted number, never an inferred licence to run more.
+    let declared_invocation_budget = resolution
+        .get("declared_invocation_budget")
+        .filter(|value| !value.is_null())
+        .cloned()
+        .unwrap_or_else(|| json!({"max_total_invocations":1,"max_parallel_invocations":1}));
+    let owner_ref = body
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("user://current")
+        .to_string();
+    let admitted_state_root_ref = match activation {
+        Some(binding) => binding.admitted_state_root_ref.clone(),
+        None => {
+            let authority_decision_ref = match admit_goal_run_authority_decision(
+                &st.data_dir,
+                goal_run_id,
+                goal_ref,
+                &owner_ref,
+                "direct_non_system",
+                &now,
+            ) {
+                Ok(reference) => reference,
+                Err(response) => return response,
+            };
+            let source_context_hash = sha256_canonical(&goal_run_source_context_commitment(
+                "direct_api",
+                &Value::Null,
+                &owner_ref,
+            ));
+            let admitted_state = match admit_goal_run_state(
+                &st.data_dir,
+                None,
+                &source_context_hash,
+                &owner_ref,
+                &authority_decision_ref,
+                goal_ref,
+                &json!({
+                    "revision_ref": decision.get("goal_run_profile_revision_ref"),
+                    "content_hash": decision.get("goal_run_profile_content_hash")
+                }),
+                &resolution,
+                &declared_invocation_budget,
+                decision,
+                &receipt_obligations,
+                &now,
+                &goal_run_non_grants(),
+            ) {
+                Ok(state) => state,
+                Err(response) => return response,
+            };
+            text(&admitted_state, "state_root_ref").to_string()
+        }
+    };
     let mut record = json!({
         "schema_version": CANONICAL_GOAL_RUN_SCHEMA_VERSION,
         "goal_run_id": goal_run_id,
         "goal_ref": goal_ref,
-        "owner_ref": body.get("owner_ref").cloned().unwrap_or_else(|| json!("user://current")),
+        "owner_ref": owner_ref,
         "origin_surface": body.get("origin_surface").cloned().unwrap_or_else(|| json!("api")),
         "normalized_goal": normalized_goal,
         "goal_run_profile_revision_ref": decision.get("goal_run_profile_revision_ref"),
@@ -5238,9 +5677,10 @@ fn create_direct_goal_run(
         "finding_refs": [],
         "receipt_refs": record_receipt_refs,
         "receipt_obligations": receipt_obligations,
-        "admitted_state_root_ref": activation
-            .map(|binding| json!(binding.admitted_state_root_ref.clone()))
-            .unwrap_or_else(|| json!(format!("agentgres://state-root/goal-run/{goal_run_id}"))),
+        "goal_run_execution_ceiling_revision_ref": resolution.get("goal_run_execution_ceiling_revision_ref"),
+        "goal_run_execution_ceiling_content_hash": resolution.get("goal_run_execution_ceiling_content_hash"),
+        "declared_invocation_budget": declared_invocation_budget,
+        "admitted_state_root_ref": admitted_state_root_ref,
         "authority_scope_refs": body.get("authority_scope_refs").cloned().unwrap_or_else(|| json!([])),
         "active_loop_phase": "receive_intent",
         "continuation_state": "open",
@@ -6717,15 +7157,18 @@ pub(crate) async fn handle_goal_run_activation_submit(
         "domain": "ioi.goal-run-receipt-obligations-jcs-sha256.v1",
         "receipt_obligations": receipt_obligations
     }));
-    let admitted_state = match admit_activation_state(
+    let admitted_state = match admit_goal_run_state(
         &st.data_dir,
-        &reference,
+        Some(&reference),
         &sha256_canonical(&goal_draft),
         &principal_ref,
         &authority_decision_ref,
         &goal_ref,
         &resolved_profile.profile,
         &definition_resolution,
+        definition_resolution
+            .get("declared_invocation_budget")
+            .unwrap_or(&Value::Null),
         &decision,
         &receipt_obligations,
         &reviewed_at,
@@ -7054,7 +7497,19 @@ pub(crate) async fn handle_goal_run_get(
                     run.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
                 }) =>
             {
-                (StatusCode::OK, Json(json!({ "ok": true, "goal_run": run })))
+                // Reading a run replays its admission: the named state root must exist, be
+                // backed by its exact Agentgres operation, and still reproduce the closure.
+                match verify_goal_run_admitted_state(&st.data_dir, &run) {
+                    Ok(admitted_state) => (
+                        StatusCode::OK,
+                        Json(json!({
+                            "ok": true,
+                            "goal_run": run,
+                            "admitted_state": admitted_state
+                        })),
+                    ),
+                    Err(response) => response,
+                }
             }
             Some(_) => bad(
                 StatusCode::FORBIDDEN,
@@ -16195,5 +16650,185 @@ mod goal_run_seam_tests {
             root,
             sha256_canonical(&activation_state_commitment(&tampered))
         );
+    }
+
+    fn direct_admitted_state_fixture(
+        data_dir: &str,
+        goal_run_id: &str,
+        owner_ref: &str,
+    ) -> (Value, Value) {
+        let goal_ref = format!("goal://{goal_run_id}");
+        let profile = json!({
+            "revision_ref":"goal-run-profile://generic-adaptive/revision/1",
+            "content_hash":format!("sha256:{}", "b".repeat(64))
+        });
+        let ceiling = execution_ceiling_release(DIRECT_BOUNDED_CEILING_FAMILY, 1, 1)
+            .expect("the daemon-owned bounded direct ceiling is an exact release");
+        let resolution = json!({
+            "resolved_component_set_snapshot_ref":format!("artifact://goal-run/{goal_run_id}/resolved-components"),
+            "resolved_component_set_hash":format!("sha256:{}", "c".repeat(64)),
+            "resolution_receipt_ref":format!("receipt://goal-run/{goal_run_id}/profile-resolution"),
+            "goal_run_execution_ceiling_revision_ref":ceiling["revision_ref"],
+            "goal_run_execution_ceiling_content_hash":ceiling["content_hash"]
+        });
+        let decision = json!({
+            "decision_ref":format!("decision://goal-run/{goal_run_id}/direct"),
+            "decision_receipt_ref":format!("receipt://goal-run/{goal_run_id}/direct-admission")
+        });
+        let obligations = vec![json!({
+            "obligation_id":format!("receipt-obligation://goal-run/{goal_run_id}/close-or-escalate"),
+            "boundary_event":"close_or_escalate",
+            "receipt_type":"work_result",
+            "receipt_profile_ref":"schema://ioi/foundations/work-result/v3",
+            "bound_fact_requirement_refs":[goal_ref],
+            "required":true
+        })];
+        let budget = json!({"max_total_invocations":1,"max_parallel_invocations":1});
+        let source_context_hash = sha256_canonical(&goal_run_source_context_commitment(
+            "direct_api",
+            &Value::Null,
+            owner_ref,
+        ));
+        let state = admit_goal_run_state(
+            data_dir,
+            None,
+            &source_context_hash,
+            owner_ref,
+            &format!("approval://goal-run/{goal_run_id}/principal-scope-resolution"),
+            &goal_ref,
+            &profile,
+            &resolution,
+            &budget,
+            &decision,
+            &obligations,
+            "2026-08-25T16:00:00Z",
+            &goal_run_non_grants(),
+        )
+        .expect("a direct admission mints its content-addressed admitted state");
+        let run = json!({
+            "goal_run_id":goal_run_id,
+            "goal_ref":goal_ref,
+            "owner_ref":owner_ref,
+            "admission_path_status":"direct_non_system",
+            "activation_ref":Value::Null,
+            "goal_run_profile_revision_ref":profile["revision_ref"],
+            "goal_run_profile_content_hash":profile["content_hash"],
+            "goal_run_execution_ceiling_revision_ref":resolution["goal_run_execution_ceiling_revision_ref"],
+            "goal_run_execution_ceiling_content_hash":resolution["goal_run_execution_ceiling_content_hash"],
+            "declared_invocation_budget":budget,
+            "resolved_component_set_snapshot_ref":resolution["resolved_component_set_snapshot_ref"],
+            "resolved_component_set_hash":resolution["resolved_component_set_hash"],
+            "goal_run_profile_resolution_receipt_ref":resolution["resolution_receipt_ref"],
+            "receipt_obligations":obligations,
+            "admitted_state_root_ref":state["state_root_ref"]
+        });
+        (state, run)
+    }
+
+    #[test]
+    fn a_direct_admission_commits_a_content_addressed_agentgres_state_root() {
+        let directory = temp_dir("direct-admitted-state");
+        let data_dir = directory.to_str().unwrap();
+        let (state, run) = direct_admitted_state_fixture(data_dir, "gr_direct_one", "user://owner");
+        // Direct admissions retain a null activation ref and a real, reproducible root.
+        assert_eq!(state["activation_ref"], Value::Null);
+        assert_eq!(
+            state["state_root_ref"],
+            json!(format!(
+                "agentgres://state-root/goal-run/gr_direct_one/{}",
+                state["state_root"].as_str().unwrap()
+            ))
+        );
+        assert_eq!(
+            sha256_canonical(&activation_state_commitment(&state)),
+            state["state_root"].as_str().unwrap()
+        );
+        assert_eq!(
+            state["declared_invocation_budget"],
+            json!({"max_total_invocations":1,"max_parallel_invocations":1})
+        );
+        let replayed = verify_goal_run_admitted_state(data_dir, &run)
+            .expect("the admitted run replays its exact admission closure");
+        assert_eq!(replayed, state);
+    }
+
+    #[test]
+    fn goal_run_readback_fails_closed_on_absent_or_tampered_admitted_state() {
+        let directory = temp_dir("admitted-state-readback");
+        let data_dir = directory.to_str().unwrap();
+        let (state, run) = direct_admitted_state_fixture(data_dir, "gr_direct_two", "user://owner");
+
+        let mut unbound = run.clone();
+        unbound["admitted_state_root_ref"] = json!("");
+        assert_eq!(
+            refusal_code(verify_goal_run_admitted_state(data_dir, &unbound)),
+            "goal_run_admitted_state_binding_missing"
+        );
+
+        let mut absent = run.clone();
+        absent["admitted_state_root_ref"] = json!(format!(
+            "agentgres://state-root/goal-run/gr_direct_two/sha256:{}",
+            "e".repeat(64)
+        ));
+        assert_eq!(
+            refusal_code(verify_goal_run_admitted_state(data_dir, &absent)),
+            "goal_run_activation_state_evidence_missing"
+        );
+
+        // A run whose retained closure drifted from the admitted root is not readable.
+        let mut drifted = run.clone();
+        drifted["goal_run_profile_content_hash"] = json!(format!("sha256:{}", "f".repeat(64)));
+        assert_eq!(
+            refusal_code(verify_goal_run_admitted_state(data_dir, &drifted)),
+            "goal_run_admitted_state_binding_changed"
+        );
+
+        // A different owner cannot be the run's source coordinate under the same root.
+        let mut restamped = run.clone();
+        restamped["owner_ref"] = json!("user://outsider");
+        assert_eq!(
+            refusal_code(verify_goal_run_admitted_state(data_dir, &restamped)),
+            "goal_run_admitted_state_binding_changed"
+        );
+
+        // Tampering the retained evidence itself breaks root reproduction.
+        let key = activation_state_key(state["state_root"].as_str().unwrap()).unwrap();
+        let mut tampered = state.clone();
+        tampered["requesting_principal_ref"] = json!("user://outsider");
+        std::fs::write(
+            directory
+                .join(GOAL_RUN_ADMITTED_STATE_KIND)
+                .join(format!("{key}.json")),
+            serde_json::to_vec_pretty(&tampered).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            refusal_code(verify_goal_run_admitted_state(data_dir, &run)),
+            "goal_run_activation_state_integrity_failure"
+        );
+    }
+
+    #[test]
+    fn a_null_activation_state_must_reproduce_its_daemon_derived_source_coordinates() {
+        let directory = temp_dir("admitted-state-source");
+        let data_dir = directory.to_str().unwrap();
+        let (_, run) = direct_admitted_state_fixture(data_dir, "gr_direct_three", "user://owner");
+        // The System-bound commitment is a different source coordinate, so claiming that lane
+        // over a direct root fails closed rather than reading as an admitted System run.
+        let mut relabelled = run.clone();
+        relabelled["admission_path_status"] = json!("system_bound");
+        relabelled["target_system_id"] = json!("system://hosted-one");
+        assert_eq!(
+            refusal_code(verify_goal_run_admitted_state(data_dir, &relabelled)),
+            "goal_run_admitted_state_source_context_changed"
+        );
+    }
+
+    fn refusal_code(result: Result<Value, HttpRefusal>) -> String {
+        let Json(body) = result.expect_err("a refusal was required").1;
+        body.pointer("/error/code")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
     }
 }
