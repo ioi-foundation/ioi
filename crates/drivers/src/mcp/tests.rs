@@ -56,6 +56,64 @@ async fn execute_tool_rejects_expired_lease() {
     assert!(rendered.contains("capability_lease_expired"));
 }
 
+#[tokio::test(flavor = "current_thread")]
+async fn stop_server_removes_live_routes_and_admission_cache() {
+    let manager = McpManager::new();
+    let fixture = std::fs::canonicalize(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../scripts/fixtures/mcp-stdio-echo-server.mjs"),
+    )
+    .expect("canonical fixture MCP server");
+    manager
+        .start_server(
+            "fixture_stop",
+            McpMode::Development,
+            McpServerConfig {
+                command: "node".to_string(),
+                args: vec![fixture.to_string_lossy().to_string()],
+                env: HashMap::new(),
+                tier: McpServerTier::Unverified,
+                source: McpServerSource::LocalBin,
+                integrity: McpIntegrityConfig::default(),
+                containment: McpContainmentConfig {
+                    mode: McpContainmentMode::DeveloperUnconfined,
+                    ..McpContainmentConfig::default()
+                },
+                allowed_tools: vec!["query".to_string()],
+            },
+        )
+        .await
+        .expect("start fixture MCP server");
+    assert_eq!(manager.get_all_tools().await.len(), 1);
+    assert_eq!(manager.get_server_receipts().await.len(), 1);
+
+    assert!(manager
+        .stop_server("fixture_stop")
+        .await
+        .expect("stop fixture MCP server"));
+    assert!(manager.get_all_tools().await.is_empty());
+    assert!(manager.get_server_receipts().await.is_empty());
+    assert!(!manager
+        .stop_server("fixture_stop")
+        .await
+        .expect("idempotent stop"));
+
+    let mut spec = mcp_spec(0, u64::MAX);
+    spec.capability_lease
+        .as_mut()
+        .expect("capability lease")
+        .capability_allowlist = vec!["fixture_stop__query".to_string()];
+    let error = manager
+        .execute_tool_with_spec(
+            "fixture_stop__query",
+            serde_json::json!({ "q": "after-stop" }),
+            Some(&spec),
+        )
+        .await
+        .expect_err("stopped server must not remain routable");
+    assert!(format!("{error:#}").contains("not found in any active MCP server"));
+}
+
 #[test]
 fn production_rejects_installer_command() {
     let cfg = McpServerConfig {

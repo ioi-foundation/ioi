@@ -211,6 +211,24 @@ impl McpTransport {
         });
         self.send_request("tools/call", params).await
     }
+
+    /// Stop the owned MCP subprocess and fail every request that was waiting on it.
+    /// `kill_on_drop` remains the last-resort containment boundary, while this
+    /// explicit path makes disable/remove deterministic for the control plane.
+    pub async fn shutdown(&self) -> Result<()> {
+        {
+            let mut pending = self.pending_requests.lock().unwrap();
+            for (_, sender) in pending.drain() {
+                let _ = sender.send(Err(anyhow!("MCP Server stopped")));
+            }
+        }
+
+        let mut child = self._child.lock().await;
+        if child.try_wait()?.is_none() {
+            child.kill().await?;
+        }
+        Ok(())
+    }
 }
 
 fn mcp_request_timeout() -> Duration {

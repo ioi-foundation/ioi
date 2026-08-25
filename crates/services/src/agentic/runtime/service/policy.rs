@@ -126,6 +126,33 @@ pub fn install_constrained_browser_navigation_policy(
     )
 }
 
+/// Constrained session policy whose only extension allowance is one exact
+/// namespaced MCP tool. Contract admission, WorkloadSpec lease validation, and
+/// driver containment remain mandatory after this policy decision.
+pub fn install_constrained_extension_invoke_policy(
+    state: &mut dyn StateAccess,
+    session_id: [u8; 32],
+    tool_name: &str,
+) -> Result<(), TransactionError> {
+    let tool_name = tool_name.trim();
+    if !tool_name.contains("__") {
+        return Err(TransactionError::Invalid(
+            "constrained extension policy requires a namespaced tool".to_string(),
+        ));
+    }
+    install_constrained_session_policy(
+        state,
+        session_id,
+        "hypervisor-runtime-host-extension-invoke",
+        vec![Rule {
+            rule_id: Some("allow-extension-invoke".to_string()),
+            target: tool_name.to_string(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        }],
+    )
+}
+
 fn decode_action_rules(bytes: &[u8]) -> Option<ActionRules> {
     codec::from_bytes_canonical::<ActionRules>(bytes).ok()
 }

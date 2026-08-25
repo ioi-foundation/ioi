@@ -254,6 +254,12 @@ pub(crate) struct DaemonState {
     pub(crate) data_dir: String,
     pub(crate) enforcement_coverage_registry:
         Mutex<ioi_services::agentic::runtime::enforcement_coverage::EnforcementCoverageRegistry>,
+    pub(crate) mcp_manager: Arc<ioi_drivers::mcp::McpManager>,
+    pub(crate) runtime_tool_contract_registry: Arc<
+        std::sync::RwLock<
+            ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry,
+        >,
+    >,
     // The workspace the daemon projects skills/hooks + repository context against (real
     // filesystem + git scans). Defaults to the daemon's cwd.
     pub(crate) workspace_root: String,
@@ -594,13 +600,21 @@ async fn async_main() -> anyhow::Result<()> {
     // bootstrap token to the host log. Loopback itself never becomes an administrator credential.
     lifecycle_routes::startup_auth_notice(&data_dir)
         .map_err(|error| anyhow::anyhow!("identity bootstrap blocks readiness: {error}"))?;
+    operability_routes::verify_mcp_route_classification()
+        .map_err(|error| anyhow::anyhow!("MCP route classification blocks readiness: {error}"))?;
     let enforcement_coverage_registry = enforcement_coverage_routes::restore_registry(&data_dir)
         .map_err(|error| anyhow::anyhow!("enforcement coverage blocks readiness: {error}"))?;
+    let runtime_tool_contract_registry = Arc::new(std::sync::RwLock::new(
+        ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry::seeded_native()
+            .map_err(|error| anyhow::anyhow!("runtime tool-contract seed blocks readiness: {error}"))?,
+    ));
     let state = Arc::new(DaemonState {
         inference,
         model_name,
         data_dir,
         enforcement_coverage_registry: Mutex::new(enforcement_coverage_registry),
+        mcp_manager: Arc::new(ioi_drivers::mcp::McpManager::new()),
+        runtime_tool_contract_registry,
         workspace_root,
         home_dir,
         base_url: format!("http://{addr}"),
@@ -930,6 +944,70 @@ async fn async_main() -> anyhow::Result<()> {
             get(lifecycle_routes::handle_mcp_tool_search),
         )
         .route(
+            "/v1/threads/:id/mcp/tools/:tool_id",
+            get(lifecycle_routes::handle_mcp_tool_get),
+        )
+        .route(
+            "/v1/threads/:id/mcp/tools/:tool_id/invoke",
+            post(lifecycle_routes::handle_mcp_tool_invoke),
+        )
+        .route(
+            "/v1/threads/:id/mcp/resources/search",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/resources/:resource_id",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/resources/:resource_id/read",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/prompts/search",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/prompts/:prompt_id",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/prompts/:prompt_id/imports",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/elicitation-requests",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/elicitation-requests/:request_id/responses",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/external-task-bindings",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/external-task-bindings/:binding_id",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/external-task-bindings/:binding_id/cancel",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/apps/search",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
+            "/v1/threads/:id/mcp/apps/:app_id/descriptor",
+            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+        )
+        .route(
+            "/v1/threads/:id/mcp/serve",
+            post(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+        )
+        .route(
             "/v1/mcp/servers",
             get(lifecycle_routes::handle_mcp_discover_servers),
         )
@@ -984,7 +1062,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/threads/:id/mcp/status",
-            post(lifecycle_routes::handle_mcp_status),
+            get(lifecycle_routes::handle_mcp_thread_status)
+                .post(lifecycle_routes::handle_mcp_status),
         )
         .route(
             "/v1/threads/:id/mcp/validate",
@@ -6923,6 +7002,99 @@ fn process_mcp_integrations(
 
 /// POST /v1/model-mount/mcp/import — register MCP servers (auth headers redacted
 /// to a hash; the raw vault ref is never persisted).
+pub(crate) async fn start_and_admit_mcp_server(
+    st: &DaemonState,
+    label: &str,
+    config: &Value,
+) -> Result<Vec<String>, AppError> {
+    let entry: ioi_types::config::McpConfigEntry =
+        serde_json::from_value(config.clone()).map_err(|error| {
+            AppError(
+                StatusCode::BAD_REQUEST,
+                format!("invalid MCP stdio config for '{label}': {error}"),
+            )
+        })?;
+    let mode = match config.get("mode").and_then(Value::as_str) {
+        Some("development") => ioi_types::config::McpMode::Development,
+        Some("production") => ioi_types::config::McpMode::Production,
+        _ => {
+            return Err(AppError(
+                StatusCode::BAD_REQUEST,
+                format!("MCP stdio server '{label}' requires mode development or production"),
+            ))
+        }
+    };
+    st.mcp_manager
+        .start_server(
+            label,
+            mode,
+            ioi_drivers::mcp::McpServerConfig {
+                command: entry.command,
+                args: entry.args,
+                env: entry.env,
+                tier: entry.tier,
+                source: entry.source,
+                integrity: entry.integrity,
+                containment: entry.containment,
+                allowed_tools: entry.allowed_tools,
+            },
+        )
+        .await
+        .map_err(|error| AppError(StatusCode::UNPROCESSABLE_ENTITY, error.to_string()))?;
+    let definitions = match st.mcp_manager.list_admitted_tools_for_server(label).await {
+        Ok(definitions) => definitions,
+        Err(error) => {
+            let _ = st.mcp_manager.stop_server(label).await;
+            return Err(AppError(StatusCode::BAD_GATEWAY, error.to_string()));
+        }
+    };
+    let receipt = st
+        .mcp_manager
+        .get_server_receipts()
+        .await
+        .into_iter()
+        .find(|receipt| receipt.server_name == label)
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::BAD_GATEWAY,
+                format!("MCP server '{label}' started without an admission receipt"),
+            )
+        });
+    let receipt = match receipt {
+        Ok(receipt) => receipt,
+        Err(error) => {
+            let _ = st.mcp_manager.stop_server(label).await;
+            return Err(error);
+        }
+    };
+    let receipt_ref = format!(
+        "receipt://mcp-server/{}/{}/{}",
+        label, receipt.command_sha256, receipt.started_at_ms
+    );
+    let admitted = st
+        .runtime_tool_contract_registry
+        .write()
+        .map_err(|_| {
+            AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "runtime tool-contract registry lock poisoned".to_string(),
+            )
+        })?
+        .admit_mcp_server_tools(label, &definitions, &receipt_ref)
+        .map_err(|error| AppError(StatusCode::UNPROCESSABLE_ENTITY, error.to_string()));
+    let admitted = match admitted {
+        Ok(admitted) => admitted,
+        Err(error) => {
+            let _ = st.mcp_manager.stop_server(label).await;
+            return Err(error);
+        }
+    };
+    Ok(admitted
+        .into_iter()
+        .map(|resolved| resolved.contract.revision_ref)
+        .collect())
+}
+
 async fn handle_mcp_import(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -6947,40 +7119,57 @@ async fn handle_mcp_import(
             .and_then(|h| h.get("authorization"))
             .and_then(|v| v.as_str())
             .map(|secret| format!("sha256:{}", sha256_hex_str(secret)));
+        let contract_revision_refs = if config.get("command").is_some() {
+            start_and_admit_mcp_server(&st, label, config).await?
+        } else {
+            Vec::new()
+        };
         let record = json!({
             "id": label, "label": label, "url": url, "allowedTools": allowed,
-            "authRefHash": auth_ref_hash, "status": "imported",
+            "authRefHash": auth_ref_hash,
+            "status": if config.get("command").is_some() { "live_admitted" } else { "imported_candidate" },
             "object": "ioi.model_mount_mcp_server",
+            "transport": if config.get("command").is_some() { "stdio" } else { "streamable_http_candidate" },
+            "live": config.get("command").is_some(),
+            "runtimeToolContractRevisionRefs": contract_revision_refs,
+            "protocolVersion": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
         });
-        let _ = persist_record(&st.data_dir, "model-mcp-servers", label, &record);
+        persist_record(&st.data_dir, "model-mcp-servers", label, &record).map_err(|error| {
+            AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("MCP server record '{label}' did not commit: {error}"),
+            )
+        })?;
         imported.push(record);
         count += 1;
     }
     Ok(Json(json!({ "count": count, "servers": imported })))
 }
 
-fn mcp_live_execution_unavailable(server_label: &str, tool: &str) -> AppError {
-    AppError(
-        StatusCode::NOT_IMPLEMENTED,
-        format!(
-            "mcp_live_execution_unavailable: no MCP transport invocation was attempted for '{server_label}.{tool}', so no execution receipt or executed status can be issued"
-        ),
-    )
-}
-
-/// POST /v1/model-mount/mcp/invoke — fail closed until this compatibility route is
-/// wired to the admitted RuntimeAgentService invoker. A pre-invocation authorization
-/// check is not execution evidence and must never mint an execution receipt.
+/// POST /v1/model-mount/mcp/invoke — compatibility client for the canonical
+/// thread-scoped MCP invocation route. It requires an explicit thread coordinate
+/// and delegates execution, contract admission, wallet authority, and result truth.
 async fn handle_mcp_invoke(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>,
+    Json(mut body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
+    let thread_id = body
+        .get("thread_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "thread_id is required".to_string()))?
+        .to_string();
     let server_label = body
         .get("server_label")
         .and_then(|v| v.as_str())
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "server_label is required".to_string()))?
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::BAD_REQUEST,
+                "server_label is required".to_string(),
+            )
+        })?
         .to_string();
     let tool = body
         .get("tool")
@@ -6989,7 +7178,26 @@ async fn handle_mcp_invoke(
         .ok_or_else(|| AppError(StatusCode::BAD_REQUEST, "tool is required".to_string()))?
         .to_string();
     authorize(&st, &headers, &format!("mcp.call:{server_label}.{tool}"))?;
-    Err(mcp_live_execution_unavailable(&server_label, &tool))
+    let Some(object) = body.as_object_mut() else {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "MCP invocation body must be an object".to_string(),
+        ));
+    };
+    let tool_id = format!("{}__{}", server_label, tool);
+    object.insert("server_id".to_string(), json!(server_label));
+    object.insert("tool_name".to_string(), json!(tool));
+    let (status, Json(result)) = lifecycle_routes::handle_mcp_tool_invoke(
+        State(st),
+        AxumPath((thread_id, tool_id)),
+        Json(body),
+    )
+    .await;
+    if status.is_success() {
+        Ok(Json(result))
+    } else {
+        Err(AppError(status, result.to_string()))
+    }
 }
 
 /// GET /v1/model-mount/mcp — list registered MCP servers.
@@ -8703,21 +8911,6 @@ async fn handle_session_turn(
         }
     }
     ([(header::CONTENT_TYPE, "text/event-stream")], sse)
-}
-
-#[cfg(test)]
-mod model_mount_mcp_tests {
-    use super::*;
-
-    #[test]
-    fn unavailable_live_mcp_route_never_claims_execution() {
-        let error = mcp_live_execution_unavailable("calendar", "create_event");
-
-        assert_eq!(error.0, StatusCode::NOT_IMPLEMENTED);
-        assert!(error.1.contains("no MCP transport invocation was attempted"));
-        assert!(error.1.contains("no execution receipt or executed status"));
-        assert!(!error.1.contains("status\":\"executed"));
-    }
 }
 
 #[cfg(test)]

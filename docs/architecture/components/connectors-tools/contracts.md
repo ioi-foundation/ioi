@@ -10,13 +10,15 @@ Supersedes: older flattened tool capability examples in plans/specs.
 Superseded by: none.
 Last alignment pass: 2026-08-24.
 Doctrine status: canonical
-Implementation status: partial (the RuntimeToolContract owner, immutable native/seeded-connector registry, daemon invocation admission, pre-invocation receipts, information-flow checks, and daemon tool catalog are live for `RuntimeAgentService`; the registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide wider contract substrate, and a conforming `ScmPublicationEffect` runtime path is live on `POST /v1/hypervisor/environments/{id}/scm/publish`; MCP transport normalization, estate-wide IFC propagation/enforcement, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, immutable gateway requirements, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, a bound review-request host surface, and the whole of `ioi.scm-publication-effect.v2` remain planned)
+Implementation status: partial (the RuntimeToolContract owner, immutable native/seeded-connector/live-MCP registry, shared final-invoker admission, pre-invocation receipts, information-flow checks, daemon tool catalog, MCP route classification, and canonical live MCP tool invocation are implemented; non-tool MCP primitives and subject-scoped gateway profiles fail typed-unavailable, while estate-wide IFC propagation/enforcement, general inbound connector subscriptions, OutcomeRoom discussion/artifact resolution, remaining browser/computer-use families, `LocalAgentPairingSessionEnvelope` bindings, room-admitted local-agent gateway issuance, a bound review-request host surface, and the whole of `ioi.scm-publication-effect.v2` remain planned)
 Implementation refs:
   - `crates/services/src/agentic/runtime/runtime_tool_contract_registry.rs`
   - `crates/services/src/agentic/runtime/service/handler/execution/runtime_tool_admission.rs`
   - `crates/services/src/agentic/runtime/tools/contracts.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
-Last implementation audit: 2026-08-24 (`RuntimeAgentService` resolves a released immutable contract after deterministic tool normalization and before prepare or invocation; unadmitted discovery candidates and direct invocations fail closed; exact contract/grant/information-flow coordinates are receipted in runtime state; MCP normalization and canonical harness-chain convergence remain separately owned work; `ScmPublicationEffect` v1 has a conforming runtime path whose refusal branches are pinned by tests, with the review-request host surface still unbound; `ScmPublicationEffect` v2 remains registered substrate only)
+  - `crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs`
+  - `apps/hypervisor/scripts/verify-mcp-transport-normalization.mjs`
+Last implementation audit: 2026-08-24 (`RuntimeAgentService` resolves a released immutable contract after deterministic tool normalization and before prepare or invocation; live MCP descriptors enter that registry atomically and live calls converge on the same final invoker; all 36 externally reachable MCP routes are startup-classified; non-tool primitives and an unbound external gateway fail typed-unavailable without minting authority or receipt identity; canonical harness-chain convergence remains separately owned work; `ScmPublicationEffect` v1 has a conforming runtime path whose refusal branches are pinned by tests, with the review-request host surface still unbound; `ScmPublicationEffect` v2 remains registered substrate only)
 
 ## Purpose
 
@@ -123,12 +125,19 @@ an idempotent pre-invocation receipt binding the exact session, step, normalized
 arguments, contract revision/hash, `prim:*` grants, `scope:*` grants, and grant
 source. It does not claim that the receipt proves a later invocation or effect.
 
-This closure is deliberately scoped to the canonical agent-runtime execution
-owner. Live MCP primitive normalization and proof that MCP calls converge on
-this same final invoker remain under that transport's work. Consolidating the
-independent session/harness routes into the canonical mounted execution chain
-also remains separate work; neither absence permits an uncontracted call through
-`RuntimeAgentService`.
+This closure now includes live MCP tool descriptors and calls: descriptors are
+atomically admitted under the server receipt and the canonical thread-scoped
+import/add routes start explicitly live stdio configurations, bind the resulting
+immutable revision refs into the owning thread's daemon record, and expose only
+those bound descriptors through canonical search/detail/invoke. Disable/remove
+deterministically tear down transport routing; enable restarts the retained live
+configuration, reusing an identical contract or admitting a predecessor-bound
+successor when the descriptor changed. The invoke route re-enters this same final
+invoker. Resource, prompt, elicitation,
+external-task, App, serve, and unbound external-gateway surfaces remain explicit
+typed-unavailable mappings. Consolidating the independent session/harness routes
+into the canonical mounted execution chain remains separate work; that absence
+does not permit an uncontracted call through `RuntimeAgentService`.
 
 ## MCP Gateway Requirement
 

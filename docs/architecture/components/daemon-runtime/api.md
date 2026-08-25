@@ -2678,12 +2678,10 @@ MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
 tool invocation to Hypervisor App, Hypervisor Web, CLI/headless clients,
 optional TUI views, SDK, ADK, Developer Workspace, Workflow Compositor, Foundry
 surfaces, other application surfaces, and Environments views.
-Thread-scoped MCP routes are the canonical target protocol APIs. Current master
-still mounts top-level `/v1/mcp`, `/v1/mcp/servers`, `/v1/mcp/tools`,
-`/v1/mcp/resources`, and `/v1/mcp/prompts` routes. They are live
-implementation drift/compatibility surfaces pending explicit classification or
-retirement; their presence does not make them the canonical thread-scoped
-contract.
+Thread-scoped MCP routes are the canonical protocol APIs. Top-level `/v1/mcp`,
+`/v1/mcp/servers`, `/v1/mcp/tools`, `/v1/mcp/resources`, and `/v1/mcp/prompts`
+remain explicitly classified compatibility projections; their presence does
+not make them canonical runtime truth.
 
 ```http
 GET  /v1/threads/{thread_id}/mcp/status
@@ -2734,12 +2732,20 @@ never authority approval. An MCP Task never supplies GoalRun, AutomationRun,
 WorkRun, or receipt identity. An MCP App descriptor never authorizes direct
 host or provider mutation.
 
-Implementation status: the audited live slice remains tool-centric and has
-protocol-version/session-assumption drift across transports. Resource, prompt,
-elicitation, external-task, and App normalization routes above are target
-contract. Until implemented, they fail typed-unavailable; clients must not use
-the live top-level `/v1/mcp*` compatibility surfaces or private state to
-simulate the missing thread-scoped semantics.
+Implementation status: the audited live tool slice admits namespaced descriptors
+as immutable `RuntimeToolContract` revisions and routes canonical and legacy
+model-mount invocation through `RuntimeAgentService.handle_action_execution`.
+Canonical import/add starts only explicitly live configurations and records
+daemon-produced revision bindings on the owning thread. Search, detail, and
+invoke refuse an unbound or disabled revision; disable/remove terminate the
+subprocess and clear routing caches, while enable restarts retained live config.
+Stdio and Streamable HTTP enforce MCP `2025-06-18`; the SDK, CLI, and docs name
+the thread-scoped routes. All 36 MCP-bearing public routes have one startup-fatal
+classification. Resource, prompt, elicitation, external-task, App, and serve
+routes are mounted but return typed-unavailable with no authority or receipt
+identity until their canonical owners are implemented. Top-level `/v1/mcp*`
+routes remain explicitly classified compatibility projections, not canonical
+runtime truth.
 
 ## Memory API
 

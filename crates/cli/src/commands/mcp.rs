@@ -43,6 +43,9 @@ pub enum McpCommands {
     Ls,
     /// Invoke a governed MCP tool through the runtime daemon.
     Invoke {
+        /// Existing runtime thread that owns invocation state and authority.
+        #[clap(long)]
+        thread_id: String,
         #[clap(long)]
         server_label: String,
         #[clap(long)]
@@ -131,6 +134,7 @@ pub async fn run(args: McpArgs) -> Result<()> {
             return print_value(&value, args.json);
         }
         McpCommands::Invoke {
+            thread_id,
             server_label,
             tool,
             input_json,
@@ -142,7 +146,12 @@ pub async fn run(args: McpArgs) -> Result<()> {
                 args.token.as_deref(),
                 Method::POST,
                 "/v1/model-mount/mcp/invoke",
-                Some(json!({ "server_label": server_label, "tool": tool, "input": input })),
+                Some(json!({
+                    "thread_id": thread_id,
+                    "server_label": server_label,
+                    "tool": tool,
+                    "arguments": input,
+                })),
             )
             .await?;
             return print_value(&value, args.json);

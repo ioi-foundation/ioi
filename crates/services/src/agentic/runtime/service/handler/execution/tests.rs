@@ -7,6 +7,7 @@ use super::{normalize_web_research_tool_call, reconcile_pending_web_research_too
 use crate::agentic::rules::{ActionRules, DefaultPolicy};
 use crate::agentic::runtime::execution::system::software_install_plan_ref_for_request;
 use crate::agentic::runtime::runtime_secret;
+use crate::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::trajectory::workspace_change_record_from_tool;
 use crate::agentic::runtime::types::{
@@ -24,6 +25,7 @@ use ioi_api::vm::inference::{
     VisionReadRequest, VisionReadResult,
 };
 use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::mcp::{McpManager, McpServerConfig};
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::agentic::{
     AgentTool, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState, ScreenAction,
@@ -34,10 +36,14 @@ use ioi_types::app::{
     KernelEvent, ModelLifecycleOperationKind, NetMode, RegistrySubjectKind, RuntimeTarget,
     WorkloadActivityKind, WorkloadReceipt,
 };
+use ioi_types::config::{
+    McpContainmentConfig, McpContainmentMode, McpIntegrityConfig, McpMode, McpServerSource,
+    McpServerTier,
+};
 use ioi_types::error::StateError;
 use ioi_types::error::VmError;
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::collections::{BTreeMap, HashMap};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::time::{sleep, Duration, Instant};
 
@@ -577,6 +583,88 @@ async fn workspace_change_rollback_binds_policy_path_from_change_record_under_au
         "old\n"
     );
     let _ = std::fs::remove_dir_all(&workspace);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn admitted_mcp_tool_executes_through_universal_final_invoker() {
+    let manager = Arc::new(McpManager::new());
+    let fixture = std::fs::canonicalize(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../scripts/fixtures/mcp-stdio-echo-server.mjs"),
+    )
+    .expect("canonical fixture MCP server");
+    manager
+        .start_server(
+            "fixture",
+            McpMode::Development,
+            McpServerConfig {
+                command: "node".to_string(),
+                args: vec![fixture.to_string_lossy().to_string()],
+                env: HashMap::new(),
+                tier: McpServerTier::Unverified,
+                source: McpServerSource::LocalBin,
+                integrity: McpIntegrityConfig::default(),
+                containment: McpContainmentConfig {
+                    mode: McpContainmentMode::DeveloperUnconfined,
+                    ..McpContainmentConfig::default()
+                },
+                allowed_tools: vec!["query".to_string()],
+            },
+        )
+        .await
+        .expect("start fixture MCP server");
+
+    let definitions = manager.get_all_tools().await;
+    let mut registry = RuntimeToolContractRegistry::seeded_native().expect("seed registry");
+    let admitted = registry
+        .admit_mcp_server_tools(
+            "fixture",
+            &definitions,
+            "receipt://mcp-server/fixture/final-invoker-test",
+        )
+        .expect("admit fixture descriptors");
+    assert_eq!(admitted.len(), 1);
+
+    let runtime = Arc::new(RecordingInferenceRuntime::default());
+    let service = build_test_service(runtime, None)
+        .with_mcp_manager(manager)
+        .with_runtime_tool_contract_registry(Arc::new(std::sync::RwLock::new(registry)));
+    let rules = ActionRules {
+        policy_id: "mcp-final-invoker-test".to_string(),
+        defaults: DefaultPolicy::AllowAll,
+        ..ActionRules::default()
+    };
+    let os_driver: Arc<dyn OsDriver> = Arc::new(SlowWindowOsDriver);
+    let tool = AgentTool::Dynamic(serde_json::json!({
+        "name": "fixture__query",
+        "arguments": { "q": "hello" }
+    }));
+
+    let result = super::handle_action_execution(
+        &service,
+        tool,
+        [11u8; 32],
+        1,
+        [0u8; 32],
+        &rules,
+        &test_agent_state(),
+        &os_driver,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("universal final invoker should execute admitted MCP tool");
+
+    assert!(result.0, "MCP action must report success: {result:?}");
+    assert!(
+        result
+            .1
+            .as_deref()
+            .is_some_and(|entry| entry.contains("query:hello")),
+        "live MCP result must survive the final-invoker path: {result:?}"
+    );
+    assert!(result.2.is_none(), "unexpected MCP error: {result:?}");
 }
 
 #[test]

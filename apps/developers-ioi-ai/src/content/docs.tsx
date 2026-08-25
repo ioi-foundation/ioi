@@ -478,7 +478,7 @@ for await (const event of run.stream()) {
               isDark={isDark}
               headers={['Area', 'Product-facing surface']}
               rows={[
-                ['MCP/tools', <code>GET /v1/mcp/tools, GET /v1/mcp/tools/search, POST /v1/mcp/tools/{'{tool_id}'}/invoke, POST /v1/mcp/import</code>],
+                ['MCP/tools', <code>GET /v1/threads/{'{thread_id}'}/mcp/tools/search, GET /v1/threads/{'{thread_id}'}/mcp/tools/{'{tool_id}'}, POST /v1/threads/{'{thread_id}'}/mcp/tools/{'{tool_id}'}/invoke, POST /v1/threads/{'{thread_id}'}/mcp/import</code>],
                 ['Memory', <code>GET /v1/memory, GET /v1/memory/records, POST /v1/memory/validate</code>],
                 ['Events', <code>GET /v1/runs/{'{run_id}'}/events</code>],
                 ['Traces', <code>GET /v1/runs/{'{run_id}'}/trace, GET /v1/runs/{'{run_id}'}/inspect</code>],
@@ -1001,7 +1001,7 @@ for await (const event of run.stream()) {
               headers={['Area', 'Routes']}
               rows={[
                 ['Agents/runs', <code>/v1/agents, /v1/runs/{'{run_id}'}/events, /v1/runs/{'{run_id}'}/trace</code>],
-                ['MCP', <code>/v1/mcp, /v1/mcp/tools, /v1/mcp/import, /v1/mcp/serve</code>],
+                ['MCP', <code>/v1/threads/{'{thread_id}'}/mcp/status, /v1/threads/{'{thread_id}'}/mcp/tools/search, /v1/threads/{'{thread_id}'}/mcp/import, /v1/threads/{'{thread_id}'}/mcp/serve</code>],
                 ['Memory', <code>/v1/memory, /v1/memory/records, /v1/memory/validate</code>],
                 ['Models', <code>/v1/model-mount/snapshot, /v1/model-mount/instances/load, /v1/chat/completions</code>],
                 ['Artifacts/receipts', <code>/v1/runs/{'{run_id}'}/artifacts, /v1/runs/{'{run_id}'}/receipts</code>],
@@ -1108,11 +1108,11 @@ for await (const event of run.stream()) {
               headers={['Task', 'Route']}
               rows={[
                 ['Status', <code>GET /v1/mcp</code>],
-                ['Servers', <code>GET /v1/mcp/servers, POST /v1/mcp/servers</code>],
+                ['Servers', <code>GET /v1/threads/{'{thread_id}'}/mcp/status, POST /v1/threads/{'{thread_id}'}/mcp/servers</code>],
                 ['Tools', <code>GET /v1/mcp/tools, GET /v1/mcp/tools/search, GET /v1/mcp/tools/{'{tool_id}'}</code>],
-                ['Invocation', <code>POST /v1/mcp/tools/{'{tool_id}'}/invoke</code>],
+                ['Invocation', <code>POST /v1/threads/{'{thread_id}'}/mcp/tools/{'{tool_id}'}/invoke</code>],
                 ['Resources/prompts', <code>GET /v1/mcp/resources, GET /v1/mcp/prompts</code>],
-                ['Validation/import/serve', <code>POST /v1/mcp/validate, POST /v1/mcp/import, POST /v1/mcp/serve</code>],
+                ['Validation/import/serve', <code>POST /v1/threads/{'{thread_id}'}/mcp/validate, POST /v1/threads/{'{thread_id}'}/mcp/import, POST /v1/threads/{'{thread_id}'}/mcp/serve</code>],
               ]}
             />
           </div>

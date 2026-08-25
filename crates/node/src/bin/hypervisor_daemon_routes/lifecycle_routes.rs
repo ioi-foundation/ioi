@@ -19,7 +19,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use axum::body::Body;
-use axum::extract::{Path as AxumPath, Query, State};
+use axum::extract::{OriginalUri, Path as AxumPath, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -147,6 +147,83 @@ fn read_agent_for_thread(st: &DaemonState, thread_id: &str) -> Option<Value> {
     read_record_dir(&st.data_dir, "agents")
         .into_iter()
         .find(|agent| agent.get("id").and_then(|v| v.as_str()) == Some(agent_id.as_str()))
+}
+
+fn thread_mcp_servers(st: &DaemonState, thread_id: &str) -> Vec<Value> {
+    read_agent_for_thread(st, thread_id)
+        .and_then(|agent| {
+            agent
+                .get("mcpRegistry")
+                .or_else(|| agent.get("mcp_registry"))
+                .and_then(|registry| registry.get("servers"))
+                .and_then(Value::as_array)
+                .cloned()
+        })
+        .unwrap_or_default()
+}
+
+fn thread_mcp_server_binds_contract(
+    st: &DaemonState,
+    thread_id: &str,
+    server_id: &str,
+    revision_ref: &str,
+) -> bool {
+    thread_mcp_servers(st, thread_id).iter().any(|server| {
+        server.get("id").and_then(Value::as_str) == Some(server_id)
+            && server.get("enabled").and_then(Value::as_bool) != Some(false)
+            && server
+                .get("runtime_tool_contract_revision_refs")
+                .and_then(Value::as_array)
+                .is_some_and(|refs| {
+                    refs.iter()
+                        .any(|value| value.as_str() == Some(revision_ref))
+                })
+    })
+}
+
+fn configured_thread_mcp_server(
+    st: &DaemonState,
+    thread_id: &str,
+    server_id: &str,
+) -> Option<Value> {
+    thread_mcp_servers(st, thread_id)
+        .into_iter()
+        .find(|server| server.get("id").and_then(Value::as_str) == Some(server_id))
+}
+
+fn thread_mcp_server_has_daemon_binding(
+    st: &DaemonState,
+    thread_id: &str,
+    server_id: &str,
+) -> bool {
+    configured_thread_mcp_server(st, thread_id, server_id).is_some_and(|server| {
+        server
+            .get("runtime_tool_contract_revision_refs")
+            .and_then(Value::as_array)
+            .is_some_and(|refs| !refs.is_empty())
+    })
+}
+
+fn thread_mcp_projection_servers(st: &DaemonState, thread_id: &str) -> Vec<Value> {
+    thread_mcp_servers(st, thread_id)
+        .into_iter()
+        .map(|mut server| {
+            let admitted_and_enabled = server.get("enabled").and_then(Value::as_bool)
+                != Some(false)
+                && server
+                    .get("runtime_tool_contract_revision_refs")
+                    .and_then(Value::as_array)
+                    .is_some_and(|refs| !refs.is_empty());
+            if !admitted_and_enabled {
+                if let Some(server) = server.as_object_mut() {
+                    server.insert("enabled".to_string(), Value::Bool(false));
+                    server.insert("allowed_tools".to_string(), json!([]));
+                    server.insert("tools".to_string(), json!([]));
+                }
+            }
+            server
+        })
+        .collect()
 }
 
 /// Coalesce a string field across camelCase / snake_case aliases.
@@ -1688,14 +1765,255 @@ fn apply_mcp_control(
     Ok(Json(response))
 }
 
+fn canonical_mcp_import_servers(body: &Value) -> Result<Vec<Value>, AppError> {
+    let servers = body
+        .get("servers")
+        .or_else(|| body.get("mcpServers"))
+        .unwrap_or(&Value::Null);
+    match servers {
+        Value::Array(entries) => Ok(entries.clone()),
+        Value::Object(entries) => entries
+            .iter()
+            .map(|(label, config)| {
+                let mut config = config.as_object().cloned().ok_or_else(|| {
+                    AppError(
+                        StatusCode::BAD_REQUEST,
+                        format!("MCP import server '{label}' must be an object"),
+                    )
+                })?;
+                config
+                    .entry("id".to_string())
+                    .or_insert_with(|| json!(label));
+                Ok(Value::Object(config))
+            })
+            .collect(),
+        Value::Null => Ok(Vec::new()),
+        _ => Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "MCP import servers must be an array or object".to_string(),
+        )),
+    }
+}
+
+fn strip_caller_mcp_admission_claims(server: &mut Value) {
+    if let Some(server) = server.as_object_mut() {
+        server.remove("runtime_tool_contract_revision_refs");
+        server.remove("runtimeToolContractRevisionRefs");
+    }
+}
+
+fn live_mcp_server_candidates(servers: &[Value]) -> Result<Vec<(String, Value)>, AppError> {
+    let mut candidates = Vec::new();
+    for config in servers {
+        let explicit_live_mode = matches!(
+            config.get("mode").and_then(Value::as_str),
+            Some("development" | "production")
+        );
+        if !explicit_live_mode {
+            continue;
+        }
+        if config.get("command").and_then(Value::as_str).is_none() {
+            return Err(AppError(
+                StatusCode::BAD_REQUEST,
+                "live MCP stdio configuration requires command".to_string(),
+            ));
+        }
+        let label = config
+            .get("id")
+            .and_then(Value::as_str)
+            .or_else(|| config.get("label").and_then(Value::as_str))
+            .or_else(|| config.get("name").and_then(Value::as_str))
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| {
+                AppError(
+                    StatusCode::BAD_REQUEST,
+                    "live MCP stdio configuration requires id, label, or name".to_string(),
+                )
+            })?;
+        candidates.push((label.to_string(), config.clone()));
+    }
+    Ok(candidates)
+}
+
+#[cfg(test)]
+mod mcp_live_import_tests {
+    use super::*;
+
+    #[test]
+    fn object_import_normalizes_labels_and_strips_forged_admission_refs() {
+        let body = json!({
+            "mcpServers": {
+                "fixture": {
+                    "command": "node",
+                    "args": ["fixture.mjs"],
+                    "mode": "development",
+                    "runtime_tool_contract_revision_refs": ["runtime-tool://forged"]
+                }
+            }
+        });
+        let mut servers = canonical_mcp_import_servers(&body)
+            .unwrap_or_else(|_| panic!("normalize object import"));
+        assert_eq!(servers[0]["id"], "fixture");
+        strip_caller_mcp_admission_claims(&mut servers[0]);
+        assert!(servers[0]
+            .get("runtime_tool_contract_revision_refs")
+            .is_none());
+        let live = live_mcp_server_candidates(&servers)
+            .unwrap_or_else(|_| panic!("explicit live candidate"));
+        assert_eq!(live.len(), 1);
+        assert_eq!(live[0].0, "fixture");
+    }
+
+    #[test]
+    fn command_without_explicit_mode_remains_an_unadmitted_candidate() {
+        let servers = vec![json!({
+            "id": "candidate",
+            "command": "node",
+            "args": ["candidate.mjs"]
+        })];
+        assert!(live_mcp_server_candidates(&servers)
+            .unwrap_or_else(|_| panic!("candidate parsing"))
+            .is_empty());
+    }
+}
+
+struct LiveMcpAdmission {
+    server_id: String,
+    revision_refs: Vec<String>,
+    tools: Vec<ioi_types::app::agentic::LlmToolDefinition>,
+}
+
+impl LiveMcpAdmission {
+    fn response(&self) -> Value {
+        json!({
+            "server_id": self.server_id,
+            "status": "live_admitted",
+            "runtime_tool_contract_revision_refs": self.revision_refs,
+            "protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+        })
+    }
+}
+
+async fn admit_live_mcp_candidates(
+    st: &DaemonState,
+    candidates: Vec<(String, Value)>,
+) -> Result<Vec<LiveMcpAdmission>, AppError> {
+    let mut admissions: Vec<LiveMcpAdmission> = Vec::with_capacity(candidates.len());
+    for (server_id, config) in candidates {
+        let revision_refs = match super::start_and_admit_mcp_server(st, &server_id, &config).await {
+            Ok(revision_refs) => revision_refs,
+            Err(error) => {
+                for admission in &admissions {
+                    let _ = st.mcp_manager.stop_server(&admission.server_id).await;
+                }
+                return Err(error);
+            }
+        };
+        let tools = match st
+            .mcp_manager
+            .list_admitted_tools_for_server(&server_id)
+            .await
+        {
+            Ok(tools) => tools,
+            Err(error) => {
+                let _ = st.mcp_manager.stop_server(&server_id).await;
+                for admission in &admissions {
+                    let _ = st.mcp_manager.stop_server(&admission.server_id).await;
+                }
+                return Err(AppError(StatusCode::BAD_GATEWAY, error.to_string()));
+            }
+        };
+        admissions.push(LiveMcpAdmission {
+            server_id,
+            revision_refs,
+            tools,
+        });
+    }
+    Ok(admissions)
+}
+
+fn bind_live_mcp_admissions(servers: &mut [Value], admissions: &[LiveMcpAdmission]) {
+    for admission in admissions {
+        let Some(server) = servers.iter_mut().find(|server| {
+            server.get("id").and_then(Value::as_str) == Some(admission.server_id.as_str())
+        }) else {
+            continue;
+        };
+        let Some(server) = server.as_object_mut() else {
+            continue;
+        };
+        server.insert(
+            "runtime_tool_contract_revision_refs".to_string(),
+            json!(admission.revision_refs),
+        );
+        server.insert(
+            "allowed_tools".to_string(),
+            Value::Array(
+                admission
+                    .tools
+                    .iter()
+                    .map(|tool| {
+                        let prefix = format!("{}__", admission.server_id);
+                        json!({
+                            "name": tool.name.strip_prefix(&prefix).unwrap_or(&tool.name),
+                            "description": tool.description,
+                            "input_schema": serde_json::from_str::<Value>(&tool.parameters)
+                                .unwrap_or_else(|_| json!({ "type": "object" })),
+                        })
+                    })
+                    .collect(),
+            ),
+        );
+    }
+}
+
+async fn stop_live_mcp_admissions(st: &DaemonState, admissions: &[LiveMcpAdmission]) {
+    for admission in admissions {
+        let _ = st.mcp_manager.stop_server(&admission.server_id).await;
+    }
+}
+
+fn attach_live_mcp_admissions(
+    mut response: Json<Value>,
+    admissions: &[LiveMcpAdmission],
+) -> Json<Value> {
+    if let Some(map) = response.0.as_object_mut() {
+        map.insert(
+            "live_server_admissions".to_string(),
+            Value::Array(admissions.iter().map(LiveMcpAdmission::response).collect()),
+        );
+    }
+    response
+}
+
 /// POST /v1/threads/:id/mcp/import — import an MCP server set.
 pub(crate) async fn handle_mcp_import(
     State(st): State<Arc<DaemonState>>,
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    let servers = body.get("servers").cloned().unwrap_or_else(|| json!([]));
-    apply_mcp_control(&st, &thread_id, "mcp_import", json!({ "servers": servers }))
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
+    }
+    let mut servers = canonical_mcp_import_servers(&body)?;
+    for server in &mut servers {
+        strip_caller_mcp_admission_claims(server);
+    }
+    let live_candidates = live_mcp_server_candidates(&servers)?;
+    let admissions = admit_live_mcp_candidates(&st, live_candidates).await?;
+    bind_live_mcp_admissions(&mut servers, &admissions);
+    let response =
+        match apply_mcp_control(&st, &thread_id, "mcp_import", json!({ "servers": servers })) {
+            Ok(response) => response,
+            Err(error) => {
+                stop_live_mcp_admissions(&st, &admissions).await;
+                return Err(error);
+            }
+        };
+    Ok(attach_live_mcp_admissions(response, &admissions))
 }
 
 /// POST /v1/threads/:id/mcp/servers — add a single MCP server.
@@ -1704,7 +2022,26 @@ pub(crate) async fn handle_mcp_add(
     AxumPath(thread_id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(&st, &thread_id, "mcp_add", json!({ "server": body }))
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            format!("thread not found: {thread_id}"),
+        ));
+    }
+    let mut server = body;
+    strip_caller_mcp_admission_claims(&mut server);
+    let live_candidates = live_mcp_server_candidates(std::slice::from_ref(&server))?;
+    let admissions = admit_live_mcp_candidates(&st, live_candidates).await?;
+    bind_live_mcp_admissions(std::slice::from_mut(&mut server), &admissions);
+    let response = match apply_mcp_control(&st, &thread_id, "mcp_add", json!({ "server": server }))
+    {
+        Ok(response) => response,
+        Err(error) => {
+            stop_live_mcp_admissions(&st, &admissions).await;
+            return Err(error);
+        }
+    };
+    Ok(attach_live_mcp_admissions(response, &admissions))
 }
 
 /// POST /v1/threads/:id/tools/:name/invoke — invoke a coding-tool-pack tool against the
@@ -2826,12 +3163,20 @@ pub(crate) async fn handle_mcp_remove(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(
+    let owns_live_binding = thread_mcp_server_has_daemon_binding(&st, &thread_id, &server_id);
+    let response = apply_mcp_control(
         &st,
         &thread_id,
         "mcp_remove",
-        json!({ "server_id": server_id }),
-    )
+        json!({ "server_id": server_id.clone() }),
+    )?;
+    if owns_live_binding {
+        st.mcp_manager
+            .stop_server(&server_id)
+            .await
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    }
+    Ok(response)
 }
 
 /// POST /v1/threads/:id/mcp/servers/:server_id/enable — enable an MCP server.
@@ -2839,12 +3184,28 @@ pub(crate) async fn handle_mcp_enable(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(
+    let configured =
+        configured_thread_mcp_server(&st, &thread_id, &server_id).ok_or_else(|| {
+            AppError(
+                StatusCode::NOT_FOUND,
+                format!("MCP server not found for thread: {server_id}"),
+            )
+        })?;
+    let live_candidates = live_mcp_server_candidates(std::slice::from_ref(&configured))?;
+    let admissions = admit_live_mcp_candidates(&st, live_candidates).await?;
+    let response = match apply_mcp_control(
         &st,
         &thread_id,
         "mcp_enable",
         json!({ "server_id": server_id, "enabled": true }),
-    )
+    ) {
+        Ok(response) => response,
+        Err(error) => {
+            stop_live_mcp_admissions(&st, &admissions).await;
+            return Err(error);
+        }
+    };
+    Ok(attach_live_mcp_admissions(response, &admissions))
 }
 
 /// POST /v1/threads/:id/mcp/servers/:server_id/disable — disable an MCP server.
@@ -2852,20 +3213,28 @@ pub(crate) async fn handle_mcp_disable(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, server_id)): AxumPath<(String, String)>,
 ) -> Result<Json<Value>, AppError> {
-    apply_mcp_control(
+    let owns_live_binding = thread_mcp_server_has_daemon_binding(&st, &thread_id, &server_id);
+    let response = apply_mcp_control(
         &st,
         &thread_id,
         "mcp_disable",
-        json!({ "server_id": server_id, "enabled": false }),
-    )
+        json!({ "server_id": server_id.clone(), "enabled": false }),
+    )?;
+    if owns_live_binding {
+        st.mcp_manager
+            .stop_server(&server_id)
+            .await
+            .map_err(|error| AppError(StatusCode::BAD_GATEWAY, error.to_string()))?;
+    }
+    Ok(response)
 }
 
 /// POST /v1/threads/:id/mcp (or /mcp/status) — record an MCP manager status marker.
 ///
 /// Same kernel control planner as import/add/remove/enable/disable; control_kind
 /// `mcp_status` records the reported status onto the agent's MCP registry. Live
-/// tool invocation (`/mcp/invoke`, `/mcp/serve`) is NOT migrated here — those need
-/// live MCP transport admission and stay served by the JS client.
+/// Live invocation and admission are owned by the thread-scoped routes; this
+/// endpoint only records the caller's manager-status projection.
 pub(crate) async fn handle_mcp_status(
     State(st): State<Arc<DaemonState>>,
     AxumPath(thread_id): AxumPath<String>,
@@ -8156,6 +8525,242 @@ fn catalog_slice(catalog: &Value, key: &str) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// GET /v1/threads/:id/mcp/status — project the canonical thread-scoped MCP
+/// manager status without mutating its control record.
+pub(crate) async fn handle_mcp_thread_status(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+) -> Result<Json<Value>, AppError> {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return Err(AppError(
+            StatusCode::NOT_FOUND,
+            "MCP thread not found".to_string(),
+        ));
+    }
+    let request: McpManagerCatalogProjectionRequest = serde_json::from_value(json!({
+        "schema_version": MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+        "servers": thread_mcp_projection_servers(&st, &thread_id),
+    }))
+    .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
+    let catalog = RuntimeKernelService::new()
+        .plan_mcp_manager_catalog_projection(&request)
+        .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
+    let catalog = serde_json::to_value(catalog)
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Json(json!({
+        "schema_version": "ioi.runtime.mcp-manager-status.v1",
+        "status": "ready",
+        "thread_id": thread_id,
+        "server_count": catalog.get("server_count").cloned().unwrap_or(json!(0)),
+        "tool_count": catalog.get("tool_count").cloned().unwrap_or(json!(0)),
+        "resource_count": catalog.get("resource_count").cloned().unwrap_or(json!(0)),
+        "prompt_count": catalog.get("prompt_count").cloned().unwrap_or(json!(0)),
+        "servers": catalog_slice(&catalog, "servers"),
+        "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+    })))
+}
+
+/// POST /v1/threads/:id/mcp/tools/:tool_id/invoke — execute one admitted MCP
+/// tool through the canonical RuntimeAgentService step/final-invoker path.
+pub(crate) async fn handle_mcp_tool_invoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, tool_id)): AxumPath<(String, String)>,
+    Json(mut body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "code": "mcp_thread_not_found",
+                    "message": "The MCP invocation thread does not exist.",
+                    "thread_id": thread_id,
+                }
+            })),
+        );
+    }
+    let server_id = body
+        .get("server_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let tool_name = body
+        .get("tool_name")
+        .or_else(|| body.get("tool"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if server_id.is_empty() || tool_name.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_coordinates_required",
+                    "message": "server_id and tool_name are required; route ids never infer authority coordinates",
+                }
+            })),
+        );
+    }
+    let namespaced_tool = format!("{server_id}__{tool_name}");
+    let stable_tool_id = format!("mcp.{server_id}.{tool_name}");
+    if tool_id != namespaced_tool && tool_id != stable_tool_id {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_identity_mismatch",
+                    "message": "The route tool id does not bind the supplied server/tool coordinates.",
+                    "route_tool_id": tool_id,
+                    "expected_ids": [namespaced_tool, stable_tool_id],
+                }
+            })),
+        );
+    }
+    let contract = match st.runtime_tool_contract_registry.read() {
+        Ok(registry) => registry.resolve_current_for_name(&namespaced_tool),
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": "runtime_tool_contract_registry_unavailable" } })),
+            )
+        }
+    };
+    let contract = match contract {
+        Ok(contract) if contract.contract.owner == format!("mcp-server://{server_id}") => contract,
+        Ok(_) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "error": { "code": "mcp_tool_owner_mismatch" } })),
+            )
+        }
+        Err(error) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({
+                    "error": {
+                        "code": error.code,
+                        "message": error.message,
+                    }
+                })),
+            )
+        }
+    };
+    if !thread_mcp_server_binds_contract(
+        &st,
+        &thread_id,
+        &server_id,
+        &contract.contract.revision_ref,
+    ) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_not_bound_to_thread",
+                    "message": "The admitted tool revision is not enabled by this thread's daemon-owned MCP mount.",
+                }
+            })),
+        );
+    }
+
+    let arguments = body
+        .get("arguments")
+        .cloned()
+        .filter(Value::is_object)
+        .unwrap_or_else(|| json!({}));
+    let invocation_key = body
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| short_hash(&format!("{thread_id}:{namespaced_tool}:{arguments}")));
+    let session_ref = format!("mcp-invoke:{thread_id}:{invocation_key}");
+    let Some(host_body) = body.as_object_mut() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": { "code": "mcp_invoke_body_invalid" } })),
+        );
+    };
+    // This route owns one exact MCP action. Caller-supplied runtime-host directives
+    // must not exploit route-frame precedence to execute a different side effect.
+    for conflicting_directive in [
+        "file_write",
+        "shell_run",
+        "browser_navigate",
+        "mcp_tool_call",
+    ] {
+        host_body.remove(conflicting_directive);
+    }
+    host_body.insert("session_ref".to_string(), json!(session_ref));
+    host_body.insert(
+        "goal".to_string(),
+        json!(format!("Invoke admitted MCP tool {namespaced_tool}")),
+    );
+    host_body.insert("step".to_string(), json!(true));
+    host_body.insert(
+        "mcp_tool_call".to_string(),
+        json!({ "tool_name": namespaced_tool, "arguments": arguments }),
+    );
+
+    let (status, Json(host_result)) =
+        runtime_host::handle_runtime_host_session(State(st), Json(body)).await;
+    if status != StatusCode::OK {
+        return (status, Json(host_result));
+    }
+    let action = host_result["step"]["events"]
+        .as_array()
+        .and_then(|events| {
+            events.iter().find(|event| {
+                event.get("kind").and_then(Value::as_str) == Some("AgentActionResult")
+                    && event.get("tool_name").and_then(Value::as_str)
+                        == Some(namespaced_tool.as_str())
+            })
+        })
+        .cloned();
+    let Some(action) = action else {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "error": {
+                    "code": "mcp_final_invoker_result_missing",
+                    "message": "RuntimeAgentService returned without a matching final-invoker result.",
+                },
+                "runtime_host": host_result,
+            })),
+        );
+    };
+    if !action.get("error_class").is_none_or(Value::is_null) {
+        return (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "error": {
+                    "code": "mcp_final_invoker_failed",
+                    "error_class": action.get("error_class"),
+                    "message": action.get("output"),
+                },
+                "runtime_host": host_result,
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.runtime.mcp-tool-invocation.v1",
+            "status": "executed",
+            "thread_id": thread_id,
+            "tool_id": tool_id,
+            "tool_name": namespaced_tool,
+            "runtime_tool_contract_revision_ref": contract.contract.revision_ref,
+            "runtime_tool_contract_admission_receipt_ref": contract.admission_receipt_ref,
+            "final_invoker": "RuntimeAgentService.handle_action_execution",
+            "result": action.get("output").cloned().unwrap_or(Value::Null),
+            "runtime_session_id": host_result.get("runtime_session_id"),
+            "runtime_host": host_result,
+        })),
+    )
+}
+
 /// GET /v1/mcp/servers?thread_id=&mcp_config_source_mode= — discover the MCP servers for a
 /// thread's workspace `.cursor/mcp.json` (+ the operator-home `~/.ioi/mcp.json`).
 pub(crate) async fn handle_mcp_discover_servers(
@@ -8244,6 +8849,7 @@ pub(crate) async fn handle_mcp_tool_search(
         .or_else(|| params.get("query"))
         .or_else(|| params.get("search"))
         .cloned();
+    let projection_servers = thread_mcp_projection_servers(&st, &thread_id);
     let request: McpToolSearchProjectionRequest = serde_json::from_value(json!({
         "schema_version": MCP_TOOL_SEARCH_PROJECTION_REQUEST_SCHEMA_VERSION,
         "status_schema_version": "ioi.runtime.mcp-tool-search.v1",
@@ -8251,7 +8857,7 @@ pub(crate) async fn handle_mcp_tool_search(
         "thread_id": thread_id,
         "agent_id": agent_id,
         "server_id": params.get("server_id"),
-        "servers": [],
+        "servers": projection_servers,
         "query": query,
         "tool_id": params.get("tool_id"),
         "limit": params.get("limit").and_then(|v| v.parse::<u64>().ok()),
@@ -8264,6 +8870,188 @@ pub(crate) async fn handle_mcp_tool_search(
     let projected = serde_json::to_value(&record)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(projected))
+}
+
+/// GET /v1/threads/:id/mcp/tools/:tool_id — return the admitted immutable
+/// RuntimeToolContract projection, never an unadmitted transport descriptor.
+pub(crate) async fn handle_mcp_tool_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, tool_id)): AxumPath<(String, String)>,
+) -> (StatusCode, Json<Value>) {
+    if read_agent_for_thread(&st, &thread_id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "mcp_thread_not_found" } })),
+        );
+    }
+    let contracts = match st.runtime_tool_contract_registry.read() {
+        Ok(registry) => registry.current_released(),
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": "runtime_tool_contract_registry_unavailable" } })),
+            )
+        }
+    };
+    let contracts = match contracts {
+        Ok(contracts) => contracts,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": { "code": error.code, "message": error.message } })),
+            )
+        }
+    };
+    let resolved = contracts.into_iter().find(|resolved| {
+        let contract = &resolved.contract;
+        let Some(server_id) = contract.owner.strip_prefix("mcp-server://") else {
+            return false;
+        };
+        let raw_name = contract
+            .display_name
+            .strip_prefix(&format!("{server_id}__"))
+            .unwrap_or(&contract.display_name);
+        tool_id == contract.display_name
+            || tool_id == contract.tool_id
+            || tool_id == format!("mcp.{server_id}.{raw_name}")
+    });
+    let Some(resolved) = resolved else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_contract_not_found",
+                    "message": "No admitted current RuntimeToolContract matches this tool id.",
+                },
+                "thread_id": thread_id,
+                "tool_id": tool_id,
+            })),
+        );
+    };
+    let server_id = resolved
+        .contract
+        .owner
+        .strip_prefix("mcp-server://")
+        .unwrap_or_default();
+    if !thread_mcp_server_binds_contract(
+        &st,
+        &thread_id,
+        server_id,
+        &resolved.contract.revision_ref,
+    ) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "error": {
+                    "code": "mcp_tool_not_bound_to_thread",
+                    "message": "The admitted tool revision is not enabled by this thread's daemon-owned MCP mount.",
+                },
+                "thread_id": thread_id,
+                "tool_id": tool_id,
+            })),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.runtime.mcp-tool-contract-projection.v1",
+            "status": "admitted",
+            "thread_id": thread_id,
+            "tool_id": tool_id,
+            "canonical_backing_ref": resolved.contract.revision_ref,
+            "effective_gateway_profile_revision": resolved.contract.version,
+            "policy_posture": {
+                "primitive_capabilities_required": resolved.contract.primitive_capabilities_required,
+                "authority_scopes_required": resolved.contract.authority_scopes_required,
+                "approval_required": resolved.contract.approval_required,
+                "data_class_allowlist": resolved.contract.data_class_allowlist,
+                "egress_policy": resolved.contract.egress_policy,
+            },
+            "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+            "normalization_decision": "RuntimeToolContract",
+            "runtime_tool_contract_admission_receipt_ref": resolved.admission_receipt_ref,
+            "contract": resolved.contract,
+        })),
+    )
+}
+
+fn mcp_unavailable_classification(path: &str) -> (&'static str, &'static str) {
+    if path.contains("/resources") {
+        (
+            "mcp.resource",
+            "PolicyBoundDataView|ArtifactRef|MemoryProjection+ContextLease",
+        )
+    } else if path.contains("/prompts") {
+        (
+            "mcp.prompt",
+            "tainted-import:SkillManifest|GoalRunProfile|invocation",
+        )
+    } else if path.contains("/elicitation-requests") {
+        ("mcp.elicitation", "typed-user-input-request")
+    } else if path.contains("/external-task-bindings") {
+        ("mcp.task", "HarnessInvocation.external-handle")
+    } else if path.contains("/apps") {
+        (
+            "mcp.app",
+            "sandboxed-extension_application-descriptor-and-surface",
+        )
+    } else {
+        ("mcp.serve", "RuntimeMcpServe")
+    }
+}
+
+fn mcp_normalization_unavailable_response(
+    st: &DaemonState,
+    thread_id: String,
+    object_id: Option<String>,
+    uri: &str,
+) -> (StatusCode, Json<Value>) {
+    if read_agent_for_thread(st, &thread_id).is_none() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "mcp_thread_not_found" } })),
+        );
+    }
+    let (primitive, canonical_owner) = mcp_unavailable_classification(uri);
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(json!({
+            "schema_version": "ioi.runtime.mcp-normalization-decision.v1",
+            "status": "typed_unavailable",
+            "thread_id": thread_id,
+            "object_id": object_id,
+            "primitive": primitive,
+            "canonical_owner": canonical_owner,
+            "canonical_backing_ref": Value::Null,
+            "effective_gateway_profile_revision": Value::Null,
+            "policy_lease_posture": "not_minted",
+            "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+            "normalization_decision": "typed_unavailable",
+            "authority_granted": false,
+            "receipt_identity_granted": false,
+            "reason": "This MCP protocol object has no admitted canonical runtime normalization implementation.",
+        })),
+    )
+}
+
+/// Canonical MCP normalization routes without an object id. These surfaces are
+/// deliberately present but fail typed-unavailable until their owner can emit
+/// the required backing reference and policy/lease posture.
+pub(crate) async fn handle_mcp_normalization_unavailable_root(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(thread_id): AxumPath<String>,
+    OriginalUri(uri): OriginalUri,
+) -> (StatusCode, Json<Value>) {
+    mcp_normalization_unavailable_response(&st, thread_id, None, uri.path())
+}
+
+/// Canonical MCP normalization routes naming a protocol object.
+pub(crate) async fn handle_mcp_normalization_unavailable_object(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath((thread_id, object_id)): AxumPath<(String, String)>,
+    OriginalUri(uri): OriginalUri,
+) -> (StatusCode, Json<Value>) {
+    mcp_normalization_unavailable_response(&st, thread_id, Some(object_id), uri.path())
 }
 
 /// POST /v1/runs/:id/cancel — cancel a run via plan_run_cancel_state_update.
@@ -14670,7 +15458,22 @@ pub(crate) async fn handle_connector_mcp_tools(
         );
     }
     match mcp_list_tools(&base_url, &token.unwrap_or_default()).await {
-        Ok(tools) => (StatusCode::OK, Json(json!({ "ok": true, "tools": tools }))),
+        Ok(tool_candidates) => (
+            StatusCode::OK,
+            Json(json!({
+                "schema_version": "ioi.runtime.mcp-connector-candidates.v1",
+                "ok": true,
+                "status": "unadmitted_candidates",
+                "normalization_decision": "typed_unavailable",
+                "canonical_owner": "RuntimeToolContractRegistry",
+                "connector_id": id,
+                "tool_candidates": tool_candidates,
+                "tools": [],
+                "authority_granted": false,
+                "receipt_identity_granted": false,
+                "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+            })),
+        ),
         Err(e) => (
             StatusCode::BAD_GATEWAY,
             Json(json!({ "ok": false, "reason": e })),
@@ -24168,8 +24971,9 @@ pub(crate) mod runtime_host {
     use ioi_memory::MemoryRuntime;
     use ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge;
     use ioi_services::agentic::runtime::service::{
-        install_constrained_browser_navigation_policy, install_constrained_shell_exec_policy,
-        install_constrained_workspace_write_policy, RuntimeAgentService,
+        install_constrained_browser_navigation_policy, install_constrained_extension_invoke_policy,
+        install_constrained_shell_exec_policy, install_constrained_workspace_write_policy,
+        RuntimeAgentService,
     };
     use ioi_services::agentic::runtime::types::{
         AgentMode, PostMessageParams, StartAgentParams, StepAgentParams,
@@ -24347,12 +25151,20 @@ pub(crate) mod runtime_host {
         memory: Arc<MemoryRuntime>,
         bridge: broadcast::Sender<KernelEvent>,
         events: broadcast::Sender<KernelEvent>,
+        mcp: Arc<ioi_drivers::mcp::McpManager>,
+        runtime_tool_contract_registry: Arc<
+            std::sync::RwLock<
+                ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry,
+            >,
+        >,
     ) -> RuntimeAgentService {
         let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
         let terminal = Arc::new(TerminalDriver::new());
         let browser = Arc::new(BrowserDriver::new());
         let inference: Arc<dyn InferenceRuntime> = Arc::new(MockInferenceRuntime);
         RuntimeAgentService::new(gui, terminal, browser, inference)
+            .with_mcp_manager(mcp)
+            .with_runtime_tool_contract_registry(runtime_tool_contract_registry)
             .with_workspace_path(workspace_path.to_string())
             .with_memory_runtime(memory)
             .with_event_sender(events)
@@ -24365,6 +25177,7 @@ pub(crate) mod runtime_host {
             KernelEvent::AgentActionResult {
                 step_index,
                 tool_name,
+                output,
                 error_class,
                 agent_status,
                 ..
@@ -24372,6 +25185,7 @@ pub(crate) mod runtime_host {
                 "kind": "AgentActionResult",
                 "step_index": step_index,
                 "tool_name": tool_name,
+                "output": output,
                 "error_class": error_class,
                 "agent_status": agent_status,
             }),
@@ -24571,6 +25385,41 @@ pub(crate) mod runtime_host {
         }
     }
 
+    fn mcp_tool_route_frame(tool_name: &str, arguments: &Value) -> RuntimeRouteFrame {
+        RuntimeRouteFrame {
+            intent_id: "extension.invoke".to_string(),
+            route_family: "mcp".to_string(),
+            output_intent: "tool_execution".to_string(),
+            direct_answer_allowed: false,
+            target: tool_name.to_string(),
+            target_kind: Some("mcp_tool".to_string()),
+            host_mutation: true,
+            required_capabilities: vec!["extension.invoke".to_string()],
+            typed_evidence: vec![
+                RuntimeIntentEvidence {
+                    evidence_kind: "mcp_tool_name".to_string(),
+                    value: tool_name.to_string(),
+                    source: "runtime_host".to_string(),
+                    confidence: Some(100),
+                },
+                RuntimeIntentEvidence {
+                    evidence_kind: "mcp_tool_arguments".to_string(),
+                    value: arguments.to_string(),
+                    source: "runtime_host".to_string(),
+                    confidence: Some(100),
+                },
+            ],
+            typed_required_capabilities: vec![RequiredCapability {
+                capability_id: "extension.invoke".to_string(),
+                reason: Some("admitted MCP tool invocation".to_string()),
+            }],
+            host_mutation_scope: None,
+            runtime_action: None,
+            install_request: None,
+            provenance: Some("runtime_host".to_string()),
+        }
+    }
+
     fn session_id_for_ref(session_ref: &str) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(session_ref.as_bytes());
@@ -24642,6 +25491,39 @@ pub(crate) mod runtime_host {
             .to_string_lossy()
             .into_owned();
 
+        // Validate an MCP directive before the execution-authority gate. Invalid input must not
+        // consume a grant or leave any runtime-host state behind.
+        let mcp_tool_directive_present = body.get("mcp_tool_call").is_some();
+        let mcp_tool_call: Option<(String, Value)> = body
+            .get("mcp_tool_call")
+            .and_then(Value::as_object)
+            .and_then(|call| {
+                let tool_name = call.get("tool_name")?.as_str()?.trim().to_string();
+                if !tool_name.contains("__")
+                    || ioi_types::app::agentic::AgentTool::is_reserved_tool_name(&tool_name)
+                {
+                    return None;
+                }
+                let arguments = call
+                    .get("arguments")
+                    .cloned()
+                    .filter(Value::is_object)
+                    .unwrap_or_else(|| json!({}));
+                Some((tool_name, arguments))
+            });
+        if mcp_tool_directive_present && mcp_tool_call.is_none() {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "code": "runtime_host_mcp_tool_call_invalid",
+                        "message": "mcp_tool_call requires a non-native namespaced tool_name and object arguments",
+                    },
+                    "session_ref": session_ref,
+                })),
+            );
+        }
+
         // A stepped request (5B) runs a consequential tool, so it is wallet-gated at the daemon
         // boundary BEFORE ANY state mutation. Everything above this point is pure derivation: the
         // agent record and the session workspace are written only after admission, so a refused
@@ -24693,7 +25575,14 @@ pub(crate) mod runtime_host {
         // High-volume KernelEvent capture for the step probe (Phase 5B). The receiver
         // must exist before the step so emitted events are observed, not dropped.
         let (events_tx, mut events_rx) = broadcast::channel::<KernelEvent>(512);
-        let host = build_runtime_agent_host(&workspace_path, memory, bridge.clone(), events_tx);
+        let host = build_runtime_agent_host(
+            &workspace_path,
+            memory,
+            bridge.clone(),
+            events_tx,
+            st.mcp_manager.clone(),
+            st.runtime_tool_contract_registry.clone(),
+        );
         let mut state = DaemonHostStateAccess::open(&st.data_dir);
         let services = synthetic_service_directory();
         let now_ns = std::time::SystemTime::now()
@@ -24755,12 +25644,18 @@ pub(crate) mod runtime_host {
             .as_deref()
             .map(browser_navigate_route_frame);
 
+        let mcp_tool_frame = mcp_tool_call
+            .as_ref()
+            .map(|(tool_name, arguments)| mcp_tool_route_frame(tool_name, arguments));
+
         // Exactly one pre-resolved tool frame may drive the constrained step (precedence:
-        // file write → shell → browser). Without a directive the step runs unconstrained cognition.
+        // file write → shell → browser → MCP). Without a directive the step runs
+        // unconstrained cognition.
         let has_file_write_directive = file_write_frame.is_some();
         let route_frame = file_write_frame
             .or(shell_run_frame)
-            .or(browser_navigate_frame);
+            .or(browser_navigate_frame)
+            .or(mcp_tool_frame);
 
         // start@v1 (canonical lifecycle op; deterministic — no inference).
         let start_params = StartAgentParams {
@@ -24810,6 +25705,16 @@ pub(crate) mod runtime_host {
         } else if browser_navigate_url.is_some() {
             if let Err(error) =
                 install_constrained_browser_navigation_policy(&mut state, session_id)
+            {
+                return host_error(
+                    &session_ref,
+                    "install_session_policy",
+                    &format!("{error:?}"),
+                );
+            }
+        } else if let Some((tool_name, _)) = mcp_tool_call.as_ref() {
+            if let Err(error) =
+                install_constrained_extension_invoke_policy(&mut state, session_id, tool_name)
             {
                 return host_error(
                     &session_ref,

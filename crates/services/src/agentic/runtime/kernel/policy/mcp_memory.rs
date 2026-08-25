@@ -2107,6 +2107,8 @@ fn mcp_control_canonical_server_record(
 
     for key in [
         "command",
+        "mode",
+        "tier",
         "server_url",
         "endpoint",
         "source",
@@ -2140,10 +2142,28 @@ fn mcp_control_canonical_server_record(
             );
         }
     }
+    if let Some(revision_refs) = server
+        .get("runtime_tool_contract_revision_refs")
+        .or_else(|| server.get("runtimeToolContractRevisionRefs"))
+        .and_then(Value::as_array)
+    {
+        record.insert(
+            "runtime_tool_contract_revision_refs".to_string(),
+            Value::Array(
+                revision_refs
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
+                    .map(|value| Value::String(value.to_string()))
+                    .collect(),
+            ),
+        );
+    }
     for key in [
         "env",
         "headers",
         "containment",
+        "integrity",
         "secret_refs",
         "vault_boundary",
     ] {
@@ -5095,6 +5115,32 @@ mod tests {
             .get("serverId")
             .is_none());
         assert!(record.agent["mcpRegistry"].get("mcpServers").is_none());
+    }
+
+    #[test]
+    fn mcp_control_preserves_daemon_owned_runtime_contract_bindings() {
+        let mut request = mcp_control_agent_state_update_request();
+        request.request = json!({
+            "server": {
+                "id": "mcp.bound",
+                "label": "Bound",
+                "enabled": true,
+                "transport": "stdio",
+                "allowed_tools": [{ "name": "search" }],
+                "runtime_tool_contract_revision_refs": [
+                    "runtime-tool://mcp.bound/search/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                ]
+            }
+        });
+        let record = McpControlAgentStateUpdateCore
+            .plan(&request)
+            .expect("daemon-owned MCP contract binding persists");
+
+        assert_eq!(
+            record.agent["mcpRegistry"]["servers"][1]
+                ["runtime_tool_contract_revision_refs"][0],
+            "runtime-tool://mcp.bound/search/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
     }
 
     #[test]

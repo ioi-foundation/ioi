@@ -1068,169 +1068,41 @@ pub(crate) async fn handle_incident_reconstruct(
 
 // ============================ O. HYPERVISOR MCP GATEWAY ===========================================
 
-/// Headers that decide the auth POSTURE and the resolved PRINCIPAL on an inbound
-/// request. They must survive the loopback hop or the second request is evaluated
-/// under a weaker posture than the caller's.
-///
-/// `auth_gate` enforces when `auth_enforced()` is true, and in the default `auto`
-/// mode that is `daemon_exposed() || request_exposed(headers)`. A loopback call
-/// carrying no headers has a 127.0.0.1 Host and no `x-forwarded-*`, so
-/// `request_exposed` is false: an externally forwarded, authenticated MCP request
-/// would have executed its EFFECT unauthenticated, under `local_development`
-/// posture, with no principal bound to the receipt. Native callers hitting the
-/// same route directly are enforced. That divergence is exactly what the
-/// native/MCP parity rule forbids.
-const FORWARDED_AUTH_HEADERS: &[&str] = &[
-    "authorization",
-    "cookie",
-    "x-forwarded-host",
-    "x-forwarded-for",
-    "x-ioi-forwarded",
-];
-
-async fn call(
-    base: &str,
-    method: &str,
-    path: &str,
-    body: Option<Value>,
-    inbound: &axum::http::HeaderMap,
-) -> Result<Value, String> {
-    let client = reqwest::Client::new();
-    let url = format!("{base}{path}");
-    let mut req = if method == "POST" {
-        client.post(&url)
-    } else {
-        client.get(&url)
-    };
-    for name in FORWARDED_AUTH_HEADERS {
-        if let Some(value) = inbound.get(*name).and_then(|v| v.to_str().ok()) {
-            req = req.header(*name, value);
-        }
-    }
-    if let Some(b) = body {
-        req = req.json(&b);
-    }
-    let r = req.send().await.map_err(|e| e.to_string())?;
-    let t = r.text().await.map_err(|e| e.to_string())?;
-    serde_json::from_str(&t).map_err(|e| format!("{e}: {t}"))
+fn mcp_gateway_profile_unavailable(tool: Option<String>) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(json!({
+            "schema_version": "ioi.runtime.mcp-normalization-decision.v1",
+            "status": "typed_unavailable",
+            "primitive": "mcp.gateway",
+            "canonical_owner": "HypervisorMCPGatewayProfile",
+            "tool": tool,
+            "gateway_profile_revision_ref": Value::Null,
+            "resolved_requirement_revision_refs": [],
+            "authority_granted": false,
+            "receipt_identity_granted": false,
+            "normalization_decision": "typed_unavailable",
+            "reason": "No admitted subject-scoped Hypervisor MCP Gateway profile resolves this external surface.",
+        })),
+    )
 }
 
-fn gateway_tools() -> Value {
-    json!([
-        { "name": "hv_create_env", "scope": "environment.create", "description": "Create + start a scoped environment", "input": { "project_id": "string?", "class": "string?" } },
-        { "name": "hv_run_task", "scope": "environment.exec", "description": "Run a guardrail-enforced command in an env", "input": { "environment_id": "string", "command": "string" } },
-        { "name": "hv_inspect_env", "scope": "environment.read", "description": "Inspect an env (phase, components, ports)", "input": { "environment_id": "string" } },
-        { "name": "hv_cleanup_env", "scope": "environment.delete", "description": "Delete an env (terminal)", "input": { "environment_id": "string" } }
-    ])
+/// GET /v1/hypervisor/mcp-gateway/tools — fail typed-unavailable until an
+/// admitted subject-scoped Hypervisor MCP Gateway profile owns discovery.
+pub(crate) async fn handle_mcp_gateway_tools(
+    State(_st): State<Arc<DaemonState>>,
+) -> (StatusCode, Json<Value>) {
+    mcp_gateway_profile_unavailable(None)
 }
 
-/// GET /v1/hypervisor/mcp-gateway/tools — the scoped external-agent tool surface.
-pub(crate) async fn handle_mcp_gateway_tools(State(_st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "schema_version": "ioi.hypervisor.mcp-gateway.v1", "tools": gateway_tools() }))
-}
-
-/// POST /v1/hypervisor/mcp-gateway/tools/:tool — invoke a scoped tool (same daemon routes as the app).
+/// POST /v1/hypervisor/mcp-gateway/tools/:tool — never forward directly into
+/// daemon mutation routes without a resolved gateway profile revision.
 pub(crate) async fn handle_mcp_gateway_invoke(
-    State(st): State<Arc<DaemonState>>,
+    State(_st): State<Arc<DaemonState>>,
     AxumPath(tool): AxumPath<String>,
-    headers: axum::http::HeaderMap,
-    Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
-    let base = st.base_url.clone();
-    let inbound = headers;
-    let gw = |v: Value| {
-        Ok(Json(
-            json!({ "ok": true, "tool": tool.clone(), "result": v }),
-        ))
-    };
-    match tool.as_str() {
-        "hv_create_env" => {
-            let spec = json!({ "spec": { "environment_class_id": body.get("class").and_then(|v| v.as_str()).unwrap_or("local-workspace-v0"), "project_id": body.get("project_id").and_then(|v| v.as_str()).unwrap_or("mcp-gateway") } });
-            let created = call(
-                &base,
-                "POST",
-                "/v1/hypervisor/environments",
-                Some(spec),
-                &inbound,
-            )
-            .await
-            .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;
-            let eid = created["environment"]["id"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string();
-            let _ = call(
-                &base,
-                "POST",
-                &format!("/v1/hypervisor/environments/{eid}/start"),
-                None,
-                &inbound,
-            )
-            .await;
-            gw(json!({ "environment_id": eid }))
-        }
-        "hv_run_task" => {
-            let eid = body
-                .get("environment_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default();
-            let cmd = body
-                .get("command")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default();
-            // routes through the SAME /exec the app uses → guardrails apply identically.
-            let r = call(
-                &base,
-                "POST",
-                "/v1/hypervisor/exec",
-                Some(json!({ "environment_id": eid, "command": cmd })),
-                &inbound,
-            )
-            .await
-            .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;
-            gw(r)
-        }
-        "hv_inspect_env" => {
-            let eid = body
-                .get("environment_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default();
-            let env = call(
-                &base,
-                "GET",
-                &format!("/v1/hypervisor/environments/{eid}"),
-                None,
-                &inbound,
-            )
-            .await
-            .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;
-            let s = &env["environment"]["status"];
-            gw(
-                json!({ "environment_id": eid, "phase": s["phase"], "readiness": s["readiness"], "components": s["components"], "ports": s["ports"] }),
-            )
-        }
-        "hv_cleanup_env" => {
-            let eid = body
-                .get("environment_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default();
-            let r = call(
-                &base,
-                "POST",
-                &format!("/v1/hypervisor/environments/{eid}/delete"),
-                None,
-                &inbound,
-            )
-            .await
-            .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;
-            gw(
-                json!({ "environment_id": eid, "deleted": r["environment"]["status"]["deleted"].as_bool().unwrap_or(false) || r["status"].as_str() == Some("deleted") }),
-            )
-        }
-        other => Ok(Json(
-            json!({ "ok": false, "reason": format!("unknown gateway tool '{other}'") }),
-        )),
-    }
+    Json(_body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    mcp_gateway_profile_unavailable(Some(tool))
 }
 
 // ============================ /v1 CAPABILITY INDEX (W0.6) ========================================
@@ -1318,6 +1190,130 @@ pub(crate) fn parsed_router_routes() -> &'static Vec<ParsedRoute> {
         }
         routes
     })
+}
+
+/// Closed classification for every MCP-bearing route on the public listener.
+/// Daemon startup refuses when the mechanically parsed router contains a new,
+/// removed, or duplicate path that has not been deliberately classified here.
+pub(crate) const MCP_ROUTE_CLASSIFICATIONS: &[(&str, &str)] = &[
+    ("/v1/model-mount/mcp", "compatibility_projection"),
+    ("/v1/model-mount/mcp/import", "compatibility_import"),
+    ("/v1/model-mount/mcp/invoke", "compatibility_delegate"),
+    ("/v1/threads/:id/mcp/status", "canonical_thread"),
+    ("/v1/threads/:id/mcp/validate", "canonical_thread"),
+    ("/v1/threads/:id/mcp/import", "canonical_thread"),
+    ("/v1/threads/:id/mcp/servers", "canonical_thread"),
+    ("/v1/threads/:id/mcp/servers/:server_id", "canonical_thread"),
+    (
+        "/v1/threads/:id/mcp/servers/:server_id/enable",
+        "canonical_thread",
+    ),
+    (
+        "/v1/threads/:id/mcp/servers/:server_id/disable",
+        "canonical_thread",
+    ),
+    ("/v1/threads/:id/mcp/tools/search", "canonical_thread"),
+    ("/v1/threads/:id/mcp/tools/:tool_id", "canonical_thread"),
+    (
+        "/v1/threads/:id/mcp/tools/:tool_id/invoke",
+        "canonical_thread",
+    ),
+    (
+        "/v1/threads/:id/mcp/resources/search",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/resources/:resource_id",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/resources/:resource_id/read",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/prompts/search",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/prompts/:prompt_id",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/prompts/:prompt_id/imports",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/elicitation-requests",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/elicitation-requests/:request_id/responses",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/external-task-bindings",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/external-task-bindings/:binding_id",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/external-task-bindings/:binding_id/cancel",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/apps/search",
+        "canonical_typed_unavailable",
+    ),
+    (
+        "/v1/threads/:id/mcp/apps/:app_id/descriptor",
+        "canonical_typed_unavailable",
+    ),
+    ("/v1/threads/:id/mcp/serve", "canonical_typed_unavailable"),
+    ("/v1/mcp", "compatibility_projection"),
+    ("/v1/mcp/servers", "compatibility_projection"),
+    ("/v1/mcp/tools", "compatibility_projection"),
+    ("/v1/mcp/resources", "compatibility_projection"),
+    ("/v1/mcp/prompts", "compatibility_projection"),
+    ("/v1/threads/:id/mcp", "compatibility_control"),
+    (
+        "/v1/hypervisor/mcp-gateway/tools",
+        "gateway_profile_typed_unavailable",
+    ),
+    (
+        "/v1/hypervisor/mcp-gateway/tools/:tool",
+        "gateway_profile_typed_unavailable",
+    ),
+    (
+        "/v1/hypervisor/connectors/:id/mcp/tools",
+        "connector_candidates_only",
+    ),
+];
+
+pub(crate) fn verify_mcp_route_classification() -> Result<(), String> {
+    let actual = parsed_router_routes()
+        .iter()
+        .filter(|route| route.path.to_ascii_lowercase().contains("mcp"))
+        .map(|route| route.path.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut classified = std::collections::BTreeSet::new();
+    for (path, class) in MCP_ROUTE_CLASSIFICATIONS {
+        if path.trim().is_empty() || class.trim().is_empty() || !classified.insert(*path) {
+            return Err(format!(
+                "invalid or duplicate MCP route classification: {path}"
+            ));
+        }
+    }
+    let classified = classified.into_iter().map(str::to_string).collect();
+    if actual != classified {
+        let unclassified = actual.difference(&classified).cloned().collect::<Vec<_>>();
+        let unmounted = classified.difference(&actual).cloned().collect::<Vec<_>>();
+        return Err(format!(
+            "MCP route classification drift: unclassified={unclassified:?} unmounted={unmounted:?}"
+        ));
+    }
+    Ok(())
 }
 
 /// GET /v1 — the honest capability index of the daemon's route families (W0.6). Mechanically
@@ -2519,5 +2515,23 @@ mod command_execution_guardrail_tests {
             decide(data_dir, &no_local_env(), "cargo test"),
             GuardrailDecision::Allowed
         ));
+    }
+
+    #[test]
+    fn every_mcp_route_has_one_startup_classification() {
+        verify_mcp_route_classification().expect("closed MCP route classification");
+        assert_eq!(MCP_ROUTE_CLASSIFICATIONS.len(), 36);
+    }
+
+    #[test]
+    fn external_mcp_gateway_cannot_forward_without_admitted_profile() {
+        let (status, Json(response)) =
+            mcp_gateway_profile_unavailable(Some("hv_run_task".to_string()));
+        assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
+        assert_eq!(response["status"], "typed_unavailable");
+        assert_eq!(response["authority_granted"], false);
+        assert_eq!(response["receipt_identity_granted"], false);
+        assert!(response.get("result").is_none());
+        assert!(response.get("tools").is_none());
     }
 }

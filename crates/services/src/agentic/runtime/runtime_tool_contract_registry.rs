@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::agentic::LlmToolDefinition;
 use serde::{Deserialize, Serialize};
@@ -286,7 +287,7 @@ impl RuntimeToolContractRegistry {
                     ),
                 ));
             }
-            let contract = admitted_runtime_tool_contract_for_mcp_definition(tool, server_name)
+            let mut contract = admitted_runtime_tool_contract_for_mcp_definition(tool, server_name)
                 .map_err(|error| {
                     RuntimeToolContractRegistryError::new(
                         "runtime_tool_contract_mcp_descriptor_invalid",
@@ -294,10 +295,33 @@ impl RuntimeToolContractRegistry {
                     )
                 })?
                 .contract;
+            let current = candidate.resolve_current_for_name(&tool.name).ok();
+            if let Some(current) = current.as_ref() {
+                if current.contract == contract {
+                    admitted.push(current.clone());
+                    continue;
+                }
+                contract.predecessor_revision_ref = Some(current.contract.revision_ref.clone());
+                contract.content_hash = sha256(
+                    &runtime_tool_contract_canonical_hash_material(&contract).map_err(|error| {
+                        RuntimeToolContractRegistryError::new(
+                            "runtime_tool_contract_mcp_descriptor_invalid",
+                            error,
+                        )
+                    })?,
+                )
+                .map(|digest| format!("sha256:{}", hex::encode(digest.as_ref())))
+                .map_err(|error| {
+                    RuntimeToolContractRegistryError::new(
+                        "runtime_tool_contract_mcp_descriptor_invalid",
+                        error.to_string(),
+                    )
+                })?;
+            }
             admitted.push(candidate.admit(
                 contract,
                 server_admission_receipt_ref.to_string(),
-                None,
+                current.map(|resolved| resolved.contract.content_hash),
             )?);
         }
         *self = candidate;
@@ -673,5 +697,56 @@ mod tests {
             )
             .is_err());
         assert_eq!(registry.export_snapshot().unwrap(), before);
+    }
+
+    #[test]
+    fn mcp_restart_reuses_identical_contract_and_versions_changed_descriptor() {
+        let mut registry = RuntimeToolContractRegistry::seeded_native().unwrap();
+        let original = LlmToolDefinition {
+            name: "docs__search".to_string(),
+            description: "Search docs".to_string(),
+            parameters: r#"{"type":"object","properties":{"q":{"type":"string"}}}"#.to_string(),
+        };
+        let first = registry
+            .admit_mcp_server_tools(
+                "docs",
+                std::slice::from_ref(&original),
+                "receipt://mcp-server/docs/first-start",
+            )
+            .unwrap()
+            .remove(0);
+        let retry = registry
+            .admit_mcp_server_tools(
+                "docs",
+                std::slice::from_ref(&original),
+                "receipt://mcp-server/docs/restart",
+            )
+            .unwrap()
+            .remove(0);
+        assert_eq!(retry, first);
+
+        let changed = LlmToolDefinition {
+            parameters:
+                r#"{"type":"object","properties":{"q":{"type":"string"},"limit":{"type":"integer"}}}"#
+                    .to_string(),
+            ..original
+        };
+        let successor = registry
+            .admit_mcp_server_tools(
+                "docs",
+                &[changed],
+                "receipt://mcp-server/docs/changed-descriptor",
+            )
+            .unwrap()
+            .remove(0);
+        assert_eq!(
+            successor.contract.predecessor_revision_ref.as_deref(),
+            Some(first.contract.revision_ref.as_str())
+        );
+        assert_ne!(successor.contract.content_hash, first.contract.content_hash);
+        assert_eq!(
+            successor.admission_receipt_ref,
+            "receipt://mcp-server/docs/changed-descriptor"
+        );
     }
 }
