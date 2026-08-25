@@ -8,7 +8,7 @@ Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
 Last alignment pass: 2026-08-20.
 Doctrine status: reference
-Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, but its room-owned transition/receipt/root spine is nonconforming migration input under ADR 0030. The v3 typed room-binding and ordinary Agentgres/System admission successor is target-only, as are generalized artifact/discussion resolution and production-wide propagation/enforcement. The shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
+Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, but its room-owned transition/receipt/root spine is nonconforming migration input under ADR 0030. The v3 typed room-binding and ordinary Agentgres/System admission successor is target-only, as are generalized artifact/discussion resolution and production-wide propagation/enforcement. The shared work-lifecycle integrity/replay kernel, durable Agentgres-backed append store, projection repair, cancellation planner, archive/snapshot writer, and diagnostic status/projection/records/cancellation-plan/compaction routes are implemented at M04.6, with exactly one live bounded owner binding — GoalRun creation — and no generic append mutation on the wire; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are target-only; source of truth is the daemon route registry)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
 Last implementation audit: 2026-07-30
@@ -86,41 +86,61 @@ GET /v1/runtime/policy
 GET /v1/runtime/nodes
 ```
 
-### Target work-lifecycle mechanism status
+### Work-lifecycle mechanism status
 
 ```http
-GET /v1/hypervisor/work-lifecycle/status
+GET  /v1/hypervisor/work-lifecycle/status
+GET  /v1/hypervisor/work-lifecycle/projection
+GET  /v1/hypervisor/work-lifecycle/records
+POST /v1/hypervisor/work-lifecycle/cancellation-plan
+POST /v1/hypervisor/work-lifecycle/compaction
 ```
 
-This route is target-only and is not present in the current daemon registry.
-If implemented, the read-only diagnostic reports the shared lifecycle kernel,
-durable local record/projection/archive/snapshot counts, per-kind
-legal-transition counts, and live owner-route bindings. It does not create or transition a GoalRun,
-GoalGroundingLoop, WorkRun, AutomationRun, HarnessInvocation, ContextCell, or
-external handle. Until an owner route is explicitly listed in
-`live_owner_route_bindings`, that route does not claim append-only lifecycle
+As of M04.6 these routes are present in the daemon registry. The read-only
+`status` diagnostic reports kernel presence, durable per-family object counts
+(records, projections, cancellation-fanout plans, archive segments, snapshots),
+per-kind lifecycle counts, and `live_owner_route_bindings`. It does not create
+or transition a GoalRun, GoalGroundingLoop, WorkRun, AutomationRun,
+HarnessInvocation, ContextCell, or external handle. `projection` and `records`
+are owner-scoped strict-census reads, `cancellation-plan` is owner-scoped
+planning only, and `compaction` is owner-scoped compaction. No generic append
+mutation is exposed on the wire; append stays a Rust API composed by a bound
+owner. Owner-scoping authorizes the claimed owner tenant before any read and
+then requires the durable `owner_ref` to match — there is no cross-tenant
+existence oracle, and a request never overrides durable owner truth.
+
+At M04.6 `live_owner_route_bindings` lists exactly one entry: `goal_run`, bound
+at `POST /v1/goal-orchestration/goal-runs` over the `direct_non_system` and
+`system_activation` admission paths, with owned scope limited to the GoalRun
+application plan, its ContextCell reference, and the GoalRun lifecycle
+projection. The status response's nonclaim states this bound: Session, launch,
+thread, HarnessInvocation, and child-owner runtime truth remain with their
+kernel owners; GoalGroundingLoop, WorkRun, AutomationRun, ContextCell lifecycle,
+and external-handle owners are not generalized by this binding. Until an owner
+route is listed here, that route does not claim append-only lifecycle
 integration merely because the shared mechanism exists.
 
-The target owner-write sequence is:
+The bound owner-write sequence is:
 
 ```text
 owner route validates domain intent and authority
-  -> submit exact-head WorkLifecycleRecord
+  -> submit exact-head WorkLifecycleRecord through the owner's LegalEdgeGate
   -> shared kernel validates kind-specific edge, authority, time, hash,
-     idempotency, and child-ref typing
-  -> durable record commit
-  -> rebuildable active projection
+     idempotency, and child-ref typing (content-commitment head)
+  -> Agentgres owner-namespaced event-stream admission (stream head)
+  -> durable record commit, then rebuilt-and-persisted active projection
   -> owner/domain receipt and event
 ```
 
-Cancellation remains a separate fanout execution after the cancel/revoke fact:
-the planner returns required drain/fence/timeout/compensation/reconciliation
-actions, but only child-owner receipts prove their completion. Automatic hot-
-log pruning, archive-only resume, production Agentgres persistence, and all
-owner-route bindings remain explicit nonclaims in the current status response.
-The mechanism checks declared authority classes and nonempty grant refs; the
-owning PEP must still verify grant signature, scope, expiry, and revocation
-before commit.
+Cancellation is a separate fanout execution after the cancel/revoke fact: the
+planner persists the required drain/fence/timeout/compensation/reconciliation
+actions as planning only, and only child-owner receipts prove their completion.
+The route's cancellation requester is the authenticated principal, not a
+caller-supplied field. Automatic hot-log pruning and archive-only resume remain
+explicit nonclaims: hot record logs are never pruned, and resume is always
+proven equal to a full record-log replay. The mechanism checks declared
+authority classes and nonempty grant refs; the owning PEP must still verify
+grant signature, scope, expiry, and revocation before commit.
 
 ## Hypervisor Client Projections
 

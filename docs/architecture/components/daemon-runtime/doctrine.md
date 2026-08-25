@@ -775,30 +775,49 @@ refs.
 
 ### Shared Lifecycle Mechanics, Distinct Owners
 
-This section defines the target shared mechanism. Current master has no shared
-WorkLifecycle kernel, route, store, archive, snapshot writer, or status
-endpoint; existing kind-specific owners are implementation precedents only.
+As of M04.6 the shared mechanism is implemented. The daemon hosts one durable
+WorkLifecycle owner: `WorkLifecycleLogCore` is the sole integrity/replay/archive/
+snapshot/cancellation kernel, and `WorkLifecycleStore` persists its five durable
+families (records, projections, cancellation-fanout plans, immutable archive
+segments, snapshots) across the generic Agentgres owner-namespaced event-stream
+admission, failing closed on required-substrate unavailability with no local-file
+fallback. It acquires no domain write authority (ADR 0034 sub-ruling 1,
+`INV-35`). Diagnostic routes (status, projection, records) and owner-scoped
+planning/compaction routes exist; no generic append mutation is exposed on the
+wire — append stays a Rust API composed by a bound owner behind its own
+`LegalEdgeGate`. Exactly one owner is bound at M04.6: GoalRun creation. The other
+kind-specific owners named below remain independent implementation precedents,
+not yet bound to this mechanism.
 
-The daemon should reuse one integrity/replay mechanism for lifecycle facts
-without creating one flattened lifecycle. GoalRun, GoalGroundingLoop, WorkRun,
+The daemon reuses one integrity/replay mechanism for lifecycle facts without
+creating one flattened lifecycle. GoalRun, GoalGroundingLoop, WorkRun,
 AutomationRun, HarnessInvocation, ContextCell, and external protocol adapters
-retain their own legal phase and authority tables. Their owning route/service
-would submit an exact-head `WorkLifecycleRecord`; the target shared kernel
-would validate and commit the fact, update a rebuildable active projection, and
-never acquire the domain object's write authority.
+retain their own legal phase and authority tables. A bound owner's route/service
+submits an exact-head `WorkLifecycleRecord` through its own `LegalEdgeGate`; the
+shared kernel validates and commits the fact, updates a rebuildable active
+projection, and never acquires the domain object's write authority. Exact-head
+and idempotency are enforced twice — the kernel over its content-commitment head
+and Agentgres over the stream head. A refused append (duplicate genesis, fork,
+gap, orphan, tamper, owner drift, or an illegal edge) writes nothing, and a read
+rejects a foreign or mis-filed record rather than folding it into the requested
+object's chain.
 
 Typed child references are append-only index facts. Attaching or detaching a
 HarnessInvocation, ContextCell, RuntimeAssignment, external handle, result, or
 receipt does not mutate that child. A cancel/revoke transition derives a
-`CancellationFanoutPlan` at the admitted head. Child owners must then receipt
-drain, fencing, lease revocation, timeout, compensation, ambiguous or
-irreversible-effect reconciliation, and completion. A terminal-looking parent
-phase alone is not cancellation proof.
+`CancellationFanoutPlan` at the admitted head; on the daemon route the requester
+is the authenticated principal, not a caller-supplied field. The plan is
+persisted planning only — child owners must then receipt drain, fencing, lease
+revocation, timeout, compensation, ambiguous or irreversible-effect
+reconciliation, and completion. Cancellation planning is not execution, and a
+terminal-looking parent phase alone is not cancellation proof.
 
 Lifecycle compaction writes an immutable archive segment followed by an
 archive-root/head-bound snapshot retaining idempotency decisions and receipt
-lineage. Hot-log pruning is permitted only after archive durability and replay
-parity are independently proven. This applies `INV-35`.
+lineage; re-compaction at the same head returns the existing durable segment and
+snapshot without re-minting. Hot record logs are never pruned, and a snapshot
+authorizes neither pruning nor an archive-only resume: resume is always proven
+equal to a full record-log replay. This applies `INV-35`.
 
 Environment-resident agents are services behind the run. They may have a stable
 service reference, package/binary/container hash, healthcheck, memory store,

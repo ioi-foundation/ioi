@@ -4,12 +4,14 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of work results, outcome deltas, the shared work-lifecycle record, and work-lifecycle archive segments and snapshots.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-25 (M04.6 shared work-lifecycle owner recorded).
 Doctrine status: canonical
-Implementation status: partial (work-result routes exist in the daemon; the shared work-lifecycle kernel persistence and routes remain planned)
+Implementation status: partial (work-result routes exist in the daemon; the shared work-lifecycle kernel now has a durable Agentgres-backed owner — five durable families, exact-head/idempotent append, archive-before-snapshot compaction, and a cancellation planner — with one live bounded owner binding, GoalRun creation, at M04.6. No other object owner is bound, and no generic append mutation is exposed on the wire.)
 Implementation refs:
   - `crates/types/src/app/generated/architecture_contracts.rs`
-Last implementation audit: 2026-07-25
+  - `crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs`
+  - `crates/services/src/agentic/runtime/kernel/runtime_work_lifecycle_log.rs`
+Last implementation audit: 2026-08-25 (integrated range 704c4d0dd..5e503b055)
 
 ## Purpose
 
@@ -194,11 +196,32 @@ mapping before Agentgres admission.
 bounded work. It does not own GoalRun, GoalGroundingLoop, WorkRun,
 AutomationRun, HarnessInvocation, ContextCell, or external-protocol state and
 does not flatten their phases into a universal business lifecycle. Each kind
-keeps its own legal transition and transition-authority table; the target
-shared kernel would supply content commitment, exact-head compare-and-swap,
-object-scoped idempotency, append-only child references, replay, cancellation
-planning, and snapshot/archive continuity. Current master does not implement
-this shared kernel or its persistence/routes.
+keeps its own legal transition and transition-authority table; the shared
+kernel supplies content commitment, exact-head compare-and-swap, object-scoped
+idempotency, append-only child references, replay, cancellation planning, and
+snapshot/archive continuity, and never acquires the domain object's write
+authority.
+
+As of M04.6 this shared kernel and its durable persistence are implemented in
+the daemon. `WorkLifecycleLogCore` is the sole append/replay/archive/snapshot/
+cancellation mechanism, and `WorkLifecycleStore` persists five durable families
+(records, rebuildable projections, cancellation-fanout plans, immutable archive
+segments, snapshots), each in its own owner-namespaced event stream, over the
+generic Agentgres owner-namespaced event-stream admission
+(`substrate_store::admit_event_stream_operation`). It fails closed on
+required-substrate unavailability and never falls back to a local-file path.
+Exact-head/idempotency compare-and-swap is enforced twice — the kernel over its
+content-commitment head and Agentgres over the stream head — and neither trusts
+storage order. Append persists the record and then rebuilds and persists the
+active projection; a kernel refusal (duplicate genesis, fork, gap, orphan,
+tamper, owner drift, or an illegal edge via the caller's `LegalEdgeGate`) writes
+nothing. A read for an object rebuilds from its record log under a complete
+strict census and rejects a foreign or mis-filed record rather than normalizing
+it into the requested object's chain. Only GoalRun creation is bound to this
+owner at M04.6 (see the daemon
+[`doctrine.md`](../../components/daemon-runtime/doctrine.md) and
+[`api.md`](../../components/daemon-runtime/api.md)); no other object owner is
+wired, and no generic append mutation is exposed on the wire.
 
 ```yaml
 WorkLifecycleRecordEnvelope:
@@ -312,6 +335,14 @@ compensation, or ambiguous/irreversible-effect reconciliation. Unknown external
 completion becomes `ambiguous`; it never becomes success merely because the
 local wait ended.
 
+As of M04.6 `plan_cancellation` derives and persists this plan over the active
+typed children as durable planning only; it does not execute drain, fencing,
+revocation, timeout, compensation, or reconciliation and reports no child
+completion. On the daemon route the requester is the authenticated principal —
+a caller-supplied `requested_by_ref` that is not the authenticated principal is
+refused — and the owner-internal Rust API accepts only an owner-derived intent.
+Cancellation planning is not execution.
+
 ## WorkLifecycleArchiveSegmentEnvelope and WorkLifecycleSnapshotEnvelope
 
 ```yaml
@@ -357,3 +388,11 @@ same phase, child index, idempotency decisions, and object head as full replay.
 Receipt lineage is retained even when individual hot-log records later leave
 the active segment. Snapshot files are projections/checkpoints, never a license
 to discard the immutable archive or owner-domain truth.
+
+As of M04.6 `compact` implements exactly this order — the immutable archive
+segment is persisted before the archive-root/head-bound snapshot — and
+re-compaction at the same head returns the existing durable segment and
+snapshot without re-minting. Hot record logs are never pruned, and a missing
+snapshot is repaired from an already-durable archive on the next compaction. A
+snapshot authorizes neither hot-log pruning nor an archive-only resume: resume
+is always proven equal to a full record-log replay.
