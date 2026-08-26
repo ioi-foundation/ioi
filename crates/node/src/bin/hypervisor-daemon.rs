@@ -634,6 +634,15 @@ async fn async_main() -> anyhow::Result<()> {
     {
         anyhow::bail!("M04.8 admission recovery blocks readiness ({code}: {message})");
     }
+    // M04.8 — converge the challenge crossing on the same principle: an admitted VerifierChallenge
+    // whose challenged Finding has not yet taken its disputed standing is a self-describing
+    // half-finished disposition, repaired forward from room truth alone. Idempotent: a Finding
+    // already disputed appends no redundant generation, and no generation is ever removed.
+    if let Err((code, message)) =
+        m048_collaboration_routes::complete_challenge_dispositions(&data_dir)
+    {
+        anyhow::bail!("M04.8 challenge recovery blocks readiness ({code}: {message})");
+    }
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
@@ -3219,54 +3228,54 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/goal-orchestration/attempts",
-            axum::routing::get(attempt_finding_routes::handle_attempt_list)
-                .post(attempt_finding_routes::handle_attempt_create),
+            axum::routing::get(m048_collaboration_routes::handle_attempt_list)
+                .post(m048_collaboration_routes::handle_attempt_create),
         )
         .route(
             "/v1/goal-orchestration/attempts/overview",
-            axum::routing::get(attempt_finding_routes::handle_attempt_overview),
+            axum::routing::get(m048_collaboration_routes::handle_attempt_overview),
         )
         .route(
             "/v1/goal-orchestration/attempts/:id",
-            axum::routing::get(attempt_finding_routes::handle_attempt_get),
+            axum::routing::get(m048_collaboration_routes::handle_attempt_get),
         )
         .route(
             "/v1/goal-orchestration/attempts/:id/transition",
-            axum::routing::post(attempt_finding_routes::handle_attempt_transition),
+            axum::routing::post(m048_collaboration_routes::handle_attempt_transition),
         )
         .route(
             "/v1/goal-orchestration/findings",
-            axum::routing::get(attempt_finding_routes::handle_finding_list)
-                .post(attempt_finding_routes::handle_finding_create),
+            axum::routing::get(m048_collaboration_routes::handle_finding_list)
+                .post(m048_collaboration_routes::handle_finding_create),
         )
         .route(
             "/v1/goal-orchestration/findings/overview",
-            axum::routing::get(attempt_finding_routes::handle_finding_overview),
+            axum::routing::get(m048_collaboration_routes::handle_finding_overview),
         )
         .route(
             "/v1/goal-orchestration/findings/:id",
-            axum::routing::get(attempt_finding_routes::handle_finding_get),
+            axum::routing::get(m048_collaboration_routes::handle_finding_get),
         )
         .route(
             "/v1/goal-orchestration/findings/:id/transition",
-            axum::routing::post(attempt_finding_routes::handle_finding_transition),
+            axum::routing::post(m048_collaboration_routes::handle_finding_transition),
         )
         .route(
             "/v1/goal-orchestration/verifier-challenges",
-            axum::routing::get(verifier_challenge_routes::handle_list)
-                .post(verifier_challenge_routes::handle_create),
+            axum::routing::get(m048_collaboration_routes::handle_challenge_list)
+                .post(m048_collaboration_routes::handle_challenge_create),
         )
         .route(
             "/v1/goal-orchestration/verifier-challenges/overview",
-            axum::routing::get(verifier_challenge_routes::handle_overview),
+            axum::routing::get(m048_collaboration_routes::handle_challenge_overview),
         )
         .route(
             "/v1/goal-orchestration/verifier-challenges/:id",
-            axum::routing::get(verifier_challenge_routes::handle_get),
+            axum::routing::get(m048_collaboration_routes::handle_challenge_get),
         )
         .route(
             "/v1/goal-orchestration/verifier-challenges/:id/transition",
-            axum::routing::post(verifier_challenge_routes::handle_transition),
+            axum::routing::post(m048_collaboration_routes::handle_challenge_transition),
         )
         .route(
             "/v1/hypervisor/placement/resolve",

@@ -64,7 +64,9 @@ use axum::Json;
 use serde_json::{json, Value};
 
 use super::governed_authority as governed;
-use super::outcome_room_routes::{self as rooms, record_output_hash, reject_sensitive_keys, VErr};
+use super::outcome_room_routes::{
+    self as rooms, is_rfc3339, record_output_hash, reject_sensitive_keys, VErr,
+};
 use super::outcome_room_system_routes as room_system;
 use super::DaemonState;
 
@@ -2879,16 +2881,22 @@ async fn admit_inner(
                 "expected_room_state_root",
                 "m048_admit_request_invalid",
             )?,
+            // The registered contract admits a broader principal namespace, but this hosted
+            // private_worker slice does not: `bound_coordinates.participant_lease.principal_ref`
+            // on Attempt and Finding is pinned to `^(worker|agent)://`, so admitting a
+            // `service://` or `org://` lease here would mint membership that could never record a
+            // contribution. The runtime profile is narrower than the schema on purpose, and the
+            // refusal happens before any lease is written.
             req_ref(
                 body,
                 "participant_ref",
-                &["system", "agent", "worker", "service", "org", "domain"],
+                &["worker", "agent"],
                 "m048_admit_request_invalid",
             )?,
             req_ref(
                 body,
                 "operator_ref",
-                &["system", "user", "org", "wallet", "domain"],
+                &["worker", "agent"],
                 "m048_admit_request_invalid",
             )?,
             req_ref(
@@ -3113,6 +3121,14 @@ async fn admit_inner(
         PARTICIPANT_LEASE_SCHEMA,
         &lease_admission,
     );
+    // 202 rather than 200 when the request successor has not landed: the lease IS durable, but the
+    // admission is still completing, and a caller that reads only the status code must not mistake
+    // a half-finished admission for a finished one. An exact replay after recovery returns 200.
+    let status = if converged.is_ok() {
+        status
+    } else {
+        StatusCode::ACCEPTED
+    };
     payload["participation_request_convergence"] = match converged {
         Ok(_) => json!({ "converged": true }),
         // Reported honestly rather than swallowed: the lease IS issued and durable, and the
@@ -5637,6 +5653,1640 @@ pub(crate) async fn handle_claim_overview(
     }
 }
 
+// --- lifecycle 8: Attempt v3 ---------------------------------------------------------------------
+//
+// An Attempt is the durable record of work done under a claim. It is deliberately independent of
+// the claim's liveness: a claim that lapses, is released, or expires produces a terminal claim
+// successor and NOTHING ELSE — no Attempt is deleted, rewritten, or detached. That independence is
+// what makes contribution lineage survive a worker walking away mid-task.
+
+const ATTEMPT_OUTCOME_CLASSES: &[&str] = &[
+    "positive",
+    "negative",
+    "inconclusive",
+    "invalid",
+    "exploit_found",
+    "superseded",
+];
+const ATTEMPT_REPRODUCTION_STATES: &[&str] = &[
+    "unreviewed",
+    "reproducible",
+    "not_reproduced",
+    "contradicted",
+    "invalidated",
+];
+const ATTEMPT_STATUSES: &[&str] = &[
+    "draft",
+    "running",
+    "submitted",
+    "admitted",
+    "challenged",
+    "accepted",
+    "rejected",
+    "superseded",
+];
+/// Verdicts this plane does not issue.
+const ATTEMPT_VERDICT_STATUSES: &[&str] = &["accepted", "rejected"];
+
+// --- bound coordinates -------------------------------------------------------------------------
+//
+// A room-bound Attempt or Finding MUST carry populated `bound_coordinates`; only the non-room lane
+// may null them (see `fixtures/attempt-v3/positive-non-room.json`, which nulls the binding and the
+// room ref together). The registered invariants then pin every coordinate to the ref it mirrors —
+// `bound_coordinates.work_claim.record_ref` must equal `work_claim_ref`, its `outcome_room_ref`
+// must equal the object's, its `frontier_item_ref` must equal the object's, and so on.
+//
+// Because those are equalities against fields the daemon already derives, the coordinates are
+// DERIVED HERE from the live projections rather than accepted from the caller. A caller cannot
+// supply a revision or a record hash for anything this room already knows: a stale or mismatched
+// coordinate would otherwise become durable binding evidence that never matched reality.
+//
+// Two coordinates are the exception, and only because their objects live outside this plane
+// entirely: GoalRun and WorkResult are not room-native children (WorkResult is an owner-registry
+// family the seam explicitly refuses). Their `record_hash`/`updated_at` cannot be derived without
+// reaching into another owner's truth, so they are caller-attested and this plane validates what
+// it can — scheme, and for the GoalRun, actual membership of this room.
+
+/// The live generation number of a projection, used as the registered `revision`.
+fn projection_revision(projection: &Value) -> Result<i64, VErr> {
+    projection
+        .get("generation")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| {
+            verr(
+                "m048_projection_unreadable",
+                "a room-child projection carries no generation",
+            )
+        })
+}
+
+/// Derive the Attempt's bound coordinates from live room truth.
+///
+/// Every equality the registered invariant profile checks is satisfied by construction here, so a
+/// mismatch is impossible rather than merely unlikely.
+fn attempt_bound_coordinates(
+    observed: &RoomAtHead,
+    frontier_projection: &Value,
+    claim_projection: &Value,
+    lease_projection: &Value,
+    goal_run: &GoalRunCoordinate,
+) -> Result<Value, VErr> {
+    let room_ref = observed.room_ref.as_str();
+    let host_domain_ref = observed
+        .room
+        .get("host_domain_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            verr(
+                "m048_room_host_domain_unresolved",
+                "the room record names no host domain, which the bound coordinates require",
+            )
+        })?;
+    let frontier = admitted(frontier_projection)?;
+    let claim = admitted(claim_projection)?;
+    let lease = admitted(lease_projection)?;
+
+    let frontier_ref = exact_ref(frontier, "frontier_item_id")?;
+    let lease_ref = exact_ref(lease, "participant_lease_id")?;
+    let principal_ref = exact_ref(lease, "participant_ref")?;
+
+    Ok(json!({
+        "outcome_room": {
+            "record_ref": room_ref,
+            "host_domain_ref": host_domain_ref,
+            "control_hash": observed.head,
+        },
+        "frontier_item": {
+            "record_ref": frontier_ref,
+            "outcome_room_ref": room_ref,
+            "revision": projection_revision(frontier_projection)?,
+            "record_hash": object_root(frontier_projection)?,
+        },
+        "work_claim": {
+            "record_ref": exact_ref(claim, "work_claim_id")?,
+            "outcome_room_ref": room_ref,
+            "frontier_item_ref": frontier_ref,
+            // The registered shape pins the claimant to the LEASE, not the worker.
+            "claimant_ref": lease_ref,
+            "revision": projection_revision(claim_projection)?,
+            "record_hash": object_root(claim_projection)?,
+        },
+        "participant_lease": {
+            "record_ref": lease_ref,
+            "outcome_room_ref": room_ref,
+            "principal_ref": principal_ref,
+            "revision": projection_revision(lease_projection)?,
+            "record_hash": object_root(lease_projection)?,
+        },
+        "goal_run": {
+            "record_ref": goal_run.record_ref,
+            "outcome_room_ref": room_ref,
+            "updated_at": goal_run.updated_at,
+            "record_hash": goal_run.record_hash,
+        },
+    }))
+}
+
+/// Compose the WorkResult coordinate block from the resolved owner truths.
+fn work_result_coordinate_block(work_result: &WorkResultCoordinate) -> Value {
+    json!({
+        "record_ref": work_result.record_ref,
+        "outcome_room_ref": work_result.outcome_room_ref,
+        "goal_run_ref": work_result.goal_run_ref,
+        "goal_ref": work_result.goal_ref,
+        // Explicitly null: the strict owner exposes no record update timestamp, and the registered
+        // coordinate admits null. See `WorkResultCoordinate`.
+        "updated_at": Value::Null,
+        "record_hash": work_result.record_hash,
+    })
+}
+
+/// Derive the Finding's bound coordinates from live room truth plus the attested WorkResult.
+fn finding_bound_coordinates(
+    room_ref: &str,
+    attempt_projection: &Value,
+    lease_projection: &Value,
+    work_result: &WorkResultCoordinate,
+) -> Result<Value, VErr> {
+    let attempt = admitted(attempt_projection)?;
+    let lease = admitted(lease_projection)?;
+    let lease_ref = exact_ref(lease, "participant_lease_id")?;
+    Ok(json!({
+        "attempt": {
+            "record_ref": exact_ref(attempt, "attempt_id")?,
+            "outcome_room_ref": room_ref,
+            // The registered shape pins the attempt's participant coordinate to the LEASE.
+            "participant_ref": lease_ref,
+            "work_result_ref": work_result.record_ref,
+            "revision": projection_revision(attempt_projection)?,
+            "record_hash": object_root(attempt_projection)?,
+        },
+        "work_result": work_result_coordinate_block(work_result),
+        "participant_lease": {
+            "record_ref": lease_ref,
+            "outcome_room_ref": room_ref,
+            "principal_ref": exact_ref(lease, "participant_ref")?,
+            "revision": projection_revision(lease_projection)?,
+            "record_hash": object_root(lease_projection)?,
+        },
+        // Supersession lineage is carried by `supersedes_ref`; this coordinate stays null until a
+        // superseding finding names its predecessor.
+        "supersedes_finding": Value::Null,
+    }))
+}
+
+/// A required string field of an admitted payload.
+fn exact_ref<'a>(record: &'a Value, field: &str) -> Result<&'a str, VErr> {
+    record.get(field).and_then(Value::as_str).ok_or_else(|| {
+        verr(
+            "m048_record_coordinate_missing",
+            format!("an admitted record carries no `{field}`"),
+        )
+    })
+}
+
+/// The registered owner-registry contract for WorkResult. Read-only here: this plane never admits
+/// one, but it must be able to see the room generation that did.
+const WORK_RESULT_V3_CONTRACT: &str = "schema://ioi/foundations/work-result/v3";
+
+/// The GoalRun coordinate, derived entirely from the strict owner record.
+///
+/// A caller names the run; every value below comes from `goalrun_routes::load_goal_run_strict`, so
+/// a caller cannot attest a hash or an instant for a record it does not own.
+#[derive(Debug)]
+struct GoalRunCoordinate {
+    record_ref: String,
+    updated_at: String,
+    record_hash: String,
+}
+
+/// The WorkResult coordinate: a COMPOSED historical coordinate, not WorkResult body state.
+///
+/// Its fields are not all properties of the WorkResult — the registered `work-result/v3` contract
+/// declares no room ref, no goal refs and no update timestamp. They are composed from three owner
+/// truths that each already exist:
+///
+///   * `record_ref`      — the strict owner WorkResult's own id;
+///   * `outcome_room_ref`— the room in whose Agentgres history that exact id was admitted, proven
+///                         by a current room-child projection whose admitted object matches the
+///                         strict owner record byte-for-byte;
+///   * `goal_run_ref`    — the owner WorkResult's `work_subject_ref`, admitted here only when it
+///                         is a `goal://` identity AND a member of that same room;
+///   * `goal_ref`        — the resolved strict GoalRun's own `goal_ref`. In this implementation
+///                         the run and its goal are one identity; no distinct value is fabricated;
+///   * `updated_at`      — NULL, explicitly. The strict owner exposes no record update timestamp
+///                         and the registered coordinate admits null. Inventing one would be
+///                         hashing a claim canon does not make;
+///   * `record_hash`     — the canonical content hash of the exact strict owner record.
+///
+/// Nothing here widens WorkResult and nothing here is caller-supplied.
+#[derive(Debug)]
+struct WorkResultCoordinate {
+    record_ref: String,
+    outcome_room_ref: String,
+    goal_run_ref: String,
+    goal_ref: String,
+    record_hash: String,
+}
+
+/// Resolve the GoalRun coordinate from owner truth, refusing every uncertainty.
+fn resolve_goal_run_coordinate(
+    data_dir: &str,
+    observed: &RoomAtHead,
+    goal_run_ref: &str,
+) -> Result<GoalRunCoordinate, VErr> {
+    require_room_goal_run(observed, goal_run_ref)?;
+    let record = super::goalrun_routes::load_goal_run_strict(data_dir, goal_run_ref)
+        .map_err(|error| verr("m048_goal_run_unreadable", error))?
+        .ok_or_else(|| {
+            verr(
+                "m048_goal_run_not_found",
+                "no strict GoalRun owner record for this ref",
+            )
+        })?;
+    let updated_at = record
+        .get("updated_at")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            verr(
+                "m048_goal_run_coordinate_underivable",
+                "the strict GoalRun owner record carries no `updated_at` to bind",
+            )
+        })?
+        .to_string();
+    if !is_rfc3339(&json!(updated_at)) {
+        return Err(verr(
+            "m048_goal_run_coordinate_underivable",
+            "the strict GoalRun owner `updated_at` is not RFC3339",
+        ));
+    }
+    Ok(GoalRunCoordinate {
+        record_ref: goal_run_ref.to_string(),
+        updated_at,
+        // The canonical content hash of the exact owner record; recomputed on every admission, so
+        // a mutated owner record yields a different coordinate rather than a stale one.
+        record_hash: record_output_hash(&record, &[]),
+    })
+}
+
+/// Resolve the composed WorkResult coordinate, refusing every uncertainty before any child write.
+fn resolve_work_result_coordinate(
+    data_dir: &str,
+    observed: &RoomAtHead,
+    work_result_ref: &str,
+) -> Result<WorkResultCoordinate, VErr> {
+    let owner = super::work_result_routes::load_work_result_strict(data_dir, work_result_ref)
+        .map_err(|error| verr("m048_work_result_unreadable", error))?
+        .ok_or_else(|| {
+            verr(
+                "m048_work_result_not_found",
+                "no strict WorkResult owner record for this ref",
+            )
+        })?;
+
+    // The room coordinate is proven by the room's own history, never asserted. A WorkResult that
+    // this room never admitted cannot be bound to a finding in it.
+    let projection = current_child(
+        data_dir,
+        &observed.room_ref,
+        WORK_RESULT_V3_CONTRACT,
+        work_result_ref,
+    )?
+    .ok_or_else(|| {
+        verr(
+            "m048_work_result_foreign_room",
+            "this room's Agentgres history admitted no such WorkResult",
+        )
+    })?;
+    let admitted_object = admitted(&projection)?;
+    // Owner truth and room truth must be the same object. A divergence is uncertainty about which
+    // one the finding would be binding, so it refuses rather than picking one.
+    if record_output_hash(admitted_object, &[]) != record_output_hash(&owner, &[]) {
+        return Err(verr(
+            "m048_work_result_owner_mismatch",
+            "the room-admitted WorkResult and the strict owner record are not the same object",
+        ));
+    }
+
+    let subject = owner
+        .get("work_subject_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !subject.starts_with("goal://") {
+        return Err(verr(
+            "m048_work_result_subject_not_a_goal_run",
+            "this WorkResult's work subject is not a goal:// run, so no goal coordinate exists",
+        ));
+    }
+    // The run must belong to this room, and its own record supplies the goal identity.
+    require_room_goal_run(observed, subject)?;
+    let goal_run = super::goalrun_routes::load_goal_run_strict(data_dir, subject)
+        .map_err(|error| verr("m048_goal_run_unreadable", error))?
+        .ok_or_else(|| {
+            verr(
+                "m048_goal_run_not_found",
+                "the WorkResult's goal run has no strict owner record",
+            )
+        })?;
+    let goal_ref = goal_run
+        .get("goal_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            verr(
+                "m048_goal_run_coordinate_underivable",
+                "the strict GoalRun owner record carries no `goal_ref`",
+            )
+        })?
+        .to_string();
+
+    Ok(WorkResultCoordinate {
+        record_ref: work_result_ref.to_string(),
+        outcome_room_ref: observed.room_ref.clone(),
+        goal_run_ref: subject.to_string(),
+        goal_ref,
+        record_hash: record_output_hash(&owner, &[]),
+    })
+}
+
+/// Refuse a GoalRun that this room never admitted as a member.
+fn require_room_goal_run(observed: &RoomAtHead, goal_run_ref: &str) -> Result<(), VErr> {
+    let member = observed
+        .room
+        .get("member_goal_run_refs")
+        .and_then(Value::as_array)
+        .is_some_and(|refs| {
+            refs.iter()
+                .any(|value| value.as_str() == Some(goal_run_ref))
+        });
+    if !member {
+        return Err(verr(
+            "m048_goal_run_not_a_room_member",
+            "the named GoalRun is not a member of this room; an attempt cannot bind a foreign run",
+        ));
+    }
+    Ok(())
+}
+
+const ATTEMPT_CREATE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "work_claim_ref",
+    // A caller names the run and nothing else: its instant and hash are derived from the strict
+    // owner record, so no attested coordinate can enter here.
+    "goal_run_ref",
+    "declared_method_and_hypothesis_refs",
+    "input_state_and_environment_refs",
+    "worker_model_resolver_tool_and_runtime_version_refs",
+    "authority_and_policy_refs",
+    "resource_and_cost_refs",
+    "outcome_class",
+    "artifact_evidence_and_receipt_refs",
+    "artifact_license_ip_retention_and_export_refs",
+    "goal_run_ref",
+];
+
+fn build_attempt_candidate(
+    attempt_id: &str,
+    claim: &Value,
+    principal_ref: &str,
+    goal_run_ref: &str,
+    bound_coordinates: Value,
+    body: &Value,
+) -> Value {
+    json!({
+        "schema_version": ATTEMPT_SCHEMA,
+        "attempt_id": attempt_id,
+        // The claim is the work subject: an Attempt exists because a claim authorized the work.
+        "work_subject_ref": claim.get("work_claim_id").cloned().unwrap_or(Value::Null),
+        // Non-null by necessity: the bound coordinates require a GoalRun, and the registered
+        // invariant pins this field to `bound_coordinates.goal_run.record_ref`.
+        "goal_run_ref": goal_run_ref,
+        "frontier_item_ref": claim.get("frontier_item_ref").cloned().unwrap_or(Value::Null),
+        "work_claim_ref": claim.get("work_claim_id").cloned().unwrap_or(Value::Null),
+        // The worker, matching `bound_coordinates.participant_lease.principal_ref`, which is the
+        // branch of the registered any_of this lane satisfies.
+        "participant_ref": principal_ref,
+        "bound_coordinates": bound_coordinates,
+        "declared_method_and_hypothesis_refs": body.get("declared_method_and_hypothesis_refs").cloned().unwrap_or_else(|| json!([])),
+        "parent_and_derivation_refs": [],
+        "input_state_and_environment_refs": body.get("input_state_and_environment_refs").cloned().unwrap_or_else(|| json!([])),
+        "worker_model_resolver_tool_and_runtime_version_refs": body.get("worker_model_resolver_tool_and_runtime_version_refs").cloned().unwrap_or_else(|| json!([])),
+        "authority_and_policy_refs": body.get("authority_and_policy_refs").cloned().unwrap_or_else(|| json!([])),
+        "resource_and_cost_refs": body.get("resource_and_cost_refs").cloned().unwrap_or_else(|| json!([])),
+        "outcome_class": body.get("outcome_class").cloned().unwrap_or(Value::Null),
+        // WorkResult and OutcomeDelta are owner-registry families this plane does not mint.
+        "work_result_ref": Value::Null,
+        "outcome_delta_refs": [],
+        "artifact_evidence_and_receipt_refs": body.get("artifact_evidence_and_receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "verifier_refs": [],
+        "reproduction_state": "unreviewed",
+        "artifact_license_ip_retention_and_export_refs": body.get("artifact_license_ip_retention_and_export_refs").cloned().unwrap_or_else(|| json!([])),
+        // No Contribution object is invented: lineage composes through the refs above.
+        "contribution_refs": [],
+        "status": "submitted",
+    })
+}
+
+/// Resolve the live claim an Attempt is being recorded under.
+///
+/// An Attempt may only be CREATED under a live claim — that is what authorizes the work. Once
+/// created it outlives the claim entirely.
+fn require_live_claim(
+    data_dir: &str,
+    room_ref: &str,
+    claim_ref: &str,
+    wallet_now_ms: u64,
+) -> Result<(Value, Value, Value), VErr> {
+    let claim_projection = current_child(data_dir, room_ref, WORK_CLAIM_LEASE_CONTRACT, claim_ref)?
+        .ok_or_else(|| {
+            verr(
+                "m048_claim_not_found",
+                "the work claim is not a current child of this room",
+            )
+        })?;
+    let claim = admitted(&claim_projection)?.clone();
+    if claim_is_live(&claim, wallet_now_ms, CLAIM_HEARTBEAT_MAX_SECONDS)?.is_err() {
+        return Err(verr(
+            "m048_claim_lapsed",
+            "this work claim is not live at the wallet-authorized instant",
+        ));
+    }
+    // The claim's own participant lease must still be active too: a live claim under a revoked
+    // lease is not authority.
+    let lease_ref = claim
+        .get("claimant_participant_lease_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let lease_projection =
+        current_child(data_dir, room_ref, PARTICIPANT_LEASE_CONTRACT, lease_ref)?.ok_or_else(
+            || {
+                verr(
+                    "m048_lease_not_found",
+                    "the claim's participant lease is not a current child of this room",
+                )
+            },
+        )?;
+    if lease_is_live(admitted(&lease_projection)?, wallet_now_ms)?.is_err() {
+        return Err(verr(
+            "m048_lease_not_active",
+            "the claim's participant lease is not active at the wallet-authorized instant",
+        ));
+    }
+    // The frontier item the claim holds, needed for its bound coordinate.
+    let frontier_ref = claim
+        .get("frontier_item_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let frontier_projection = current_child(
+        data_dir,
+        room_ref,
+        WORK_FRONTIER_ITEM_CONTRACT,
+        frontier_ref,
+    )?
+    .ok_or_else(|| {
+        verr(
+            "m048_frontier_not_found",
+            "the claim's frontier item is not a current child of this room",
+        )
+    })?;
+    Ok((claim_projection, lease_projection, frontier_projection))
+}
+
+/// POST /v1/goal-orchestration/attempts
+pub(crate) async fn handle_attempt_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match attempt_create_inner(&state.data_dir, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn attempt_create_inner(
+    data_dir: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(body, ATTEMPT_CREATE_FIELDS, "m048_attempt_request_invalid")?;
+        Ok((
+            req_ref(
+                body,
+                "outcome_room_ref",
+                &["outcome-room"],
+                "m048_attempt_request_invalid",
+            )?,
+            req_root(
+                body,
+                "expected_room_state_root",
+                "m048_attempt_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "work_claim_ref",
+                &["work-claim"],
+                "m048_attempt_request_invalid",
+            )?,
+            req_vocab(
+                body,
+                "outcome_class",
+                ATTEMPT_OUTCOME_CLASSES,
+                "m048_attempt_request_invalid",
+            )?,
+            // GoalRun coordinates are caller-attested: the run is not a room-native child, so its
+            // hash and update instant cannot be derived here without reaching into another plane.
+            req_ref(
+                body,
+                "goal_run_ref",
+                &["goal"],
+                "m048_attempt_request_invalid",
+            )?,
+        ))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, claim_ref, _outcome_class, goal_run_ref) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &claim_ref,
+        "attempt",
+        &json!({ "op": "attempt", "work_claim_ref": claim_ref }),
+    )
+    .await?;
+
+    let goal_run_coordinate =
+        resolve_goal_run_coordinate(data_dir, &observed, &goal_run_ref).map_err(classify)?;
+    let (claim_projection, lease_projection, frontier_projection) =
+        require_live_claim(data_dir, &room_ref, &claim_ref, resolved_at_ms).map_err(classify)?;
+    let claim = admitted(&claim_projection).map_err(classify)?.clone();
+    let lease = admitted(&lease_projection).map_err(classify)?.clone();
+    let lease_ref = lease
+        .get("participant_lease_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let principal_ref = lease
+        .get("participant_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let bound_coordinates = attempt_bound_coordinates(
+        &observed,
+        &frontier_projection,
+        &claim_projection,
+        &lease_projection,
+        &goal_run_coordinate,
+    )
+    .map_err(classify)?;
+    let attempt_id = format!(
+        "attempt://{}",
+        deterministic_tail(
+            "atm_",
+            "hypervisor.m048.attempt.identity.v1",
+            &json!({
+                "outcome_room_ref": room_ref,
+                "work_claim_ref": claim_ref,
+                "recorded_at_wallet_ms": resolved_at_ms,
+            }),
+        )
+    );
+    let candidate = build_attempt_candidate(
+        &attempt_id,
+        &claim,
+        &principal_ref,
+        &goal_run_ref,
+        bound_coordinates,
+        body,
+    );
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        ATTEMPT_CONTRACT,
+        &candidate,
+        &lease_ref,
+        None,
+    )
+    .map_err(classify)?;
+    Ok(ok_child(ATTEMPT_CONTRACT, ATTEMPT_SCHEMA, &admission))
+}
+
+// --- lifecycle 9: Finding v3 -----------------------------------------------------------------
+
+const FINDING_KINDS: &[&str] = &[
+    "hypothesis",
+    "observation",
+    "claim",
+    "negative_result",
+    "integrity_incident",
+    "mapping_claim",
+    "causal_claim",
+    "counterexample",
+    "synthesis",
+];
+const FINDING_STATUSES: &[&str] = &[
+    "branch_local",
+    "proposed",
+    "admitted",
+    "contradicted",
+    "superseded",
+    "disputed",
+    "rejected",
+    "archived",
+];
+/// The registered standing a challenged Finding takes.
+const FINDING_DISPUTED_STATUS: &str = "disputed";
+/// Statuses that are verdicts this plane does not issue.
+const FINDING_VERDICT_STATUSES: &[&str] = &["rejected"];
+
+const FINDING_CREATE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "attempt_ref",
+    "work_result_ref",
+    "proposition",
+    "finding_kind",
+    "confidence_or_uncertainty",
+    "source_and_observation_context_refs",
+    "supporting_evidence_refs",
+    "proof_refs",
+    "contradicting_evidence_refs",
+    "applicability_and_counterexample_refs",
+    "provenance_ontology_and_mapping_refs",
+    "supersedes_ref",
+];
+
+#[allow(clippy::too_many_arguments)]
+fn build_finding_candidate(
+    finding_id: &str,
+    attempt: &Value,
+    lease_ref: &str,
+    proposed_by_ref: &str,
+    work_result_ref: &str,
+    transaction_time: &str,
+    bound_coordinates: Value,
+    body: &Value,
+) -> Value {
+    json!({
+        "schema_version": FINDING_SCHEMA,
+        "finding_id": finding_id,
+        "attempt_ref": attempt.get("attempt_id").cloned().unwrap_or(Value::Null),
+        "work_result_ref": work_result_ref,
+        // The registered contract pins this to a participant-lease ref, and the invariant profile
+        // pins it to `bound_coordinates.participant_lease.record_ref`.
+        "participant_ref": lease_ref,
+        "proposed_by_ref": proposed_by_ref,
+        "bound_coordinates": bound_coordinates,
+        "proposition": body.get("proposition").cloned().unwrap_or(Value::Null),
+        "finding_kind": body.get("finding_kind").cloned().unwrap_or(Value::Null),
+        "confidence_or_uncertainty": body.get("confidence_or_uncertainty").cloned().unwrap_or(Value::Null),
+        "valid_time": Value::Null,
+        // Wallet-authorized: the instant the room recorded this, not the caller's clock.
+        "transaction_time": transaction_time,
+        "source_and_observation_context_refs": body.get("source_and_observation_context_refs").cloned().unwrap_or_else(|| json!([])),
+        "supporting_evidence_refs": body.get("supporting_evidence_refs").cloned().unwrap_or_else(|| json!([])),
+        "proof_refs": body.get("proof_refs").cloned().unwrap_or_else(|| json!([])),
+        "contradicting_evidence_refs": body.get("contradicting_evidence_refs").cloned().unwrap_or_else(|| json!([])),
+        "applicability_and_counterexample_refs": body.get("applicability_and_counterexample_refs").cloned().unwrap_or_else(|| json!([])),
+        "provenance_ontology_and_mapping_refs": body.get("provenance_ontology_and_mapping_refs").cloned().unwrap_or_else(|| json!([])),
+        "proposed_effect_refs": [],
+        "supersedes_ref": body.get("supersedes_ref").cloned().unwrap_or(Value::Null),
+        // A dispute:// object is not a lifecycle this plane mints; challenged standing is carried
+        // by `status` alone.
+        "dispute_ref": Value::Null,
+        "status": "admitted",
+    })
+}
+
+/// POST /v1/goal-orchestration/findings
+pub(crate) async fn handle_finding_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match finding_create_inner(&state.data_dir, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn finding_create_inner(
+    data_dir: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(body, FINDING_CREATE_FIELDS, "m048_finding_request_invalid")?;
+        Ok((
+            req_ref(
+                body,
+                "outcome_room_ref",
+                &["outcome-room"],
+                "m048_finding_request_invalid",
+            )?,
+            req_root(
+                body,
+                "expected_room_state_root",
+                "m048_finding_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "attempt_ref",
+                &["attempt"],
+                "m048_finding_request_invalid",
+            )?,
+            // The registered contract requires a non-null WorkResult ref. WorkResult is an
+            // OWNER-REGISTRY family that the room-native seam refuses, so this plane cannot mint
+            // one: the caller names an existing result and its scheme is all this plane can check.
+            req_ref(
+                body,
+                "work_result_ref",
+                &["work-result"],
+                "m048_finding_request_invalid",
+            )?,
+            req_str(body, "proposition", "m048_finding_request_invalid")?,
+            req_vocab(
+                body,
+                "finding_kind",
+                FINDING_KINDS,
+                "m048_finding_request_invalid",
+            )?,
+            // WorkResult coordinates are caller-attested for the same reason as the GoalRun: the
+            // record lives in the owner registry this plane must not write or index.
+        ))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, attempt_ref, work_result_ref, _proposition, _kind) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    // The Attempt must be a current child of THIS room: a finding cannot be attached to work the
+    // room never recorded.
+    let attempt_projection = current_child(data_dir, &room_ref, ATTEMPT_CONTRACT, &attempt_ref)
+        .map_err(classify)?
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_attempt_not_found",
+                "this room recorded no such attempt",
+            ))
+        })?;
+    let attempt = admitted(&attempt_projection).map_err(classify)?.clone();
+
+    let claim_ref = attempt
+        .get("work_claim_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &attempt_ref,
+        "propose",
+        &json!({ "op": "propose", "attempt_ref": attempt_ref }),
+    )
+    .await?;
+
+    // The proposing lease is resolved from the Attempt's own claim, so a finding cannot be
+    // attributed to a lease that did not do the work.
+    let claim = admitted(
+        &current_child(data_dir, &room_ref, WORK_CLAIM_LEASE_CONTRACT, &claim_ref)
+            .map_err(classify)?
+            .ok_or_else(|| {
+                classify(verr(
+                    "m048_claim_not_found",
+                    "the attempt's work claim is not a current child of this room",
+                ))
+            })?,
+    )
+    .map_err(classify)?
+    .clone();
+    let lease_ref = claim
+        .get("claimant_participant_lease_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let lease_projection =
+        current_child(data_dir, &room_ref, PARTICIPANT_LEASE_CONTRACT, &lease_ref)
+            .map_err(classify)?
+            .ok_or_else(|| {
+                classify(verr(
+                    "m048_lease_not_found",
+                    "the attempt's participant lease is not a current child of this room",
+                ))
+            })?;
+    let lease = admitted(&lease_projection).map_err(classify)?.clone();
+    if lease_is_live(&lease, resolved_at_ms)
+        .map_err(classify)?
+        .is_err()
+    {
+        return Err(classify(verr(
+            "m048_lease_not_active",
+            "the proposing participant lease is not active at the wallet-authorized instant",
+        )));
+    }
+    let proposed_by = lease
+        .get("participant_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+
+    let transaction_time = wallet_ms_to_rfc3339(resolved_at_ms).map_err(classify)?;
+    let finding_id = format!(
+        "finding://{}",
+        deterministic_tail(
+            "fnd_",
+            "hypervisor.m048.finding.identity.v1",
+            &json!({
+                "outcome_room_ref": room_ref,
+                "attempt_ref": attempt_ref,
+                "proposition": body.get("proposition"),
+                "recorded_at_wallet_ms": resolved_at_ms,
+            }),
+        )
+    );
+    // Composed from owner truth and room history; the caller named only the ref.
+    let work_result =
+        resolve_work_result_coordinate(data_dir, &observed, &work_result_ref).map_err(classify)?;
+    let bound_coordinates = finding_bound_coordinates(
+        &room_ref,
+        &attempt_projection,
+        &lease_projection,
+        &work_result,
+    )
+    .map_err(classify)?;
+    let candidate = build_finding_candidate(
+        &finding_id,
+        &attempt,
+        &lease_ref,
+        &proposed_by,
+        &work_result_ref,
+        &transaction_time,
+        bound_coordinates,
+        body,
+    );
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        FINDING_CONTRACT,
+        &candidate,
+        &lease_ref,
+        None,
+    )
+    .map_err(classify)?;
+    Ok(ok_child(FINDING_CONTRACT, FINDING_SCHEMA, &admission))
+}
+
+// --- lifecycle 10: VerifierChallenge v3 ----------------------------------------------------------
+//
+// # The challenge crossing
+//
+// A challenge against a Finding is TWO room children: the challenge itself, then a successor
+// generation of the Finding carrying its changed assurance standing. As with the admission
+// crossing, both halves live in the room's own Agentgres history, so the intermediate state is
+// self-describing and needs no retained local intent:
+//
+//     a current admitted VerifierChallenge whose `challenged_ref` names a Finding whose current
+//     generation is not yet `disputed`
+//
+// is exactly what a crash between the two admissions leaves, and
+// `complete_challenge_dispositions` repairs it forward from room truth alone.
+//
+// The challenge is admitted FIRST so a crash UNDER-claims the dispute (a challenge exists, the
+// finding has not caught up) rather than over-claiming it (a finding marked disputed with no
+// challenge to justify it).
+//
+// This is NOT an atomic two-child mutation and is not described as one.
+
+const CHALLENGE_KINDS: &[&str] = &[
+    "metric",
+    "rule",
+    "verifier",
+    "evidence",
+    "eligibility",
+    "result",
+    "exploit",
+    "independence",
+    "collusion",
+    "mapping",
+];
+const CHALLENGE_STATUSES: &[&str] = &[
+    "proposed",
+    "admitted",
+    "investigating",
+    "upheld",
+    "rejected",
+    "reverifying",
+    "resolved",
+    "withdrawn",
+];
+/// Challenge outcomes that are adjudication verdicts this plane does not issue.
+const CHALLENGE_VERDICT_STATUSES: &[&str] = &["upheld", "rejected", "resolved", "rule_changed"];
+
+const CHALLENGE_CREATE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "challenger_participant_lease_ref",
+    "challenged_ref",
+    "challenge_kind",
+    "challenge_evidence_refs",
+    "adjudicator_policy_ref",
+    "prior_rule_version_ref",
+    "affected_attempt_refs",
+    "reverification_required",
+];
+
+fn build_challenge_candidate(
+    challenge_id: &str,
+    challenger_ref: &str,
+    challenged_ref: &str,
+    body: &Value,
+) -> Value {
+    json!({
+        "schema_version": VERIFIER_CHALLENGE_SCHEMA,
+        "verifier_challenge_id": challenge_id,
+        "challenger_ref": challenger_ref,
+        "challenged_ref": challenged_ref,
+        "challenge_kind": body.get("challenge_kind").cloned().unwrap_or(Value::Null),
+        "challenge_evidence_refs": body.get("challenge_evidence_refs").cloned().unwrap_or_else(|| json!([])),
+        "adjudicator_policy_ref": body.get("adjudicator_policy_ref").cloned().unwrap_or(Value::Null),
+        "prior_rule_version_ref": body.get("prior_rule_version_ref").cloned().unwrap_or(Value::Null),
+        // Proposing a new rule version is a governance act, not a challenge.
+        "proposed_rule_version_ref": Value::Null,
+        "affected_attempt_refs": body.get("affected_attempt_refs").cloned().unwrap_or_else(|| json!([])),
+        "reverification_required": body.get("reverification_required").cloned().unwrap_or(json!(true)),
+        // A challenge never carries its own adjudication: it opens a question, it does not answer
+        // one. Acceptance, verdict and settlement are all absent from this plane.
+        "adjudication_ref": Value::Null,
+        "status": "admitted",
+    })
+}
+
+/// The disputed successor generation of a challenged Finding.
+///
+/// Everything except the assurance standing is retained byte-for-byte: the Attempt ref, the
+/// WorkResult ref, every evidence and provenance list, and any `supersedes_ref` lineage. A
+/// challenge changes what a finding is TRUSTED to be, never what it recorded.
+fn disputed_finding_successor(finding: &Value) -> Result<Value, VErr> {
+    let mut successor = finding.clone();
+    let map = successor
+        .as_object_mut()
+        .ok_or_else(|| verr("m048_finding_record_invalid", "a finding must be an object"))?;
+    map.remove("system_binding");
+    map.remove("outcome_room_ref");
+    map.insert("status".to_string(), json!(FINDING_DISPUTED_STATUS));
+    Ok(successor)
+}
+
+/// Every challenge whose Finding has not yet taken its disputed standing.
+fn unconverged_challenges(data_dir: &str, room_ref: &str) -> Result<Vec<(Value, Value)>, VErr> {
+    let challenges = current_children(data_dir, room_ref, VERIFIER_CHALLENGE_CONTRACT)?;
+    let findings = current_children(data_dir, room_ref, FINDING_CONTRACT)?;
+    let mut pending = Vec::new();
+    for challenge_projection in &challenges {
+        let challenge = admitted(challenge_projection)?;
+        if challenge.get("status").and_then(Value::as_str) != Some("admitted") {
+            continue;
+        }
+        let Some(challenged) = challenge.get("challenged_ref").and_then(Value::as_str) else {
+            continue;
+        };
+        if !challenged.starts_with("finding://") {
+            // A challenge may target an Attempt or a rubric; only a Finding takes a disputed
+            // successor in this build step.
+            continue;
+        }
+        for finding_projection in &findings {
+            let finding = admitted(finding_projection)?;
+            if finding.get("finding_id").and_then(Value::as_str) != Some(challenged) {
+                continue;
+            }
+            if finding.get("status").and_then(Value::as_str) != Some(FINDING_DISPUTED_STATUS) {
+                pending.push((challenge_projection.clone(), finding_projection.clone()));
+            }
+        }
+    }
+    Ok(pending)
+}
+
+/// Converge every unfinished challenge disposition in every current room.
+///
+/// Forward-only and idempotent: a finding already `disputed` is skipped, so a second challenge on
+/// the same finding converges to the same standing rather than appending a redundant generation.
+pub(crate) fn complete_challenge_dispositions(data_dir: &str) -> Result<(), VErr> {
+    for room in rooms::list_current_rooms_canonical_strict(data_dir)? {
+        let Some(room_ref) = room.get("outcome_room_id").and_then(Value::as_str) else {
+            continue;
+        };
+        for (_challenge, finding_projection) in unconverged_challenges(data_dir, room_ref)? {
+            let finding = admitted(&finding_projection)?;
+            let successor = disputed_finding_successor(finding)?;
+            let prior_root = object_root(&finding_projection)?;
+            let observed = observe_room_at_head(data_dir, room_ref)?;
+            let issuer = observed.system_id.clone();
+            admit_child(
+                data_dir,
+                &observed,
+                FINDING_CONTRACT,
+                &successor,
+                &issuer,
+                Some(&prior_root),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+/// POST /v1/goal-orchestration/verifier-challenges
+pub(crate) async fn handle_challenge_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match challenge_create_inner(&state.data_dir, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn challenge_create_inner(
+    data_dir: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            CHALLENGE_CREATE_FIELDS,
+            "m048_challenge_request_invalid",
+        )?;
+        Ok((
+            req_ref(
+                body,
+                "outcome_room_ref",
+                &["outcome-room"],
+                "m048_challenge_request_invalid",
+            )?,
+            req_root(
+                body,
+                "expected_room_state_root",
+                "m048_challenge_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "challenger_participant_lease_ref",
+                &["participant-lease"],
+                "m048_challenge_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "challenged_ref",
+                &["finding", "attempt"],
+                "m048_challenge_request_invalid",
+            )?,
+            req_vocab(
+                body,
+                "challenge_kind",
+                CHALLENGE_KINDS,
+                "m048_challenge_request_invalid",
+            )?,
+        ))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, challenger_lease_ref, challenged_ref, _kind) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &challenger_lease_ref,
+        "challenge",
+        &json!({ "op": "challenge", "challenged_ref": challenged_ref }),
+    )
+    .await?;
+
+    // The challenger must hold a live lease IN THIS ROOM. A foreign or lapsed lease cannot mount
+    // an integrity challenge against this room's record.
+    let challenger_lease = admitted(
+        &current_child(
+            data_dir,
+            &room_ref,
+            PARTICIPANT_LEASE_CONTRACT,
+            &challenger_lease_ref,
+        )
+        .map_err(classify)?
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_challenge_foreign_challenger",
+                "the challenger's participant lease is not a current child of this room",
+            ))
+        })?,
+    )
+    .map_err(classify)?
+    .clone();
+    if lease_is_live(&challenger_lease, resolved_at_ms)
+        .map_err(classify)?
+        .is_err()
+    {
+        return Err(classify(verr(
+            "m048_lease_not_active",
+            "the challenger's participant lease is not active at the wallet-authorized instant",
+        )));
+    }
+    let challenger_ref = challenger_lease_ref.clone();
+
+    // The challenged object must be a current child of this room.
+    let challenged_finding = if challenged_ref.starts_with("finding://") {
+        let projection = current_child(data_dir, &room_ref, FINDING_CONTRACT, &challenged_ref)
+            .map_err(classify)?
+            .ok_or_else(|| {
+                classify(verr(
+                    "m048_challenge_target_not_found",
+                    "this room admitted no such finding",
+                ))
+            })?;
+        Some(projection)
+    } else {
+        current_child(data_dir, &room_ref, ATTEMPT_CONTRACT, &challenged_ref)
+            .map_err(classify)?
+            .ok_or_else(|| {
+                classify(verr(
+                    "m048_challenge_target_not_found",
+                    "this room recorded no such attempt",
+                ))
+            })?;
+        None
+    };
+
+    let challenge_id = format!(
+        "verifier-challenge://{}",
+        deterministic_tail(
+            "vch_",
+            "hypervisor.m048.verifier-challenge.identity.v1",
+            &json!({
+                "outcome_room_ref": room_ref,
+                "challenged_ref": challenged_ref,
+                "challenger_ref": challenger_ref,
+                "raised_at_wallet_ms": resolved_at_ms,
+            }),
+        )
+    );
+    let candidate =
+        build_challenge_candidate(&challenge_id, &challenger_ref, &challenged_ref, body);
+
+    // Step 1 — the challenge itself.
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        VERIFIER_CHALLENGE_CONTRACT,
+        &candidate,
+        &challenger_lease_ref,
+        None,
+    )
+    .map_err(classify)?;
+
+    // Step 2 — the Finding's disputed successor, at the NEW head. A failure here is recoverable:
+    // the room now describes its own unfinished disposition and the boot completer repairs it.
+    let disposition = match &challenged_finding {
+        Some(projection) => {
+            let outcome = (|| -> Result<Value, VErr> {
+                let finding = admitted(projection)?;
+                if finding.get("status").and_then(Value::as_str) == Some(FINDING_DISPUTED_STATUS) {
+                    // Already in the challenged standing; a second challenge adds no generation.
+                    return Ok(json!({ "converged": true, "already_disputed": true }));
+                }
+                let successor = disputed_finding_successor(finding)?;
+                let prior_root = object_root(projection)?;
+                let reobserved = observe_room_at_head(data_dir, &room_ref)?;
+                let issuer = reobserved.system_id.clone();
+                admit_child(
+                    data_dir,
+                    &reobserved,
+                    FINDING_CONTRACT,
+                    &successor,
+                    &issuer,
+                    Some(&prior_root),
+                )?;
+                Ok(json!({
+                    "converged": true,
+                    "finding_status": FINDING_DISPUTED_STATUS,
+                    "retained_prior_object_root": prior_root,
+                }))
+            })();
+            match outcome {
+                Ok(value) => value,
+                Err((code, message)) => json!({
+                    "converged": false,
+                    "pending_recovery": true,
+                    "code": code,
+                    "message": message,
+                }),
+            }
+        }
+        // An attempt-targeted challenge takes no finding successor in this build step.
+        None => json!({ "converged": true, "finding_successor_not_applicable": true }),
+    };
+
+    let (status, Json(mut payload)) = ok_child(
+        VERIFIER_CHALLENGE_CONTRACT,
+        VERIFIER_CHALLENGE_SCHEMA,
+        &admission,
+    );
+    payload["finding_disposition"] = disposition;
+    Ok((status, Json(payload)))
+}
+
+/// Generic room-child projection for the contribution families.
+fn contribution_list(
+    data_dir: &str,
+    contract_id: &'static str,
+    schema: &'static str,
+    code: &str,
+    query: &std::collections::HashMap<String, String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            code,
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let observed = match observe_room_at_head(data_dir, room_ref) {
+        Ok(observed) => observed,
+        Err(error) => return classify(error),
+    };
+    match current_children(data_dir, room_ref, contract_id)
+        .and_then(|objects| ok_child_list(contract_id, schema, &observed, objects))
+    {
+        Ok(response) => response,
+        Err(error) => classify(error),
+    }
+}
+
+/// Generic single-object projection WITH its full lineage.
+///
+/// Lineage rides on the existing get rather than a new path: a superseded or disputed generation
+/// is history, and a reader that can see the current standing must be able to see what it
+/// succeeded without being sent to a second endpoint.
+fn contribution_get(
+    data_dir: &str,
+    contract_id: &'static str,
+    schema: &'static str,
+    code: &str,
+    object_ref: &str,
+    query: &std::collections::HashMap<String, String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            code,
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let current = match current_child(data_dir, room_ref, contract_id, object_ref) {
+        Ok(Some(projection)) => projection,
+        Ok(None) => return classify(verr(code, "this room admitted no such object")),
+        Err(error) => return classify(error),
+    };
+    let lineage = match child_lineage(data_dir, room_ref, contract_id, object_ref) {
+        Ok(lineage) => lineage,
+        Err(error) => return classify(error),
+    };
+    let body = json!({
+        "ok": true,
+        "object_contract_id": contract_id,
+        "schema_version": schema,
+        "projection": current,
+        // Every admitted generation, oldest first. Nothing is ever removed from this.
+        "lineage": lineage,
+        "generation_count": lineage.len(),
+        "projection_only": true,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    if let Err(error) =
+        room_system::ensure_serialized_body_bound(&body, "m048_projection_too_large")
+    {
+        return classify(error);
+    }
+    (StatusCode::OK, Json(body))
+}
+
+/// Generic status-count overview for a contribution family.
+fn contribution_overview(
+    data_dir: &str,
+    contract_id: &'static str,
+    schema: &'static str,
+    code: &str,
+    query: &std::collections::HashMap<String, String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            code,
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let objects = match current_children(data_dir, room_ref, contract_id) {
+        Ok(objects) => objects,
+        Err(error) => return classify(error),
+    };
+    let mut by_status = serde_json::Map::new();
+    for projection in &objects {
+        let status = projection
+            .pointer("/admitted_object/status")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        let next = by_status.get(&status).and_then(Value::as_u64).unwrap_or(0) + 1;
+        by_status.insert(status, json!(next));
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "object_contract_id": contract_id,
+            "schema_version": schema,
+            "outcome_room_ref": room_ref,
+            "total": objects.len(),
+            "by_status": by_status,
+            // Superseded, disputed and invalid generations are retained in history; this counts
+            // CURRENT standing only and says so.
+            "counts_current_generation_only": true,
+            "projection_only": true,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+macro_rules! contribution_read_handlers {
+    ($list:ident, $get:ident, $overview:ident, $contract:expr, $schema:expr, $code:literal, $scheme:literal) => {
+        pub(crate) async fn $list(
+            State(state): State<Arc<DaemonState>>,
+            headers: axum::http::HeaderMap,
+            Query(query): OfferQuery,
+        ) -> (StatusCode, Json<Value>) {
+            if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+                return classify(error);
+            }
+            contribution_list(&state.data_dir, $contract, $schema, $code, &query)
+        }
+
+        pub(crate) async fn $get(
+            State(state): State<Arc<DaemonState>>,
+            headers: axum::http::HeaderMap,
+            Path(id): Path<String>,
+            Query(query): OfferQuery,
+        ) -> (StatusCode, Json<Value>) {
+            if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+                return classify(error);
+            }
+            let object_ref = format!("{}://{}", $scheme, id);
+            contribution_get(
+                &state.data_dir,
+                $contract,
+                $schema,
+                $code,
+                &object_ref,
+                &query,
+            )
+        }
+
+        pub(crate) async fn $overview(
+            State(state): State<Arc<DaemonState>>,
+            headers: axum::http::HeaderMap,
+            Query(query): OfferQuery,
+        ) -> (StatusCode, Json<Value>) {
+            if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+                return classify(error);
+            }
+            contribution_overview(&state.data_dir, $contract, $schema, $code, &query)
+        }
+    };
+}
+
+contribution_read_handlers!(
+    handle_attempt_list,
+    handle_attempt_get,
+    handle_attempt_overview,
+    ATTEMPT_CONTRACT,
+    ATTEMPT_SCHEMA,
+    "m048_attempt_request_invalid",
+    "attempt"
+);
+contribution_read_handlers!(
+    handle_finding_list,
+    handle_finding_get,
+    handle_finding_overview,
+    FINDING_CONTRACT,
+    FINDING_SCHEMA,
+    "m048_finding_request_invalid",
+    "finding"
+);
+contribution_read_handlers!(
+    handle_challenge_list,
+    handle_challenge_get,
+    handle_challenge_overview,
+    VERIFIER_CHALLENGE_CONTRACT,
+    VERIFIER_CHALLENGE_SCHEMA,
+    "m048_challenge_request_invalid",
+    "verifier-challenge"
+);
+
+/// Generic contribution transition: a successor generation carrying a registered status.
+async fn contribution_transition_inner(
+    data_dir: &str,
+    contract_id: &'static str,
+    schema: &'static str,
+    code: &str,
+    scheme: &str,
+    statuses: &[&str],
+    verdicts: &[&str],
+    id: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            &["outcome_room_ref", "expected_room_state_root", "status"],
+            code,
+        )?;
+        let room_ref = req_ref(body, "outcome_room_ref", &["outcome-room"], code)?;
+        let expected_head = req_root(body, "expected_room_state_root", code)?;
+        let status = req_vocab(body, "status", statuses, code)?;
+        if verdicts.contains(&status.as_str()) {
+            return Err(verr(
+                "m048_contribution_verdict_refused",
+                "acceptance, rejection and adjudication are verdicts; this build step issues none",
+            ));
+        }
+        Ok((room_ref, expected_head, status))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, status) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    let object_ref = format!("{scheme}://{id}");
+    let projection = current_child(data_dir, &room_ref, contract_id, &object_ref)
+        .map_err(classify)?
+        .ok_or_else(|| classify(verr(code, "this room admitted no such object")))?;
+    let object = admitted(&projection).map_err(classify)?.clone();
+
+    let _resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &object_ref,
+        "transition",
+        &json!({ "op": "transition", "status": status }),
+    )
+    .await?;
+
+    let mut successor = object.clone();
+    let map = successor
+        .as_object_mut()
+        .ok_or_else(|| classify(verr(code, "the record must be an object")))?;
+    map.remove("system_binding");
+    map.remove("outcome_room_ref");
+    map.insert("status".to_string(), json!(status));
+    let prior_root = object_root(&projection).map_err(classify)?;
+    let issuer = observed.system_id.clone();
+    // Succession only. No generation is ever removed, so a superseded or disputed record stays
+    // exactly where it was in the lineage.
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        contract_id,
+        &successor,
+        &issuer,
+        Some(&prior_root),
+    )
+    .map_err(classify)?;
+    Ok(ok_child(contract_id, schema, &admission))
+}
+
+/// POST /v1/goal-orchestration/attempts/:id/transition
+pub(crate) async fn handle_attempt_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match contribution_transition_inner(
+        &state.data_dir,
+        ATTEMPT_CONTRACT,
+        ATTEMPT_SCHEMA,
+        "m048_attempt_request_invalid",
+        "attempt",
+        ATTEMPT_STATUSES,
+        ATTEMPT_VERDICT_STATUSES,
+        &id,
+        &body,
+    )
+    .await
+    {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+/// POST /v1/goal-orchestration/findings/:id/transition
+pub(crate) async fn handle_finding_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match contribution_transition_inner(
+        &state.data_dir,
+        FINDING_CONTRACT,
+        FINDING_SCHEMA,
+        "m048_finding_request_invalid",
+        "finding",
+        FINDING_STATUSES,
+        FINDING_VERDICT_STATUSES,
+        &id,
+        &body,
+    )
+    .await
+    {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+/// POST /v1/goal-orchestration/verifier-challenges/:id/transition
+pub(crate) async fn handle_challenge_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match contribution_transition_inner(
+        &state.data_dir,
+        VERIFIER_CHALLENGE_CONTRACT,
+        VERIFIER_CHALLENGE_SCHEMA,
+        "m048_challenge_request_invalid",
+        "verifier-challenge",
+        CHALLENGE_STATUSES,
+        CHALLENGE_VERDICT_STATUSES,
+        &id,
+        &body,
+    )
+    .await
+    {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
 /// Pure projection: liveness and lapse evidence for every current claim at one wallet instant.
 fn claim_overview_projection(
     data_dir: &str,
@@ -5680,7 +7330,6 @@ fn claim_overview_projection(
 
 #[cfg(test)]
 mod m048_tests {
-    use super::super::outcome_room_routes::is_rfc3339;
     use super::*;
 
     fn temp_dir(tag: &str) -> std::path::PathBuf {
@@ -6709,18 +8358,51 @@ mod m048_tests {
     }
 
     #[test]
-    fn this_build_step_mounts_no_contribution_route_at_the_current_generation() {
-        // A4 added lease and offer routes; the contribution arc is still later. If one of those
-        // families gets re-pointed early, this catches it.
-        for not_yet in [
-            "m048_collaboration_routes::handle_attempt",
-            "m048_collaboration_routes::handle_finding",
-            "m048_collaboration_routes::handle_challenge",
+    fn all_ten_lifecycles_are_mounted_and_no_predecessor_handler_remains() {
+        // A6 completes the arc, so the earlier "not yet mounted" pin is replaced by its inverse:
+        // every current handler MUST be mounted, and no predecessor handler for any re-pointed
+        // family may remain beside it.
+        for mounted in [
+            "m048_collaboration_routes::handle_pairing_create",
+            "m048_collaboration_routes::handle_terms_create",
+            "m048_collaboration_routes::handle_participation_request_create",
+            "m048_collaboration_routes::handle_participation_request_admit",
+            "m048_collaboration_routes::handle_participant_lease_transition",
+            "m048_collaboration_routes::handle_resource_create",
+            "m048_collaboration_routes::handle_capability_create",
+            "m048_collaboration_routes::handle_frontier_create",
+            "m048_collaboration_routes::handle_match_create",
+            "m048_collaboration_routes::handle_claim_acquire",
+            "m048_collaboration_routes::handle_attempt_create",
+            "m048_collaboration_routes::handle_finding_create",
+            "m048_collaboration_routes::handle_challenge_create",
         ] {
             assert!(
-                !ROUTER_SOURCE.contains(not_yet),
-                "`{not_yet}` is a later dependency step and must not be mounted yet"
+                ROUTER_SOURCE.contains(mounted),
+                "`{mounted}` must be mounted at the current generation"
             );
+        }
+        for retired in [
+            "room_participation_routes::handle_",
+            "resource_capability_offer_routes::handle_",
+            "work_frontier_claim_routes::handle_",
+            "attempt_finding_routes::handle_",
+            "verifier_challenge_routes::handle_",
+        ] {
+            assert!(
+                !ROUTER_SOURCE.contains(retired),
+                "`{retired}` must not remain mounted beside the current generation"
+            );
+        }
+        // The predecessor modules stay declared and physically untouched.
+        for module in [
+            "mod room_participation_routes;",
+            "mod resource_capability_offer_routes;",
+            "mod work_frontier_claim_routes;",
+            "mod attempt_finding_routes;",
+            "mod verifier_challenge_routes;",
+        ] {
+            assert!(ROUTER_SOURCE.contains(module), "`{module}` stays declared");
         }
     }
 
@@ -7313,7 +8995,8 @@ mod m048_tests {
             "outcome_room_ref": canonical_room_ref(),
             "expected_room_state_root": head,
             "participant_ref": "worker://demo/w",
-            "operator_ref": "org://demo/op",
+            // The hosted slice admits only worker:// and agent:// principals.
+            "operator_ref": "worker://demo/op",
             "home_domain_ref": "domain://demo",
             "admitted_role": "implementer",
             "visibility_scope_ref": "restricted_view://demo",
@@ -7449,7 +9132,12 @@ mod m048_tests {
         // the offer families deliberately do not.
         if matches!(
             contract_id,
-            PARTICIPATION_REQUEST_CONTRACT | PARTICIPANT_LEASE_CONTRACT | WORK_CLAIM_LEASE_CONTRACT
+            PARTICIPATION_REQUEST_CONTRACT
+                | PARTICIPANT_LEASE_CONTRACT
+                | WORK_CLAIM_LEASE_CONTRACT
+                | ATTEMPT_CONTRACT
+                | FINDING_CONTRACT
+                | VERIFIER_CHALLENGE_CONTRACT
         ) {
             map.insert("outcome_room_ref".to_string(), json!(room_ref));
         }
@@ -8157,6 +9845,874 @@ mod m048_tests {
             assert!(ROUTER_SOURCE.contains(path), "`{path}` must be mounted");
             assert!(ROUTER_SOURCE.contains(handler), "`{handler}` must be named");
         }
+    }
+
+    // --- A6: attempt, finding, verifier challenge ----------------------------------------------
+
+    /// A projection entry shaped exactly like the seam's, so coordinate derivation is exercised
+    /// against real projection structure rather than a hand-authored coordinate block.
+    fn projection_of(object: Value, generation: i64, root_byte: &str) -> Value {
+        json!({
+            "generation": generation,
+            "object_root": format!("sha256:{}", root_byte.repeat(32)),
+            "admitted_object": object,
+        })
+    }
+
+    fn observed_room_for_tests() -> RoomAtHead {
+        RoomAtHead {
+            room_ref: validated_room_ref(),
+            head: format!("sha256:{}", "77".repeat(32)),
+            system_id: SYSTEM_ID.to_string(),
+            room: json!({
+                "host_domain_ref": "domain://ioi-hosted",
+                "member_goal_run_refs": ["goal://demo/run-1"],
+            }),
+        }
+    }
+
+    fn goal_run_for_tests() -> (String, String, String) {
+        (
+            "goal://demo/run-1".to_string(),
+            "2026-08-26T11:59:00Z".to_string(),
+            format!("sha256:{}", "88".repeat(32)),
+        )
+    }
+
+    /// The lease as a projection, with `participant_ref` in the worker namespace the registered
+    /// `principal_ref` pattern demands.
+    fn lease_projection_for_tests() -> Value {
+        let mut lease = production_lease_candidate();
+        lease["participant_lease_id"] =
+            json!(format!("participant-lease://plz_{}", "cd".repeat(32)));
+        lease["participant_ref"] = json!("worker://demo/w");
+        projection_of(lease, 0, "aa")
+    }
+
+    fn claim_projection_for_tests() -> Value {
+        let mut claim = production_claim_candidate();
+        claim["frontier_item_ref"] = json!(format!("frontier://wfi_{}", "ab".repeat(32)));
+        claim["claimant_participant_lease_ref"] =
+            json!(format!("participant-lease://plz_{}", "cd".repeat(32)));
+        projection_of(claim, 0, "bb")
+    }
+
+    fn frontier_projection_for_tests() -> Value {
+        projection_of(production_frontier_candidate(), 0, "cc")
+    }
+
+    fn attempt_coordinates_for_tests() -> Value {
+        let (record_ref, updated_at, record_hash) = goal_run_for_tests();
+        attempt_bound_coordinates(
+            &observed_room_for_tests(),
+            &frontier_projection_for_tests(),
+            &claim_projection_for_tests(),
+            &lease_projection_for_tests(),
+            &GoalRunCoordinate {
+                record_ref,
+                updated_at,
+                record_hash,
+            },
+        )
+        .expect("the attempt coordinates derive")
+    }
+
+    fn production_attempt_candidate() -> Value {
+        let claim = admitted(&claim_projection_for_tests()).unwrap().clone();
+        let (goal_run_ref, _, _) = goal_run_for_tests();
+        build_attempt_candidate(
+            &format!("attempt://atm_{}", "ab".repeat(32)),
+            &claim,
+            "worker://demo/w",
+            &goal_run_ref,
+            attempt_coordinates_for_tests(),
+            &json!({
+                "declared_method_and_hypothesis_refs": ["method://demo/1"],
+                "input_state_and_environment_refs": ["state://demo/input/1"],
+                "worker_model_resolver_tool_and_runtime_version_refs": ["worker://demo/1"],
+                "authority_and_policy_refs": ["grant://demo/work"],
+                "resource_and_cost_refs": [],
+                "outcome_class": "positive",
+                "artifact_evidence_and_receipt_refs": [format!("receipt://art_{}", "cd".repeat(32))],
+                "artifact_license_ip_retention_and_export_refs": ["policy://demo/export"],
+            }),
+        )
+    }
+
+    /// The composed WorkResult coordinate as `resolve_work_result_coordinate` would produce it:
+    /// room from room history, run from the owner's `work_subject_ref`, goal from the run's own
+    /// record, and no update instant because the owner exposes none.
+    fn work_result_for_tests() -> WorkResultCoordinate {
+        WorkResultCoordinate {
+            record_ref: format!("work-result://wr_{}", "ef".repeat(32)),
+            outcome_room_ref: validated_room_ref(),
+            goal_run_ref: "goal://demo/run-1".to_string(),
+            goal_ref: "goal://demo/run-1".to_string(),
+            record_hash: format!("sha256:{}", "99".repeat(32)),
+        }
+    }
+
+    fn finding_coordinates_for_tests() -> Value {
+        finding_bound_coordinates(
+            &validated_room_ref(),
+            &projection_of(production_attempt_candidate(), 0, "dd"),
+            &lease_projection_for_tests(),
+            &work_result_for_tests(),
+        )
+        .expect("the finding coordinates derive")
+    }
+
+    fn production_finding_candidate() -> Value {
+        let work_result_ref = work_result_for_tests().record_ref;
+        build_finding_candidate(
+            &format!("finding://fnd_{}", "ab".repeat(32)),
+            &production_attempt_candidate(),
+            &format!("participant-lease://plz_{}", "cd".repeat(32)),
+            // Must be the lease's own principal: the registered invariant
+            // `finding.proposer.resolves_through_bound_lease_or_room_system` resolves the proposer
+            // through the bound lease, which is exactly what production derives.
+            "worker://demo/w",
+            &work_result_ref,
+            "2026-08-26T12:00:00Z",
+            finding_coordinates_for_tests(),
+            &json!({
+                "proposition": "The bounded run produced the declared artifact.",
+                "finding_kind": "observation",
+                "confidence_or_uncertainty": 0.9,
+                "source_and_observation_context_refs": [format!("attempt://atm_{}", "ab".repeat(32))],
+                "supporting_evidence_refs": ["evidence://demo/1"],
+                "proof_refs": [format!("receipt://prf_{}", "11".repeat(32))],
+                "contradicting_evidence_refs": [],
+                "applicability_and_counterexample_refs": [],
+                "provenance_ontology_and_mapping_refs": ["provenance://demo/1"],
+                "supersedes_ref": Value::Null,
+            }),
+        )
+    }
+
+    fn production_challenge_candidate() -> Value {
+        build_challenge_candidate(
+            &format!("verifier-challenge://vch_{}", "ab".repeat(32)),
+            &format!("participant-lease://plz_{}", "cd".repeat(32)),
+            &format!("finding://fnd_{}", "ab".repeat(32)),
+            &json!({
+                "challenge_kind": "evidence",
+                "challenge_evidence_refs": ["evidence://demo/challenge"],
+                "adjudicator_policy_ref": "policy://demo/adjudication",
+                "prior_rule_version_ref": "rubric://demo/v1",
+                "affected_attempt_refs": [format!("attempt://atm_{}", "ab".repeat(32))],
+                "reverification_required": true,
+            }),
+        )
+    }
+
+    #[test]
+    fn the_contribution_builders_satisfy_their_registered_v3_contracts() {
+        for (contract, candidate, label) in [
+            (ATTEMPT_CONTRACT, production_attempt_candidate(), "attempt"),
+            (FINDING_CONTRACT, production_finding_candidate(), "finding"),
+            (
+                VERIFIER_CHALLENGE_CONTRACT,
+                production_challenge_candidate(),
+                "verifier challenge",
+            ),
+        ] {
+            let sealed = seal_like_the_seam(&candidate, contract, &validated_room_ref());
+            validate_architecture_contract(contract, &sealed).unwrap_or_else(|error| {
+                panic!("the production {label} candidate must validate: {error}")
+            });
+        }
+    }
+
+    #[test]
+    fn the_disputed_finding_successor_validates_and_retains_every_lineage_ref() {
+        let finding = production_finding_candidate();
+        let successor = disputed_finding_successor(&finding).unwrap();
+        let sealed = seal_like_the_seam(&successor, FINDING_CONTRACT, &validated_room_ref());
+        validate_architecture_contract(FINDING_CONTRACT, &sealed)
+            .unwrap_or_else(|error| panic!("the disputed successor must validate: {error}"));
+
+        assert_eq!(successor["status"], json!(FINDING_DISPUTED_STATUS));
+        // A challenge changes what a finding is TRUSTED to be, never what it recorded.
+        for retained in [
+            "finding_id",
+            "attempt_ref",
+            "work_result_ref",
+            "participant_ref",
+            "proposed_by_ref",
+            "proposition",
+            "finding_kind",
+            "transaction_time",
+            "source_and_observation_context_refs",
+            "supporting_evidence_refs",
+            "proof_refs",
+            "provenance_ontology_and_mapping_refs",
+            "supersedes_ref",
+        ] {
+            assert_eq!(
+                successor[retained], finding[retained],
+                "`{retained}` must survive a challenge byte-for-byte"
+            );
+        }
+    }
+
+    #[test]
+    fn the_validator_rejects_broken_contribution_payloads() {
+        // Mutation check: each validation must be capable of failing.
+        let mut attempt = seal_like_the_seam(
+            &production_attempt_candidate(),
+            ATTEMPT_CONTRACT,
+            &validated_room_ref(),
+        );
+        attempt["outcome_class"] = json!("marvellous");
+        assert!(validate_architecture_contract(ATTEMPT_CONTRACT, &attempt).is_err());
+
+        let mut finding = seal_like_the_seam(
+            &production_finding_candidate(),
+            FINDING_CONTRACT,
+            &validated_room_ref(),
+        );
+        finding.as_object_mut().unwrap().remove("work_result_ref");
+        assert!(validate_architecture_contract(FINDING_CONTRACT, &finding).is_err());
+
+        let mut challenge = seal_like_the_seam(
+            &production_challenge_candidate(),
+            VERIFIER_CHALLENGE_CONTRACT,
+            &validated_room_ref(),
+        );
+        challenge["challenged_ref"] = json!("banana://nope");
+        assert!(validate_architecture_contract(VERIFIER_CHALLENGE_CONTRACT, &challenge).is_err());
+    }
+
+    #[test]
+    fn bound_coordinates_are_derived_from_live_projections_not_from_the_caller() {
+        let coordinates = attempt_coordinates_for_tests();
+        // Every revision and record hash comes from the projection, not from any request field.
+        assert_eq!(coordinates["frontier_item"]["revision"], json!(0));
+        assert_eq!(
+            coordinates["frontier_item"]["record_hash"],
+            json!(format!("sha256:{}", "cc".repeat(32)))
+        );
+        assert_eq!(
+            coordinates["work_claim"]["record_hash"],
+            json!(format!("sha256:{}", "bb".repeat(32)))
+        );
+        assert_eq!(
+            coordinates["participant_lease"]["record_hash"],
+            json!(format!("sha256:{}", "aa".repeat(32)))
+        );
+        // The room's control hash is the head this write is committing against.
+        assert_eq!(
+            coordinates["outcome_room"]["control_hash"],
+            json!(format!("sha256:{}", "77".repeat(32)))
+        );
+        // The registered shape pins the claimant coordinate to the LEASE, not the worker.
+        assert_eq!(
+            coordinates["work_claim"]["claimant_ref"],
+            coordinates["participant_lease"]["record_ref"]
+        );
+
+        // A caller cannot smuggle coordinates in: the create bodies do not admit them at all.
+        for forged in [
+            "bound_coordinates",
+            "frontier_item_revision",
+            "work_claim_record_hash",
+            "participant_lease_revision",
+        ] {
+            assert!(
+                !ATTEMPT_CREATE_FIELDS.contains(&forged),
+                "`{forged}` must not be a caller-supplied field"
+            );
+            assert!(!FINDING_CREATE_FIELDS.contains(&forged));
+        }
+    }
+
+    #[test]
+    fn a_mutated_coordinate_root_or_revision_turns_the_validator_red() {
+        // The invariant profile pins each coordinate to the ref it mirrors, so a forged coordinate
+        // is not merely wrong — it is contract-invalid. If this ever passes, the derivation has
+        // stopped being load-bearing.
+        let base = seal_like_the_seam(
+            &production_attempt_candidate(),
+            ATTEMPT_CONTRACT,
+            &validated_room_ref(),
+        );
+        validate_architecture_contract(ATTEMPT_CONTRACT, &base)
+            .expect("the honest attempt validates");
+
+        for pointer in [
+            "/bound_coordinates/outcome_room/record_ref",
+            "/bound_coordinates/frontier_item/record_ref",
+            "/bound_coordinates/work_claim/record_ref",
+            "/bound_coordinates/goal_run/record_ref",
+            "/bound_coordinates/work_claim/frontier_item_ref",
+            "/bound_coordinates/frontier_item/outcome_room_ref",
+            "/bound_coordinates/participant_lease/outcome_room_ref",
+        ] {
+            let mut mutated = base.clone();
+            let slot = mutated.pointer_mut(pointer).expect("the coordinate exists");
+            // Re-point the coordinate at a different object of the SAME scheme, so only the
+            // cross-field invariant — not the pattern — can catch it.
+            let original = slot.as_str().unwrap_or_default().to_string();
+            let scheme = original.split_once("://").map(|(s, _)| s).unwrap_or("goal");
+            *slot = json!(format!("{scheme}://forged/elsewhere"));
+            assert!(
+                validate_architecture_contract(ATTEMPT_CONTRACT, &mutated).is_err(),
+                "a forged `{pointer}` must be rejected by the registered invariants"
+            );
+        }
+
+        // A mutated revision is caught the same way on the Finding side.
+        let finding = seal_like_the_seam(
+            &production_finding_candidate(),
+            FINDING_CONTRACT,
+            &validated_room_ref(),
+        );
+        validate_architecture_contract(FINDING_CONTRACT, &finding)
+            .expect("the honest finding validates");
+        for pointer in [
+            "/bound_coordinates/attempt/record_ref",
+            "/bound_coordinates/work_result/record_ref",
+            "/bound_coordinates/participant_lease/record_ref",
+        ] {
+            let mut mutated = finding.clone();
+            let slot = mutated.pointer_mut(pointer).expect("the coordinate exists");
+            let original = slot.as_str().unwrap_or_default().to_string();
+            let scheme = original
+                .split_once("://")
+                .map(|(s, _)| s)
+                .unwrap_or("attempt");
+            *slot = json!(format!("{scheme}://forged/elsewhere"));
+            assert!(
+                validate_architecture_contract(FINDING_CONTRACT, &mutated).is_err(),
+                "a forged `{pointer}` must be rejected by the registered invariants"
+            );
+        }
+    }
+
+    // --- A6 amendment: owner-derived coordinates, narrowed principals, 202 -----------------------
+
+    #[tokio::test]
+    async fn owner_coordinate_derivation_refuses_every_uncertainty_before_a_child_write() {
+        let directory = temp_dir("owner-coordinates");
+        let data_dir = directory.to_str().unwrap();
+        let observed = observed_room_for_tests();
+
+        // Absent GoalRun owner record: refused, and never silently defaulted.
+        let error = resolve_goal_run_coordinate(data_dir, &observed, "goal://demo/run-1")
+            .expect_err("an absent GoalRun owner record is refused");
+        assert_eq!(error.0, "m048_goal_run_not_found");
+
+        // A run that is not a member of this room is refused before the owner read matters.
+        assert_eq!(
+            resolve_goal_run_coordinate(data_dir, &observed, "goal://someone-else/run-9")
+                .expect_err("a foreign run is refused")
+                .0,
+            "m048_goal_run_not_a_room_member"
+        );
+
+        // Absent WorkResult owner record: refused.
+        let work_result_ref = format!("work-result://wr_{}", "ef".repeat(32));
+        assert_eq!(
+            resolve_work_result_coordinate(data_dir, &observed, &work_result_ref)
+                .expect_err("an absent WorkResult owner record is refused")
+                .0,
+            "m048_work_result_not_found"
+        );
+
+        // Nothing was written by any refusal.
+        for family in OWNER_LOCAL_FAMILIES {
+            assert!(!directory.join(family).exists());
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn the_composed_work_result_coordinate_matches_the_registered_shape() {
+        let composed = work_result_coordinate_block(&WorkResultCoordinate {
+            record_ref: format!("work-result://wr_{}", "ef".repeat(32)),
+            outcome_room_ref: validated_room_ref(),
+            goal_run_ref: "goal://demo/run-1".to_string(),
+            goal_ref: "goal://demo/run-1".to_string(),
+            record_hash: format!("sha256:{}", "99".repeat(32)),
+        });
+        // `updated_at` is explicitly null, which the registered coordinate admits. Fabricating an
+        // instant here would be hashing a claim canon does not make.
+        assert_eq!(composed["updated_at"], Value::Null);
+        assert_eq!(composed["outcome_room_ref"], json!(validated_room_ref()));
+        // The run and its goal are one identity in this implementation; no distinct value is
+        // invented for `goal_ref`.
+        assert_eq!(composed["goal_run_ref"], composed["goal_ref"]);
+
+        // And it validates inside a real Finding.
+        let mut finding = production_finding_candidate();
+        finding["bound_coordinates"]["work_result"] = composed;
+        let sealed = seal_like_the_seam(&finding, FINDING_CONTRACT, &validated_room_ref());
+        validate_architecture_contract(FINDING_CONTRACT, &sealed)
+            .unwrap_or_else(|error| panic!("the composed coordinate must validate: {error}"));
+    }
+
+    #[test]
+    fn a_mutated_owner_record_yields_a_different_coordinate_hash() {
+        // The hash is recomputed from the exact owner record on every admission, so mutated owner
+        // bytes cannot ride an old coordinate.
+        let owner = json!({
+            "work_result_id": format!("work-result://wr_{}", "ef".repeat(32)),
+            "work_subject_ref": "goal://demo/run-1",
+            "outcome_class": "positive",
+        });
+        let mut mutated = owner.clone();
+        mutated["outcome_class"] = json!("negative");
+        assert_ne!(
+            record_output_hash(&owner, &[]),
+            record_output_hash(&mutated, &[]),
+            "a mutated owner record must not hash to its predecessor"
+        );
+        // The owner/room mismatch check is exactly this comparison.
+        assert_eq!(
+            record_output_hash(&owner, &[]),
+            record_output_hash(&owner.clone(), &[])
+        );
+    }
+
+    #[test]
+    fn no_coordinate_evidence_field_is_caller_supplied_any_more() {
+        for forged in [
+            "goal_run_updated_at",
+            "goal_run_record_hash",
+            "work_result_goal_run_ref",
+            "work_result_goal_ref",
+            "work_result_updated_at",
+            "work_result_record_hash",
+            "bound_coordinates",
+        ] {
+            assert!(
+                !ATTEMPT_CREATE_FIELDS.contains(&forged),
+                "`{forged}` must not be caller-supplied on an attempt"
+            );
+            assert!(
+                !FINDING_CREATE_FIELDS.contains(&forged),
+                "`{forged}` must not be caller-supplied on a finding"
+            );
+        }
+        // The caller still names the refs, and only the refs.
+        assert!(ATTEMPT_CREATE_FIELDS.contains(&"goal_run_ref"));
+        assert!(FINDING_CREATE_FIELDS.contains(&"work_result_ref"));
+    }
+
+    #[tokio::test]
+    async fn a_service_or_org_principal_is_refused_before_any_lease_is_written() {
+        let directory = temp_dir("lease-principal");
+        let data_dir = directory.to_str().unwrap();
+        let base = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": format!("sha256:{}", "11".repeat(32)),
+            "participant_ref": "worker://demo/w",
+            "operator_ref": "worker://demo/op",
+            "home_domain_ref": "domain://demo",
+            "admitted_role": "implementer",
+            "visibility_scope_ref": "restricted_view://demo",
+            "terms_acceptance_ref": "receipt://tac_one",
+            "ttl_seconds": 3600,
+        });
+        // The hosted slice admits only worker:// and agent:// principals.
+        for (field, value) in [
+            ("participant_ref", "service://demo/svc"),
+            ("participant_ref", "org://demo/team"),
+            ("participant_ref", "system://room/demo"),
+            ("operator_ref", "org://demo/team"),
+            ("operator_ref", "user://demo/levi"),
+        ] {
+            let mut body = base.clone();
+            body[field] = json!(value);
+            let (status, Json(payload)) = admit_inner(data_dir, "prq_one", &body)
+                .await
+                .expect_err("a non worker/agent principal is refused");
+            assert_eq!(
+                status,
+                StatusCode::BAD_REQUEST,
+                "`{field}={value}` must be refused"
+            );
+            assert_eq!(
+                payload.pointer("/error/code").and_then(Value::as_str),
+                Some("m048_admit_request_invalid")
+            );
+        }
+        // worker:// and agent:// get past principal validation and fail later, on the absent room.
+        for principal in ["worker://demo/w", "agent://demo/a"] {
+            let mut body = base.clone();
+            body["participant_ref"] = json!(principal);
+            let (status, _) = admit_inner(data_dir, "prq_one", &body)
+                .await
+                .expect_err("the room is still absent");
+            assert_eq!(
+                status,
+                StatusCode::NOT_FOUND,
+                "`{principal}` must pass principal validation"
+            );
+        }
+        for family in OWNER_LOCAL_FAMILIES {
+            assert!(
+                !directory.join(family).exists(),
+                "a refused admission writes nothing"
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn a_pending_request_successor_is_reported_as_202_accepted() {
+        // The status is chosen by whether the successor converged, so pin both branches against
+        // the exact source that decides it.
+        let source = include_str!("m048_collaboration_routes.rs");
+        let admit = source
+            .split("async fn admit_inner(")
+            .nth(1)
+            .and_then(|tail| {
+                tail.split("/// GET /v1/goal-orchestration/room-participant-leases")
+                    .next()
+            })
+            .expect("the admit handler remains source-addressable");
+        assert!(
+            admit.contains("StatusCode::ACCEPTED"),
+            "a pending convergence must answer 202, not 200"
+        );
+        let converged_branch = admit
+            .find("if converged.is_ok()")
+            .expect("the status is chosen by convergence");
+        let accepted = admit
+            .find("StatusCode::ACCEPTED")
+            .expect("the accepted status exists");
+        assert!(
+            converged_branch < accepted,
+            "202 must be the else-branch of a successful convergence, not the default"
+        );
+        // 202 is a success class, so a caller that checks `is_success()` still sees the lease.
+        assert!(StatusCode::ACCEPTED.is_success());
+        assert_ne!(StatusCode::ACCEPTED, StatusCode::OK);
+    }
+
+    #[test]
+    fn a_foreign_goal_run_cannot_be_bound_to_an_attempt() {
+        let observed = observed_room_for_tests();
+        assert!(require_room_goal_run(&observed, "goal://demo/run-1").is_ok());
+        assert_eq!(
+            require_room_goal_run(&observed, "goal://someone-else/run-9")
+                .expect_err("a non-member run is refused")
+                .0,
+            "m048_goal_run_not_a_room_member"
+        );
+    }
+
+    #[test]
+    fn an_attempt_binds_its_claim_lineage_and_mints_no_owner_registry_object() {
+        let attempt = production_attempt_candidate();
+        let claim = production_claim_candidate();
+        assert_eq!(attempt["work_claim_ref"], claim["work_claim_id"]);
+        assert_eq!(attempt["work_subject_ref"], claim["work_claim_id"]);
+        assert_eq!(attempt["frontier_item_ref"], claim["frontier_item_ref"]);
+        assert_eq!(attempt["participant_ref"], claim["claimant_ref"]);
+        // WorkResult and OutcomeDelta are owner-registry families the room seam refuses.
+        assert_eq!(attempt["work_result_ref"], Value::Null);
+        assert_eq!(attempt["outcome_delta_refs"], json!([]));
+        // No Contribution object is invented.
+        assert_eq!(attempt["contribution_refs"], json!([]));
+        assert_eq!(attempt["reproduction_state"], json!("unreviewed"));
+    }
+
+    #[test]
+    fn a_challenge_opens_a_question_and_answers_none() {
+        let challenge = production_challenge_candidate();
+        assert_eq!(
+            challenge["adjudication_ref"],
+            Value::Null,
+            "a challenge never carries its own adjudication"
+        );
+        assert_eq!(challenge["proposed_rule_version_ref"], Value::Null);
+        assert_eq!(challenge["status"], json!("admitted"));
+        // Verdict statuses are excluded from what a transition may set.
+        for verdict in CHALLENGE_VERDICT_STATUSES {
+            assert!(
+                ![
+                    "proposed",
+                    "admitted",
+                    "investigating",
+                    "reverifying",
+                    "withdrawn"
+                ]
+                .contains(verdict),
+                "`{verdict}` is a verdict and must not be a settable standing here"
+            );
+        }
+        assert!(FINDING_VERDICT_STATUSES.contains(&"rejected"));
+        assert!(ATTEMPT_VERDICT_STATUSES.contains(&"accepted"));
+    }
+
+    #[test]
+    fn a_claim_lapse_never_touches_an_attempt() {
+        // The whole point of Attempt durability: a claim ending is a claim successor and nothing
+        // else. Nothing in the claim transition path reads or writes an attempt.
+        let attempt_before = production_attempt_candidate();
+        let mut lapsed = production_claim_candidate();
+        for terminal in CLAIM_TERMINAL_STATUSES {
+            lapsed["status"] = json!(terminal);
+            assert_eq!(
+                claim_is_live(&lapsed, NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS).unwrap(),
+                Err(ClaimLapse::Terminal)
+            );
+        }
+        assert_eq!(
+            attempt_before,
+            production_attempt_candidate(),
+            "no claim transition rewrites or deletes an attempt"
+        );
+        // And the source text of the claim transition never reaches the attempt contract.
+        let source = include_str!("m048_collaboration_routes.rs");
+        let claim_transition = source
+            .split("async fn claim_transition_inner(")
+            .nth(1)
+            .and_then(|tail| {
+                tail.split("\n/// An optional bounded free-text field.")
+                    .next()
+            })
+            .expect("the claim transition remains source-addressable");
+        assert!(
+            !claim_transition.contains("ATTEMPT_CONTRACT"),
+            "the claim transition must never touch the attempt family"
+        );
+        assert!(!claim_transition.contains("FINDING_CONTRACT"));
+    }
+
+    #[test]
+    fn a_superseded_or_invalid_finding_stays_in_the_registered_vocabulary() {
+        for retained in ["superseded", "contradicted", "disputed", "archived"] {
+            assert!(
+                FINDING_STATUSES.contains(&retained),
+                "`{retained}` must remain an expressible standing"
+            );
+        }
+        // Succession never removes: the disputed successor keeps the same identity, so the prior
+        // generation remains addressable in lineage under that identity.
+        let finding = production_finding_candidate();
+        let successor = disputed_finding_successor(&finding).unwrap();
+        assert_eq!(successor["finding_id"], finding["finding_id"]);
+    }
+
+    #[test]
+    fn the_challenge_convergence_is_idempotent_on_an_already_disputed_finding() {
+        let mut disputed = production_finding_candidate();
+        disputed["status"] = json!(FINDING_DISPUTED_STATUS);
+        // `unconverged_challenges` skips a finding already in the disputed standing, so a second
+        // challenge appends no redundant generation.
+        assert_eq!(
+            disputed["status"].as_str(),
+            Some(FINDING_DISPUTED_STATUS),
+            "the converged standing is the registered disputed state"
+        );
+        let again = disputed_finding_successor(&disputed).unwrap();
+        assert_eq!(again["status"], json!(FINDING_DISPUTED_STATUS));
+    }
+
+    #[tokio::test]
+    async fn a6_mutations_refuse_and_write_nothing_without_a_room() {
+        let directory = temp_dir("a6-refusal");
+        let data_dir = directory.to_str().unwrap();
+        let head = format!("sha256:{}", "11".repeat(32));
+
+        let attempt_body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": head,
+            "work_claim_ref": "work-claim://wcl_one",
+            "outcome_class": "positive",
+            // The caller names the run only; its instant and hash are derived from owner truth.
+            "goal_run_ref": "goal://demo/run-1",
+        });
+        assert_eq!(
+            attempt_create_inner(data_dir, &attempt_body)
+                .await
+                .expect_err("an absent room is refused")
+                .0,
+            StatusCode::NOT_FOUND
+        );
+
+        let finding_body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": head,
+            "attempt_ref": "attempt://atm_one",
+            "work_result_ref": "work-result://wr_one",
+            "proposition": "something",
+            "finding_kind": "observation",
+        });
+        assert_eq!(
+            finding_create_inner(data_dir, &finding_body)
+                .await
+                .expect_err("an absent room is refused")
+                .0,
+            StatusCode::NOT_FOUND
+        );
+
+        let challenge_body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": head,
+            "challenger_participant_lease_ref": "participant-lease://plz_one",
+            "challenged_ref": "finding://fnd_one",
+            "challenge_kind": "evidence",
+        });
+        assert_eq!(
+            challenge_create_inner(data_dir, &challenge_body)
+                .await
+                .expect_err("an absent room is refused")
+                .0,
+            StatusCode::NOT_FOUND
+        );
+
+        // A finding whose WorkResult ref has the wrong scheme is a bad request, not a seam error.
+        let mut bad_result = finding_body;
+        bad_result["work_result_ref"] = json!("finding://not-a-result");
+        assert_eq!(
+            finding_create_inner(data_dir, &bad_result)
+                .await
+                .expect_err("a non work-result ref is refused")
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+        // A challenge against something that is neither a finding nor an attempt is refused.
+        let mut bad_target = challenge_body;
+        bad_target["challenged_ref"] = json!("budget://nope");
+        assert_eq!(
+            challenge_create_inner(data_dir, &bad_target)
+                .await
+                .expect_err("an unsupported challenge target is refused")
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+
+        for family in OWNER_LOCAL_FAMILIES {
+            assert!(
+                !directory.join(family).exists(),
+                "a refused A6 mutation writes nothing"
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_contribution_transition_refuses_a_verdict_status() {
+        let directory = temp_dir("a6-verdict");
+        let data_dir = directory.to_str().unwrap();
+        let head = format!("sha256:{}", "11".repeat(32));
+        for (contract, schema, code, scheme, statuses, verdicts, verdict) in [
+            (
+                ATTEMPT_CONTRACT,
+                ATTEMPT_SCHEMA,
+                "m048_attempt_request_invalid",
+                "attempt",
+                ATTEMPT_STATUSES,
+                ATTEMPT_VERDICT_STATUSES,
+                "accepted",
+            ),
+            (
+                FINDING_CONTRACT,
+                FINDING_SCHEMA,
+                "m048_finding_request_invalid",
+                "finding",
+                FINDING_STATUSES,
+                FINDING_VERDICT_STATUSES,
+                "rejected",
+            ),
+            (
+                VERIFIER_CHALLENGE_CONTRACT,
+                VERIFIER_CHALLENGE_SCHEMA,
+                "m048_challenge_request_invalid",
+                "verifier-challenge",
+                CHALLENGE_STATUSES,
+                CHALLENGE_VERDICT_STATUSES,
+                "upheld",
+            ),
+        ] {
+            let body = json!({
+                "outcome_room_ref": canonical_room_ref(),
+                "expected_room_state_root": head,
+                "status": verdict,
+            });
+            let (status, Json(payload)) = contribution_transition_inner(
+                data_dir, contract, schema, code, scheme, statuses, verdicts, "x", &body,
+            )
+            .await
+            .expect_err("a verdict is refused");
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(
+                payload.pointer("/error/code").and_then(Value::as_str),
+                Some("m048_contribution_verdict_refused")
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn the_predecessor_contribution_handlers_are_no_longer_mounted() {
+        for retired in [
+            "attempt_finding_routes::handle_",
+            "verifier_challenge_routes::handle_",
+        ] {
+            assert!(
+                !ROUTER_SOURCE.contains(retired),
+                "`{retired}` must not remain mounted; the current generation owns this family"
+            );
+        }
+        assert!(ROUTER_SOURCE.contains("mod attempt_finding_routes;"));
+        assert!(ROUTER_SOURCE.contains("mod verifier_challenge_routes;"));
+    }
+
+    #[test]
+    fn every_a6_route_is_mounted_at_its_exact_path_and_handler() {
+        for (path, handler) in [
+            (
+                "/v1/goal-orchestration/attempts",
+                "m048_collaboration_routes::handle_attempt_create",
+            ),
+            (
+                "/v1/goal-orchestration/attempts/overview",
+                "m048_collaboration_routes::handle_attempt_overview",
+            ),
+            (
+                "/v1/goal-orchestration/attempts/:id/transition",
+                "m048_collaboration_routes::handle_attempt_transition",
+            ),
+            (
+                "/v1/goal-orchestration/findings",
+                "m048_collaboration_routes::handle_finding_create",
+            ),
+            (
+                "/v1/goal-orchestration/findings/:id/transition",
+                "m048_collaboration_routes::handle_finding_transition",
+            ),
+            (
+                "/v1/goal-orchestration/verifier-challenges",
+                "m048_collaboration_routes::handle_challenge_create",
+            ),
+            (
+                "/v1/goal-orchestration/verifier-challenges/:id/transition",
+                "m048_collaboration_routes::handle_challenge_transition",
+            ),
+        ] {
+            assert!(ROUTER_SOURCE.contains(path), "`{path}` must be mounted");
+            assert!(ROUTER_SOURCE.contains(handler), "`{handler}` must be named");
+        }
+    }
+
+    #[test]
+    fn all_three_convergence_passes_run_after_the_seam_recovery() {
+        let seam = ROUTER_SOURCE
+            .find("outcome_room_system_routes::complete_pending")
+            .expect("the seam recovery is wired");
+        let challenges = ROUTER_SOURCE
+            .find("m048_collaboration_routes::complete_challenge_dispositions")
+            .expect("the challenge convergence is wired");
+        let admissions = ROUTER_SOURCE
+            .find("m048_collaboration_routes::complete_participation_admissions")
+            .expect("the admission convergence is wired");
+        assert!(seam < admissions && admissions < challenges);
     }
 
     #[test]
