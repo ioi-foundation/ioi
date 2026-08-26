@@ -116,6 +116,8 @@ mod k8s_candidate_source;
 mod lambda_candidate_source;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
+#[path = "hypervisor_daemon_routes/m048_collaboration_routes.rs"]
+mod m048_collaboration_routes;
 #[path = "hypervisor_daemon_routes/managed_runtime_routes.rs"]
 mod managed_runtime_routes;
 #[path = "hypervisor_daemon_routes/marketplace_routes.rs"]
@@ -601,6 +603,16 @@ async fn async_main() -> anyhow::Result<()> {
     // room-release tails before readiness. Governed replay performs network I/O and is launched
     // only after the listener is bound, so resolver outage cannot delay readiness.
     room_participation_routes::complete_participation_intents(&data_dir);
+    // M04.8 — the current participation/contribution plane keeps no room-child truth of its own,
+    // so there is nothing here to converge. What it does own is three owner-local evidence
+    // families (pairing sessions, collaboration terms + acceptances, eligibility matches), and a
+    // slot in one of those that cannot be read EXACTLY is indistinguishable from one that was
+    // never written. Census them fail-closed before the listener binds rather than serve a
+    // current route over an ambiguous pairing or acceptance record.
+    if let Err((code, message)) = m048_collaboration_routes::preflight_owner_local_census(&data_dir)
+    {
+        anyhow::bail!("M04.8 owner-local recovery blocks readiness ({code}: {message})");
+    }
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
