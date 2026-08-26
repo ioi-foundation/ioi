@@ -3296,6 +3296,93 @@ mod tests {
         assert_eq!(artifacts.chain["latest_sequence"], 3);
     }
 
+    /// The active constitution is a live input to the enrollment-change
+    /// decision, not decoration: one identical declaration compiles while the
+    /// constitution binds the change policy and is refused once it does not.
+    #[test]
+    fn constitution_mutation_flips_the_network_enrollment_compilation_decision() {
+        let bound = || {
+            let mut source = source();
+            source.constitution["policies"]["network_enrollment_constraint_ref"] =
+                json!("policy://acme/network/tiers");
+            source.constitution["policies"]["network_enrollment_change_decision_profile_ref"] =
+                json!("policy://acme/network/change");
+            source
+        };
+        let source = bound();
+        let mut enrollment = fixture("ioi-network-enrollment-v1/positive-local-only.json");
+        enrollment["network_enrollment_id"] =
+            json!("network-enrollment://acme/system-alpha/connected/revision/1");
+        enrollment["manifest_ref"] = source.base.chain_head["manifest_ref"].clone();
+        enrollment["profile"] = json!("ioi_connected");
+        enrollment["status"] = json!("pending");
+        enrollment["governing_decision_ref"] =
+            json!("decision://acme/system-alpha/continuity/sequence/3");
+        let declaration = ContinuityTransitionDeclaration {
+            trigger_evidence_refs: vec![],
+            successor_candidate_ref: None,
+            successor_authority_ref: None,
+            migration_destination_ack_ref: None,
+            migration_destination_ack_root: None,
+            residual_disposition_receipt_refs: vec![],
+            live_effect_refs: vec![],
+            network_enrollment: Some(enrollment),
+            dissolution_disposition: None,
+            dissolution_domain_outcome: None,
+        };
+
+        let compiled = compile_from_source(
+            ContinuityTransitionOp::ChangeNetworkEnrollment,
+            &source,
+            &declaration,
+            None,
+            None,
+        )
+        .expect("bound constitution compiles the enrollment change");
+        assert!(compiled.network_enrollment.is_some());
+
+        // Mutation: the active constitution no longer answers to the chain-head
+        // constitution this change is compiled against. The message is asserted
+        // because `system_continuity_plan_invalid` is also the generic wrapper
+        // for downstream compile failures.
+        let mut mutated = bound();
+        mutated.constitution["constitution_id"] = json!("constitution://acme/system-alpha/v2");
+        let refusal = compile_from_source(
+            ContinuityTransitionOp::ChangeNetworkEnrollment,
+            &mutated,
+            &declaration,
+            None,
+            None,
+        )
+        .expect_err("a constitution that does not bind the change policy is refused");
+        assert_eq!(refusal.0, "system_continuity_plan_invalid");
+        assert_eq!(
+            refusal.1,
+            "active constitution does not bind network-enrollment change policy"
+        );
+
+        // Removing the binding outright refuses one gate earlier: the shared
+        // canonical-string reader rejects the absent ref before the guard's own
+        // emptiness check is reached.
+        let mut stripped = bound();
+        stripped.constitution["policies"]
+            .as_object_mut()
+            .expect("policies object")
+            .remove("network_enrollment_change_decision_profile_ref");
+        assert_eq!(
+            compile_from_source(
+                ContinuityTransitionOp::ChangeNetworkEnrollment,
+                &stripped,
+                &declaration,
+                None,
+                None,
+            )
+            .expect_err("a constitution missing the change policy is refused")
+            .0,
+            "system_lifecycle_artifact_invalid"
+        );
+    }
+
     #[test]
     fn succession_builds_a_contract_valid_live_chain_successor() {
         let source = source();
