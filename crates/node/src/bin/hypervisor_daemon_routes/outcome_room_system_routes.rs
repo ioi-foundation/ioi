@@ -1413,6 +1413,36 @@ impl ChildContract {
 
 fn child_contract(contract_id: &str) -> Option<ChildContract> {
     Some(match contract_id {
+        "schema://ioi/applications/ioi-ai/room-participation-request/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.room-participation-request.v3",
+            id_field: "participation_request_id",
+            list_field: Some("participation_request_refs"),
+            room_ref_field: Some("outcome_room_ref"),
+            owner_publication: None,
+        },
+        "schema://ioi/applications/ioi-ai/room-participant-lease/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.room-participant-lease.v3",
+            id_field: "participant_lease_id",
+            list_field: Some("participant_lease_refs"),
+            room_ref_field: Some("outcome_room_ref"),
+            owner_publication: None,
+        },
+        // The two offer families are room-scoped through their SystemScopedObjectBinding alone;
+        // their registered contracts declare no top-level room ref, so the seam must not mint one.
+        "schema://ioi/applications/ioi-ai/resource-offer/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.resource-offer.v3",
+            id_field: "resource_offer_id",
+            list_field: Some("resource_offer_refs"),
+            room_ref_field: None,
+            owner_publication: None,
+        },
+        "schema://ioi/applications/ioi-ai/capability-offer/v3" => ChildContract {
+            schema: "ioi.applications.ioi-ai.capability-offer.v3",
+            id_field: "capability_offer_id",
+            list_field: Some("capability_offer_refs"),
+            room_ref_field: None,
+            owner_publication: None,
+        },
         "schema://ioi/applications/ioi-ai/work-frontier-item/v3" => ChildContract {
             schema: "ioi.applications.ioi-ai.work-frontier-item.v3",
             id_field: "frontier_item_id",
@@ -6158,42 +6188,97 @@ mod tests {
         candidate
     }
 
-    fn frontier_generations(data_dir: &str, room: &Value, room_tail: &str) -> Vec<Value> {
+    fn room_child_generations_for(
+        data_dir: &str,
+        room: &Value,
+        room_tail: &str,
+        contract_id: &str,
+    ) -> Vec<Value> {
         let room_ref = room["outcome_room_id"]
             .as_str()
             .expect("canonical room ref");
         let history =
             room_system_operation_history(data_dir, room_ref).expect("room operation history");
-        project_room_child_generations(
-            room,
-            room_tail,
-            &history,
-            WORK_FRONTIER_ITEM_V3_CONTRACT,
-            None,
-        )
-        .expect("the strict room-child projection")
+        project_room_child_generations(room, room_tail, &history, contract_id, None)
+            .expect("the strict room-child projection")
+    }
+
+    fn frontier_generations(data_dir: &str, room: &Value, room_tail: &str) -> Vec<Value> {
+        room_child_generations_for(data_dir, room, room_tail, WORK_FRONTIER_ITEM_V3_CONTRACT)
     }
 
     /// Compose one room-native child operation through the production composer.
-    fn compose_frontier_operation(
+    fn compose_room_child_operation(
         room: &Value,
+        contract_id: &str,
         prepared: &Value,
         at: &str,
     ) -> (Value, Value, String) {
         let (contract, object_ref, binding) =
-            validate_composed_child_payload(room, WORK_FRONTIER_ITEM_V3_CONTRACT, prepared)
+            validate_composed_child_payload(room, contract_id, prepared)
                 .expect("the derived room-native child validates against room truth");
         compose_child_operation(
             room,
             &test_system_chain(room),
             contract,
-            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            contract_id,
             prepared,
             object_ref,
             binding,
             at,
         )
         .expect("the composed room-child operation")
+    }
+
+    fn compose_frontier_operation(
+        room: &Value,
+        prepared: &Value,
+        at: &str,
+    ) -> (Value, Value, String) {
+        compose_room_child_operation(room, WORK_FRONTIER_ITEM_V3_CONTRACT, prepared, at)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn admit_room_child(
+        data_dir: &str,
+        room_tail: &str,
+        room: &Value,
+        contract_id: &str,
+        candidate: &Value,
+        issuer_ref: &str,
+        expected_prior_object_root: Option<&str>,
+        at: &str,
+    ) -> (Value, Value) {
+        let generations = room_child_generations_for(data_dir, room, room_tail, contract_id);
+        let prepared = prepare_room_native_child(
+            room,
+            contract_id,
+            candidate,
+            issuer_ref,
+            &generations,
+            expected_prior_object_root,
+            at,
+        )
+        .expect("the room-native child derives from room truth");
+        let (candidate_room, operation, key) =
+            compose_room_child_operation(room, contract_id, &prepared, at);
+        let expected_head = room["room_state_root"]
+            .as_str()
+            .expect("the room is attached to a head")
+            .to_owned();
+        let (updated, _evidence) = finalize_room_native_child(
+            data_dir,
+            room_tail,
+            room,
+            &candidate_room,
+            contract_id,
+            &prepared,
+            &operation,
+            &key,
+            &expected_head,
+        )
+        .expect("the room-native child commits on its exact expected head");
+        (updated, prepared)
     }
 
     fn admit_frontier_item(
@@ -6204,35 +6289,16 @@ mod tests {
         expected_prior_object_root: Option<&str>,
         at: &str,
     ) -> (Value, Value) {
-        let generations = frontier_generations(data_dir, room, room_tail);
-        let prepared = prepare_room_native_child(
+        admit_room_child(
+            data_dir,
+            room_tail,
             room,
             WORK_FRONTIER_ITEM_V3_CONTRACT,
             candidate,
             ROOM_CHILD_ISSUER,
-            &generations,
             expected_prior_object_root,
             at,
         )
-        .expect("the room-native child derives from room truth");
-        let (candidate_room, operation, key) = compose_frontier_operation(room, &prepared, at);
-        let expected_head = room["room_state_root"]
-            .as_str()
-            .expect("the room is attached to a head")
-            .to_owned();
-        let (updated, _evidence) = finalize_room_native_child(
-            data_dir,
-            room_tail,
-            room,
-            &candidate_room,
-            WORK_FRONTIER_ITEM_V3_CONTRACT,
-            &prepared,
-            &operation,
-            &key,
-            &expected_head,
-        )
-        .expect("the room-native child commits on its exact expected head");
-        (updated, prepared)
     }
 
     fn assert_no_owner_registry_truth(data_dir: &std::path::Path) {
@@ -6243,6 +6309,420 @@ mod tests {
             assert!(
                 !data_dir.join(family).exists(),
                 "a room-native admission published global owner truth in '{family}'"
+            );
+        }
+    }
+
+    // --- M04.8 hosted contribution-plane contract rows ----------------------
+    //
+    // The four newly registered participation/offer families are ordinary room-native children:
+    // they carry no global owner registry, and their room scoping is the SystemScopedObjectBinding
+    // the seam derives. These fixtures are the registered positives, re-issued through the room
+    // this test owns — the room's own admitted lease is the only participant lease it recognises.
+
+    const ROOM_PARTICIPATION_REQUEST_V3_CONTRACT: &str =
+        "schema://ioi/applications/ioi-ai/room-participation-request/v3";
+    const ROOM_PARTICIPANT_LEASE_V3_CONTRACT: &str =
+        "schema://ioi/applications/ioi-ai/room-participant-lease/v3";
+    const RESOURCE_OFFER_V3_CONTRACT: &str = "schema://ioi/applications/ioi-ai/resource-offer/v3";
+    const CAPABILITY_OFFER_V3_CONTRACT: &str =
+        "schema://ioi/applications/ioi-ai/capability-offer/v3";
+
+    const ROOM_PARTICIPATION_REQUEST_V3_POSITIVE_FIXTURE: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json"
+    ));
+    const ROOM_PARTICIPANT_LEASE_V3_POSITIVE_FIXTURE: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json"
+    ));
+    const RESOURCE_OFFER_V3_POSITIVE_FIXTURE: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json"
+    ));
+    const CAPABILITY_OFFER_V3_POSITIVE_FIXTURE: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json"
+    ));
+
+    /// One registered contribution-plane family: its contract id, its registered positive fixture,
+    /// the issuer its own registered invariant requires, and the room list field it projects into.
+    struct ContributionPlaneFamily {
+        contract_id: &'static str,
+        schema: &'static str,
+        id_field: &'static str,
+        list_field: &'static str,
+        room_ref_field: Option<&'static str>,
+        fixture: &'static str,
+        /// Payload coordinate that must equal the issuer for this family's registered invariant.
+        /// `None` means the invariant requires the room System itself.
+        issuer_binding_field: Option<&'static str>,
+    }
+
+    fn contribution_plane_families() -> Vec<ContributionPlaneFamily> {
+        vec![
+            ContributionPlaneFamily {
+                contract_id: ROOM_PARTICIPATION_REQUEST_V3_CONTRACT,
+                schema: "ioi.applications.ioi-ai.room-participation-request.v3",
+                id_field: "participation_request_id",
+                list_field: "participation_request_refs",
+                room_ref_field: Some("outcome_room_ref"),
+                fixture: ROOM_PARTICIPATION_REQUEST_V3_POSITIVE_FIXTURE,
+                issuer_binding_field: None,
+            },
+            ContributionPlaneFamily {
+                contract_id: ROOM_PARTICIPANT_LEASE_V3_CONTRACT,
+                schema: "ioi.applications.ioi-ai.room-participant-lease.v3",
+                id_field: "participant_lease_id",
+                list_field: "participant_lease_refs",
+                room_ref_field: Some("outcome_room_ref"),
+                fixture: ROOM_PARTICIPANT_LEASE_V3_POSITIVE_FIXTURE,
+                issuer_binding_field: None,
+            },
+            ContributionPlaneFamily {
+                contract_id: RESOURCE_OFFER_V3_CONTRACT,
+                schema: "ioi.applications.ioi-ai.resource-offer.v3",
+                id_field: "resource_offer_id",
+                list_field: "resource_offer_refs",
+                room_ref_field: None,
+                fixture: RESOURCE_OFFER_V3_POSITIVE_FIXTURE,
+                issuer_binding_field: Some("provider_participant_lease_ref"),
+            },
+            ContributionPlaneFamily {
+                contract_id: CAPABILITY_OFFER_V3_CONTRACT,
+                schema: "ioi.applications.ioi-ai.capability-offer.v3",
+                id_field: "capability_offer_id",
+                list_field: "capability_offer_refs",
+                room_ref_field: None,
+                fixture: CAPABILITY_OFFER_V3_POSITIVE_FIXTURE,
+                issuer_binding_field: Some("participant_lease_ref"),
+            },
+        ]
+    }
+
+    impl ContributionPlaneFamily {
+        /// The issuer this family's own registered invariant demands, expressed against one room.
+        fn issuer_for(&self, room: &Value) -> String {
+            match self.issuer_binding_field {
+                None => room["system_id"]
+                    .as_str()
+                    .expect("canonical system id")
+                    .to_owned(),
+                Some(_) => ROOM_CHILD_ISSUER.to_owned(),
+            }
+        }
+
+        /// The registered positive fixture as a pre-admission wire candidate: binding and any
+        /// server-derived room ref removed, and the offer lease coordinate re-pointed at the lease
+        /// this room actually admitted.
+        fn candidate_for(&self, room: &Value) -> Value {
+            let mut candidate: Value = serde_json::from_str(self.fixture)
+                .unwrap_or_else(|_| panic!("{} fixture contains JSON", self.contract_id));
+            canonical_contract(self.contract_id, &candidate).unwrap_or_else(|error| {
+                panic!("{} fixture is canonical ({error:?})", self.contract_id)
+            });
+            let object = candidate
+                .as_object_mut()
+                .expect("a registered fixture is an object");
+            object.remove("system_binding");
+            if let Some(field) = self.room_ref_field {
+                object.remove(field);
+            }
+            if let Some(field) = self.issuer_binding_field {
+                object.insert(field.to_owned(), json!(ROOM_CHILD_ISSUER));
+            }
+            let _ = room;
+            candidate
+        }
+
+        fn object_ref(&self, prepared: &Value) -> String {
+            prepared[self.id_field]
+                .as_str()
+                .expect("the registered identity coordinate")
+                .to_owned()
+        }
+    }
+
+    #[test]
+    fn m048_contribution_plane_contract_rows_are_exact_and_room_native() {
+        for family in contribution_plane_families() {
+            let contract = child_contract(family.contract_id).unwrap_or_else(|| {
+                panic!("{} is a registered room-child family", family.contract_id)
+            });
+            assert_eq!(contract.schema, family.schema, "{}", family.contract_id);
+            assert_eq!(contract.id_field, family.id_field, "{}", family.contract_id);
+            assert_eq!(
+                contract.list_field,
+                Some(family.list_field),
+                "{}",
+                family.contract_id
+            );
+            assert_eq!(
+                contract.room_ref_field, family.room_ref_field,
+                "{}",
+                family.contract_id
+            );
+            assert_eq!(
+                contract.owner_publication, None,
+                "{} must never publish global owner truth",
+                family.contract_id
+            );
+            assert!(contract.is_room_native(), "{}", family.contract_id);
+
+            // The declared schema version is the registered one: a fixture whose `schema_version`
+            // is this row's value must validate against this row's contract id.
+            let fixture: Value = serde_json::from_str(family.fixture).expect("fixture JSON");
+            assert_eq!(fixture["schema_version"], json!(family.schema));
+            canonical_contract(family.contract_id, &fixture)
+                .expect("the registered positive fixture validates against its row's contract id");
+            assert!(
+                fixture.get(family.id_field).is_some(),
+                "{} declares '{}'",
+                family.contract_id,
+                family.id_field
+            );
+            assert_eq!(
+                fixture.get("outcome_room_ref").is_some(),
+                family.room_ref_field.is_some(),
+                "{} room-ref metadata must match its registered schema",
+                family.contract_id
+            );
+
+            // The room projection actually carries the named list field, and it accepts this
+            // family's identity ref — proved against the registered room contract, not by eye.
+            let mut room = positive_outcome_room_v2();
+            assert!(
+                room.get(family.list_field)
+                    .and_then(Value::as_array)
+                    .is_some(),
+                "the registered OutcomeRoom v2 projection lacks '{}'",
+                family.list_field
+            );
+            append_unique(
+                &mut room,
+                family.list_field,
+                fixture[family.id_field].clone(),
+            )
+            .expect("the room list field accepts an append");
+            validate_current_room_contract(&room).unwrap_or_else(|error| {
+                panic!(
+                    "'{}' rejects a {} identity ref ({error:?})",
+                    family.list_field, family.contract_id
+                )
+            });
+        }
+    }
+
+    #[test]
+    fn m048_contribution_plane_children_admit_through_the_room_native_seam() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8 data dir");
+        let room_tail = "or_a48007";
+        let mut room = seed_room_at_genesis(data_dir, room_tail);
+        let room_ref = room["outcome_room_id"]
+            .as_str()
+            .expect("canonical room ref")
+            .to_owned();
+
+        for (index, family) in contribution_plane_families().into_iter().enumerate() {
+            let at = format!("2026-08-26T13:0{index}:00Z");
+            let candidate = family.candidate_for(&room);
+            let before = room[family.list_field]
+                .as_array()
+                .expect("the room list field")
+                .len();
+            let (updated, prepared) = admit_room_child(
+                data_dir,
+                room_tail,
+                &room,
+                family.contract_id,
+                &candidate,
+                &family.issuer_for(&room),
+                None,
+                &at,
+            );
+            let object_ref = family.object_ref(&prepared);
+
+            // Room scoping is derived, and for a room-ref family both coordinates agree — which is
+            // exactly what these contracts' own registered invariants require.
+            assert_eq!(
+                prepared["system_binding"]["parent_scope_ref"],
+                json!(room_ref)
+            );
+            assert_eq!(prepared["system_binding"]["system_id"], room["system_id"]);
+            match family.room_ref_field {
+                Some(field) => assert_eq!(prepared[field], json!(room_ref)),
+                None => assert!(
+                    prepared.get("outcome_room_ref").is_none(),
+                    "{} declares no room ref; the seam must not mint one",
+                    family.contract_id
+                ),
+            }
+
+            let after = updated[family.list_field]
+                .as_array()
+                .expect("the room list field")
+                .len();
+            assert_eq!(after, before + 1, "{}", family.contract_id);
+            assert!(
+                updated[family.list_field]
+                    .as_array()
+                    .expect("the room list field")
+                    .iter()
+                    .any(|value| value.as_str() == Some(object_ref.as_str())),
+                "{} did not project into '{}'",
+                family.contract_id,
+                family.list_field
+            );
+
+            let current = current_room_children(data_dir, &room_ref, family.contract_id, None)
+                .expect("the strict current projection");
+            assert_eq!(current.len(), 1, "{}", family.contract_id);
+            assert_eq!(current[0]["object_ref"], json!(object_ref));
+            assert_eq!(current[0]["generation"], json!(0));
+            assert_eq!(current[0]["admitted_object"], prepared);
+
+            room = updated;
+        }
+
+        assert_eq!(room["latest_sequence"], json!(4));
+        assert!(strict_intent_family(data_dir, CHILD_INTENT_DIR)
+            .expect("the child intent family reads")
+            .is_empty());
+        assert_no_owner_registry_truth(dir.path());
+    }
+
+    #[test]
+    fn m048_contribution_plane_refuses_room_system_and_issuer_substitution() {
+        let room = positive_outcome_room_v2();
+        let at = "2026-08-26T13:05:00Z";
+        // One family that declares its own room ref, and one that is room-scoped by binding alone.
+        for family in contribution_plane_families().into_iter().filter(|family| {
+            family.contract_id == ROOM_PARTICIPANT_LEASE_V3_CONTRACT
+                || family.contract_id == CAPABILITY_OFFER_V3_CONTRACT
+        }) {
+            let issuer = family.issuer_for(&room);
+            let base = family.candidate_for(&room);
+            let prepare = |candidate: &Value, issuer: &str| {
+                prepare_room_native_child(
+                    &room,
+                    family.contract_id,
+                    candidate,
+                    issuer,
+                    &[],
+                    None,
+                    at,
+                )
+            };
+
+            let mut caller_binding = base.clone();
+            caller_binding["system_binding"] = json!({
+                "schema_version":SYSTEM_BINDING_SCHEMA,
+                "system_id":"system://room/foreign",
+                "parent_scope_ref":"outcome-room://foreign",
+                "proposed_or_issued_by_ref":issuer,
+                "payload_root":format!("sha256:{}", "9".repeat(64)),
+                "created_at":at,
+                "updated_at":at,
+            });
+            assert_eq!(
+                prepare(&caller_binding, &issuer)
+                    .expect_err("a caller may not mint its own binding")
+                    .0,
+                "outcome_system_binding_plane_owned",
+                "{}",
+                family.contract_id
+            );
+
+            let mut caller_room_ref = base.clone();
+            caller_room_ref["outcome_room_ref"] = json!("outcome-room://foreign");
+            assert_eq!(
+                prepare(&caller_room_ref, &issuer)
+                    .expect_err("a caller may not name its own room")
+                    .0,
+                "outcome_room_child_room_fields_plane_owned",
+                "{}",
+                family.contract_id
+            );
+
+            assert_eq!(
+                prepare(&base, "participant-lease://foreign/worker")
+                    .expect_err("an issuer this room never admitted must not propose")
+                    .0,
+                "outcome_room_child_issuer_unresolved",
+                "{}",
+                family.contract_id
+            );
+
+            let prepared = prepare(&base, &issuer).expect("the derived child");
+            assert_eq!(
+                prepared["system_binding"]["proposed_or_issued_by_ref"],
+                json!(issuer)
+            );
+
+            // A fully self-consistent foreign-room payload still validates against the registered
+            // contract and its invariants; only the seam's room fence refuses it.
+            let mut foreign_room = prepared.clone();
+            foreign_room["system_binding"]["parent_scope_ref"] = json!("outcome-room://foreign");
+            if let Some(field) = family.room_ref_field {
+                foreign_room[field] = json!("outcome-room://foreign");
+            }
+            assert_eq!(
+                validate_composed_child_payload(&room, family.contract_id, &foreign_room)
+                    .expect_err("a foreign room scope must not compose here")
+                    .0,
+                "outcome_room_wrong_system_child_refused",
+                "{}",
+                family.contract_id
+            );
+
+            let mut foreign_system = prepared.clone();
+            foreign_system["system_binding"]["system_id"] = json!("system://room/foreign");
+            if family.issuer_binding_field.is_none() {
+                // This family's invariant binds its issuer to the System, so a substituted System
+                // must carry a substituted issuer to remain contract-valid at all.
+                foreign_system["system_binding"]["proposed_or_issued_by_ref"] =
+                    json!("system://room/foreign");
+            }
+            assert_eq!(
+                validate_composed_child_payload(&room, family.contract_id, &foreign_system)
+                    .expect_err("a foreign System must not compose here")
+                    .0,
+                "outcome_room_wrong_system_child_refused",
+                "{}",
+                family.contract_id
+            );
+
+            let mut rerooted = prepared;
+            rerooted["status"] = json!("revoked");
+            assert_eq!(
+                validate_composed_child_payload(&room, family.contract_id, &rerooted)
+                    .expect_err("a re-rooted payload must not ride a retained hash")
+                    .0,
+                "outcome_room_child_payload_root_mismatch",
+                "{}",
+                family.contract_id
+            );
+
+            // Neither family may cross into the owner-registry lane.
+            assert_eq!(
+                finalize_composed_child(
+                    "unused",
+                    "or_unused",
+                    &room,
+                    &room,
+                    family.contract_id,
+                    &json!({}),
+                    &json!({}),
+                    "orop_unused",
+                    "sha256:unused",
+                    None,
+                )
+                .expect_err("a room-native family has no owner registry to converge")
+                .0,
+                "outcome_room_owner_record_contract_unavailable",
+                "{}",
+                family.contract_id
             );
         }
     }
