@@ -56,12 +56,17 @@
 //! authorizes a lifecycle transition; `iso_now()` appears only in non-authoritative audit stamps.
 //! `heartbeat_ref` is a `receipt://` ref — this module invents no heartbeat schema or object.
 
+use std::sync::Arc;
+
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
+use super::governed_authority as governed;
 use super::outcome_room_routes::{self as rooms, record_output_hash, reject_sensitive_keys, VErr};
 use super::outcome_room_system_routes as room_system;
+use super::DaemonState;
 
 // --- registered contract coordinates -----------------------------------------------------------
 //
@@ -164,6 +169,11 @@ fn verr(code: &str, message: impl Into<String>) -> VErr {
 pub(crate) fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
     let status = if code.ends_with("_not_found") {
         StatusCode::NOT_FOUND
+    } else if code.ends_with("_unauthenticated") || code.ends_with("_principal_required") {
+        // Repository identity precedent: a caller whose identity did not resolve gets 401, not a
+        // 400. An unauthenticated pairing proof is an identity failure against a pre-admission
+        // authenticator, so it belongs here rather than in the malformed-request class.
+        StatusCode::UNAUTHORIZED
     } else if code.ends_with("_forbidden") || code.ends_with("_authority_required") {
         StatusCode::FORBIDDEN
     } else if code.ends_with("_stale")
@@ -1502,6 +1512,950 @@ fn enforce_hosted_native_admission(candidate: &Value, system_id: &str) -> Result
     Ok(())
 }
 
+// --- authority ---------------------------------------------------------------------------------
+
+/// This plane's M03.5 authority contract. Every mutation resolves through it, and the committed
+/// `resolved_at_ms` it returns is the ONLY clock any lifecycle decision here consults.
+const M048_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "scope:room.participation",
+    policy_domain: "hypervisor.m048.collaboration.policy.v1",
+    request_domain: "hypervisor.m048.collaboration.request.v1",
+    resolution_domain: "hypervisor.m048.collaboration.resolution.v1",
+    code_prefix: "m048",
+    host_label: "room",
+    participant_label: "participant",
+};
+
+/// Resolve one wallet.network-authorized decision and return its committed instant.
+///
+/// Caller-supplied time never reaches this: the returned `resolved_at_ms` is wallet.network's own
+/// committed timestamp, and every TTL/expiry/freshness comparison downstream uses it.
+#[allow(clippy::too_many_arguments)]
+async fn authorized_instant(
+    data_dir: &str,
+    body: &Value,
+    governance: governed::Governance,
+    room_ref: &str,
+    required_authority: &str,
+    subject_ref: &str,
+    op: &str,
+    effect: &Value,
+) -> Result<u64, (StatusCode, Json<Value>)> {
+    governed::authorize_decision(
+        M048_AUTHORITY,
+        data_dir,
+        body,
+        governance,
+        room_ref,
+        required_authority,
+        subject_ref,
+        op,
+        0,
+        effect,
+    )
+    .await
+    .map(|decision| decision.resolved_at_ms)
+}
+
+// --- response shaping ---------------------------------------------------------------------------
+
+/// Wrap one owner-local record with its exact contract coordinates.
+fn ok_local(schema: &str, key: &str, record: Value) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "schema_version": schema,
+            key: record,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+/// Wrap one room-child admission with its contract coordinates AND its Agentgres evidence.
+///
+/// The head/receipt evidence is surfaced rather than summarised: a caller that cannot see which
+/// Agentgres head its write landed on cannot take its next decision at a known room state, which
+/// is exactly what the CAS needs it to do.
+fn ok_child(contract_id: &str, schema: &str, admission: &Value) -> (StatusCode, Json<Value>) {
+    let node = admission.get("admission").unwrap_or(&Value::Null);
+    let agentgres = node
+        .get("agentgres_admission")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let room = node.get("outcome_room").unwrap_or(&Value::Null);
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "object_contract_id": contract_id,
+            "schema_version": schema,
+            "admitted_object": node.get("admitted_object").cloned().unwrap_or(Value::Null),
+            "agentgres_evidence": {
+                "admission": agentgres,
+                "room_state_root": room.get("room_state_root").cloned().unwrap_or(Value::Null),
+                "latest_sequence": room.get("latest_sequence").cloned().unwrap_or(Value::Null),
+            },
+            // Present and null on purpose: this lane asserts the ABSENCE of owner-registry truth.
+            "owner_publication": Value::Null,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+/// Project one room-child list with the head it was read at.
+fn ok_child_list(
+    contract_id: &str,
+    schema: &str,
+    room: &RoomAtHead,
+    objects: Vec<Value>,
+) -> Result<(StatusCode, Json<Value>), VErr> {
+    let body = json!({
+        "ok": true,
+        "object_contract_id": contract_id,
+        "schema_version": schema,
+        "outcome_room_ref": room.room_ref,
+        // The head this projection was taken at, so a caller can submit its next write against it.
+        "observed_room_state_root": room.head,
+        "objects": objects,
+        "count": objects.len(),
+        "projection_only": true,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    room_system::ensure_serialized_body_bound(&body, "m048_projection_too_large")?;
+    Ok((StatusCode::OK, Json(body)))
+}
+
+/// Strip every non-projectable field from a pairing record before it leaves the daemon.
+///
+/// The sealed challenge hash is authentication material: echoing it back would turn a read of the
+/// pairing plane into the very proof a consumer must present. The retained consumption intent is
+/// recovery state and is likewise not a caller's business.
+fn project_pairing(session: &Value) -> Value {
+    let mut projected = session.clone();
+    if let Some(map) = projected.as_object_mut() {
+        map.remove("consumption_intent");
+        if let Some(challenge) = map.get_mut("challenge").and_then(Value::as_object_mut) {
+            challenge.remove("challenge_hash");
+        }
+    }
+    projected
+}
+
+// --- handlers: LocalAgentPairingSession ---------------------------------------------------------
+
+const PAIRING_CREATE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "initiating_surface_ref",
+    "display_name",
+    "challenge_hash",
+    "ttl_seconds",
+];
+
+/// POST /v1/goal-orchestration/local-agent-pairing-sessions
+pub(crate) async fn handle_pairing_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    // Identity first: an unauthenticated caller is refused before the body is even parsed, so a
+    // malformed submission can never be used to probe this plane.
+    let principal = match room_system::request_principal(&state.data_dir, &headers) {
+        Ok(principal) => principal,
+        Err(error) => return classify(error),
+    };
+    match pairing_create_inner(&state.data_dir, &principal, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn pairing_create_inner(
+    data_dir: &str,
+    principal: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(body, PAIRING_CREATE_FIELDS, "m048_pairing_request_invalid")?;
+        let room_ref = req_ref(
+            body,
+            "outcome_room_ref",
+            &["outcome-room"],
+            "m048_pairing_request_invalid",
+        )?;
+        let surface = req_ref(
+            body,
+            "initiating_surface_ref",
+            &["surface"],
+            "m048_pairing_request_invalid",
+        )?;
+        let display_name = req_str(body, "display_name", "m048_pairing_request_invalid")?;
+        let challenge_hash = req_root(body, "challenge_hash", "m048_pairing_request_invalid")?;
+        let ttl = req_ttl(
+            body,
+            "ttl_seconds",
+            30,
+            PAIRING_TTL_MAX_SECONDS,
+            "m048_pairing_request_invalid",
+        )?;
+        Ok((room_ref, surface, display_name, challenge_hash, ttl))
+    })()
+    .map_err(classify)?;
+    let (room_ref, surface, display_name, challenge_hash, ttl) = parsed;
+
+    // The room must exist and be open before a pairing session may name it as its one target.
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+
+    let session_id = format!(
+        "local-agent-pairing://{}",
+        deterministic_tail(
+            "lap_",
+            "hypervisor.m048.pairing-session.identity.v1",
+            &json!({
+                "initiated_by_ref": principal,
+                "outcome_room_ref": room_ref,
+                "challenge_hash": challenge_hash,
+            }),
+        )
+    );
+    let tail = pairing_tail(&session_id).map_err(classify)?;
+
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Host,
+        &room_ref,
+        &observed.system_id,
+        &session_id,
+        "pair",
+        &json!({ "op": "pair", "outcome_room_ref": room_ref, "ttl_seconds": ttl }),
+    )
+    .await?;
+
+    // Both instants come from the wallet decision; the caller's clock is never consulted.
+    let issued_at = wallet_ms_to_rfc3339(resolved_at_ms).map_err(classify)?;
+    let expires_at =
+        wallet_ms_to_rfc3339(wallet_deadline_ms(resolved_at_ms, ttl).map_err(classify)?)
+            .map_err(classify)?;
+
+    // Exact replay: an identical re-submission converges on the existing session rather than
+    // minting a second one, because the id is derived from (principal, room, challenge).
+    if let Some(existing) = read_local(data_dir, PAIRING_DIR, &tail).map_err(classify)? {
+        return Ok(ok_local(
+            PAIRING_SESSION_SCHEMA,
+            "pairing_session",
+            project_pairing(&existing),
+        ));
+    }
+
+    let session = build_pairing_session(
+        &session_id,
+        principal,
+        &surface,
+        &room_ref,
+        &display_name,
+        &challenge_hash,
+        &issued_at,
+        &expires_at,
+        &issued_at,
+    );
+    persist_local(data_dir, PAIRING_DIR, &tail, &session).map_err(classify)?;
+    Ok(ok_local(
+        PAIRING_SESSION_SCHEMA,
+        "pairing_session",
+        project_pairing(&session),
+    ))
+}
+
+/// GET /v1/goal-orchestration/local-agent-pairing-sessions
+pub(crate) async fn handle_pairing_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let principal = match room_system::request_principal(&state.data_dir, &headers) {
+        Ok(principal) => principal,
+        Err(error) => return classify(error),
+    };
+    let sessions = match scan_local(&state.data_dir, PAIRING_DIR, PAIRING_SESSION_SCHEMA) {
+        Ok(sessions) => sessions,
+        Err(error) => return classify(error),
+    };
+    // Owner-scoped: a principal sees only the sessions it initiated.
+    let projected = sessions
+        .into_iter()
+        .filter(|s| s.get("initiated_by_ref").and_then(Value::as_str) == Some(principal.as_str()))
+        .map(|s| project_pairing(&s))
+        .collect::<Vec<_>>();
+    let body = json!({
+        "ok": true,
+        "schema_version": PAIRING_SESSION_SCHEMA,
+        "count": projected.len(),
+        "pairing_sessions": projected,
+        "projection_only": true,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    if let Err(error) =
+        room_system::ensure_serialized_body_bound(&body, "m048_projection_too_large")
+    {
+        return classify(error);
+    }
+    (StatusCode::OK, Json(body))
+}
+
+/// GET /v1/goal-orchestration/local-agent-pairing-sessions/:id
+pub(crate) async fn handle_pairing_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+) -> (StatusCode, Json<Value>) {
+    let principal = match room_system::request_principal(&state.data_dir, &headers) {
+        Ok(principal) => principal,
+        Err(error) => return classify(error),
+    };
+    let tail = match pairing_tail(&format!("local-agent-pairing://{id}")) {
+        Ok(tail) => tail,
+        Err(error) => return classify(error),
+    };
+    match read_local(&state.data_dir, PAIRING_DIR, &tail) {
+        Ok(Some(session))
+            if session.get("initiated_by_ref").and_then(Value::as_str)
+                == Some(principal.as_str()) =>
+        {
+            ok_local(
+                PAIRING_SESSION_SCHEMA,
+                "pairing_session",
+                project_pairing(&session),
+            )
+        }
+        // A session owned by someone else is reported as absent, not as forbidden: existence is
+        // itself information a non-owner has no claim to.
+        Ok(_) => classify(verr(
+            "m048_pairing_not_found",
+            "no such pairing session for this principal",
+        )),
+        Err(error) => classify(error),
+    }
+}
+
+// --- handlers: CollaborationTermsEnvelope + acceptance -------------------------------------------
+
+const TERMS_CREATE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "version",
+    "terms_body_root",
+    "predecessor_terms_ref",
+];
+
+/// POST /v1/goal-orchestration/collaboration-terms
+pub(crate) async fn handle_terms_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match terms_create_inner(&state.data_dir, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn terms_create_inner(
+    data_dir: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(body, TERMS_CREATE_FIELDS, "m048_terms_request_invalid")?;
+        let room_ref = req_ref(
+            body,
+            "outcome_room_ref",
+            &["outcome-room"],
+            "m048_terms_request_invalid",
+        )?;
+        let version = req_str(body, "version", "m048_terms_request_invalid")?;
+        let body_root = req_root(body, "terms_body_root", "m048_terms_request_invalid")?;
+        let predecessor = opt_ref(
+            body,
+            "predecessor_terms_ref",
+            &["terms"],
+            "m048_terms_request_invalid",
+        )?;
+        Ok((room_ref, version, body_root, predecessor))
+    })()
+    .map_err(classify)?;
+    let (room_ref, version, body_root, predecessor) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    let terms_id = format!(
+        "terms://{}",
+        deterministic_tail(
+            "trm_",
+            "hypervisor.m048.collaboration-terms.identity.v1",
+            &json!({
+                "outcome_room_ref": room_ref,
+                "version": version,
+                "terms_body_root": body_root,
+            }),
+        )
+    );
+    let tail = terms_tail(&terms_id).map_err(classify)?;
+
+    let _resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Host,
+        &room_ref,
+        &observed.system_id,
+        &terms_id,
+        "propose",
+        &json!({ "op": "propose", "terms_body_root": body_root }),
+    )
+    .await?;
+
+    if let Some(existing) = read_local(data_dir, TERMS_DIR, &tail).map_err(classify)? {
+        return Ok(ok_local(
+            COLLABORATION_TERMS_SCHEMA,
+            "collaboration_terms",
+            existing,
+        ));
+    }
+    let terms = build_terms_envelope(
+        &terms_id,
+        &version,
+        &body_root,
+        &room_ref,
+        &observed.system_id,
+        predecessor.as_deref(),
+    );
+    persist_local(data_dir, TERMS_DIR, &tail, &terms).map_err(classify)?;
+    Ok(ok_local(
+        COLLABORATION_TERMS_SCHEMA,
+        "collaboration_terms",
+        terms,
+    ))
+}
+
+/// GET /v1/goal-orchestration/collaboration-terms
+pub(crate) async fn handle_terms_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match scan_local(&state.data_dir, TERMS_DIR, COLLABORATION_TERMS_SCHEMA) {
+        Ok(terms) => {
+            let body = json!({
+                "ok": true,
+                "schema_version": COLLABORATION_TERMS_SCHEMA,
+                "count": terms.len(),
+                "collaboration_terms": terms,
+                "projection_only": true,
+                "runtimeTruthSource": "daemon-runtime",
+            });
+            if let Err(error) =
+                room_system::ensure_serialized_body_bound(&body, "m048_projection_too_large")
+            {
+                return classify(error);
+            }
+            (StatusCode::OK, Json(body))
+        }
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/collaboration-terms/:id
+pub(crate) async fn handle_terms_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let tail = match terms_tail(&format!("terms://{id}")) {
+        Ok(tail) => tail,
+        Err(error) => return classify(error),
+    };
+    match read_local(&state.data_dir, TERMS_DIR, &tail) {
+        Ok(Some(terms)) => ok_local(COLLABORATION_TERMS_SCHEMA, "collaboration_terms", terms),
+        Ok(None) => classify(verr("m048_terms_not_found", "no such collaboration terms")),
+        Err(error) => classify(error),
+    }
+}
+
+/// POST /v1/goal-orchestration/collaboration-terms/:id/accept
+pub(crate) async fn handle_terms_accept(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let principal = match room_system::request_principal(&state.data_dir, &headers) {
+        Ok(principal) => principal,
+        Err(error) => return classify(error),
+    };
+    match terms_accept_inner(&state.data_dir, &principal, &id, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn terms_accept_inner(
+    data_dir: &str,
+    principal: &str,
+    id: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let expected_root = (|| -> Result<_, VErr> {
+        closed_object(body, &["accepted_terms_root"], "m048_terms_request_invalid")?;
+        req_root(body, "accepted_terms_root", "m048_terms_request_invalid")
+    })()
+    .map_err(classify)?;
+
+    let tail = terms_tail(&format!("terms://{id}")).map_err(classify)?;
+    let terms = read_local(data_dir, TERMS_DIR, &tail)
+        .map_err(classify)?
+        .ok_or_else(|| classify(verr("m048_terms_not_found", "no such collaboration terms")))?;
+
+    // Acceptance is EXACT. A caller that accepted a body root which is no longer this terms
+    // record's root is refused rather than silently re-pointed at the current one.
+    let actual_root = terms
+        .get("terms_body_root")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if actual_root != expected_root {
+        return Err(classify(verr(
+            "m048_terms_root_mismatch",
+            "the accepted terms root is not this terms record's current body root",
+        )));
+    }
+    if terms.get("status").and_then(Value::as_str) != Some("active") {
+        return Err(classify(verr(
+            "m048_terms_not_acceptable",
+            "only active collaboration terms may be accepted",
+        )));
+    }
+    let room_ref = terms
+        .pointer("/scope/outcome_room_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_terms_record_invalid",
+                "these terms are not scoped to a room",
+            ))
+        })?
+        .to_string();
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &format!("terms://{id}"),
+        "accept",
+        &json!({ "op": "accept", "accepted_terms_root": expected_root }),
+    )
+    .await?;
+    let accepted_at = wallet_ms_to_rfc3339(resolved_at_ms).map_err(classify)?;
+    let (receipt_tail, receipt) =
+        build_terms_acceptance(&terms, principal, &room_ref, resolved_at_ms, &accepted_at)
+            .map_err(classify)?;
+    // Append-only and replay-safe: a byte-identical re-acceptance converges, a divergent one is a
+    // conflict rather than an overwrite.
+    persist_local_receipt(data_dir, TERMS_ACCEPTANCE_DIR, &receipt_tail, &receipt)
+        .map_err(classify)?;
+    Ok(ok_local(
+        TERMS_ACCEPTANCE_SCHEMA,
+        "terms_acceptance_receipt",
+        receipt,
+    ))
+}
+
+// --- handlers: RoomParticipationRequest v3 -------------------------------------------------------
+
+const REQUEST_CREATE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "pairing_session_id",
+    "pairing_proof_hash",
+    "collaboration_terms_ref",
+    "collaboration_terms_root",
+    "capability_offer_refs",
+    "eligibility_evidence_refs",
+    "requested_role_frontier_and_visibility_refs",
+    "privacy_custody_and_context_policy_refs",
+];
+
+/// POST /v1/goal-orchestration/room-participation-requests
+///
+/// This is the pairing crossing in its live form. It uses the recoverable intent built in A2
+/// rather than bypassing it.
+pub(crate) async fn handle_participation_request_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let principal = match room_system::request_principal(&state.data_dir, &headers) {
+        Ok(principal) => principal,
+        Err(error) => return classify(error),
+    };
+    match participation_create_inner(&state.data_dir, &principal, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn participation_create_inner(
+    data_dir: &str,
+    principal: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            REQUEST_CREATE_FIELDS,
+            "m048_participation_request_invalid",
+        )?;
+        let room_ref = req_ref(
+            body,
+            "outcome_room_ref",
+            &["outcome-room"],
+            "m048_participation_request_invalid",
+        )?;
+        let expected_head = req_root(
+            body,
+            "expected_room_state_root",
+            "m048_participation_request_invalid",
+        )?;
+        let pairing_id = req_ref(
+            body,
+            "pairing_session_id",
+            &["local-agent-pairing"],
+            "m048_participation_request_invalid",
+        )?;
+        let proof = req_root(
+            body,
+            "pairing_proof_hash",
+            "m048_participation_request_invalid",
+        )?;
+        let terms_ref = req_ref(
+            body,
+            "collaboration_terms_ref",
+            &["terms"],
+            "m048_participation_request_invalid",
+        )?;
+        let terms_root = req_root(
+            body,
+            "collaboration_terms_root",
+            "m048_participation_request_invalid",
+        )?;
+        let capability_offer_refs = ref_list(
+            body,
+            "capability_offer_refs",
+            &["capability-offer", "ai", "package"],
+            "m048_participation_request_invalid",
+        )?;
+        let eligibility_evidence_refs = ref_list(
+            body,
+            "eligibility_evidence_refs",
+            &[
+                "evidence",
+                "receipt",
+                "benchmark",
+                "conformance_profile",
+                "certification_claim",
+            ],
+            "m048_participation_request_invalid",
+        )?;
+        let role_refs = ref_list(
+            body,
+            "requested_role_frontier_and_visibility_refs",
+            &["frontier", "policy", "restricted_view"],
+            "m048_participation_request_invalid",
+        )?;
+        let privacy_refs = ref_list(
+            body,
+            "privacy_custody_and_context_policy_refs",
+            &["privacy_posture", "custody", "policy"],
+            "m048_participation_request_invalid",
+        )?;
+        Ok((
+            room_ref,
+            expected_head,
+            pairing_id,
+            proof,
+            terms_ref,
+            terms_root,
+            capability_offer_refs,
+            eligibility_evidence_refs,
+            role_refs,
+            privacy_refs,
+        ))
+    })()
+    .map_err(classify)?;
+    let (
+        room_ref,
+        expected_head,
+        pairing_id,
+        proof,
+        terms_ref,
+        terms_root,
+        capability_offer_refs,
+        eligibility_evidence_refs,
+        role_refs,
+        privacy_refs,
+    ) = parsed;
+
+    // 1. Observe the room at a head, and refuse a caller working from a stale one BEFORE any
+    //    pairing state is touched.
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+
+    // 2. Resolve the pairing session strictly.
+    let pairing_stem = pairing_tail(&pairing_id).map_err(classify)?;
+    let session = read_local(data_dir, PAIRING_DIR, &pairing_stem)
+        .map_err(classify)?
+        .ok_or_else(|| classify(verr("m048_pairing_not_found", "no such pairing session")))?;
+
+    // 3. Terms must exist and their root must be exactly what the caller accepted.
+    let terms_stem = terms_tail(&terms_ref).map_err(classify)?;
+    let terms = read_local(data_dir, TERMS_DIR, &terms_stem)
+        .map_err(classify)?
+        .ok_or_else(|| classify(verr("m048_terms_not_found", "no such collaboration terms")))?;
+    if terms.get("terms_body_root").and_then(Value::as_str) != Some(terms_root.as_str()) {
+        return Err(classify(verr(
+            "m048_terms_root_mismatch",
+            "the request's collaboration terms root is not that terms record's body root",
+        )));
+    }
+
+    // 4. Fresh wallet-authorized instant. Everything time-sensitive below uses ONLY this.
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &pairing_id,
+        "submit",
+        &json!({ "op": "submit", "pairing_session_id": pairing_id, "collaboration_terms_ref": terms_ref }),
+    )
+    .await?;
+
+    // 5. The pairing must admit exactly THIS room and requester, be unexpired at the wallet
+    //    instant, unconsumed, and not already in flight.
+    pairing_admits_request(&session, &proof, &room_ref, principal, resolved_at_ms)
+        .map_err(|refusal| classify(verr(refusal.code(), refusal.message())))?;
+
+    // 6. Deterministic identity, so a replay collides at the seam instead of minting a second one.
+    let request_id = derive_participation_request_id(&pairing_id, &room_ref, principal);
+    let request_hash = record_output_hash(
+        &json!({
+            "participation_request_id": request_id,
+            "collaboration_terms_root": terms_root,
+            "capability_offer_refs": capability_offer_refs,
+        }),
+        &[],
+    );
+    let candidate = build_participation_candidate(
+        &request_id,
+        &observed.system_id,
+        principal,
+        &terms_ref,
+        &terms_root,
+        capability_offer_refs,
+        eligibility_evidence_refs,
+        role_refs,
+        privacy_refs,
+        &request_hash,
+    );
+    enforce_hosted_native_admission(&candidate, &observed.system_id).map_err(classify)?;
+
+    // 7. Retain the crossing intent BEFORE the admission. Everything that could refuse on
+    //    validation grounds has already run, so the only reasons the admission can now fail are
+    //    ones recovery knows how to decide.
+    let mut in_flight = session.clone();
+    if let Some(map) = in_flight.as_object_mut() {
+        map.insert(
+            "consumption_intent".to_string(),
+            consumption_intent(
+                &request_id,
+                &room_ref,
+                &observed.head,
+                principal,
+                &candidate,
+            ),
+        );
+    }
+    persist_local(data_dir, PAIRING_DIR, &pairing_stem, &in_flight).map_err(classify)?;
+
+    // 8. Admit into Agentgres at the exact observed head.
+    let admission = match admit_child(
+        data_dir,
+        &observed,
+        PARTICIPATION_REQUEST_CONTRACT,
+        &candidate,
+        &observed.system_id,
+        None,
+    ) {
+        Ok(admission) => admission,
+        Err(error) => {
+            // A head-stale or duplicate-create refusal provably wrote nothing, so the intent is
+            // rolled back immediately and the pairing stays usable. Any other failure may have
+            // written, so the intent is RETAINED for the boot completer to decide — releasing it
+            // here would be exactly the admit-before-consume hole.
+            let definitively_unwritten = error.0 == "outcome_room_expected_head_stale"
+                || error.0 == "outcome_room_child_duplicate_create_refused"
+                || error.0 == "outcome_room_head_conflict";
+            if definitively_unwritten {
+                let mut released = session.clone();
+                if let Some(map) = released.as_object_mut() {
+                    map.remove("consumption_intent");
+                }
+                persist_local(data_dir, PAIRING_DIR, &pairing_stem, &released).map_err(classify)?;
+            }
+            return Err(classify(error));
+        }
+    };
+
+    // 9. Consume the pairing forward. Single-use is now durable on both halves.
+    let consumed = consumed_pairing(&session, &request_id, &super::iso_now()).map_err(classify)?;
+    persist_local(data_dir, PAIRING_DIR, &pairing_stem, &consumed).map_err(classify)?;
+
+    Ok(ok_child(
+        PARTICIPATION_REQUEST_CONTRACT,
+        PARTICIPATION_REQUEST_SCHEMA,
+        &admission,
+    ))
+}
+
+/// GET /v1/goal-orchestration/room-participation-requests
+pub(crate) async fn handle_participation_requests_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_participation_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let observed = match observe_room_at_head(&state.data_dir, room_ref) {
+        Ok(observed) => observed,
+        Err(error) => return classify(error),
+    };
+    match current_children(&state.data_dir, room_ref, PARTICIPATION_REQUEST_CONTRACT).and_then(
+        |objects| {
+            ok_child_list(
+                PARTICIPATION_REQUEST_CONTRACT,
+                PARTICIPATION_REQUEST_SCHEMA,
+                &observed,
+                objects,
+            )
+        },
+    ) {
+        Ok(response) => response,
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/room-participation-requests/:id
+pub(crate) async fn handle_participation_request_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_participation_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let object_ref = format!("participation-request://{id}");
+    match current_child(
+        &state.data_dir,
+        room_ref,
+        PARTICIPATION_REQUEST_CONTRACT,
+        &object_ref,
+    ) {
+        Ok(Some(projection)) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "object_contract_id": PARTICIPATION_REQUEST_CONTRACT,
+                "schema_version": PARTICIPATION_REQUEST_SCHEMA,
+                "projection": projection,
+                "projection_only": true,
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        ),
+        Ok(None) => classify(verr(
+            "m048_participation_not_found",
+            "this room admitted no such participation request",
+        )),
+        Err(error) => classify(error),
+    }
+}
+
+/// The typed refusal for a participation operation whose current-generation owner is a later
+/// dependency step.
+///
+/// This is a NAMED GAP, not a silent 404 and not a fallthrough to a predecessor: the request
+/// family's transition and admit verbs belong with the participant lease, which this build step
+/// does not own. Answering them from the retired predecessor would let a caller drive current
+/// truth through a plane that is no longer authoritative.
+fn participation_step_unavailable(op: &str) -> (StatusCode, Json<Value>) {
+    classify(verr(
+        "m048_participation_transition_unavailable",
+        format!(
+            "`{op}` on a participation request is issued together with the room-System participant \
+             lease, which is not part of this build step; the predecessor plane is retired and is \
+             deliberately not mounted for this family"
+        ),
+    ))
+}
+
+/// POST /v1/goal-orchestration/room-participation-requests/:id/transition
+pub(crate) async fn handle_participation_request_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(_id): Path<String>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    participation_step_unavailable("transition")
+}
+
+/// POST /v1/goal-orchestration/room-participation-requests/:id/admit
+pub(crate) async fn handle_participation_request_admit(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(_id): Path<String>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    participation_step_unavailable("admit")
+}
+
 #[cfg(test)]
 mod m048_tests {
     use super::super::outcome_room_routes::is_rfc3339;
@@ -2412,6 +3366,293 @@ mod m048_tests {
         );
         assert_eq!(terms_tail("terms://trm_one").unwrap(), "trm_one");
         assert!(terms_tail("terms://../escape").is_err());
+    }
+
+    // --- A3: mounted route surface ------------------------------------------------------------
+
+    /// The router source, so mounting facts are asserted against the file that actually mounts.
+    const ROUTER_SOURCE: &str = include_str!("../hypervisor-daemon.rs");
+
+    #[test]
+    fn the_predecessor_participation_handlers_are_no_longer_mounted() {
+        // Re-pointing is only real if the old handlers are GONE from the router. A predecessor
+        // left mounted beside the current generation is a second spine for the same family.
+        for retired in [
+            "room_participation_routes::handle_participation_request_create",
+            "room_participation_routes::handle_participation_requests_list",
+            "room_participation_routes::handle_participation_request_get",
+            "room_participation_routes::handle_participation_request_transition",
+            "room_participation_routes::handle_participation_request_admit",
+        ] {
+            assert!(
+                !ROUTER_SOURCE.contains(retired),
+                "`{retired}` must not remain mounted; the current generation owns this family"
+            );
+        }
+        // The predecessor MODULE stays declared and physically untouched — only its route
+        // registrations for this family were re-pointed.
+        assert!(ROUTER_SOURCE.contains("mod room_participation_routes;"));
+        assert!(
+            ROUTER_SOURCE.contains("room_participation_routes::complete_participation_intents"),
+            "the predecessor's own recovery stays wired; A3 retires routes, not durability"
+        );
+    }
+
+    #[test]
+    fn every_a3_route_is_mounted_at_its_exact_path_and_verb() {
+        for (path, handler) in [
+            (
+                "/v1/goal-orchestration/local-agent-pairing-sessions",
+                "m048_collaboration_routes::handle_pairing_create",
+            ),
+            (
+                "/v1/goal-orchestration/local-agent-pairing-sessions/:id",
+                "m048_collaboration_routes::handle_pairing_get",
+            ),
+            (
+                "/v1/goal-orchestration/collaboration-terms",
+                "m048_collaboration_routes::handle_terms_create",
+            ),
+            (
+                "/v1/goal-orchestration/collaboration-terms/:id",
+                "m048_collaboration_routes::handle_terms_get",
+            ),
+            (
+                "/v1/goal-orchestration/collaboration-terms/:id/accept",
+                "m048_collaboration_routes::handle_terms_accept",
+            ),
+            (
+                "/v1/goal-orchestration/room-participation-requests",
+                "m048_collaboration_routes::handle_participation_request_create",
+            ),
+        ] {
+            assert!(
+                ROUTER_SOURCE.contains(path),
+                "`{path}` must be mounted in the router"
+            );
+            assert!(
+                ROUTER_SOURCE.contains(handler),
+                "`{handler}` must be the handler the router names"
+            );
+        }
+    }
+
+    #[test]
+    fn this_build_step_mounts_no_lease_offer_or_contribution_route_at_the_current_generation() {
+        // A3 is narrow on purpose. If a later family gets re-pointed early, this catches it.
+        for not_yet in [
+            "m048_collaboration_routes::handle_participant_lease",
+            "m048_collaboration_routes::handle_resource_",
+            "m048_collaboration_routes::handle_capability_",
+            "m048_collaboration_routes::handle_frontier",
+            "m048_collaboration_routes::handle_claim",
+            "m048_collaboration_routes::handle_attempt",
+            "m048_collaboration_routes::handle_finding",
+        ] {
+            assert!(
+                !ROUTER_SOURCE.contains(not_yet),
+                "`{not_yet}` is a later dependency step and must not be mounted yet"
+            );
+        }
+    }
+
+    #[test]
+    fn an_unauthenticated_pairing_is_401_not_400() {
+        let (status, Json(body)) = classify(verr(
+            PairingRefusal::Unauthenticated.code(),
+            PairingRefusal::Unauthenticated.message(),
+        ));
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "identity failure against a pre-admission authenticator is 401, per repo precedent"
+        );
+        assert_eq!(
+            body.pointer("/error/code").and_then(Value::as_str),
+            Some("m048_pairing_unauthenticated")
+        );
+        // The other pairing refusals keep their own distinct classes.
+        assert_eq!(
+            classify(verr(
+                PairingRefusal::AlreadyUsed.code(),
+                PairingRefusal::AlreadyUsed.message()
+            ))
+            .0,
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            classify(verr(
+                PairingRefusal::InFlight.code(),
+                PairingRefusal::InFlight.message()
+            ))
+            .0,
+            StatusCode::CONFLICT
+        );
+    }
+
+    #[test]
+    fn a_pairing_projection_never_leaks_its_sealed_challenge_or_recovery_state() {
+        let mut session = pairing("created", "2026-08-26T12:05:00Z");
+        session["consumption_intent"] = json!({ "participation_request_id": "x" });
+        let projected = project_pairing(&session);
+        assert!(
+            projected["challenge"].get("challenge_hash").is_none(),
+            "the sealed challenge is the proof a consumer must present; reading it must not supply it"
+        );
+        assert!(projected.get("consumption_intent").is_none());
+        // Everything a caller legitimately needs survives the projection.
+        assert_eq!(projected["status"], json!("created"));
+        assert_eq!(projected["challenge"]["single_use"], json!(true));
+        assert!(projected["challenge"].get("expires_at").is_some());
+        let serialized = serde_json::to_string(&projected).unwrap();
+        assert!(
+            !serialized.contains(PROOF),
+            "no proof material leaves the daemon"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_malformed_or_secret_bearing_create_is_refused_before_any_write() {
+        let directory = temp_dir("create-refusal");
+        let data_dir = directory.to_str().unwrap();
+        for body in [
+            // Unknown field.
+            json!({ "outcome_room_ref": canonical_room_ref(), "surprise": 1 }),
+            // Secret-bearing field.
+            json!({ "outcome_room_ref": canonical_room_ref(), "api_key": "x" }),
+            // Missing required fields.
+            json!({ "outcome_room_ref": canonical_room_ref() }),
+            // TTL beyond the bounded pairing ceiling.
+            json!({
+                "outcome_room_ref": canonical_room_ref(),
+                "initiating_surface_ref": "surface://ioi/app",
+                "display_name": "local agent",
+                "challenge_hash": "sha256:".to_string() + &"99".repeat(32),
+                "ttl_seconds": PAIRING_TTL_MAX_SECONDS + 1,
+            }),
+        ] {
+            let outcome = pairing_create_inner(data_dir, "user://ioi/levi", &body).await;
+            let (status, _) = outcome.expect_err("a malformed create is refused");
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+        }
+        // Refusal writes nothing: not one owner-local family was created.
+        for family in OWNER_LOCAL_FAMILIES {
+            assert!(
+                !directory.join(family).exists(),
+                "`{family}` must not exist after a refused create"
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_participation_create_against_an_absent_room_writes_nothing() {
+        let directory = temp_dir("participation-refusal");
+        let data_dir = directory.to_str().unwrap();
+        let body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": "sha256:".to_string() + &"11".repeat(32),
+            "pairing_session_id": "local-agent-pairing://lap_one",
+            "pairing_proof_hash": PROOF,
+            "collaboration_terms_ref": "terms://trm_one",
+            "collaboration_terms_root": "sha256:".to_string() + &"55".repeat(32),
+        });
+        let (status, _) = participation_create_inner(data_dir, "user://ioi/levi", &body)
+            .await
+            .expect_err("an absent room is refused");
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        for family in OWNER_LOCAL_FAMILIES {
+            assert!(!directory.join(family).exists());
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn terms_acceptance_refuses_a_root_that_is_not_the_current_body_root() {
+        let directory = temp_dir("terms-accept");
+        let data_dir = directory.to_str().unwrap();
+        let terms = build_terms_envelope(
+            "terms://trm_one",
+            "1.0.0",
+            &("sha256:".to_string() + &"55".repeat(32)),
+            &canonical_room_ref(),
+            "system://room/demo",
+            None,
+        );
+        persist_local(data_dir, TERMS_DIR, "trm_one", &terms).unwrap();
+        let body = json!({ "accepted_terms_root": "sha256:".to_string() + &"66".repeat(32) });
+        let (status, Json(payload)) =
+            terms_accept_inner(data_dir, "user://ioi/levi", "trm_one", &body)
+                .await
+                .expect_err("a stale accepted root is refused");
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            payload.pointer("/error/code").and_then(Value::as_str),
+            Some("m048_terms_root_mismatch")
+        );
+        // The refusal wrote no acceptance receipt.
+        assert!(!directory.join(TERMS_ACCEPTANCE_DIR).exists());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn an_absent_terms_record_is_not_found_rather_than_invented() {
+        let directory = temp_dir("terms-absent");
+        let data_dir = directory.to_str().unwrap();
+        let body = json!({ "accepted_terms_root": "sha256:".to_string() + &"55".repeat(32) });
+        let (status, _) = terms_accept_inner(data_dir, "user://ioi/levi", "trm_missing", &body)
+            .await
+            .expect_err("absent terms are refused");
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn a_child_response_carries_its_contract_and_agentgres_evidence() {
+        let admission = json!({
+            "ok": true,
+            "admission": {
+                "outcome_room": { "room_state_root": "sha256:head", "latest_sequence": 7 },
+                "admitted_object": { "participation_request_id": "participation-request://prq_one" },
+                "agentgres_admission": { "agentgres_head": "sha256:head" },
+                "owner_publication": Value::Null,
+            },
+        });
+        let (status, Json(body)) = ok_child(
+            PARTICIPATION_REQUEST_CONTRACT,
+            PARTICIPATION_REQUEST_SCHEMA,
+            &admission,
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            body["object_contract_id"],
+            json!(PARTICIPATION_REQUEST_CONTRACT)
+        );
+        assert_eq!(body["schema_version"], json!(PARTICIPATION_REQUEST_SCHEMA));
+        assert_eq!(
+            body["agentgres_evidence"]["room_state_root"],
+            json!("sha256:head"),
+            "a caller must see the head its write landed on to take the next CAS decision"
+        );
+        assert_eq!(body["owner_publication"], Value::Null);
+    }
+
+    #[test]
+    fn the_transition_and_admit_verbs_are_a_named_gap_not_a_silent_absence() {
+        let (status, Json(body)) = participation_step_unavailable("admit");
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            body.pointer("/error/code").and_then(Value::as_str),
+            Some("m048_participation_transition_unavailable")
+        );
+        let message = body
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        assert!(
+            message.contains("participant lease"),
+            "the gap must name what owns the verb, not merely refuse"
+        );
     }
 
     #[test]

@@ -3070,22 +3070,49 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/goal-orchestration/outcome-rooms/:id/product-projection",
             get(outcome_room_system_routes::handle_product_projection),
         )
+        // M04.8 — the hosted pre-admission lane. Pairing and collaboration terms are owner-local
+        // producers; the participation request itself is an Agentgres room child.
+        .route(
+            "/v1/goal-orchestration/local-agent-pairing-sessions",
+            axum::routing::post(m048_collaboration_routes::handle_pairing_create)
+                .get(m048_collaboration_routes::handle_pairing_list),
+        )
+        .route(
+            "/v1/goal-orchestration/local-agent-pairing-sessions/:id",
+            axum::routing::get(m048_collaboration_routes::handle_pairing_get),
+        )
+        .route(
+            "/v1/goal-orchestration/collaboration-terms",
+            axum::routing::post(m048_collaboration_routes::handle_terms_create)
+                .get(m048_collaboration_routes::handle_terms_list),
+        )
+        .route(
+            "/v1/goal-orchestration/collaboration-terms/:id",
+            axum::routing::get(m048_collaboration_routes::handle_terms_get),
+        )
+        .route(
+            "/v1/goal-orchestration/collaboration-terms/:id/accept",
+            axum::routing::post(m048_collaboration_routes::handle_terms_accept),
+        )
+        // The participation-request family is re-pointed at the current generation. The
+        // predecessor handlers are deliberately NOT mounted for this family: leaving them would
+        // let a caller drive current truth through a plane that is no longer authoritative.
         .route(
             "/v1/goal-orchestration/room-participation-requests",
-            axum::routing::post(room_participation_routes::handle_participation_request_create)
-                .get(room_participation_routes::handle_participation_requests_list),
+            axum::routing::post(m048_collaboration_routes::handle_participation_request_create)
+                .get(m048_collaboration_routes::handle_participation_requests_list),
         )
         .route(
             "/v1/goal-orchestration/room-participation-requests/:id",
-            axum::routing::get(room_participation_routes::handle_participation_request_get),
+            axum::routing::get(m048_collaboration_routes::handle_participation_request_get),
         )
         .route(
             "/v1/goal-orchestration/room-participation-requests/:id/transition",
-            axum::routing::post(room_participation_routes::handle_participation_request_transition),
+            axum::routing::post(m048_collaboration_routes::handle_participation_request_transition),
         )
         .route(
             "/v1/goal-orchestration/room-participation-requests/:id/admit",
-            axum::routing::post(room_participation_routes::handle_participation_request_admit),
+            axum::routing::post(m048_collaboration_routes::handle_participation_request_admit),
         )
         .route(
             "/v1/goal-orchestration/room-participant-leases",
