@@ -1392,6 +1392,13 @@ pub(crate) fn list_current_rooms_canonical_strict(data_dir: &str) -> Result<Vec<
                 )
             },
         )?;
+        super::outcome_room_system_routes::validate_current_room_lifecycle(data_dir, room)
+            .map_err(|(_, message)| {
+                verr(
+                    "outcome_room_registry_unreadable",
+                    format!("canonical v2 room fails its shared lifecycle binding ({message})"),
+                )
+            })?;
     }
     Ok(current)
 }

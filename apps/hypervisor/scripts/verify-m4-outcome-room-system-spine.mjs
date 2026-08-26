@@ -65,10 +65,10 @@ let collectiveProfileRevisionRef = "";
 let collectiveProfileContentHash = "";
 
 const checks = [];
-// 95 static check() sites execute as 103 assertions: the five-field runtime-substitution loop and
+// 96 static check() sites execute as 104 assertions: the five-field runtime-substitution loop and
 // the five-surface pending-intent fence loop each contribute four executions beyond their one
 // static call site. Any case-count change must update this explanation and the exact done bar.
-const EXPECTED_CHECKS = 103;
+const EXPECTED_CHECKS = 104;
 // npm workspace scripts execute with apps/hypervisor as cwd, while the daemon's honest harness
 // probe resolves its shipped shim from either an explicit absolute path or the process cwd. Bind
 // the repository-owned verifier prerequisite explicitly so `npm run check:* --workspace=...`
@@ -1597,7 +1597,8 @@ try {
     currentCollective.body.goal_run,
     "collective GoalRun disappeared after execution",
   );
-  const invocationLaunchBinding = successfulInvocation.harness_session_launch_binding;
+  const invocationLaunchBinding =
+    successfulInvocation.harness_session_launch_binding;
   const durableInvocation = familyRecords(dataDir, "goal-run-invocations").find(
     (record) =>
       record.harness_invocation_id ===
@@ -1616,7 +1617,9 @@ try {
       String(invocationLaunchBinding?.launch_ref || "").startsWith(
         "harness-session-launch:",
       ) &&
-      String(invocationLaunchBinding?.launch_head || "").startsWith("sha256:") &&
+      String(invocationLaunchBinding?.launch_head || "").startsWith(
+        "sha256:",
+      ) &&
       String(invocationLaunchBinding?.launch_receipt_ref || "").startsWith(
         "receipt://hypervisor/harness-session-launch/produced/",
       ) &&
@@ -1647,7 +1650,8 @@ try {
       invocationLaunchBinding?.thread_event_kind === "thread.started" &&
       Number.isInteger(invocationLaunchBinding?.thread_event_seq) &&
       invocationLaunchBinding.thread_event_seq >= 0 &&
-      typeof invocationLaunchBinding?.thread_event_substrate_head === "string" &&
+      typeof invocationLaunchBinding?.thread_event_substrate_head ===
+        "string" &&
       invocationLaunchBinding.thread_event_substrate_head.length > 0 &&
       String(invocationLaunchBinding?.first_runtime_event_ref || "").startsWith(
         "thread-event:",
@@ -1687,7 +1691,8 @@ try {
       durableInvocationLaunch?.chain?.launch_recipe_admission
         ?.target_binding_ref === invocationLaunchBinding?.launch_recipe_ref &&
       durableInvocationLaunch?.chain?.harness_binding_admission
-        ?.session_binding_ref === invocationLaunchBinding?.harness_binding_ref &&
+        ?.session_binding_ref ===
+        invocationLaunchBinding?.harness_binding_ref &&
       durableInvocationLaunch?.chain?.spawn?.spawn_id ===
         invocationLaunchBinding?.spawn_ref &&
       durableInvocationLaunch?.chain?.readiness?.readiness_id ===
@@ -1958,6 +1963,18 @@ try {
     "outcome-room-system-receipts",
   );
   let room = recoveredRoomPoint.body.outcome_room;
+  const roomLifecycleStatus = await call(
+    "GET",
+    "/v1/hypervisor/work-lifecycle/status",
+  );
+  const roomLifecycleKind =
+    roomLifecycleStatus.body.per_kind_lifecycle_counts?.find(
+      (entry) => entry.object_kind === "outcome_room",
+    );
+  const roomLifecycleBinding =
+    roomLifecycleStatus.body.live_owner_route_bindings?.find(
+      (entry) => entry.object_kind === "outcome_room",
+    );
   const expectedRecoveredGenesisRoom = {
     ...structuredClone(pendingGenesisIntent?.candidate_room || {}),
     latest_sequence: recoveredGenesisOperation?.sequence,
@@ -1992,6 +2009,29 @@ try {
       room?.genesis_ref === GENESIS_ID &&
       room?.constitution_ref === CONSTITUTION_REF,
     `${room?.system_id}/${room?.package_id}/${room?.genesis_ref}`,
+  );
+  check(
+    "ROOM LIFECYCLE: recovered creation binds one System-owned proposed-to-open shared lifecycle without child truth",
+    roomLifecycleStatus.status === 200 &&
+      roomLifecycleKind?.object_count === 1 &&
+      roomLifecycleKind?.record_count === 2 &&
+      roomLifecycleBinding?.route ===
+        "POST /v1/goal-orchestration/outcome-rooms" &&
+      canonicalJson(roomLifecycleBinding?.admission_paths) ===
+        canonicalJson(["hosted_system_genesis"]) &&
+      roomLifecycleStatus.body.durable_family_object_counts?.[
+        "work-lifecycle-records"
+      ] >= 1 &&
+      roomLifecycleStatus.body.durable_family_object_counts?.[
+        "work-lifecycle-archive-segments"
+      ] >= 1 &&
+      roomLifecycleStatus.body.durable_family_object_counts?.[
+        "work-lifecycle-snapshots"
+      ] >= 1 &&
+      roomLifecycleStatus.body.nonclaim?.includes(
+        "room shared state and child lifecycles remain on the room System owner",
+      ),
+    `${roomLifecycleStatus.status}/objects=${roomLifecycleKind?.object_count}/records=${roomLifecycleKind?.record_count}/route=${roomLifecycleBinding?.route}`,
   );
   check(
     "ROOM: objective, owner, and initial head bind the collective GoalRun",
@@ -6865,12 +6905,14 @@ try {
     ),
     single_ioi_app_owner_ruling:
       existsSync(join(REPO, "apps", "ioi-ai", "IOI-REBIND.md")) &&
-      readFileSync(join(REPO, "apps", "ioi-ai", "IOI-REBIND.md"), "utf8").includes(
-        "`apps/ioi-ai` is the **one** ioi.ai application",
-      ) &&
-      readFileSync(join(REPO, "apps", "ioi-ai", "IOI-REBIND.md"), "utf8").includes(
-        "There is no second ioi.ai runtime.",
-      ),
+      readFileSync(
+        join(REPO, "apps", "ioi-ai", "IOI-REBIND.md"),
+        "utf8",
+      ).includes("`apps/ioi-ai` is the **one** ioi.ai application") &&
+      readFileSync(
+        join(REPO, "apps", "ioi-ai", "IOI-REBIND.md"),
+        "utf8",
+      ).includes("There is no second ioi.ai runtime."),
     goal_space_omits_payload_ref: !goalSpaceHtml.includes(
       admittedResult.result_payload_ref,
     ),
@@ -7048,7 +7090,11 @@ for (const result of checks) {
   );
 }
 const passed = checks.filter((result) => result.pass).length;
-emitVerifierCensus({ verifierId: "m4-outcome-room-system-spine", sourceUrl: import.meta.url, results: checks });
+emitVerifierCensus({
+  verifierId: "m4-outcome-room-system-spine",
+  sourceUrl: import.meta.url,
+  results: checks,
+});
 console.log(`${passed}/${checks.length} passed`);
 const coverageMismatch = checks.length !== EXPECTED_CHECKS;
 if (coverageMismatch) {

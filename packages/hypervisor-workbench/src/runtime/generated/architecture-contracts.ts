@@ -7122,7 +7122,7 @@ export type WorkLifecycleRecordV1 = {
   record_id: string;
   record_hash: string;
   record_type: "phase_transition" | "child_reference";
-  object_kind: "goal_run" | "goal_grounding_loop" | "work_run" | "automation_run" | "harness_invocation" | "context_cell" | "external_handle";
+  object_kind: "goal_run" | "outcome_room" | "goal_grounding_loop" | "work_run" | "automation_run" | "harness_invocation" | "context_cell" | "external_handle";
   object_ref: string;
   owner_ref: string;
   expected_head: string | null;
@@ -7141,7 +7141,7 @@ export type WorkLifecycleRecordV1 = {
 
 export type WorkLifecycleProjectionV1 = {
   schema_version: "ioi.work-lifecycle-projection.v1";
-  object_kind: "goal_run" | "goal_grounding_loop" | "work_run" | "automation_run" | "harness_invocation" | "context_cell" | "external_handle";
+  object_kind: "goal_run" | "outcome_room" | "goal_grounding_loop" | "work_run" | "automation_run" | "harness_invocation" | "context_cell" | "external_handle";
   object_ref: string;
   owner_ref: string;
   active_phase: string;
@@ -7157,7 +7157,7 @@ export type WorkLifecycleProjectionV1 = {
 export type WorkLifecycleArchiveSegmentV1 = {
   schema_version: "ioi.work-lifecycle-archive-segment.v1";
   archive_ref: string;
-  object_kind: "goal_run" | "goal_grounding_loop" | "work_run" | "automation_run" | "harness_invocation" | "context_cell" | "external_handle";
+  object_kind: "goal_run" | "outcome_room" | "goal_grounding_loop" | "work_run" | "automation_run" | "harness_invocation" | "context_cell" | "external_handle";
   object_ref: string;
   through_head: string;
   archive_root: string;
@@ -23365,9 +23365,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/skill-entry/v1": "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699",
   "schema://ioi/foundations/skill-manifest/v1": "sha256:ef38326ea2082a928b2ff7c86f8a27c5b4e885c81eaf58615d8446c1a46df403",
   "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
-  "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:c1d376aeb74133db80036d46e8e8a46b3d8a09bf910207fc449d18d3627261fd",
-  "schema://ioi/foundations/work-lifecycle-projection/v1": "sha256:9e42ac6dea720315eb43707e8792e552c5e44956de5b81470650c2788d6b0585",
-  "schema://ioi/foundations/work-lifecycle-archive-segment/v1": "sha256:e1ec92b486607a03c999811720294016e121930289326dd1ccc829980001a604",
+  "schema://ioi/foundations/work-lifecycle-record/v1": "sha256:ca9b0eb3ebdddc6c246b8bdd69987fcf1ec78cc05c5bfcf4c4428b0d46adc9b0",
+  "schema://ioi/foundations/work-lifecycle-projection/v1": "sha256:8a538e43eafcd7e9d868e4566178761194c6f4038d99a5ae4f839f82a9298fce",
+  "schema://ioi/foundations/work-lifecycle-archive-segment/v1": "sha256:31168cd60f0d599341c54abd66ca92d9c8edc53347170e1ac26f035158a9b37a",
   "schema://ioi/foundations/work-lifecycle-snapshot/v1": "sha256:b7cff958008f64d7c015b0ecff8c808e65b0e0a55b4eb68921b99edb8488fb96",
   "schema://ioi/foundations/work-result/v3": "sha256:0220d0bb1d76fa05a49decd8554c7debb3d47e855c8856a5298ecd0f2bda51b4",
   "schema://ioi/foundations/workflow-template/v1": "sha256:139186e591962523f5b88347f85eada2e9ac23b8e2a2a7acb405a83a2413cbe2",
@@ -78426,6 +78426,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "object_kind": {
         "enum": [
           "goal_run",
+          "outcome_room",
           "goal_grounding_loop",
           "work_run",
           "automation_run",
@@ -78572,6 +78573,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "object_kind": {
         "enum": [
           "goal_run",
+          "outcome_room",
           "goal_grounding_loop",
           "work_run",
           "automation_run",
@@ -78662,6 +78664,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "object_kind": {
         "enum": [
           "goal_run",
+          "outcome_room",
           "goal_grounding_loop",
           "work_run",
           "automation_run",

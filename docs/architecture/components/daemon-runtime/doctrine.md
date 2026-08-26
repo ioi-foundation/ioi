@@ -785,12 +785,16 @@ fallback. It acquires no domain write authority (ADR 0034 sub-ruling 1,
 `INV-35`). Diagnostic routes (status, projection, records) and owner-scoped
 planning/compaction routes exist; no generic append mutation is exposed on the
 wire — append stays a Rust API composed by a bound owner behind its own
-`LegalEdgeGate`. Exactly one owner is bound at M04.6: GoalRun creation. The other
-kind-specific owners named below remain independent implementation precedents,
-not yet bound to this mechanism.
+`LegalEdgeGate`. GoalRun creation is bound at M04.6. M04.7 adds the separate
+OutcomeRoom owner gate for only `proposed -> open`, after the hosted room
+System's ordinary Agentgres genesis and before projection visibility; its
+retained intent replays a partial lifecycle append byte-identically. The shared
+mechanism does not become room state and does not authorize room children or
+later phases. The other kind-specific owners named below remain independent
+implementation precedents, not yet bound to this mechanism.
 
 The daemon reuses one integrity/replay mechanism for lifecycle facts without
-creating one flattened lifecycle. GoalRun, GoalGroundingLoop, WorkRun,
+creating one flattened lifecycle. GoalRun, OutcomeRoom, GoalGroundingLoop, WorkRun,
 AutomationRun, HarnessInvocation, ContextCell, and external protocol adapters
 retain their own legal phase and authority tables. A bound owner's route/service
 submits an exact-head `WorkLifecycleRecord` through its own `LegalEdgeGate`; the

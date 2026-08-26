@@ -47,6 +47,7 @@
     "object_kind": {
       "enum": [
         "goal_run",
+        "outcome_room",
         "goal_grounding_loop",
         "work_run",
         "automation_run",

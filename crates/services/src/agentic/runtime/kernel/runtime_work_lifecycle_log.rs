@@ -13,14 +13,15 @@
 //! plus an append-only tail reconstructs the same truth as full replay.
 //!
 //! This layer owns **mechanics only** (INV-35, ADR 0034 sub-ruling 1). It does
-//! not own GoalRun, GoalGroundingLoop, WorkRun, AutomationRun, HarnessInvocation,
-//! ContextCell, or external-handle state, and it does not flatten their phases
+//! not own GoalRun, OutcomeRoom, GoalGroundingLoop, WorkRun, AutomationRun,
+//! HarnessInvocation, ContextCell, or external-handle state, and it does not flatten their phases
 //! into a universal lifecycle. Each kind keeps its own legal-edge and
 //! transition-authority table; the per-kind decision is delegated to a
 //! [`LegalEdgeGate`] the owning route/service supplies, so the shared kernel is
 //! the single bounding site without acquiring any domain object's write
-//! authority. GoalRun creation now composes this kernel through its owner-side
-//! gate, without moving Session/launch/thread/HarnessInvocation truth into it.
+//! authority. GoalRun and hosted OutcomeRoom creation compose this kernel through
+//! their separate owner-side gates, without moving application state or
+//! Session/launch/thread/HarnessInvocation truth into it.
 //!
 //! Records, plans, projections, archive segments, and snapshots are round-tripped
 //! through the generated projections whose `Deserialize` validates against the

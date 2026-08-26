@@ -11,14 +11,17 @@ use std::sync::Arc;
 use axum::extract::{Path as AxumPath, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
+use ioi_services::agentic::runtime::kernel::runtime_work_lifecycle_log::LegalEdgeGate;
 use serde_json::{json, Value};
 
+use super::work_lifecycle_routes::{WorkLifecycleStore, WorkLifecycleStoreError};
 use super::{iso_now, DaemonState};
 
 const ROOM_SCHEMA: &str = "ioi.applications.ioi-ai.outcome-room.v2";
 const ROOM_CONTRACT: &str = "schema://ioi/applications/ioi-ai/outcome-room/v2";
 const SYSTEM_BINDING_SCHEMA: &str = "ioi.foundations.system-scoped-object-binding.v1";
 const OUTCOME_PACKAGE: &str = "package://ioi/outcome-room";
+const ROOM_LIFECYCLE_AUTHORITY_REF: &str = "authority://hypervisor-daemon/outcome-room-application";
 
 const ROOM_DIR: &str = super::outcome_room_routes::ROOM_DIR;
 const INTENT_DIR: &str = "outcome-room-system-admission-intents";
@@ -43,6 +46,86 @@ pub(crate) type VErr = (String, String);
 
 fn verr(code: &str, message: impl Into<String>) -> VErr {
     (code.to_owned(), message.into())
+}
+
+/// M04.7 keeps OutcomeRoom's legal phase table with its application owner. The
+/// shared lifecycle kernel receives this gate only for the two creation edges;
+/// later room phases remain unavailable until their policy/authority owners land.
+struct OutcomeRoomLegalEdgeGate;
+
+impl LegalEdgeGate for OutcomeRoomLegalEdgeGate {
+    fn authorize(&self, prior: Option<&Value>, candidate: &Value) -> Result<(), String> {
+        if candidate.get("object_kind").and_then(Value::as_str) != Some("outcome_room") {
+            return Err(
+                "the OutcomeRoom legal-edge gate only authorizes outcome_room objects".into(),
+            );
+        }
+        if candidate.get("authority_class").and_then(Value::as_str) != Some("daemon")
+            || candidate.get("authority_ref").and_then(Value::as_str)
+                != Some(ROOM_LIFECYCLE_AUTHORITY_REF)
+        {
+            return Err(
+                "hosted OutcomeRoom creation requires its daemon application authority".into(),
+            );
+        }
+        if candidate
+            .get("child_reference")
+            .is_some_and(|value| !value.is_null())
+        {
+            return Err("M04.7 does not admit OutcomeRoom child lifecycle references".into());
+        }
+        let transition = candidate
+            .get("phase_transition")
+            .filter(|value| !value.is_null())
+            .ok_or_else(|| "OutcomeRoom creation requires a phase transition".to_string())?;
+        let from = transition.get("from_phase").and_then(Value::as_str);
+        let to = transition
+            .get("to_phase")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let prior_phase = prior.and_then(|record| {
+            record
+                .pointer("/phase_transition/to_phase")
+                .and_then(Value::as_str)
+        });
+        match (prior, prior_phase, from, to) {
+            (None, None, None, "proposed") => Ok(()),
+            (Some(_), Some("proposed"), Some("proposed"), "open") => Ok(()),
+            _ => Err(format!(
+                "M04.7 admits only OutcomeRoom genesis null->proposed->open (prior={prior_phase:?}, edge={from:?}->{to})"
+            )),
+        }
+    }
+}
+
+fn room_lifecycle_store_error(error: WorkLifecycleStoreError) -> VErr {
+    verr(
+        "outcome_room_lifecycle_admission_failed",
+        format!("{}: {}", error.code(), error.message()),
+    )
+}
+
+fn canonical_lifecycle_refs<'a>(values: impl IntoIterator<Item = &'a Value>) -> Vec<String> {
+    let mut refs = BTreeSet::new();
+    for value in values {
+        let Some(reference) = value.as_str() else {
+            continue;
+        };
+        let valid = reference.split_once("://").is_some_and(|(scheme, tail)| {
+            !tail.is_empty()
+                && !reference.chars().any(char::is_whitespace)
+                && scheme.starts_with(|character: char| character.is_ascii_lowercase())
+                && scheme.chars().all(|character| {
+                    character.is_ascii_lowercase()
+                        || character.is_ascii_digit()
+                        || matches!(character, '+' | '.' | '_' | '-')
+                })
+        });
+        if valid {
+            refs.insert(reference.to_string());
+        }
+    }
+    refs.into_iter().collect()
 }
 
 pub(crate) fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
@@ -881,6 +964,216 @@ fn preflight_room_admission(
     Ok((room, evidence))
 }
 
+/// Bind one successfully admitted room-System genesis to the shared lifecycle
+/// owner before the local room projection becomes visible. The room's retained
+/// operation intent contains every input, so recovery replays byte-identical
+/// records. These records describe application lifecycle only; the room System's
+/// Agentgres operation remains the shared-state truth and sole mutation CAS.
+fn persist_outcome_room_lifecycle(
+    data_dir: &str,
+    room_tail: &str,
+    room: &Value,
+    operation: &Value,
+    recorded_at_ms: u64,
+) -> Result<(), VErr> {
+    let base_ms = i64::try_from(recorded_at_ms).map_err(|_| {
+        verr(
+            "outcome_room_lifecycle_time_invalid",
+            "room admission time exceeds the WorkLifecycle timestamp range",
+        )
+    })?;
+    let room_ref = exact_string(
+        room,
+        "/outcome_room_id",
+        "outcome_room_lifecycle_identity_invalid",
+    )?;
+    let system_id = exact_string(room, "/system_id", "outcome_room_lifecycle_owner_invalid")?;
+    let decision_receipt_ref = operation
+        .get("collective_path_decision_ref")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let proposed_evidence_refs = canonical_lifecycle_refs([
+        &room["genesis_ref"],
+        &room["constitution_ref"],
+        &operation["collective_goal_run_ref"],
+    ]);
+    let open_evidence_refs = canonical_lifecycle_refs([
+        &room["latest_transition_commitment_ref"],
+        &room["autonomous_system_state_ref"],
+    ]);
+    let room_receipt_ref = room
+        .get("admission_and_replay_refs")
+        .and_then(Value::as_array)
+        .and_then(|refs| refs.first())
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_lifecycle_receipt_missing",
+                "the admitted room genesis lacks its System Agentgres receipt ref",
+            )
+        })?
+        .to_string();
+
+    let store = WorkLifecycleStore::new(data_dir);
+    let gate = OutcomeRoomLegalEdgeGate;
+    let proposed = store
+        .append_gated(
+            &json!({
+                "schema_version":"ioi.work-lifecycle-record.v1",
+                "record_id":format!("work-lifecycle://{room_tail}/1"),
+                "record_hash":"",
+                "record_type":"phase_transition",
+                "object_kind":"outcome_room",
+                "object_ref":room_ref,
+                "owner_ref":system_id,
+                "expected_head":Value::Null,
+                "resulting_head":"",
+                "idempotency_key":format!("{room_tail}:propose"),
+                "authority_class":"daemon",
+                "authority_ref":ROOM_LIFECYCLE_AUTHORITY_REF,
+                "authority_grant_refs":[],
+                "decision_receipt_ref":decision_receipt_ref,
+                "evidence_refs":proposed_evidence_refs,
+                "receipt_refs":[],
+                "phase_transition":{"from_phase":Value::Null,"to_phase":"proposed"},
+                "child_reference":Value::Null,
+                "occurred_at_ms":base_ms,
+            }),
+            &gate,
+        )
+        .map_err(room_lifecycle_store_error)?;
+    let open = store
+        .append_gated(
+            &json!({
+                "schema_version":"ioi.work-lifecycle-record.v1",
+                "record_id":format!("work-lifecycle://{room_tail}/2"),
+                "record_hash":"",
+                "record_type":"phase_transition",
+                "object_kind":"outcome_room",
+                "object_ref":room_ref,
+                "owner_ref":system_id,
+                "expected_head":proposed.resulting_head,
+                "resulting_head":"",
+                "idempotency_key":format!("{room_tail}:open"),
+                "authority_class":"daemon",
+                "authority_ref":ROOM_LIFECYCLE_AUTHORITY_REF,
+                "authority_grant_refs":[],
+                "decision_receipt_ref":decision_receipt_ref,
+                "evidence_refs":open_evidence_refs,
+                "receipt_refs":[room_receipt_ref],
+                "phase_transition":{"from_phase":"proposed","to_phase":"open"},
+                "child_reference":Value::Null,
+                "occurred_at_ms":base_ms.saturating_add(1),
+            }),
+            &gate,
+        )
+        .map_err(room_lifecycle_store_error)?;
+
+    store
+        .compact(room_ref, base_ms.saturating_add(2))
+        .map_err(room_lifecycle_store_error)?;
+    let full = store
+        .read_projection(room_ref)
+        .map_err(room_lifecycle_store_error)?;
+    let resumed = store
+        .resume(room_ref)
+        .map_err(room_lifecycle_store_error)?
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_lifecycle_snapshot_missing",
+                "room lifecycle compaction did not leave a resumable snapshot",
+            )
+        })?;
+    if resumed.projection != full
+        || full.get("head").and_then(Value::as_str) != Some(open.resulting_head.as_str())
+    {
+        return Err(verr(
+            "outcome_room_lifecycle_resume_diverged",
+            "room lifecycle resume does not reproduce the full open projection",
+        ));
+    }
+    Ok(())
+}
+
+/// Fail closed whenever a current room projection is detached from the exact
+/// shared lifecycle chain created at its legal boundary.
+pub(crate) fn validate_current_room_lifecycle(data_dir: &str, room: &Value) -> Result<(), VErr> {
+    let room_ref = exact_string(
+        room,
+        "/outcome_room_id",
+        "outcome_room_lifecycle_identity_invalid",
+    )?;
+    let system_id = exact_string(room, "/system_id", "outcome_room_lifecycle_owner_invalid")?;
+    let expected_receipt = room
+        .get("admission_and_replay_refs")
+        .and_then(Value::as_array)
+        .and_then(|refs| refs.first())
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let store = WorkLifecycleStore::new(data_dir);
+    let records = store.read_records(room_ref).map_err(|error| {
+        verr(
+            "outcome_room_lifecycle_unavailable",
+            format!("{}: {}", error.code(), error.message()),
+        )
+    })?;
+    let projection = store.read_projection(room_ref).map_err(|error| {
+        verr(
+            "outcome_room_lifecycle_unavailable",
+            format!("{}: {}", error.code(), error.message()),
+        )
+    })?;
+    let record_coordinates_match = |record: &Value| {
+        record.get("object_kind").and_then(Value::as_str) == Some("outcome_room")
+            && record.get("object_ref").and_then(Value::as_str) == Some(room_ref)
+            && record.get("owner_ref").and_then(Value::as_str) == Some(system_id)
+            && record.get("authority_class").and_then(Value::as_str) == Some("daemon")
+            && record.get("authority_ref").and_then(Value::as_str)
+                == Some(ROOM_LIFECYCLE_AUTHORITY_REF)
+            && record.get("child_reference").is_some_and(Value::is_null)
+    };
+    let exact_records = !expected_receipt.is_empty()
+        && records.len() == 2
+        && record_coordinates_match(&records[0])
+        && record_coordinates_match(&records[1])
+        && records[0]
+            .pointer("/phase_transition/from_phase")
+            .is_some_and(Value::is_null)
+        && records[0]
+            .pointer("/phase_transition/to_phase")
+            .and_then(Value::as_str)
+            == Some("proposed")
+        && records[1]
+            .pointer("/phase_transition/from_phase")
+            .and_then(Value::as_str)
+            == Some("proposed")
+        && records[1]
+            .pointer("/phase_transition/to_phase")
+            .and_then(Value::as_str)
+            == Some("open")
+        && records[1]
+            .get("receipt_refs")
+            .and_then(Value::as_array)
+            .is_some_and(|refs| refs.as_slice() == [Value::String(expected_receipt.to_string())]);
+    if !exact_records
+        || projection.get("object_kind").and_then(Value::as_str) != Some("outcome_room")
+        || projection.get("object_ref").and_then(Value::as_str) != Some(room_ref)
+        || projection.get("owner_ref").and_then(Value::as_str) != Some(system_id)
+        || projection.get("active_phase").and_then(Value::as_str) != Some("open")
+        || projection.get("record_count").and_then(Value::as_u64) != Some(2)
+        || projection
+            .get("active_children")
+            .and_then(Value::as_object)
+            .is_none_or(|children| !children.is_empty())
+    {
+        return Err(verr(
+            "outcome_room_lifecycle_diverged",
+            "the current room is detached from its exact proposed-to-open shared lifecycle binding",
+        ));
+    }
+    Ok(())
+}
+
 fn finalize_room(
     data_dir: &str,
     room_tail: &str,
@@ -926,6 +1219,7 @@ fn finalize_room(
         verr(code, error.to_string())
     })?;
     let (room, evidence) = project_room_admission(room_tail, candidate, &exact)?;
+    persist_outcome_room_lifecycle(data_dir, room_tail, &room, operation, recorded_at_ms)?;
     if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_AFTER_AGENTGRES")
         .ok()
         .as_deref()
@@ -4851,6 +5145,53 @@ mod tests {
         canonical_contract(ROOM_CONTRACT, &room)
             .expect("the registered OutcomeRoom v2 positive fixture validates canonically");
         room
+    }
+
+    #[test]
+    fn hosted_room_creation_binds_the_shared_lifecycle_owner_and_replays_exactly() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        super::super::substrate_store::reset_handle_for_test();
+        let data_dir = dir.path().to_str().expect("utf8 data dir");
+        let room_tail = "or_m047_lifecycle";
+        let room = json!({
+            "outcome_room_id":format!("outcome-room://{room_tail}"),
+            "system_id":"system://ioi/outcome-room/m047",
+            "genesis_ref":"genesis://ioi/outcome-room/m047/genesis",
+            "constitution_ref":"constitution://ioi/outcome-room/m047/v1",
+            "autonomous_system_state_ref":"agentgres://system/m047/operations",
+            "latest_transition_commitment_ref":"commitment://ioi/outcome-room/m047/genesis",
+            "admission_and_replay_refs":["receipt://agentgres/outcome-room-system/m047/genesis"],
+        });
+        let operation = json!({
+            "collective_goal_run_ref":"goal://m047-collective",
+            "collective_path_decision_ref":"decision://m047/hosted-admission",
+        });
+
+        persist_outcome_room_lifecycle(data_dir, room_tail, &room, &operation, 1_000)
+            .expect("first binding");
+        persist_outcome_room_lifecycle(data_dir, room_tail, &room, &operation, 1_000)
+            .expect("idempotent recovery replay");
+        validate_current_room_lifecycle(data_dir, &room).expect("exact lifecycle binding");
+
+        let store = WorkLifecycleStore::new(data_dir);
+        let projection = store
+            .read_projection(room["outcome_room_id"].as_str().unwrap())
+            .expect("projection");
+        assert_eq!(projection["object_kind"], json!("outcome_room"));
+        assert_eq!(projection["owner_ref"], room["system_id"]);
+        assert_eq!(projection["active_phase"], json!("open"));
+        assert_eq!(projection["record_count"], json!(2));
+        assert_eq!(projection["active_children"], json!({}));
+
+        let mut substituted = room.clone();
+        substituted["admission_and_replay_refs"] =
+            json!(["receipt://agentgres/outcome-room-system/m047/substituted"]);
+        assert_eq!(
+            validate_current_room_lifecycle(data_dir, &substituted)
+                .expect_err("receipt substitution must detach the room")
+                .0,
+            "outcome_room_lifecycle_diverged"
+        );
     }
 
     #[test]

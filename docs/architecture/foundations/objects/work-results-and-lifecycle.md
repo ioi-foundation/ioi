@@ -217,11 +217,15 @@ active projection; a kernel refusal (duplicate genesis, fork, gap, orphan,
 tamper, owner drift, or an illegal edge via the caller's `LegalEdgeGate`) writes
 nothing. A read for an object rebuilds from its record log under a complete
 strict census and rejects a foreign or mis-filed record rather than normalizing
-it into the requested object's chain. Only GoalRun creation is bound to this
-owner at M04.6 (see the daemon
+it into the requested object's chain. GoalRun creation is bound at M04.6 and
+hosted OutcomeRoom creation is bound at M04.7 (see the daemon
 [`doctrine.md`](../../components/daemon-runtime/doctrine.md) and
 [`api.md`](../../components/daemon-runtime/api.md)); no other object owner is
-wired, and no generic append mutation is exposed on the wire.
+wired, and no generic append mutation is exposed on the wire. OutcomeRoom's
+owner-side gate admits only `proposed -> open` after the room System's ordinary
+expected-absent Agentgres genesis succeeds; the retained room intent makes both
+shared lifecycle appends byte-identical on recovery. The shared log does not
+become room state or authorize later room mutations.
 
 ```yaml
 WorkLifecycleRecordEnvelope:
@@ -230,10 +234,10 @@ WorkLifecycleRecordEnvelope:
   record_hash: hash
   record_type: phase_transition | child_reference
   object_kind:
-    goal_run | goal_grounding_loop | work_run | automation_run |
+    goal_run | outcome_room | goal_grounding_loop | work_run | automation_run |
     harness_invocation | context_cell | external_handle
   object_ref:
-    goal://... | goal_loop://... | work_run://... | automation-run://... |
+    goal://... | outcome-room://... | goal_loop://... | work_run://... | automation-run://... |
     harness_invocation://... | context_cell://... | opaque_external_handle_ref
   owner_ref: system://... | user://... | org://... | project://... | domain://...
   expected_head: hash | null
@@ -286,6 +290,7 @@ The kind-specific phase owners remain:
 | Kind | Canonical phase family | Ordinary transition authority |
 |---|---|---|
 | GoalRun | `draft`, `active`, `paused`, `complete`, `superseded`, `revoked` | Goal Kernel; owner on declared pause/resume/revoke edges; governance on declared pause/revoke/supersede edges |
+| OutcomeRoom | `proposed`, `open`, `active`, `paused`, `blocked`, `verifying`, `accepted`, `disputed`, `settled`, `closed`, `revoked`, `archived` | the OutcomeRoom application owner under the room System's admitted policy; M04.7 exposes only daemon-derived `proposed -> open` after System genesis, while later edges remain unavailable until their authority owners land |
 | GoalGroundingLoop | the canonical receive → ground → inspect → constrain → allocate → execute → verify → repair/reconcile → continue loop phases | Goal Kernel/conductor; verifier only on declared verify/challenge edges |
 | WorkRun | `pending`, `running`, `waiting_for_input`, `ready_for_review`, `stopped`, `completed`, `failed`, `canceled` | daemon/operator; reviewer only on declared review exits |
 | AutomationRun | `queued`, `running`, `waiting_for_approval`, `blocked`, `succeeded`, `failed`, `canceled`, `archived` | Automation controller/daemon; governance on declared cancellation edges |

@@ -8,7 +8,7 @@ Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
 Last alignment pass: 2026-08-20.
 Doctrine status: reference
-Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, but its room-owned transition/receipt/root spine is nonconforming migration input under ADR 0030. The v3 typed room-binding and ordinary Agentgres/System admission successor is target-only, as are generalized artifact/discussion resolution and production-wide propagation/enforcement. The shared work-lifecycle integrity/replay kernel, durable Agentgres-backed append store, projection repair, cancellation planner, archive/snapshot writer, and diagnostic status/projection/records/cancellation-plan/compaction routes are implemented at M04.6, with exactly one live bounded owner binding — GoalRun creation — and no generic append mutation on the wire; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are target-only; source of truth is the daemon route registry)
+Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate. The current M4 v2 OutcomeRoom slice has a read-only discussion projection plus exact WorkResult artifact-to-byte custody and label resolution, ordinary Agentgres/System admission, and an M04.7 proposed-to-open binding to the shared WorkLifecycle owner; generalized artifact/discussion resolution and production-wide propagation/enforcement remain target-only. The shared work-lifecycle integrity/replay kernel, durable Agentgres-backed append store, projection repair, cancellation planner, archive/snapshot writer, and diagnostic status/projection/records/cancellation-plan/compaction routes are implemented at M04.6, with GoalRun creation and hosted OutcomeRoom creation as the two live bounded owner bindings and no generic append mutation on the wire; generalized GoalRunProfile resolution, local-agent pairing, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are target-only; source of truth is the daemon route registry)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
 Last implementation audit: 2026-07-30
@@ -109,14 +109,20 @@ owner. Owner-scoping authorizes the claimed owner tenant before any read and
 then requires the durable `owner_ref` to match — there is no cross-tenant
 existence oracle, and a request never overrides durable owner truth.
 
-At M04.6 `live_owner_route_bindings` lists exactly one entry: `goal_run`, bound
+At M04.6 `live_owner_route_bindings` began with `goal_run`, bound
 at `POST /v1/goal-orchestration/goal-runs` over the `direct_non_system` and
 `system_activation` admission paths, with owned scope limited to the GoalRun
 application plan, its ContextCell reference, and the GoalRun lifecycle
-projection. The status response's nonclaim states this bound: Session, launch,
+projection. M04.7 adds `outcome_room` at the hosted room create boundary:
+the room System's expected-absent Agentgres genesis commits first, then the
+OutcomeRoom owner appends `proposed -> open` and proves snapshot resume before
+the local room projection becomes visible. The retained room intent makes a
+partial append recoverable and byte-identical. This binding owns no room child,
+shared-state, Session, launch, thread, or HarnessInvocation truth. The status
+response's nonclaim states this bound: Session, launch,
 thread, HarnessInvocation, and child-owner runtime truth remain with their
 kernel owners; GoalGroundingLoop, WorkRun, AutomationRun, ContextCell lifecycle,
-and external-handle owners are not generalized by this binding. Until an owner
+and external-handle owners are not generalized by these bindings. Until an owner
 route is listed here, that route does not claim append-only lifecycle
 integration merely because the shared mechanism exists.
 
