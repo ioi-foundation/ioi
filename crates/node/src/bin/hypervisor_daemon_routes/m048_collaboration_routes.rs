@@ -58,7 +58,7 @@
 
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
@@ -2444,16 +2444,1649 @@ pub(crate) async fn handle_participation_request_transition(
     participation_step_unavailable("transition")
 }
 
+// --- lifecycle 4: RoomParticipantLease v3 --------------------------------------------------------
+//
+// # The admission crossing, and why it needs no retained local intent
+//
+// Admitting a request means two room children change: the room-System issues a participant lease,
+// and the request appends a successor generation marking itself admitted. The seam admits one
+// child per transaction, so these cannot be one write.
+//
+// They do not need to be. Unlike the pairing crossing — which spans owner-local truth and
+// Agentgres truth, and therefore needed a retained intent — BOTH halves of this crossing live in
+// the room's own Agentgres history, so the intermediate state is self-describing:
+//
+//     a current participant lease whose `join_request_ref` names a request that is not yet
+//     `admitted` and does not yet name that lease
+//
+// is exactly and only the state a crash between the two admissions produces. Recovery reads that
+// invariant straight off `current_children` and repairs it FORWARD. There is no second truth
+// plane, no fourth durable family, and nothing to converge that the room does not already say.
+//
+// The lease is admitted FIRST on purpose. A crash then leaves membership under-claimed (a lease
+// exists; the request has not yet caught up), which a reader can only under-trust. The reverse
+// order would leave the request claiming a `participant_lease_ref` that does not exist yet —
+// over-claiming membership — and an over-claim is the one of the two a reader can act on wrongly.
+//
+// Deterministic lease identity closes the replay half: a retried admit re-derives the same lease
+// id, so the seam refuses it `outcome_room_child_duplicate_create_refused` rather than issuing a
+// second lease for one request.
+
+/// Lease statuses under which membership is live.
+const LEASE_LIVE_STATUSES: &[&str] = &["invited", "joining", "active", "sleeping", "waiting"];
+/// Lease statuses from which no further transition is admitted.
+const LEASE_TERMINAL_STATUSES: &[&str] = &["retired", "revoked"];
+/// The registered roles this hosted build step admits.
+const LEASE_ROLES: &[&str] = &[
+    "conductor",
+    "implementer",
+    "reviewer",
+    "verifier",
+    "operator",
+    "researcher",
+    "specialist",
+    "synthesizer",
+    "resource_provider",
+    "integrity_challenger",
+    "memory_curator",
+];
+
+/// The lease a given participation request admits — and only that one.
+fn derive_participant_lease_id(request_id: &str, room_ref: &str, participant_ref: &str) -> String {
+    let tail = deterministic_tail(
+        "plz_",
+        "hypervisor.m048.participant-lease.identity.v1",
+        &json!({
+            "join_request_ref": request_id,
+            "outcome_room_ref": room_ref,
+            "participant_ref": participant_ref,
+        }),
+    );
+    format!("participant-lease://{tail}")
+}
+
+/// Build the RoomParticipantLease v3 candidate.
+///
+/// `system_binding` and `outcome_room_ref` are absent by design — the seam derives both. Every
+/// bound the lease carries is authoritative: the TTL, expiry and renewal window are all rendered
+/// from the wallet-authorized instant, never from a caller or a system clock.
+#[allow(clippy::too_many_arguments)]
+fn build_lease_candidate(
+    lease_id: &str,
+    request: &Value,
+    participant_ref: &str,
+    operator_ref: &str,
+    home_domain_ref: &str,
+    admitted_role: &str,
+    visibility_scope_ref: &str,
+    acceptance: &LeaseTermsBinding,
+    grants: &LeaseGrants,
+    admission_decision_ref: &str,
+    times: &LeaseWindow,
+) -> Value {
+    json!({
+        "schema_version": PARTICIPANT_LEASE_SCHEMA,
+        "participant_lease_id": lease_id,
+        "participant_ref": participant_ref,
+        "admitted_role": admitted_role,
+        "operator_ref": operator_ref,
+        "home_domain_ref": home_domain_ref,
+        "join_request_ref": request.get("participation_request_id").cloned().unwrap_or(Value::Null),
+        "collaboration_terms_ref": acceptance.terms_ref,
+        "accepted_terms_root": acceptance.terms_root,
+        "terms_acceptance_ref": acceptance.acceptance_ref,
+        "admission_decision_ref": admission_decision_ref,
+        "visibility_scope_ref": visibility_scope_ref,
+        "capability_advertisement_refs": grants.capability_advertisement_refs,
+        "context_and_authority_lease_refs": grants.context_and_authority_lease_refs,
+        "runtime_resource_and_budget_lease_refs": grants.runtime_resource_and_budget_lease_refs,
+        "current_claim_ref": Value::Null,
+        "lease_epoch": 1,
+        "revocation_epoch": 0,
+        "issued_at": times.issued_at,
+        "effective_at": times.issued_at,
+        "expires_at": times.expires_at,
+        "renew_after": times.renew_after,
+        "renewal_policy_ref": "policy://ioi/m048/lease-renewal-v1",
+        // A bounded term needs no governed exception; an unbounded one is not offered here.
+        "unbounded_term_exception_decision_ref": Value::Null,
+        "heartbeat_policy_ref": "policy://ioi/m048/lease-heartbeat-v1",
+        // receipt:// only. This plane invents no heartbeat object.
+        "heartbeat_ref": Value::Null,
+        "ttl_seconds": times.ttl_seconds,
+        "status": "active",
+    })
+}
+
+/// The exact terms triple a lease binds.
+struct LeaseTermsBinding<'a> {
+    terms_ref: &'a str,
+    terms_root: &'a str,
+    acceptance_ref: &'a str,
+}
+
+/// The bounded grants a lease carries. Offers must stay within these.
+struct LeaseGrants {
+    capability_advertisement_refs: Vec<String>,
+    context_and_authority_lease_refs: Vec<String>,
+    runtime_resource_and_budget_lease_refs: Vec<String>,
+}
+
+/// The lease's authoritative time window, entirely derived from the wallet instant.
+struct LeaseWindow {
+    issued_at: String,
+    expires_at: String,
+    renew_after: String,
+    ttl_seconds: u64,
+}
+
+impl LeaseWindow {
+    /// Render a bounded lease window from one wallet-authorized instant.
+    ///
+    /// `renew_after` sits at three quarters of the term so a renewal has room to land before
+    /// expiry; both boundaries come from the same authorized instant, so no clock skew between
+    /// them is possible.
+    fn from_wallet(resolved_at_ms: u64, ttl_seconds: u64) -> Result<Self, VErr> {
+        let expires_ms = wallet_deadline_ms(resolved_at_ms, ttl_seconds)?;
+        let renew_ms = wallet_deadline_ms(resolved_at_ms, ttl_seconds / 4 * 3)?;
+        Ok(Self {
+            issued_at: wallet_ms_to_rfc3339(resolved_at_ms)?,
+            expires_at: wallet_ms_to_rfc3339(expires_ms)?,
+            renew_after: wallet_ms_to_rfc3339(renew_ms)?,
+            ttl_seconds,
+        })
+    }
+}
+
+/// Why a participant lease is not live.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LeaseLapse {
+    /// The lease reached a terminal generation.
+    Terminal,
+    /// The lease is suspended or quarantined.
+    Suspended,
+    /// `expires_at` passed at the wallet-authorized instant.
+    Expired,
+}
+
+/// Is this lease live at the wallet-authorized instant?
+///
+/// Pure, like [`claim_is_live`]: no clock, no I/O. Offers and every later contribution verb gate
+/// on this, so the freshness question has exactly one implementation.
+pub(crate) fn lease_is_live(
+    lease: &Value,
+    wallet_now_ms: u64,
+) -> Result<Result<(), LeaseLapse>, VErr> {
+    let status = lease.get("status").and_then(Value::as_str).ok_or_else(|| {
+        verr(
+            "m048_lease_record_invalid",
+            "a participant lease carries no status",
+        )
+    })?;
+    if LEASE_TERMINAL_STATUSES.contains(&status) {
+        return Ok(Err(LeaseLapse::Terminal));
+    }
+    if matches!(status, "suspended" | "quarantined" | "retiring") {
+        return Ok(Err(LeaseLapse::Suspended));
+    }
+    if !LEASE_LIVE_STATUSES.contains(&status) {
+        return Err(verr(
+            "m048_lease_record_invalid",
+            format!("`{status}` is not a registered participant-lease status"),
+        ));
+    }
+    match lease.get("expires_at").and_then(Value::as_str) {
+        Some(expires_at) => {
+            if wallet_now_ms >= rfc3339_to_ms(expires_at)? {
+                return Ok(Err(LeaseLapse::Expired));
+            }
+        }
+        // A null expiry is admissible only under a governed unbounded-term exception, which this
+        // build step never issues. Treat its absence as a refusal rather than as "never expires".
+        None => {
+            if lease
+                .get("unbounded_term_exception_decision_ref")
+                .is_none_or(Value::is_null)
+            {
+                return Err(verr(
+                    "m048_lease_record_invalid",
+                    "a lease without an expiry needs a governed unbounded-term exception",
+                ));
+            }
+        }
+    }
+    Ok(Ok(()))
+}
+
+/// Resolve a live participant lease and enforce that a set of refs stays inside one of its granted
+/// scopes.
+///
+/// This is the check the generic room seam cannot make: `require_room_child_issuer` only asserts
+/// the issuer string appears in the room's `participant_lease_refs`, which is membership, not
+/// scope. An offer that names a resource or capability its lease never granted is refused here.
+fn require_lease_scope(
+    lease: &Value,
+    wallet_now_ms: u64,
+    granted_field: &str,
+    declared: &[String],
+) -> Result<(), VErr> {
+    match lease_is_live(lease, wallet_now_ms)? {
+        Ok(()) => {}
+        Err(LeaseLapse::Expired) => {
+            return Err(verr(
+                "m048_lease_expired",
+                "this participant lease has expired at the wallet-authorized instant",
+            ))
+        }
+        Err(LeaseLapse::Terminal) => {
+            return Err(verr(
+                "m048_lease_terminal",
+                "this participant lease reached a terminal generation",
+            ))
+        }
+        Err(LeaseLapse::Suspended) => {
+            return Err(verr(
+                "m048_lease_not_active",
+                "this participant lease is suspended and may not issue offers",
+            ))
+        }
+    }
+    let granted = lease
+        .get(granted_field)
+        .and_then(Value::as_array)
+        .map(|refs| {
+            refs.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    for declared_ref in declared {
+        if !granted.contains(declared_ref) {
+            return Err(verr(
+                "m048_offer_outside_lease_scope",
+                format!(
+                    "`{declared_ref}` is not within this lease's `{granted_field}`; membership is \
+                     not scope"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The room-System convergence invariant for an admitted request.
+///
+/// Returns the requests that a current lease claims to have admitted but which have not yet caught
+/// up. This is the whole of the admission crossing's recovery input, and it is read from the
+/// room's own history rather than from any local record.
+fn unconverged_admissions(data_dir: &str, room_ref: &str) -> Result<Vec<(Value, Value)>, VErr> {
+    let leases = current_children(data_dir, room_ref, PARTICIPANT_LEASE_CONTRACT)?;
+    let requests = current_children(data_dir, room_ref, PARTICIPATION_REQUEST_CONTRACT)?;
+    let mut pending = Vec::new();
+    for lease_projection in &leases {
+        let lease = admitted(lease_projection)?;
+        let Some(join_ref) = lease.get("join_request_ref").and_then(Value::as_str) else {
+            continue;
+        };
+        let lease_id = lease
+            .get("participant_lease_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        for request_projection in &requests {
+            let request = admitted(request_projection)?;
+            if request
+                .get("participation_request_id")
+                .and_then(Value::as_str)
+                != Some(join_ref)
+            {
+                continue;
+            }
+            let already = request.get("status").and_then(Value::as_str) == Some("admitted")
+                && request.get("participant_lease_ref").and_then(Value::as_str) == Some(lease_id);
+            if !already {
+                pending.push((lease_projection.clone(), request_projection.clone()));
+            }
+        }
+    }
+    Ok(pending)
+}
+
+/// The admitted successor generation of a participation request.
+fn admitted_request_successor(
+    request: &Value,
+    lease_id: &str,
+    admission_decision_ref: &str,
+) -> Result<Value, VErr> {
+    let mut successor = request.clone();
+    let map = successor.as_object_mut().ok_or_else(|| {
+        verr(
+            "m048_participation_record_invalid",
+            "a participation request must be an object",
+        )
+    })?;
+    // The seam derives these from room truth and refuses a caller-supplied copy.
+    map.remove("system_binding");
+    map.remove("outcome_room_ref");
+    map.insert("status".to_string(), json!("admitted"));
+    map.insert("participant_lease_ref".to_string(), json!(lease_id));
+    map.insert(
+        "admission_decision_ref".to_string(),
+        json!(admission_decision_ref),
+    );
+    Ok(successor)
+}
+
+/// Converge every unfinished admission in every current room.
+///
+/// Runs at startup after the seam's own recovery. Forward-only: it can complete an admission the
+/// room already half-recorded, and it can do nothing else. Fails closed — an unreadable room or an
+/// undecidable pair blocks readiness rather than being guessed.
+pub(crate) fn complete_participation_admissions(data_dir: &str) -> Result<(), VErr> {
+    for room in rooms::list_current_rooms_canonical_strict(data_dir)? {
+        let Some(room_ref) = room.get("outcome_room_id").and_then(Value::as_str) else {
+            continue;
+        };
+        for (lease_projection, request_projection) in unconverged_admissions(data_dir, room_ref)? {
+            let lease = admitted(&lease_projection)?;
+            let request = admitted(&request_projection)?;
+            let lease_id = lease
+                .get("participant_lease_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let decision_ref = lease
+                .get("admission_decision_ref")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let successor = admitted_request_successor(request, lease_id, decision_ref)?;
+            let prior_root = object_root(&request_projection)?;
+            // Re-observe the head: the seam moved it when the lease landed.
+            let observed = observe_room_at_head(data_dir, room_ref)?;
+            let system_id = observed.system_id.clone();
+            admit_child(
+                data_dir,
+                &observed,
+                PARTICIPATION_REQUEST_CONTRACT,
+                &successor,
+                &system_id,
+                Some(&prior_root),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+const ADMIT_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "participant_ref",
+    "operator_ref",
+    "home_domain_ref",
+    "admitted_role",
+    "visibility_scope_ref",
+    "terms_acceptance_ref",
+    "capability_advertisement_refs",
+    "context_and_authority_lease_refs",
+    "runtime_resource_and_budget_lease_refs",
+    "ttl_seconds",
+];
+
 /// POST /v1/goal-orchestration/room-participation-requests/:id/admit
+///
+/// Room-System admission: issues the v3 participant lease, then converges the request's successor
+/// generation. Never a participant self-mint — the issuer is always the room's own System.
 pub(crate) async fn handle_participation_request_admit(
     State(state): State<Arc<DaemonState>>,
     headers: axum::http::HeaderMap,
-    Path(_id): Path<String>,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
         return classify(error);
     }
-    participation_step_unavailable("admit")
+    match admit_inner(&state.data_dir, &id, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn admit_inner(
+    data_dir: &str,
+    id: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(body, ADMIT_FIELDS, "m048_admit_request_invalid")?;
+        Ok((
+            req_ref(
+                body,
+                "outcome_room_ref",
+                &["outcome-room"],
+                "m048_admit_request_invalid",
+            )?,
+            req_root(
+                body,
+                "expected_room_state_root",
+                "m048_admit_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "participant_ref",
+                &["system", "agent", "worker", "service", "org", "domain"],
+                "m048_admit_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "operator_ref",
+                &["system", "user", "org", "wallet", "domain"],
+                "m048_admit_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "home_domain_ref",
+                &["domain", "system", "agentgres"],
+                "m048_admit_request_invalid",
+            )?,
+            req_vocab(
+                body,
+                "admitted_role",
+                LEASE_ROLES,
+                "m048_admit_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "visibility_scope_ref",
+                &["policy", "restricted_view"],
+                "m048_admit_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "terms_acceptance_ref",
+                &["receipt"],
+                "m048_admit_request_invalid",
+            )?,
+            ref_list(
+                body,
+                "capability_advertisement_refs",
+                &["capability-offer", "ai", "package"],
+                "m048_admit_request_invalid",
+            )?,
+            ref_list(
+                body,
+                "context_and_authority_lease_refs",
+                &["context_lease", "grant", "policy"],
+                "m048_admit_request_invalid",
+            )?,
+            ref_list(
+                body,
+                "runtime_resource_and_budget_lease_refs",
+                &["budget", "resource", "context_lease"],
+                "m048_admit_request_invalid",
+            )?,
+            req_ttl(
+                body,
+                "ttl_seconds",
+                LEASE_TTL_MIN_SECONDS,
+                LEASE_TTL_MAX_SECONDS,
+                "m048_admit_request_invalid",
+            )?,
+        ))
+    })()
+    .map_err(classify)?;
+    let (
+        room_ref,
+        expected_head,
+        participant_ref,
+        operator_ref,
+        home_domain_ref,
+        admitted_role,
+        visibility_scope_ref,
+        acceptance_ref,
+        capability_advertisement_refs,
+        context_and_authority_lease_refs,
+        runtime_resource_and_budget_lease_refs,
+        ttl_seconds,
+    ) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+
+    // The request must be a current child of THIS room and still awaiting admission.
+    let request_id = format!("participation-request://{id}");
+    let request_projection = current_child(
+        data_dir,
+        &room_ref,
+        PARTICIPATION_REQUEST_CONTRACT,
+        &request_id,
+    )
+    .map_err(classify)?
+    .ok_or_else(|| {
+        classify(verr(
+            "m048_participation_not_found",
+            "this room admitted no such participation request",
+        ))
+    })?;
+    let request = admitted(&request_projection).map_err(classify)?.clone();
+    if request.get("status").and_then(Value::as_str) != Some("submitted") {
+        return Err(classify(verr(
+            "m048_participation_not_admissible",
+            "only a submitted participation request may be admitted",
+        )));
+    }
+
+    // The acceptance receipt must be exact: same terms ref AND same accepted root as the request.
+    let acceptance_tail = acceptance_ref
+        .strip_prefix("receipt://")
+        .filter(|tail| super::durable_fs::is_normalization_safe(tail))
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_terms_acceptance_invalid",
+                "a terms acceptance ref must be receipt://<normalization-safe tail>",
+            ))
+        })?;
+    let acceptance = read_local(data_dir, TERMS_ACCEPTANCE_DIR, acceptance_tail)
+        .map_err(classify)?
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_terms_acceptance_not_found",
+                "no such terms acceptance receipt",
+            ))
+        })?;
+    let request_terms_ref = request
+        .get("collaboration_terms_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let request_terms_root = request
+        .get("collaboration_terms_root")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if acceptance
+        .get("collaboration_terms_ref")
+        .and_then(Value::as_str)
+        != Some(request_terms_ref)
+        || acceptance
+            .get("accepted_terms_root")
+            .and_then(Value::as_str)
+            != Some(request_terms_root)
+    {
+        return Err(classify(verr(
+            "m048_terms_acceptance_mismatch",
+            "the acceptance receipt does not bind the exact terms and root this request accepted",
+        )));
+    }
+
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        // HOST governance: admission is the room System's act. A participant cannot mint its own
+        // lease, and this is where that is enforced rather than merely asserted.
+        governed::Governance::Host,
+        &room_ref,
+        &observed.system_id,
+        &request_id,
+        "admit",
+        &json!({ "op": "admit", "participation_request_id": request_id, "ttl_seconds": ttl_seconds }),
+    )
+    .await?;
+
+    let window = LeaseWindow::from_wallet(resolved_at_ms, ttl_seconds).map_err(classify)?;
+    let lease_id = derive_participant_lease_id(&request_id, &room_ref, &participant_ref);
+    let decision_ref = format!(
+        "receipt://{}",
+        deterministic_tail(
+            "adm_",
+            "hypervisor.m048.admission-decision.identity.v1",
+            &json!({
+                "participation_request_id": request_id,
+                "participant_lease_id": lease_id,
+                "admitted_at_wallet_ms": resolved_at_ms,
+            }),
+        )
+    );
+    let candidate = build_lease_candidate(
+        &lease_id,
+        &request,
+        &participant_ref,
+        &operator_ref,
+        &home_domain_ref,
+        &admitted_role,
+        &visibility_scope_ref,
+        &LeaseTermsBinding {
+            terms_ref: request_terms_ref,
+            terms_root: request_terms_root,
+            acceptance_ref: &acceptance_ref,
+        },
+        &LeaseGrants {
+            capability_advertisement_refs,
+            context_and_authority_lease_refs,
+            runtime_resource_and_budget_lease_refs,
+        },
+        &decision_ref,
+        &window,
+    );
+
+    // Step 1 — the lease, issued by the room System itself.
+    let lease_admission = admit_child(
+        data_dir,
+        &observed,
+        PARTICIPANT_LEASE_CONTRACT,
+        &candidate,
+        &observed.system_id.clone(),
+        None,
+    )
+    .map_err(classify)?;
+
+    // Step 2 — converge the request's successor at the NEW head. A failure here is recoverable:
+    // the room now describes its own unfinished admission and the boot completer repairs it.
+    let converged = (|| -> Result<Value, VErr> {
+        let reobserved = observe_room_at_head(data_dir, &room_ref)?;
+        let successor = admitted_request_successor(&request, &lease_id, &decision_ref)?;
+        let prior_root = object_root(&request_projection)?;
+        let system_id = reobserved.system_id.clone();
+        admit_child(
+            data_dir,
+            &reobserved,
+            PARTICIPATION_REQUEST_CONTRACT,
+            &successor,
+            &system_id,
+            Some(&prior_root),
+        )
+    })();
+
+    let (status, Json(mut payload)) = ok_child(
+        PARTICIPANT_LEASE_CONTRACT,
+        PARTICIPANT_LEASE_SCHEMA,
+        &lease_admission,
+    );
+    payload["participation_request_convergence"] = match converged {
+        Ok(_) => json!({ "converged": true }),
+        // Reported honestly rather than swallowed: the lease IS issued and durable, and the
+        // request will catch up at the next boot. Claiming a clean success here would misdescribe
+        // durable state a caller can already observe.
+        Err((code, message)) => json!({
+            "converged": false,
+            "pending_recovery": true,
+            "code": code,
+            "message": message,
+        }),
+    };
+    Ok((status, Json(payload)))
+}
+
+/// GET /v1/goal-orchestration/room-participant-leases
+pub(crate) async fn handle_participant_leases_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_lease_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let observed = match observe_room_at_head(&state.data_dir, room_ref) {
+        Ok(observed) => observed,
+        Err(error) => return classify(error),
+    };
+    match current_children(&state.data_dir, room_ref, PARTICIPANT_LEASE_CONTRACT).and_then(
+        |objects| {
+            ok_child_list(
+                PARTICIPANT_LEASE_CONTRACT,
+                PARTICIPANT_LEASE_SCHEMA,
+                &observed,
+                objects,
+            )
+        },
+    ) {
+        Ok(response) => response,
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/room-participant-leases/:id
+pub(crate) async fn handle_participant_lease_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_lease_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let object_ref = format!("participant-lease://{id}");
+    match current_child(
+        &state.data_dir,
+        room_ref,
+        PARTICIPANT_LEASE_CONTRACT,
+        &object_ref,
+    ) {
+        Ok(Some(projection)) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "object_contract_id": PARTICIPANT_LEASE_CONTRACT,
+                "schema_version": PARTICIPANT_LEASE_SCHEMA,
+                "projection": projection,
+                "projection_only": true,
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        ),
+        Ok(None) => classify(verr(
+            "m048_lease_not_found",
+            "this room admitted no such participant lease",
+        )),
+        Err(error) => classify(error),
+    }
+}
+
+/// The lease transitions this build step owns, and the status each produces.
+///
+/// Deliberately narrow: heartbeat, renew, revoke and expire are the four verbs whose meaning the
+/// registered contract already fixes. Acceptance, verdict and settlement are NOT invented here.
+fn lease_transition_target(op: &str) -> Option<&'static str> {
+    match op {
+        // A heartbeat proves liveness without changing standing.
+        "heartbeat" => Some("active"),
+        "renew" => Some("active"),
+        "revoke" => Some("revoked"),
+        "expire" => Some("retired"),
+        _ => None,
+    }
+}
+
+/// POST /v1/goal-orchestration/room-participant-leases/:id/transition
+pub(crate) async fn handle_participant_lease_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match lease_transition_inner(&state.data_dir, &id, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn lease_transition_inner(
+    data_dir: &str,
+    id: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            &[
+                "outcome_room_ref",
+                "expected_room_state_root",
+                "op",
+                "heartbeat_ref",
+                "ttl_seconds",
+            ],
+            "m048_lease_request_invalid",
+        )?;
+        let room_ref = req_ref(
+            body,
+            "outcome_room_ref",
+            &["outcome-room"],
+            "m048_lease_request_invalid",
+        )?;
+        let expected_head = req_root(
+            body,
+            "expected_room_state_root",
+            "m048_lease_request_invalid",
+        )?;
+        let op = req_vocab(
+            body,
+            "op",
+            &["heartbeat", "renew", "revoke", "expire"],
+            "m048_lease_request_invalid",
+        )?;
+        // `heartbeat_ref` is admitted only on a heartbeat, and `ttl_seconds` only on a renew.
+        // Field-admission is checked BEFORE any missing-required check. A field that does not
+        // belong to this verb at all is the more specific complaint, and reporting the vaguer
+        // "something is missing" first would send a caller looking in the wrong place.
+        let heartbeat_ref = opt_ref(
+            body,
+            "heartbeat_ref",
+            &["receipt"],
+            "m048_lease_request_invalid",
+        )?;
+        if heartbeat_ref.is_some() && op != "heartbeat" {
+            return Err(verr(
+                "m048_lease_field_not_admitted_for_transition",
+                "`heartbeat_ref` is admitted only on a heartbeat transition",
+            ));
+        }
+        let ttl_supplied = !matches!(body.get("ttl_seconds"), None | Some(Value::Null));
+        if ttl_supplied && op != "renew" {
+            return Err(verr(
+                "m048_lease_field_not_admitted_for_transition",
+                "`ttl_seconds` is admitted only on a renew transition",
+            ));
+        }
+        if op == "heartbeat" && heartbeat_ref.is_none() {
+            return Err(verr(
+                "m048_lease_request_invalid",
+                "a heartbeat transition must carry its receipt:// heartbeat_ref",
+            ));
+        }
+        let ttl = if ttl_supplied {
+            Some(req_ttl(
+                body,
+                "ttl_seconds",
+                LEASE_TTL_MIN_SECONDS,
+                LEASE_TTL_MAX_SECONDS,
+                "m048_lease_request_invalid",
+            )?)
+        } else {
+            None
+        };
+        Ok((room_ref, expected_head, op, heartbeat_ref, ttl))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, op, heartbeat_ref, ttl) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    let lease_id = format!("participant-lease://{id}");
+    let projection = current_child(data_dir, &room_ref, PARTICIPANT_LEASE_CONTRACT, &lease_id)
+        .map_err(classify)?
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_lease_not_found",
+                "this room admitted no such participant lease",
+            ))
+        })?;
+    let lease = admitted(&projection).map_err(classify)?.clone();
+    let current_status = lease
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if LEASE_TERMINAL_STATUSES.contains(&current_status) {
+        return Err(classify(verr(
+            "m048_lease_terminal",
+            "a terminal participant lease admits no further transition",
+        )));
+    }
+
+    let governance = match op.as_str() {
+        // Revocation and expiry are the room System's acts; liveness is the participant's.
+        "revoke" | "expire" => governed::Governance::Host,
+        _ => governed::Governance::Participant,
+    };
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governance,
+        &room_ref,
+        &observed.system_id,
+        &lease_id,
+        &op,
+        &json!({ "op": op, "participant_lease_id": lease_id }),
+    )
+    .await?;
+
+    // Expiry is decided against wallet time ONLY. A caller cannot expire a live lease by asserting
+    // that it has expired, and cannot keep a lapsed one alive by withholding the fact.
+    if op == "expire" {
+        match lease_is_live(&lease, resolved_at_ms).map_err(classify)? {
+            Err(LeaseLapse::Expired) => {}
+            _ => {
+                return Err(classify(verr(
+                    "m048_lease_not_expired",
+                    "this lease has not expired at the wallet-authorized instant",
+                )))
+            }
+        }
+    }
+
+    let target = lease_transition_target(&op).ok_or_else(|| {
+        classify(verr(
+            "m048_lease_transition_unavailable",
+            "no current-generation purpose is registered for this transition",
+        ))
+    })?;
+
+    let mut successor = lease.clone();
+    let map = successor.as_object_mut().ok_or_else(|| {
+        classify(verr(
+            "m048_lease_record_invalid",
+            "a participant lease must be an object",
+        ))
+    })?;
+    map.remove("system_binding");
+    map.remove("outcome_room_ref");
+    map.insert("status".to_string(), json!(target));
+    match op.as_str() {
+        "heartbeat" => {
+            map.insert("heartbeat_ref".to_string(), json!(heartbeat_ref));
+        }
+        "renew" => {
+            let ttl_seconds = ttl.unwrap_or_else(|| {
+                lease
+                    .get("ttl_seconds")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(LEASE_TTL_MIN_SECONDS)
+            });
+            let window = LeaseWindow::from_wallet(resolved_at_ms, ttl_seconds).map_err(classify)?;
+            map.insert("expires_at".to_string(), json!(window.expires_at));
+            map.insert("renew_after".to_string(), json!(window.renew_after));
+            map.insert("ttl_seconds".to_string(), json!(window.ttl_seconds));
+            let epoch = lease
+                .get("lease_epoch")
+                .and_then(Value::as_u64)
+                .unwrap_or(1);
+            map.insert("lease_epoch".to_string(), json!(epoch + 1));
+        }
+        "revoke" => {
+            let epoch = lease
+                .get("revocation_epoch")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            map.insert("revocation_epoch".to_string(), json!(epoch + 1));
+        }
+        _ => {}
+    }
+
+    let prior_root = object_root(&projection).map_err(classify)?;
+    let issuer = observed.system_id.clone();
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        PARTICIPANT_LEASE_CONTRACT,
+        &successor,
+        &issuer,
+        Some(&prior_root),
+    )
+    .map_err(classify)?;
+    Ok(ok_child(
+        PARTICIPANT_LEASE_CONTRACT,
+        PARTICIPANT_LEASE_SCHEMA,
+        &admission,
+    ))
+}
+
+// --- lifecycles 5 & 6: ResourceOffer / CapabilityOffer -------------------------------------------
+//
+// The two offer families differ only in which lease coordinate they name, which lease grant bounds
+// them, and their status vocabulary. One descriptor plus one generic path keeps the pair honest:
+// a rule enforced for resources cannot silently not apply to capabilities.
+//
+// NOTE: neither registered contract declares a top-level `outcome_room_ref` — they are room-scoped
+// through their SystemScopedObjectBinding alone — so nothing here mints one, and the seam will not
+// inject one either.
+
+#[derive(Clone, Copy)]
+struct OfferFamily {
+    contract_id: &'static str,
+    schema: &'static str,
+    id_field: &'static str,
+    id_prefix: &'static str,
+    id_scheme: &'static str,
+    /// The payload coordinate naming the issuing lease.
+    lease_field: &'static str,
+    /// The lease grant this family's declared refs must stay within.
+    granted_field: &'static str,
+    /// The payload field whose refs are scope-checked against `granted_field`.
+    declared_field: &'static str,
+    statuses: &'static [&'static str],
+    terminal: &'static [&'static str],
+    code: &'static str,
+}
+
+const RESOURCE_OFFER_FAMILY: OfferFamily = OfferFamily {
+    contract_id: RESOURCE_OFFER_CONTRACT,
+    schema: RESOURCE_OFFER_SCHEMA,
+    id_field: "resource_offer_id",
+    id_prefix: "rso_",
+    id_scheme: "resource-offer",
+    lease_field: "provider_participant_lease_ref",
+    granted_field: "runtime_resource_and_budget_lease_refs",
+    declared_field: "policy_constraint_refs",
+    statuses: &[
+        "offered",
+        "queued",
+        "allocated",
+        "exhausted",
+        "withdrawn",
+        "expired",
+        "revoked",
+    ],
+    terminal: &["withdrawn", "expired", "revoked", "exhausted"],
+    code: "m048_resource_offer",
+};
+
+const CAPABILITY_OFFER_FAMILY: OfferFamily = OfferFamily {
+    contract_id: CAPABILITY_OFFER_CONTRACT,
+    schema: CAPABILITY_OFFER_SCHEMA,
+    id_field: "capability_offer_id",
+    id_prefix: "cao_",
+    id_scheme: "capability-offer",
+    lease_field: "participant_lease_ref",
+    granted_field: "capability_advertisement_refs",
+    declared_field: "capability_descriptor_refs",
+    statuses: &[
+        "offered",
+        "eligible",
+        "allocated",
+        "suspended",
+        "withdrawn",
+        "revoked",
+    ],
+    terminal: &["withdrawn", "revoked"],
+    code: "m048_capability_offer",
+};
+
+/// The refs an admitted offer declares under the field its lease grant bounds.
+///
+/// Read from the admitted payload rather than from the request body, so a transition is checked
+/// against what the offer actually IS, not against what its transition request claims.
+fn declared_refs(family: OfferFamily, offer: &Value) -> Vec<String> {
+    offer
+        .get(family.declared_field)
+        .and_then(Value::as_array)
+        .map(|refs| {
+            refs.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Is this offer still live at the wallet-authorized instant?
+///
+/// Only ResourceOffer carries an expiry in its registered contract; a CapabilityOffer lapses only
+/// through a terminal status. Both are evaluated against wallet time, never a local clock.
+fn offer_is_live(family: OfferFamily, offer: &Value, wallet_now_ms: u64) -> Result<bool, VErr> {
+    let status = offer
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if family.terminal.contains(&status) {
+        return Ok(false);
+    }
+    if let Some(expires_at) = offer.get("expires_at").and_then(Value::as_str) {
+        if wallet_now_ms >= rfc3339_to_ms(expires_at)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Resolve the issuing lease and enforce that it is live AND that the offer stays within its scope.
+///
+/// This is the check the brief calls for "beyond the generic seam": the seam only asserts the
+/// issuer string is present in the room's membership array. Here the lease is actually opened, its
+/// liveness evaluated at the wallet instant, and the offer's declared refs bounded by the exact
+/// grant the lease carries.
+fn require_offer_lease(
+    data_dir: &str,
+    room_ref: &str,
+    family: OfferFamily,
+    lease_ref: &str,
+    declared: &[String],
+    wallet_now_ms: u64,
+) -> Result<Value, VErr> {
+    let projection = current_child(data_dir, room_ref, PARTICIPANT_LEASE_CONTRACT, lease_ref)?
+        .ok_or_else(|| {
+            verr(
+                format!("{}_lease_not_found", family.code).as_str(),
+                "the issuing participant lease is not a current child of this room",
+            )
+        })?;
+    let lease = admitted(&projection)?.clone();
+    require_lease_scope(&lease, wallet_now_ms, family.granted_field, declared)?;
+    Ok(lease)
+}
+
+/// Generic offer creation. `candidate_fields` are the non-plane-owned contract fields the caller
+/// supplies verbatim; identity, status and every room coordinate are derived here.
+async fn offer_create_inner(
+    data_dir: &str,
+    family: OfferFamily,
+    allowed: &[&str],
+    body: &Value,
+    build: fn(&str, &Value, &str) -> Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let invalid = format!("{}_request_invalid", family.code);
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(body, allowed, &invalid)?;
+        let room_ref = req_ref(body, "outcome_room_ref", &["outcome-room"], &invalid)?;
+        let expected_head = req_root(body, "expected_room_state_root", &invalid)?;
+        let lease_ref = req_ref(body, family.lease_field, &["participant-lease"], &invalid)?;
+        let declared = ref_list(body, family.declared_field, &[], &invalid)?;
+        Ok((room_ref, expected_head, lease_ref, declared))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, lease_ref, declared) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &lease_ref,
+        "offer",
+        &json!({ "op": "offer", "contract_id": family.contract_id, "lease_ref": lease_ref }),
+    )
+    .await?;
+
+    // The lease must be live at THIS instant and must actually grant what the offer declares.
+    require_offer_lease(
+        data_dir,
+        &room_ref,
+        family,
+        &lease_ref,
+        &declared,
+        resolved_at_ms,
+    )
+    .map_err(classify)?;
+
+    let offer_id = format!(
+        "{}://{}",
+        family.id_scheme,
+        deterministic_tail(
+            family.id_prefix,
+            "hypervisor.m048.offer.identity.v1",
+            &json!({
+                "contract_id": family.contract_id,
+                "outcome_room_ref": room_ref,
+                "lease_ref": lease_ref,
+                "declared": declared,
+            }),
+        )
+    );
+    let candidate = build(&offer_id, body, &lease_ref);
+
+    // The issuer is the LEASE, not the caller: the registered invariant resolves an offer's issuer
+    // through its participant lease or the room System.
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        family.contract_id,
+        &candidate,
+        &lease_ref,
+        None,
+    )
+    .map_err(classify)?;
+    Ok(ok_child(family.contract_id, family.schema, &admission))
+}
+
+const RESOURCE_OFFER_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "provider_participant_lease_ref",
+    "backing_provider_ref",
+    "resource_profile_ref",
+    "capacity_and_availability_ref",
+    "locality_and_custody_refs",
+    "trust_and_assurance_refs",
+    "cost_ref",
+    "eligible_work_classes",
+    "policy_constraint_refs",
+    "allocation_policy_ref",
+    "queue_preemption_and_fairness_policy_ref",
+    "expires_at",
+];
+
+fn build_resource_offer(offer_id: &str, body: &Value, lease_ref: &str) -> Value {
+    json!({
+        "schema_version": RESOURCE_OFFER_SCHEMA,
+        "resource_offer_id": offer_id,
+        "provider_participant_lease_ref": lease_ref,
+        "backing_provider_ref": body.get("backing_provider_ref").cloned().unwrap_or(Value::Null),
+        "resource_profile_ref": body.get("resource_profile_ref").cloned().unwrap_or(Value::Null),
+        "capacity_and_availability_ref": body.get("capacity_and_availability_ref").cloned().unwrap_or(Value::Null),
+        "locality_and_custody_refs": body.get("locality_and_custody_refs").cloned().unwrap_or_else(|| json!([])),
+        "trust_and_assurance_refs": body.get("trust_and_assurance_refs").cloned().unwrap_or_else(|| json!([])),
+        "cost_ref": body.get("cost_ref").cloned().unwrap_or(Value::Null),
+        "eligible_work_classes": body.get("eligible_work_classes").cloned().unwrap_or_else(|| json!([])),
+        "policy_constraint_refs": body.get("policy_constraint_refs").cloned().unwrap_or_else(|| json!([])),
+        "allocation_policy_ref": body.get("allocation_policy_ref").cloned().unwrap_or(Value::Null),
+        "queue_preemption_and_fairness_policy_ref": body.get("queue_preemption_and_fairness_policy_ref").cloned().unwrap_or(Value::Null),
+        "expires_at": body.get("expires_at").cloned().unwrap_or(Value::Null),
+        // An offer allocates nothing on creation. These stay empty until an allocation plane
+        // that this build step does not contain writes them.
+        "allocation_decision_refs": [],
+        "spend_and_contribution_refs": [],
+        "usage_and_consumption_refs": [],
+        "status": "offered",
+    })
+}
+
+const CAPABILITY_OFFER_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "participant_lease_ref",
+    "backing_worker_or_service_ref",
+    "capability_descriptor_refs",
+    "eligible_frontier_classes",
+    "model_harness_tool_and_connector_refs",
+    "authority_and_context_requirements",
+    "privacy_cost_quality_and_latency_refs",
+    "availability_ref",
+];
+
+fn build_capability_offer(offer_id: &str, body: &Value, lease_ref: &str) -> Value {
+    json!({
+        "schema_version": CAPABILITY_OFFER_SCHEMA,
+        "capability_offer_id": offer_id,
+        "participant_lease_ref": lease_ref,
+        "backing_worker_or_service_ref": body.get("backing_worker_or_service_ref").cloned().unwrap_or(Value::Null),
+        "capability_descriptor_refs": body.get("capability_descriptor_refs").cloned().unwrap_or_else(|| json!([])),
+        "eligible_frontier_classes": body.get("eligible_frontier_classes").cloned().unwrap_or_else(|| json!([])),
+        "model_harness_tool_and_connector_refs": body.get("model_harness_tool_and_connector_refs").cloned().unwrap_or_else(|| json!([])),
+        "authority_and_context_requirements": body.get("authority_and_context_requirements").cloned().unwrap_or_else(|| json!([])),
+        "privacy_cost_quality_and_latency_refs": body.get("privacy_cost_quality_and_latency_refs").cloned().unwrap_or_else(|| json!([])),
+        "availability_ref": body.get("availability_ref").cloned().unwrap_or(Value::Null),
+        "status": "offered",
+    })
+}
+
+/// Generic offer transition: a successor generation carrying a registered status.
+async fn offer_transition_inner(
+    data_dir: &str,
+    family: OfferFamily,
+    id: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let invalid = format!("{}_request_invalid", family.code);
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            &["outcome_room_ref", "expected_room_state_root", "status"],
+            &invalid,
+        )?;
+        Ok((
+            req_ref(body, "outcome_room_ref", &["outcome-room"], &invalid)?,
+            req_root(body, "expected_room_state_root", &invalid)?,
+            req_vocab(body, "status", family.statuses, &invalid)?,
+        ))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, target) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    let offer_ref = format!("{}://{}", family.id_scheme, id);
+    let projection = current_child(data_dir, &room_ref, family.contract_id, &offer_ref)
+        .map_err(classify)?
+        .ok_or_else(|| {
+            classify(verr(
+                format!("{}_not_found", family.code).as_str(),
+                "this room admitted no such offer",
+            ))
+        })?;
+    let offer = admitted(&projection).map_err(classify)?.clone();
+    let current_status = offer
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if family.terminal.contains(&current_status) {
+        return Err(classify(verr(
+            format!("{}_terminal", family.code).as_str(),
+            "a terminal offer admits no further transition",
+        )));
+    }
+    let lease_ref = offer
+        .get(family.lease_field)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &offer_ref,
+        "transition",
+        &json!({ "op": "transition", "status": target, "offer_ref": offer_ref }),
+    )
+    .await?;
+
+    // A lapsed offer may only move to a terminal status; it can never be revived into an
+    // allocatable one. Liveness is judged at the wallet instant.
+    if !offer_is_live(family, &offer, resolved_at_ms).map_err(classify)?
+        && !family.terminal.contains(&target.as_str())
+    {
+        return Err(classify(verr(
+            format!("{}_expired", family.code).as_str(),
+            "this offer has lapsed at the wallet-authorized instant and may only be terminated",
+        )));
+    }
+    // For any non-terminal transition the issuing lease must STILL prove this offer, not merely
+    // still be alive. Scope was bound at create, but in between a lease can be renewed with a
+    // narrower grant, suspended, or revoked — so the offer's own declared refs are re-read from
+    // the admitted payload and re-checked against the lease's CURRENT grant at this wallet
+    // instant. Continuing an offer whose lease no longer proves it would let a withdrawn grant
+    // keep working simply because nobody transitioned the offer.
+    if !family.terminal.contains(&target.as_str()) {
+        let declared = declared_refs(family, &offer);
+        require_offer_lease(
+            data_dir,
+            &room_ref,
+            family,
+            &lease_ref,
+            &declared,
+            resolved_at_ms,
+        )
+        .map_err(classify)?;
+    }
+
+    let mut successor = offer.clone();
+    let map = successor.as_object_mut().ok_or_else(|| {
+        classify(verr(
+            format!("{}_record_invalid", family.code).as_str(),
+            "an offer record must be an object",
+        ))
+    })?;
+    map.remove("system_binding");
+    map.insert("status".to_string(), json!(target));
+
+    let prior_root = object_root(&projection).map_err(classify)?;
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        family.contract_id,
+        &successor,
+        &lease_ref,
+        Some(&prior_root),
+    )
+    .map_err(classify)?;
+    Ok(ok_child(family.contract_id, family.schema, &admission))
+}
+
+/// Generic offer projection over one room.
+fn offer_list(
+    data_dir: &str,
+    family: OfferFamily,
+    query: &std::collections::HashMap<String, String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            format!("{}_request_invalid", family.code).as_str(),
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let observed = match observe_room_at_head(data_dir, room_ref) {
+        Ok(observed) => observed,
+        Err(error) => return classify(error),
+    };
+    match current_children(data_dir, room_ref, family.contract_id)
+        .and_then(|objects| ok_child_list(family.contract_id, family.schema, &observed, objects))
+    {
+        Ok(response) => response,
+        Err(error) => classify(error),
+    }
+}
+
+/// Generic offer overview. Owns nothing: a pure count projection over current children.
+fn offer_overview(
+    data_dir: &str,
+    family: OfferFamily,
+    query: &std::collections::HashMap<String, String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            format!("{}_request_invalid", family.code).as_str(),
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let objects = match current_children(data_dir, room_ref, family.contract_id) {
+        Ok(objects) => objects,
+        Err(error) => return classify(error),
+    };
+    let mut by_status = serde_json::Map::new();
+    for projection in &objects {
+        let status = projection
+            .pointer("/admitted_object/status")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+            .to_string();
+        let next = by_status.get(&status).and_then(Value::as_u64).unwrap_or(0) + 1;
+        by_status.insert(status, json!(next));
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "object_contract_id": family.contract_id,
+            "schema_version": family.schema,
+            "outcome_room_ref": room_ref,
+            "total": objects.len(),
+            "by_status": by_status,
+            "projection_only": true,
+            "runtimeTruthSource": "daemon-runtime",
+        })),
+    )
+}
+
+/// Generic single-offer projection.
+fn offer_get(
+    data_dir: &str,
+    family: OfferFamily,
+    id: &str,
+    query: &std::collections::HashMap<String, String>,
+) -> (StatusCode, Json<Value>) {
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            format!("{}_request_invalid", family.code).as_str(),
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let offer_ref = format!("{}://{}", family.id_scheme, id);
+    match current_child(data_dir, room_ref, family.contract_id, &offer_ref) {
+        Ok(Some(projection)) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "object_contract_id": family.contract_id,
+                "schema_version": family.schema,
+                "projection": projection,
+                "projection_only": true,
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        ),
+        Ok(None) => classify(verr(
+            format!("{}_not_found", family.code).as_str(),
+            "this room admitted no such offer",
+        )),
+        Err(error) => classify(error),
+    }
+}
+
+type OfferQuery = axum::extract::Query<std::collections::HashMap<String, String>>;
+
+/// POST /v1/goal-orchestration/resource-offers
+pub(crate) async fn handle_resource_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match offer_create_inner(
+        &state.data_dir,
+        RESOURCE_OFFER_FAMILY,
+        RESOURCE_OFFER_FIELDS,
+        &body,
+        build_resource_offer,
+    )
+    .await
+    {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+/// GET /v1/goal-orchestration/resource-offers
+pub(crate) async fn handle_resource_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    offer_list(&state.data_dir, RESOURCE_OFFER_FAMILY, &query)
+}
+
+/// GET /v1/goal-orchestration/resource-offers/overview
+pub(crate) async fn handle_resource_overview(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    offer_overview(&state.data_dir, RESOURCE_OFFER_FAMILY, &query)
+}
+
+/// GET /v1/goal-orchestration/resource-offers/:id
+pub(crate) async fn handle_resource_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    offer_get(&state.data_dir, RESOURCE_OFFER_FAMILY, &id, &query)
+}
+
+/// POST /v1/goal-orchestration/resource-offers/:id/transition
+pub(crate) async fn handle_resource_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match offer_transition_inner(&state.data_dir, RESOURCE_OFFER_FAMILY, &id, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+/// POST /v1/goal-orchestration/capability-offers
+pub(crate) async fn handle_capability_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match offer_create_inner(
+        &state.data_dir,
+        CAPABILITY_OFFER_FAMILY,
+        CAPABILITY_OFFER_FIELDS,
+        &body,
+        build_capability_offer,
+    )
+    .await
+    {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+/// GET /v1/goal-orchestration/capability-offers
+pub(crate) async fn handle_capability_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    offer_list(&state.data_dir, CAPABILITY_OFFER_FAMILY, &query)
+}
+
+/// GET /v1/goal-orchestration/capability-offers/overview
+pub(crate) async fn handle_capability_overview(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    offer_overview(&state.data_dir, CAPABILITY_OFFER_FAMILY, &query)
+}
+
+/// GET /v1/goal-orchestration/capability-offers/:id
+pub(crate) async fn handle_capability_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    offer_get(&state.data_dir, CAPABILITY_OFFER_FAMILY, &id, &query)
+}
+
+/// POST /v1/goal-orchestration/capability-offers/:id/transition
+pub(crate) async fn handle_capability_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match offer_transition_inner(&state.data_dir, CAPABILITY_OFFER_FAMILY, &id, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
 }
 
 #[cfg(test)]
@@ -3438,16 +5071,16 @@ mod m048_tests {
     }
 
     #[test]
-    fn this_build_step_mounts_no_lease_offer_or_contribution_route_at_the_current_generation() {
-        // A3 is narrow on purpose. If a later family gets re-pointed early, this catches it.
+    fn this_build_step_mounts_no_contribution_route_at_the_current_generation() {
+        // A4 added lease and offer routes; the contribution arc is still later. If one of those
+        // families gets re-pointed early, this catches it.
         for not_yet in [
-            "m048_collaboration_routes::handle_participant_lease",
-            "m048_collaboration_routes::handle_resource_",
-            "m048_collaboration_routes::handle_capability_",
             "m048_collaboration_routes::handle_frontier",
             "m048_collaboration_routes::handle_claim",
             "m048_collaboration_routes::handle_attempt",
             "m048_collaboration_routes::handle_finding",
+            "m048_collaboration_routes::handle_challenge",
+            "m048_collaboration_routes::handle_match_",
         ] {
             assert!(
                 !ROUTER_SOURCE.contains(not_yet),
@@ -3653,6 +5286,813 @@ mod m048_tests {
             message.contains("participant lease"),
             "the gap must name what owns the verb, not merely refuse"
         );
+    }
+
+    // --- A4: lease + offers --------------------------------------------------------------------
+
+    fn lease(status: &str, expires_at: &str) -> Value {
+        json!({
+            "participant_lease_id": "participant-lease://plz_one",
+            "join_request_ref": "participation-request://prq_one",
+            "status": status,
+            "expires_at": expires_at,
+            "unbounded_term_exception_decision_ref": Value::Null,
+            "capability_advertisement_refs": ["capability-offer://granted"],
+            "runtime_resource_and_budget_lease_refs": ["budget://granted"],
+        })
+    }
+
+    #[test]
+    fn lease_liveness_is_decided_only_against_wallet_time() {
+        assert_eq!(
+            lease_is_live(&lease("active", "2026-08-26T13:00:00Z"), NOON_MS).unwrap(),
+            Ok(())
+        );
+        assert_eq!(
+            lease_is_live(&lease("active", "2026-08-26T11:59:00Z"), NOON_MS).unwrap(),
+            Err(LeaseLapse::Expired)
+        );
+        assert_eq!(
+            lease_is_live(&lease("revoked", "2026-08-26T13:00:00Z"), NOON_MS).unwrap(),
+            Err(LeaseLapse::Terminal)
+        );
+        assert_eq!(
+            lease_is_live(&lease("suspended", "2026-08-26T13:00:00Z"), NOON_MS).unwrap(),
+            Err(LeaseLapse::Suspended)
+        );
+        // An unregistered status refuses rather than defaulting to live.
+        assert!(lease_is_live(&lease("invented", "2026-08-26T13:00:00Z"), NOON_MS).is_err());
+    }
+
+    #[test]
+    fn a_null_expiry_without_a_governed_exception_is_refused_not_treated_as_eternal() {
+        let mut unbounded = lease("active", "2026-08-26T13:00:00Z");
+        unbounded["expires_at"] = Value::Null;
+        assert_eq!(
+            lease_is_live(&unbounded, NOON_MS)
+                .expect_err("a null expiry needs a governed exception")
+                .0,
+            "m048_lease_record_invalid"
+        );
+        unbounded["unbounded_term_exception_decision_ref"] = json!("decision://granted");
+        assert_eq!(
+            lease_is_live(&unbounded, NOON_MS).unwrap(),
+            Ok(()),
+            "a governed exception admits the unbounded term"
+        );
+    }
+
+    #[test]
+    fn an_offer_outside_its_lease_scope_is_refused_even_though_membership_holds() {
+        let live = lease("active", "2026-08-26T13:00:00Z");
+        // Within the grant.
+        assert!(require_lease_scope(
+            &live,
+            NOON_MS,
+            "capability_advertisement_refs",
+            &["capability-offer://granted".to_string()],
+        )
+        .is_ok());
+        // Outside the grant: membership is not scope.
+        let error = require_lease_scope(
+            &live,
+            NOON_MS,
+            "capability_advertisement_refs",
+            &["capability-offer://never-granted".to_string()],
+        )
+        .expect_err("an ungranted ref is refused");
+        assert_eq!(error.0, "m048_offer_outside_lease_scope");
+        assert!(error.1.contains("membership is not scope"));
+    }
+
+    #[test]
+    fn an_expired_or_revoked_lease_may_not_issue_offers() {
+        for (status, expiry, expected) in [
+            ("active", "2026-08-26T11:00:00Z", "m048_lease_expired"),
+            ("revoked", "2026-08-26T13:00:00Z", "m048_lease_terminal"),
+            ("suspended", "2026-08-26T13:00:00Z", "m048_lease_not_active"),
+        ] {
+            assert_eq!(
+                require_lease_scope(
+                    &lease(status, expiry),
+                    NOON_MS,
+                    "capability_advertisement_refs",
+                    &[]
+                )
+                .expect_err("a non-live lease cannot issue")
+                .0,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn a_lease_window_is_rendered_entirely_from_the_wallet_instant() {
+        let window = LeaseWindow::from_wallet(NOON_MS, 3600).unwrap();
+        assert_eq!(window.issued_at, "2026-08-26T12:00:00Z");
+        assert_eq!(window.expires_at, "2026-08-26T13:00:00Z");
+        // renew_after sits at three quarters of the term, leaving room to renew before expiry.
+        assert_eq!(window.renew_after, "2026-08-26T12:45:00Z");
+        assert_eq!(window.ttl_seconds, 3600);
+        assert!(
+            rfc3339_to_ms(&window.renew_after).unwrap()
+                < rfc3339_to_ms(&window.expires_at).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_lease_candidate_is_room_system_issued_and_carries_no_plane_owned_field() {
+        let request = json!({ "participation_request_id": "participation-request://prq_one" });
+        let candidate = build_lease_candidate(
+            "participant-lease://plz_one",
+            &request,
+            "worker://demo/w",
+            "org://demo/op",
+            "domain://demo",
+            "implementer",
+            "restricted_view://demo",
+            &LeaseTermsBinding {
+                terms_ref: "terms://trm_one",
+                terms_root: &("sha256:".to_string() + &"55".repeat(32)),
+                acceptance_ref: "receipt://tac_one",
+            },
+            &LeaseGrants {
+                capability_advertisement_refs: vec!["capability-offer://a".to_string()],
+                context_and_authority_lease_refs: vec![],
+                runtime_resource_and_budget_lease_refs: vec![],
+            },
+            "receipt://adm_one",
+            &LeaseWindow::from_wallet(NOON_MS, 3600).unwrap(),
+        );
+        for owned in ["system_binding", "outcome_room_ref"] {
+            assert!(candidate.get(owned).is_none(), "`{owned}` is seam-derived");
+        }
+        assert_eq!(
+            candidate["join_request_ref"],
+            request["participation_request_id"]
+        );
+        assert_eq!(
+            candidate["terms_acceptance_ref"],
+            json!("receipt://tac_one")
+        );
+        assert_eq!(
+            candidate["heartbeat_ref"],
+            Value::Null,
+            "a fresh lease has no heartbeat; the field is receipt:// only and never invented"
+        );
+        assert_eq!(
+            candidate["unbounded_term_exception_decision_ref"],
+            Value::Null
+        );
+        assert_eq!(candidate["current_claim_ref"], Value::Null);
+        assert_eq!(candidate["status"], json!("active"));
+    }
+
+    #[test]
+    fn a_lease_id_is_deterministic_so_a_retried_admit_cannot_mint_a_second_lease() {
+        let first = derive_participant_lease_id(
+            "participation-request://prq_one",
+            &canonical_room_ref(),
+            "worker://demo/w",
+        );
+        assert_eq!(
+            first,
+            derive_participant_lease_id(
+                "participation-request://prq_one",
+                &canonical_room_ref(),
+                "worker://demo/w"
+            )
+        );
+        assert!(first.starts_with("participant-lease://plz_"));
+        assert_ne!(
+            first,
+            derive_participant_lease_id(
+                "participation-request://prq_two",
+                &canonical_room_ref(),
+                "worker://demo/w"
+            )
+        );
+    }
+
+    #[test]
+    fn the_admitted_successor_strips_seam_owned_coordinates_and_binds_its_lease() {
+        let request = json!({
+            "participation_request_id": "participation-request://prq_one",
+            "system_binding": { "system_id": "system://room/demo" },
+            "outcome_room_ref": "outcome-room://demo",
+            "status": "submitted",
+            "participant_lease_ref": Value::Null,
+            "admission_decision_ref": Value::Null,
+        });
+        let successor = admitted_request_successor(
+            &request,
+            "participant-lease://plz_one",
+            "receipt://adm_one",
+        )
+        .unwrap();
+        assert!(successor.get("system_binding").is_none());
+        assert!(successor.get("outcome_room_ref").is_none());
+        assert_eq!(successor["status"], json!("admitted"));
+        assert_eq!(
+            successor["participant_lease_ref"],
+            json!("participant-lease://plz_one")
+        );
+        assert_eq!(
+            successor["admission_decision_ref"],
+            json!("receipt://adm_one")
+        );
+    }
+
+    #[test]
+    fn only_contract_owned_lease_transitions_exist() {
+        for op in ["heartbeat", "renew", "revoke", "expire"] {
+            assert!(lease_transition_target(op).is_some(), "`{op}` is owned");
+        }
+        // No invented acceptance, verdict, or settlement verb.
+        for invented in [
+            "accept", "verdict", "settle", "reassign", "payout", "federate",
+        ] {
+            assert!(
+                lease_transition_target(invented).is_none(),
+                "`{invented}` must not exist on this plane"
+            );
+        }
+        assert_eq!(lease_transition_target("revoke"), Some("revoked"));
+        assert_eq!(lease_transition_target("expire"), Some("retired"));
+    }
+
+    #[test]
+    fn offer_liveness_uses_wallet_time_and_terminal_status() {
+        let live = json!({ "status": "offered", "expires_at": "2026-08-26T13:00:00Z" });
+        assert!(offer_is_live(RESOURCE_OFFER_FAMILY, &live, NOON_MS).unwrap());
+        let expired = json!({ "status": "offered", "expires_at": "2026-08-26T11:00:00Z" });
+        assert!(!offer_is_live(RESOURCE_OFFER_FAMILY, &expired, NOON_MS).unwrap());
+        let withdrawn = json!({ "status": "withdrawn", "expires_at": "2026-08-26T13:00:00Z" });
+        assert!(!offer_is_live(RESOURCE_OFFER_FAMILY, &withdrawn, NOON_MS).unwrap());
+        // A capability offer carries no expiry field; only a terminal status lapses it.
+        let capability = json!({ "status": "offered" });
+        assert!(offer_is_live(CAPABILITY_OFFER_FAMILY, &capability, NOON_MS).unwrap());
+        let revoked = json!({ "status": "revoked" });
+        assert!(!offer_is_live(CAPABILITY_OFFER_FAMILY, &revoked, NOON_MS).unwrap());
+    }
+
+    #[test]
+    fn neither_offer_family_mints_a_room_ref_its_contract_does_not_declare() {
+        let body = json!({
+            "backing_provider_ref": "provider://demo",
+            "capability_descriptor_refs": ["ai://demo/review"],
+        });
+        for candidate in [
+            build_resource_offer(
+                "resource-offer://rso_one",
+                &body,
+                "participant-lease://plz_one",
+            ),
+            build_capability_offer(
+                "capability-offer://cao_one",
+                &body,
+                "participant-lease://plz_one",
+            ),
+        ] {
+            assert!(
+                candidate.get("outcome_room_ref").is_none(),
+                "these contracts declare no top-level room ref; the seam must not receive one"
+            );
+            assert!(candidate.get("system_binding").is_none());
+            assert_eq!(candidate["status"], json!("offered"));
+        }
+        // A fresh resource offer allocates nothing.
+        let resource = build_resource_offer(
+            "resource-offer://rso_one",
+            &body,
+            "participant-lease://plz_one",
+        );
+        assert_eq!(resource["allocation_decision_refs"], json!([]));
+        assert_eq!(resource["spend_and_contribution_refs"], json!([]));
+        assert_eq!(resource["usage_and_consumption_refs"], json!([]));
+    }
+
+    #[test]
+    fn the_two_offer_families_stay_structurally_paired() {
+        for family in [RESOURCE_OFFER_FAMILY, CAPABILITY_OFFER_FAMILY] {
+            assert!(family.statuses.contains(&"offered"));
+            for terminal in family.terminal {
+                assert!(
+                    family.statuses.contains(terminal),
+                    "`{terminal}` must be a registered status of its own family"
+                );
+            }
+            assert!(family.code.starts_with("m048_"));
+        }
+        assert_ne!(
+            RESOURCE_OFFER_FAMILY.lease_field,
+            CAPABILITY_OFFER_FAMILY.lease_field
+        );
+        assert_ne!(
+            RESOURCE_OFFER_FAMILY.granted_field,
+            CAPABILITY_OFFER_FAMILY.granted_field
+        );
+    }
+
+    #[test]
+    fn the_predecessor_lease_and_offer_handlers_are_no_longer_mounted() {
+        for retired in [
+            "room_participation_routes::handle_participant_leases_list",
+            "room_participation_routes::handle_participant_lease_get",
+            "room_participation_routes::handle_participant_lease_transition",
+            "resource_capability_offer_routes::handle_resource_",
+            "resource_capability_offer_routes::handle_capability_",
+        ] {
+            assert!(
+                !ROUTER_SOURCE.contains(retired),
+                "`{retired}` must not remain mounted; the current generation owns this family"
+            );
+        }
+        // The eligibility-match family is NOT part of A4 and stays with its predecessor.
+        assert!(
+            ROUTER_SOURCE.contains("resource_capability_offer_routes::handle_match_"),
+            "the work-eligibility-match family is a later step and stays where it is"
+        );
+    }
+
+    #[test]
+    fn every_a4_route_is_mounted_at_its_exact_path_and_handler() {
+        for (path, handler) in [
+            (
+                "/v1/goal-orchestration/room-participant-leases",
+                "m048_collaboration_routes::handle_participant_leases_list",
+            ),
+            (
+                "/v1/goal-orchestration/room-participant-leases/:id/transition",
+                "m048_collaboration_routes::handle_participant_lease_transition",
+            ),
+            (
+                "/v1/goal-orchestration/resource-offers/overview",
+                "m048_collaboration_routes::handle_resource_overview",
+            ),
+            (
+                "/v1/goal-orchestration/resource-offers/:id/transition",
+                "m048_collaboration_routes::handle_resource_transition",
+            ),
+            (
+                "/v1/goal-orchestration/capability-offers/overview",
+                "m048_collaboration_routes::handle_capability_overview",
+            ),
+            (
+                "/v1/goal-orchestration/capability-offers/:id/transition",
+                "m048_collaboration_routes::handle_capability_transition",
+            ),
+        ] {
+            assert!(ROUTER_SOURCE.contains(path), "`{path}` must be mounted");
+            assert!(ROUTER_SOURCE.contains(handler), "`{handler}` must be named");
+        }
+        // The admit verb is now real, not a typed gap.
+        assert!(
+            ROUTER_SOURCE.contains("m048_collaboration_routes::handle_participation_request_admit")
+        );
+    }
+
+    #[test]
+    fn the_admission_convergence_runs_after_the_seam_recovery_in_the_router_source() {
+        // Ordering is load-bearing: "did the lease land" is only a settled fact once the seam has
+        // converged its own pending child intents.
+        let seam = ROUTER_SOURCE
+            .find("outcome_room_system_routes::complete_pending")
+            .expect("the seam recovery is wired");
+        let admissions = ROUTER_SOURCE
+            .find("m048_collaboration_routes::complete_participation_admissions")
+            .expect("the admission convergence is wired");
+        let pairing = ROUTER_SOURCE
+            .find("m048_collaboration_routes::complete_pairing_consumption_intents")
+            .expect("the pairing convergence is wired");
+        assert!(seam < pairing && pairing < admissions);
+    }
+
+    #[tokio::test]
+    async fn a4_mutations_refuse_and_write_nothing_without_a_room() {
+        let directory = temp_dir("a4-refusal");
+        let data_dir = directory.to_str().unwrap();
+        let head = "sha256:".to_string() + &"11".repeat(32);
+
+        let admit_body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": head,
+            "participant_ref": "worker://demo/w",
+            "operator_ref": "org://demo/op",
+            "home_domain_ref": "domain://demo",
+            "admitted_role": "implementer",
+            "visibility_scope_ref": "restricted_view://demo",
+            "terms_acceptance_ref": "receipt://tac_one",
+            "ttl_seconds": 3600,
+        });
+        assert_eq!(
+            admit_inner(data_dir, "prq_one", &admit_body)
+                .await
+                .expect_err("an absent room is refused")
+                .0,
+            StatusCode::NOT_FOUND
+        );
+
+        let offer_body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": head,
+            "participant_lease_ref": "participant-lease://plz_one",
+            "capability_descriptor_refs": ["ai://demo/review"],
+        });
+        assert_eq!(
+            offer_create_inner(
+                data_dir,
+                CAPABILITY_OFFER_FAMILY,
+                CAPABILITY_OFFER_FIELDS,
+                &offer_body,
+                build_capability_offer
+            )
+            .await
+            .expect_err("an absent room is refused")
+            .0,
+            StatusCode::NOT_FOUND
+        );
+
+        // An unregistered role or an out-of-bounds TTL refuses as a bad request.
+        let mut bad_role = admit_body.clone();
+        bad_role["admitted_role"] = json!("overlord");
+        assert_eq!(
+            admit_inner(data_dir, "prq_one", &bad_role)
+                .await
+                .expect_err("an unregistered role is refused")
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+        let mut bad_ttl = admit_body;
+        bad_ttl["ttl_seconds"] = json!(LEASE_TTL_MAX_SECONDS + 1);
+        assert_eq!(
+            admit_inner(data_dir, "prq_one", &bad_ttl)
+                .await
+                .expect_err("an out-of-bounds TTL is refused")
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+
+        for family in OWNER_LOCAL_FAMILIES {
+            assert!(
+                !directory.join(family).exists(),
+                "a refused A4 mutation writes nothing"
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_lease_transition_admits_a_field_only_on_the_verb_that_owns_it() {
+        let directory = temp_dir("a4-transition-fields");
+        let data_dir = directory.to_str().unwrap();
+        let head = "sha256:".to_string() + &"11".repeat(32);
+        // `heartbeat_ref` on a renew, and `ttl_seconds` on a heartbeat, are both refused.
+        for (op, extra, key) in [
+            ("renew", json!("receipt://hb_one"), "heartbeat_ref"),
+            ("heartbeat", json!(3600), "ttl_seconds"),
+        ] {
+            let mut body = json!({
+                "outcome_room_ref": canonical_room_ref(),
+                "expected_room_state_root": head,
+                "op": op,
+            });
+            body[key] = extra;
+            let (status, Json(payload)) = lease_transition_inner(data_dir, "plz_one", &body)
+                .await
+                .expect_err("a field outside its verb is refused");
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(
+                payload.pointer("/error/code").and_then(Value::as_str),
+                Some("m048_lease_field_not_admitted_for_transition")
+            );
+        }
+        // A heartbeat without its receipt is refused too.
+        let body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": head,
+            "op": "heartbeat",
+        });
+        assert_eq!(
+            lease_transition_inner(data_dir, "plz_one", &body)
+                .await
+                .expect_err("a heartbeat needs its receipt")
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    // --- A4 correction: the real generated contract validator over real builder output ---------
+
+    use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
+
+    /// Apply the exact derivation the room-native seam applies, so a production candidate can be
+    /// validated as the object the seam would actually admit.
+    ///
+    /// This mirrors `prepare_room_native_child`: the seam injects the whole
+    /// SystemScopedObjectBinding and, for the contracts that declare one, the room ref. Anything
+    /// this helper adds is therefore server-derived truth, not a fixture fudge — the CANDIDATE
+    /// itself is produced by the production builder under test.
+    fn seal_like_the_seam(candidate: &Value, contract_id: &str, room_ref: &str) -> Value {
+        let mut sealed = candidate.clone();
+        let map = sealed.as_object_mut().expect("a candidate is an object");
+        map.insert(
+            "system_binding".to_string(),
+            json!({
+                "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+                "system_id": SYSTEM_ID,
+                "parent_scope_ref": room_ref,
+                // The lease's registered invariant requires the room System to be its issuer.
+                "proposed_or_issued_by_ref": SYSTEM_ID,
+                "payload_root": format!("sha256:{}", "11".repeat(32)),
+                "created_at": "2026-08-26T12:00:00Z",
+                "updated_at": Value::Null,
+            }),
+        );
+        // Only the contracts whose registered shape declares a top-level room ref receive one;
+        // the offer families deliberately do not.
+        if matches!(
+            contract_id,
+            PARTICIPATION_REQUEST_CONTRACT | PARTICIPANT_LEASE_CONTRACT
+        ) {
+            map.insert("outcome_room_ref".to_string(), json!(room_ref));
+        }
+        sealed
+    }
+
+    const SYSTEM_ID: &str = "system://room/demo";
+
+    fn validated_room_ref() -> String {
+        canonical_room_ref()
+    }
+
+    /// The production participation-request candidate, built exactly as the handler builds it.
+    fn production_request_candidate() -> Value {
+        build_participation_candidate(
+            &derive_participation_request_id(
+                "local-agent-pairing://lap_one",
+                &validated_room_ref(),
+                "worker://demo/w",
+            ),
+            SYSTEM_ID,
+            "worker://demo/w",
+            "terms://trm_one",
+            &format!("sha256:{}", "55".repeat(32)),
+            vec!["capability-offer://demo/w".to_string()],
+            vec!["evidence://demo/w".to_string()],
+            vec!["frontier://demo/1".to_string()],
+            vec!["privacy_posture://demo/v1".to_string()],
+            &format!("sha256:{}", "33".repeat(32)),
+        )
+    }
+
+    /// The production lease candidate, built exactly as `admit_inner` builds it.
+    fn production_lease_candidate() -> Value {
+        let request = production_request_candidate();
+        let request_id = request["participation_request_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        build_lease_candidate(
+            &derive_participant_lease_id(&request_id, &validated_room_ref(), "worker://demo/w"),
+            &request,
+            "worker://demo/w",
+            "org://demo/operator",
+            "domain://demo/operator",
+            "implementer",
+            "restricted_view://demo/implementer",
+            &LeaseTermsBinding {
+                terms_ref: "terms://trm_one",
+                terms_root: &format!("sha256:{}", "55".repeat(32)),
+                acceptance_ref: &format!("receipt://tac_{}", "ab".repeat(32)),
+            },
+            &LeaseGrants {
+                capability_advertisement_refs: vec!["capability-offer://demo/w".to_string()],
+                context_and_authority_lease_refs: vec!["context_lease://demo/1".to_string()],
+                runtime_resource_and_budget_lease_refs: vec!["budget://demo/1".to_string()],
+            },
+            &format!("receipt://adm_{}", "cd".repeat(32)),
+            &LeaseWindow::from_wallet(NOON_MS, 3600).unwrap(),
+        )
+    }
+
+    #[test]
+    fn the_participation_request_builder_satisfies_its_registered_v3_contract() {
+        let sealed = seal_like_the_seam(
+            &production_request_candidate(),
+            PARTICIPATION_REQUEST_CONTRACT,
+            &validated_room_ref(),
+        );
+        validate_architecture_contract(PARTICIPATION_REQUEST_CONTRACT, &sealed).unwrap_or_else(
+            |error| panic!("the production participation-request candidate must validate: {error}"),
+        );
+    }
+
+    #[test]
+    fn the_participant_lease_builder_satisfies_its_registered_v3_contract() {
+        let sealed = seal_like_the_seam(
+            &production_lease_candidate(),
+            PARTICIPANT_LEASE_CONTRACT,
+            &validated_room_ref(),
+        );
+        validate_architecture_contract(PARTICIPANT_LEASE_CONTRACT, &sealed).unwrap_or_else(
+            |error| panic!("the production participant-lease candidate must validate: {error}"),
+        );
+    }
+
+    #[test]
+    fn both_offer_builders_satisfy_their_registered_v3_contracts() {
+        let resource_body = json!({
+            "backing_provider_ref": "provider://demo/gpu-cloud",
+            "resource_profile_ref": "resource://demo/gpu-a100",
+            "capacity_and_availability_ref": "capacity://demo/pool-1",
+            "locality_and_custody_refs": ["region://demo/us-west"],
+            "trust_and_assurance_refs": ["evidence://demo/attestation"],
+            "cost_ref": "quote://demo/hourly",
+            "eligible_work_classes": ["training"],
+            "policy_constraint_refs": ["policy://demo/resource-use-v1"],
+            "allocation_policy_ref": "policy://demo/allocation-v1",
+            "queue_preemption_and_fairness_policy_ref": "policy://demo/fairness-v1",
+            "expires_at": "2026-08-27T00:00:00Z",
+        });
+        let resource = build_resource_offer(
+            &format!("resource-offer://rso_{}", "ab".repeat(32)),
+            &resource_body,
+            "participant-lease://plz_one",
+        );
+        validate_architecture_contract(
+            RESOURCE_OFFER_CONTRACT,
+            &seal_like_the_seam(&resource, RESOURCE_OFFER_CONTRACT, &validated_room_ref()),
+        )
+        .unwrap_or_else(|error| {
+            panic!("the production resource-offer candidate must validate: {error}")
+        });
+
+        let capability_body = json!({
+            "backing_worker_or_service_ref": "worker://demo/w",
+            "capability_descriptor_refs": ["ai://demo/code-review"],
+            "eligible_frontier_classes": ["review_need"],
+            "model_harness_tool_and_connector_refs": ["harness-profile://demo/review-v1"],
+            "authority_and_context_requirements": ["scope:repository.read"],
+            "privacy_cost_quality_and_latency_refs": ["benchmark://demo/quality"],
+            "availability_ref": "schedule://demo/weekdays",
+        });
+        let capability = build_capability_offer(
+            &format!("capability-offer://cao_{}", "ab".repeat(32)),
+            &capability_body,
+            "participant-lease://plz_one",
+        );
+        validate_architecture_contract(
+            CAPABILITY_OFFER_CONTRACT,
+            &seal_like_the_seam(
+                &capability,
+                CAPABILITY_OFFER_CONTRACT,
+                &validated_room_ref(),
+            ),
+        )
+        .unwrap_or_else(|error| {
+            panic!("the production capability-offer candidate must validate: {error}")
+        });
+    }
+
+    #[test]
+    fn the_admitted_request_successor_still_satisfies_its_contract() {
+        // Succession is where a builder is most likely to drift out of contract, because it edits
+        // an already-admitted payload rather than constructing a fresh one.
+        let request = production_request_candidate();
+        let successor = admitted_request_successor(
+            &request,
+            &format!("participant-lease://plz_{}", "ab".repeat(32)),
+            &format!("receipt://adm_{}", "cd".repeat(32)),
+        )
+        .unwrap();
+        let sealed = seal_like_the_seam(
+            &successor,
+            PARTICIPATION_REQUEST_CONTRACT,
+            &validated_room_ref(),
+        );
+        validate_architecture_contract(PARTICIPATION_REQUEST_CONTRACT, &sealed)
+            .unwrap_or_else(|error| panic!("the admitted successor must validate: {error}"));
+        assert_eq!(sealed["status"], json!("admitted"));
+    }
+
+    #[test]
+    fn a_renewed_lease_generation_still_satisfies_its_contract() {
+        let lease = production_lease_candidate();
+        let window = LeaseWindow::from_wallet(NOON_MS + 60_000, 7200).unwrap();
+        let mut renewed = lease.clone();
+        let map = renewed.as_object_mut().unwrap();
+        map.insert("expires_at".to_string(), json!(window.expires_at));
+        map.insert("renew_after".to_string(), json!(window.renew_after));
+        map.insert("ttl_seconds".to_string(), json!(window.ttl_seconds));
+        map.insert("lease_epoch".to_string(), json!(2));
+        map.insert(
+            "heartbeat_ref".to_string(),
+            json!(format!("receipt://hb_{}", "ef".repeat(32))),
+        );
+        let sealed =
+            seal_like_the_seam(&renewed, PARTICIPANT_LEASE_CONTRACT, &validated_room_ref());
+        validate_architecture_contract(PARTICIPANT_LEASE_CONTRACT, &sealed)
+            .unwrap_or_else(|error| panic!("a renewed lease generation must validate: {error}"));
+    }
+
+    #[test]
+    fn the_validator_actually_rejects_a_broken_candidate() {
+        // A validation test that cannot fail proves nothing. Confirm the validator bites.
+        let mut broken = seal_like_the_seam(
+            &production_lease_candidate(),
+            PARTICIPANT_LEASE_CONTRACT,
+            &validated_room_ref(),
+        );
+        broken["admitted_role"] = json!("overlord");
+        assert!(
+            validate_architecture_contract(PARTICIPANT_LEASE_CONTRACT, &broken).is_err(),
+            "an unregistered role must be rejected by the generated validator"
+        );
+        let mut missing = seal_like_the_seam(
+            &production_request_candidate(),
+            PARTICIPATION_REQUEST_CONTRACT,
+            &validated_room_ref(),
+        );
+        missing.as_object_mut().unwrap().remove("request_hash");
+        assert!(
+            validate_architecture_contract(PARTICIPATION_REQUEST_CONTRACT, &missing).is_err(),
+            "a missing required field must be rejected by the generated validator"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_offer_transition_revalidates_its_lease_scope_and_writes_nothing_when_it_lapses() {
+        // Failure order: a non-terminal transition must resolve the room, then the offer, then
+        // authority, then the lease scope. Without a room, nothing downstream may run and nothing
+        // may be written.
+        let directory = temp_dir("offer-transition-scope");
+        let data_dir = directory.to_str().unwrap();
+        let body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": format!("sha256:{}", "11".repeat(32)),
+            "status": "eligible",
+        });
+        let (status, _) =
+            offer_transition_inner(data_dir, CAPABILITY_OFFER_FAMILY, "cao_one", &body)
+                .await
+                .expect_err("an absent room is refused before anything else");
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        for family in OWNER_LOCAL_FAMILIES {
+            assert!(!directory.join(family).exists());
+        }
+        // An unregistered target status is refused as a bad request, still writing nothing.
+        let mut bogus = body;
+        bogus["status"] = json!("teleported");
+        assert_eq!(
+            offer_transition_inner(data_dir, CAPABILITY_OFFER_FAMILY, "cao_one", &bogus)
+                .await
+                .expect_err("an unregistered status is refused")
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn a_transition_checks_the_offers_own_declared_refs_not_the_request_bodys() {
+        // `declared_refs` reads the ADMITTED payload, so a caller cannot narrow the set that gets
+        // scope-checked by omitting it from the transition body.
+        let capability = build_capability_offer(
+            "capability-offer://cao_one",
+            &json!({ "capability_descriptor_refs": ["ai://granted", "ai://revoked"] }),
+            "participant-lease://plz_one",
+        );
+        let declared = declared_refs(CAPABILITY_OFFER_FAMILY, &capability);
+        assert_eq!(declared, vec!["ai://granted", "ai://revoked"]);
+
+        // A lease that no longer grants one of them refuses the whole transition.
+        let narrowed = json!({
+            "participant_lease_id": "participant-lease://plz_one",
+            "status": "active",
+            "expires_at": "2026-08-26T13:00:00Z",
+            "unbounded_term_exception_decision_ref": Value::Null,
+            "capability_advertisement_refs": ["ai://granted"],
+        });
+        let error = require_lease_scope(
+            &narrowed,
+            NOON_MS,
+            CAPABILITY_OFFER_FAMILY.granted_field,
+            &declared,
+        )
+        .expect_err("a narrowed lease no longer proves this offer");
+        assert_eq!(error.0, "m048_offer_outside_lease_scope");
+        assert!(error.1.contains("ai://revoked"));
+
+        // Terminating it is still allowed — that is what the terminal-status carve-out is for.
+        assert!(require_lease_scope(
+            &narrowed,
+            NOON_MS,
+            CAPABILITY_OFFER_FAMILY.granted_field,
+            &["ai://granted".to_string()],
+        )
+        .is_ok());
     }
 
     #[test]
