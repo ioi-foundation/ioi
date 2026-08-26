@@ -880,6 +880,7 @@ RoomParticipationDecisionReceipt
 ParticipantStateExportReceipt
 RoomParticipantLeaseReceipt
 WorkFrontierMutationReceipt
+WorkEligibilityMatchReceipt
 WorkClaimLeaseReceipt
 ResourceOfferAllocationReceipt
 AttemptAdmissionReceipt
@@ -3456,7 +3457,7 @@ host or federated admission policy admits the relevant state change.
 ```json
 {
   "receipt_id": "receipt://outcome_room_123",
-  "receipt_type": "outcome_room_admission | outcome_room_discovery_publication | room_participation_decision | participant_state_export | room_participant_lease | work_frontier_mutation | work_claim_lease | resource_offer_allocation | attempt_admission | finding_admission | verifier_challenge | work_result | outcome_delta_admission | contribution_admission",
+  "receipt_type": "outcome_room_admission | outcome_room_discovery_publication | room_participation_decision | participant_state_export | room_participant_lease | work_frontier_mutation | work_eligibility_match | work_claim_lease | resource_offer_allocation | attempt_admission | finding_admission | verifier_challenge | work_result | outcome_delta_admission | contribution_admission",
   "system_id": "system://outcome-room/research-123",
   "outcome_room_ref": "outcome-room://research-123",
   "package_id": "package://ioi/outcome-room",
@@ -3563,6 +3564,22 @@ Receipt-specific obligations:
 - `WorkFrontierMutationReceipt` binds the predecessor and resulting frontier,
   dependencies, priority/uncertainty, duplication policy, admission decision,
   and reason for course correction.
+- `WorkEligibilityMatchReceipt` freezes the exact input coordinates a later
+  claim must revalidate: frontier item, participant lease, resource and
+  capability offers with their revisions and control hashes, context and
+  authority/resource/budget/tool leases, requirement coverage, and offer
+  prerequisite coverage. It is **evidence admission only**. It creates no
+  allocation, no claim, and no execution authority — `allocation_created`,
+  `claim_created`, and `execution_authority_granted` are all structurally
+  `false`. Offer-side requirements are constraints that require independent
+  proof and never count as evidence of their own satisfaction; where the owner
+  plane cannot resolve a prerequisite, matching refuses typed-unavailable
+  rather than admitting a match. Claim admission recomputes the exact
+  prerequisite coverage and rechecks resource-offer expiry against freshly
+  committed wallet.network `resolved_at_ms` immediately before linearization,
+  so a stale match receipt can never stand in for a live claim check. The
+  canonical shape is owned by
+  [`../../domains/ioi-ai/collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md#resourceofferenvelope-and-capabilityofferenvelope).
 - `WorkClaimLeaseReceipt` binds bounded scope, claimant, exact collaboration
   terms root and acceptance receipt, task offer/response and routing decision
   when selected, quote, budget reservation, settlement profile, concurrency,

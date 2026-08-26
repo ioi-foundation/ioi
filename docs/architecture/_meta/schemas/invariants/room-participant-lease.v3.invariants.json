@@ -1,0 +1,63 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/room-participant-lease/bounded-term/v3",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
+  "rules": [
+    {
+      "rule_id": "room_participant_lease.room.matches_binding_parent_scope",
+      "description": "The lease is a typed child of its own room scope: the System binding parent scope is the exact declared OutcomeRoom.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.system_binding.parent_scope_ref",
+          "$.outcome_room_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "room_participant_lease.issuer.is_the_room_system",
+      "description": "Admission issues the lease. A participant cannot mint its own membership, so the issuing ref is the exact room System.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.system_binding.proposed_or_issued_by_ref",
+          "$.system_binding.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "room_participant_lease.expiry.requires_governed_unbounded_exception",
+      "description": "The default lease is time-bounded. A null expires_at is admissible only when unbounded_term_exception_decision_ref proves the governed exception.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "non_empty",
+            "path": "$.expires_at"
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.unbounded_term_exception_decision_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "room_participant_lease.ttl.requires_governed_unbounded_exception",
+      "description": "The default lease carries a TTL. A null ttl_seconds is admissible only when unbounded_term_exception_decision_ref proves the governed exception.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "non_empty",
+            "path": "$.ttl_seconds"
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.unbounded_term_exception_decision_ref"
+          }
+        ]
+      }
+    }
+  ]
+}

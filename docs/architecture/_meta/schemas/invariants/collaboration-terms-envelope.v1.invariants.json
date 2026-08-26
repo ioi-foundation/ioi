@@ -1,0 +1,18 @@
+{
+  "$id": "invariant://ioi/foundations/objects/collaboration-terms-envelope/bounded-scope/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
+  "rules": [
+    {
+      "rule_id": "collaboration_terms.scope.at_least_one_ref",
+      "description": "At least one scope ref must be non-null. Terms without a bounded subject are not an ex-ante bargain.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.scope.collaboration_ref",
+          "$.scope.outcome_room_ref"
+        ]
+      }
+    }
+  ]
+}

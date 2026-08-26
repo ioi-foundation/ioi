@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
+  "title": "CapabilityOffer",
+  "description": "A room-scoped typed profile over existing worker manifests and capability discovery. An offer advertises; it neither allocates work nor grants execution authority. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.",
+  "x-ioi-schema-version": "ioi.applications.ioi-ai.capability-offer.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capability_offer_id",
+    "system_binding",
+    "participant_lease_ref",
+    "backing_worker_or_service_ref",
+    "capability_descriptor_refs",
+    "eligible_frontier_classes",
+    "model_harness_tool_and_connector_refs",
+    "authority_and_context_requirements",
+    "privacy_cost_quality_and_latency_refs",
+    "availability_ref",
+    "status"
+  ],
+  "$defs": {
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "ioi.applications.ioi-ai.capability-offer.v3"
+    },
+    "capability_offer_id": {
+      "type": "string",
+      "pattern": "^capability-offer://[^\\s]{1,500}$"
+    },
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding"
+    },
+    "participant_lease_ref": {
+      "type": "string",
+      "pattern": "^participant-lease://[^\\s]{1,500}$"
+    },
+    "backing_worker_or_service_ref": {
+      "type": "string",
+      "pattern": "^(?:worker|service|system)://[^\\s]{1,500}$"
+    },
+    "capability_descriptor_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:ai|package|capability)://[^\\s]{1,500}$"
+      }
+    },
+    "eligible_frontier_classes": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "model_harness_tool_and_connector_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:model_route|harness-profile|tool|connector)://[^\\s]{1,500}$"
+      }
+    },
+    "authority_and_context_requirements": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:(?:policy|context-profile)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"
+      }
+    },
+    "privacy_cost_quality_and_latency_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:privacy_posture|quote|benchmark|sla)://[^\\s]{1,500}$"
+      }
+    },
+    "availability_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^schedule://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "offered",
+        "eligible",
+        "allocated",
+        "suspended",
+        "withdrawn",
+        "revoked"
+      ]
+    }
+  }
+}

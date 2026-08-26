@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for the object shapes of OutcomeRoom discovery and participation requests, OutcomeRooms, room participant leases, participant state bundles, resource and capability offers, work frontier items, work claim leases, attempts, findings, and verifier challenges.
 Supersedes: none.
 Superseded by: none.
-Last alignment pass: 2026-08-07.
+Last alignment pass: 2026-08-26.
 Doctrine status: canonical
 Implementation status: see [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)
 
@@ -145,6 +145,32 @@ counteroffer, or decline. A counteroffer remains a proposal; neither discovery
 nor response creates membership, authority, work, contribution eligibility, or
 payout. Admission may issue a participant lease only after exact-root terms
 acceptance and the ordinary eligibility, privacy, and policy checks.
+
+### The hosted same-system participation lane
+
+Discovery is the entry point for *cross-domain* participation, where a
+requester who cannot read the room learns the public objective from a published
+projection. It is not the only lane. When a participant is already inside the
+room's own bounded System — invited, or native to the L0 host — there is no
+cross-domain gap for a discovery projection to close, and requiring one would
+mint a public advertisement for a private invitation.
+
+The registered `RoomParticipationRequest` v3 contract therefore admits a null
+`room_discovery_ref` **only** on that hosted same-system lane: when
+`coordination_topology` is `hosted_admission` **and** `admission_owner_ref` is
+the exact `system_binding.system_id` that scopes the request. Every other
+request — including any `federated_admission` request, and any hosted request
+whose admission owner is a different system, domain, or policy — must name the
+discovery projection it answered. The narrowing is enforced, not merely
+described: see
+`invariant://ioi/applications/ioi-ai/room-participation-request/hosted-native-admission/v3`.
+
+This is a lane, not a privilege. The hosted lane skips only the discovery
+projection. Exact-root terms acceptance, eligibility, privacy, visibility, and
+policy checks are unchanged, and admission still issues a participant lease
+before any authority exists. Publishing an `OutcomeRoomDiscovery` and consuming
+a `ParticipantStateBundle` remain externally owned producers and are out of
+scope for this contract family.
 
 ## OutcomeRoomEnvelope
 
@@ -483,36 +509,6 @@ specialist work, tools, or other capabilities to a room. Offers are typed
 profiles over existing provider inventory, worker manifests, capability
 discovery, and resource-allocation objects; they are not a second marketplace.
 
-## SystemScopedObjectBinding
-
-Every typed child of a bounded System scope carries a non-authoritative binding
-to that System, parent scope, and the proposer or issuer whose operation contains
-it. OutcomeRoom uses its room ref as the parent scope; the binding itself is not
-room vocabulary:
-
-```yaml
-SystemScopedObjectBinding:
-  system_id: system://...
-  parent_scope_ref: scheme://...
-  proposed_or_issued_by_ref: scheme://...
-  payload_root: hash
-  created_at: timestamp
-  updated_at: timestamp | null
-```
-
-An external agent, Worker, service, organization, or sovereign system acts in a
-room only through a current `participant-lease://` ref. `system://` is valid as
-issuer only for a room-system-authored scheduling, expiry, or policy transition.
-The room application requires the parent scope to be its exact `outcome-room://`
-ref and resolves eligible issuers under room policy. The substrate binding scopes
-and hashes the typed payload; it owns no verdict, sequence,
-head, transition, receipt, state root, or receipt root. A payload becomes shared
-truth only when the daemon resolves its issuer and policy evidence and Agentgres
-admits the enclosing bounded-System operation. Compare-and-swap binds the
-expected Agentgres object head or heads and, when required, the enclosing
-System's predecessor transition commitment. A derived product revision may be
-used as a request precondition but is not stored as room-owned truth.
-
 ```yaml
 ResourceOfferEnvelope:
   resource_offer_id: resource-offer://...
@@ -618,6 +614,36 @@ WorkEligibilityMatchReceipt:
   effect_hash: hash
   output_hash: hash
 ```
+
+## SystemScopedObjectBinding
+
+Every typed child of a bounded System scope carries a non-authoritative binding
+to that System, parent scope, and the proposer or issuer whose operation contains
+it. OutcomeRoom uses its room ref as the parent scope; the binding itself is not
+room vocabulary:
+
+```yaml
+SystemScopedObjectBinding:
+  system_id: system://...
+  parent_scope_ref: scheme://...
+  proposed_or_issued_by_ref: scheme://...
+  payload_root: hash
+  created_at: timestamp
+  updated_at: timestamp | null
+```
+
+An external agent, Worker, service, organization, or sovereign system acts in a
+room only through a current `participant-lease://` ref. `system://` is valid as
+issuer only for a room-system-authored scheduling, expiry, or policy transition.
+The room application requires the parent scope to be its exact `outcome-room://`
+ref and resolves eligible issuers under room policy. The substrate binding scopes
+and hashes the typed payload; it owns no verdict, sequence,
+head, transition, receipt, state root, or receipt root. A payload becomes shared
+truth only when the daemon resolves its issuer and policy evidence and Agentgres
+admits the enclosing bounded-System operation. Compare-and-swap binds the
+expected Agentgres object head or heads and, when required, the enclosing
+System's predecessor transition commitment. A derived product revision may be
+used as a request precondition but is not stored as room-owned truth.
 
 ## WorkFrontierItemEnvelope
 

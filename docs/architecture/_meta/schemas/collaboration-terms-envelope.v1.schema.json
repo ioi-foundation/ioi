@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
+  "title": "CollaborationTermsEnvelope",
+  "description": "Minimal registered projection of the canonical CollaborationTermsEnvelope: terms identity, the exact immutable body root, one bounded scope, and lifecycle status. The bargain body itself is hashed under ioi.collaboration-terms-body.v1 and stays outside this shape. This contract asserts no legal-person binding, no settlement, no payout, and no external federation.",
+  "x-ioi-schema-version": "ioi.collaboration-terms.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "collaboration_terms_id",
+    "version",
+    "predecessor_terms_ref",
+    "terms_body_hash_profile",
+    "terms_body_root",
+    "scope",
+    "proposed_by_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.collaboration-terms.v1"
+    },
+    "collaboration_terms_id": {
+      "type": "string",
+      "pattern": "^terms://[^\\s]{1,500}$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "predecessor_terms_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^terms://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "terms_body_hash_profile": {
+      "const": "ioi.collaboration-terms-body.v1"
+    },
+    "terms_body_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collaboration_ref",
+        "outcome_room_ref"
+      ],
+      "properties": {
+        "collaboration_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^collaboration://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome_room_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^outcome-room://[^\\s]{1,500}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "proposed_by_ref": {
+      "type": "string",
+      "pattern": "^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "proposed",
+        "active",
+        "suspended",
+        "superseded",
+        "expired",
+        "terminated",
+        "revoked"
+      ]
+    }
+  }
+}

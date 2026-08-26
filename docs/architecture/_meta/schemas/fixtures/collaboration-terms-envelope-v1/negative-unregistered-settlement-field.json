@@ -1,0 +1,19 @@
+{
+  "schema_version": "ioi.collaboration-terms.v1",
+  "collaboration_terms_id": "terms://demo/v1",
+  "version": "1.0.0",
+  "predecessor_terms_ref": null,
+  "terms_body_hash_profile": "ioi.collaboration-terms-body.v1",
+  "terms_body_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "scope": {
+    "collaboration_ref": null,
+    "outcome_room_ref": "outcome-room://demo"
+  },
+  "proposed_by_ref": "system://room/demo",
+  "status": "active",
+  "economics": {
+    "allowed_settlement_modes": [
+      "payment"
+    ]
+  }
+}

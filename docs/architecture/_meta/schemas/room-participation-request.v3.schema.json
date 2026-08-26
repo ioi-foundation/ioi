@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+  "title": "RoomParticipationRequest",
+  "description": "A typed request to participate in one OutcomeRoom. room_discovery_ref may be null only on the hosted same-system lane, where coordination_topology is hosted_admission and admission_owner_ref is the exact system_binding.system_id; every other request must name the discovery projection it answered. The request creates no membership, authority, work, or contribution eligibility.",
+  "x-ioi-schema-version": "ioi.applications.ioi-ai.room-participation-request.v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "participation_request_id",
+    "system_binding",
+    "outcome_room_ref",
+    "room_discovery_ref",
+    "coordination_topology",
+    "admission_owner_ref",
+    "requested_by_ref",
+    "collaboration_terms_ref",
+    "collaboration_terms_root",
+    "terms_response",
+    "counterterms_ref",
+    "capability_offer_refs",
+    "eligibility_evidence_refs",
+    "requested_role_frontier_and_visibility_refs",
+    "privacy_custody_and_context_policy_refs",
+    "request_hash",
+    "private_context_included",
+    "admission_decision_ref",
+    "participant_lease_ref",
+    "status"
+  ],
+  "$defs": {
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "ioi.applications.ioi-ai.room-participation-request.v3"
+    },
+    "participation_request_id": {
+      "type": "string",
+      "pattern": "^participation-request://[^\\s]{1,500}$"
+    },
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding"
+    },
+    "outcome_room_ref": {
+      "type": "string",
+      "pattern": "^outcome-room://[^\\s]{1,500}$"
+    },
+    "room_discovery_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^room-discovery://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "coordination_topology": {
+      "enum": [
+        "hosted_admission",
+        "federated_admission"
+      ]
+    },
+    "admission_owner_ref": {
+      "type": "string",
+      "pattern": "^(?:system|domain|policy)://[^\\s]{1,500}$"
+    },
+    "requested_by_ref": {
+      "type": "string",
+      "pattern": "^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"
+    },
+    "collaboration_terms_ref": {
+      "type": "string",
+      "pattern": "^terms://[^\\s]{1,500}$"
+    },
+    "collaboration_terms_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "terms_response": {
+      "enum": [
+        "accept",
+        "counteroffer",
+        "decline"
+      ]
+    },
+    "counterterms_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^terms://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "capability_offer_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:capability-offer|ai|package)://[^\\s]{1,500}$"
+      }
+    },
+    "eligibility_evidence_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"
+      }
+    },
+    "requested_role_frontier_and_visibility_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"
+      }
+    },
+    "privacy_custody_and_context_policy_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"
+      }
+    },
+    "request_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "private_context_included": {
+      "const": false
+    },
+    "admission_decision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:decision|receipt)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "participant_lease_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^participant-lease://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "submitted",
+        "evaluating",
+        "admitted",
+        "rejected",
+        "withdrawn",
+        "expired"
+      ]
+    }
+  }
+}

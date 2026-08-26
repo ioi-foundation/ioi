@@ -44,6 +44,7 @@ pub const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS: &[&str] = &[
 
 pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/attempt/v3", "sha256:cd1d3175783030983a471006d8ee4827f8f0b24e27bd857f1095610eb21ae45b"),
+    ("schema://ioi/applications/ioi-ai/capability-offer/v3", "sha256:add2a12e4fe9e8285568e2f5d7e6e175a2aacf39a21165cfb76323e9b14bda4f"),
     ("schema://ioi/applications/ioi-ai/collaborative-work-graph/v1", "sha256:4153fe127298d00c9836a7ac8e8a62da6fd0c7d4b0c2372717b7468d9a96d632"),
     ("schema://ioi/applications/ioi-ai/finding/v3", "sha256:58e6e7bf57e42ee280cceda6f928c84855ea18617a2c81c4127d435ba19b7253"),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v1", "sha256:b9ee6a68b49ece6ba66a51e69e0df922f8f22a1c7f3f22ed3b193371a21d8650"),
@@ -58,6 +59,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1", "sha256:d98eec6115a535ad4a53cdffbefccf6e6b19302502b8e86bdf9db5c5fd4710f0"),
     ("schema://ioi/applications/ioi-ai/outcome-room/v2", "sha256:c422433e7cd1c76780075b3eed5b1b55e0e517daf6774d7cd99d29ed9cfe6246"),
     ("schema://ioi/applications/ioi-ai/participant-state-bundle/v3", "sha256:c833dd239224d3d9c12f7daf39c9a05c3645b498f7ddef1dd286fd057670ec89"),
+    ("schema://ioi/applications/ioi-ai/resource-offer/v3", "sha256:56552f2ee0d5d7e6ef015514a2901776624befc86634b19b7bc8322e87b0ef09"),
+    ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", "sha256:98f4d5cb76de13d96d3eaa27f5335aed23c3153ac9cf8c782fd3e12674edb8a9"),
+    ("schema://ioi/applications/ioi-ai/room-participation-request/v3", "sha256:081004a6e83c7c9c34b166f20ea669aa0428245c32a1edbecd2db2d910628bd6"),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", "sha256:9b7c215945dacf4a4267b583d7c21484995f652ce79d7c5146d1e2b50d4edaae"),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", "sha256:a9f4260494a490b2a60c3acb437a6b90667a5c7fb3760cb19f7b042d36747588"),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", "sha256:ef718d9b0643a361674b7173bc6b29758bec366f6e5b5b328d2f974e0818f1ca"),
@@ -233,6 +237,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/finding-envelope/v1", "sha256:3f6670b624ce8921e3aacaa62a3caa25bf7754e325f2848050cb54d0b78887d5"),
     ("schema://ioi/foundations/objects/work-result-envelope/v1", "sha256:71268aebf0e18716c1d964bb99c403542ff87b7dc39365e24fc4d21071963c04"),
     ("schema://ioi/foundations/objects/outcome-delta-envelope/v1", "sha256:d2e27d92cb2812358fddd2d10c5dcb47d6e0f7563306cb2f2dc90bc74aa03350"),
+    ("schema://ioi/foundations/objects/collaboration-terms-envelope/v1", "sha256:707c55fe2e42c289f5c74c17aa290c119e3cc0e7d42d3e29f530a5e56f75d0ad"),
     ("schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1", "sha256:d7effb315d112dc5945e1f1e4f6e65818cd76a51d7090533da6e1b2f81c7769f"),
     ("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", "sha256:a267d51ea7c58fbd52c516c37e42e7bc6db2077787781b7eea8405da9dcebe2c"),
     ("schema://ioi/foundations/runtime-assignment/v1", "sha256:c4fd87258db991ed9c185e99806426813e38ec2c86a2cc1f0c8a61edb75a4c54"),
@@ -1020,6 +1025,231 @@ pub enum AttemptV3Status {
     Rejected,
     #[serde(rename = r#"superseded"#)]
     Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CapabilityOfferV3 {
+    pub schema_version: CapabilityOfferV3SchemaVersion,
+    pub capability_offer_id: String,
+    pub system_binding: CapabilityOfferV3SystemBinding,
+    pub participant_lease_ref: String,
+    pub backing_worker_or_service_ref: String,
+    pub capability_descriptor_refs: Vec<String>,
+    pub eligible_frontier_classes: Vec<String>,
+    pub model_harness_tool_and_connector_refs: Vec<String>,
+    pub authority_and_context_requirements: Vec<String>,
+    pub privacy_cost_quality_and_latency_refs: Vec<String>,
+    pub availability_ref: Option<String>,
+    pub status: CapabilityOfferV3Status,
+}
+
+impl<'de> serde::Deserialize<'de> for CapabilityOfferV3 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/capability-offer/v3"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/capability-offer/v3","title":"CapabilityOffer","description":"A room-scoped typed profile over existing worker manifests and capability discovery. An offer advertises; it neither allocates work nor grants execution authority. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","x-ioi-schema-version":"ioi.applications.ioi-ai.capability-offer.v3","type":"object","additionalProperties":false,"required":["schema_version","capability_offer_id","system_binding","participant_lease_ref","backing_worker_or_service_ref","capability_descriptor_refs","eligible_frontier_classes","model_harness_tool_and_connector_refs","authority_and_context_requirements","privacy_cost_quality_and_latency_refs","availability_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.capability-offer.v3"},"capability_offer_id":{"type":"string","pattern":"^capability-offer://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"participant_lease_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"backing_worker_or_service_ref":{"type":"string","pattern":"^(?:worker|service|system)://[^\\s]{1,500}$"},"capability_descriptor_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ai|package|capability)://[^\\s]{1,500}$"}},"eligible_frontier_classes":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"model_harness_tool_and_connector_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:model_route|harness-profile|tool|connector)://[^\\s]{1,500}$"}},"authority_and_context_requirements":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:policy|context-profile)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"privacy_cost_quality_and_latency_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|quote|benchmark|sla)://[^\\s]{1,500}$"}},"availability_ref":{"anyOf":[{"type":"string","pattern":"^schedule://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["offered","eligible","allocated","suspended","withdrawn","revoked"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<CapabilityOfferV3SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_offer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_offer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_offer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<CapabilityOfferV3SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_worker_or_service_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_worker_or_service_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backing_worker_or_service_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_descriptor_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"capability_descriptor_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_descriptor_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eligible_frontier_classes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eligible_frontier_classes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"eligible_frontier_classes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_harness_tool_and_connector_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"model_harness_tool_and_connector_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"model_harness_tool_and_connector_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_and_context_requirements: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_and_context_requirements"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_and_context_requirements"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_cost_quality_and_latency_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"privacy_cost_quality_and_latency_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"privacy_cost_quality_and_latency_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            availability_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"availability_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"availability_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<CapabilityOfferV3Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CapabilityOfferV3SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.capability-offer.v3"#)]
+    IoiApplicationsIoiAiCapabilityOfferV3,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CapabilityOfferV3SystemBinding {
+    pub schema_version: CapabilityOfferV3SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CapabilityOfferV3SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/capability-offer/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<CapabilityOfferV3SystemBindingSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CapabilityOfferV3SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CapabilityOfferV3Status {
+    #[serde(rename = r#"offered"#)]
+    Offered,
+    #[serde(rename = r#"eligible"#)]
+    Eligible,
+    #[serde(rename = r#"allocated"#)]
+    Allocated,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -6737,6 +6967,1019 @@ pub enum ParticipantStateBundleV3Status {
     Superseded,
     #[serde(rename = r#"revoked"#)]
     Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ResourceOfferV3 {
+    pub schema_version: ResourceOfferV3SchemaVersion,
+    pub resource_offer_id: String,
+    pub system_binding: ResourceOfferV3SystemBinding,
+    pub provider_participant_lease_ref: String,
+    pub backing_provider_ref: String,
+    pub resource_profile_ref: String,
+    pub capacity_and_availability_ref: String,
+    pub locality_and_custody_refs: Vec<String>,
+    pub trust_and_assurance_refs: Vec<String>,
+    pub cost_ref: Option<String>,
+    pub eligible_work_classes: Vec<String>,
+    pub policy_constraint_refs: Vec<String>,
+    pub allocation_policy_ref: String,
+    pub queue_preemption_and_fairness_policy_ref: String,
+    pub expires_at: Option<String>,
+    pub allocation_decision_refs: Vec<String>,
+    pub spend_and_contribution_refs: Vec<String>,
+    pub usage_and_consumption_refs: Vec<String>,
+    pub status: ResourceOfferV3Status,
+}
+
+impl<'de> serde::Deserialize<'de> for ResourceOfferV3 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/resource-offer/v3"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/resource-offer/v3","title":"ResourceOffer","description":"A room-scoped typed profile over existing provider inventory and resource-allocation objects. An offer is not a second marketplace and grants no allocation by itself. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","x-ioi-schema-version":"ioi.applications.ioi-ai.resource-offer.v3","type":"object","additionalProperties":false,"required":["schema_version","resource_offer_id","system_binding","provider_participant_lease_ref","backing_provider_ref","resource_profile_ref","capacity_and_availability_ref","locality_and_custody_refs","trust_and_assurance_refs","cost_ref","eligible_work_classes","policy_constraint_refs","allocation_policy_ref","queue_preemption_and_fairness_policy_ref","expires_at","allocation_decision_refs","spend_and_contribution_refs","usage_and_consumption_refs","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.resource-offer.v3"},"resource_offer_id":{"type":"string","pattern":"^resource-offer://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"provider_participant_lease_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"backing_provider_ref":{"type":"string","pattern":"^(?:provider|org|domain|system)://[^\\s]{1,500}$"},"resource_profile_ref":{"type":"string","pattern":"^(?:resource|runtime|node)://[^\\s]{1,500}$"},"capacity_and_availability_ref":{"type":"string","pattern":"^(?:capacity|schedule)://[^\\s]{1,500}$"},"locality_and_custody_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:region|custody|privacy_posture)://[^\\s]{1,500}$"}},"trust_and_assurance_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|certification_claim|receipt)://[^\\s]{1,500}$"}},"cost_ref":{"anyOf":[{"type":"string","pattern":"^(?:quote|budget)://[^\\s]{1,500}$"},{"type":"null"}]},"eligible_work_classes":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"policy_constraint_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}},"allocation_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"queue_preemption_and_fairness_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"expires_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"allocation_decision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:allocation|receipt)://[^\\s]{1,500}$"}},"spend_and_contribution_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:spend|contribution|receipt)://[^\\s]{1,500}$"}},"usage_and_consumption_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ledger|receipt|work-credit)://[^\\s]{1,500}$"}},"status":{"enum":["offered","queued","allocated","exhausted","withdrawn","expired","revoked"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ResourceOfferV3SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_offer_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resource_offer_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_offer_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<ResourceOfferV3SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_participant_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"provider_participant_lease_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"provider_participant_lease_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_provider_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_provider_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backing_provider_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resource_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capacity_and_availability_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capacity_and_availability_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capacity_and_availability_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            locality_and_custody_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"locality_and_custody_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"locality_and_custody_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trust_and_assurance_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"trust_and_assurance_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"trust_and_assurance_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"cost_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eligible_work_classes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eligible_work_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"eligible_work_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_constraint_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_constraint_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_constraint_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            allocation_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"allocation_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"allocation_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            queue_preemption_and_fairness_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"queue_preemption_and_fairness_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"queue_preemption_and_fairness_policy_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            allocation_decision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"allocation_decision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"allocation_decision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            spend_and_contribution_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"spend_and_contribution_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"spend_and_contribution_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            usage_and_consumption_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"usage_and_consumption_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"usage_and_consumption_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ResourceOfferV3Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ResourceOfferV3SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.resource-offer.v3"#)]
+    IoiApplicationsIoiAiResourceOfferV3,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ResourceOfferV3SystemBinding {
+    pub schema_version: ResourceOfferV3SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ResourceOfferV3SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/resource-offer/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ResourceOfferV3SystemBindingSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ResourceOfferV3SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ResourceOfferV3Status {
+    #[serde(rename = r#"offered"#)]
+    Offered,
+    #[serde(rename = r#"queued"#)]
+    Queued,
+    #[serde(rename = r#"allocated"#)]
+    Allocated,
+    #[serde(rename = r#"exhausted"#)]
+    Exhausted,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RoomParticipantLeaseV3 {
+    pub schema_version: RoomParticipantLeaseV3SchemaVersion,
+    pub participant_lease_id: String,
+    pub system_binding: RoomParticipantLeaseV3SystemBinding,
+    pub outcome_room_ref: String,
+    pub participant_ref: String,
+    pub admitted_role: RoomParticipantLeaseV3AdmittedRole,
+    pub operator_ref: String,
+    pub home_domain_ref: String,
+    pub join_request_ref: Option<String>,
+    pub collaboration_terms_ref: String,
+    pub accepted_terms_root: String,
+    pub terms_acceptance_ref: String,
+    pub admission_decision_ref: String,
+    pub visibility_scope_ref: String,
+    pub capability_advertisement_refs: Vec<String>,
+    pub context_and_authority_lease_refs: Vec<String>,
+    pub runtime_resource_and_budget_lease_refs: Vec<String>,
+    pub current_claim_ref: Option<String>,
+    pub lease_epoch: ArchitectureContractInteger,
+    pub revocation_epoch: ArchitectureContractInteger,
+    pub issued_at: String,
+    pub effective_at: String,
+    pub expires_at: Option<String>,
+    pub renew_after: Option<String>,
+    pub renewal_policy_ref: String,
+    pub unbounded_term_exception_decision_ref: Option<String>,
+    pub heartbeat_policy_ref: String,
+    pub heartbeat_ref: Option<String>,
+    pub ttl_seconds: Option<ArchitectureContractInteger>,
+    pub status: RoomParticipantLeaseV3Status,
+}
+
+impl<'de> serde::Deserialize<'de> for RoomParticipantLeaseV3 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","title":"RoomParticipantLease","description":"Room participation as an explicit bounded lease rather than ambient membership. The default term is time-bounded; a null expires_at or ttl_seconds is admissible only when unbounded_term_exception_decision_ref proves the governed exception. Freshness is evaluated against wallet.network resolved_at_ms and receipt:// lease receipts; this contract adds no heartbeat object.","x-ioi-schema-version":"ioi.applications.ioi-ai.room-participant-lease.v3","type":"object","additionalProperties":false,"required":["schema_version","participant_lease_id","system_binding","outcome_room_ref","participant_ref","admitted_role","operator_ref","home_domain_ref","join_request_ref","collaboration_terms_ref","accepted_terms_root","terms_acceptance_ref","admission_decision_ref","visibility_scope_ref","capability_advertisement_refs","context_and_authority_lease_refs","runtime_resource_and_budget_lease_refs","current_claim_ref","lease_epoch","revocation_epoch","issued_at","effective_at","expires_at","renew_after","renewal_policy_ref","unbounded_term_exception_decision_ref","heartbeat_policy_ref","heartbeat_ref","ttl_seconds","status"],"$defs":{"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableTimestamp":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/nullableTimestamp"}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.room-participant-lease.v3"},"participant_lease_id":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$"},"admitted_role":{"enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"operator_ref":{"type":"string","pattern":"^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$"},"home_domain_ref":{"type":"string","pattern":"^(?:domain|system|agentgres)://[^\\s]{1,500}$"},"join_request_ref":{"anyOf":[{"type":"string","pattern":"^(?:participation-request|proposal)://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"accepted_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"admission_decision_ref":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,500}$"},"visibility_scope_ref":{"type":"string","pattern":"^(?:policy|restricted_view)://[^\\s]{1,500}$"},"capability_advertisement_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"context_and_authority_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:context_lease|grant|authority)://[^\\s]{1,500}$"}},"runtime_resource_and_budget_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:lease|resource-lease|budget)://[^\\s]{1,500}$"}},"current_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"lease_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"issued_at":{"$ref":"#/$defs/timestamp"},"effective_at":{"$ref":"#/$defs/timestamp"},"expires_at":{"$ref":"#/$defs/nullableTimestamp"},"renew_after":{"$ref":"#/$defs/nullableTimestamp"},"renewal_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"unbounded_term_exception_decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,500}$"},{"type":"null"}]},"heartbeat_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"ttl_seconds":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"status":{"enum":["invited","joining","active","sleeping","waiting","suspended","quarantined","retiring","retired","revoked"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<RoomParticipantLeaseV3SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_lease_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_lease_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_lease_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<RoomParticipantLeaseV3SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_role: serde_json::from_value::<RoomParticipantLeaseV3AdmittedRole>(
+                object
+                    .remove(r#"admitted_role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operator_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operator_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operator_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"home_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            join_request_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"join_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"join_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepted_terms_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accepted_terms_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted_terms_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_acceptance_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"terms_acceptance_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_acceptance_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            visibility_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"visibility_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"visibility_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_advertisement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"capability_advertisement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_advertisement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context_and_authority_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"context_and_authority_lease_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"context_and_authority_lease_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_resource_and_budget_lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"runtime_resource_and_budget_lease_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"runtime_resource_and_budget_lease_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            current_claim_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"current_claim_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"current_claim_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lease_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"lease_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lease_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revocation_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            renew_after: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"renew_after"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"renew_after"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            renewal_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"renewal_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"renewal_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unbounded_term_exception_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"unbounded_term_exception_decision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"unbounded_term_exception_decision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            heartbeat_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"heartbeat_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"heartbeat_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            heartbeat_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"heartbeat_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"heartbeat_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ttl_seconds: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"ttl_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ttl_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<RoomParticipantLeaseV3Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipantLeaseV3SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.room-participant-lease.v3"#)]
+    IoiApplicationsIoiAiRoomParticipantLeaseV3,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RoomParticipantLeaseV3SystemBinding {
+    pub schema_version: RoomParticipantLeaseV3SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for RoomParticipantLeaseV3SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/nullableTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                RoomParticipantLeaseV3SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipantLeaseV3SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipantLeaseV3AdmittedRole {
+    #[serde(rename = r#"conductor"#)]
+    Conductor,
+    #[serde(rename = r#"implementer"#)]
+    Implementer,
+    #[serde(rename = r#"reviewer"#)]
+    Reviewer,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"operator"#)]
+    Operator,
+    #[serde(rename = r#"researcher"#)]
+    Researcher,
+    #[serde(rename = r#"specialist"#)]
+    Specialist,
+    #[serde(rename = r#"synthesizer"#)]
+    Synthesizer,
+    #[serde(rename = r#"resource_provider"#)]
+    ResourceProvider,
+    #[serde(rename = r#"integrity_challenger"#)]
+    IntegrityChallenger,
+    #[serde(rename = r#"memory_curator"#)]
+    MemoryCurator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipantLeaseV3Status {
+    #[serde(rename = r#"invited"#)]
+    Invited,
+    #[serde(rename = r#"joining"#)]
+    Joining,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"sleeping"#)]
+    Sleeping,
+    #[serde(rename = r#"waiting"#)]
+    Waiting,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"retiring"#)]
+    Retiring,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RoomParticipationRequestV3 {
+    pub schema_version: RoomParticipationRequestV3SchemaVersion,
+    pub participation_request_id: String,
+    pub system_binding: RoomParticipationRequestV3SystemBinding,
+    pub outcome_room_ref: String,
+    pub room_discovery_ref: Option<String>,
+    pub coordination_topology: RoomParticipationRequestV3CoordinationTopology,
+    pub admission_owner_ref: String,
+    pub requested_by_ref: String,
+    pub collaboration_terms_ref: String,
+    pub collaboration_terms_root: String,
+    pub terms_response: RoomParticipationRequestV3TermsResponse,
+    pub counterterms_ref: Option<String>,
+    pub capability_offer_refs: Vec<String>,
+    pub eligibility_evidence_refs: Vec<String>,
+    pub requested_role_frontier_and_visibility_refs: Vec<String>,
+    pub privacy_custody_and_context_policy_refs: Vec<String>,
+    pub request_hash: String,
+    pub private_context_included: RoomParticipationRequestV3PrivateContextIncluded,
+    pub admission_decision_ref: Option<String>,
+    pub participant_lease_ref: Option<String>,
+    pub status: RoomParticipationRequestV3Status,
+}
+
+impl<'de> serde::Deserialize<'de> for RoomParticipationRequestV3 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","title":"RoomParticipationRequest","description":"A typed request to participate in one OutcomeRoom. room_discovery_ref may be null only on the hosted same-system lane, where coordination_topology is hosted_admission and admission_owner_ref is the exact system_binding.system_id; every other request must name the discovery projection it answered. The request creates no membership, authority, work, or contribution eligibility.","x-ioi-schema-version":"ioi.applications.ioi-ai.room-participation-request.v3","type":"object","additionalProperties":false,"required":["schema_version","participation_request_id","system_binding","outcome_room_ref","room_discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","request_hash","private_context_included","admission_decision_ref","participant_lease_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.room-participation-request.v3"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"room_discovery_ref":{"anyOf":[{"type":"string","pattern":"^room-discovery://[^\\s]{1,500}$"},{"type":"null"}]},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"private_context_included":{"const":false},"admission_decision_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["draft","submitted","evaluating","admitted","rejected","withdrawn","expired"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<RoomParticipationRequestV3SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participation_request_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"participation_request_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"participation_request_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<RoomParticipationRequestV3SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            room_discovery_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"room_discovery_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"room_discovery_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            coordination_topology: serde_json::from_value::<
+                RoomParticipationRequestV3CoordinationTopology,
+            >(
+                object
+                    .remove(r#"coordination_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"coordination_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requested_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requested_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"collaboration_terms_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_response: serde_json::from_value::<RoomParticipationRequestV3TermsResponse>(
+                object
+                    .remove(r#"terms_response"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_response"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            counterterms_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"counterterms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"counterterms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_offer_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"capability_offer_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_offer_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eligibility_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eligibility_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"eligibility_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_role_frontier_and_visibility_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"requested_role_frontier_and_visibility_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"requested_role_frontier_and_visibility_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_custody_and_context_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"privacy_custody_and_context_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"privacy_custody_and_context_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            private_context_included: serde_json::from_value::<
+                RoomParticipationRequestV3PrivateContextIncluded,
+            >(
+                object
+                    .remove(r#"private_context_included"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"private_context_included"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admission_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_lease_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"participant_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<RoomParticipationRequestV3Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipationRequestV3SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.room-participation-request.v3"#)]
+    IoiApplicationsIoiAiRoomParticipationRequestV3,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct RoomParticipationRequestV3SystemBinding {
+    pub schema_version: RoomParticipationRequestV3SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for RoomParticipationRequestV3SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                RoomParticipationRequestV3SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipationRequestV3SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipationRequestV3CoordinationTopology {
+    #[serde(rename = r#"hosted_admission"#)]
+    HostedAdmission,
+    #[serde(rename = r#"federated_admission"#)]
+    FederatedAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipationRequestV3TermsResponse {
+    #[serde(rename = r#"accept"#)]
+    Accept,
+    #[serde(rename = r#"counteroffer"#)]
+    Counteroffer,
+    #[serde(rename = r#"decline"#)]
+    Decline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RoomParticipationRequestV3PrivateContextIncluded {
+    False,
+}
+
+impl serde::Serialize for RoomParticipationRequestV3PrivateContextIncluded {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for RoomParticipationRequestV3PrivateContextIncluded {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum RoomParticipationRequestV3Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"submitted"#)]
+    Submitted,
+    #[serde(rename = r#"evaluating"#)]
+    Evaluating,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+    #[serde(rename = r#"expired"#)]
+    Expired,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -83074,6 +84317,167 @@ pub enum OutcomeDeltaEnvelopeV1Status {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV1 {
+    pub schema_version: CollaborationTermsEnvelopeV1SchemaVersion,
+    pub collaboration_terms_id: String,
+    pub version: String,
+    pub predecessor_terms_ref: Option<String>,
+    pub terms_body_hash_profile: CollaborationTermsEnvelopeV1TermsBodyHashProfile,
+    pub terms_body_root: String,
+    pub scope: CollaborationTermsEnvelopeV1Scope,
+    pub proposed_by_ref: String,
+    pub status: CollaborationTermsEnvelopeV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v1","title":"CollaborationTermsEnvelope","description":"Minimal registered projection of the canonical CollaborationTermsEnvelope: terms identity, the exact immutable body root, one bounded scope, and lifecycle status. The bargain body itself is hashed under ioi.collaboration-terms-body.v1 and stays outside this shape. This contract asserts no legal-person binding, no settlement, no payout, and no external federation.","x-ioi-schema-version":"ioi.collaboration-terms.v1","type":"object","additionalProperties":false,"required":["schema_version","collaboration_terms_id","version","predecessor_terms_ref","terms_body_hash_profile","terms_body_root","scope","proposed_by_ref","status"],"properties":{"schema_version":{"const":"ioi.collaboration-terms.v1"},"collaboration_terms_id":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"version":{"type":"string","minLength":1,"maxLength":200},"predecessor_terms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"terms_body_hash_profile":{"const":"ioi.collaboration-terms-body.v1"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"scope":{"type":"object","additionalProperties":false,"required":["collaboration_ref","outcome_room_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]}}},"proposed_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"},"status":{"enum":["draft","proposed","active","suspended","superseded","expired","terminated","revoked"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<CollaborationTermsEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collaboration_terms_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_terms_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_body_hash_profile: serde_json::from_value::<
+                CollaborationTermsEnvelopeV1TermsBodyHashProfile,
+            >(
+                object
+                    .remove(r#"terms_body_hash_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_body_hash_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_body_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"terms_body_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_body_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope: serde_json::from_value::<CollaborationTermsEnvelopeV1Scope>(
+                object
+                    .remove(r#"scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<CollaborationTermsEnvelopeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.collaboration-terms.v1"#)]
+    IoiCollaborationTermsV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV1TermsBodyHashProfile {
+    #[serde(rename = r#"ioi.collaboration-terms-body.v1"#)]
+    IoiCollaborationTermsBodyV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollaborationTermsEnvelopeV1Scope {
+    pub collaboration_ref: Option<String>,
+    pub outcome_room_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollaborationTermsEnvelopeV1Scope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collaboration_ref","outcome_room_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collaboration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"collaboration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_room_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"outcome_room_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_room_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollaborationTermsEnvelopeV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"terminated"#)]
+    Terminated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ManagedWorkerRuntimePolicyV1 {
     pub persistence_profile: ManagedWorkerRuntimePolicyV1PersistenceProfile,
     pub idle_threshold_seconds: ArchitectureContractInteger,
@@ -91593,6 +92997,38 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/capability-offer/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/capability-offer/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/capability-offer/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("capability_offer.issuer.resolves_through_participant_lease_or_room_system"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/capability-offer/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
         path: "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json",
         expected_accept: true,
@@ -92019,6 +93455,158 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
         path: "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/resource-offer/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/resource-offer/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/resource-offer/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("resource_offer.issuer.resolves_through_provider_lease_or_room_system"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/resource-offer/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("room_participant_lease.expiry.requires_governed_unbounded_exception"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("room_participant_lease.ttl.requires_governed_unbounded_exception"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("room_participant_lease.issuer.is_the_room_system"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("room_participant_lease.room.matches_binding_parent_scope"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("room_participation_request.discovery.required_outside_hosted_admission"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("room_participation_request.hosted_native.requires_same_system_admission_owner"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("room_participation_request.counteroffer.requires_counterterms"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("room_participation_request.room.matches_binding_parent_scope"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+        path: "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -96841,6 +98429,46 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("collaboration_terms.scope.at_least_one_ref"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
         path: "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json",
         expected_accept: true,
@@ -98824,6 +100452,50 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/capability-offer/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/capability-offer/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/capability-offer/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/capability-offer/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json"#,
         contract_id: r#"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1"#,
         source_fixture_path: Some(
@@ -99411,6 +101083,215 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/applications/ioi-ai/participant-state-bundle/v3"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/resource-offer/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/resource-offer/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/resource-offer/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/resource-offer/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participant-lease/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/room-participation-request/v3"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -106040,6 +107921,61 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/collaboration-terms-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json"#,
         contract_id: r#"schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1"#,
         source_fixture_path: Some(
@@ -107875,6 +109811,7 @@ pub const ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES:
 
 const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/attempt/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/attempt/v3","title":"Attempt","x-ioi-schema-version":"ioi.applications.ioi-ai.attempt.v3","type":"object","additionalProperties":false,"required":["schema_version","attempt_id","outcome_room_ref","system_binding","work_subject_ref","goal_run_ref","frontier_item_ref","work_claim_ref","participant_ref","bound_coordinates","declared_method_and_hypothesis_refs","parent_and_derivation_refs","input_state_and_environment_refs","worker_model_resolver_tool_and_runtime_version_refs","authority_and_policy_refs","resource_and_cost_refs","outcome_class","work_result_ref","outcome_delta_refs","artifact_evidence_and_receipt_refs","verifier_refs","reproduction_state","artifact_license_ip_retention_and_export_refs","contribution_refs","status"],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},"boundCoordinates":{"type":"object","additionalProperties":false,"required":["outcome_room","frontier_item","work_claim","participant_lease","goal_run"],"properties":{"outcome_room":{"type":"object","additionalProperties":false,"required":["record_ref","host_domain_ref","control_hash"],"properties":{"record_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"host_domain_ref":{"type":"string","pattern":"^domain://[^\\s]{1,500}$"},"control_hash":{"$ref":"#/$defs/hash"}}},"frontier_item":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"work_claim":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","frontier_item_ref","claimant_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"frontier_item_ref":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"claimant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"goal_run":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]},"record_hash":{"$ref":"#/$defs/hash"}}}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.attempt.v3"},"attempt_id":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim)://[^\\s]{1,500}$"},"goal_run_ref":{"anyOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"work_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"participant_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$"},"bound_coordinates":{"anyOf":[{"$ref":"#/$defs/boundCoordinates"},{"type":"null"}]},"declared_method_and_hypothesis_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|finding|artifact)://[^\\s]{1,500}$"}},"parent_and_derivation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|artifact|finding)://[^\\s]{1,500}$"}},"input_state_and_environment_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:state|environment|worktree|dataset)://[^\\s]{1,500}$"}},"worker_model_resolver_tool_and_runtime_version_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:worker|model-route|runtime)://[^\\s]{1,500}|(?:harness-profile|agent-harness-adapter|tool)://[^\\s]{1,500}/revision/[^\\s]{1,500})$"}},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|policy)://[^\\s]{1,500}$"}},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|spend|ledger)://[^\\s]{1,500}$"}},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_ref":{"anyOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"}},"artifact_evidence_and_receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"}},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|verifier-challenge)://[^\\s]{1,500}$"}},"reproduction_state":{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},"artifact_license_ip_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy)://[^\\s]{1,500}$"}},"contribution_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|receipt)://[^\\s]{1,500}$"}},"status":{"enum":["draft","running","submitted","admitted","challenged","accepted","rejected","superseded"]}},"allOf":[{"if":{"properties":{"outcome_room_ref":{"type":"string"}}},"then":{"properties":{"system_binding":{"$ref":"#/$defs/systemBinding"},"bound_coordinates":{"$ref":"#/$defs/boundCoordinates"}}},"else":{"properties":{"system_binding":{"type":"null"},"bound_coordinates":{"type":"null"}}}}]}"##),
+    ("schema://ioi/applications/ioi-ai/capability-offer/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/capability-offer/v3","title":"CapabilityOffer","description":"A room-scoped typed profile over existing worker manifests and capability discovery. An offer advertises; it neither allocates work nor grants execution authority. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","x-ioi-schema-version":"ioi.applications.ioi-ai.capability-offer.v3","type":"object","additionalProperties":false,"required":["schema_version","capability_offer_id","system_binding","participant_lease_ref","backing_worker_or_service_ref","capability_descriptor_refs","eligible_frontier_classes","model_harness_tool_and_connector_refs","authority_and_context_requirements","privacy_cost_quality_and_latency_refs","availability_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.capability-offer.v3"},"capability_offer_id":{"type":"string","pattern":"^capability-offer://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"participant_lease_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"backing_worker_or_service_ref":{"type":"string","pattern":"^(?:worker|service|system)://[^\\s]{1,500}$"},"capability_descriptor_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ai|package|capability)://[^\\s]{1,500}$"}},"eligible_frontier_classes":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"model_harness_tool_and_connector_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:model_route|harness-profile|tool|connector)://[^\\s]{1,500}$"}},"authority_and_context_requirements":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:policy|context-profile)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"privacy_cost_quality_and_latency_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|quote|benchmark|sla)://[^\\s]{1,500}$"}},"availability_ref":{"anyOf":[{"type":"string","pattern":"^schedule://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["offered","eligible","allocated","suspended","withdrawn","revoked"]}}}"##),
     ("schema://ioi/applications/ioi-ai/collaborative-work-graph/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","title":"CollaborativeWorkGraph","x-ioi-schema-version":"ioi.applications.ioi-ai.collaborative-work-graph.v1","type":"object","additionalProperties":false,"required":["projection_id","outcome_room_ref","source_room_revision","source_room_state_root","member_goal_run_refs","participant_refs","frontier_item_refs","work_claim_refs","attempt_refs","finding_refs","verifier_challenge_refs","work_result_refs","outcome_delta_refs","source_admission_receipt_refs","information_flow_label_refs","generated_at","authoritative","client_writable"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.collaborative-work-graph.v1"},"projection_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"source_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"source_room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"member_goal_run_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"participant_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"frontier_item_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"work_claim_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"verifier_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"work_result_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"outcome_delta_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"source_admission_receipt_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"information_flow_label_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"authoritative":{"const":false},"client_writable":{"const":false}}}"#),
     ("schema://ioi/applications/ioi-ai/finding/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/finding/v3","title":"Finding","x-ioi-schema-version":"ioi.applications.ioi-ai.finding.v3","type":"object","additionalProperties":false,"required":["schema_version","finding_id","outcome_room_ref","system_binding","attempt_ref","work_result_ref","participant_ref","proposed_by_ref","bound_coordinates","proposition","finding_kind","confidence_or_uncertainty","valid_time","transaction_time","source_and_observation_context_refs","supporting_evidence_refs","proof_refs","contradicting_evidence_refs","applicability_and_counterexample_refs","provenance_ontology_and_mapping_refs","proposed_effect_refs","supersedes_ref","dispute_ref","status"],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},"recordCoordinate":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"boundCoordinates":{"type":"object","additionalProperties":false,"required":["attempt","work_result","participant_lease","supersedes_finding"],"properties":{"attempt":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","participant_ref","work_result_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"work_result":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","goal_run_ref","goal_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]},"record_hash":{"$ref":"#/$defs/hash"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"$ref":"#/$defs/hash"}}},"supersedes_finding":{"anyOf":[{"$ref":"#/$defs/recordCoordinate"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.finding.v3"},"finding_id":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"attempt_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"proposed_by_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"},"bound_coordinates":{"anyOf":[{"$ref":"#/$defs/boundCoordinates"},{"type":"null"}]},"proposition":{"type":"string","minLength":1,"maxLength":8000},"finding_kind":{"enum":["hypothesis","observation","claim","negative_result","integrity_incident","mapping_claim","causal_claim","counterexample","synthesis"]},"confidence_or_uncertainty":{"anyOf":[{"type":"number"},{"type":"null"}]},"valid_time":{"anyOf":[{"type":"object"},{"type":"null"}]},"transaction_time":{"$ref":"#/$defs/timestamp"},"source_and_observation_context_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"}},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"proof_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|finding)://[^\\s]{1,500}$"}},"applicability_and_counterexample_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|ontology)://[^\\s]{1,500}$"}},"provenance_ontology_and_mapping_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"}},"proposed_effect_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"}},"supersedes_ref":{"anyOf":[{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},{"type":"null"}]},"dispute_ref":{"anyOf":[{"type":"string","pattern":"^dispute://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["branch_local","proposed","admitted","contradicted","superseded","disputed","rejected","archived"]}},"allOf":[{"if":{"properties":{"outcome_room_ref":{"type":"string"}}},"then":{"properties":{"system_binding":{"$ref":"#/$defs/systemBinding"},"bound_coordinates":{"$ref":"#/$defs/boundCoordinates"}}},"else":{"properties":{"system_binding":{"type":"null"},"bound_coordinates":{"type":"null"}}}}]}"##),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v1","title":"GoalGroundingLoop","x-ioi-schema-version":"ioi.goal-grounding-loop.v1","type":"object","additionalProperties":false,"required":["schema_version","goal_loop_id","goal_ref","conductor_context_cell_ref","loop_iteration","phase","escalation_state","exit_condition","status"],"properties":{"schema_version":{"const":"ioi.goal-grounding-loop.v1"},"goal_loop_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"conductor_context_cell_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"loop_iteration":{"type":"integer","minimum":0,"maximum":9007199254740991},"phase":{"enum":["receive_intent","classify_goal","gather_grounding","inspect_state","derive_constraints","observe_frontier","form_hypotheses","select_or_adapt_topology","claim_allocate_or_delegate","lease_context","open_context_cells","execute_attempt","monitor_progress","publish_result","verify_compare_or_challenge","repair_or_escalate","reconcile","update_frontier_and_memory","continue_or_close"]},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"frontier_and_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"grounding_source_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"state_inspection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_cell_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"handoff_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"attempt_result_and_finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"verifier_path_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"productivity_budget_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"topology_participant_and_verifier_change_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"marginal_value_stop_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"escalation_state":{"enum":["none","ask_user","open_implementer_cell","open_reviewer_cell","require_independent_verifier","require_governance_control","stop_blocked"]},"exit_condition":{"enum":["continue","delegated","waiting_on_frontier","verified_complete","accepted","risk_stop","budget_stop","deadline_stop","marginal_value_stop","blocked","superseded","user_input_required","governance_required"]},"status":{"enum":["active","waiting","satisfied","blocked","superseded","revoked"]}}}"#),
@@ -107889,6 +109826,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1","title":"OutcomeRoomDiscussionProjection","x-ioi-schema-version":"ioi.applications.ioi-ai.outcome-room-discussion-projection.v1","type":"object","additionalProperties":false,"required":["projection_id","outcome_room_ref","source_room_revision","source_room_state_root","source_admission_receipt_refs","visibility_policy_ref","information_flow_label_refs","permitted_subject_refs","message_refs","redaction_summary_refs","replay_cursor","generated_at","authoritative","client_writable"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.outcome-room-discussion-projection.v1"},"projection_id":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"source_room_revision":{"type":"integer","minimum":0,"maximum":9007199254740991},"source_room_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"source_admission_receipt_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"visibility_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"information_flow_label_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"permitted_subject_refs":{"type":"array","maxItems":67,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"message_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"redaction_summary_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"replay_cursor":{"type":"string","minLength":1,"maxLength":500},"generated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"authoritative":{"const":false},"client_writable":{"const":false}}}"#),
     ("schema://ioi/applications/ioi-ai/outcome-room/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/outcome-room/v2","title":"OutcomeRoom","x-ioi-schema-version":"ioi.applications.ioi-ai.outcome-room.v2","type":"object","additionalProperties":false,"required":["schema_version","outcome_room_id","system_id","genesis_ref","package_id","manifest_ref","constitution_ref","active_profile_refs","autonomous_system_state_ref","owner_or_sponsor_ref","objective_ref","objective","constraint_refs","acceptance_criteria_refs","stop_policy_ref","room_mode","visibility_policy_ref","participation_policy_ref","privacy_policy_ref","contribution_policy_ref","cooperation_surplus_policy_ref","collaboration_terms_refs","discovery_and_external_admission_policy_refs","artifact_license_rights_retention_and_export_policy_refs","coordination_topology","coordination_policy_ref","host_domain_ref","ordering_and_merge_policy_ref","conflict_and_failover_policy_ref","multi_party_collaboration_ref","ontology_profile_refs","scorecard_and_guardrail_refs","verifier_path_refs","resource_and_budget_refs","settlement_policy_ref","participant_lease_refs","member_goal_run_refs","participation_request_refs","resource_offer_refs","capability_offer_refs","frontier_item_refs","attempt_refs","finding_refs","verifier_challenge_refs","discussion_projection_refs","admission_and_replay_refs","contribution_refs","participant_state_bundle_refs","latest_sequence","latest_transition_commitment_ref","room_state_root","room_receipt_root","status"],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.outcome-room.v2"},"outcome_room_id":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"genesis_ref":{"anyOf":[{"type":"string","pattern":"^genesis://[^\\s]{1,500}$"},{"type":"null"}]},"package_id":{"type":"string","pattern":"^package://[^\\s]{1,500}$"},"manifest_ref":{"type":"string","pattern":"^package://[^\\s?#\\\\]{1,160}/release/[^\\s?#\\\\]{1,160}$"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,500}$"},"active_profile_refs":{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"},"ordering_admission_finality_profile_ref":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,500}$"},"oracle_evidence_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,500}$"}},"lifecycle_continuity_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,500}$"},"network_enrollment_ref":{"anyOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,500}$"},{"type":"null"}]}}},"autonomous_system_state_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,500}$"},"owner_or_sponsor_ref":{"type":"string","pattern":"^(?:system|user|org|project|domain|service)://[^\\s]{1,500}$"},"objective_ref":{"type":"string","pattern":"^(?:goal|task|service)://[^\\s]{1,500}$"},"objective":{"type":"string","minLength":1,"maxLength":4096},"constraint_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:constraint|policy|budget)://[^\\s]{1,500}$"}},"acceptance_criteria_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:rubric|gate|policy)://[^\\s]{1,500}$"}},"stop_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"room_mode":{"enum":["private_goal","permissioned_team","cross_org","open_challenge"]},"visibility_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"participation_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"privacy_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"cooperation_surplus_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"collaboration_terms_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"}},"discovery_and_external_admission_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|room-discovery|aiip)://[^\\s]{1,500}$"}},"artifact_license_rights_retention_and_export_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|license)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"coordination_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"host_domain_ref":{"anyOf":[{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,500}$"},{"type":"null"}]},"ordering_and_merge_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"conflict_and_failover_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"multi_party_collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"ontology_profile_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$"}},"scorecard_and_guardrail_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:benchmark|rubric|gate|policy)://[^\\s]{1,500}$"}},"verifier_path_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-path://[^\\s]{1,500}$"}},"resource_and_budget_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-pool|budget|goal-budget|order)://[^\\s]{1,500}$"}},"settlement_policy_ref":{"anyOf":[{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},{"type":"null"}]},"participant_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"}},"member_goal_run_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"}},"participation_request_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"}},"resource_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^resource-offer://[^\\s]{1,500}$"}},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^capability-offer://[^\\s]{1,500}$"}},"frontier_item_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"}},"attempt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"}},"finding_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"}},"verifier_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,500}$"}},"discussion_projection_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:projection|message)://[^\\s]{1,500}$"}},"admission_and_replay_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:receipt|replay|agentgres)://[^\\s]{1,500}$"}},"contribution_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|receipt)://[^\\s]{1,500}$"}},"participant_state_bundle_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"}},"latest_sequence":{"type":"integer","minimum":0,"maximum":127},"latest_transition_commitment_ref":{"type":"string","pattern":"^commitment://[^\\s]{1,500}$"},"room_state_root":{"$ref":"#/$defs/hash"},"room_receipt_root":{"$ref":"#/$defs/hash"},"status":{"enum":["proposed","open","active","paused","blocked","verifying","accepted","disputed","settled","closed","revoked","archived"]}}}"##),
     ("schema://ioi/applications/ioi-ai/participant-state-bundle/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v3","title":"ParticipantStateBundle","x-ioi-schema-version":"ioi.applications.ioi-ai.participant-state-bundle.v3","type":"object","additionalProperties":false,"required":["schema_version","participant_state_bundle_id","outcome_room_ref","system_binding","participant_lease_ref","participant_and_home_domain_refs","coordination_topology","bundle_reason","source_admission_watermark_ref","released_or_reassigned_claim_refs","preserved_contribution_attempt_finding_and_result_refs","preserved_receipt_acceptance_settlement_and_dispute_refs","portable_artifact_and_view_refs","lineage_and_supersession_refs","export_license_retention_and_recall_policy_refs","excluded_context_classes","released_future_access_refs","revocation_or_supersession_refs","revocation_effect","bundle_artifact_ref","bundle_root","room_database_access_required","issued_at","signature","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.participant-state-bundle.v3"},"participant_state_bundle_id":{"type":"string","pattern":"^participant-state://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"participant_lease_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"participant_and_home_domain_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:worker|service|org|domain|system)://[^\\s]{1,500}$"}},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"bundle_reason":{"enum":["checkpoint","voluntary_retirement","lease_expiry","revocation","quarantine","room_close"]},"source_admission_watermark_ref":{"type":"string","pattern":"^(?:(?:receipt|agentgres)://[^\\s]{1,500}|sha256:[0-9a-f]{64})$"},"released_or_reassigned_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:work-claim|decision|receipt)://[^\\s]{1,500}$"}},"preserved_contribution_attempt_finding_and_result_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$"}},"preserved_receipt_acceptance_settlement_and_dispute_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\\s]{1,500}$"}},"portable_artifact_and_view_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$"}},"lineage_and_supersession_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$"}},"export_license_retention_and_recall_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|license|revocation)://[^\\s]{1,500}$"}},"excluded_context_classes":{"type":"array","uniqueItems":true,"items":{"enum":["raw_secret","protected_plaintext","unauthorized_connector_payload","unrelated_private_memory","private_room_database_state","revoked_restricted_view","non_opted_in_training_trace"]}},"released_future_access_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:revocation|context-lease|grant|receipt)://[^\\s]{1,500}$"}},"revocation_or_supersession_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:revocation|participant-state|decision|receipt)://[^\\s]{1,500}$"}},"revocation_effect":{"enum":["none","future_access_only","restricted_view_keys_revoked","erroneous_export_superseded"]},"bundle_artifact_ref":{"type":"string","pattern":"^(?:(?:artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},"bundle_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"room_database_access_required":{"const":false},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"signature":{"type":"string","minLength":1,"maxLength":16000},"status":{"enum":["prepared","exported","acknowledged","superseded","revoked"]}}}"##),
+    ("schema://ioi/applications/ioi-ai/resource-offer/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/resource-offer/v3","title":"ResourceOffer","description":"A room-scoped typed profile over existing provider inventory and resource-allocation objects. An offer is not a second marketplace and grants no allocation by itself. A participant offers only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","x-ioi-schema-version":"ioi.applications.ioi-ai.resource-offer.v3","type":"object","additionalProperties":false,"required":["schema_version","resource_offer_id","system_binding","provider_participant_lease_ref","backing_provider_ref","resource_profile_ref","capacity_and_availability_ref","locality_and_custody_refs","trust_and_assurance_refs","cost_ref","eligible_work_classes","policy_constraint_refs","allocation_policy_ref","queue_preemption_and_fairness_policy_ref","expires_at","allocation_decision_refs","spend_and_contribution_refs","usage_and_consumption_refs","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.resource-offer.v3"},"resource_offer_id":{"type":"string","pattern":"^resource-offer://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"provider_participant_lease_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"backing_provider_ref":{"type":"string","pattern":"^(?:provider|org|domain|system)://[^\\s]{1,500}$"},"resource_profile_ref":{"type":"string","pattern":"^(?:resource|runtime|node)://[^\\s]{1,500}$"},"capacity_and_availability_ref":{"type":"string","pattern":"^(?:capacity|schedule)://[^\\s]{1,500}$"},"locality_and_custody_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:region|custody|privacy_posture)://[^\\s]{1,500}$"}},"trust_and_assurance_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|certification_claim|receipt)://[^\\s]{1,500}$"}},"cost_ref":{"anyOf":[{"type":"string","pattern":"^(?:quote|budget)://[^\\s]{1,500}$"},{"type":"null"}]},"eligible_work_classes":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"policy_constraint_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}},"allocation_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"queue_preemption_and_fairness_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"expires_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"allocation_decision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:allocation|receipt)://[^\\s]{1,500}$"}},"spend_and_contribution_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:spend|contribution|receipt)://[^\\s]{1,500}$"}},"usage_and_consumption_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ledger|receipt|work-credit)://[^\\s]{1,500}$"}},"status":{"enum":["offered","queued","allocated","exhausted","withdrawn","expired","revoked"]}}}"##),
+    ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","title":"RoomParticipantLease","description":"Room participation as an explicit bounded lease rather than ambient membership. The default term is time-bounded; a null expires_at or ttl_seconds is admissible only when unbounded_term_exception_decision_ref proves the governed exception. Freshness is evaluated against wallet.network resolved_at_ms and receipt:// lease receipts; this contract adds no heartbeat object.","x-ioi-schema-version":"ioi.applications.ioi-ai.room-participant-lease.v3","type":"object","additionalProperties":false,"required":["schema_version","participant_lease_id","system_binding","outcome_room_ref","participant_ref","admitted_role","operator_ref","home_domain_ref","join_request_ref","collaboration_terms_ref","accepted_terms_root","terms_acceptance_ref","admission_decision_ref","visibility_scope_ref","capability_advertisement_refs","context_and_authority_lease_refs","runtime_resource_and_budget_lease_refs","current_claim_ref","lease_epoch","revocation_epoch","issued_at","effective_at","expires_at","renew_after","renewal_policy_ref","unbounded_term_exception_decision_ref","heartbeat_policy_ref","heartbeat_ref","ttl_seconds","status"],"$defs":{"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableTimestamp":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/nullableTimestamp"}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.room-participant-lease.v3"},"participant_lease_id":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$"},"admitted_role":{"enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"operator_ref":{"type":"string","pattern":"^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$"},"home_domain_ref":{"type":"string","pattern":"^(?:domain|system|agentgres)://[^\\s]{1,500}$"},"join_request_ref":{"anyOf":[{"type":"string","pattern":"^(?:participation-request|proposal)://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"accepted_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"admission_decision_ref":{"type":"string","pattern":"^(?:receipt|decision)://[^\\s]{1,500}$"},"visibility_scope_ref":{"type":"string","pattern":"^(?:policy|restricted_view)://[^\\s]{1,500}$"},"capability_advertisement_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"context_and_authority_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:context_lease|grant|authority)://[^\\s]{1,500}$"}},"runtime_resource_and_budget_lease_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:lease|resource-lease|budget)://[^\\s]{1,500}$"}},"current_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},{"type":"null"}]},"lease_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"issued_at":{"$ref":"#/$defs/timestamp"},"effective_at":{"$ref":"#/$defs/timestamp"},"expires_at":{"$ref":"#/$defs/nullableTimestamp"},"renew_after":{"$ref":"#/$defs/nullableTimestamp"},"renewal_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"unbounded_term_exception_decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,500}$"},{"type":"null"}]},"heartbeat_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"ttl_seconds":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"status":{"enum":["invited","joining","active","sleeping","waiting","suspended","quarantined","retiring","retired","revoked"]}}}"##),
+    ("schema://ioi/applications/ioi-ai/room-participation-request/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","title":"RoomParticipationRequest","description":"A typed request to participate in one OutcomeRoom. room_discovery_ref may be null only on the hosted same-system lane, where coordination_topology is hosted_admission and admission_owner_ref is the exact system_binding.system_id; every other request must name the discovery projection it answered. The request creates no membership, authority, work, or contribution eligibility.","x-ioi-schema-version":"ioi.applications.ioi-ai.room-participation-request.v3","type":"object","additionalProperties":false,"required":["schema_version","participation_request_id","system_binding","outcome_room_ref","room_discovery_ref","coordination_topology","admission_owner_ref","requested_by_ref","collaboration_terms_ref","collaboration_terms_root","terms_response","counterterms_ref","capability_offer_refs","eligibility_evidence_refs","requested_role_frontier_and_visibility_refs","privacy_custody_and_context_policy_refs","request_hash","private_context_included","admission_decision_ref","participant_lease_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.room-participation-request.v3"},"participation_request_id":{"type":"string","pattern":"^participation-request://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"room_discovery_ref":{"anyOf":[{"type":"string","pattern":"^room-discovery://[^\\s]{1,500}$"},{"type":"null"}]},"coordination_topology":{"enum":["hosted_admission","federated_admission"]},"admission_owner_ref":{"type":"string","pattern":"^(?:system|domain|policy)://[^\\s]{1,500}$"},"requested_by_ref":{"type":"string","pattern":"^(?:system|worker|service|org|domain)://[^\\s]{1,500}$"},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_response":{"enum":["accept","counteroffer","decline"]},"counterterms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"capability_offer_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability-offer|ai|package)://[^\\s]{1,500}$"}},"eligibility_evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$"}},"requested_role_frontier_and_visibility_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|policy|restricted_view)://[^\\s]{1,500}$"}},"privacy_custody_and_context_policy_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$"}},"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"private_context_included":{"const":false},"admission_decision_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["draft","submitted","evaluating","admitted","rejected","withdrawn","expired"]}}}"##),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","title":"VerifierChallenge","x-ioi-schema-version":"ioi.applications.ioi-ai.verifier-challenge.v3","type":"object","additionalProperties":false,"required":["schema_version","verifier_challenge_id","outcome_room_ref","system_binding","challenger_ref","challenged_ref","challenge_kind","challenge_evidence_refs","adjudicator_policy_ref","prior_rule_version_ref","proposed_rule_version_ref","affected_attempt_refs","reverification_required","adjudication_ref","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.verifier-challenge.v3"},"verifier_challenge_id":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"challenger_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"},"challenged_ref":{"type":"string","pattern":"^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$"},"challenge_kind":{"enum":["metric","rule","verifier","evidence","eligibility","result","exploit","independence","collusion","mapping"]},"challenge_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"adjudicator_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"prior_rule_version_ref":{"anyOf":[{"type":"string","pattern":"^(?:rubric|verifier-path)://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_rule_version_ref":{"anyOf":[{"type":"string","pattern":"^(?:rubric|verifier-path)://[^\\s]{1,500}$"},{"type":"null"}]},"affected_attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"}},"reverification_required":{"type":"boolean"},"adjudication_ref":{"anyOf":[{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["proposed","admitted","investigating","upheld","rejected","rule_changed","reverifying","resolved","withdrawn"]}}}"##),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","title":"WorkClaimLease","x-ioi-schema-version":"ioi.applications.ioi-ai.work-claim-lease.v3","type":"object","additionalProperties":false,"required":["schema_version","work_claim_id","outcome_room_ref","system_binding","frontier_item_ref","claimant_ref","claimant_participant_lease_ref","eligibility_match_receipt_ref","task_offer_ref","task_acceptance_ref","routing_decision_ref","collaboration_terms_ref","collaboration_terms_root","terms_acceptance_ref","contribution_policy_ref","quote_ref","budget_reservation_ref","settlement_profile_ref","bounded_scope_ref","context_lease_refs","authority_resource_compute_data_budget_and_tool_lease_refs","duplicate_work_policy","issued_at","expires_at","heartbeat_ref","renewal_count","release_or_reassignment_reason","status"],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.work-claim-lease.v3"},"work_claim_id":{"type":"string","pattern":"^work-claim://[^\\s]{1,500}$"},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"anyOf":[{"$ref":"#/$defs/systemBinding"},{"type":"null"}]},"frontier_item_ref":{"anyOf":[{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},{"type":"null"}]},"claimant_ref":{"type":"string","pattern":"^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$"},"claimant_participant_lease_ref":{"anyOf":[{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},{"type":"null"}]},"eligibility_match_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"task_offer_ref":{"anyOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"task_acceptance_ref":{"anyOf":[{"type":"string","pattern":"^packet://[^\\s]{1,500}$"},{"type":"null"}]},"routing_decision_ref":{"anyOf":[{"type":"string","pattern":"^routing-decision://[^\\s]{1,500}$"},{"type":"null"}]},"collaboration_terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"collaboration_terms_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"terms_acceptance_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"contribution_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"quote_ref":{"anyOf":[{"type":"string","pattern":"^quote://[^\\s]{1,500}$"},{"type":"null"}]},"budget_reservation_ref":{"anyOf":[{"type":"string","pattern":"^(?:budget|spend|allocation)://[^\\s]{1,500}$"},{"type":"null"}]},"settlement_profile_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"bounded_scope_ref":{"type":"string","pattern":"^(?:task|task-brief|policy)://[^\\s]{1,500}$"},"context_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^context-lease://[^\\s]{1,500}$"}},"authority_resource_compute_data_budget_and_tool_lease_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$"}},"duplicate_work_policy":{"enum":["exclusive","allowed","independent_replication","adversarial_replication"]},"issued_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^(?:heartbeat|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"renewal_count":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"release_or_reassignment_reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":1000},{"type":"null"}]},"status":{"enum":["proposed","active","waiting","released","expired","reassigned","completed","quarantined","revoked"]}},"allOf":[{"if":{"properties":{"outcome_room_ref":{"type":"string"}}},"then":{"properties":{"system_binding":{"$ref":"#/$defs/systemBinding"},"frontier_item_ref":{"type":"string"},"claimant_participant_lease_ref":{"type":"string"},"eligibility_match_receipt_ref":{"type":"string"}}},"else":{"properties":{"system_binding":{"type":"null"},"claimant_participant_lease_ref":{"type":"null"},"eligibility_match_receipt_ref":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"active"}}},"then":{"properties":{"authority_resource_compute_data_budget_and_tool_lease_refs":{"type":"array","minItems":1}}}}]}"##),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","title":"WorkFrontierItem","x-ioi-schema-version":"ioi.applications.ioi-ai.work-frontier-item.v3","type":"object","additionalProperties":false,"required":["schema_version","frontier_item_id","system_binding","item_kind","objective","dependency_refs","related_attempt_and_finding_refs","required_capability_refs","required_context_resource_authority_and_evidence_refs","expected_value","uncertainty","priority","duplication_policy","claimability","max_concurrency","expires_at","stop_condition_ref","status"],"$defs":{"nullableNumber":{"anyOf":[{"type":"number"},{"type":"null"}]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.work-frontier-item.v3"},"frontier_item_id":{"type":"string","pattern":"^frontier://[^\\s]{1,500}$"},"system_binding":{"$ref":"#/$defs/systemBinding"},"item_kind":{"enum":["question","problem","hypothesis","task","review_need","verification_need","resource_need","synthesis_need"]},"objective":{"type":"string","minLength":1,"maxLength":4000},"dependency_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|attempt|finding)://[^\\s]{1,500}$"}},"related_attempt_and_finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|finding)://[^\\s]{1,500}$"}},"required_capability_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:capability|worker|tool)://[^\\s]{1,500}$"}},"required_context_resource_authority_and_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:(?:context-profile|resource|evidence)://[^\\s]{1,500}|scope:[^\\s]{1,500})$"}},"expected_value":{"$ref":"#/$defs/nullableNumber"},"uncertainty":{"$ref":"#/$defs/nullableNumber"},"priority":{"$ref":"#/$defs/nullableNumber"},"duplication_policy":{"enum":["exclusive","allowed","encouraged","independent_replication_required"]},"claimability":{"enum":["open","invited_only","assigned","paused","closed"]},"max_concurrency":{"anyOf":[{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"null"}]},"expires_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"stop_condition_ref":{"anyOf":[{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["open","claimed","blocked","replicating","verifying","accepted","rejected","superseded","closed"]}}}"##),
@@ -108064,6 +110004,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/finding-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/finding-envelope/v1","title":"FindingEnvelope","x-ioi-schema-version":"ioi.foundations.finding-envelope.v1","description":"A provenance-bearing assertion a domain admitted. Admission proves the domain admitted the assertion; it does not make the proposition universally true, so uncertainty, applicability, contradiction, time, and dispute state are preserved. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/collaborative-pursuit.md#findingenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. The rule that `supersedes_ref` must strictly resolve to a Finding in the same room is a cross-record constraint owned by the owner doc, not expressible here.","type":"object","additionalProperties":false,"required":["schema_version","finding_id","attempt_ref","work_result_ref","participant_ref","proposed_by_ref","bound_coordinates","proposition","finding_kind","transaction_time","status"],"properties":{"schema_version":{"const":"ioi.foundations.finding-envelope.v1"},"finding_id":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"attempt_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"proposed_by_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$"},"bound_coordinates":{"oneOf":[{"type":"object","additionalProperties":false,"required":["attempt","work_result","participant_lease","supersedes_finding"],"properties":{"attempt":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","participant_ref","work_result_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"participant_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"work_result_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"work_result":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","goal_run_ref","goal_ref","updated_at","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"updated_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"participant_lease":{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","principal_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^participant-lease://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"principal_ref":{"type":"string","pattern":"^(?:worker|agent)://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"supersedes_finding":{"oneOf":[{"type":"object","additionalProperties":false,"required":["record_ref","outcome_room_ref","revision","record_hash"],"properties":{"record_ref":{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},"outcome_room_ref":{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},"revision":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"record_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},{"type":"null"}]}}},{"type":"null"}]},"proposition":{"type":"string","minLength":1,"maxLength":8000},"finding_kind":{"enum":["hypothesis","observation","claim","negative_result","integrity_incident","mapping_claim","causal_claim","counterexample","synthesis"]},"confidence_or_uncertainty":{"oneOf":[{"type":"number"},{"type":"null"}]},"valid_time":{"oneOf":[{"type":"object","additionalProperties":false,"description":"A closed or half-open interval, per canon's `interval` type.","required":["start","end"],"properties":{"start":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"end":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}},{"type":"null"}]},"transaction_time":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"source_and_observation_context_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$"}},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"proof_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|finding)://[^\\s]{1,500}$"}},"applicability_and_counterexample_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|ontology)://[^\\s]{1,500}$"}},"provenance_ontology_and_mapping_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:provenance|ontology|ontology-mapping)://[^\\s]{1,500}$"}},"proposed_effect_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:frontier|routing-prior|policy|capability)://[^\\s]{1,500}$"}},"supersedes_ref":{"oneOf":[{"type":"string","pattern":"^finding://[^\\s]{1,500}$"},{"type":"null"}]},"dispute_ref":{"oneOf":[{"type":"string","pattern":"^dispute://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["branch_local","proposed","admitted","contradicted","superseded","disputed","rejected","archived"]}}}"#),
     ("schema://ioi/foundations/objects/work-result-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/work-result-envelope/v1","title":"WorkResultEnvelope","x-ioi-schema-version":"ioi.foundations.work-result-envelope.v1","description":"The generic bounded result seam returned by a GoalRun, claim, worker, harness, service, research attempt, ontology operation, incident response, or embodied mission. Profile-specific fields stay behind `result_profile_ref` and `result_payload_ref`. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#workresultenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly; producers and readers refuse an over-bound record rather than truncating it.","type":"object","additionalProperties":false,"required":["schema_version","work_result_id","work_subject_ref","produced_by_ref","submitted_by_ref","result_profile","producer_component_resolution","outcome_class","status","uncertainty","reproduction_state","next_action"],"properties":{"schema_version":{"const":"ioi.foundations.work-result-envelope.v1"},"work_result_id":{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"produced_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"submitted_by_ref":{"type":"string","pattern":"^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$"},"operator_and_affiliation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"invocation_or_run_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness_invocation|run|work_run|automation-run|service)://[^\\s]{1,500}$"},{"type":"null"}]},"result_profile":{"enum":["software_implementation","research","ontology_mutation","incident_resolution","service_delivery","physical_mission","review","evaluation","custom"]},"result_profile_ref":{"oneOf":[{"type":"string","pattern":"^(?:schema|profile)://[^\\s]{1,500}$"},{"type":"null"}]},"result_payload_ref":{"oneOf":[{"type":"string","description":"An implementation_result://, artifact://, or cid:// ref, or the literal `encrypted_ref`, per canon.","pattern":"^(?:(?:implementation_result|artifact|cid)://[^\\s]{1,500}|encrypted_ref)$"},{"type":"null"}]},"producer_component_resolution":{"type":"object","additionalProperties":false,"required":["resolved_component_set_snapshot_ref","resolved_component_set_hash","component_resolution_receipt_ref","resolver_kind","resolver_revision_ref","resolver_content_hash"],"properties":{"resolved_component_set_snapshot_ref":{"oneOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},{"type":"null"}]},"resolved_component_set_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"component_resolution_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"resolver_revision_ref":{"oneOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$"},{"type":"null"}]},"resolver_content_hash":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"declared_method_and_lineage_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:method|attempt|finding|work-result|artifact|trace)://[^\\s]{1,500}$"},"maxItems":64},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"},"maxItems":64},"outcome_class":{"enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"outcome_delta_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"},"maxItems":64},"observation_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence)://[^\\s]{1,500}$"},"maxItems":64},"uncertainty":{"anyOf":[{"type":"number"},{"type":"string","minLength":1,"maxLength":2000},{"type":"object","description":"A profile-defined uncertainty structure; canon leaves its shape to the declared result profile."},{"type":"null"}]},"supporting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$"},"maxItems":64},"contradicting_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:finding|ontology-assertion|evidence|artifact)://[^\\s]{1,500}$"},"maxItems":64},"artifact_receipt_and_trace_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$"},"maxItems":64},"resource_and_cost_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\\s]{1,500}$"},"maxItems":64},"authority_and_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","description":"A URI-shaped ref or a scope: authority selector, per canon.","pattern":"^(?:(?:grant|policy|receipt)://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$"},"maxItems":64},"blocker_and_decision_request_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:blocker|handoff|proposal)://[^\\s]{1,500}$"},"maxItems":64},"verifier_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$"},"maxItems":64},"license_disclosure_retention_and_export_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:license|policy|restricted_view|receipt)://[^\\s]{1,500}$"},"maxItems":64},"reproduction_state":{"oneOf":[{"enum":["unreviewed","reproducible","not_reproduced","contradicted","invalidated"]},{"type":"null"}]},"reproduction_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$"},"maxItems":64},"acceptance_ref":{"oneOf":[{"type":"string","pattern":"^(?:acceptance|decision|receipt)://[^\\s]{1,500}$"},{"type":"null"}]},"review_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"maxItems":64},"supersedes_work_result_ref":{"oneOf":[{"type":"string","pattern":"^work-result://[^\\s]{1,500}$"},{"type":"null"}]},"superseded_by_ref":{"oneOf":[{"type":"string","pattern":"^(?:work-result|outcome-delta)://[^\\s]{1,500}$"},{"type":"null"}]},"summary_ref":{"oneOf":[{"type":"string","pattern":"^(?:message|artifact)://[^\\s]{1,500}$"},{"type":"null"}]},"next_action":{"enum":["none","repair","review","verify","replicate","synthesize","ask_user","escalate","update_work_queue"]}}}"#),
     ("schema://ioi/foundations/objects/outcome-delta-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/outcome-delta-envelope/v1","title":"OutcomeDeltaEnvelope","x-ioi-schema-version":"ioi.foundations.outcome-delta-envelope.v1","description":"The proposed change an admitted producer derives from a WorkResult or other admitted proposer. It inherits the complete information-flow label set of what it derives from and may only add labels; it can never drop, replace, or weaken inherited labels. Derived field-for-field from the canon definition at docs/architecture/foundations/objects/work-results-and-lifecycle.md#outcomedeltaenvelope -- every property, every closed enumeration, and every nullability below is transcribed from that YAML block, not invented here. Every repeated ref set is bounded to at most 64 unique entries because the owner states that bound directly.","type":"object","additionalProperties":false,"required":["schema_version","outcome_delta_id","work_subject_ref","proposed_by_ref","target_ref","delta_kind","payload_ref","status"],"properties":{"schema_version":{"const":"ioi.foundations.outcome-delta-envelope.v1"},"outcome_delta_id":{"type":"string","pattern":"^outcome-delta://[^\\s]{1,500}$"},"work_subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"proposed_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"target_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"delta_kind":{"enum":["create","update","supersede","reject","merge","promote","rollback","course_correct","close"]},"payload_ref":{"type":"string","pattern":"^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$"},"precondition_and_invariant_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|gate|state)://[^\\s]{1,500}$"},"maxItems":64},"expected_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"verifier_and_acceptance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|rubric|gate)://[^\\s]{1,500}$"},"maxItems":64},"information_flow_label_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^ifc-label://[^\\s]{1,500}$"},"maxItems":64},"status":{"enum":["proposed","evaluating","admitted","rejected","superseded","rolled_back"]}}}"#),
+    ("schema://ioi/foundations/objects/collaboration-terms-envelope/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v1","title":"CollaborationTermsEnvelope","description":"Minimal registered projection of the canonical CollaborationTermsEnvelope: terms identity, the exact immutable body root, one bounded scope, and lifecycle status. The bargain body itself is hashed under ioi.collaboration-terms-body.v1 and stays outside this shape. This contract asserts no legal-person binding, no settlement, no payout, and no external federation.","x-ioi-schema-version":"ioi.collaboration-terms.v1","type":"object","additionalProperties":false,"required":["schema_version","collaboration_terms_id","version","predecessor_terms_ref","terms_body_hash_profile","terms_body_root","scope","proposed_by_ref","status"],"properties":{"schema_version":{"const":"ioi.collaboration-terms.v1"},"collaboration_terms_id":{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},"version":{"type":"string","minLength":1,"maxLength":200},"predecessor_terms_ref":{"anyOf":[{"type":"string","pattern":"^terms://[^\\s]{1,500}$"},{"type":"null"}]},"terms_body_hash_profile":{"const":"ioi.collaboration-terms-body.v1"},"terms_body_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"scope":{"type":"object","additionalProperties":false,"required":["collaboration_ref","outcome_room_ref"],"properties":{"collaboration_ref":{"anyOf":[{"type":"string","pattern":"^collaboration://[^\\s]{1,500}$"},{"type":"null"}]},"outcome_room_ref":{"anyOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]}}},"proposed_by_ref":{"type":"string","pattern":"^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$"},"status":{"enum":["draft","proposed","active","suspended","superseded","expired","terminated","revoked"]}}}"#),
     ("schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1","title":"ManagedWorkerRuntimePolicy","description":"Closed runtime, idle, checkpoint, placement-fallback, privacy, spend, retention, and replica policy embedded in the bounded managed-worker instance state.","x-ioi-schema-version":"ioi.managed-worker-runtime-policy.v1","type":"object","additionalProperties":false,"required":["persistence_profile","idle_threshold_seconds","minimum_warm_seconds","wake_sources","maximum_cold_start_seconds","maximum_restore_age_seconds","checkpoint_cadence_seconds","pre_stop_checkpoint_required","provider_idle_semantics","fallback_placement_refs","privacy_floor_ref","spend_ceiling_ref","archive_retention_policy_ref","minimum_backup_replicas"],"properties":{"persistence_profile":{"enum":["ephemeral","session","zero_to_idle","persistent"]},"idle_threshold_seconds":{"$ref":"#/$defs/nonnegativeInteger"},"minimum_warm_seconds":{"$ref":"#/$defs/nonnegativeInteger"},"wake_sources":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["user","schedule","webhook","queue","approved_event","recovery"]}},"maximum_cold_start_seconds":{"$ref":"#/$defs/positiveInteger"},"maximum_restore_age_seconds":{"$ref":"#/$defs/positiveInteger"},"checkpoint_cadence_seconds":{"$ref":"#/$defs/positiveInteger"},"pre_stop_checkpoint_required":{"type":"boolean"},"provider_idle_semantics":{"enum":["stop","close"]},"fallback_placement_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"privacy_floor_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"spend_ceiling_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,500}$"},"archive_retention_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"minimum_backup_replicas":{"type":"integer","minimum":1,"maximum":65535}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nonnegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991}}}"##),
     ("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1","title":"ManagedWorkerInstanceState","description":"The bounded daemon-admitted managed-worker aggregate: exact runtime policy, optional placement/session, backup and state commitments, and replay-safe proposal/commit/rejection evidence. Agentgres projection metadata is deliberately outside these canonical bytes.","x-ioi-schema-version":"ioi.managed-worker-instance-state.v1","type":"object","additionalProperties":false,"required":["schema_version","instance_id","lifecycle_id","owner_ref","worker_package_ref","config_revision_ref","revision","state","runtime_policy","runtime_policy_hash","authority_grant_refs","runtime_assignment","compute_session","latest_verified_backup_ref","latest_state_root","pending_transition","last_transition"],"properties":{"schema_version":{"const":"ioi.managed-worker-instance-state.v1"},"instance_id":{"type":"string","pattern":"^agent://[^\\s]{1,500}$"},"lifecycle_id":{"type":"string","pattern":"^lifecycle:[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"worker_package_ref":{"type":"string","pattern":"^(?:worker-package|package)://[^\\s]{1,500}$"},"config_revision_ref":{"type":"string","pattern":"^(?:config-revision|artifact)://[^\\s]{1,500}$"},"revision":{"$ref":"#/$defs/positiveInteger"},"state":{"$ref":"#/$defs/lifecycleState"},"runtime_policy":{"$ref":"#/$defs/runtimePolicy"},"runtime_policy_hash":{"$ref":"#/$defs/hash"},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"runtime_assignment":{"anyOf":[{"$ref":"#/$defs/runtimeAssignment"},{"type":"null"}]},"compute_session":{"anyOf":[{"$ref":"#/$defs/computeSession"},{"type":"null"}]},"latest_verified_backup_ref":{"$ref":"#/$defs/nullableRef"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"pending_transition":{"anyOf":[{"$ref":"#/$defs/pendingTransition"},{"type":"null"}]},"last_transition":{"anyOf":[{"$ref":"#/$defs/lastTransition"},{"type":"null"}]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"nonempty":{"type":"string","minLength":1},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nonnegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"lifecycleState":{"enum":["discover","installed","initializing","active","idle","zero_to_idle","suspended","payment_past_due","archived","restoring","migrated","exported","deleted","forgotten"]},"paymentStatus":{"enum":["current","past_due","canceled","settled","not_applicable"]},"runtimePolicy":{"type":"object","additionalProperties":false,"required":["persistence_profile","idle_threshold_seconds","minimum_warm_seconds","wake_sources","maximum_cold_start_seconds","maximum_restore_age_seconds","checkpoint_cadence_seconds","pre_stop_checkpoint_required","provider_idle_semantics","fallback_placement_refs","privacy_floor_ref","spend_ceiling_ref","archive_retention_policy_ref","minimum_backup_replicas"],"properties":{"persistence_profile":{"enum":["ephemeral","session","zero_to_idle","persistent"]},"idle_threshold_seconds":{"$ref":"#/$defs/nonnegativeInteger"},"minimum_warm_seconds":{"$ref":"#/$defs/nonnegativeInteger"},"wake_sources":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["user","schedule","webhook","queue","approved_event","recovery"]}},"maximum_cold_start_seconds":{"$ref":"#/$defs/positiveInteger"},"maximum_restore_age_seconds":{"$ref":"#/$defs/positiveInteger"},"checkpoint_cadence_seconds":{"$ref":"#/$defs/positiveInteger"},"pre_stop_checkpoint_required":{"type":"boolean"},"provider_idle_semantics":{"enum":["stop","close"]},"fallback_placement_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"privacy_floor_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"spend_ceiling_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,500}$"},"archive_retention_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"minimum_backup_replicas":{"type":"integer","minimum":1,"maximum":65535}}},"placement":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","daemon_profile_ref","environment_ref","provider_ref","quote_ref","budget_reservation_ref","assignment_lease_ref","isolation_binding_ref","readiness_evidence_refs"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"daemon_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"quote_ref":{"$ref":"#/$defs/nullableRef"},"budget_reservation_ref":{"$ref":"#/$defs/nullableRef"},"assignment_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,500}$"},"isolation_binding_ref":{"type":"string","pattern":"^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$"},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}},"runtimeAssignment":{"type":"object","additionalProperties":false,"required":["schema_version","runtime_assignment_id","assignment_epoch","placement","assignment_hash","status"],"properties":{"schema_version":{"const":"ioi.runtime-assignment.v1"},"runtime_assignment_id":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"assignment_epoch":{"$ref":"#/$defs/positiveInteger"},"placement":{"$ref":"#/$defs/placement"},"assignment_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["admitted","active","closed","completed"]}}},"computeSession":{"type":"object","additionalProperties":false,"required":["schema_version","compute_session_ref","runtime_assignment_ref","environment_ref","provider_ref","status","readiness_evidence_refs"],"properties":{"schema_version":{"const":"ioi.compute-session.v1"},"compute_session_ref":{"type":"string","pattern":"^compute://[^\\s]{1,500}$"},"runtime_assignment_ref":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"status":{"enum":["ready","ended"]},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"provider_close_receipt_ref":{"$ref":"#/$defs/nullableRef"}}},"archivePolicy":{"type":"object","additionalProperties":false,"required":["archive_after","retain_for","storage_policy_ref"],"properties":{"archive_after":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"retain_for":{"anyOf":[{"type":"string","minLength":1,"maxLength":500},{"type":"null"}]},"storage_policy_ref":{"type":"string","pattern":"^(?:policy|storage-policy)(?:://|:)[^\\s]{1,500}$"}}},"restorePolicy":{"type":"object","additionalProperties":false,"required":["restore_requires","restore_receipt_required"],"properties":{"restore_requires":{"$ref":"#/$defs/stepUpMode"},"restore_receipt_required":{"const":true}}},"exportPolicy":{"type":"object","additionalProperties":false,"required":["export_requires"],"properties":{"export_requires":{"$ref":"#/$defs/stepUpMode"}}},"deletionPolicy":{"type":"object","additionalProperties":false,"required":["delete_runtime_state","delete_archives","forget_semantic_memory"],"properties":{"delete_runtime_state":{"type":"boolean"},"delete_archives":{"type":"boolean"},"forget_semantic_memory":{"type":"boolean"}}},"stepUpMode":{"enum":["authority_step_up","wallet_step_up","org_quorum","admin_policy"]},"nullableArchivePolicy":{"anyOf":[{"$ref":"#/$defs/archivePolicy"},{"type":"null"}]},"nullableRestorePolicy":{"anyOf":[{"$ref":"#/$defs/restorePolicy"},{"type":"null"}]},"nullableExportPolicy":{"anyOf":[{"$ref":"#/$defs/exportPolicy"},{"type":"null"}]},"nullableDeletionPolicy":{"anyOf":[{"$ref":"#/$defs/deletionPolicy"},{"type":"null"}]},"transitionRequest":{"type":"object","additionalProperties":false,"required":["expected_head","idempotency_key","to_state","transition_reason","payment_status","authority_scope_refs","authority_grant_refs","policy_refs","required_controls","wallet_approval_ref","latest_state_root","backup_ref","restore_import_ref","migration_target_ref","provider_close_receipt_ref","high_risk_orders_paused","new_billable_work_blocked","archive_policy","restore_policy","export_policy","deletion_policy","placement"],"properties":{"expected_head":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"to_state":{"$ref":"#/$defs/lifecycleState"},"transition_reason":{"type":"string","minLength":1,"maxLength":500},"payment_status":{"anyOf":[{"$ref":"#/$defs/paymentStatus"},{"type":"null"}]},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"policy_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"required_controls":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"wallet_approval_ref":{"$ref":"#/$defs/nullableRef"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"backup_ref":{"$ref":"#/$defs/nullableRef"},"restore_import_ref":{"$ref":"#/$defs/nullableRef"},"migration_target_ref":{"$ref":"#/$defs/nullableRef"},"provider_close_receipt_ref":{"$ref":"#/$defs/nullableRef"},"high_risk_orders_paused":{"anyOf":[{"type":"boolean"},{"type":"null"}]},"new_billable_work_blocked":{"anyOf":[{"type":"boolean"},{"type":"null"}]},"archive_policy":{"$ref":"#/$defs/nullableArchivePolicy"},"restore_policy":{"$ref":"#/$defs/nullableRestorePolicy"},"export_policy":{"$ref":"#/$defs/nullableExportPolicy"},"deletion_policy":{"$ref":"#/$defs/nullableDeletionPolicy"},"placement":{"anyOf":[{"$ref":"#/$defs/placement"},{"type":"null"}]}}},"pendingTransition":{"type":"object","additionalProperties":false,"required":["request_hash","idempotency_key","to_state","request"],"properties":{"request_hash":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"to_state":{"$ref":"#/$defs/lifecycleState"},"request":{"$ref":"#/$defs/transitionRequest"}}},"lifecycleAdmission":{"type":"object","additionalProperties":false,"required":["schema_version","transition_id","lifecycle_id","worker_instance_id","worker_package_ref","owner_ref","from_state","to_state","state","persistence_profile","payment_status","transition_reason","freezes_new_billable_work","pauses_high_risk_standing_orders","latest_state_root","archive_policy","restore_policy","export_policy","deletion_policy","archive_refs","artifact_refs","authority_scope_refs","authority_grant_refs","policy_refs","wallet_approval_ref","restore_import_ref","migration_target_ref","agentgres_operation_refs","receipt_refs","runtimeTruthSource"],"properties":{"schema_version":{"const":"ioi.runtime.managed_worker_instance_lifecycle_admission.v1"},"transition_id":{"type":"string","minLength":1,"maxLength":500},"lifecycle_id":{"type":"string","pattern":"^lifecycle:[^\\s]{1,500}$"},"worker_instance_id":{"type":"string","pattern":"^agent://[^\\s]{1,500}$"},"worker_package_ref":{"$ref":"#/$defs/nullableRef"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"from_state":{"$ref":"#/$defs/lifecycleState"},"to_state":{"$ref":"#/$defs/lifecycleState"},"state":{"$ref":"#/$defs/lifecycleState"},"persistence_profile":{"enum":["ephemeral","session","zero_to_idle","persistent"]},"payment_status":{"$ref":"#/$defs/paymentStatus"},"transition_reason":{"type":"string","minLength":1,"maxLength":500},"freezes_new_billable_work":{"type":"boolean"},"pauses_high_risk_standing_orders":{"type":"boolean"},"latest_state_root":{"$ref":"#/$defs/nullableHash"},"archive_policy":{"$ref":"#/$defs/nullableArchivePolicy"},"restore_policy":{"$ref":"#/$defs/nullableRestorePolicy"},"export_policy":{"$ref":"#/$defs/nullableExportPolicy"},"deletion_policy":{"$ref":"#/$defs/nullableDeletionPolicy"},"archive_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/ref"}},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"policy_refs":{"type":"array","items":{"$ref":"#/$defs/nonempty"}},"wallet_approval_ref":{"$ref":"#/$defs/nullableRef"},"restore_import_ref":{"$ref":"#/$defs/nullableRef"},"migration_target_ref":{"$ref":"#/$defs/nullableRef"},"agentgres_operation_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"receipt_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}},"runtimeTruthSource":{"const":"daemon-runtime"}}},"errorResponse":{"type":"object","additionalProperties":false,"required":["ok","error"],"properties":{"ok":{"const":false},"error":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","minLength":1,"maxLength":500},"message":{"type":"string","minLength":1}}}}},"lastTransition":{"type":"object","additionalProperties":false,"required":["status","request_hash","idempotency_key","proposal_operation_ref","proposal_receipt_ref","admission","error_status","error_response"],"properties":{"status":{"enum":["committed","rejected"]},"request_hash":{"$ref":"#/$defs/hash"},"idempotency_key":{"type":"string","minLength":1,"maxLength":500},"proposal_operation_ref":{"$ref":"#/$defs/ref"},"proposal_receipt_ref":{"$ref":"#/$defs/ref"},"admission":{"anyOf":[{"$ref":"#/$defs/lifecycleAdmission"},{"type":"null"}]},"error_status":{"anyOf":[{"type":"integer","minimum":100,"maximum":599},{"type":"null"}]},"error_response":{"anyOf":[{"$ref":"#/$defs/errorResponse"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"status":{"const":"committed"}},"required":["status"]},"then":{"properties":{"admission":{"$ref":"#/$defs/lifecycleAdmission"},"error_status":{"type":"null"},"error_response":{"type":"null"}}},"else":{"properties":{"admission":{"type":"null"},"error_status":{"type":"integer","minimum":100,"maximum":599},"error_response":{"$ref":"#/$defs/errorResponse"}}}}]}}}"##),
     ("schema://ioi/foundations/runtime-assignment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/runtime-assignment/v1","title":"RuntimeAssignment","description":"The bounded managed-runtime placement commitment currently admitted by the daemon. It is placement evidence, not work authority, provider execution proof, or the broader planned cross-domain assignment family.","x-ioi-schema-version":"ioi.runtime-assignment.v1","type":"object","additionalProperties":false,"required":["schema_version","runtime_assignment_id","assignment_epoch","placement","assignment_hash","status"],"properties":{"schema_version":{"const":"ioi.runtime-assignment.v1"},"runtime_assignment_id":{"type":"string","pattern":"^runtime-assignment://[^\\s]{1,500}$"},"assignment_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"placement":{"$ref":"#/$defs/placement"},"assignment_hash":{"$ref":"#/$defs/hash"},"status":{"enum":["admitted","active","closed","completed"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"placement":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","daemon_profile_ref","environment_ref","provider_ref","quote_ref","budget_reservation_ref","assignment_lease_ref","isolation_binding_ref","readiness_evidence_refs"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"daemon_profile_ref":{"type":"string","pattern":"^profile://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"provider_ref":{"type":"string","pattern":"^(?:provider|provider-account)://[^\\s]{1,500}$"},"quote_ref":{"$ref":"#/$defs/nullableRef"},"budget_reservation_ref":{"$ref":"#/$defs/nullableRef"},"assignment_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,500}$"},"isolation_binding_ref":{"type":"string","pattern":"^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$"},"readiness_evidence_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/ref"}}}}}}"##),
@@ -108087,6 +110028,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/attempt/v3", r#"[{"rule_id":"attempt.room.matches_admission","description":"Attempt and admission bind the same room; both are null for direct work.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}},{"rule_id":"attempt.room.matches_bound_room","description":"A hosted Attempt freezes its OutcomeRoom coordinate; a non-room Attempt has no bound coordinate object.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.outcome_room.record_ref"]}},{"rule_id":"attempt.goal.matches_bound_goal","description":"A hosted Attempt freezes its GoalRun coordinate.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.goal_run_ref","$.bound_coordinates.goal_run.record_ref"]}},{"rule_id":"attempt.frontier.matches_bound_frontier","description":"A hosted Attempt freezes its frontier coordinate.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.frontier_item_ref","$.bound_coordinates.frontier_item.record_ref"]}},{"rule_id":"attempt.claim.matches_bound_claim","description":"A hosted Attempt freezes its claim coordinate.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.work_claim_ref","$.bound_coordinates.work_claim.record_ref"]}},{"rule_id":"attempt.frontier_room.matches_room","description":"The hosted bound frontier belongs to the declared room.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.frontier_item.outcome_room_ref"]}},{"rule_id":"attempt.claim_room.matches_room","description":"The hosted bound claim belongs to the declared room.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.work_claim.outcome_room_ref"]}},{"rule_id":"attempt.participant_room.matches_room","description":"The hosted bound participant lease belongs to the declared room.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.participant_lease.outcome_room_ref"]}},{"rule_id":"attempt.goal_room.matches_room","description":"The hosted bound GoalRun belongs to the declared room.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.outcome_room_ref","$.bound_coordinates.goal_run.outcome_room_ref"]}},{"rule_id":"attempt.claim_frontier.matches_frontier","description":"The hosted bound claim names the exact frozen frontier item.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.frontier_item_ref","$.bound_coordinates.work_claim.frontier_item_ref"]}},{"rule_id":"attempt.admission_issuer.matches_bound_lease_or_room_system","description":"Participant-authored admission binds the frozen participant lease; a system-authored transition binds the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.system_binding.proposed_or_issued_by_ref","$.bound_coordinates.participant_lease.record_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}]}},{"rule_id":"attempt.participant.resolves_through_bound_lease","description":"The participant field retains the frozen lease, its principal, or the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.participant_ref","$.bound_coordinates.participant_lease.record_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.participant_ref","$.bound_coordinates.participant_lease.principal_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.participant_ref","$.system_binding.system_id"]}]}},{"rule_id":"attempt.claimant.resolves_through_bound_lease","description":"The hosted frozen claim claimant is the participant lease or the principal resolved by that lease.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.bound_coordinates.work_claim.claimant_ref","$.bound_coordinates.participant_lease.record_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.bound_coordinates.work_claim.claimant_ref","$.bound_coordinates.participant_lease.principal_ref"]}]}}]"#),
+    ("schema://ioi/applications/ioi-ai/capability-offer/v3", r#"[{"rule_id":"capability_offer.issuer.resolves_through_participant_lease_or_room_system","description":"A participant advertises in a room only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","expression":{"operator":"any_of","expressions":[{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.participant_lease_ref"]},{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}]}}]"#),
     ("schema://ioi/applications/ioi-ai/collaborative-work-graph/v1", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/finding/v3", r#"[{"rule_id":"finding.room.matches_admission","description":"Finding and admission bind the same room; both are null for direct work.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}},{"rule_id":"finding.attempt.matches_bound_attempt","description":"A hosted Finding freezes its exact Attempt; a non-room Finding has no bound coordinate object.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.attempt_ref","$.bound_coordinates.attempt.record_ref"]}},{"rule_id":"finding.result.matches_bound_result","description":"A hosted Finding freezes its exact WorkResult.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.work_result_ref","$.bound_coordinates.work_result.record_ref"]}},{"rule_id":"finding.participant.matches_bound_lease","description":"A hosted Finding freezes its historical participant lease.","expression":{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.participant_ref","$.bound_coordinates.participant_lease.record_ref"]}},{"rule_id":"finding.admission_issuer.matches_participant_or_room_system","description":"Participant-authored admission binds the frozen participant lease; a host-governed transition binds the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.system_binding.proposed_or_issued_by_ref","$.participant_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}]}},{"rule_id":"finding.proposer.resolves_through_bound_lease_or_room_system","description":"The proposer is the historical lease, its frozen principal, or the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.proposed_by_ref","$.bound_coordinates.participant_lease.record_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.bound_coordinates","paths":["$.proposed_by_ref","$.bound_coordinates.participant_lease.principal_ref"]},{"operator":"optional_fields_equal","optional_object_path":"$.system_binding","paths":["$.proposed_by_ref","$.system_binding.system_id"]}]}}]"#),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v1", r#"[]"#),
@@ -108101,6 +110043,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/outcome-room/v2", r#"[{"rule_id":"outcome_room.genesis.required_when_live","description":"A room beyond proposal binds its admitted genesis.","expression":{"operator":"non_empty_when_in","path":"$.genesis_ref","when_path":"$.status","values":["open","active","paused","blocked","verifying","accepted","disputed","settled","closed","revoked","archived"]}},{"rule_id":"outcome_room.host.required_for_hosted_admission","description":"Hosted admission names the governed host domain.","expression":{"operator":"non_empty_when_in","path":"$.host_domain_ref","when_path":"$.coordination_topology","values":["hosted_admission"]}},{"rule_id":"outcome_room.profile.deployment.required","description":"Every room binds an active deployment profile.","expression":{"operator":"non_empty","path":"$.active_profile_refs.deployment_profile_ref"}},{"rule_id":"outcome_room.profile.ordering.required","description":"Every room binds an ordering/admission/finality profile.","expression":{"operator":"non_empty","path":"$.active_profile_refs.ordering_admission_finality_profile_ref"}},{"rule_id":"outcome_room.profile.lifecycle.required","description":"Every room binds lifecycle continuity policy.","expression":{"operator":"non_empty","path":"$.active_profile_refs.lifecycle_continuity_profile_ref"}}]"#),
     ("schema://ioi/applications/ioi-ai/participant-state-bundle/v3", r#"[{"rule_id":"participant_state_bundle.room.matches_admission","description":"The portable bundle and its room-scoping bind the same room.","expression":{"operator":"fields_equal","paths":["$.outcome_room_ref","$.system_binding.parent_scope_ref"]}},{"rule_id":"participant_state_bundle.issuer.matches_lease_or_room_system","description":"A participant-requested export binds the exact lease; scheduling, expiry, revocation, quarantine, or room-close policy transitions may instead be issued by the exact room system.","expression":{"operator":"any_of","expressions":[{"operator":"fields_equal","paths":["$.participant_lease_ref","$.system_binding.proposed_or_issued_by_ref"]},{"operator":"fields_equal","paths":["$.system_binding.system_id","$.system_binding.proposed_or_issued_by_ref"]}]}}]"#),
+    ("schema://ioi/applications/ioi-ai/resource-offer/v3", r#"[{"rule_id":"resource_offer.issuer.resolves_through_provider_lease_or_room_system","description":"A provider acts in a room only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.","expression":{"operator":"any_of","expressions":[{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.provider_participant_lease_ref"]},{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}]}}]"#),
+    ("schema://ioi/applications/ioi-ai/room-participant-lease/v3", r#"[{"rule_id":"room_participant_lease.room.matches_binding_parent_scope","description":"The lease is a typed child of its own room scope: the System binding parent scope is the exact declared OutcomeRoom.","expression":{"operator":"fields_equal","paths":["$.system_binding.parent_scope_ref","$.outcome_room_ref"]}},{"rule_id":"room_participant_lease.issuer.is_the_room_system","description":"Admission issues the lease. A participant cannot mint its own membership, so the issuing ref is the exact room System.","expression":{"operator":"fields_equal","paths":["$.system_binding.proposed_or_issued_by_ref","$.system_binding.system_id"]}},{"rule_id":"room_participant_lease.expiry.requires_governed_unbounded_exception","description":"The default lease is time-bounded. A null expires_at is admissible only when unbounded_term_exception_decision_ref proves the governed exception.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.expires_at"},{"operator":"non_empty","path":"$.unbounded_term_exception_decision_ref"}]}},{"rule_id":"room_participant_lease.ttl.requires_governed_unbounded_exception","description":"The default lease carries a TTL. A null ttl_seconds is admissible only when unbounded_term_exception_decision_ref proves the governed exception.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.ttl_seconds"},{"operator":"non_empty","path":"$.unbounded_term_exception_decision_ref"}]}}]"#),
+    ("schema://ioi/applications/ioi-ai/room-participation-request/v3", r#"[{"rule_id":"room_participation_request.room.matches_binding_parent_scope","description":"The request is a typed child of its own room scope: the System binding parent scope is the exact declared OutcomeRoom.","expression":{"operator":"fields_equal","paths":["$.system_binding.parent_scope_ref","$.outcome_room_ref"]}},{"rule_id":"room_participation_request.discovery.required_outside_hosted_admission","description":"Federated admission answers a published discovery projection, so room_discovery_ref cannot be null there. Only hosted_admission may omit it.","expression":{"operator":"non_empty_when_in","path":"$.room_discovery_ref","when_path":"$.coordination_topology","values":["federated_admission"]}},{"rule_id":"room_participation_request.hosted_native.requires_same_system_admission_owner","description":"A null discovery ref is admissible only on the hosted same-system lane: whenever room_discovery_ref is null, admission_owner_ref must be the exact system_binding.system_id. A foreign or policy admission owner must name the discovery it answered.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty","path":"$.room_discovery_ref"},{"operator":"fields_equal","paths":["$.admission_owner_ref","$.system_binding.system_id"]}]}},{"rule_id":"room_participation_request.counteroffer.requires_counterterms","description":"A counteroffer is a proposal that must name its own terms; accept and decline carry none.","expression":{"operator":"non_empty_when_in","path":"$.counterterms_ref","when_path":"$.terms_response","values":["counteroffer"]}}]"#),
     ("schema://ioi/applications/ioi-ai/verifier-challenge/v3", r#"[{"rule_id":"verifier_challenge.room.matches_admission","description":"A room-scoped challenge and its room-scoping bind the same room. Challenger-to-participant-lease resolution remains an owner-plane admission check because this portable shape carries no separate challenger lease coordinate.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}}]"#),
     ("schema://ioi/applications/ioi-ai/work-claim-lease/v3", r#"[{"rule_id":"work_claim.room.matches_admission","description":"A room-scoped claim and its room-scoping bind the same room; direct claims carry null on both sides.","expression":{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"parent_scope_ref","expected_path":"$.outcome_room_ref"}},{"rule_id":"work_claim.participant_lease.matches_admission_issuer","description":"A room claim binds its separate participant-lease coordinate to the CAS issuer; a direct claim carries null room fields. The claimant actor may be a worker, agent, service, organization, domain, system, or the lease itself and remains subject to owner-plane actor-to-lease resolution.","expression":{"operator":"any_of","expressions":[{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"proposed_or_issued_by_ref","expected_path":"$.claimant_participant_lease_ref"},{"operator":"optional_field_equals","optional_object_path":"$.system_binding","field":"proposed_or_issued_by_ref","expected_path":"$.system_binding.system_id"}]}}]"#),
     ("schema://ioi/applications/ioi-ai/work-frontier-item/v3", r#"[]"#),
@@ -108276,6 +110221,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/finding-envelope/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/work-result-envelope/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/outcome-delta-envelope/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/collaboration-terms-envelope/v1", r#"[{"rule_id":"collaboration_terms.scope.at_least_one_ref","description":"At least one scope ref must be non-null. Terms without a bounded subject are not an ex-ante bargain.","expression":{"operator":"any_non_empty","paths":["$.scope.collaboration_ref","$.scope.outcome_room_ref"]}}]"#),
     ("schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1", r#"[]"#),
     ("schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1", r#"[]"#),
     ("schema://ioi/foundations/runtime-assignment/v1", r#"[]"#),
@@ -108329,6 +110275,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:(?:org|project|system|user|domain)://[^\s]{1,500}|ioi://publisher/[^\s]{1,500})$"#,
         r#"^(?:(?:org|project|system|user|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|ioi://publisher/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
+    ),
+    (
+        r#"^(?:(?:policy|context-profile)://[^\s]{1,500}|scope:[^\s]{1,500})$"#,
+        r#"^(?:(?:policy|context-profile)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}|scope:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
     ),
     (
         r#"^(?:(?:principal|wallet|org|worker|service|domain)://[^\s]{1,500}|agentgres://domain/[^\s]{1,500})$"#,
@@ -108386,6 +110336,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:agent|worker)://[^\s]{1,248}$"#,
         r#"^(?:agent|worker)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:ai|package|capability)://[^\s]{1,500}$"#,
+        r#"^(?:ai|package|capability)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:allocation|receipt)://[^\s]{1,500}$"#,
+        r#"^(?:allocation|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:artifact|cid)://[^\s]{1,248}$"#,
@@ -108466,6 +110424,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:capability|worker|tool)://[^\s]{1,500}$"#,
         r#"^(?:capability|worker|tool)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:capacity|schedule)://[^\s]{1,500}$"#,
+        r#"^(?:capacity|schedule)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:cas|local-cas|ipfs|filecoin)://[^\s]+$"#,
@@ -108576,6 +110538,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:evidence|assurance-evidence|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:evidence|certification_claim|receipt)://[^\s]{1,500}$"#,
+        r#"^(?:evidence|certification_claim|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:evidence|receipt)://[^\s]{1,248}$"#,
         r#"^(?:evidence|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -108596,6 +110562,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:evidence|receipt|artifact|attestation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\s]{1,500}$"#,
+        r#"^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:evidence|receipt|certification_claim)://[^\s]{1,500}$"#,
         r#"^(?:evidence|receipt|certification_claim)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -108614,6 +110584,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:frontier|attempt|finding)://[^\s]{1,500}$"#,
         r#"^(?:frontier|attempt|finding)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:frontier|policy|restricted_view)://[^\s]{1,500}$"#,
+        r#"^(?:frontier|policy|restricted_view)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:frontier|routing-prior|policy|capability)://[^\s]{1,500}$"#,
@@ -108688,6 +110662,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:lease|resource-lease|budget)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:ledger|receipt|work-credit)://[^\s]{1,500}$"#,
+        r#"^(?:ledger|receipt|work-credit)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:license|policy)://[^\s]{1,500}$"#,
         r#"^(?:license|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -108710,6 +110688,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:method|finding|artifact)://[^\s]{1,500}$"#,
         r#"^(?:method|finding|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:model_route|harness-profile|tool|connector)://[^\s]{1,500}$"#,
+        r#"^(?:model_route|harness-profile|tool|connector)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:network|chain|domain)://[^\s]{1,248}$"#,
@@ -108832,6 +110814,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:principal|wallet|organization|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:privacy_posture|custody|policy)://[^\s]{1,500}$"#,
+        r#"^(?:privacy_posture|custody|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:privacy_posture|quote|benchmark|sla)://[^\s]{1,500}$"#,
+        r#"^(?:privacy_posture|quote|benchmark|sla)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:profile|environment-profile)://[^\s]{1,500}$"#,
         r#"^(?:profile|environment-profile)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -108844,12 +110834,20 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:provenance|ontology|ontology-mapping)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:provider|org|domain|system)://[^\s]{1,500}$"#,
+        r#"^(?:provider|org|domain|system)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:provider|provider-account)://[^\s]{1,240}$"#,
         r#"^(?:provider|provider-account)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:provider|provider-account)://[^\s]{1,500}$"#,
         r#"^(?:provider|provider-account)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:quote|budget)://[^\s]{1,500}$"#,
+        r#"^(?:quote|budget)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:receipt|acceptance|settlement-intent|dispute|decision)://[^\s]{1,500}$"#,
@@ -108888,6 +110886,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:receipt|replay|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:region|custody|privacy_posture)://[^\s]{1,500}$"#,
+        r#"^(?:region|custody|privacy_posture)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\s]{1,500}$"#,
         r#"^(?:resource-lease|cost|quote|budget|ledger|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -108898,6 +110900,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:resource-pool|budget|goal-budget|order)://[^\s]{1,500}$"#,
         r#"^(?:resource-pool|budget|goal-budget|order)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:resource|runtime|node)://[^\s]{1,500}$"#,
+        r#"^(?:resource|runtime|node)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:revocation|context-lease|grant|receipt)://[^\s]{1,500}$"#,
@@ -108976,6 +110982,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:skill|skill-entry)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:spend|contribution|receipt)://[^\s]{1,500}$"#,
+        r#"^(?:spend|contribution|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:state|environment|worktree|dataset)://[^\s]{1,500}$"#,
         r#"^(?:state|environment|worktree|dataset)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -109012,6 +111022,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:system|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:system|domain|org|service|participant-lease)://[^\s]{1,500}$"#,
+        r#"^(?:system|domain|org|service|participant-lease)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:system|domain|policy)://[^\s]{1,500}$"#,
+        r#"^(?:system|domain|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
         r#"^(?:system|participant-lease|worker|service|org|domain)://[^\s]{1,500}$"#,
         r#"^(?:system|participant-lease|worker|service|org|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -109038,6 +111056,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:system|wallet|org|project)://[^\s]{1,248}$"#,
         r#"^(?:system|wallet|org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:system|worker|service|org|domain)://[^\s]{1,500}$"#,
+        r#"^(?:system|worker|service|org|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:target-state|agentgres)://[^\s]{1,240}$"#,
@@ -109182,6 +111204,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:worker|service|org|domain|wallet|agentgres)://[^\s]{1,248}$"#,
         r#"^(?:worker|service|org|domain|wallet|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:worker|service|system)://[^\s]{1,500}$"#,
+        r#"^(?:worker|service|system)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:workflow|workflow-template)://[^\s]{1,248}$"#,
@@ -110529,6 +112555,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^safety://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (r#"^sao_[0-9a-f]+$"#, r#"^sao_[0-9a-f]+$"#),
+    (
+        r#"^schedule://[^\s]{1,500}$"#,
+        r#"^schedule://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
     (
         r#"^schema://[^\s]+$"#,
         r#"^schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
@@ -112092,6 +114122,10 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json"))),
     ("docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json"))),
     ("docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json"))),
@@ -112146,6 +114180,25 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json"))),
     ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json"))),
     ("docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json"))),
@@ -112748,6 +114801,11 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json"))),
     ("docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json"))),
@@ -112796,6 +114854,11 @@ mod tests {
         match contract_id {
         "schema://ioi/applications/ioi-ai/attempt/v3" => {
             serde_json::from_value::<AttemptV3>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/capability-offer/v3" => {
+            serde_json::from_value::<CapabilityOfferV3>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -112866,6 +114929,21 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/participant-state-bundle/v3" => {
             serde_json::from_value::<ParticipantStateBundleV3>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/resource-offer/v3" => {
+            serde_json::from_value::<ResourceOfferV3>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/room-participant-lease/v3" => {
+            serde_json::from_value::<RoomParticipantLeaseV3>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/room-participation-request/v3" => {
+            serde_json::from_value::<RoomParticipationRequestV3>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -113744,6 +115822,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/collaboration-terms-envelope/v1" => {
+            serde_json::from_value::<CollaborationTermsEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1" => {
             serde_json::from_value::<ManagedWorkerRuntimePolicyV1>(value.clone())
                 .map(|_| ())
@@ -113850,6 +115933,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/applications/ioi-ai/capability-offer/v3" => {
+            let projection = serde_json::from_value::<CapabilityOfferV3>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1" => {
             let projection = serde_json::from_value::<CollaborativeWorkGraphV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -113917,6 +116005,21 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/participant-state-bundle/v3" => {
             let projection = serde_json::from_value::<ParticipantStateBundleV3>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/resource-offer/v3" => {
+            let projection = serde_json::from_value::<ResourceOfferV3>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/room-participant-lease/v3" => {
+            let projection = serde_json::from_value::<RoomParticipantLeaseV3>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/room-participation-request/v3" => {
+            let projection = serde_json::from_value::<RoomParticipationRequestV3>(value.clone())
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
@@ -114795,6 +116898,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/collaboration-terms-envelope/v1" => {
+            let projection = serde_json::from_value::<CollaborationTermsEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1" => {
             let projection = serde_json::from_value::<ManagedWorkerRuntimePolicyV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -115026,8 +117134,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            703,
-            "the registered golden corpus must remain the explicit 703-fixture bar",
+            731,
+            "the registered golden corpus must remain the explicit 731-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -115269,7 +117377,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 695,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 716,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -1,0 +1,30 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/capability-offer/room-scoped-issuer/v3",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
+  "rules": [
+    {
+      "rule_id": "capability_offer.issuer.resolves_through_participant_lease_or_room_system",
+      "description": "A participant advertises in a room only through its current participant lease; system:// is a valid issuer only for a room-system-authored scheduling, expiry, or policy transition.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.system_binding.proposed_or_issued_by_ref",
+              "$.participant_lease_ref"
+            ]
+          },
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.system_binding.proposed_or_issued_by_ref",
+              "$.system_binding.system_id"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

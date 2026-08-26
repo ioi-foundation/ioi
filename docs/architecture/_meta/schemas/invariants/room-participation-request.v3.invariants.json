@@ -1,0 +1,62 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/room-participation-request/hosted-native-admission/v3",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
+  "rules": [
+    {
+      "rule_id": "room_participation_request.room.matches_binding_parent_scope",
+      "description": "The request is a typed child of its own room scope: the System binding parent scope is the exact declared OutcomeRoom.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.system_binding.parent_scope_ref",
+          "$.outcome_room_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "room_participation_request.discovery.required_outside_hosted_admission",
+      "description": "Federated admission answers a published discovery projection, so room_discovery_ref cannot be null there. Only hosted_admission may omit it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.room_discovery_ref",
+        "when_path": "$.coordination_topology",
+        "values": [
+          "federated_admission"
+        ]
+      }
+    },
+    {
+      "rule_id": "room_participation_request.hosted_native.requires_same_system_admission_owner",
+      "description": "A null discovery ref is admissible only on the hosted same-system lane: whenever room_discovery_ref is null, admission_owner_ref must be the exact system_binding.system_id. A foreign or policy admission owner must name the discovery it answered.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "non_empty",
+            "path": "$.room_discovery_ref"
+          },
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.admission_owner_ref",
+              "$.system_binding.system_id"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "room_participation_request.counteroffer.requires_counterterms",
+      "description": "A counteroffer is a proposal that must name its own terms; accept and decline carry none.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.counterterms_ref",
+        "when_path": "$.terms_response",
+        "values": [
+          "counteroffer"
+        ]
+      }
+    }
+  ]
+}

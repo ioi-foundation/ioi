@@ -1,0 +1,39 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.room-participation-request.v3",
+  "participation_request_id": "participation-request://demo/worker-a",
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://room/demo",
+    "parent_scope_ref": "outcome-room://other",
+    "proposed_or_issued_by_ref": "system://room/demo",
+    "payload_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "created_at": "2026-08-26T12:00:00Z",
+    "updated_at": null
+  },
+  "outcome_room_ref": "outcome-room://demo",
+  "room_discovery_ref": null,
+  "coordination_topology": "hosted_admission",
+  "admission_owner_ref": "system://room/demo",
+  "requested_by_ref": "worker://demo/worker-a",
+  "collaboration_terms_ref": "terms://demo/v1",
+  "collaboration_terms_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "terms_response": "accept",
+  "counterterms_ref": null,
+  "capability_offer_refs": [
+    "capability-offer://demo/worker-a"
+  ],
+  "eligibility_evidence_refs": [
+    "evidence://demo/worker-a"
+  ],
+  "requested_role_frontier_and_visibility_refs": [
+    "frontier://demo/question-1"
+  ],
+  "privacy_custody_and_context_policy_refs": [
+    "privacy_posture://demo/v1"
+  ],
+  "request_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "private_context_included": false,
+  "admission_decision_ref": null,
+  "participant_lease_ref": null,
+  "status": "submitted"
+}

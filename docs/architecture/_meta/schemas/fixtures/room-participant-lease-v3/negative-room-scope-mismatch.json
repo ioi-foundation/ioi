@@ -1,0 +1,46 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.room-participant-lease.v3",
+  "participant_lease_id": "participant-lease://demo/worker-a",
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://room/demo",
+    "parent_scope_ref": "outcome-room://other",
+    "proposed_or_issued_by_ref": "system://room/demo",
+    "payload_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "created_at": "2026-08-26T12:00:00Z",
+    "updated_at": null
+  },
+  "outcome_room_ref": "outcome-room://demo",
+  "participant_ref": "worker://demo/worker-a",
+  "admitted_role": "implementer",
+  "operator_ref": "org://demo/operator-a",
+  "home_domain_ref": "domain://demo/operator-a",
+  "join_request_ref": "participation-request://demo/worker-a",
+  "collaboration_terms_ref": "terms://demo/v1",
+  "accepted_terms_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "terms_acceptance_ref": "receipt://demo/terms-acceptance-1",
+  "admission_decision_ref": "receipt://demo/admission-1",
+  "visibility_scope_ref": "restricted_view://demo/implementer",
+  "capability_advertisement_refs": [
+    "capability-offer://demo/worker-a"
+  ],
+  "context_and_authority_lease_refs": [
+    "context_lease://demo/lease-3"
+  ],
+  "runtime_resource_and_budget_lease_refs": [
+    "budget://demo/goal-123"
+  ],
+  "current_claim_ref": null,
+  "lease_epoch": 1,
+  "revocation_epoch": 0,
+  "issued_at": "2026-08-26T12:00:00Z",
+  "effective_at": "2026-08-26T12:00:00Z",
+  "expires_at": "2026-08-26T18:00:00Z",
+  "renew_after": "2026-08-26T17:00:00Z",
+  "renewal_policy_ref": "policy://demo/renewal-v1",
+  "unbounded_term_exception_decision_ref": null,
+  "heartbeat_policy_ref": "policy://demo/heartbeat-v1",
+  "heartbeat_ref": "receipt://demo/heartbeat-9",
+  "ttl_seconds": 21600,
+  "status": "active"
+}

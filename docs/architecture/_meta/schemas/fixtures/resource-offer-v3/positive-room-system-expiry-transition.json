@@ -1,0 +1,44 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.resource-offer.v3",
+  "resource_offer_id": "resource-offer://demo/gpu-capacity",
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://room/demo",
+    "parent_scope_ref": "outcome-room://demo",
+    "proposed_or_issued_by_ref": "system://room/demo",
+    "payload_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "created_at": "2026-08-26T12:00:00Z",
+    "updated_at": "2026-08-27T00:00:01Z"
+  },
+  "provider_participant_lease_ref": "participant-lease://demo/provider-a",
+  "backing_provider_ref": "provider://demo/gpu-cloud",
+  "resource_profile_ref": "resource://demo/gpu-a100",
+  "capacity_and_availability_ref": "capacity://demo/gpu-a100/pool-1",
+  "locality_and_custody_refs": [
+    "region://demo/us-west"
+  ],
+  "trust_and_assurance_refs": [
+    "evidence://demo/provider-a/attestation"
+  ],
+  "cost_ref": "quote://demo/gpu-a100/hourly",
+  "eligible_work_classes": [
+    "training",
+    "evaluation"
+  ],
+  "policy_constraint_refs": [
+    "policy://demo/resource-use-v1"
+  ],
+  "allocation_policy_ref": "policy://demo/allocation-v1",
+  "queue_preemption_and_fairness_policy_ref": "policy://demo/fairness-v1",
+  "expires_at": "2026-08-27T00:00:00Z",
+  "allocation_decision_refs": [
+    "receipt://demo/allocation-4"
+  ],
+  "spend_and_contribution_refs": [
+    "receipt://demo/spend-4"
+  ],
+  "usage_and_consumption_refs": [
+    "ledger://demo/usage-4"
+  ],
+  "status": "expired"
+}
