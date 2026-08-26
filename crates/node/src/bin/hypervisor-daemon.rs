@@ -613,6 +613,17 @@ async fn async_main() -> anyhow::Result<()> {
     {
         anyhow::bail!("M04.8 owner-local recovery blocks readiness ({code}: {message})");
     }
+    // M04.8 — converge the one multi-owner boundary this plane has: a pairing session whose
+    // consumption crossed into an Agentgres participation-request admission. This MUST run after
+    // `outcome_room_system_routes::complete_pending` above, because that is what makes "did the
+    // admission linearize" a settled fact rather than a race. Forward when the request is present
+    // (so a spent pairing cannot be replayed), rollback when it is definitively absent (so an
+    // unspent pairing is not lost), and fail closed when it is undecidable.
+    if let Err((code, message)) =
+        m048_collaboration_routes::complete_pairing_consumption_intents(&data_dir)
+    {
+        anyhow::bail!("M04.8 pairing recovery blocks readiness ({code}: {message})");
+    }
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()

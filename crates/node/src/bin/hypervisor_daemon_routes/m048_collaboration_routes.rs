@@ -60,7 +60,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
-use super::outcome_room_routes::{self as rooms, reject_sensitive_keys, VErr};
+use super::outcome_room_routes::{self as rooms, record_output_hash, reject_sensitive_keys, VErr};
 use super::outcome_room_system_routes as room_system;
 
 // --- registered contract coordinates -----------------------------------------------------------
@@ -920,9 +920,591 @@ pub(crate) fn preflight_owner_local_census(data_dir: &str) -> Result<(), VErr> {
     Ok(())
 }
 
+// --- deterministic identity -------------------------------------------------------------------
+
+/// A deterministic `<prefix>_<64 hex>` tail over a domain-separated payload.
+///
+/// Determinism is not cosmetic here: it is what makes a replayed submission collide with its own
+/// predecessor at the seam instead of minting a second object. See
+/// [`derive_participation_request_id`].
+fn deterministic_tail(prefix: &str, domain: &str, payload: &Value) -> String {
+    let hash = record_output_hash(&json!({ "domain": domain, "payload": payload }), &[]);
+    format!("{prefix}{}", hash.strip_prefix("sha256:").unwrap_or(&hash))
+}
+
+/// The participation request a given pairing session may submit — and only that one.
+///
+/// This id is a pure function of (pairing session, room, requester). A replayed create therefore
+/// derives the SAME id, so the room-native seam refuses it
+/// `outcome_room_child_duplicate_create_refused` rather than admitting a second request. That is
+/// the replay half of single-use; the pairing record's own consumed status is the other half.
+fn derive_participation_request_id(
+    pairing_session_id: &str,
+    room_ref: &str,
+    requested_by_ref: &str,
+) -> String {
+    let tail = deterministic_tail(
+        "prq_",
+        "hypervisor.m048.participation-request.identity.v1",
+        &json!({
+            "pairing_session_id": pairing_session_id,
+            "outcome_room_ref": room_ref,
+            "requested_by_ref": requested_by_ref,
+        }),
+    );
+    format!("participation-request://{tail}")
+}
+
+// --- lifecycle 1: LocalAgentPairingSession -----------------------------------------------------
+//
+// Pairing is pre-admission: it authenticates a local agent, expires, is single-use, and grants
+// exactly the one participation request it enables. It mints no standing, no membership, and no
+// authority — the registered envelope's `bootstrap_non_grants` block is all-"none" by construction
+// and this module never writes anything else there.
+
+/// The hosted lane pairs a private worker. `room_guest` and `organization_worker` are M11 lanes.
+const PAIRING_TARGET_KIND: &str = "private_worker";
+
+/// The pairing statuses from which a session may still be consumed exactly once.
+const PAIRING_CONSUMABLE_STATUSES: &[&str] = &["created", "bootstrap_bound"];
+
+/// Extract the durable stem of a `local-agent-pairing://<tail>` ref.
+fn pairing_tail(pairing_session_id: &str) -> Result<String, VErr> {
+    pairing_session_id
+        .strip_prefix("local-agent-pairing://")
+        .filter(|tail| !tail.is_empty() && super::durable_fs::is_normalization_safe(tail))
+        .map(str::to_string)
+        .ok_or_else(|| {
+            verr(
+                "m048_pairing_ref_invalid",
+                "a pairing session ref must be local-agent-pairing://<normalization-safe tail>",
+            )
+        })
+}
+
+/// Build the registered LocalAgentPairingSession envelope.
+///
+/// Every non-grant is a structural constant, not a caller-supplied default: a pairing session that
+/// could be asked to grant authority would not be a pairing session.
+#[allow(clippy::too_many_arguments)]
+fn build_pairing_session(
+    pairing_session_id: &str,
+    initiated_by_ref: &str,
+    initiating_surface_ref: &str,
+    target_scope_ref: &str,
+    display_name: &str,
+    challenge_hash: &str,
+    issued_at: &str,
+    expires_at: &str,
+    created_at: &str,
+) -> Value {
+    json!({
+        "schema_version": PAIRING_SESSION_SCHEMA,
+        "pairing_session_id": pairing_session_id,
+        "initiated_by_ref": initiated_by_ref,
+        "initiating_surface_ref": initiating_surface_ref,
+        "target_kind": PAIRING_TARGET_KIND,
+        "target_scope_ref": target_scope_ref,
+        "claimed_local_agent": {
+            "display_name": display_name,
+            "resolver_kind": "none",
+            "resolver_revision_ref": Value::Null,
+            "resolver_content_hash": Value::Null,
+            "semantic_harness_profile_revision_ref": Value::Null,
+            "semantic_harness_profile_content_hash": Value::Null,
+            "execution_posture": "prompt_only",
+        },
+        "pairing_transport": "loopback",
+        "challenge": {
+            "challenge_hash": challenge_hash,
+            "authentication_factor_kind": "one_time_challenge",
+            "issued_at": issued_at,
+            "expires_at": expires_at,
+            // Structural. A reusable pairing challenge is a replay primitive.
+            "single_use": true,
+        },
+        "client_binding": Value::Null,
+        "claim_attempt_policy": {
+            "failed_attempt_limit": 5,
+            "failed_attempt_count": 0,
+            "rate_limit_policy_ref": "policy://ioi/m048/pairing/rate-limit",
+        },
+        // The hosted lane bootstraps exactly one action: submitting the participation request.
+        "allowed_bootstrap_actions": ["submit_room_participation_request"],
+        "bootstrap_non_grants": {
+            "authority": "none",
+            "room_membership": "none",
+            "room_database_access": "none",
+            "private_context_access": "none",
+            "connector_or_secret_access": "none",
+            "budget_or_spend": "none",
+            "effect_execution": "none",
+        },
+        "submission_refs": {
+            "worker_composition_ref": Value::Null,
+            "room_participation_request_ref": Value::Null,
+            "first_aiip_packet_ref": Value::Null,
+        },
+        "contribution_lane": "proposal_only",
+        "assurance_posture": {
+            "pairing_proves": "client_key_and_origin_binding_only",
+            "prompt_only_ceiling": "attested",
+        },
+        "failure_reason_code": Value::Null,
+        "created_at": created_at,
+        "updated_at": created_at,
+        "completed_at": Value::Null,
+        "status": "created",
+    })
+}
+
+/// Why a pairing session may not be consumed right now.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PairingRefusal {
+    /// The presented proof does not match the sealed challenge.
+    Unauthenticated,
+    /// The challenge expired at the wallet-authorized instant.
+    Expired,
+    /// The session already reached a terminal or consumed status.
+    AlreadyUsed,
+    /// The session was minted for a different room or requester.
+    WrongSubject,
+    /// A consumption is already in flight for this session.
+    InFlight,
+}
+
+impl PairingRefusal {
+    fn code(self) -> &'static str {
+        match self {
+            // Deliberately NOT `_forbidden`: an unauthenticated or replayed pairing is a bad
+            // request against a pre-admission artifact, and reporting it as an authorization
+            // failure would imply a principal was resolved when none was.
+            PairingRefusal::Unauthenticated => "m048_pairing_unauthenticated",
+            PairingRefusal::Expired => "m048_pairing_expired",
+            PairingRefusal::AlreadyUsed => "m048_pairing_already_consumed",
+            PairingRefusal::WrongSubject => "m048_pairing_subject_mismatch",
+            PairingRefusal::InFlight => "m048_pairing_consumption_in_flight",
+        }
+    }
+
+    fn message(self) -> &'static str {
+        match self {
+            PairingRefusal::Unauthenticated => {
+                "the presented pairing proof does not match this session's sealed challenge"
+            }
+            PairingRefusal::Expired => {
+                "this pairing challenge expired at the wallet-authorized instant"
+            }
+            PairingRefusal::AlreadyUsed => {
+                "this pairing session is single-use and has already been consumed"
+            }
+            PairingRefusal::WrongSubject => {
+                "this pairing session was issued for a different room or requester"
+            }
+            PairingRefusal::InFlight => {
+                "a consumption of this pairing session is already in flight; retry after recovery"
+            }
+        }
+    }
+}
+
+/// May this pairing session be consumed to submit exactly this request, at this wallet instant?
+///
+/// Pure: no clock, no I/O, no writes. The proof is compared against the sealed challenge hash, so
+/// the plaintext proof is never durable and a stolen record cannot be replayed into a consumption.
+pub(crate) fn pairing_admits_request(
+    session: &Value,
+    presented_proof_hash: &str,
+    room_ref: &str,
+    requested_by_ref: &str,
+    wallet_now_ms: u64,
+) -> Result<(), PairingRefusal> {
+    if session
+        .get("consumption_intent")
+        .is_some_and(|v| !v.is_null())
+    {
+        return Err(PairingRefusal::InFlight);
+    }
+    let status = session
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !PAIRING_CONSUMABLE_STATUSES.contains(&status) {
+        return Err(PairingRefusal::AlreadyUsed);
+    }
+    if session.get("target_scope_ref").and_then(Value::as_str) != Some(room_ref) {
+        return Err(PairingRefusal::WrongSubject);
+    }
+    // The session binds exactly one requester through its initiator.
+    if session.get("initiated_by_ref").and_then(Value::as_str) != Some(requested_by_ref) {
+        return Err(PairingRefusal::WrongSubject);
+    }
+    let challenge = session
+        .get("challenge")
+        .filter(|value| !value.is_null())
+        .ok_or(PairingRefusal::Unauthenticated)?;
+    if challenge.get("single_use").and_then(Value::as_bool) != Some(true) {
+        return Err(PairingRefusal::Unauthenticated);
+    }
+    let sealed = challenge
+        .get("challenge_hash")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if sealed.is_empty() || !constant_time_eq(sealed, presented_proof_hash) {
+        return Err(PairingRefusal::Unauthenticated);
+    }
+    let expires_at = challenge
+        .get("expires_at")
+        .and_then(Value::as_str)
+        .ok_or(PairingRefusal::Expired)?;
+    let expires_at_ms = rfc3339_to_ms(expires_at).map_err(|_| PairingRefusal::Expired)?;
+    if wallet_now_ms >= expires_at_ms {
+        return Err(PairingRefusal::Expired);
+    }
+    Ok(())
+}
+
+/// Length-independent comparison of two hex digests.
+///
+/// Both operands here are already hashes rather than secrets, but a pairing proof is exactly the
+/// kind of value whose comparison should not leak a prefix match through timing.
+fn constant_time_eq(left: &str, right: &str) -> bool {
+    if left.len() != right.len() {
+        return false;
+    }
+    left.bytes()
+        .zip(right.bytes())
+        .fold(0u8, |acc, (a, b)| acc | (a ^ b))
+        == 0
+}
+
+// --- the pairing/request multi-owner boundary ---------------------------------------------------
+//
+// Consuming a pairing session (owner-local truth) and admitting a participation request (Agentgres
+// room truth) cross two planes that cannot share one transaction. The retained intent below is
+// what makes the crossing recoverable in BOTH directions, without a fourth durable family: it
+// lives INSIDE the pairing record, so the family that is already censused at startup is the same
+// family that carries the in-flight evidence.
+//
+// Order is intent -> admit -> consume, never consume -> admit:
+//
+//   * A crash after the intent and before the admission leaves the request definitively
+//     un-admitted. Recovery rolls the intent back and the pairing is usable again — nothing was
+//     consumed, so there is no loss.
+//   * A crash after the admission and before the consume leaves the request admitted and the
+//     intent retained. Recovery observes the admitted request and completes the consume forward,
+//     so the pairing cannot be reused — there is no admit-before-consume replay.
+//
+// The "did the admission happen" question is decidable at replay time because
+// `outcome_room_system_routes::complete_pending` runs BEFORE this plane's recovery in
+// `hypervisor-daemon.rs`, so the seam's own retained intent has already converged and the room's
+// current children are settled. It is also decidable EXACTLY, because the request id is derived
+// deterministically from the intent's own fields rather than minted at random.
+
+/// Seal the in-flight consumption evidence carried by the pairing record.
+fn consumption_intent(
+    request_id: &str,
+    room_ref: &str,
+    expected_room_head: &str,
+    requested_by_ref: &str,
+    candidate: &Value,
+) -> Value {
+    json!({
+        "schema_version": "ioi.hypervisor.m048-pairing-consumption-intent.v1",
+        "participation_request_id": request_id,
+        "outcome_room_ref": room_ref,
+        "expected_room_head": expected_room_head,
+        "requested_by_ref": requested_by_ref,
+        // The exact candidate hash lets recovery prove the admitted request is THIS submission
+        // rather than a coincidentally-identical id.
+        "candidate_hash": record_output_hash(candidate, &[]),
+    })
+}
+
+/// The terminal pairing record after a successful consumption.
+///
+/// Single-use is expressed by a status the consumable set excludes, plus the submission backlink.
+/// The intent is dropped in the same atomic write that records the consumption.
+fn consumed_pairing(session: &Value, request_id: &str, at: &str) -> Result<Value, VErr> {
+    let mut consumed = session.clone();
+    let map = consumed.as_object_mut().ok_or_else(|| {
+        verr(
+            "m048_pairing_record_invalid",
+            "a pairing session record must be an object",
+        )
+    })?;
+    map.remove("consumption_intent");
+    map.insert("status".to_string(), json!("participation_submitted"));
+    map.insert("updated_at".to_string(), json!(at));
+    map.insert("completed_at".to_string(), json!(at));
+    map.insert(
+        "submission_refs".to_string(),
+        json!({
+            "worker_composition_ref": Value::Null,
+            "room_participation_request_ref": request_id,
+            // The hosted lane emits no AIIP packet; federation is M11.
+            "first_aiip_packet_ref": Value::Null,
+        }),
+    );
+    Ok(consumed)
+}
+
+/// Converge every retained pairing-consumption intent.
+///
+/// Runs at startup AFTER the room seam has converged its own pending child intents, so
+/// `current_child` is settled truth rather than a race. Fails closed: an intent that cannot be
+/// decided is retained and blocks readiness rather than being guessed in either direction.
+pub(crate) fn complete_pairing_consumption_intents(data_dir: &str) -> Result<(), VErr> {
+    for session in scan_local(data_dir, PAIRING_DIR, PAIRING_SESSION_SCHEMA)? {
+        let Some(intent) = session.get("consumption_intent").filter(|v| !v.is_null()) else {
+            continue;
+        };
+        let session_id = session
+            .get("pairing_session_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                verr(
+                    "m048_pairing_record_invalid",
+                    "a retained pairing intent names no session",
+                )
+            })?;
+        let tail = pairing_tail(session_id)?;
+        let request_id = intent
+            .get("participation_request_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                verr(
+                    "m048_pairing_intent_invalid",
+                    "a retained pairing intent names no participation request",
+                )
+            })?;
+        let room_ref = intent
+            .get("outcome_room_ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                verr(
+                    "m048_pairing_intent_invalid",
+                    "a retained pairing intent names no room",
+                )
+            })?;
+        // Three outcomes, and only two of them are decisions.
+        //
+        // `Ok(Some)`  — the request linearized.
+        // `Ok(None)` / `outcome_room_not_found` — definitively not admitted. A room cannot vanish
+        //               once admitted, so a room that is absent from the current projection can
+        //               never have accepted this child.
+        // any other Err — UNCERTAINTY (unreadable slot, non-canonical stem, corrupt projection).
+        //               Releasing the pairing here would reach the consume-before-admit hole
+        //               through a read failure instead of a crash, so it is retained and blocks
+        //               readiness for the next boot to decide.
+        let admitted_request = match current_child(
+            data_dir,
+            room_ref,
+            PARTICIPATION_REQUEST_CONTRACT,
+            request_id,
+        ) {
+            Ok(found) => found,
+            Err((code, _)) if code == "outcome_room_not_found" => None,
+            Err(error) => return Err(error),
+        };
+        match admitted_request {
+            // The admission linearized. Complete the consumption FORWARD so the session cannot be
+            // reused; anything else would be an admit-before-consume replay hole.
+            Some(_) => {
+                let at = super::iso_now();
+                let consumed = consumed_pairing(&session, request_id, &at)?;
+                persist_local(data_dir, PAIRING_DIR, &tail, &consumed)?;
+            }
+            // The admission definitively did not linearize. Roll the intent back; the pairing was
+            // never spent, so releasing it loses nothing and a retry re-derives the same id.
+            None => {
+                let mut released = session.clone();
+                if let Some(map) = released.as_object_mut() {
+                    map.remove("consumption_intent");
+                    map.insert("updated_at".to_string(), json!(super::iso_now()));
+                }
+                persist_local(data_dir, PAIRING_DIR, &tail, &released)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+// --- lifecycle 2: CollaborationTermsEnvelope + exact acceptance receipt -------------------------
+//
+// Auxiliary, not an eleventh lifecycle: these exist to produce the exact
+// (collaboration_terms_ref, accepted_terms_root, terms_acceptance_ref) triple a participant lease
+// must bind. They carry no settlement, payout, or legal-person field — the registered contract
+// forbids them and a negative fixture pins that.
+
+/// Build the registered CollaborationTermsEnvelope.
+fn build_terms_envelope(
+    terms_id: &str,
+    version: &str,
+    terms_body_root: &str,
+    room_ref: &str,
+    proposed_by_ref: &str,
+    predecessor_terms_ref: Option<&str>,
+) -> Value {
+    json!({
+        "schema_version": COLLABORATION_TERMS_SCHEMA,
+        "collaboration_terms_id": terms_id,
+        "version": version,
+        "predecessor_terms_ref": predecessor_terms_ref.map(Value::from).unwrap_or(Value::Null),
+        "terms_body_hash_profile": COLLABORATION_TERMS_BODY_PROFILE,
+        "terms_body_root": terms_body_root,
+        "scope": {
+            // The hosted lane scopes terms to the room. `collaboration_ref` is the M11 lane.
+            "collaboration_ref": Value::Null,
+            "outcome_room_ref": room_ref,
+        },
+        "proposed_by_ref": proposed_by_ref,
+        "status": "active",
+    })
+}
+
+/// Build the exact terms-acceptance receipt a lease's `terms_acceptance_ref` names.
+///
+/// "Exact" is the whole point: the receipt seals the precise `terms_body_root` that was accepted,
+/// so a lease can never claim acceptance of terms whose body has since moved.
+fn build_terms_acceptance(
+    terms: &Value,
+    accepted_by_ref: &str,
+    room_ref: &str,
+    resolved_at_ms: u64,
+    accepted_at: &str,
+) -> Result<(String, Value), VErr> {
+    let terms_id = terms
+        .get("collaboration_terms_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| verr("m048_terms_record_invalid", "terms carry no identity"))?;
+    let body_root = terms
+        .get("terms_body_root")
+        .and_then(Value::as_str)
+        .ok_or_else(|| verr("m048_terms_record_invalid", "terms carry no body root"))?;
+    let facts = json!({
+        "collaboration_terms_ref": terms_id,
+        "accepted_terms_root": body_root,
+        "accepted_by_ref": accepted_by_ref,
+        "outcome_room_ref": room_ref,
+    });
+    let tail = deterministic_tail(
+        "tac_",
+        "hypervisor.m048.terms-acceptance.identity.v1",
+        &facts,
+    );
+    let receipt = json!({
+        "schema_version": TERMS_ACCEPTANCE_SCHEMA,
+        "receipt_ref": format!("receipt://{tail}"),
+        "collaboration_terms_ref": terms_id,
+        "accepted_terms_root": body_root,
+        "accepted_by_ref": accepted_by_ref,
+        "outcome_room_ref": room_ref,
+        "accepted_at": accepted_at,
+        "accepted_at_wallet_ms": resolved_at_ms,
+        // Acceptance binds terms. It grants no membership: that is the lease's job.
+        "grants_membership": false,
+        "grants_authority": false,
+    });
+    Ok((tail, receipt))
+}
+
+/// Extract the durable stem of a `terms://<tail>` ref.
+fn terms_tail(terms_id: &str) -> Result<String, VErr> {
+    terms_id
+        .strip_prefix("terms://")
+        .filter(|tail| !tail.is_empty() && super::durable_fs::is_normalization_safe(tail))
+        .map(str::to_string)
+        .ok_or_else(|| {
+            verr(
+                "m048_terms_ref_invalid",
+                "a terms ref must be terms://<normalization-safe tail>",
+            )
+        })
+}
+
+// --- lifecycle 3: RoomParticipationRequest v3 --------------------------------------------------
+
+/// Build the pre-admission RoomParticipationRequest candidate.
+///
+/// `system_binding` and `outcome_room_ref` are deliberately ABSENT: the room-native seam derives
+/// both from room truth, and supplying either is refused rather than corrected.
+#[allow(clippy::too_many_arguments)]
+fn build_participation_candidate(
+    request_id: &str,
+    admission_owner_ref: &str,
+    requested_by_ref: &str,
+    terms_ref: &str,
+    terms_root: &str,
+    capability_offer_refs: Vec<String>,
+    eligibility_evidence_refs: Vec<String>,
+    role_frontier_visibility_refs: Vec<String>,
+    privacy_policy_refs: Vec<String>,
+    request_hash: &str,
+) -> Value {
+    json!({
+        "schema_version": PARTICIPATION_REQUEST_SCHEMA,
+        "participation_request_id": request_id,
+        // Hosted same-System lane: discovery is null and admission is native.
+        "room_discovery_ref": Value::Null,
+        "coordination_topology": "hosted_admission",
+        "admission_owner_ref": admission_owner_ref,
+        "requested_by_ref": requested_by_ref,
+        "collaboration_terms_ref": terms_ref,
+        "collaboration_terms_root": terms_root,
+        "terms_response": "accept",
+        "counterterms_ref": Value::Null,
+        "capability_offer_refs": capability_offer_refs,
+        "eligibility_evidence_refs": eligibility_evidence_refs,
+        "requested_role_frontier_and_visibility_refs": role_frontier_visibility_refs,
+        "privacy_custody_and_context_policy_refs": privacy_policy_refs,
+        "request_hash": request_hash,
+        // Structural: a pre-admission request never carries private context.
+        "private_context_included": false,
+        "admission_decision_ref": Value::Null,
+        "participant_lease_ref": Value::Null,
+        "status": "submitted",
+    })
+}
+
+/// The hosted-native admission invariant, enforced before the seam sees the candidate.
+///
+/// The registered invariant `room_participation_request.hosted_native.requires_same_system_admission_owner`
+/// admits a null discovery ref only when the admission owner IS the room's System. Checking it here
+/// keeps the refusal in this plane's vocabulary and proves the hosted lane is not a federation lane
+/// wearing a null.
+fn enforce_hosted_native_admission(candidate: &Value, system_id: &str) -> Result<(), VErr> {
+    if candidate
+        .get("room_discovery_ref")
+        .is_some_and(|value| !value.is_null())
+    {
+        return Err(verr(
+            "m048_participation_discovery_refused",
+            "the hosted lane admits no room discovery ref; cross-domain discovery is M11",
+        ));
+    }
+    if candidate
+        .get("coordination_topology")
+        .and_then(Value::as_str)
+        != Some("hosted_admission")
+    {
+        return Err(verr(
+            "m048_participation_topology_refused",
+            "the hosted lane admits only `hosted_admission`; federated admission is M11",
+        ));
+    }
+    if candidate.get("admission_owner_ref").and_then(Value::as_str) != Some(system_id) {
+        return Err(verr(
+            "m048_participation_admission_owner_mismatch",
+            "a hosted-native request with a null discovery ref must name the room's own System as admission owner",
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod m048_tests {
-    use super::super::outcome_room_routes::{is_rfc3339, record_output_hash};
+    use super::super::outcome_room_routes::is_rfc3339;
     use super::*;
 
     fn temp_dir(tag: &str) -> std::path::PathBuf {
@@ -1368,6 +1950,468 @@ mod m048_tests {
             }
         }
         assert_eq!(OWNER_LOCAL_FAMILIES.len(), 4);
+    }
+
+    // --- A2: pairing, terms, participation request -------------------------------------------
+
+    const PROOF: &str = "sha256:9999999999999999999999999999999999999999999999999999999999999999";
+
+    /// A canonical-but-absent room ref. Canonicity matters: the room plane refuses a non-canonical
+    /// stem as UNCERTAINTY, and only a canonical absent slot is a definitive "never admitted".
+    fn canonical_room_ref() -> String {
+        format!("outcome-room://or_{}", "ab".repeat(32))
+    }
+
+    fn pairing(status: &str, expires_at: &str) -> Value {
+        let mut session = build_pairing_session(
+            "local-agent-pairing://lap_one",
+            "user://ioi/levi",
+            "surface://ioi/hypervisor-app/pairing",
+            "outcome-room://demo",
+            "local claude-code",
+            PROOF,
+            "2026-08-26T11:55:00Z",
+            expires_at,
+            "2026-08-26T11:55:00Z",
+        );
+        session["status"] = json!(status);
+        session
+    }
+
+    #[test]
+    fn a_pairing_session_grants_nothing_by_construction() {
+        let session = pairing("created", "2026-08-26T12:05:00Z");
+        for (_, granted) in session["bootstrap_non_grants"].as_object().unwrap() {
+            assert_eq!(
+                granted,
+                &json!("none"),
+                "pairing mints no standing authority"
+            );
+        }
+        assert_eq!(session["challenge"]["single_use"], json!(true));
+        assert_eq!(session["target_kind"], json!(PAIRING_TARGET_KIND));
+        assert_eq!(
+            session["allowed_bootstrap_actions"],
+            json!(["submit_room_participation_request"]),
+            "pairing enables exactly the one request it exists for"
+        );
+        assert_eq!(session["contribution_lane"], json!("proposal_only"));
+    }
+
+    #[test]
+    fn a_valid_pairing_admits_exactly_its_own_room_and_requester() {
+        let session = pairing("created", "2026-08-26T12:05:00Z");
+        assert!(pairing_admits_request(
+            &session,
+            PROOF,
+            "outcome-room://demo",
+            "user://ioi/levi",
+            NOON_MS
+        )
+        .is_ok());
+        // A different room or requester is refused even with the correct proof.
+        for (room, who) in [
+            ("outcome-room://other", "user://ioi/levi"),
+            ("outcome-room://demo", "user://ioi/someone-else"),
+        ] {
+            assert_eq!(
+                pairing_admits_request(&session, PROOF, room, who, NOON_MS).unwrap_err(),
+                PairingRefusal::WrongSubject
+            );
+        }
+    }
+
+    #[test]
+    fn an_unauthenticated_expired_or_replayed_pairing_is_refused() {
+        let live = pairing("created", "2026-08-26T12:05:00Z");
+        // Wrong proof.
+        assert_eq!(
+            pairing_admits_request(
+                &live,
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+                "outcome-room://demo",
+                "user://ioi/levi",
+                NOON_MS
+            )
+            .unwrap_err(),
+            PairingRefusal::Unauthenticated
+        );
+        // Expired at the wallet-authorized instant (challenge lapsed one minute ago).
+        let expired = pairing("created", "2026-08-26T11:59:00Z");
+        assert_eq!(
+            pairing_admits_request(
+                &expired,
+                PROOF,
+                "outcome-room://demo",
+                "user://ioi/levi",
+                NOON_MS
+            )
+            .unwrap_err(),
+            PairingRefusal::Expired
+        );
+        // Already consumed — the replay lane.
+        let replayed = pairing("participation_submitted", "2026-08-26T12:05:00Z");
+        assert_eq!(
+            pairing_admits_request(
+                &replayed,
+                PROOF,
+                "outcome-room://demo",
+                "user://ioi/levi",
+                NOON_MS
+            )
+            .unwrap_err(),
+            PairingRefusal::AlreadyUsed
+        );
+        // A challenge stripped of its single-use seal is not an authentication factor.
+        let mut forged = pairing("created", "2026-08-26T12:05:00Z");
+        forged["challenge"]["single_use"] = json!(false);
+        assert_eq!(
+            pairing_admits_request(
+                &forged,
+                PROOF,
+                "outcome-room://demo",
+                "user://ioi/levi",
+                NOON_MS
+            )
+            .unwrap_err(),
+            PairingRefusal::Unauthenticated
+        );
+    }
+
+    #[test]
+    fn a_consumption_already_in_flight_blocks_a_second_attempt() {
+        let mut session = pairing("created", "2026-08-26T12:05:00Z");
+        session["consumption_intent"] = consumption_intent(
+            "participation-request://prq_x",
+            "outcome-room://demo",
+            "sha256:head",
+            "user://ioi/levi",
+            &json!({}),
+        );
+        assert_eq!(
+            pairing_admits_request(
+                &session,
+                PROOF,
+                "outcome-room://demo",
+                "user://ioi/levi",
+                NOON_MS
+            )
+            .unwrap_err(),
+            PairingRefusal::InFlight,
+            "a second consumer must not race a retained intent"
+        );
+    }
+
+    #[test]
+    fn the_request_id_is_deterministic_so_a_replay_collides_instead_of_minting_a_second_request() {
+        let first = derive_participation_request_id(
+            "local-agent-pairing://lap_one",
+            "outcome-room://demo",
+            "user://ioi/levi",
+        );
+        let again = derive_participation_request_id(
+            "local-agent-pairing://lap_one",
+            "outcome-room://demo",
+            "user://ioi/levi",
+        );
+        assert_eq!(first, again, "a replayed submission derives the same id");
+        assert!(first.starts_with("participation-request://prq_"));
+        // A different pairing, room, or requester is a different request.
+        assert_ne!(
+            first,
+            derive_participation_request_id(
+                "local-agent-pairing://lap_two",
+                "outcome-room://demo",
+                "user://ioi/levi"
+            )
+        );
+        assert_ne!(
+            first,
+            derive_participation_request_id(
+                "local-agent-pairing://lap_one",
+                "outcome-room://other",
+                "user://ioi/levi"
+            )
+        );
+    }
+
+    #[test]
+    fn recovery_rolls_back_when_the_admission_definitively_did_not_linearize() {
+        // Crash BETWEEN intent and admission. Nothing was consumed, so the pairing is released.
+        let directory = temp_dir("recover-rollback");
+        let data_dir = directory.to_str().unwrap();
+        let mut session = pairing("created", "2026-08-26T12:05:00Z");
+        session["consumption_intent"] = consumption_intent(
+            "participation-request://prq_absent",
+            // A CANONICAL room ref whose slot is absent: `current_child` resolves this to a
+            // definitive absence rather than to uncertainty, which is what makes rollback safe.
+            &canonical_room_ref(),
+            "sha256:head",
+            "user://ioi/levi",
+            &json!({}),
+        );
+        persist_local(data_dir, PAIRING_DIR, "lap_one", &session).unwrap();
+
+        complete_pairing_consumption_intents(data_dir).expect("recovery converges");
+
+        let after = read_local(data_dir, PAIRING_DIR, "lap_one")
+            .unwrap()
+            .unwrap();
+        assert!(
+            after.get("consumption_intent").is_none(),
+            "the intent is rolled back"
+        );
+        assert_eq!(
+            after["status"],
+            json!("created"),
+            "an unspent pairing stays usable — consume-before-admit loss is not accepted"
+        );
+        assert!(pairing_admits_request(
+            &after,
+            PROOF,
+            "outcome-room://demo",
+            "user://ioi/levi",
+            NOON_MS
+        )
+        .is_ok());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn a_consumed_pairing_is_terminal_and_backlinks_its_one_request() {
+        let session = pairing("created", "2026-08-26T12:05:00Z");
+        let consumed = consumed_pairing(
+            &session,
+            "participation-request://prq_one",
+            "2026-08-26T12:00:00Z",
+        )
+        .unwrap();
+        assert_eq!(consumed["status"], json!("participation_submitted"));
+        assert_eq!(
+            consumed["submission_refs"]["room_participation_request_ref"],
+            json!("participation-request://prq_one")
+        );
+        assert_eq!(
+            consumed["submission_refs"]["first_aiip_packet_ref"],
+            Value::Null,
+            "the hosted lane emits no AIIP packet"
+        );
+        assert!(consumed.get("consumption_intent").is_none());
+        // And it can never be consumed again — admit-before-consume replay is closed.
+        assert_eq!(
+            pairing_admits_request(
+                &consumed,
+                PROOF,
+                "outcome-room://demo",
+                "user://ioi/levi",
+                NOON_MS
+            )
+            .unwrap_err(),
+            PairingRefusal::AlreadyUsed
+        );
+    }
+
+    #[test]
+    fn an_unreadable_room_blocks_readiness_instead_of_rolling_back() {
+        // Uncertainty is not absence. If the room cannot be resolved EXACTLY, recovery must not
+        // conclude "never admitted" and release the pairing — that would be the consume-before-
+        // admit hole reached through a read failure instead of a crash.
+        let directory = temp_dir("recover-uncertain");
+        let data_dir = directory.to_str().unwrap();
+        let mut session = pairing("created", "2026-08-26T12:05:00Z");
+        session["consumption_intent"] = consumption_intent(
+            "participation-request://prq_absent",
+            "outcome-room://not-canonical",
+            "sha256:head",
+            "user://ioi/levi",
+            &json!({}),
+        );
+        persist_local(data_dir, PAIRING_DIR, "lap_one", &session).unwrap();
+
+        assert!(
+            complete_pairing_consumption_intents(data_dir).is_err(),
+            "an undecidable room must block readiness rather than release the pairing"
+        );
+        let after = read_local(data_dir, PAIRING_DIR, "lap_one")
+            .unwrap()
+            .unwrap();
+        assert!(
+            after.get("consumption_intent").is_some(),
+            "the intent is retained for the next boot, not silently dropped"
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn a_malformed_retained_intent_fails_closed_rather_than_guessing() {
+        let directory = temp_dir("recover-malformed");
+        let data_dir = directory.to_str().unwrap();
+        let mut session = pairing("created", "2026-08-26T12:05:00Z");
+        // An intent that names no request is undecidable in either direction.
+        session["consumption_intent"] = json!({ "schema_version": "x" });
+        persist_local(data_dir, PAIRING_DIR, "lap_one", &session).unwrap();
+        assert_eq!(
+            complete_pairing_consumption_intents(data_dir)
+                .expect_err("an undecidable intent blocks readiness")
+                .0,
+            "m048_pairing_intent_invalid"
+        );
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn the_hosted_lane_refuses_discovery_federation_and_a_foreign_admission_owner() {
+        let base = build_participation_candidate(
+            "participation-request://prq_one",
+            "system://room/demo",
+            "user://ioi/levi",
+            "terms://demo/v1",
+            &("sha256:".to_string() + &"22".repeat(32)),
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            &("sha256:".to_string() + &"33".repeat(32)),
+        );
+        assert!(enforce_hosted_native_admission(&base, "system://room/demo").is_ok());
+        assert_eq!(base["room_discovery_ref"], Value::Null);
+        assert_eq!(base["private_context_included"], json!(false));
+        assert_eq!(base["terms_response"], json!("accept"));
+        // A foreign admission owner under a null discovery ref is the federation lane wearing a null.
+        assert_eq!(
+            enforce_hosted_native_admission(&base, "system://room/other")
+                .expect_err("a foreign admission owner is refused")
+                .0,
+            "m048_participation_admission_owner_mismatch"
+        );
+        let mut discovered = base.clone();
+        discovered["room_discovery_ref"] = json!("room-discovery://somewhere");
+        assert_eq!(
+            enforce_hosted_native_admission(&discovered, "system://room/demo")
+                .expect_err("discovery is M11")
+                .0,
+            "m048_participation_discovery_refused"
+        );
+        let mut federated = base;
+        federated["coordination_topology"] = json!("federated_admission");
+        assert_eq!(
+            enforce_hosted_native_admission(&federated, "system://room/demo")
+                .expect_err("federation is M11")
+                .0,
+            "m048_participation_topology_refused"
+        );
+    }
+
+    #[test]
+    fn a_participation_candidate_never_carries_plane_owned_room_coordinates() {
+        let candidate = build_participation_candidate(
+            "participation-request://prq_one",
+            "system://room/demo",
+            "user://ioi/levi",
+            "terms://demo/v1",
+            &("sha256:".to_string() + &"22".repeat(32)),
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            &("sha256:".to_string() + &"33".repeat(32)),
+        );
+        for owned in ["system_binding", "outcome_room_ref"] {
+            assert!(
+                candidate.get(owned).is_none(),
+                "`{owned}` is derived by the seam from room truth, never supplied"
+            );
+        }
+    }
+
+    #[test]
+    fn terms_scope_the_room_and_carry_no_settlement_surface() {
+        let terms = build_terms_envelope(
+            "terms://demo/v1",
+            "1.0.0",
+            &("sha256:".to_string() + &"55".repeat(32)),
+            "outcome-room://demo",
+            "system://room/demo",
+            None,
+        );
+        assert_eq!(
+            terms["scope"]["outcome_room_ref"],
+            json!("outcome-room://demo")
+        );
+        assert_eq!(terms["scope"]["collaboration_ref"], Value::Null);
+        assert_eq!(
+            terms["terms_body_hash_profile"],
+            json!(COLLABORATION_TERMS_BODY_PROFILE)
+        );
+        for forbidden in ["settlement", "payout", "rewards", "legal_person"] {
+            assert!(
+                terms.get(forbidden).is_none(),
+                "`{forbidden}` is not a registered terms field"
+            );
+        }
+    }
+
+    #[test]
+    fn an_acceptance_receipt_seals_the_exact_body_root_it_accepted() {
+        let terms = build_terms_envelope(
+            "terms://demo/v1",
+            "1.0.0",
+            &("sha256:".to_string() + &"55".repeat(32)),
+            "outcome-room://demo",
+            "system://room/demo",
+            None,
+        );
+        let (tail, receipt) = build_terms_acceptance(
+            &terms,
+            "user://ioi/levi",
+            "outcome-room://demo",
+            NOON_MS,
+            "2026-08-26T12:00:00Z",
+        )
+        .unwrap();
+        assert!(tail.starts_with("tac_"));
+        assert_eq!(receipt["receipt_ref"], json!(format!("receipt://{tail}")));
+        assert_eq!(receipt["accepted_terms_root"], terms["terms_body_root"]);
+        assert_eq!(receipt["grants_membership"], json!(false));
+        assert_eq!(receipt["grants_authority"], json!(false));
+
+        // Terms whose body moved produce a DIFFERENT acceptance — a lease can never bind a stale
+        // acceptance to a moved body.
+        let mut moved = terms.clone();
+        moved["terms_body_root"] = json!("sha256:".to_string() + &"66".repeat(32));
+        let (moved_tail, _) = build_terms_acceptance(
+            &moved,
+            "user://ioi/levi",
+            "outcome-room://demo",
+            NOON_MS,
+            "2026-08-26T12:00:00Z",
+        )
+        .unwrap();
+        assert_ne!(tail, moved_tail, "acceptance is exact to the accepted root");
+    }
+
+    #[test]
+    fn constant_time_comparison_rejects_prefixes_and_length_drift() {
+        assert!(constant_time_eq(PROOF, PROOF));
+        assert!(!constant_time_eq(PROOF, &PROOF[..PROOF.len() - 1]));
+        assert!(!constant_time_eq("abc", "abd"));
+        assert!(!constant_time_eq("", "a"));
+    }
+
+    #[test]
+    fn a_pairing_or_terms_ref_must_be_normalization_safe() {
+        assert_eq!(
+            pairing_tail("local-agent-pairing://lap_one").unwrap(),
+            "lap_one"
+        );
+        assert!(pairing_tail("local-agent-pairing://").is_err());
+        assert!(pairing_tail("participant-lease://x").is_err());
+        assert!(
+            pairing_tail("local-agent-pairing://../escape").is_err(),
+            "a traversal-shaped tail is refused before it reaches the filesystem"
+        );
+        assert_eq!(terms_tail("terms://trm_one").unwrap(), "trm_one");
+        assert!(terms_tail("terms://../escape").is_err());
     }
 
     #[test]
