@@ -5,7 +5,7 @@
 //! object with expected-absent/expected-head admission; local room and owner
 //! records are rebuildable projections of that canonical operation history.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, State};
@@ -27,6 +27,12 @@ const ROOM_DIR: &str = super::outcome_room_routes::ROOM_DIR;
 const INTENT_DIR: &str = "outcome-room-system-admission-intents";
 const CHILD_INTENT_DIR: &str = "outcome-room-child-admission-intents";
 const MEMBERSHIP_INTENT_DIR: &str = "outcome-room-membership-admission-intents";
+
+/// The two retained child-intent shapes that share `CHILD_INTENT_DIR`. They are distinct schemas
+/// rather than one shape with an optional owner block, so recovery can never read a room-native
+/// child as an owner publication that silently resolves to "no registry to converge".
+const OWNER_CHILD_INTENT_SCHEMA: &str = "ioi.outcome-room-system-operation-intent.v2";
+const ROOM_NATIVE_CHILD_INTENT_SCHEMA: &str = "ioi.outcome-room-room-native-child-intent.v1";
 
 const GRAPH_SCHEMA: &str = "ioi.applications.ioi-ai.collaborative-work-graph.v1";
 const GRAPH_CONTRACT: &str = "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1";
@@ -1381,10 +1387,28 @@ pub(crate) async fn handle_create(
     (StatusCode::CREATED, Json(response))
 }
 
+/// One registered room-child family's exact coordinates.
+///
+/// `owner_publication` is the single fact that separates M4's two admission lanes. A family that
+/// names a versioned owner registry (WorkResult, OutcomeDelta) must converge that global registry
+/// and its backlinks inside the room transaction; a room-native family names none, and its current
+/// generation therefore lives only in the room's Agentgres operation history. `room_ref_field`
+/// names the payload coordinate the seam derives from room truth — a family that does not declare
+/// one must never receive it, because its registered contract forbids the property outright.
+#[derive(Clone, Copy, Debug)]
 struct ChildContract {
     schema: &'static str,
     id_field: &'static str,
     list_field: Option<&'static str>,
+    room_ref_field: Option<&'static str>,
+    owner_publication: Option<&'static str>,
+}
+
+impl ChildContract {
+    /// Room-native families are exactly the registered room-child families with no owner registry.
+    fn is_room_native(&self) -> bool {
+        self.owner_publication.is_none()
+    }
 }
 
 fn child_contract(contract_id: &str) -> Option<ChildContract> {
@@ -1393,43 +1417,68 @@ fn child_contract(contract_id: &str) -> Option<ChildContract> {
             schema: "ioi.applications.ioi-ai.work-frontier-item.v3",
             id_field: "frontier_item_id",
             list_field: Some("frontier_item_refs"),
+            room_ref_field: None,
+            owner_publication: None,
         },
         "schema://ioi/applications/ioi-ai/work-claim-lease/v3" => ChildContract {
             schema: "ioi.applications.ioi-ai.work-claim-lease.v3",
             id_field: "work_claim_id",
             list_field: None,
+            room_ref_field: Some("outcome_room_ref"),
+            owner_publication: None,
         },
         "schema://ioi/applications/ioi-ai/attempt/v3" => ChildContract {
             schema: "ioi.applications.ioi-ai.attempt.v3",
             id_field: "attempt_id",
             list_field: Some("attempt_refs"),
+            room_ref_field: Some("outcome_room_ref"),
+            owner_publication: None,
         },
         "schema://ioi/applications/ioi-ai/finding/v3" => ChildContract {
             schema: "ioi.applications.ioi-ai.finding.v3",
             id_field: "finding_id",
             list_field: Some("finding_refs"),
+            room_ref_field: Some("outcome_room_ref"),
+            owner_publication: None,
         },
         "schema://ioi/applications/ioi-ai/verifier-challenge/v3" => ChildContract {
             schema: "ioi.applications.ioi-ai.verifier-challenge.v3",
             id_field: "verifier_challenge_id",
             list_field: Some("verifier_challenge_refs"),
+            room_ref_field: Some("outcome_room_ref"),
+            owner_publication: None,
         },
         "schema://ioi/applications/ioi-ai/participant-state-bundle/v3" => ChildContract {
             schema: "ioi.applications.ioi-ai.participant-state-bundle.v3",
             id_field: "participant_state_bundle_id",
             list_field: Some("participant_state_bundle_refs"),
+            room_ref_field: Some("outcome_room_ref"),
+            owner_publication: None,
         },
         "schema://ioi/foundations/work-result/v3" => ChildContract {
             schema: "ioi.foundations.work-result.v3",
             id_field: "work_result_id",
             list_field: None,
+            room_ref_field: None,
+            owner_publication: Some(super::work_result_routes::RESULT_DIR),
         },
         "schema://ioi/foundations/outcome-delta/v3" => ChildContract {
             schema: "ioi.foundations.outcome-delta.v3",
             id_field: "outcome_delta_id",
             list_field: None,
+            room_ref_field: None,
+            owner_publication: Some(super::work_result_routes::DELTA_DIR),
         },
         _ => return None,
+    })
+}
+
+fn require_child_contract(contract_id: &str) -> Result<ChildContract, VErr> {
+    child_contract(contract_id).ok_or_else(|| {
+        verr(
+            "outcome_room_child_contract_unavailable",
+            "only registered room-child v3 families are admitted",
+        )
     })
 }
 
@@ -1455,11 +1504,17 @@ fn owner_convergence_summary(
     admitted_object: &Value,
     agentgres_admission: &Value,
 ) -> Result<Value, VErr> {
-    let identity_field = if contract_id.ends_with("work-result/v3") {
-        "work_result_id"
-    } else {
-        "outcome_delta_id"
-    };
+    // The identity coordinate comes from the registered contract row, not from a suffix guess: an
+    // unregistered or room-native contract must fail typed here rather than silently reading the
+    // OutcomeDelta identity field off a payload that never had one.
+    let contract = require_child_contract(contract_id)?;
+    if contract.is_room_native() {
+        return Err(verr(
+            "outcome_room_owner_record_contract_unavailable",
+            "owner convergence is defined only for the registered owner-registry room-child families",
+        ));
+    }
+    let identity_field = contract.id_field;
     let owner_record_ref = exact_string(
         admitted_object,
         &format!("/{identity_field}"),
@@ -1515,20 +1570,40 @@ fn owner_admission_http_response(contract_id: &str, admission: Value) -> Value {
     }
 }
 
-fn build_composed_child_operation(
-    data_dir: &str,
-    room_tail: &str,
+/// Re-derive the exact payload root one SystemScopedObjectBinding must commit to.
+///
+/// The binding is carried inside the object it seals, so the root is always taken over the object
+/// with `system_binding` removed. Every producer and every verifier in this module goes through
+/// this one function so a caller can never re-root a substituted payload against a retained hash.
+fn child_payload_root(object: &Value) -> Result<String, VErr> {
+    let mut payload_material = object.clone();
+    payload_material
+        .as_object_mut()
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_child_contract_substitution",
+                "a room-child payload must be a JSON object",
+            )
+        })?
+        .remove("system_binding");
+    jcs_root(
+        "ioi.system-scoped-object-payload-jcs-sha256.v1",
+        &payload_material,
+    )
+}
+
+/// Validate one already-derived room-child payload against room truth.
+///
+/// This is the exact fence a caller may not cross: the contract row must be registered, the
+/// payload must validate against it, and the binding must name this room's System, this room, and
+/// this payload's byte-exact root. It performs no reads and no writes, so both the admission path
+/// and the recovery path can apply it before touching durable state.
+fn validate_composed_child_payload<'a>(
     room: &Value,
     contract_id: &str,
-    object: &Value,
-    at: &str,
-) -> Result<(Value, Value, String, String), VErr> {
-    let contract = child_contract(contract_id).ok_or_else(|| {
-        verr(
-            "outcome_room_child_contract_unavailable",
-            "only registered room-child v3 families are admitted",
-        )
-    })?;
+    object: &'a Value,
+) -> Result<(ChildContract, &'a str, &'a Value), VErr> {
+    let contract = require_child_contract(contract_id)?;
     if object.get("schema_version").and_then(Value::as_str) != Some(contract.schema) {
         return Err(verr(
             "outcome_room_child_contract_substitution",
@@ -1556,21 +1631,92 @@ fn build_composed_child_operation(
             "SystemScopedObjectBinding does not name the exact room System and OutcomeRoom",
         ));
     }
-    let mut payload_material = object.clone();
-    payload_material
-        .as_object_mut()
-        .expect("canonical child is an object")
-        .remove("system_binding");
-    let payload_root = jcs_root(
-        "ioi.system-scoped-object-payload-jcs-sha256.v1",
-        &payload_material,
-    )?;
+    if let Some(field) = contract.room_ref_field {
+        if object.get(field) != room.get("outcome_room_id") {
+            return Err(verr(
+                "outcome_room_child_room_fields_plane_owned",
+                format!("room-child '{field}' must be the exact room this transaction advances"),
+            ));
+        }
+    }
+    let payload_root = child_payload_root(object)?;
     if binding.get("payload_root").and_then(Value::as_str) != Some(payload_root.as_str()) {
         return Err(verr(
             "outcome_room_child_payload_root_mismatch",
             "SystemScopedObjectBinding payload_root does not bind the exact typed payload",
         ));
     }
+    Ok((contract, object_ref, binding))
+}
+
+/// Construct the canonical room-System operation and its resulting room candidate.
+///
+/// Deliberately pure: it takes the resolved bounded-System chain rather than reading it, so the
+/// one operation shape and its content-derived idempotency key have a single producer shared by
+/// the owner-registry lane, the room-native lane, and their recovery replays.
+fn compose_child_operation(
+    room: &Value,
+    system_chain: &Value,
+    contract: ChildContract,
+    contract_id: &str,
+    object: &Value,
+    object_ref: &str,
+    binding: &Value,
+    at: &str,
+) -> Result<(Value, Value, String), VErr> {
+    let list_patch = contract
+        .list_field
+        .map(|field| json!({"append_unique":{"field":field,"ref":object_ref}}))
+        .unwrap_or_else(|| json!({"append_unique":Value::Null}));
+    let operation = json!({
+        "schema_version":"ioi.outcome-room-system-operation.v1",
+        "operation_kind":"room_child_admitted",
+        "room_system_id":room["system_id"],
+        "outcome_room_ref":room["outcome_room_id"],
+        "object_contract_id":contract_id,
+        "object_ref":object_ref,
+        "typed_payload":object,
+        "room_patch":list_patch,
+        "resolved_policy_refs":[room["coordination_policy_ref"].clone(),room["ordering_and_merge_policy_ref"].clone()],
+        "resolved_authority_refs":[binding["proposed_or_issued_by_ref"].clone()],
+        "expected_system_predecessor":{
+            "chain_ref":system_chain["chain_ref"],
+            "chain_root":system_chain["chain_root"],
+            "operation_log_root":system_chain["operation_log_root"],
+            "sequence":system_chain["latest_sequence"],
+            "transition_ref":system_chain["latest_transition_id"],
+            "state_root":system_chain["latest_state_root"],
+            "receipt_root":system_chain["latest_receipt_root"],
+        },
+        "at":at,
+    });
+    let operation_key = room_operation_key(&operation)?;
+    let mut candidate = room.clone();
+    if let Some(field) = contract.list_field {
+        append_unique(&mut candidate, field, json!(object_ref))?;
+    }
+    Ok((candidate, operation, operation_key))
+}
+
+/// The content-derived durable intent slot for one room-System operation.
+fn room_operation_key(operation: &Value) -> Result<String, VErr> {
+    let operation_root = jcs_root("ioi.outcome-room-system-operation-jcs-sha256.v1", operation)?;
+    Ok(format!(
+        "orop_{}",
+        operation_root.strip_prefix("sha256:").unwrap_or_default()
+    ))
+}
+
+fn build_composed_child_operation(
+    data_dir: &str,
+    room_tail: &str,
+    room: &Value,
+    contract_id: &str,
+    object: &Value,
+    at: &str,
+) -> Result<(Value, Value, String, String), VErr> {
+    let (contract, object_ref, binding) =
+        validate_composed_child_payload(room, contract_id, object)?;
 
     let current = super::substrate_store::read_outcome_room_system_operation(data_dir, room_tail)
         .map_err(|error| {
@@ -1611,44 +1757,16 @@ fn build_composed_child_operation(
             .unwrap_or_default(),
     )?;
     let chain = &system["autonomous_system_chain"];
-    let list_patch = contract
-        .list_field
-        .map(|field| json!({"append_unique":{"field":field,"ref":object_ref}}))
-        .unwrap_or_else(|| json!({"append_unique":Value::Null}));
-    let operation = json!({
-        "schema_version":"ioi.outcome-room-system-operation.v1",
-        "operation_kind":"room_child_admitted",
-        "room_system_id":room["system_id"],
-        "outcome_room_ref":room["outcome_room_id"],
-        "object_contract_id":contract_id,
-        "object_ref":object_ref,
-        "typed_payload":object,
-        "room_patch":list_patch,
-        "resolved_policy_refs":[room["coordination_policy_ref"].clone(),room["ordering_and_merge_policy_ref"].clone()],
-        "resolved_authority_refs":[binding["proposed_or_issued_by_ref"].clone()],
-        "expected_system_predecessor":{
-            "chain_ref":chain["chain_ref"],
-            "chain_root":chain["chain_root"],
-            "operation_log_root":chain["operation_log_root"],
-            "sequence":chain["latest_sequence"],
-            "transition_ref":chain["latest_transition_id"],
-            "state_root":chain["latest_state_root"],
-            "receipt_root":chain["latest_receipt_root"],
-        },
-        "at":at,
-    });
-    let operation_root = jcs_root(
-        "ioi.outcome-room-system-operation-jcs-sha256.v1",
-        &operation,
+    let (candidate, operation, operation_key) = compose_child_operation(
+        room,
+        chain,
+        contract,
+        contract_id,
+        object,
+        object_ref,
+        binding,
+        at,
     )?;
-    let operation_key = format!(
-        "orop_{}",
-        operation_root.strip_prefix("sha256:").unwrap_or_default()
-    );
-    let mut candidate = room.clone();
-    if let Some(field) = contract.list_field {
-        append_unique(&mut candidate, field, json!(object_ref))?;
-    }
     Ok((candidate, operation, operation_key, current.head))
 }
 
@@ -1664,16 +1782,14 @@ fn finalize_composed_child(
     expected_head: &str,
     runtime_dependencies: Option<&Value>,
 ) -> Result<(Value, Value), VErr> {
-    let (owner_family, owner_identity_field) = if contract_id.ends_with("work-result/v3") {
-        (super::work_result_routes::RESULT_DIR, "work_result_id")
-    } else if contract_id.ends_with("outcome-delta/v3") {
-        (super::work_result_routes::DELTA_DIR, "outcome_delta_id")
-    } else {
+    let contract = require_child_contract(contract_id)?;
+    let Some(owner_family) = contract.owner_publication else {
         return Err(verr(
             "outcome_room_owner_record_contract_unavailable",
-            "M4 composed child finalization accepts WorkResult v3 or OutcomeDelta v3",
+            "M4 composed child finalization accepts only the registered owner-registry families; a room-native child never publishes global owner truth",
         ));
     };
+    let owner_identity_field = contract.id_field;
     let owner_identity = exact_string(
         object,
         &format!("/{owner_identity_field}"),
@@ -1692,7 +1808,7 @@ fn finalize_composed_child(
         .map_err(|(code, message)| verr(&code, message))?;
     }
     let intent = json!({
-        "schema_version":"ioi.outcome-room-system-operation-intent.v2",
+        "schema_version":OWNER_CHILD_INTENT_SCHEMA,
         "room_tail":room_tail,
         "prior_room":prior_room,
         "candidate_room":candidate_room,
@@ -2231,6 +2347,638 @@ pub(crate) fn admit_persisted_owner_record(
     let response = owner_admission_http_response(&contract_id, admission);
     ensure_serialized_body_bound(&response, "outcome_room_response_too_large")?;
     Ok(response)
+}
+
+// --- room-native child persistence seam (M04.8) -----------------------------
+//
+// Room-native current-generation children live in exactly one place: the room's own Agentgres
+// System-operation history. There is no second registry, no owner publication, and no local
+// current-state file — `project_room_child_generations` rebuilds every generation from that
+// history, so the room record's ref lists stay what they already were, projections of it.
+
+/// Refuse a mutation whose caller observed a room revision that is no longer current.
+///
+/// The expected head is a required admission input, not an optimisation: without it a caller that
+/// read the room, reasoned about its children, and then submitted would silently write onto
+/// whatever state happened to be current at commit time.
+fn require_expected_room_head(room: &Value, expected_head: &str) -> Result<(), VErr> {
+    let current = exact_string(room, "/room_state_root", "outcome_room_state_invalid")?;
+    if current != expected_head {
+        return Err(verr(
+            "outcome_room_expected_head_stale",
+            "the caller-observed OutcomeRoom Agentgres head is not the room's current head",
+        ));
+    }
+    Ok(())
+}
+
+/// Resolve a room-child proposer/issuer against room truth alone.
+///
+/// A caller names who is proposing; it never asserts that this proposer is entitled to act in the
+/// room. Entitlement is read from the room's own admitted membership: the room System itself, one
+/// of its admitted participant leases, or one of its reciprocal member GoalRuns.
+fn require_room_child_issuer(room: &Value, issuer_ref: &str) -> Result<(), VErr> {
+    if issuer_ref.is_empty()
+        || issuer_ref.len() > 500
+        || canonical_lifecycle_refs([&json!(issuer_ref)]).is_empty()
+    {
+        return Err(verr(
+            "outcome_room_child_issuer_unresolved",
+            "a room-child proposer or issuer must be a bounded canonical ref",
+        ));
+    }
+    if room.get("system_id").and_then(Value::as_str) == Some(issuer_ref) {
+        return Ok(());
+    }
+    for field in ["participant_lease_refs", "member_goal_run_refs"] {
+        let admitted = room
+            .get(field)
+            .and_then(Value::as_array)
+            .is_some_and(|refs| refs.iter().any(|value| value.as_str() == Some(issuer_ref)));
+        if admitted {
+            return Ok(());
+        }
+    }
+    Err(verr(
+        "outcome_room_child_issuer_unresolved",
+        "a room-child proposer or issuer must be the room System, an admitted participant lease, or a reciprocal member GoalRun",
+    ))
+}
+
+/// Strict per-contract projection of one room's admitted children, from Agentgres history alone.
+///
+/// The history is the only truth for a room-native family, so this projection is deliberately
+/// unforgiving: every admitted generation must still validate against its registered contract and
+/// must still bind this exact room, this exact System, and its own byte-exact payload root.
+/// Lineage is retained rather than collapsed — each entry carries its zero-based generation and
+/// the exact predecessor root it succeeded — and `current` is the last entry per object ref, which
+/// is deterministic because the Agentgres sequence over one room object is total.
+fn project_room_child_generations(
+    room: &Value,
+    room_tail: &str,
+    history: &[agentgres::mux::ExactProjection],
+    contract_id: &str,
+    object_ref: Option<&str>,
+) -> Result<Vec<Value>, VErr> {
+    let _ = require_child_contract(contract_id)?;
+    let admitted = project_room_admitted_objects(room_tail, history)?;
+    if admitted.len() > M4_REPLAY_ENTRY_MAX {
+        return Err(verr(
+            "outcome_room_projection_source_unavailable",
+            format!(
+                "room admitted-object census is {}; hosted M4 retains at most {M4_REPLAY_ENTRY_MAX}",
+                admitted.len()
+            ),
+        ));
+    }
+    let mut lineage: BTreeMap<String, (u64, String)> = BTreeMap::new();
+    let mut projected = Vec::new();
+    let mut previous_sequence: Option<u64> = None;
+    for record in admitted {
+        let sequence = record
+            .get("sequence")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| {
+                verr(
+                    "outcome_room_projection_object_source_unresolved",
+                    "an admitted room object omits its Agentgres sequence",
+                )
+            })?;
+        if previous_sequence.is_some_and(|prior| prior >= sequence) {
+            return Err(verr(
+                "outcome_room_projection_object_source_unresolved",
+                "admitted room objects are not in strictly increasing Agentgres order",
+            ));
+        }
+        previous_sequence = Some(sequence);
+        if record.get("object_contract_id").and_then(Value::as_str) != Some(contract_id) {
+            continue;
+        }
+        let record_ref = exact_string(
+            &record,
+            "/object_ref",
+            "outcome_room_projection_object_source_unresolved",
+        )?;
+        let admitted_object = record.get("admitted_object").ok_or_else(|| {
+            verr(
+                "outcome_room_projection_object_source_unresolved",
+                format!("admitted room object at sequence {sequence} omits its typed payload"),
+            )
+        })?;
+        let (_contract, identity, binding) =
+            validate_composed_child_payload(room, contract_id, admitted_object).map_err(
+                |(code, message)| {
+                    verr(
+                        "outcome_room_projection_object_source_unresolved",
+                        format!(
+                            "admitted room object at sequence {sequence} no longer validates ({code}: {message})"
+                        ),
+                    )
+                },
+            )?;
+        if identity != record_ref {
+            return Err(verr(
+                "outcome_room_projection_object_source_unresolved",
+                format!(
+                    "admitted room object at sequence {sequence} disagrees with its own identity"
+                ),
+            ));
+        }
+        let object_root = exact_string(
+            binding,
+            "/payload_root",
+            "outcome_room_projection_object_source_unresolved",
+        )?
+        .to_owned();
+        let issuer = binding
+            .get("proposed_or_issued_by_ref")
+            .cloned()
+            .unwrap_or(Value::Null);
+        let (generation, prior_object_root) = match lineage.get(record_ref) {
+            Some((generation, prior_root)) => (*generation + 1, json!(prior_root)),
+            None => (0, Value::Null),
+        };
+        lineage.insert(record_ref.to_owned(), (generation, object_root.clone()));
+        if object_ref.is_some_and(|wanted| wanted != record_ref) {
+            continue;
+        }
+        projected.push(json!({
+            "sequence":sequence,
+            "generation":generation,
+            "object_contract_id":contract_id,
+            "object_ref":record_ref,
+            "object_root":object_root,
+            "prior_object_root":prior_object_root,
+            "outcome_room_ref":record["outcome_room_ref"],
+            "system_id":record["system_id"],
+            "proposed_or_issued_by_ref":issuer,
+            "admitted_object":admitted_object,
+            "agentgres_operation_ref":record["agentgres_operation_ref"],
+            "agentgres_receipt_ref":record["agentgres_receipt_ref"],
+            "agentgres_head":record["agentgres_head"],
+            "agentgres_receipt_root":record["agentgres_receipt_root"],
+        }));
+    }
+    Ok(projected)
+}
+
+/// Resolve one room's Agentgres history and project every admitted generation of one contract.
+fn resolve_room_child_generations(
+    data_dir: &str,
+    room_ref: &str,
+    contract_id: &str,
+    object_ref: Option<&str>,
+) -> Result<(Value, Vec<Value>), VErr> {
+    let room_tail = room_ref.strip_prefix("outcome-room://").ok_or_else(|| {
+        verr(
+            "outcome_room_projection_object_source_unresolved",
+            "room identity is not canonical",
+        )
+    })?;
+    let room = super::outcome_room_routes::resolve_room_strict(data_dir, room_ref)
+        .map_err(|error| verr("outcome_room_source_unreadable", error))?
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_not_found",
+                "room is absent from the current projection",
+            )
+        })?;
+    let history = room_system_operation_history(data_dir, room_ref)?;
+    let generations =
+        project_room_child_generations(&room, room_tail, &history, contract_id, object_ref)?;
+    Ok((room, generations))
+}
+
+/// Every admitted generation of one room-child contract, oldest first.
+///
+/// M04.8 route writers read lineage through this: a superseded generation is history, not garbage,
+/// so nothing here drops or rewrites a predecessor.
+#[allow(dead_code)] // M04.8 read seam; its route writers land with the child routes.
+pub(crate) fn list_room_child_generations(
+    data_dir: &str,
+    room_ref: &str,
+    contract_id: &str,
+    object_ref: Option<&str>,
+) -> Result<Vec<Value>, VErr> {
+    Ok(resolve_room_child_generations(data_dir, room_ref, contract_id, object_ref)?.1)
+}
+
+/// The current generation of each matching room child, ordered by its admission sequence.
+#[allow(dead_code)] // M04.8 read seam; its route writers land with the child routes.
+pub(crate) fn current_room_children(
+    data_dir: &str,
+    room_ref: &str,
+    contract_id: &str,
+    object_ref: Option<&str>,
+) -> Result<Vec<Value>, VErr> {
+    let generations =
+        resolve_room_child_generations(data_dir, room_ref, contract_id, object_ref)?.1;
+    let mut current: BTreeMap<String, Value> = BTreeMap::new();
+    for generation in generations {
+        let key = exact_string(
+            &generation,
+            "/object_ref",
+            "outcome_room_projection_object_source_unresolved",
+        )?
+        .to_owned();
+        // Ascending Agentgres order means the last write per ref is the latest valid projection.
+        current.insert(key, generation);
+    }
+    let mut current = current.into_values().collect::<Vec<_>>();
+    sort_projection_objects_by_admission_order(&mut current);
+    Ok(current)
+}
+
+/// Derive one room-native child payload from room truth and the caller's candidate.
+///
+/// Everything that binds the object to a room is server-derived here: the room ref its contract
+/// declares, and the complete SystemScopedObjectBinding. A caller that supplies either is refused
+/// rather than corrected, because a silently overwritten claim is indistinguishable from an
+/// honoured one at the wire. Creation and succession are separated by evidence: an absent prior
+/// root asserts "this object does not exist yet", and a present one must be the exact current
+/// generation's root, which is what makes a lost-update succession impossible.
+fn prepare_room_native_child(
+    room: &Value,
+    contract_id: &str,
+    candidate: &Value,
+    proposed_or_issued_by_ref: &str,
+    contract_generations: &[Value],
+    expected_prior_object_root: Option<&str>,
+    at: &str,
+) -> Result<Value, VErr> {
+    let contract = require_child_contract(contract_id)?;
+    if !contract.is_room_native() {
+        return Err(verr(
+            "outcome_room_child_owner_plane_refused",
+            "WorkResult and OutcomeDelta are owner-registry families; they admit only through the owner-convergence seam",
+        ));
+    }
+    if !candidate.is_object() {
+        return Err(verr(
+            "outcome_room_child_contract_substitution",
+            "a room-child candidate must be a JSON object",
+        ));
+    }
+    if candidate.get("room_admission").is_some() || candidate.get("room_binding").is_some() {
+        return Err(verr(
+            "outcome_room_parallel_admission_spine_refused",
+            "RoomAdmittedObjectBase, room_admission, and room_binding are retired; a room payload may carry only SystemScopedObjectBinding",
+        ));
+    }
+    if candidate
+        .get("system_binding")
+        .is_some_and(|value| !value.is_null())
+    {
+        return Err(verr(
+            "outcome_system_binding_plane_owned",
+            "system_binding is derived by the daemon from the resolved room System and issuer",
+        ));
+    }
+    if candidate
+        .get("outcome_room_ref")
+        .is_some_and(|value| !value.is_null())
+    {
+        return Err(verr(
+            "outcome_room_child_room_fields_plane_owned",
+            "a room-child outcome_room_ref is server-derived from the room this transaction advances",
+        ));
+    }
+    if candidate.get("schema_version").and_then(Value::as_str) != Some(contract.schema) {
+        return Err(verr(
+            "outcome_room_child_contract_substitution",
+            "candidate schema_version does not match object_contract_id",
+        ));
+    }
+    let object_ref = exact_string(
+        candidate,
+        &format!("/{}", contract.id_field),
+        "outcome_room_child_identity_required",
+    )?;
+    require_room_child_issuer(room, proposed_or_issued_by_ref)?;
+    let room_ref = exact_string(room, "/outcome_room_id", "outcome_room_state_invalid")?;
+    let system_id = exact_string(room, "/system_id", "outcome_room_state_invalid")?;
+
+    let prior = contract_generations
+        .iter()
+        .filter(|generation| {
+            generation.get("object_ref").and_then(Value::as_str) == Some(object_ref)
+        })
+        .next_back();
+    let created_at = match (expected_prior_object_root, prior) {
+        (None, None) => at.to_owned(),
+        (None, Some(_)) => {
+            return Err(verr(
+                "outcome_room_child_duplicate_create_refused",
+                "this room already admitted the object; a successor must carry the exact current generation's object root",
+            ))
+        }
+        (Some(_), None) => {
+            return Err(verr(
+                "outcome_room_child_successor_predecessor_absent",
+                "a successor was offered for an object this room has never admitted",
+            ))
+        }
+        (Some(expected_root), Some(prior)) => {
+            let current_root = exact_string(
+                prior,
+                "/object_root",
+                "outcome_room_projection_object_source_unresolved",
+            )?;
+            if current_root != expected_root {
+                return Err(verr(
+                    "outcome_room_child_successor_evidence_stale",
+                    "the caller-supplied prior object root is not this object's exact current generation",
+                ));
+            }
+            // Succession retains the object's original admission instant; only `updated_at` moves.
+            exact_string(
+                prior,
+                "/admitted_object/system_binding/created_at",
+                "outcome_room_projection_object_source_unresolved",
+            )?
+            .to_owned()
+        }
+    };
+
+    let mut prepared = candidate.clone();
+    let object = prepared
+        .as_object_mut()
+        .expect("a room-child candidate object was validated above");
+    object.remove("system_binding");
+    if let Some(field) = contract.room_ref_field {
+        object.insert(field.to_owned(), json!(room_ref));
+    }
+    let payload_root = child_payload_root(&prepared)?;
+    prepared["system_binding"] = json!({
+        "schema_version":SYSTEM_BINDING_SCHEMA,
+        "system_id":system_id,
+        "parent_scope_ref":room_ref,
+        "proposed_or_issued_by_ref":proposed_or_issued_by_ref,
+        "payload_root":payload_root,
+        "created_at":created_at,
+        "updated_at":at,
+    });
+    canonical_contract(contract_id, &prepared)?;
+    ensure_serialized_body_bound(&prepared, "outcome_room_child_record_too_large")?;
+    // Re-enter the shared fence with the derived bytes: what the room admits is exactly what a
+    // reader and a recovery replay will later revalidate.
+    validate_composed_child_payload(room, contract_id, &prepared)?;
+    Ok(prepared)
+}
+
+/// The exact bytes retained before a room-native child transaction begins.
+///
+/// One constructor, so a live admission and its recovery replay can never disagree about what was
+/// retained. It carries no owner-publication field at all: for this lane that absence is the
+/// contract, and `recover_room_native_child_intent` refuses any intent that acquired one.
+#[allow(clippy::too_many_arguments)]
+fn room_native_child_intent(
+    room_tail: &str,
+    prior_room: &Value,
+    candidate_room: &Value,
+    contract_id: &str,
+    object_ref: &str,
+    object: &Value,
+    expected_head: &str,
+    operation: &Value,
+) -> Value {
+    json!({
+        "schema_version":ROOM_NATIVE_CHILD_INTENT_SCHEMA,
+        "room_tail":room_tail,
+        "prior_room":prior_room,
+        "candidate_room":candidate_room,
+        "object_contract_id":contract_id,
+        "object_ref":object_ref,
+        "admitted_object":object,
+        "expected_agentgres_head":expected_head,
+        "operation":operation,
+        "at":operation["at"],
+    })
+}
+
+/// Commit one room-native child through the room's Agentgres operation and nothing else.
+///
+/// The retained intent is the whole recovery story: it carries the exact predecessor room, the
+/// exact resulting candidate, and the exact operation, so a crash at any point replays to
+/// byte-identical durable state. Owner publication is not omitted by accident — it is absent
+/// because a room-native family has no global owner truth to converge, and the contract row is
+/// re-checked here so the two lanes can never merge by a later edit.
+fn finalize_room_native_child(
+    data_dir: &str,
+    room_tail: &str,
+    prior_room: &Value,
+    candidate_room: &Value,
+    contract_id: &str,
+    object: &Value,
+    operation: &Value,
+    operation_key: &str,
+    expected_head: &str,
+) -> Result<(Value, Value), VErr> {
+    let contract = require_child_contract(contract_id)?;
+    if !contract.is_room_native() {
+        return Err(verr(
+            "outcome_room_owner_record_contract_unavailable",
+            "an owner-registry family must converge its global registry through the owner-convergence finalizer",
+        ));
+    }
+    let object_ref = exact_string(
+        object,
+        &format!("/{}", contract.id_field),
+        "outcome_room_child_identity_required",
+    )?;
+    // Refuse-writes-nothing: reconfirm the head before the first durable byte. An already-admitted
+    // operation converges instead, which is what makes recovery replay idempotent.
+    let current = super::substrate_store::read_outcome_room_system_operation(data_dir, room_tail)
+        .map_err(|error| {
+            verr(
+                "outcome_room_agentgres_projection_unavailable",
+                error.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_agentgres_head_uninitialized",
+                "room projection has no canonical Agentgres System-operation head",
+            )
+        })?;
+    if current.head != expected_head && current.operation.payload != *operation {
+        return Err(verr(
+            "outcome_room_expected_head_stale",
+            "the retained room-child operation names neither the current Agentgres head nor the current operation",
+        ));
+    }
+    let intent = room_native_child_intent(
+        room_tail,
+        prior_room,
+        candidate_room,
+        contract_id,
+        object_ref,
+        object,
+        expected_head,
+        operation,
+    );
+    persist_local(CHILD_INTENT_DIR, data_dir, operation_key, &intent)?;
+    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_INTENT")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return Err(verr(
+            "outcome_room_child_pending_recovery",
+            "test-forced interruption after child intent persistence",
+        ));
+    }
+    let exact = super::substrate_store::admit_outcome_room_system_operation(
+        data_dir,
+        room_tail,
+        "outcome_room.room_child_admitted",
+        Some(expected_head),
+        operation,
+        agentgres::parse_rfc3339_ms(
+            operation
+                .get("at")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+        ),
+        operation_key,
+    )
+    .map_err(|error| {
+        let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
+            "outcome_room_head_conflict"
+        } else {
+            "outcome_room_agentgres_admission_failed"
+        };
+        verr(code, error.to_string())
+    })?;
+    let (room, evidence) = project_room_admission(room_tail, candidate_room, &exact)?;
+    if std::env::var("IOI_TEST_FORCE_OUTCOME_ROOM_CHILD_AFTER_AGENTGRES")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return Err(verr(
+            "outcome_room_child_pending_recovery",
+            "test-forced interruption after Agentgres admission and before projection visibility",
+        ));
+    }
+    persist_local(ROOM_DIR, data_dir, room_tail, &room)?;
+    remove_intent(data_dir, CHILD_INTENT_DIR, operation_key)?;
+    Ok((room, evidence))
+}
+
+/// Daemon-private M04.8 seam: admit one room-native current-generation child.
+///
+/// This is the whole persistence boundary later M04.8 route writers need. The caller brings the
+/// room it observed, the head it observed, the exact registered contract, its candidate payload,
+/// and who is proposing; every room coordinate, every binding field, and every Agentgres
+/// commitment is derived here from durable truth. It is intentionally not routed: mounting it is
+/// the route writer's job, not this seam's.
+#[allow(dead_code)] // M04.8 write seam; its route writers land with the child routes.
+pub(crate) fn admit_room_native_child(
+    data_dir: &str,
+    room_ref: &str,
+    expected_room_head: &str,
+    contract_id: &str,
+    candidate: &Value,
+    proposed_or_issued_by_ref: &str,
+    expected_prior_object_root: Option<&str>,
+) -> Result<Value, VErr> {
+    let _guard = super::outcome_room_routes::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    refuse_while_any_intent_pending(data_dir)?;
+    let _ = super::outcome_room_routes::list_current_rooms_canonical_strict(data_dir)?;
+    let fresh = super::outcome_room_routes::resolve_room_strict(data_dir, room_ref)
+        .map_err(|error| verr("outcome_room_source_unreadable", error))?
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_stale_child_refused",
+                "room is absent before room-native child admission",
+            )
+        })?;
+    if fresh.get("schema_version").and_then(Value::as_str) != Some(ROOM_SCHEMA)
+        || fresh.get("status").and_then(Value::as_str) != Some("open")
+    {
+        return Err(verr(
+            "outcome_room_admission_contract_unavailable",
+            "room-native child admission requires an open v2 bounded-System room",
+        ));
+    }
+    require_expected_room_head(&fresh, expected_room_head)?;
+    active_system_binding(
+        data_dir,
+        fresh
+            .get("system_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    )?;
+    let room_tail = room_ref
+        .strip_prefix("outcome-room://")
+        .ok_or_else(|| verr("outcome_room_ref_invalid", "room ref is not canonical"))?;
+    let at = iso_now();
+    let history = room_system_operation_history(data_dir, room_ref)?;
+    let generations =
+        project_room_child_generations(&fresh, room_tail, &history, contract_id, None)?;
+    let prepared = prepare_room_native_child(
+        &fresh,
+        contract_id,
+        candidate,
+        proposed_or_issued_by_ref,
+        &generations,
+        expected_prior_object_root,
+        &at,
+    )?;
+    let (candidate_room, operation, operation_key, current_head) =
+        build_composed_child_operation(data_dir, room_tail, &fresh, contract_id, &prepared, &at)?;
+    if current_head != expected_room_head {
+        return Err(verr(
+            "outcome_room_expected_head_stale",
+            "the room Agentgres head moved between the caller's observation and this transaction",
+        ));
+    }
+    let (preflight_room, preflight_admission) = preflight_room_admission(
+        room_tail,
+        &candidate_room,
+        &operation,
+        Some(&current_head),
+        "outcome_room.room_child_admitted",
+    )?;
+    let preflight_response =
+        room_native_admission_response(&preflight_room, &prepared, &preflight_admission);
+    ensure_serialized_body_bound(&preflight_response, "outcome_room_response_too_large")?;
+    let (updated, agentgres_admission) = finalize_room_native_child(
+        data_dir,
+        room_tail,
+        &fresh,
+        &candidate_room,
+        contract_id,
+        &prepared,
+        &operation,
+        &operation_key,
+        &current_head,
+    )?;
+    let response = room_native_admission_response(&updated, &prepared, &agentgres_admission);
+    ensure_serialized_body_bound(&response, "outcome_room_response_too_large")?;
+    Ok(response)
+}
+
+/// The room-native admission envelope. `owner_publication` is present and null on purpose: the
+/// absence of global owner truth is part of what this lane asserts, so a reader never has to infer
+/// it from a missing key.
+fn room_native_admission_response(
+    room: &Value,
+    admitted_object: &Value,
+    agentgres_admission: &Value,
+) -> Value {
+    json!({
+        "ok":true,
+        "admission":{
+            "outcome_room":room,
+            "admitted_object":admitted_object,
+            "agentgres_admission":agentgres_admission,
+            "owner_publication":Value::Null,
+        },
+    })
 }
 
 fn goal_run_record_root(record: &Value) -> Result<String, VErr> {
@@ -4603,6 +5351,13 @@ pub(crate) async fn handle_product_projection(
 
 pub(crate) fn preflight_pending_owner_registry_census(data_dir: &str) -> Result<(), VErr> {
     for (_intent_key, intent) in strict_intent_family(data_dir, CHILD_INTENT_DIR)? {
+        if intent.get("schema_version").and_then(Value::as_str)
+            == Some(ROOM_NATIVE_CHILD_INTENT_SCHEMA)
+        {
+            // A room-native child has no global owner registry to census. Its recovery is bounded
+            // by the room's own Agentgres head, which `complete_pending` re-derives.
+            continue;
+        }
         let owner_family = exact_string(
             &intent,
             "/owner_publication_family",
@@ -4633,6 +5388,178 @@ pub(crate) fn preflight_pending_owner_registry_census(data_dir: &str) -> Result<
             )
         })?;
     }
+    Ok(())
+}
+
+/// Replay one retained room-native child intent to byte-identical durable state.
+///
+/// Recovery re-derives every coordinate rather than trusting the retained record: the intent's
+/// operation must be the exact operation this contract, this predecessor room, and this derived
+/// binding produce, and its slot name must be that operation's own content root. A rerooted or
+/// substituted payload therefore cannot ride a retained intent into the room, and an intent that
+/// still carries owner-publication fields is refused outright — a room-native child that quietly
+/// acquired global owner truth would be exactly the parallel spine this lane exists to avoid.
+fn recover_room_native_child_intent(
+    data_dir: &str,
+    intent_key: &str,
+    intent: &Value,
+) -> Result<(), VErr> {
+    for owner_field in [
+        "owner_publication_family",
+        "owner_publication_key",
+        "owner_publication_record",
+        "runtime_dependencies",
+    ] {
+        if intent.get(owner_field).is_some() {
+            return Err(verr(
+                "outcome_room_recovery_invalid",
+                format!(
+                    "room-native child intent '{intent_key}' carries owner-plane field '{owner_field}'"
+                ),
+            ));
+        }
+    }
+    let room_tail = exact_string(intent, "/room_tail", "outcome_room_recovery_invalid")?;
+    let prior_room = intent.get("prior_room").ok_or_else(|| {
+        verr(
+            "outcome_room_recovery_invalid",
+            "room-native child intent omits its exact predecessor room",
+        )
+    })?;
+    let candidate_room = intent.get("candidate_room").ok_or_else(|| {
+        verr(
+            "outcome_room_recovery_invalid",
+            "room-native child intent omits its pre-admission room projection",
+        )
+    })?;
+    let operation = intent.get("operation").ok_or_else(|| {
+        verr(
+            "outcome_room_recovery_invalid",
+            "room-native child intent omits operation",
+        )
+    })?;
+    let contract_id = exact_string(
+        intent,
+        "/object_contract_id",
+        "outcome_room_recovery_invalid",
+    )?;
+    let object_ref = exact_string(intent, "/object_ref", "outcome_room_recovery_invalid")?;
+    let admitted_object = intent.get("admitted_object").ok_or_else(|| {
+        verr(
+            "outcome_room_recovery_invalid",
+            "room-native child intent omits its admitted object",
+        )
+    })?;
+    let expected_head = exact_string(
+        intent,
+        "/expected_agentgres_head",
+        "outcome_room_recovery_invalid",
+    )?;
+    let at = exact_string(intent, "/at", "outcome_room_recovery_invalid")?;
+    let contract = require_child_contract(contract_id).map_err(|_| {
+        verr(
+            "outcome_room_recovery_invalid",
+            format!("room-native child intent '{intent_key}' names a retired or unknown contract"),
+        )
+    })?;
+    if !contract.is_room_native() {
+        return Err(verr(
+            "outcome_room_recovery_invalid",
+            format!("room-native child intent '{intent_key}' names an owner-registry family"),
+        ));
+    }
+    validate_current_room_contract(prior_room)?;
+    validate_current_room_contract(candidate_room)?;
+    let room_ref = format!("outcome-room://{room_tail}");
+    // Revalidate the payload against the retained predecessor room, not against whatever the room
+    // has since become: the intent's whole claim is that it is the exact successor of that room.
+    let (_contract, identity, _binding) =
+        validate_composed_child_payload(prior_room, contract_id, admitted_object).map_err(
+            |(code, message)| {
+                verr(
+                    "outcome_room_recovery_invalid",
+                    format!(
+                        "room-native child intent '{intent_key}' carries a detached payload ({code}: {message})"
+                    ),
+                )
+            },
+        )?;
+    let mut expected_candidate = prior_room.clone();
+    if let Some(field) = contract.list_field {
+        append_unique(&mut expected_candidate, field, json!(object_ref))?;
+    }
+    let expected_key = room_operation_key(operation)?;
+    let prior_transition = agentgres_room_transition_ref(room_tail, expected_head);
+    if expected_key != intent_key
+        || identity != object_ref
+        || prior_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_ref.as_str())
+        || prior_room.get("room_state_root").and_then(Value::as_str) != Some(expected_head)
+        || prior_room
+            .get("latest_transition_commitment_ref")
+            .and_then(Value::as_str)
+            != Some(prior_transition.as_str())
+        || candidate_room != &expected_candidate
+        || operation.get("schema_version").and_then(Value::as_str)
+            != Some("ioi.outcome-room-system-operation.v1")
+        || operation.get("operation_kind").and_then(Value::as_str) != Some("room_child_admitted")
+        || operation.get("room_system_id") != prior_room.get("system_id")
+        || operation.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref.as_str())
+        || operation.get("object_contract_id").and_then(Value::as_str) != Some(contract_id)
+        || operation.get("object_ref").and_then(Value::as_str) != Some(object_ref)
+        || operation.get("typed_payload") != Some(admitted_object)
+        || operation.get("at").and_then(Value::as_str) != Some(at)
+    {
+        return Err(verr(
+            "outcome_room_recovery_invalid",
+            format!(
+                "room-native child intent '{intent_key}' is detached from its canonical Agentgres operation"
+            ),
+        ));
+    }
+    let current_room = super::outcome_room_routes::resolve_room_strict(data_dir, &room_ref)
+        .map_err(|message| verr("outcome_room_recovery_source_unreadable", message))?
+        .ok_or_else(|| {
+            verr(
+                "outcome_room_recovery_head_conflict",
+                "room disappeared before room-native child recovery",
+            )
+        })?;
+    let current_operation =
+        super::substrate_store::read_outcome_room_system_operation(data_dir, room_tail)
+            .map_err(|error| {
+                verr(
+                    "outcome_room_agentgres_projection_unavailable",
+                    error.to_string(),
+                )
+            })?
+            .ok_or_else(|| {
+                verr(
+                    "outcome_room_recovery_head_conflict",
+                    "room Agentgres operation head disappeared before recovery",
+                )
+            })?;
+    let projected_after_admission = if current_operation.operation.payload == *operation {
+        Some(project_room_admission(room_tail, candidate_room, &current_operation)?.0)
+    } else {
+        None
+    };
+    if current_room != *prior_room && projected_after_admission.as_ref() != Some(&current_room) {
+        return Err(verr(
+            "outcome_room_recovery_head_conflict",
+            "room projection diverged from both sides of the retained room-native child intent",
+        ));
+    }
+    let _ = finalize_room_native_child(
+        data_dir,
+        room_tail,
+        prior_room,
+        candidate_room,
+        contract_id,
+        admitted_object,
+        operation,
+        intent_key,
+        expected_head,
+    )?;
     Ok(())
 }
 
@@ -4674,15 +5601,20 @@ pub(crate) fn complete_pending(data_dir: &str) -> Result<(), VErr> {
     }
 
     for (intent_key, intent) in strict_intent_family(data_dir, CHILD_INTENT_DIR)? {
-        if intent.get("schema_version").and_then(Value::as_str)
-            != Some("ioi.outcome-room-system-operation-intent.v2")
-        {
-            return Err(verr(
-                "outcome_room_recovery_retired_parallel_spine",
-                format!(
-                    "child intent '{intent_key}' predates ADR 0030 and cannot replay a room-owned receipt spine"
-                ),
-            ));
+        match intent.get("schema_version").and_then(Value::as_str) {
+            Some(OWNER_CHILD_INTENT_SCHEMA) => {}
+            Some(ROOM_NATIVE_CHILD_INTENT_SCHEMA) => {
+                recover_room_native_child_intent(data_dir, &intent_key, &intent)?;
+                continue;
+            }
+            _ => {
+                return Err(verr(
+                    "outcome_room_recovery_retired_parallel_spine",
+                    format!(
+                        "child intent '{intent_key}' predates ADR 0030 and cannot replay a room-owned receipt spine"
+                    ),
+                ))
+            }
         }
         let room_tail = exact_string(&intent, "/room_tail", "outcome_room_recovery_invalid")?;
         let prior_room = intent.get("prior_room").ok_or_else(|| {
@@ -5109,6 +6041,14 @@ mod tests {
     use super::*;
 
     const WORK_RESULT_V3_CONTRACT: &str = "schema://ioi/foundations/work-result/v3";
+    const OUTCOME_DELTA_V3_CONTRACT: &str = "schema://ioi/foundations/outcome-delta/v3";
+    const WORK_FRONTIER_ITEM_V3_CONTRACT: &str =
+        "schema://ioi/applications/ioi-ai/work-frontier-item/v3";
+    const WORK_FRONTIER_ITEM_V3_POSITIVE_FIXTURE: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json"
+    ));
+    const ROOM_CHILD_ISSUER: &str = "participant-lease://demo/worker";
     const OUTCOME_ROOM_V2_POSITIVE_FIXTURE: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json"
@@ -5145,6 +6085,872 @@ mod tests {
         canonical_contract(ROOM_CONTRACT, &room)
             .expect("the registered OutcomeRoom v2 positive fixture validates canonically");
         room
+    }
+
+    // --- M04.8 room-native child seam fixtures ------------------------------
+    //
+    // These exercise the room-native lane at the seam it actually owns: derivation from room
+    // truth, the Agentgres CAS, and recovery. They deliberately do NOT stand up a sequence-two
+    // System activation graph — that census is the System plane's own proof, and
+    // `build_composed_child_operation` already binds it for the live route path.
+
+    /// One resolved bounded-System chain, shaped exactly as `active_system_binding` returns it.
+    fn test_system_chain(room: &Value) -> Value {
+        json!({
+            "system_id":room["system_id"],
+            "chain_ref":"agentgres://system-chain/room/demo",
+            "chain_root":format!("sha256:{}", "1".repeat(64)),
+            "operation_log_root":format!("sha256:{}", "2".repeat(64)),
+            "latest_sequence":2,
+            "latest_transition_id":"system-transition://room/demo/2",
+            "latest_state_root":format!("sha256:{}", "3".repeat(64)),
+            "latest_receipt_root":format!("sha256:{}", "4".repeat(64)),
+        })
+    }
+
+    /// Admit one room's Agentgres genesis and persist the projection it produces. The returned
+    /// room is attached to its real canonical head, which is what every later child must name.
+    fn seed_room_at_genesis(data_dir: &str, room_tail: &str) -> Value {
+        super::super::substrate_store::reset_handle_for_test();
+        let mut room = positive_outcome_room_v2();
+        room["outcome_room_id"] = json!(format!("outcome-room://{room_tail}"));
+        room["status"] = json!("open");
+        room["frontier_item_refs"] = json!([]);
+        room["admission_and_replay_refs"] = json!([]);
+        let at = "2026-07-30T12:00:00Z";
+        let genesis = json!({
+            "schema_version":"ioi.outcome-room-system-operation.v1",
+            "operation_kind":"room_genesis",
+            "room_system_id":room["system_id"],
+            "outcome_room_ref":room["outcome_room_id"],
+            "typed_payload":room,
+            "at":at,
+        });
+        let key = room_operation_key(&genesis).expect("the genesis operation roots");
+        let exact = super::super::substrate_store::admit_outcome_room_system_operation(
+            data_dir,
+            room_tail,
+            "outcome_room.room_genesis",
+            None,
+            &genesis,
+            agentgres::parse_rfc3339_ms(at),
+            &key,
+        )
+        .expect("the room System admits its expected-absent genesis");
+        let (room, _evidence) =
+            project_room_admission(room_tail, &room, &exact).expect("the genesis projection");
+        persist_local(ROOM_DIR, data_dir, room_tail, &room).expect("the room projection persists");
+        room
+    }
+
+    fn work_frontier_item_candidate(object_ref: &str, status: &str) -> Value {
+        let mut candidate: Value = serde_json::from_str(WORK_FRONTIER_ITEM_V3_POSITIVE_FIXTURE)
+            .expect("the registered WorkFrontierItem v3 fixture contains JSON");
+        canonical_contract(WORK_FRONTIER_ITEM_V3_CONTRACT, &candidate)
+            .expect("the registered WorkFrontierItem v3 fixture validates canonically");
+        // The wire candidate is pre-admission: its binding is exactly what the seam derives.
+        candidate
+            .as_object_mut()
+            .expect("the WorkFrontierItem fixture is an object")
+            .remove("system_binding");
+        candidate["frontier_item_id"] = json!(object_ref);
+        candidate["status"] = json!(status);
+        candidate
+    }
+
+    fn frontier_generations(data_dir: &str, room: &Value, room_tail: &str) -> Vec<Value> {
+        let room_ref = room["outcome_room_id"]
+            .as_str()
+            .expect("canonical room ref");
+        let history =
+            room_system_operation_history(data_dir, room_ref).expect("room operation history");
+        project_room_child_generations(
+            room,
+            room_tail,
+            &history,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            None,
+        )
+        .expect("the strict room-child projection")
+    }
+
+    /// Compose one room-native child operation through the production composer.
+    fn compose_frontier_operation(
+        room: &Value,
+        prepared: &Value,
+        at: &str,
+    ) -> (Value, Value, String) {
+        let (contract, object_ref, binding) =
+            validate_composed_child_payload(room, WORK_FRONTIER_ITEM_V3_CONTRACT, prepared)
+                .expect("the derived room-native child validates against room truth");
+        compose_child_operation(
+            room,
+            &test_system_chain(room),
+            contract,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            prepared,
+            object_ref,
+            binding,
+            at,
+        )
+        .expect("the composed room-child operation")
+    }
+
+    fn admit_frontier_item(
+        data_dir: &str,
+        room_tail: &str,
+        room: &Value,
+        candidate: &Value,
+        expected_prior_object_root: Option<&str>,
+        at: &str,
+    ) -> (Value, Value) {
+        let generations = frontier_generations(data_dir, room, room_tail);
+        let prepared = prepare_room_native_child(
+            room,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            candidate,
+            ROOM_CHILD_ISSUER,
+            &generations,
+            expected_prior_object_root,
+            at,
+        )
+        .expect("the room-native child derives from room truth");
+        let (candidate_room, operation, key) = compose_frontier_operation(room, &prepared, at);
+        let expected_head = room["room_state_root"]
+            .as_str()
+            .expect("the room is attached to a head")
+            .to_owned();
+        let (updated, _evidence) = finalize_room_native_child(
+            data_dir,
+            room_tail,
+            room,
+            &candidate_room,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            &prepared,
+            &operation,
+            &key,
+            &expected_head,
+        )
+        .expect("the room-native child commits on its exact expected head");
+        (updated, prepared)
+    }
+
+    fn assert_no_owner_registry_truth(data_dir: &std::path::Path) {
+        for family in [
+            super::super::work_result_routes::RESULT_DIR,
+            super::super::work_result_routes::DELTA_DIR,
+        ] {
+            assert!(
+                !data_dir.join(family).exists(),
+                "a room-native admission published global owner truth in '{family}'"
+            );
+        }
+    }
+
+    #[test]
+    fn room_native_child_admits_on_its_expected_head_and_projects_from_agentgres_alone() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8 data dir");
+        let room_tail = "or_a48001";
+        let room = seed_room_at_genesis(data_dir, room_tail);
+        let room_ref = room["outcome_room_id"]
+            .as_str()
+            .expect("canonical room ref")
+            .to_owned();
+        assert_eq!(room["latest_sequence"], json!(0));
+        assert_eq!(room["frontier_item_refs"], json!([]));
+
+        let candidate = work_frontier_item_candidate("frontier://m048/one", "open");
+        let (updated, prepared) = admit_frontier_item(
+            data_dir,
+            room_tail,
+            &room,
+            &candidate,
+            None,
+            "2026-07-30T12:05:00Z",
+        );
+
+        assert_eq!(updated["latest_sequence"], json!(1));
+        assert_eq!(
+            updated["frontier_item_refs"],
+            json!(["frontier://m048/one"])
+        );
+        assert_ne!(updated["room_state_root"], room["room_state_root"]);
+
+        // Every room coordinate on the child is derived, never carried in by the caller.
+        assert_eq!(
+            prepared["system_binding"]["parent_scope_ref"],
+            json!(room_ref)
+        );
+        assert_eq!(prepared["system_binding"]["system_id"], room["system_id"]);
+        assert_eq!(
+            prepared["system_binding"]["proposed_or_issued_by_ref"],
+            json!(ROOM_CHILD_ISSUER)
+        );
+        assert_eq!(
+            prepared["system_binding"]["created_at"],
+            json!("2026-07-30T12:05:00Z")
+        );
+
+        // The current generation is readable from the room's Agentgres history alone.
+        let current =
+            current_room_children(data_dir, &room_ref, WORK_FRONTIER_ITEM_V3_CONTRACT, None)
+                .expect("the strict current projection");
+        assert_eq!(current.len(), 1);
+        assert_eq!(current[0]["generation"], json!(0));
+        assert_eq!(current[0]["prior_object_root"], Value::Null);
+        assert_eq!(current[0]["admitted_object"], prepared);
+        assert_eq!(
+            current[0]["object_root"],
+            prepared["system_binding"]["payload_root"]
+        );
+        assert_eq!(
+            current_room_children(
+                data_dir,
+                &room_ref,
+                WORK_FRONTIER_ITEM_V3_CONTRACT,
+                Some("frontier://m048/absent"),
+            )
+            .expect("an object-ref filter resolves"),
+            Vec::<Value>::new(),
+            "the object-ref filter must be exact"
+        );
+        assert!(
+            current_room_children(data_dir, &room_ref, WORK_RESULT_V3_CONTRACT, None)
+                .expect("a foreign contract filter resolves")
+                .is_empty(),
+            "the contract filter must be exact"
+        );
+
+        assert!(strict_intent_family(data_dir, CHILD_INTENT_DIR)
+            .expect("the child intent family reads")
+            .is_empty());
+        assert_no_owner_registry_truth(dir.path());
+    }
+
+    #[test]
+    fn room_native_child_refuses_a_stale_expected_head_before_any_durable_byte() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8 data dir");
+        let room_tail = "or_a48002";
+        let room = seed_room_at_genesis(data_dir, room_tail);
+        let room_ref = room["outcome_room_id"]
+            .as_str()
+            .expect("canonical room ref")
+            .to_owned();
+        let genesis_head = room["room_state_root"]
+            .as_str()
+            .expect("the seeded room is attached")
+            .to_owned();
+
+        let first = work_frontier_item_candidate("frontier://m048/one", "open");
+        let (updated, _prepared) = admit_frontier_item(
+            data_dir,
+            room_tail,
+            &room,
+            &first,
+            None,
+            "2026-07-30T12:05:00Z",
+        );
+
+        // The caller that still holds the genesis head is refused by the seam's own fence.
+        let stale = require_expected_room_head(&updated, &genesis_head)
+            .expect_err("a superseded head must not admit");
+        assert_eq!(stale.0, "outcome_room_expected_head_stale");
+        assert_eq!(classify(stale).0, StatusCode::CONFLICT);
+        require_expected_room_head(&updated, updated["room_state_root"].as_str().unwrap())
+            .expect("the current head admits");
+
+        // A second operation rooted on the superseded room reaches the durable finalizer and is
+        // refused there too — without writing an intent, a room projection, or an Agentgres entry.
+        let second = work_frontier_item_candidate("frontier://m048/two", "open");
+        let generations = frontier_generations(data_dir, &updated, room_tail);
+        let prepared = prepare_room_native_child(
+            &updated,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            &second,
+            ROOM_CHILD_ISSUER,
+            &generations,
+            None,
+            "2026-07-30T12:06:00Z",
+        )
+        .expect("the successor candidate derives");
+        let (stale_candidate_room, stale_operation, stale_key) =
+            compose_frontier_operation(&room, &prepared, "2026-07-30T12:06:00Z");
+
+        let room_slot = dir.path().join(ROOM_DIR).join(format!("{room_tail}.json"));
+        let before_room = std::fs::read(&room_slot).expect("the room slot is durable");
+        let before_history = room_system_operation_history(data_dir, &room_ref)
+            .expect("history reads")
+            .len();
+
+        let refusal = finalize_room_native_child(
+            data_dir,
+            room_tail,
+            &room,
+            &stale_candidate_room,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            &prepared,
+            &stale_operation,
+            &stale_key,
+            &genesis_head,
+        )
+        .expect_err("a stale expected head must not commit");
+        assert_eq!(refusal.0, "outcome_room_expected_head_stale");
+
+        assert_eq!(
+            std::fs::read(&room_slot).expect("the room slot survives"),
+            before_room
+        );
+        assert_eq!(
+            room_system_operation_history(data_dir, &room_ref)
+                .expect("history reads")
+                .len(),
+            before_history
+        );
+        assert!(strict_intent_family(data_dir, CHILD_INTENT_DIR)
+            .expect("the child intent family reads")
+            .is_empty());
+        assert_no_owner_registry_truth(dir.path());
+    }
+
+    #[test]
+    fn room_native_child_refuses_caller_supplied_room_binding_and_issuer_substitution() {
+        let room = positive_outcome_room_v2();
+        let at = "2026-07-30T12:05:00Z";
+        let base = work_frontier_item_candidate("frontier://m048/one", "open");
+        let prepare = |candidate: &Value, issuer: &str| {
+            prepare_room_native_child(
+                &room,
+                WORK_FRONTIER_ITEM_V3_CONTRACT,
+                candidate,
+                issuer,
+                &[],
+                None,
+                at,
+            )
+        };
+
+        let mut caller_binding = base.clone();
+        caller_binding["system_binding"] = json!({
+            "schema_version":SYSTEM_BINDING_SCHEMA,
+            "system_id":"system://room/foreign",
+            "parent_scope_ref":"outcome-room://foreign",
+            "proposed_or_issued_by_ref":ROOM_CHILD_ISSUER,
+            "payload_root":format!("sha256:{}", "9".repeat(64)),
+            "created_at":at,
+            "updated_at":at,
+        });
+        assert_eq!(
+            prepare(&caller_binding, ROOM_CHILD_ISSUER)
+                .expect_err("a caller may not mint its own binding")
+                .0,
+            "outcome_system_binding_plane_owned"
+        );
+
+        let mut caller_room_ref = base.clone();
+        caller_room_ref["outcome_room_ref"] = json!("outcome-room://foreign");
+        assert_eq!(
+            prepare(&caller_room_ref, ROOM_CHILD_ISSUER)
+                .expect_err("a caller may not name its own room")
+                .0,
+            "outcome_room_child_room_fields_plane_owned"
+        );
+
+        let mut parallel_spine = base.clone();
+        parallel_spine["room_admission"] = json!({"admission_receipt_ref":"receipt://foreign"});
+        assert_eq!(
+            prepare(&parallel_spine, ROOM_CHILD_ISSUER)
+                .expect_err("the retired admission base may not return")
+                .0,
+            "outcome_room_parallel_admission_spine_refused"
+        );
+
+        assert_eq!(
+            prepare(&base, "participant-lease://foreign/worker")
+                .expect_err("an issuer this room never admitted must not propose")
+                .0,
+            "outcome_room_child_issuer_unresolved"
+        );
+        prepare(&base, room["system_id"].as_str().unwrap())
+            .expect("the room System may issue its own children");
+        prepare(&base, "goal://demo/1").expect("a reciprocal member GoalRun may propose");
+
+        // The derived binding is room truth, and neither coordinate survives substitution.
+        let prepared = prepare(&base, ROOM_CHILD_ISSUER).expect("the derived child");
+        assert_eq!(
+            prepared["system_binding"]["parent_scope_ref"],
+            room["outcome_room_id"]
+        );
+        assert_eq!(prepared["system_binding"]["system_id"], room["system_id"]);
+
+        let mut substituted_room = prepared.clone();
+        substituted_room["system_binding"]["parent_scope_ref"] = json!("outcome-room://foreign");
+        assert_eq!(
+            validate_composed_child_payload(
+                &room,
+                WORK_FRONTIER_ITEM_V3_CONTRACT,
+                &substituted_room
+            )
+            .expect_err("a substituted parent scope must not compose")
+            .0,
+            "outcome_room_wrong_system_child_refused"
+        );
+
+        let mut rerooted = prepared;
+        rerooted["status"] = json!("closed");
+        assert_eq!(
+            validate_composed_child_payload(&room, WORK_FRONTIER_ITEM_V3_CONTRACT, &rerooted)
+                .expect_err("a re-rooted payload must not ride a retained hash")
+                .0,
+            "outcome_room_child_payload_root_mismatch"
+        );
+
+        // The room ref is derived only for the families whose registered contract declares it.
+        assert_eq!(
+            child_contract(WORK_FRONTIER_ITEM_V3_CONTRACT)
+                .expect("registered")
+                .room_ref_field,
+            None
+        );
+        for contract_id in [
+            "schema://ioi/applications/ioi-ai/attempt/v3",
+            "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
+            "schema://ioi/applications/ioi-ai/finding/v3",
+            "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
+            "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
+        ] {
+            assert_eq!(
+                child_contract(contract_id)
+                    .expect("registered")
+                    .room_ref_field,
+                Some("outcome_room_ref"),
+                "{contract_id} declares a room ref its seam must derive"
+            );
+        }
+    }
+
+    #[test]
+    fn room_native_admission_publishes_no_global_owner_registry_truth() {
+        // The lane split is contract metadata, not a spelling of the contract id.
+        for contract_id in [
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
+            "schema://ioi/applications/ioi-ai/attempt/v3",
+            "schema://ioi/applications/ioi-ai/finding/v3",
+            "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
+            "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
+        ] {
+            assert!(
+                child_contract(contract_id)
+                    .expect("registered")
+                    .is_room_native(),
+                "{contract_id} must remain room-native"
+            );
+        }
+        assert_eq!(
+            child_contract(WORK_RESULT_V3_CONTRACT)
+                .expect("registered")
+                .owner_publication,
+            Some(super::super::work_result_routes::RESULT_DIR)
+        );
+        assert_eq!(
+            child_contract(OUTCOME_DELTA_V3_CONTRACT)
+                .expect("registered")
+                .owner_publication,
+            Some(super::super::work_result_routes::DELTA_DIR)
+        );
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8 data dir");
+        let room_tail = "or_a48003";
+        let room = seed_room_at_genesis(data_dir, room_tail);
+
+        // Neither lane will finalize the other's family, and both refuse before writing.
+        let owner_in_room_native = finalize_room_native_child(
+            data_dir,
+            room_tail,
+            &room,
+            &room,
+            WORK_RESULT_V3_CONTRACT,
+            &json!({}),
+            &json!({}),
+            "orop_unused",
+            "sha256:unused",
+        )
+        .expect_err("an owner-registry family must not skip owner convergence");
+        assert_eq!(
+            owner_in_room_native.0,
+            "outcome_room_owner_record_contract_unavailable"
+        );
+        let room_native_in_owner = finalize_composed_child(
+            data_dir,
+            room_tail,
+            &room,
+            &room,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            &json!({}),
+            &json!({}),
+            "orop_unused",
+            "sha256:unused",
+            None,
+        )
+        .expect_err("a room-native family must not enter the owner-convergence finalizer");
+        assert_eq!(
+            room_native_in_owner.0,
+            "outcome_room_owner_record_contract_unavailable"
+        );
+        assert_eq!(
+            prepare_room_native_child(
+                &room,
+                WORK_RESULT_V3_CONTRACT,
+                &json!({}),
+                ROOM_CHILD_ISSUER,
+                &[],
+                None,
+                "2026-07-30T12:05:00Z",
+            )
+            .expect_err("WorkResult keeps its owner-convergence seam")
+            .0,
+            "outcome_room_child_owner_plane_refused"
+        );
+
+        let candidate = work_frontier_item_candidate("frontier://m048/one", "open");
+        let _ = admit_frontier_item(
+            data_dir,
+            room_tail,
+            &room,
+            &candidate,
+            None,
+            "2026-07-30T12:05:00Z",
+        );
+        assert_no_owner_registry_truth(dir.path());
+        // Startup recovery over a room-native lane must not demand an owner registry either.
+        preflight_pending_owner_registry_census(data_dir)
+            .expect("a room-native lane has no owner registry to census");
+        assert_no_owner_registry_truth(dir.path());
+    }
+
+    #[test]
+    fn room_native_duplicate_create_and_invalid_successor_fail_closed_and_lineage_is_retained() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8 data dir");
+        let room_tail = "or_a48004";
+        let room = seed_room_at_genesis(data_dir, room_tail);
+        let room_ref = room["outcome_room_id"]
+            .as_str()
+            .expect("canonical room ref")
+            .to_owned();
+        let object_ref = "frontier://m048/one";
+
+        let candidate = work_frontier_item_candidate(object_ref, "open");
+        let (after_create, created) = admit_frontier_item(
+            data_dir,
+            room_tail,
+            &room,
+            &candidate,
+            None,
+            "2026-07-30T12:05:00Z",
+        );
+        let created_root = created["system_binding"]["payload_root"]
+            .as_str()
+            .expect("the created generation is rooted")
+            .to_owned();
+
+        let generations = frontier_generations(data_dir, &after_create, room_tail);
+        let claimed = work_frontier_item_candidate(object_ref, "claimed");
+        let prepare = |expected_prior: Option<&str>, candidate: &Value| {
+            prepare_room_native_child(
+                &after_create,
+                WORK_FRONTIER_ITEM_V3_CONTRACT,
+                candidate,
+                ROOM_CHILD_ISSUER,
+                &generations,
+                expected_prior,
+                "2026-07-30T12:06:00Z",
+            )
+        };
+
+        assert_eq!(
+            prepare(None, &claimed)
+                .expect_err("a second create over a live object must fail closed")
+                .0,
+            "outcome_room_child_duplicate_create_refused"
+        );
+        assert_eq!(
+            prepare(Some(&format!("sha256:{}", "0".repeat(64))), &claimed)
+                .expect_err("a successor must name the exact current generation")
+                .0,
+            "outcome_room_child_successor_evidence_stale"
+        );
+        let unknown = work_frontier_item_candidate("frontier://m048/never-admitted", "claimed");
+        assert_eq!(
+            prepare(Some(&created_root), &unknown)
+                .expect_err("a successor to nothing must fail closed")
+                .0,
+            "outcome_room_child_successor_predecessor_absent"
+        );
+
+        let successor =
+            prepare(Some(&created_root), &claimed).expect("the exact successor derives");
+        assert_eq!(
+            successor["system_binding"]["created_at"], created["system_binding"]["created_at"],
+            "succession retains the object's original admission instant"
+        );
+        assert_eq!(
+            successor["system_binding"]["updated_at"],
+            json!("2026-07-30T12:06:00Z")
+        );
+
+        let (after_successor, _prepared) = admit_frontier_item(
+            data_dir,
+            room_tail,
+            &after_create,
+            &claimed,
+            Some(&created_root),
+            "2026-07-30T12:06:00Z",
+        );
+        assert_eq!(after_successor["latest_sequence"], json!(2));
+        assert_eq!(
+            after_successor["frontier_item_refs"],
+            json!([object_ref]),
+            "a successor must not duplicate the room's ref projection"
+        );
+
+        let lineage =
+            list_room_child_generations(data_dir, &room_ref, WORK_FRONTIER_ITEM_V3_CONTRACT, None)
+                .expect("the lineage projection");
+        assert_eq!(lineage.len(), 2);
+        assert_eq!(lineage[0]["generation"], json!(0));
+        assert_eq!(lineage[0]["prior_object_root"], Value::Null);
+        assert_eq!(lineage[1]["generation"], json!(1));
+        assert_eq!(lineage[1]["prior_object_root"], json!(created_root));
+        assert_eq!(lineage[0]["admitted_object"]["status"], json!("open"));
+        assert_eq!(lineage[1]["admitted_object"]["status"], json!("claimed"));
+
+        let current =
+            current_room_children(data_dir, &room_ref, WORK_FRONTIER_ITEM_V3_CONTRACT, None)
+                .expect("the current projection");
+        assert_eq!(
+            current.len(),
+            1,
+            "succession replaces, it does not accumulate"
+        );
+        assert_eq!(current[0]["generation"], json!(1));
+        assert_eq!(current[0]["admitted_object"]["status"], json!("claimed"));
+        assert_no_owner_registry_truth(dir.path());
+    }
+
+    #[test]
+    fn retained_room_native_intent_replays_exactly_and_idempotently() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let data_dir = dir.path().to_str().expect("utf8 data dir");
+        let room_tail = "or_a48005";
+        let room = seed_room_at_genesis(data_dir, room_tail);
+        let room_ref = room["outcome_room_id"]
+            .as_str()
+            .expect("canonical room ref")
+            .to_owned();
+        let expected_head = room["room_state_root"]
+            .as_str()
+            .expect("the seeded room is attached")
+            .to_owned();
+        let at = "2026-07-30T12:05:00Z";
+
+        let candidate = work_frontier_item_candidate("frontier://m048/one", "open");
+        let prepared = prepare_room_native_child(
+            &room,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            &candidate,
+            ROOM_CHILD_ISSUER,
+            &[],
+            None,
+            at,
+        )
+        .expect("the room-native child derives");
+        let (candidate_room, operation, key) = compose_frontier_operation(&room, &prepared, at);
+        let intent = room_native_child_intent(
+            room_tail,
+            &room,
+            &candidate_room,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            "frontier://m048/one",
+            &prepared,
+            &expected_head,
+            &operation,
+        );
+
+        // Crash after the intent and before the Agentgres CAS.
+        persist_local(CHILD_INTENT_DIR, data_dir, &key, &intent).expect("the intent retains");
+        super::super::substrate_store::reset_handle_for_test();
+        complete_pending(data_dir).expect("recovery completes the retained transaction");
+
+        let room_slot = dir.path().join(ROOM_DIR).join(format!("{room_tail}.json"));
+        let recovered_room = std::fs::read(&room_slot).expect("the room slot is durable");
+        let recovered_history = room_system_operation_history(data_dir, &room_ref)
+            .expect("history reads")
+            .len();
+        assert_eq!(recovered_history, 2);
+        assert!(strict_intent_family(data_dir, CHILD_INTENT_DIR)
+            .expect("the child intent family reads")
+            .is_empty());
+
+        // Crash after the CAS and before intent cleanup: the same intent must converge, not append.
+        persist_local(CHILD_INTENT_DIR, data_dir, &key, &intent).expect("the intent retains again");
+        super::super::substrate_store::reset_handle_for_test();
+        complete_pending(data_dir).expect("the replay is idempotent");
+        assert_eq!(
+            std::fs::read(&room_slot).expect("the room slot survives"),
+            recovered_room,
+            "recovery must be byte-exact, not merely convergent"
+        );
+        assert_eq!(
+            room_system_operation_history(data_dir, &room_ref)
+                .expect("history reads")
+                .len(),
+            recovered_history
+        );
+        assert!(strict_intent_family(data_dir, CHILD_INTENT_DIR)
+            .expect("the child intent family reads")
+            .is_empty());
+
+        // A third pass with nothing retained changes nothing.
+        complete_pending(data_dir).expect("an empty recovery is a no-op");
+        assert_eq!(
+            std::fs::read(&room_slot).expect("the room slot survives"),
+            recovered_room
+        );
+        assert_no_owner_registry_truth(dir.path());
+
+        // A substituted retained intent replays nothing.
+        let mut substituted = intent.clone();
+        substituted["admitted_object"]["status"] = json!("closed");
+        persist_local(CHILD_INTENT_DIR, data_dir, &key, &substituted)
+            .expect("the substituted intent retains");
+        let refusal = complete_pending(data_dir).expect_err("a substituted intent must not replay");
+        assert_eq!(refusal.0, "outcome_room_recovery_invalid");
+        assert_eq!(
+            std::fs::read(&room_slot).expect("the room slot survives"),
+            recovered_room
+        );
+        assert_eq!(
+            room_system_operation_history(data_dir, &room_ref)
+                .expect("history reads")
+                .len(),
+            recovered_history
+        );
+
+        // So does an intent that acquired owner-plane fields it must never own.
+        let mut owner_shaped = intent;
+        owner_shaped["owner_publication_family"] =
+            json!(super::super::work_result_routes::RESULT_DIR);
+        persist_local(CHILD_INTENT_DIR, data_dir, &key, &owner_shaped)
+            .expect("the owner-shaped intent retains");
+        let owner_refusal =
+            complete_pending(data_dir).expect_err("a room-native intent may not publish an owner");
+        assert_eq!(owner_refusal.0, "outcome_room_recovery_invalid");
+        assert_no_owner_registry_truth(dir.path());
+        remove_intent(data_dir, CHILD_INTENT_DIR, &key).expect("the test clears its own intent");
+    }
+
+    #[test]
+    fn room_native_admission_seam_fences_head_and_system_before_any_durable_write() {
+        // The composed seam cannot be driven from a unit test without a sequence-two System
+        // activation graph, so bind its ordering to the source it actually is: every refusal that
+        // must precede the first durable byte has to precede it here too.
+        let source = include_str!("outcome_room_system_routes.rs");
+        let seam = source
+            .split("pub(crate) fn admit_room_native_child(")
+            .nth(1)
+            .and_then(|tail| tail.split("/// The room-native admission envelope").next())
+            .expect("the room-native admission seam remains source-addressable");
+        let offset = |needle: &str| {
+            seam.find(needle)
+                .unwrap_or_else(|| panic!("the room-native seam retains '{needle}'"))
+        };
+        let lock = offset("ROOM_MUTATION_LOCK");
+        let pending = offset("refuse_while_any_intent_pending(data_dir)");
+        let census = offset("list_current_rooms_canonical_strict(data_dir)");
+        let head = offset("require_expected_room_head(&fresh, expected_room_head)");
+        let system = offset("active_system_binding(");
+        let prepare = offset("prepare_room_native_child(");
+        let finalize = offset("finalize_room_native_child(");
+        assert!(
+            lock < pending,
+            "the seam must fence recovery under the room lock"
+        );
+        assert!(pending < census && census < head);
+        assert!(
+            head < system && system < prepare && prepare < finalize,
+            "the caller-observed head must be refused before the System read, the derivation, and every durable write"
+        );
+
+        // Owner publication is absent from this lane by construction, not by omission.
+        for owner_effect in [
+            "work_result_routes::",
+            "converge_room_owner_backlinks",
+            "owner_publication_slot",
+            "owner_convergence_summary",
+        ] {
+            assert!(
+                !seam.contains(owner_effect),
+                "the room-native seam must not reach the owner plane through '{owner_effect}'"
+            );
+        }
+    }
+
+    #[test]
+    fn owner_convergence_identity_comes_from_the_registered_contract_row() {
+        let room = json!({
+            "outcome_room_id":"outcome-room://or_a48006",
+            "latest_sequence":1,
+        });
+        let admission = json!({
+            "operation_ref":"agentgres://operation/outcome-room-system/or_a48006/sequence/1/head",
+            "resulting_head":format!("sha256:{}", "b".repeat(64)),
+            "receipt_ref":"receipt://agentgres/outcome-room-system/or_a48006/batch/1/root",
+            "bounded_system_predecessor":{"transition_ref":"lifecycle-transition://room/1"},
+        });
+        let object = json!({
+            "work_result_id":"work-result://m4/result",
+            "outcome_delta_id":"outcome-delta://m4/substituted",
+            "work_subject_ref":"goal://m4/run",
+        });
+
+        // The identity coordinate is the contract row's, so a payload carrying both cannot be
+        // read through the wrong one.
+        let summary =
+            owner_convergence_summary(&room, WORK_RESULT_V3_CONTRACT, &object, &admission).unwrap();
+        assert_eq!(
+            summary["owner_record_ref"],
+            json!("work-result://m4/result")
+        );
+        let delta_summary =
+            owner_convergence_summary(&room, OUTCOME_DELTA_V3_CONTRACT, &object, &admission)
+                .unwrap();
+        assert_eq!(
+            delta_summary["owner_record_ref"],
+            json!("outcome-delta://m4/substituted")
+        );
+
+        // An unregistered contract no longer falls through to the OutcomeDelta identity field.
+        assert_eq!(
+            owner_convergence_summary(
+                &room,
+                "schema://ioi/foundations/unregistered/v9",
+                &object,
+                &admission,
+            )
+            .expect_err("an unregistered contract has no owner identity")
+            .0,
+            "outcome_room_child_contract_unavailable"
+        );
+        assert_eq!(
+            owner_convergence_summary(&room, WORK_FRONTIER_ITEM_V3_CONTRACT, &object, &admission)
+                .expect_err("a room-native family has no owner convergence")
+                .0,
+            "outcome_room_owner_record_contract_unavailable"
+        );
     }
 
     #[test]
