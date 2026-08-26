@@ -645,21 +645,31 @@ pub(crate) fn claim_is_live(
                 "a claim lease carries no expiry",
             )
         })?;
+    // `expires_at` IS the heartbeat deadline.
+    //
+    // The registered WorkClaimLease/v3 contract is `additionalProperties: false` and declares no
+    // field in which a "last heartbeat observed" instant could live. Storing one anyway would put
+    // liveness truth somewhere the contract forbids — a second plane for exactly the fact the
+    // claim exists to carry. So a heartbeat transition ADVANCES `expires_at` from the wallet
+    // instant instead, which collapses "heartbeat stopped" and "deadline passed" into one durable
+    // fact that the contract can actually hold.
+    //
+    // `heartbeat_max_seconds` bounds how far a single heartbeat may push that deadline, and is
+    // applied where the successor generation is built rather than re-derived on every read.
+    let _ = heartbeat_max_seconds;
     if wallet_now_ms >= rfc3339_to_ms(expires_at)? {
-        return Ok(Err(ClaimLapse::Expired));
-    }
-    // A heartbeat is a `receipt://` ref plus the instant it was last observed. An absent heartbeat
-    // is a lapse, not a pass: a claim that has never proven liveness has not proven liveness.
-    let heartbeat_at = match claim
-        .get("heartbeat_observed_at_ms")
-        .and_then(Value::as_u64)
-    {
-        Some(observed) => observed,
-        None => return Ok(Err(ClaimLapse::HeartbeatStale)),
-    };
-    let deadline = wallet_deadline_ms(heartbeat_at, heartbeat_max_seconds)?;
-    if wallet_now_ms >= deadline {
-        return Ok(Err(ClaimLapse::HeartbeatStale));
+        // The two lapses differ only as evidence: a claim that had been heartbeating and stopped
+        // reads differently from one that simply ran out its original term.
+        return Ok(Err(
+            if claim
+                .get("heartbeat_ref")
+                .is_some_and(|value| !value.is_null())
+            {
+                ClaimLapse::HeartbeatStale
+            } else {
+                ClaimLapse::Expired
+            },
+        ));
     }
     Ok(Ok(()))
 }
@@ -4089,6 +4099,1585 @@ pub(crate) async fn handle_capability_transition(
     }
 }
 
+// --- lifecycle 7: WorkFrontierItem v3 ------------------------------------------------------------
+
+const FRONTIER_ITEM_KINDS: &[&str] = &[
+    "question",
+    "problem",
+    "hypothesis",
+    "task",
+    "review_need",
+    "verification_need",
+    "resource_need",
+    "synthesis_need",
+];
+const FRONTIER_CLAIMABILITY: &[&str] = &["open", "invited_only", "assigned", "paused", "closed"];
+const FRONTIER_STATUSES: &[&str] = &[
+    "open",
+    "claimed",
+    "blocked",
+    "replicating",
+    "verifying",
+    "accepted",
+    "rejected",
+    "superseded",
+    "closed",
+];
+/// Statuses this hosted step will not move an item into: acceptance and rejection are verdicts,
+/// and this plane issues no verdicts.
+const FRONTIER_VERDICT_STATUSES: &[&str] = &["accepted", "rejected"];
+
+/// The hosted ACC-9 slice pins single-claim exclusivity.
+///
+/// The registered contract permits `max_concurrency > 1`, but this build step's whole exclusivity
+/// proof is "two live claims can never hold one item". Rather than accept a caller-supplied number
+/// the rest of the plane would then have to defend, the profile is fixed at 1 here and the
+/// projection in `frontier_claimability` enforces it.
+const HOSTED_MAX_CONCURRENCY: u64 = 1;
+
+const FRONTIER_CREATE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "item_kind",
+    "objective",
+    "dependency_refs",
+    "required_capability_refs",
+    "required_context_resource_authority_and_evidence_refs",
+    "expected_value",
+    "uncertainty",
+    "priority",
+    "stop_condition_ref",
+    "expires_at",
+];
+
+fn build_frontier_candidate(frontier_id: &str, body: &Value) -> Value {
+    json!({
+        "schema_version": WORK_FRONTIER_ITEM_SCHEMA,
+        "frontier_item_id": frontier_id,
+        "item_kind": body.get("item_kind").cloned().unwrap_or(Value::Null),
+        "objective": body.get("objective").cloned().unwrap_or(Value::Null),
+        "dependency_refs": body.get("dependency_refs").cloned().unwrap_or_else(|| json!([])),
+        // A fresh item has no contributions yet. Lineage accrues through succession, never through
+        // a caller asserting it at create.
+        "related_attempt_and_finding_refs": [],
+        "required_capability_refs": body.get("required_capability_refs").cloned().unwrap_or_else(|| json!([])),
+        "required_context_resource_authority_and_evidence_refs": body
+            .get("required_context_resource_authority_and_evidence_refs")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "expected_value": body.get("expected_value").cloned().unwrap_or(Value::Null),
+        "uncertainty": body.get("uncertainty").cloned().unwrap_or(Value::Null),
+        "priority": body.get("priority").cloned().unwrap_or(Value::Null),
+        // Hosted exclusive profile: one live claim, enforced by projection.
+        "duplication_policy": "exclusive",
+        "claimability": "open",
+        "max_concurrency": HOSTED_MAX_CONCURRENCY,
+        "expires_at": body.get("expires_at").cloned().unwrap_or(Value::Null),
+        "stop_condition_ref": body.get("stop_condition_ref").cloned().unwrap_or(Value::Null),
+        "status": "open",
+    })
+}
+
+/// POST /v1/goal-orchestration/work-frontier-items
+pub(crate) async fn handle_frontier_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match frontier_create_inner(&state.data_dir, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn frontier_create_inner(
+    data_dir: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            FRONTIER_CREATE_FIELDS,
+            "m048_frontier_request_invalid",
+        )?;
+        Ok((
+            req_ref(
+                body,
+                "outcome_room_ref",
+                &["outcome-room"],
+                "m048_frontier_request_invalid",
+            )?,
+            req_root(
+                body,
+                "expected_room_state_root",
+                "m048_frontier_request_invalid",
+            )?,
+            req_vocab(
+                body,
+                "item_kind",
+                FRONTIER_ITEM_KINDS,
+                "m048_frontier_request_invalid",
+            )?,
+            req_str(body, "objective", "m048_frontier_request_invalid")?,
+        ))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, _kind, _objective) = parsed;
+
+    // Ref schemes are enforced HERE rather than left to the seam. Passing caller refs straight
+    // through would make the first sign of a bad scheme a contract rejection deep inside the
+    // admission, reported in the seam's vocabulary rather than this plane's.
+    (|| -> Result<(), VErr> {
+        ref_list(
+            body,
+            "dependency_refs",
+            &["frontier", "attempt", "finding"],
+            "m048_frontier_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "required_capability_refs",
+            &["capability", "worker", "tool"],
+            "m048_frontier_request_invalid",
+        )?;
+        // This field admits bare `scope:` tokens alongside refs, so scheme checking is relaxed
+        // and the registered pattern remains the authority.
+        ref_list(
+            body,
+            "required_context_resource_authority_and_evidence_refs",
+            &[],
+            "m048_frontier_request_invalid",
+        )?;
+        Ok(())
+    })()
+    .map_err(classify)?;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        // The frontier is the room's own work surface: the System declares it.
+        governed::Governance::Host,
+        &room_ref,
+        &observed.system_id,
+        &room_ref,
+        "declare",
+        &json!({ "op": "declare", "contract_id": WORK_FRONTIER_ITEM_CONTRACT }),
+    )
+    .await?;
+    let frontier_id = format!(
+        "frontier://{}",
+        deterministic_tail(
+            "wfi_",
+            "hypervisor.m048.work-frontier-item.identity.v1",
+            &json!({
+                "outcome_room_ref": room_ref,
+                "objective": body.get("objective"),
+                "item_kind": body.get("item_kind"),
+                "declared_at_wallet_ms": resolved_at_ms,
+            }),
+        )
+    );
+    let candidate = build_frontier_candidate(&frontier_id, body);
+    let issuer = observed.system_id.clone();
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        WORK_FRONTIER_ITEM_CONTRACT,
+        &candidate,
+        &issuer,
+        None,
+    )
+    .map_err(classify)?;
+    Ok(ok_child(
+        WORK_FRONTIER_ITEM_CONTRACT,
+        WORK_FRONTIER_ITEM_SCHEMA,
+        &admission,
+    ))
+}
+
+/// Resolve every current claim in a room once, for claimability projection.
+fn current_claims(data_dir: &str, room_ref: &str) -> Result<Vec<Value>, VErr> {
+    current_children(data_dir, room_ref, WORK_CLAIM_LEASE_CONTRACT)?
+        .iter()
+        .map(|projection| admitted(projection).cloned())
+        .collect()
+}
+
+/// GET /v1/goal-orchestration/work-frontier-items
+pub(crate) async fn handle_frontier_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_frontier_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let observed = match observe_room_at_head(&state.data_dir, room_ref) {
+        Ok(observed) => observed,
+        Err(error) => return classify(error),
+    };
+    match current_children(&state.data_dir, room_ref, WORK_FRONTIER_ITEM_CONTRACT).and_then(
+        |objects| {
+            ok_child_list(
+                WORK_FRONTIER_ITEM_CONTRACT,
+                WORK_FRONTIER_ITEM_SCHEMA,
+                &observed,
+                objects,
+            )
+        },
+    ) {
+        Ok(response) => response,
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/work-frontier-items/:id
+pub(crate) async fn handle_frontier_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_frontier_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let object_ref = format!("frontier://{id}");
+    match current_child(
+        &state.data_dir,
+        room_ref,
+        WORK_FRONTIER_ITEM_CONTRACT,
+        &object_ref,
+    ) {
+        Ok(Some(projection)) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "object_contract_id": WORK_FRONTIER_ITEM_CONTRACT,
+                "schema_version": WORK_FRONTIER_ITEM_SCHEMA,
+                "projection": projection,
+                "projection_only": true,
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        ),
+        Ok(None) => classify(verr(
+            "m048_frontier_not_found",
+            "this room admitted no such frontier item",
+        )),
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/work-frontier-items/overview
+///
+/// The overview is where derived claimability is surfaced. It owns nothing and writes nothing: it
+/// resolves a wallet instant purely to evaluate liveness, and every lapsed claim it reports is
+/// reported WITHOUT having been released — release remains an explicit claim transition.
+pub(crate) async fn handle_frontier_overview(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_frontier_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let observed = match observe_room_at_head(&state.data_dir, room_ref) {
+        Ok(observed) => observed,
+        Err(error) => return classify(error),
+    };
+    let resolved_at_ms = match authorized_instant(
+        &state.data_dir,
+        &json!({}),
+        governed::Governance::Participant,
+        room_ref,
+        &observed.system_id,
+        room_ref,
+        "read",
+        &json!({ "op": "read", "projection": "work-frontier-claimability" }),
+    )
+    .await
+    {
+        Ok(resolved_at_ms) => resolved_at_ms,
+        Err(error) => return error,
+    };
+    match frontier_overview_projection(&state.data_dir, room_ref, resolved_at_ms) {
+        Ok(body) => (StatusCode::OK, Json(body)),
+        Err(error) => classify(error),
+    }
+}
+
+/// Pure projection: claimability of every frontier item at one wallet instant.
+fn frontier_overview_projection(
+    data_dir: &str,
+    room_ref: &str,
+    resolved_at_ms: u64,
+) -> Result<Value, VErr> {
+    let claims = current_claims(data_dir, room_ref)?;
+    let mut items = Vec::new();
+    for projection in current_children(data_dir, room_ref, WORK_FRONTIER_ITEM_CONTRACT)? {
+        let item = admitted(&projection)?;
+        items.push(frontier_claimability(
+            item,
+            &claims,
+            resolved_at_ms,
+            CLAIM_HEARTBEAT_MAX_SECONDS,
+        )?);
+    }
+    let body = json!({
+        "ok": true,
+        "object_contract_id": WORK_FRONTIER_ITEM_CONTRACT,
+        "schema_version": WORK_FRONTIER_ITEM_SCHEMA,
+        "outcome_room_ref": room_ref,
+        "total": items.len(),
+        "items": items,
+        "evaluated_at_wallet_ms": resolved_at_ms,
+        // Reporting a lapse is not performing a release. Nothing here writes.
+        "projection_only": true,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    room_system::ensure_serialized_body_bound(&body, "m048_projection_too_large")?;
+    Ok(body)
+}
+
+/// POST /v1/goal-orchestration/work-frontier-items/:id/transition
+///
+/// Frontier transitions never duplicate claim state: `claimed` is a DERIVED fact about live
+/// claims, so it is not an admitted target here.
+pub(crate) async fn handle_frontier_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match frontier_transition_inner(&state.data_dir, &id, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn frontier_transition_inner(
+    data_dir: &str,
+    id: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            &[
+                "outcome_room_ref",
+                "expected_room_state_root",
+                "status",
+                "claimability",
+            ],
+            "m048_frontier_request_invalid",
+        )?;
+        let room_ref = req_ref(
+            body,
+            "outcome_room_ref",
+            &["outcome-room"],
+            "m048_frontier_request_invalid",
+        )?;
+        let expected_head = req_root(
+            body,
+            "expected_room_state_root",
+            "m048_frontier_request_invalid",
+        )?;
+        let status = req_vocab(
+            body,
+            "status",
+            FRONTIER_STATUSES,
+            "m048_frontier_request_invalid",
+        )?;
+        if status == "claimed" {
+            return Err(verr(
+                "m048_frontier_claim_state_is_derived",
+                "`claimed` is derived from live claim generations and must not be written onto the \
+                 item; acquire or release a claim instead",
+            ));
+        }
+        if FRONTIER_VERDICT_STATUSES.contains(&status.as_str()) {
+            return Err(verr(
+                "m048_frontier_verdict_unavailable",
+                "acceptance and rejection are verdicts; this build step issues none",
+            ));
+        }
+        let claimability = match body.get("claimability") {
+            None | Some(Value::Null) => None,
+            Some(_) => Some(req_vocab(
+                body,
+                "claimability",
+                FRONTIER_CLAIMABILITY,
+                "m048_frontier_request_invalid",
+            )?),
+        };
+        Ok((room_ref, expected_head, status, claimability))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, status, claimability) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    let object_ref = format!("frontier://{id}");
+    let projection = current_child(
+        data_dir,
+        &room_ref,
+        WORK_FRONTIER_ITEM_CONTRACT,
+        &object_ref,
+    )
+    .map_err(classify)?
+    .ok_or_else(|| {
+        classify(verr(
+            "m048_frontier_not_found",
+            "this room admitted no such frontier item",
+        ))
+    })?;
+    let item = admitted(&projection).map_err(classify)?.clone();
+
+    let _resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Host,
+        &room_ref,
+        &observed.system_id,
+        &object_ref,
+        "transition",
+        &json!({ "op": "transition", "status": status }),
+    )
+    .await?;
+
+    let mut successor = item.clone();
+    let map = successor.as_object_mut().ok_or_else(|| {
+        classify(verr(
+            "m048_frontier_record_invalid",
+            "a frontier item must be an object",
+        ))
+    })?;
+    map.remove("system_binding");
+    map.insert("status".to_string(), json!(status));
+    if let Some(claimability) = claimability {
+        map.insert("claimability".to_string(), json!(claimability));
+    }
+    let prior_root = object_root(&projection).map_err(classify)?;
+    let issuer = observed.system_id.clone();
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        WORK_FRONTIER_ITEM_CONTRACT,
+        &successor,
+        &issuer,
+        Some(&prior_root),
+    )
+    .map_err(classify)?;
+    Ok(ok_child(
+        WORK_FRONTIER_ITEM_CONTRACT,
+        WORK_FRONTIER_ITEM_SCHEMA,
+        &admission,
+    ))
+}
+
+// --- lifecycle 8: WorkEligibilityMatchReceipt (owner-local evidence only) -------------------------
+
+const ELIGIBILITY_CREATE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "frontier_item_ref",
+    "participant_lease_ref",
+    "resource_offer_refs",
+    "capability_offer_refs",
+];
+
+/// The exact tuple an eligibility match asserts lined up.
+///
+/// Resolved fresh from room truth every time it is needed. `eligibility_match_body` records it;
+/// `claim_acquire_inner` re-derives it rather than trusting the record, which is what keeps the
+/// receipt evidence rather than authority.
+struct EligibilityTuple {
+    frontier: Value,
+    lease: Value,
+    resource_offers: Vec<Value>,
+    capability_offers: Vec<Value>,
+}
+
+/// Freshly resolve and revalidate the whole eligibility tuple at one wallet instant.
+///
+/// Every element is re-read from current room children — never from a prior receipt — and each is
+/// checked for same-room membership, liveness at THIS instant, and requirement coverage. This is
+/// the single implementation both the evidence route and claim acquisition use, so a claim can
+/// never be admitted against a weaker check than the one that produced its evidence.
+fn resolve_eligibility_tuple(
+    data_dir: &str,
+    room_ref: &str,
+    frontier_ref: &str,
+    lease_ref: &str,
+    resource_offer_refs: &[String],
+    capability_offer_refs: &[String],
+    wallet_now_ms: u64,
+) -> Result<EligibilityTuple, VErr> {
+    let frontier = admitted(
+        &current_child(
+            data_dir,
+            room_ref,
+            WORK_FRONTIER_ITEM_CONTRACT,
+            frontier_ref,
+        )?
+        .ok_or_else(|| {
+            verr(
+                "m048_frontier_not_found",
+                "the frontier item is not a current child of this room",
+            )
+        })?,
+    )?
+    .clone();
+
+    let lease = admitted(
+        &current_child(data_dir, room_ref, PARTICIPANT_LEASE_CONTRACT, lease_ref)?.ok_or_else(
+            || {
+                verr(
+                    "m048_lease_not_found",
+                    "the participant lease is not a current child of this room",
+                )
+            },
+        )?,
+    )?
+    .clone();
+    match lease_is_live(&lease, wallet_now_ms)? {
+        Ok(()) => {}
+        Err(LeaseLapse::Expired) => {
+            return Err(verr(
+                "m048_lease_expired",
+                "the participant lease has expired at the wallet-authorized instant",
+            ))
+        }
+        Err(_) => {
+            return Err(verr(
+                "m048_lease_not_active",
+                "the participant lease is not active at the wallet-authorized instant",
+            ))
+        }
+    }
+
+    let mut resource_offers = Vec::new();
+    for reference in resource_offer_refs {
+        let offer = admitted(
+            &current_child(data_dir, room_ref, RESOURCE_OFFER_CONTRACT, reference)?.ok_or_else(
+                || {
+                    verr(
+                        "m048_resource_offer_not_found",
+                        "a named resource offer is not a current child of this room",
+                    )
+                },
+            )?,
+        )?
+        .clone();
+        if !offer_is_live(RESOURCE_OFFER_FAMILY, &offer, wallet_now_ms)? {
+            return Err(verr(
+                "m048_resource_offer_expired",
+                "a named resource offer has lapsed at the wallet-authorized instant",
+            ));
+        }
+        // The offer must belong to THIS lease, not merely to this room.
+        if offer
+            .get(RESOURCE_OFFER_FAMILY.lease_field)
+            .and_then(Value::as_str)
+            != Some(lease_ref)
+        {
+            return Err(verr(
+                "m048_resource_offer_foreign_issuer",
+                "a named resource offer was not issued by this participant lease",
+            ));
+        }
+        resource_offers.push(offer);
+    }
+
+    let mut capability_offers = Vec::new();
+    for reference in capability_offer_refs {
+        let offer = admitted(
+            &current_child(data_dir, room_ref, CAPABILITY_OFFER_CONTRACT, reference)?.ok_or_else(
+                || {
+                    verr(
+                        "m048_capability_offer_not_found",
+                        "a named capability offer is not a current child of this room",
+                    )
+                },
+            )?,
+        )?
+        .clone();
+        if !offer_is_live(CAPABILITY_OFFER_FAMILY, &offer, wallet_now_ms)? {
+            return Err(verr(
+                "m048_capability_offer_expired",
+                "a named capability offer has lapsed at the wallet-authorized instant",
+            ));
+        }
+        if offer
+            .get(CAPABILITY_OFFER_FAMILY.lease_field)
+            .and_then(Value::as_str)
+            != Some(lease_ref)
+        {
+            return Err(verr(
+                "m048_capability_offer_foreign_issuer",
+                "a named capability offer was not issued by this participant lease",
+            ));
+        }
+        capability_offers.push(offer);
+    }
+
+    // Requirement coverage: every capability the frontier requires must be advertised by one of
+    // the named capability offers. A missing requirement is a refusal, not a partial match.
+    let required = frontier
+        .get("required_capability_refs")
+        .and_then(Value::as_array)
+        .map(|refs| refs.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let advertised = capability_offers
+        .iter()
+        .flat_map(|offer| {
+            offer
+                .get("capability_descriptor_refs")
+                .and_then(Value::as_array)
+                .map(|refs| {
+                    refs.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>();
+    for requirement in required {
+        if !advertised.iter().any(|entry| entry == requirement) {
+            return Err(verr(
+                "m048_eligibility_requirement_uncovered",
+                format!("`{requirement}` is required by this frontier item and is not advertised"),
+            ));
+        }
+    }
+
+    Ok(EligibilityTuple {
+        frontier,
+        lease,
+        resource_offers,
+        capability_offers,
+    })
+}
+
+/// POST /v1/goal-orchestration/work-eligibility-matches
+pub(crate) async fn handle_match_create(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match match_create_inner(&state.data_dir, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn match_create_inner(
+    data_dir: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            ELIGIBILITY_CREATE_FIELDS,
+            "m048_eligibility_request_invalid",
+        )?;
+        Ok((
+            req_ref(
+                body,
+                "outcome_room_ref",
+                &["outcome-room"],
+                "m048_eligibility_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "frontier_item_ref",
+                &["frontier"],
+                "m048_eligibility_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "participant_lease_ref",
+                &["participant-lease"],
+                "m048_eligibility_request_invalid",
+            )?,
+            ref_list(
+                body,
+                "resource_offer_refs",
+                &["resource-offer"],
+                "m048_eligibility_request_invalid",
+            )?,
+            ref_list(
+                body,
+                "capability_offer_refs",
+                &["capability-offer"],
+                "m048_eligibility_request_invalid",
+            )?,
+        ))
+    })()
+    .map_err(classify)?;
+    let (room_ref, frontier_ref, lease_ref, resource_refs, capability_refs) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &lease_ref,
+        "match",
+        &json!({ "op": "match", "frontier_item_ref": frontier_ref }),
+    )
+    .await?;
+
+    let tuple = resolve_eligibility_tuple(
+        data_dir,
+        &room_ref,
+        &frontier_ref,
+        &lease_ref,
+        &resource_refs,
+        &capability_refs,
+        resolved_at_ms,
+    )
+    .map_err(classify)?;
+
+    let receipt = eligibility_match_body(
+        &room_ref,
+        &tuple.frontier,
+        &tuple.lease,
+        &tuple.resource_offers,
+        &tuple.capability_offers,
+        resolved_at_ms,
+    )
+    .map_err(classify)?;
+    let tail = deterministic_tail(
+        "wem_",
+        "hypervisor.m048.work-eligibility-match.identity.v1",
+        &json!({
+            "outcome_room_ref": room_ref,
+            "frontier_item_ref": frontier_ref,
+            "participant_lease_ref": lease_ref,
+            "resource_offer_refs": resource_refs,
+            "capability_offer_refs": capability_refs,
+        }),
+    );
+    let mut sealed = receipt;
+    sealed["receipt_ref"] = json!(format!("receipt://{tail}"));
+    // Append-only and replay-safe: an identical re-match converges, a divergent one conflicts.
+    persist_local_receipt(data_dir, ELIGIBILITY_DIR, &tail, &sealed).map_err(classify)?;
+    Ok(ok_local(
+        ELIGIBILITY_MATCH_SCHEMA,
+        "work_eligibility_match_receipt",
+        sealed,
+    ))
+}
+
+/// GET /v1/goal-orchestration/work-eligibility-matches
+pub(crate) async fn handle_match_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match scan_local(&state.data_dir, ELIGIBILITY_DIR, ELIGIBILITY_MATCH_SCHEMA) {
+        Ok(receipts) => {
+            let body = json!({
+                "ok": true,
+                "schema_version": ELIGIBILITY_MATCH_SCHEMA,
+                "count": receipts.len(),
+                "work_eligibility_match_receipts": receipts,
+                "projection_only": true,
+                "runtimeTruthSource": "daemon-runtime",
+            });
+            if let Err(error) =
+                room_system::ensure_serialized_body_bound(&body, "m048_projection_too_large")
+            {
+                return classify(error);
+            }
+            (StatusCode::OK, Json(body))
+        }
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/work-eligibility-matches/overview
+pub(crate) async fn handle_match_overview(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match scan_local(&state.data_dir, ELIGIBILITY_DIR, ELIGIBILITY_MATCH_SCHEMA) {
+        Ok(receipts) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "schema_version": ELIGIBILITY_MATCH_SCHEMA,
+                "total": receipts.len(),
+                // Restated on every read: this family grants nothing, so an overview of it cannot
+                // be mistaken for an allocation ledger.
+                "grants": {
+                    "allocation_created": false,
+                    "claim_created": false,
+                    "execution_authority_granted": false,
+                },
+                "projection_only": true,
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        ),
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/work-eligibility-matches/:id
+pub(crate) async fn handle_match_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    if !super::durable_fs::is_normalization_safe(&id) {
+        return classify(verr(
+            "m048_eligibility_ref_invalid",
+            "an eligibility receipt tail must be normalization-safe",
+        ));
+    }
+    match read_local(&state.data_dir, ELIGIBILITY_DIR, &id) {
+        Ok(Some(receipt)) => ok_local(
+            ELIGIBILITY_MATCH_SCHEMA,
+            "work_eligibility_match_receipt",
+            receipt,
+        ),
+        Ok(None) => classify(verr(
+            "m048_eligibility_not_found",
+            "no such work-eligibility match receipt",
+        )),
+        Err(error) => classify(error),
+    }
+}
+
+// --- lifecycle 9: WorkClaimLease v3 --------------------------------------------------------------
+
+const CLAIM_ACQUIRE_FIELDS: &[&str] = &[
+    "outcome_room_ref",
+    "expected_room_state_root",
+    "frontier_item_ref",
+    "participant_lease_ref",
+    "eligibility_match_receipt_ref",
+    "resource_offer_refs",
+    "capability_offer_refs",
+    "bounded_scope_ref",
+    "contribution_policy_ref",
+    "budget_reservation_ref",
+    "context_lease_refs",
+    "authority_resource_compute_data_budget_and_tool_lease_refs",
+    "ttl_seconds",
+];
+
+#[allow(clippy::too_many_arguments)]
+fn build_claim_candidate(
+    claim_id: &str,
+    tuple: &EligibilityTuple,
+    lease_ref: &str,
+    eligibility_ref: &str,
+    body: &Value,
+    issued_at: &str,
+    expires_at: &str,
+) -> Value {
+    let lease = &tuple.lease;
+    json!({
+        "schema_version": WORK_CLAIM_LEASE_SCHEMA,
+        "work_claim_id": claim_id,
+        "frontier_item_ref": tuple.frontier.get("frontier_item_id").cloned().unwrap_or(Value::Null),
+        "claimant_ref": lease.get("participant_ref").cloned().unwrap_or(Value::Null),
+        "claimant_participant_lease_ref": lease_ref,
+        "eligibility_match_receipt_ref": eligibility_ref,
+        // No task offer, acceptance or routing decision exists in the hosted lane.
+        "task_offer_ref": Value::Null,
+        "task_acceptance_ref": Value::Null,
+        "routing_decision_ref": Value::Null,
+        // The claim binds the SAME terms triple the lease binds; it cannot invent its own.
+        "collaboration_terms_ref": lease.get("collaboration_terms_ref").cloned().unwrap_or(Value::Null),
+        "collaboration_terms_root": lease.get("accepted_terms_root").cloned().unwrap_or(Value::Null),
+        "terms_acceptance_ref": lease.get("terms_acceptance_ref").cloned().unwrap_or(Value::Null),
+        "contribution_policy_ref": body.get("contribution_policy_ref").cloned().unwrap_or(Value::Null),
+        "quote_ref": Value::Null,
+        "budget_reservation_ref": body.get("budget_reservation_ref").cloned().unwrap_or(Value::Null),
+        // Contract-required, and deliberately a no-settlement profile: this plane settles nothing.
+        "settlement_profile_ref": "policy://ioi/m048/no-settlement-v1",
+        "bounded_scope_ref": body.get("bounded_scope_ref").cloned().unwrap_or(Value::Null),
+        "context_lease_refs": body.get("context_lease_refs").cloned().unwrap_or_else(|| json!([])),
+        "authority_resource_compute_data_budget_and_tool_lease_refs": body
+            .get("authority_resource_compute_data_budget_and_tool_lease_refs")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "duplicate_work_policy": "exclusive",
+        "issued_at": issued_at,
+        "expires_at": expires_at,
+        // A fresh claim has not heartbeat yet; `expires_at` already carries its deadline.
+        "heartbeat_ref": Value::Null,
+        "renewal_count": 0,
+        "release_or_reassignment_reason": Value::Null,
+        "status": "active",
+    })
+}
+
+/// POST /v1/goal-orchestration/work-claim-leases
+pub(crate) async fn handle_claim_acquire(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match claim_acquire_inner(&state.data_dir, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn claim_acquire_inner(
+    data_dir: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(body, CLAIM_ACQUIRE_FIELDS, "m048_claim_request_invalid")?;
+        Ok((
+            req_ref(
+                body,
+                "outcome_room_ref",
+                &["outcome-room"],
+                "m048_claim_request_invalid",
+            )?,
+            req_root(
+                body,
+                "expected_room_state_root",
+                "m048_claim_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "frontier_item_ref",
+                &["frontier"],
+                "m048_claim_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "participant_lease_ref",
+                &["participant-lease"],
+                "m048_claim_request_invalid",
+            )?,
+            req_ref(
+                body,
+                "eligibility_match_receipt_ref",
+                &["receipt"],
+                "m048_claim_request_invalid",
+            )?,
+            ref_list(
+                body,
+                "resource_offer_refs",
+                &["resource-offer"],
+                "m048_claim_request_invalid",
+            )?,
+            ref_list(
+                body,
+                "capability_offer_refs",
+                &["capability-offer"],
+                "m048_claim_request_invalid",
+            )?,
+            req_ttl(
+                body,
+                "ttl_seconds",
+                CLAIM_TTL_MIN_SECONDS,
+                CLAIM_TTL_MAX_SECONDS,
+                "m048_claim_request_invalid",
+            )?,
+        ))
+    })()
+    .map_err(classify)?;
+    let (
+        room_ref,
+        expected_head,
+        frontier_ref,
+        lease_ref,
+        eligibility_ref,
+        resource_refs,
+        capability_refs,
+        ttl_seconds,
+    ) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+
+    // The wallet instant is resolved IMMEDIATELY before revalidation and the head CAS, so nothing
+    // between the caller's read and the write is judged against a stale clock.
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governed::Governance::Participant,
+        &room_ref,
+        &observed.system_id,
+        &lease_ref,
+        "acquire",
+        &json!({ "op": "acquire", "frontier_item_ref": frontier_ref }),
+    )
+    .await?;
+
+    // The eligibility receipt is EVIDENCE, never authority. It must exist and it must name exactly
+    // this tuple, but the tuple itself is re-derived from current room truth below — a receipt
+    // that has since gone stale cannot carry a claim.
+    let eligibility_tail = eligibility_ref
+        .strip_prefix("receipt://")
+        .filter(|tail| super::durable_fs::is_normalization_safe(tail))
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_eligibility_ref_invalid",
+                "an eligibility receipt ref must be receipt://<normalization-safe tail>",
+            ))
+        })?;
+    let evidence = read_local(data_dir, ELIGIBILITY_DIR, eligibility_tail)
+        .map_err(classify)?
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_eligibility_not_found",
+                "no such work-eligibility match receipt",
+            ))
+        })?;
+    let expected_tail = deterministic_tail(
+        "wem_",
+        "hypervisor.m048.work-eligibility-match.identity.v1",
+        &json!({
+            "outcome_room_ref": room_ref,
+            "frontier_item_ref": frontier_ref,
+            "participant_lease_ref": lease_ref,
+            "resource_offer_refs": resource_refs,
+            "capability_offer_refs": capability_refs,
+        }),
+    );
+    if eligibility_tail != expected_tail {
+        return Err(classify(verr(
+            "m048_eligibility_tuple_mismatch",
+            "the eligibility receipt does not name the exact tuple this claim asserts",
+        )));
+    }
+    for grant in [
+        "allocation_created",
+        "claim_created",
+        "execution_authority_granted",
+    ] {
+        if evidence.get(grant).and_then(Value::as_bool) != Some(false) {
+            return Err(classify(verr(
+                "m048_eligibility_record_invalid",
+                "an eligibility receipt that claims to grant anything is not admissible evidence",
+            )));
+        }
+    }
+
+    // FRESH revalidation of the complete tuple at this instant — not a re-read of the receipt.
+    let tuple = resolve_eligibility_tuple(
+        data_dir,
+        &room_ref,
+        &frontier_ref,
+        &lease_ref,
+        &resource_refs,
+        &capability_refs,
+        resolved_at_ms,
+    )
+    .map_err(classify)?;
+
+    // Exclusivity: taken at the observed head and committed against that same head, so a racing
+    // claimant either loses this check or loses the CAS.
+    let claims = current_claims(data_dir, &room_ref).map_err(classify)?;
+    refuse_when_already_claimed(&tuple.frontier, &claims, resolved_at_ms).map_err(classify)?;
+
+    let issued_at = wallet_ms_to_rfc3339(resolved_at_ms).map_err(classify)?;
+    let expires_at =
+        wallet_ms_to_rfc3339(wallet_deadline_ms(resolved_at_ms, ttl_seconds).map_err(classify)?)
+            .map_err(classify)?;
+    let claim_id = format!(
+        "work-claim://{}",
+        deterministic_tail(
+            "wcl_",
+            "hypervisor.m048.work-claim-lease.identity.v1",
+            &json!({
+                "outcome_room_ref": room_ref,
+                "frontier_item_ref": frontier_ref,
+                "participant_lease_ref": lease_ref,
+                "issued_at_wallet_ms": resolved_at_ms,
+            }),
+        )
+    );
+    let candidate = build_claim_candidate(
+        &claim_id,
+        &tuple,
+        &lease_ref,
+        &eligibility_ref,
+        body,
+        &issued_at,
+        &expires_at,
+    );
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        WORK_CLAIM_LEASE_CONTRACT,
+        &candidate,
+        &lease_ref,
+        None,
+    )
+    .map_err(classify)?;
+    Ok(ok_child(
+        WORK_CLAIM_LEASE_CONTRACT,
+        WORK_CLAIM_LEASE_SCHEMA,
+        &admission,
+    ))
+}
+
+/// The claim transitions this build step owns.
+///
+/// `reassign` is deliberately absent: reassignment is a routing decision this plane does not make.
+fn claim_transition_target(op: &str) -> Option<&'static str> {
+    match op {
+        "heartbeat" => Some("active"),
+        "release" => Some("released"),
+        "expire" => Some("expired"),
+        "complete" => Some("completed"),
+        _ => None,
+    }
+}
+
+/// POST /v1/goal-orchestration/work-claim-leases/:id/transition
+pub(crate) async fn handle_claim_transition(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    match claim_transition_inner(&state.data_dir, &id, &body).await {
+        Ok(response) => response,
+        Err(error) => error,
+    }
+}
+
+async fn claim_transition_inner(
+    data_dir: &str,
+    id: &str,
+    body: &Value,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let parsed = (|| -> Result<_, VErr> {
+        closed_object(
+            body,
+            &[
+                "outcome_room_ref",
+                "expected_room_state_root",
+                "op",
+                "heartbeat_ref",
+                "release_or_reassignment_reason",
+            ],
+            "m048_claim_request_invalid",
+        )?;
+        let room_ref = req_ref(
+            body,
+            "outcome_room_ref",
+            &["outcome-room"],
+            "m048_claim_request_invalid",
+        )?;
+        let expected_head = req_root(
+            body,
+            "expected_room_state_root",
+            "m048_claim_request_invalid",
+        )?;
+        let op = req_vocab(
+            body,
+            "op",
+            &["heartbeat", "release", "expire", "complete"],
+            "m048_claim_request_invalid",
+        )?;
+        let heartbeat_ref = opt_ref(
+            body,
+            "heartbeat_ref",
+            &["receipt"],
+            "m048_claim_request_invalid",
+        )?;
+        if heartbeat_ref.is_some() && op != "heartbeat" {
+            return Err(verr(
+                "m048_claim_field_not_admitted_for_transition",
+                "`heartbeat_ref` is admitted only on a heartbeat transition",
+            ));
+        }
+        let reason = str_opt(body, "release_or_reassignment_reason")?;
+        if reason.is_some() && op != "release" {
+            return Err(verr(
+                "m048_claim_field_not_admitted_for_transition",
+                "`release_or_reassignment_reason` is admitted only on a release transition",
+            ));
+        }
+        if op == "heartbeat" && heartbeat_ref.is_none() {
+            return Err(verr(
+                "m048_claim_request_invalid",
+                "a heartbeat transition must carry its receipt:// heartbeat_ref",
+            ));
+        }
+        Ok((room_ref, expected_head, op, heartbeat_ref, reason))
+    })()
+    .map_err(classify)?;
+    let (room_ref, expected_head, op, heartbeat_ref, reason) = parsed;
+
+    let observed = observe_room_at_head(data_dir, &room_ref).map_err(classify)?;
+    if observed.head != expected_head {
+        return Err(classify(verr(
+            "m048_room_head_stale",
+            "the caller-observed room head is not this room's current head",
+        )));
+    }
+    let claim_ref = format!("work-claim://{id}");
+    let projection = current_child(data_dir, &room_ref, WORK_CLAIM_LEASE_CONTRACT, &claim_ref)
+        .map_err(classify)?
+        .ok_or_else(|| {
+            classify(verr(
+                "m048_claim_not_found",
+                "this room admitted no such work claim",
+            ))
+        })?;
+    let claim = admitted(&projection).map_err(classify)?.clone();
+    let current_status = claim
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if CLAIM_TERMINAL_STATUSES.contains(&current_status) {
+        return Err(classify(verr(
+            "m048_claim_terminal",
+            "a terminal work claim admits no further transition",
+        )));
+    }
+    let lease_ref = claim
+        .get("claimant_participant_lease_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+
+    let governance = match op.as_str() {
+        "expire" => governed::Governance::Host,
+        _ => governed::Governance::Participant,
+    };
+    let resolved_at_ms = authorized_instant(
+        data_dir,
+        body,
+        governance,
+        &room_ref,
+        &observed.system_id,
+        &claim_ref,
+        &op,
+        &json!({ "op": op, "work_claim_id": claim_ref }),
+    )
+    .await?;
+
+    // Expiry is decided against wallet time only.
+    if op == "expire"
+        && claim_is_live(&claim, resolved_at_ms, CLAIM_HEARTBEAT_MAX_SECONDS)
+            .map_err(classify)?
+            .is_ok()
+    {
+        return Err(classify(verr(
+            "m048_claim_not_expired",
+            "this claim has not lapsed at the wallet-authorized instant",
+        )));
+    }
+    // A heartbeat may only refresh a claim that is still live; a lapsed one must be released or
+    // expired, never silently resurrected.
+    if op == "heartbeat"
+        && claim_is_live(&claim, resolved_at_ms, CLAIM_HEARTBEAT_MAX_SECONDS)
+            .map_err(classify)?
+            .is_err()
+    {
+        return Err(classify(verr(
+            "m048_claim_lapsed",
+            "this claim has already lapsed and cannot be revived by a heartbeat",
+        )));
+    }
+
+    let target = claim_transition_target(&op).ok_or_else(|| {
+        classify(verr(
+            "m048_claim_transition_unavailable",
+            "no current-generation purpose is registered for this transition",
+        ))
+    })?;
+
+    let mut successor = claim.clone();
+    let map = successor.as_object_mut().ok_or_else(|| {
+        classify(verr(
+            "m048_claim_record_invalid",
+            "a work claim must be an object",
+        ))
+    })?;
+    map.remove("system_binding");
+    map.remove("outcome_room_ref");
+    map.insert("status".to_string(), json!(target));
+    match op.as_str() {
+        "heartbeat" => {
+            // The heartbeat advances the deadline from the wallet instant, bounded by the
+            // heartbeat maximum. This is the only place liveness is extended.
+            let refreshed = wallet_deadline_ms(resolved_at_ms, CLAIM_HEARTBEAT_MAX_SECONDS)
+                .map_err(classify)?;
+            map.insert(
+                "expires_at".to_string(),
+                json!(wallet_ms_to_rfc3339(refreshed).map_err(classify)?),
+            );
+            map.insert("heartbeat_ref".to_string(), json!(heartbeat_ref));
+            let renewals = claim
+                .get("renewal_count")
+                .and_then(Value::as_i64)
+                .unwrap_or(0);
+            map.insert("renewal_count".to_string(), json!(renewals + 1));
+        }
+        "release" => {
+            map.insert("release_or_reassignment_reason".to_string(), json!(reason));
+        }
+        _ => {}
+    }
+
+    let prior_root = object_root(&projection).map_err(classify)?;
+    // Release is ONE admission: a terminal successor of the claim. The frontier item is not
+    // written — its claimability is a projection over live claims, so removing this claim from
+    // that set is the whole of "returning the item to claimable". No Attempt is touched.
+    let admission = admit_child(
+        data_dir,
+        &observed,
+        WORK_CLAIM_LEASE_CONTRACT,
+        &successor,
+        &lease_ref,
+        Some(&prior_root),
+    )
+    .map_err(classify)?;
+    Ok(ok_child(
+        WORK_CLAIM_LEASE_CONTRACT,
+        WORK_CLAIM_LEASE_SCHEMA,
+        &admission,
+    ))
+}
+
+/// An optional bounded free-text field.
+fn str_opt(body: &Value, key: &str) -> Result<Option<String>, VErr> {
+    match body.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(raw)) if !raw.is_empty() && raw.chars().count() <= STRING_MAX => {
+            Ok(Some(raw.clone()))
+        }
+        Some(_) => Err(verr(
+            "m048_claim_request_invalid",
+            format!("`{key}` must be a bounded non-empty string"),
+        )),
+    }
+}
+
+/// GET /v1/goal-orchestration/work-claim-leases
+pub(crate) async fn handle_claim_list(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_claim_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let observed = match observe_room_at_head(&state.data_dir, room_ref) {
+        Ok(observed) => observed,
+        Err(error) => return classify(error),
+    };
+    match current_children(&state.data_dir, room_ref, WORK_CLAIM_LEASE_CONTRACT).and_then(
+        |objects| {
+            ok_child_list(
+                WORK_CLAIM_LEASE_CONTRACT,
+                WORK_CLAIM_LEASE_SCHEMA,
+                &observed,
+                objects,
+            )
+        },
+    ) {
+        Ok(response) => response,
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/work-claim-leases/:id
+pub(crate) async fn handle_claim_get(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Path(id): Path<String>,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_claim_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let claim_ref = format!("work-claim://{id}");
+    match current_child(
+        &state.data_dir,
+        room_ref,
+        WORK_CLAIM_LEASE_CONTRACT,
+        &claim_ref,
+    ) {
+        Ok(Some(projection)) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "object_contract_id": WORK_CLAIM_LEASE_CONTRACT,
+                "schema_version": WORK_CLAIM_LEASE_SCHEMA,
+                "projection": projection,
+                // Full lineage is reachable; a superseded generation is history, not garbage.
+                "lineage_available": true,
+                "projection_only": true,
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        ),
+        Ok(None) => classify(verr(
+            "m048_claim_not_found",
+            "this room admitted no such work claim",
+        )),
+        Err(error) => classify(error),
+    }
+}
+
+/// GET /v1/goal-orchestration/work-claim-leases/overview
+pub(crate) async fn handle_claim_overview(
+    State(state): State<Arc<DaemonState>>,
+    headers: axum::http::HeaderMap,
+    Query(query): OfferQuery,
+) -> (StatusCode, Json<Value>) {
+    if let Err(error) = room_system::request_principal(&state.data_dir, &headers) {
+        return classify(error);
+    }
+    let Some(room_ref) = query.get("outcome_room_ref") else {
+        return classify(verr(
+            "m048_claim_request_invalid",
+            "`outcome_room_ref` is a required query parameter; room children are read per room",
+        ));
+    };
+    let observed = match observe_room_at_head(&state.data_dir, room_ref) {
+        Ok(observed) => observed,
+        Err(error) => return classify(error),
+    };
+    let resolved_at_ms = match authorized_instant(
+        &state.data_dir,
+        &json!({}),
+        governed::Governance::Participant,
+        room_ref,
+        &observed.system_id,
+        room_ref,
+        "read",
+        &json!({ "op": "read", "projection": "work-claim-liveness" }),
+    )
+    .await
+    {
+        Ok(resolved_at_ms) => resolved_at_ms,
+        Err(error) => return error,
+    };
+    match claim_overview_projection(&state.data_dir, room_ref, resolved_at_ms) {
+        Ok(body) => (StatusCode::OK, Json(body)),
+        Err(error) => classify(error),
+    }
+}
+
+/// Pure projection: liveness and lapse evidence for every current claim at one wallet instant.
+fn claim_overview_projection(
+    data_dir: &str,
+    room_ref: &str,
+    resolved_at_ms: u64,
+) -> Result<Value, VErr> {
+    let mut live = 0usize;
+    let mut lapsed = Vec::new();
+    for claim in current_claims(data_dir, room_ref)? {
+        let claim_id = claim
+            .get("work_claim_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        match claim_is_live(&claim, resolved_at_ms, CLAIM_HEARTBEAT_MAX_SECONDS)? {
+            Ok(()) => live += 1,
+            Err(lapse) => lapsed.push(json!({
+                "work_claim_id": claim_id,
+                "frontier_item_ref": claim.get("frontier_item_ref").cloned().unwrap_or(Value::Null),
+                "lapse": match lapse {
+                    ClaimLapse::Terminal => "terminal",
+                    ClaimLapse::Expired => "expired",
+                    ClaimLapse::HeartbeatStale => "heartbeat_stale",
+                },
+            })),
+        }
+    }
+    Ok(json!({
+        "ok": true,
+        "object_contract_id": WORK_CLAIM_LEASE_CONTRACT,
+        "schema_version": WORK_CLAIM_LEASE_SCHEMA,
+        "outcome_room_ref": room_ref,
+        "live": live,
+        "lapsed": lapsed,
+        "evaluated_at_wallet_ms": resolved_at_ms,
+        // Reporting a lapse is not releasing it: release stays an explicit claim transition.
+        "projection_only": true,
+        "runtimeTruthSource": "daemon-runtime",
+    }))
+}
+
 #[cfg(test)]
 mod m048_tests {
     use super::super::outcome_room_routes::is_rfc3339;
@@ -4101,16 +5690,18 @@ mod m048_tests {
         directory
     }
 
-    fn claim(status: &str, expires_at: &str, heartbeat_ms: Option<u64>) -> Value {
+    /// A claim shaped like the registered v3 payload: `expires_at` is the whole deadline, and
+    /// `heartbeat_ref` records only THAT a heartbeat happened, never when — the contract has no
+    /// field for when, which is exactly why the deadline carries it.
+    fn claim(status: &str, expires_at: &str, heartbeat_ref: Option<&str>) -> Value {
         let mut claim = json!({
             "work_claim_id": "work-claim://demo/1",
             "frontier_item_ref": "frontier://demo/1",
             "status": status,
             "expires_at": expires_at,
         });
-        if let Some(observed) = heartbeat_ms {
-            claim["heartbeat_observed_at_ms"] = json!(observed);
-            claim["heartbeat_ref"] = json!("receipt://demo/heartbeat-1");
+        if let Some(reference) = heartbeat_ref {
+            claim["heartbeat_ref"] = json!(reference);
         }
         claim
     }
@@ -4136,7 +5727,7 @@ mod m048_tests {
         let claims = vec![claim(
             "active",
             "2026-08-26T13:00:00Z",
-            Some(NOON_MS - 10_000),
+            Some("receipt://hb_one"),
         )];
         let projection =
             frontier_claimability(&frontier(), &claims, NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS)
@@ -4153,12 +5744,9 @@ mod m048_tests {
 
     #[test]
     fn an_expired_claim_returns_the_item_to_claimable_without_any_write() {
-        // The claim expired one second before the wallet-authorized instant.
-        let claims = vec![claim(
-            "active",
-            "2026-08-26T11:59:59Z",
-            Some(NOON_MS - 10_000),
-        )];
+        // The claim's term ran out one second before the wallet-authorized instant, and it never
+        // heartbeat — so it reads as a plain expiry rather than as a stopped heartbeat.
+        let claims = vec![claim("active", "2026-08-26T11:59:59Z", None)];
         let projection =
             frontier_claimability(&frontier(), &claims, NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS)
                 .expect("the projection resolves");
@@ -4173,9 +5761,13 @@ mod m048_tests {
 
     #[test]
     fn a_stale_heartbeat_returns_the_item_to_claimable() {
-        // The last heartbeat is older than the bounded maximum at the wallet instant.
-        let stale = NOON_MS - (CLAIM_HEARTBEAT_MAX_SECONDS + 1) * 1_000;
-        let claims = vec![claim("active", "2026-08-26T13:00:00Z", Some(stale))];
+        // A claim that HAD been heartbeating and stopped: its last heartbeat advanced the deadline
+        // only as far as 11:59, which the wallet instant has now passed.
+        let claims = vec![claim(
+            "active",
+            "2026-08-26T11:59:00Z",
+            Some("receipt://hb_one"),
+        )];
         let projection =
             frontier_claimability(&frontier(), &claims, NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS)
                 .expect("the projection resolves");
@@ -4187,19 +5779,61 @@ mod m048_tests {
     }
 
     #[test]
-    fn a_claim_that_never_heartbeat_is_not_live() {
-        let claims = vec![claim("active", "2026-08-26T13:00:00Z", None)];
+    fn a_claim_that_never_heartbeat_runs_out_its_original_term() {
+        // Within its term it is live even without a heartbeat: the deadline it was issued with is
+        // the promise it has not yet broken.
+        let live = claim("active", "2026-08-26T13:00:00Z", None);
         assert_eq!(
-            claim_is_live(&claims[0], NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS).unwrap(),
-            Err(ClaimLapse::HeartbeatStale),
-            "a claim that has never proven liveness has not proven liveness"
+            claim_is_live(&live, NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS).unwrap(),
+            Ok(())
         );
+        // Past that deadline it lapses with no heartbeat ever having moved it.
+        let lapsed = claim("active", "2026-08-26T11:00:00Z", None);
+        assert_eq!(
+            claim_is_live(&lapsed, NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS).unwrap(),
+            Err(ClaimLapse::Expired)
+        );
+    }
+
+    #[test]
+    fn the_registered_claim_contract_has_nowhere_to_store_a_heartbeat_instant() {
+        // This is why `expires_at` carries the heartbeat deadline. If a future contract revision
+        // adds an observation field, this pin fails and the model can be revisited deliberately
+        // rather than drifting.
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../../../docs/architecture/_meta/schemas/work-claim-lease.v3.schema.json"
+        ))
+        .expect("the registered claim schema parses");
+        assert_eq!(
+            schema["additionalProperties"],
+            json!(false),
+            "the claim contract is closed, so no extra liveness field may be smuggled in"
+        );
+        let properties = schema["properties"]
+            .as_object()
+            .expect("declared properties");
+        for absent in [
+            "heartbeat_observed_at_ms",
+            "heartbeat_at",
+            "last_heartbeat_at",
+        ] {
+            assert!(
+                !properties.contains_key(absent),
+                "`{absent}` is not a registered field; liveness must ride on `expires_at`"
+            );
+        }
+        assert!(properties.contains_key("expires_at"));
+        assert!(properties.contains_key("heartbeat_ref"));
     }
 
     #[test]
     fn a_terminal_claim_holds_nothing() {
         for status in CLAIM_TERMINAL_STATUSES {
-            let claims = vec![claim(status, "2026-08-26T13:00:00Z", Some(NOON_MS - 1_000))];
+            let claims = vec![claim(
+                status,
+                "2026-08-26T13:00:00Z",
+                Some("receipt://hb_one"),
+            )];
             assert_eq!(
                 claim_is_live(&claims[0], NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS).unwrap(),
                 Err(ClaimLapse::Terminal),
@@ -4214,7 +5848,11 @@ mod m048_tests {
 
     #[test]
     fn an_unregistered_claim_status_is_refused_rather_than_treated_as_live() {
-        let claims = vec![claim("invented", "2026-08-26T13:00:00Z", Some(NOON_MS))];
+        let claims = vec![claim(
+            "invented",
+            "2026-08-26T13:00:00Z",
+            Some("receipt://hb_one"),
+        )];
         assert_eq!(
             claim_is_live(&claims[0], NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS)
                 .expect_err("an unregistered status is a refusal")
@@ -4227,7 +5865,7 @@ mod m048_tests {
     fn max_concurrency_is_honoured_above_one() {
         let mut item = frontier();
         item["max_concurrency"] = json!(2);
-        let mut first = claim("active", "2026-08-26T13:00:00Z", Some(NOON_MS - 1_000));
+        let mut first = claim("active", "2026-08-26T13:00:00Z", Some("receipt://hb_one"));
         first["work_claim_id"] = json!("work-claim://demo/1");
         let mut second = first.clone();
         second["work_claim_id"] = json!("work-claim://demo/2");
@@ -4247,7 +5885,7 @@ mod m048_tests {
 
     #[test]
     fn a_claim_on_a_different_frontier_item_does_not_block_this_one() {
-        let mut other = claim("active", "2026-08-26T13:00:00Z", Some(NOON_MS - 1_000));
+        let mut other = claim("active", "2026-08-26T13:00:00Z", Some("receipt://hb_one"));
         other["frontier_item_ref"] = json!("frontier://demo/other");
         let projection =
             frontier_claimability(&frontier(), &[other], NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS)
@@ -5075,12 +6713,9 @@ mod m048_tests {
         // A4 added lease and offer routes; the contribution arc is still later. If one of those
         // families gets re-pointed early, this catches it.
         for not_yet in [
-            "m048_collaboration_routes::handle_frontier",
-            "m048_collaboration_routes::handle_claim",
             "m048_collaboration_routes::handle_attempt",
             "m048_collaboration_routes::handle_finding",
             "m048_collaboration_routes::handle_challenge",
-            "m048_collaboration_routes::handle_match_",
         ] {
             assert!(
                 !ROUTER_SOURCE.contains(not_yet),
@@ -5608,10 +7243,10 @@ mod m048_tests {
                 "`{retired}` must not remain mounted; the current generation owns this family"
             );
         }
-        // The eligibility-match family is NOT part of A4 and stays with its predecessor.
+        // A5 took the eligibility-match family too; nothing of that module remains mounted.
         assert!(
-            ROUTER_SOURCE.contains("resource_capability_offer_routes::handle_match_"),
-            "the work-eligibility-match family is a later step and stays where it is"
+            !ROUTER_SOURCE.contains("resource_capability_offer_routes::handle_"),
+            "no predecessor offer/match handler may remain mounted"
         );
     }
 
@@ -5814,7 +7449,7 @@ mod m048_tests {
         // the offer families deliberately do not.
         if matches!(
             contract_id,
-            PARTICIPATION_REQUEST_CONTRACT | PARTICIPANT_LEASE_CONTRACT
+            PARTICIPATION_REQUEST_CONTRACT | PARTICIPANT_LEASE_CONTRACT | WORK_CLAIM_LEASE_CONTRACT
         ) {
             map.insert("outcome_room_ref".to_string(), json!(room_ref));
         }
@@ -6093,6 +7728,435 @@ mod m048_tests {
             &["ai://granted".to_string()],
         )
         .is_ok());
+    }
+
+    // --- A5: frontier, eligibility, claim ------------------------------------------------------
+
+    fn production_frontier_candidate() -> Value {
+        build_frontier_candidate(
+            &format!("frontier://wfi_{}", "ab".repeat(32)),
+            &json!({
+                "item_kind": "verification_need",
+                "objective": "Verify the bounded room result.",
+                "dependency_refs": [],
+                "required_capability_refs": ["capability://demo/code-review"],
+                "required_context_resource_authority_and_evidence_refs": ["scope:room.verify"],
+                "expected_value": 1.0,
+                "uncertainty": 0.25,
+                "priority": 10.0,
+                "stop_condition_ref": "policy://demo/stop",
+                "expires_at": Value::Null,
+            }),
+        )
+    }
+
+    fn production_claim_candidate() -> Value {
+        let tuple = EligibilityTuple {
+            frontier: production_frontier_candidate(),
+            lease: production_lease_candidate(),
+            resource_offers: vec![],
+            capability_offers: vec![],
+        };
+        build_claim_candidate(
+            &format!("work-claim://wcl_{}", "ab".repeat(32)),
+            &tuple,
+            &format!("participant-lease://plz_{}", "cd".repeat(32)),
+            &format!("receipt://wem_{}", "ef".repeat(32)),
+            &json!({
+                "contribution_policy_ref": "policy://demo/contribution",
+                "budget_reservation_ref": "budget://demo/1",
+                "bounded_scope_ref": "task://demo/1",
+                "context_lease_refs": ["context-lease://demo/1"],
+                "authority_resource_compute_data_budget_and_tool_lease_refs": ["grant://demo/work"],
+            }),
+            "2026-08-26T12:00:00Z",
+            "2026-08-26T13:00:00Z",
+        )
+    }
+
+    #[test]
+    fn the_frontier_builder_satisfies_its_registered_v3_contract() {
+        let sealed = seal_like_the_seam(
+            &production_frontier_candidate(),
+            WORK_FRONTIER_ITEM_CONTRACT,
+            &validated_room_ref(),
+        );
+        validate_architecture_contract(WORK_FRONTIER_ITEM_CONTRACT, &sealed).unwrap_or_else(
+            |error| panic!("the production frontier candidate must validate: {error}"),
+        );
+    }
+
+    #[test]
+    fn the_claim_builder_and_its_successors_satisfy_the_registered_v3_contract() {
+        let claim = production_claim_candidate();
+        let sealed = seal_like_the_seam(&claim, WORK_CLAIM_LEASE_CONTRACT, &validated_room_ref());
+        validate_architecture_contract(WORK_CLAIM_LEASE_CONTRACT, &sealed).unwrap_or_else(
+            |error| panic!("the production claim candidate must validate: {error}"),
+        );
+
+        // Every transition successor must also validate — succession is where drift hides.
+        for (status, mutate) in [
+            (
+                "active",
+                json!({ "heartbeat_ref": format!("receipt://hb_{}", "11".repeat(32)), "renewal_count": 1 }),
+            ),
+            (
+                "released",
+                json!({ "release_or_reassignment_reason": "worker stepped down" }),
+            ),
+            ("expired", json!({})),
+            ("completed", json!({})),
+        ] {
+            let mut successor = claim.clone();
+            successor["status"] = json!(status);
+            for (key, value) in mutate.as_object().unwrap() {
+                successor[key.clone()] = value.clone();
+            }
+            let sealed =
+                seal_like_the_seam(&successor, WORK_CLAIM_LEASE_CONTRACT, &validated_room_ref());
+            validate_architecture_contract(WORK_CLAIM_LEASE_CONTRACT, &sealed).unwrap_or_else(
+                |error| panic!("the `{status}` claim successor must validate: {error}"),
+            );
+        }
+    }
+
+    #[test]
+    fn the_validator_rejects_a_broken_frontier_or_claim() {
+        // Mutation check: these validations must be capable of failing.
+        let mut frontier = seal_like_the_seam(
+            &production_frontier_candidate(),
+            WORK_FRONTIER_ITEM_CONTRACT,
+            &validated_room_ref(),
+        );
+        frontier["item_kind"] = json!("daydream");
+        assert!(validate_architecture_contract(WORK_FRONTIER_ITEM_CONTRACT, &frontier).is_err());
+
+        let mut claim = seal_like_the_seam(
+            &production_claim_candidate(),
+            WORK_CLAIM_LEASE_CONTRACT,
+            &validated_room_ref(),
+        );
+        claim.as_object_mut().unwrap().remove("issued_at");
+        assert!(validate_architecture_contract(WORK_CLAIM_LEASE_CONTRACT, &claim).is_err());
+    }
+
+    #[test]
+    fn the_hosted_frontier_profile_pins_single_claim_exclusivity() {
+        let item = production_frontier_candidate();
+        assert_eq!(item["max_concurrency"], json!(1));
+        assert_eq!(item["duplication_policy"], json!("exclusive"));
+        assert_eq!(item["claimability"], json!("open"));
+        // A fresh item asserts no contributions.
+        assert_eq!(item["related_attempt_and_finding_refs"], json!([]));
+
+        // With the hosted profile, one live claim closes the item.
+        let claims = vec![{
+            let mut c = claim("active", "2026-08-26T13:00:00Z", Some("receipt://hb_one"));
+            c["frontier_item_ref"] = item["frontier_item_id"].clone();
+            c
+        }];
+        let projection =
+            frontier_claimability(&item, &claims, NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS).unwrap();
+        assert_eq!(projection["claimable"], json!(false));
+        assert_eq!(projection["max_concurrency"], json!(1));
+    }
+
+    #[test]
+    fn a_frontier_transition_cannot_write_derived_claim_state_or_a_verdict() {
+        // These are refused during parsing, before any room read.
+        for (status, code) in [
+            ("claimed", "m048_frontier_claim_state_is_derived"),
+            ("accepted", "m048_frontier_verdict_unavailable"),
+            ("rejected", "m048_frontier_verdict_unavailable"),
+        ] {
+            let body = json!({
+                "outcome_room_ref": canonical_room_ref(),
+                "expected_room_state_root": format!("sha256:{}", "11".repeat(32)),
+                "status": status,
+            });
+            let parsed = closed_object(
+                &body,
+                &[
+                    "outcome_room_ref",
+                    "expected_room_state_root",
+                    "status",
+                    "claimability",
+                ],
+                "m048_frontier_request_invalid",
+            );
+            assert!(parsed.is_ok());
+            // Reproduce the guard the handler applies.
+            let refusal = if status == "claimed" {
+                "m048_frontier_claim_state_is_derived"
+            } else {
+                "m048_frontier_verdict_unavailable"
+            };
+            assert_eq!(refusal, code);
+        }
+        assert!(FRONTIER_VERDICT_STATUSES.contains(&"accepted"));
+        assert!(FRONTIER_VERDICT_STATUSES.contains(&"rejected"));
+    }
+
+    #[test]
+    fn only_contract_owned_claim_transitions_exist() {
+        for op in ["heartbeat", "release", "expire", "complete"] {
+            assert!(claim_transition_target(op).is_some(), "`{op}` is owned");
+        }
+        for invented in [
+            "reassign", "accept", "verdict", "settle", "payout", "allocate",
+        ] {
+            assert!(
+                claim_transition_target(invented).is_none(),
+                "`{invented}` must not exist on this plane"
+            );
+        }
+        assert_eq!(claim_transition_target("release"), Some("released"));
+        assert_eq!(claim_transition_target("expire"), Some("expired"));
+    }
+
+    #[test]
+    fn a_claim_binds_the_leases_terms_and_grants_no_execution_authority() {
+        let claim = production_claim_candidate();
+        let lease = production_lease_candidate();
+        // The claim cannot invent its own terms triple.
+        assert_eq!(
+            claim["collaboration_terms_ref"],
+            lease["collaboration_terms_ref"]
+        );
+        assert_eq!(
+            claim["collaboration_terms_root"],
+            lease["accepted_terms_root"]
+        );
+        assert_eq!(claim["terms_acceptance_ref"], lease["terms_acceptance_ref"]);
+        assert_eq!(claim["duplicate_work_policy"], json!("exclusive"));
+        assert_eq!(claim["renewal_count"], json!(0));
+        assert_eq!(claim["heartbeat_ref"], Value::Null);
+        // Nothing here is a routing, quoting or settlement decision.
+        for absent in [
+            "task_offer_ref",
+            "task_acceptance_ref",
+            "routing_decision_ref",
+            "quote_ref",
+        ] {
+            assert_eq!(claim[absent], Value::Null, "`{absent}` is not decided here");
+        }
+        assert_eq!(
+            claim["settlement_profile_ref"],
+            json!("policy://ioi/m048/no-settlement-v1"),
+            "the contract requires the field; this plane settles nothing"
+        );
+    }
+
+    #[test]
+    fn a_released_claim_frees_its_item_without_touching_the_item_or_any_attempt() {
+        let item = production_frontier_candidate();
+        let item_ref = item["frontier_item_id"].as_str().unwrap();
+        let mut held = claim("active", "2026-08-26T13:00:00Z", Some("receipt://hb_one"));
+        held["frontier_item_ref"] = json!(item_ref);
+        assert_eq!(
+            frontier_claimability(&item, &[held.clone()], NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS)
+                .unwrap()["claimable"],
+            json!(false)
+        );
+
+        // Release is ONE terminal successor of the claim. The item is byte-identical afterwards.
+        let mut released = held.clone();
+        released["status"] = json!("released");
+        let after = frontier_claimability(&item, &[released], NOON_MS, CLAIM_HEARTBEAT_MAX_SECONDS)
+            .unwrap();
+        assert_eq!(after["claimable"], json!(true));
+        assert_eq!(
+            item,
+            production_frontier_candidate(),
+            "releasing a claim writes nothing onto the frontier item"
+        );
+        assert_eq!(
+            item["related_attempt_and_finding_refs"],
+            json!([]),
+            "no Attempt lineage is touched by a release"
+        );
+    }
+
+    #[test]
+    fn eligibility_evidence_is_identified_by_its_exact_tuple() {
+        let tuple = |frontier: &str| {
+            deterministic_tail(
+                "wem_",
+                "hypervisor.m048.work-eligibility-match.identity.v1",
+                &json!({
+                    "outcome_room_ref": canonical_room_ref(),
+                    "frontier_item_ref": frontier,
+                    "participant_lease_ref": "participant-lease://plz_one",
+                    "resource_offer_refs": Vec::<String>::new(),
+                    "capability_offer_refs": vec!["capability-offer://cao_one".to_string()],
+                }),
+            )
+        };
+        assert_eq!(tuple("frontier://a"), tuple("frontier://a"));
+        assert_ne!(
+            tuple("frontier://a"),
+            tuple("frontier://b"),
+            "a different tuple is a different receipt, so a stale one cannot be reused"
+        );
+        assert!(tuple("frontier://a").starts_with("wem_"));
+    }
+
+    #[tokio::test]
+    async fn a5_mutations_refuse_and_write_nothing_without_a_room() {
+        let directory = temp_dir("a5-refusal");
+        let data_dir = directory.to_str().unwrap();
+        let head = format!("sha256:{}", "11".repeat(32));
+
+        let frontier_body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": head,
+            "item_kind": "verification_need",
+            "objective": "verify",
+        });
+        assert_eq!(
+            frontier_create_inner(data_dir, &frontier_body)
+                .await
+                .expect_err("an absent room is refused")
+                .0,
+            StatusCode::NOT_FOUND
+        );
+
+        let claim_body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "expected_room_state_root": head,
+            "frontier_item_ref": "frontier://wfi_one",
+            "participant_lease_ref": "participant-lease://plz_one",
+            "eligibility_match_receipt_ref": "receipt://wem_one",
+            "ttl_seconds": 600,
+        });
+        assert_eq!(
+            claim_acquire_inner(data_dir, &claim_body)
+                .await
+                .expect_err("an absent room is refused")
+                .0,
+            StatusCode::NOT_FOUND
+        );
+
+        let match_body = json!({
+            "outcome_room_ref": canonical_room_ref(),
+            "frontier_item_ref": "frontier://wfi_one",
+            "participant_lease_ref": "participant-lease://plz_one",
+        });
+        assert_eq!(
+            match_create_inner(data_dir, &match_body)
+                .await
+                .expect_err("an absent room is refused")
+                .0,
+            StatusCode::NOT_FOUND
+        );
+
+        // An out-of-bounds claim TTL and an unregistered item kind are bad requests.
+        let mut bad_ttl = claim_body;
+        bad_ttl["ttl_seconds"] = json!(CLAIM_TTL_MAX_SECONDS + 1);
+        assert_eq!(
+            claim_acquire_inner(data_dir, &bad_ttl)
+                .await
+                .expect_err("an out-of-bounds TTL is refused")
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+        let mut bad_kind = frontier_body;
+        bad_kind["item_kind"] = json!("daydream");
+        assert_eq!(
+            frontier_create_inner(data_dir, &bad_kind)
+                .await
+                .expect_err("an unregistered item kind is refused")
+                .0,
+            StatusCode::BAD_REQUEST
+        );
+
+        for family in OWNER_LOCAL_FAMILIES {
+            assert!(
+                !directory.join(family).exists(),
+                "a refused A5 mutation writes nothing"
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_claim_transition_admits_a_field_only_on_the_verb_that_owns_it() {
+        let directory = temp_dir("a5-claim-fields");
+        let data_dir = directory.to_str().unwrap();
+        let head = format!("sha256:{}", "11".repeat(32));
+        for (op, key, value) in [
+            ("release", "heartbeat_ref", json!("receipt://hb_one")),
+            (
+                "heartbeat",
+                "release_or_reassignment_reason",
+                json!("because"),
+            ),
+        ] {
+            let mut body = json!({
+                "outcome_room_ref": canonical_room_ref(),
+                "expected_room_state_root": head,
+                "op": op,
+            });
+            body[key] = value;
+            let (status, Json(payload)) = claim_transition_inner(data_dir, "wcl_one", &body)
+                .await
+                .expect_err("a field outside its verb is refused");
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(
+                payload.pointer("/error/code").and_then(Value::as_str),
+                Some("m048_claim_field_not_admitted_for_transition")
+            );
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn the_predecessor_frontier_claim_and_match_handlers_are_no_longer_mounted() {
+        for retired in [
+            "work_frontier_claim_routes::handle_",
+            "resource_capability_offer_routes::handle_match_",
+        ] {
+            assert!(
+                !ROUTER_SOURCE.contains(retired),
+                "`{retired}` must not remain mounted; the current generation owns this family"
+            );
+        }
+        // The predecessor modules stay declared and their recovery stays wired.
+        assert!(ROUTER_SOURCE.contains("mod work_frontier_claim_routes;"));
+        assert!(ROUTER_SOURCE.contains("mod resource_capability_offer_routes;"));
+    }
+
+    #[test]
+    fn every_a5_route_is_mounted_at_its_exact_path_and_handler() {
+        for (path, handler) in [
+            (
+                "/v1/goal-orchestration/work-frontier-items/overview",
+                "m048_collaboration_routes::handle_frontier_overview",
+            ),
+            (
+                "/v1/goal-orchestration/work-frontier-items/:id/transition",
+                "m048_collaboration_routes::handle_frontier_transition",
+            ),
+            (
+                "/v1/goal-orchestration/work-eligibility-matches",
+                "m048_collaboration_routes::handle_match_create",
+            ),
+            (
+                "/v1/goal-orchestration/work-eligibility-matches/overview",
+                "m048_collaboration_routes::handle_match_overview",
+            ),
+            (
+                "/v1/goal-orchestration/work-claim-leases",
+                "m048_collaboration_routes::handle_claim_acquire",
+            ),
+            (
+                "/v1/goal-orchestration/work-claim-leases/:id/transition",
+                "m048_collaboration_routes::handle_claim_transition",
+            ),
+        ] {
+            assert!(ROUTER_SOURCE.contains(path), "`{path}` must be mounted");
+            assert!(ROUTER_SOURCE.contains(handler), "`{handler}` must be named");
+        }
     }
 
     #[test]

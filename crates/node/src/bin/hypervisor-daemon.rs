@@ -3138,37 +3138,37 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/goal-orchestration/work-frontier-items",
-            axum::routing::get(work_frontier_claim_routes::handle_frontier_list)
-                .post(work_frontier_claim_routes::handle_frontier_create),
+            axum::routing::get(m048_collaboration_routes::handle_frontier_list)
+                .post(m048_collaboration_routes::handle_frontier_create),
         )
         .route(
             "/v1/goal-orchestration/work-frontier-items/overview",
-            axum::routing::get(work_frontier_claim_routes::handle_frontier_overview),
+            axum::routing::get(m048_collaboration_routes::handle_frontier_overview),
         )
         .route(
             "/v1/goal-orchestration/work-frontier-items/:id",
-            axum::routing::get(work_frontier_claim_routes::handle_frontier_get),
+            axum::routing::get(m048_collaboration_routes::handle_frontier_get),
         )
         .route(
             "/v1/goal-orchestration/work-frontier-items/:id/transition",
-            axum::routing::post(work_frontier_claim_routes::handle_frontier_transition),
+            axum::routing::post(m048_collaboration_routes::handle_frontier_transition),
         )
         .route(
             "/v1/goal-orchestration/work-claim-leases",
-            axum::routing::get(work_frontier_claim_routes::handle_claim_list)
-                .post(work_frontier_claim_routes::handle_claim_acquire),
+            axum::routing::get(m048_collaboration_routes::handle_claim_list)
+                .post(m048_collaboration_routes::handle_claim_acquire),
         )
         .route(
             "/v1/goal-orchestration/work-claim-leases/overview",
-            axum::routing::get(work_frontier_claim_routes::handle_claim_overview),
+            axum::routing::get(m048_collaboration_routes::handle_claim_overview),
         )
         .route(
             "/v1/goal-orchestration/work-claim-leases/:id",
-            axum::routing::get(work_frontier_claim_routes::handle_claim_get),
+            axum::routing::get(m048_collaboration_routes::handle_claim_get),
         )
         .route(
             "/v1/goal-orchestration/work-claim-leases/:id/transition",
-            axum::routing::post(work_frontier_claim_routes::handle_claim_transition),
+            axum::routing::post(m048_collaboration_routes::handle_claim_transition),
         )
         .route(
             "/v1/goal-orchestration/resource-offers",
@@ -3206,16 +3206,16 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/goal-orchestration/work-eligibility-matches",
-            axum::routing::get(resource_capability_offer_routes::handle_match_list)
-                .post(resource_capability_offer_routes::handle_match_create),
+            axum::routing::get(m048_collaboration_routes::handle_match_list)
+                .post(m048_collaboration_routes::handle_match_create),
         )
         .route(
             "/v1/goal-orchestration/work-eligibility-matches/overview",
-            axum::routing::get(resource_capability_offer_routes::handle_match_overview),
+            axum::routing::get(m048_collaboration_routes::handle_match_overview),
         )
         .route(
             "/v1/goal-orchestration/work-eligibility-matches/:id",
-            axum::routing::get(resource_capability_offer_routes::handle_match_get),
+            axum::routing::get(m048_collaboration_routes::handle_match_get),
         )
         .route(
             "/v1/goal-orchestration/attempts",
