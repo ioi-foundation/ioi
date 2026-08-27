@@ -230,6 +230,7 @@ check(
 
 const expectedApplicationContracts = [
   "attempt/v3",
+  "capability-offer/v3",
   "collaborative-work-graph/v1",
   "finding/v3",
   "goal-grounding-loop/v1",
@@ -244,6 +245,9 @@ const expectedApplicationContracts = [
   "outcome-room-discussion-projection/v1",
   "outcome-room/v2",
   "participant-state-bundle/v3",
+  "resource-offer/v3",
+  "room-participant-lease/v3",
+  "room-participation-request/v3",
   "verifier-challenge/v3",
   "work-claim-lease/v3",
   "work-frontier-item/v3",

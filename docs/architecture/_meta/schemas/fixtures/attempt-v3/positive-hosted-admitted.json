@@ -19,7 +19,7 @@
   "bound_coordinates": {
     "outcome_room": {
       "record_ref": "outcome-room://demo",
-      "host_domain_ref": "domain://ioi-hosted",
+      "host_domain_ref": "system://room/demo",
       "control_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
     },
     "frontier_item": {
