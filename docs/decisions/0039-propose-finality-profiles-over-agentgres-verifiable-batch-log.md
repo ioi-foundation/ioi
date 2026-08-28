@@ -9,6 +9,15 @@
   recorded against the gates below, and the proof-audit blockers to any
   successor version stated. The status remains **Proposed**; no gate is closed
   by that revision and no runtime authority, default, or `v1` meaning changes.)
+  Revised again 2026-08-28: the source-neutral recognition, availability,
+  retention, verifier, certificate, and distinct v2 checkpoint/proof contracts
+  are now registered, and a fail-closed offline verifier plus reference
+  `single_authority_v1` emitter exists. This removes the proof-format blockers
+  recorded below but does not accept the ADR: no production Agentgres path yet
+  persists the admitted operation, state transition, individual receipt, v2
+  checkpoint, certificate, availability commitment, and root at one durable
+  linearization point before ACK, so atomic recovery and admitted cutover are
+  not established.
 - Owners: Agentgres / ordering and finality / wallet.network authority
 - Refines if accepted: ADRs 0003 and 0038 and the ordering/finality profiles
 - Bounded by, and does not amend: the source-neutral deterministic admission
@@ -371,9 +380,11 @@ resolve: it lands at K3 through K7 according to scarcity, atomicity, economic
 finality, world-dependence, and authority effect, and it lands at K6 whenever
 the class cannot be determined.
 
-This class set is **proposed vocabulary**. It is not a canonical member set, it
-is not registered in `canonical-enums.md`, and no implementation may cite it as
-authority. It is the design surface this ADR asks review to attack.
+This class set is now the registered source-neutral
+`ioi.recognition-class.v1` member set. Registration makes the vocabulary
+validatable; it does not accept this ADR's proposed mechanisms, grant runtime
+authority, or let an effect choose its own class. Production derivation and
+admission evidence remain separate gates.
 
 ### Receipt compatibility and portable proofs
 
@@ -386,15 +397,15 @@ silently reinterpreting the v1 linear chain would invalidate every proof
 already issued against it, which is the specific failure this paragraph exists
 to prevent.
 
-A **distinctly versioned** successor is the natural portable-proof follow-on. If
-one is built, each successor checkpoint/finality claim binds all of the
+The distinctly versioned `ReceiptCheckpoint` v2 and `ReceiptProofBundle` v2 are
+now registered alongside v1. Each v2 checkpoint/finality claim binds all of the
 following. The list is deliberately long because each omission is a place a
 verifier would have to guess, and a guessing verifier is a verifier that can be
 walked:
 
 - **institution/domain identity and authority epoch** — which bounded System's
-  truth this is, under which authority epoch, so a claim cannot be replayed
-  against a different institution or a superseded authority;
+  truth this is, under which authority and revocation epochs, so a claim cannot
+  be replayed against a different institution or a superseded authority;
 - the **exact inclusive operation range** and the corresponding **individual
   receipt range**, so no operation is provable only as part of an aggregate;
 - the **previous and next canonical heads**, so both history consistency and
@@ -418,22 +429,31 @@ walked:
 - the **finality certificate and the identity of the verifier** that issued or
   is expected to check it.
 
-A successor claim missing any of these fields is incomplete, not compact. Each
+The v2 verifier treats a claim missing any of these fields as incomplete, not compact. Each
 field is a separate claim carrying its own verifier obligation; bundling them
 in one envelope does not merge them into one proof, and a successor bundle
 still proves only the claims it binds (`INV-9`).
 
-Before any successor claim may be made at all, all of the following must exist:
-a **distinct schema version** — never a redefinition of a `v1`; **registered
+The current portable verifier's `integrity` axis proves that the returned
+signer identity signed the exact recomputed checkpoint; its bundle-carried
+issuer expectation is not an independently rooted authority registry. It does
+not prove that signer presently governs the named domain, that the authority is
+current or unrevoked, or that the effect was admitted. Those are the separate
+`authority_admission` and `currentness` axes, which this implementation refuses.
+A relying party must pin or resolve the returned signer identity out of band.
+
+The registered v2 contracts now satisfy these proof-format prerequisites: a
+**distinct schema version** — never a redefinition of a `v1`; **registered
 schemas and invariants** in the contract registry; **positive and negative
 fixtures**, the negative half being the load-bearing one; **offline
 verification** that needs no hosted IOI service; **downgrade resistance**, so a
 verifier cannot be argued into accepting a weaker or older claim shape as
 satisfying a stronger one; and **explicit compatibility behavior** stating what
 a v1-only verifier does when handed a successor bundle and what a successor
-verifier does when handed a v1 bundle. A successor without these is a proposal,
-not a proof format. It is not implemented by this ADR, and it is not the
-already-implemented M03.5 portable v3 authority-grant verifier.
+verifier does when handed a v1 bundle. The `ioi-finality` verifier refuses v1,
+unknown versions, unsupported profiles, unsupported certificate variants, and
+unsupported verifier axes. This remains separate from the already-implemented
+M03.5 portable v3 authority-grant verifier.
 
 Cryptographic agility applies to hashes, signatures, receipt roots, and
 certificate verification through the repository's existing crypto ownership
@@ -526,58 +546,57 @@ signing, root publication, or ACK treated as one recognized-effect transaction;
 no profile cutover, fencing, restart, downgrade, or dual-authority evidence; no
 new batching evidence; and no production checkpoint or finality successor.
 
-### Blockers to any successor version
+### Historical blockers to any successor version
 
-These are prerequisites, not preferences. A successor built before they are
-resolved would bind fields that have nothing canonical to bind to, or inherit a
-binding `v1` never made, which is the guessing verifier this ADR is written to
-prevent:
+These were prerequisites, not preferences, at the prior revision. They are
+retained as the review record that forced a distinct successor instead of a v1
+reinterpretation. The registered source-neutral contracts, v2 schemas and
+invariants, offline verifier, and substitution suite now resolve items 1–7;
+neither v1 schema was modified:
 
-1. **K1–K7 are Proposed vocabulary, not a member set.**
-   [`canonical-enums.md`](../architecture/foundations/canonical-enums.md)
-   deliberately does not register them. A successor's *recognition class* field
-   therefore has no validatable domain, and a verifier handed an unknown value
-   has no defined behavior.
-2. **There is no `FinalityCertificate` contract.** Nothing of that name is
-   registered anywhere. The successor field naming the finality certificate and
-   the identity of its verifier has neither a certificate contract to bind nor
-   a verifier contract to name.
-3. **There is no retention-class vocabulary — and no availability-manifest
-   contract either.** Both appear only in this ADR's own successor-field list.
-   Until they exist, availability stays an assumption rather than a stated
-   obligation with a named checker (`INV-12`).
-4. **There are no canonical verifier-axis member sets** for `integrity`,
-   `valid_as_of`, and `currentness`. The three axes are canon *prose*. The
-   per-claim status vocabulary is registered; the axis vocabulary is not, so a
-   successor can spell what a verifier concluded but not, canonically, which
-   axis it concluded it on.
-5. **The `v1` proof-bundle bindings cannot be silently changed.**
-   `ReceiptCheckpoint` v1 and `ReceiptProofBundle` v1 keep their exact
-   registered meanings; both are additionally still *provisional*, so a
-   successor cannot inherit a settled base.
-6. **The registered `v1` negative corpus does not yet cover root, predecessor,
-   revocation, or manifest substitution.** Six negative fixtures exist across
-   both contracts, exercising domain, staleness, signer/key, and leaf/index.
-   The four substitution classes a successor would most need to refuse are
-   unexercised, so a successor built on this corpus inherits an untested
-   refusal surface at precisely the fields a verifier can be walked on. Canon
-   prose currently describes this corpus as broader than it is; the status
-   artifact records that discrepancy against the registered fixtures.
-7. **`ReceiptProofBundle` v1 does not fully bind its proof material to the
-   registered `ReceiptCheckpoint` structure.** The bundle schema declares
-   `checkpoint` as a bare `{ "type": "object" }`, with no `$ref` to the
-   checkpoint contract and no required properties, and its invariants carry
-   only two rules — schema-hash and leaf-index — neither of which relates
-   `accumulator_root`, `prefix_root`, or `leaf_hash` to the embedded
-   checkpoint's own fields. A v1 bundle can therefore carry a structurally
-   arbitrary checkpoint object that validation will not catch. This is a
-   limitation **of v1**, and it must not be repaired by tightening v1:
-   retroactively constraining the registered shape would invalidate bundles
-   already issued against it, which is the same failure this ADR forbids for
-   the linear-chain reinterpretation. A successor needs its own schema and
-   invariants binding the checkpoint to the proof material, its own negative
-   fixtures for that binding, and explicit compatibility and downgrade
-   behavior in both directions.
+1. **Recognition vocabulary:** K1–K7 lacked a registered member set. Resolved
+   by `ioi.recognition-class.v1`; unknown derivations resolve to K6/fail closed,
+   K1 is non-canonical, and K7 is forbidden to ordinary admission.
+2. **Certificate vocabulary:** `FinalityCertificate` and a verifier contract
+   did not exist. Resolved by the source-neutral registered contracts; runtime
+   verification still refuses every unimplemented certificate variant.
+3. **Availability vocabulary:** retention classes and an availability manifest
+   did not exist. Resolved by separate obligation and manifest contracts; a
+   signature still does not imply availability.
+4. **Verifier axes:** integrity, valid-as-of, and currentness were prose rather
+   than a member set. Resolved by the registered seven-axis vocabulary, with no
+   cross-axis promotion.
+5. **v1 immutability:** the v1 proof bindings could not be silently tightened.
+   Preserved: v2 is parallel and explicit, and both v1 meanings are unchanged.
+6. **Substitution corpus:** the old v1 corpus lacked the necessary successor
+   substitutions. Resolved in the v2 executable suite for root, predecessor,
+   range, authority/revocation epoch, conflict keys, profile, availability,
+   retention, verifier, certificate, and cross-version downgrade.
+7. **Embedded checkpoint binding:** v1's bare checkpoint object could not be
+   retroactively repaired. Resolved by v2's exact embedded checkpoint shape and
+   offline recomputation, including immediate-predecessor body/signature and
+   range/state/head continuity checks.
+
+### Current acceptance blocker
+
+The ADR remains **Proposed**. The smallest framework-level blocker is now the
+missing production recognized-effect transaction: no Agentgres-owned runtime
+path atomically persists the admitted operation append, resulting state,
+individual receipt, v2 checkpoint/root, applicable certificate signature, and
+availability commitment before one durable ACK/public completion. The
+reference emitter operates on already assembled material and therefore does
+not close that transaction boundary.
+
+Until that seam exists, crash injection cannot prove complete-or-none recovery
+for the whole recognized effect, and a profile-change operation cannot prove
+prior-writer fencing or absence of a dual-authority interval. Consequently no
+v2 profile is production-selectable or default-authorized. Peer-bearing AFT,
+threshold/witness, external-chain, and batching work remain separate
+per-profile qualifications, not prerequisites for registering or verifying the
+framework.
+
+The exact adjudication and per-profile matrix are recorded in
+[`m04-9-finality-framework-adjudication.v1.json`](../architecture/_meta/evidence/m04-9-finality-framework-adjudication.v1.json).
 
 ## Options explicitly not reopened
 

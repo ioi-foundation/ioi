@@ -1,0 +1,180 @@
+{
+  "evidence_format": "ioi.m049.finality-framework-adjudication.v1",
+  "recorded_at": "2026-08-28",
+  "baseline": {
+    "required_local_master": "46eaad373109cea05d9e5947b315e2aa5fa748f5",
+    "required_ancestor": "2a20e73e6c6028cec121142a5a35311d2d91306d",
+    "observed_origin_master": "795ee35cc776d2cc30b23e0cb7f86ff1f2fa0173",
+    "contract_and_verifier_commit": "d60c2b711",
+    "proof_continuity_hardening_commit": "8d4f39871",
+    "claim_boundary_hardening_commit": "41bfc5dfa",
+    "remote_mutated": false
+  },
+  "closure_boundary": {
+    "manifest_source": "internal-docs/implementation/program/manifest.v1.json",
+    "module_source": "internal-docs/implementation/modules/M04-work-execution-and-labor-plane.md",
+    "manifest_units": "M04.1-M04.8",
+    "m04_9_manifest_unit_exists": false,
+    "decision": "M04.9 is an evidence/qualification label, not a program completion unit. The source-neutral registration and portable-verification framework is closed by this leg; production recognized-effect atomicity, cutover, and each non-single-authority profile remain separately gated. No manifest completion claim is invented.",
+    "later_profile_qualifications": [
+      "peer-bearing AFT certificate emission and verification",
+      "replicated single-authority fault and recovery qualification",
+      "threshold-authority or authority-bearing witness qualification",
+      "non-authority witness non-equivocation/freshness qualification",
+      "external-chain finality issuer, verifier, reorg, and recovery qualification",
+      "batching, only after measured need and preservation of individual receipts plus atomic recovery"
+    ]
+  },
+  "authority_position": {
+    "universal_law": "The Web4 deterministic admission kernel or a conforming operational-state substrate remains source-neutral C1-C12.",
+    "current_runtime_owner": "Agentgres is IOI's first-party canonical conforming implementation and current owner of admitted operational truth.",
+    "conformance_grants_authority": false,
+    "second_truth_spine_created": false,
+    "runtime_default_changed": false,
+    "deployment_manifest_changed": false,
+    "profile_cutover_authorized": false
+  },
+  "registered_contracts": [
+    "schema://ioi/foundations/recognition-class/v1",
+    "schema://ioi/foundations/conflict-authority-binding/v1",
+    "schema://ioi/foundations/retention-class/v1",
+    "schema://ioi/foundations/verifier-contract/v1",
+    "schema://ioi/foundations/availability-manifest/v1",
+    "schema://ioi/foundations/finality-certificate/v1",
+    "schema://ioi/foundations/receipt-checkpoint/v2",
+    "schema://ioi/foundations/receipt-proof-bundle/v2"
+  ],
+  "v1_preservation": {
+    "receipt_checkpoint_v1_schema_changed": false,
+    "receipt_proof_bundle_v1_schema_changed": false,
+    "receipt_checkpoint_v1_meaning": "unchanged linear ioi.receipt-hash-chain-jcs-sha256.v1 checkpoint",
+    "receipt_proof_bundle_v1_meaning": "unchanged registered v1 proof bundle",
+    "v2_compatibility": "parallel version; no implicit migration; v1 and unknown versions refused by the v2 verifier"
+  },
+  "v2_claim_boundary": {
+    "emitter": "crates/ioi-finality::emit_single_authority",
+    "offline_verifier": "crates/ioi-finality::verify_bundle and ioi-receipt-proof-verify",
+    "implemented_profile": "single_authority",
+    "implemented_certificate_variant": "single_authority_v1",
+    "emitter_recognition_scope": "resolved canonical ordinary-admission K2 or K3 only; K1, K4-K7, unknown/ambiguous derivation, non-canonical, and extraordinary paths refuse",
+    "implemented_axes": ["integrity", "availability"],
+    "availability_condition": "The availability axis is established only when the signed certificate claims it, the named verifier contract supports it, the manifest status is verified, at least one payload is present, retention is not ephemeral-until-ACK, every payload hash/length is recomputed, and declared copy/failure-domain minima are met.",
+    "signer_trust_boundary": "The verifier independently establishes signature integrity for the signer identity it returns. The bundle-carried issuer expectation is not an external authority root and therefore does not establish authority admission, currentness, or revocation status; a relying party must pin or resolve that signer outside this integrity-only claim.",
+    "explicitly_refused_axes": ["valid_as_of", "currentness", "non_equivocation", "authority_admission", "economic_recognition"],
+    "predecessor_rule": "The immediate predecessor body and embedded signature are recomputed; domain, authority and revocation epochs, operation/receipt ranges, state commitment, and canonical head must be contiguous. Authority change is refused because no admitted-cutover proof exists.",
+    "production_runtime_wired": false,
+    "production_selectable": false,
+    "default_authorized": false
+  },
+  "substitution_refusals": [
+    "operation or receipt root",
+    "predecessor presence, body, hash, head, range, or state continuity",
+    "operation or individual-receipt range",
+    "authority epoch",
+    "authority revocation epoch",
+    "conflict keys or touched object/version material",
+    "profile or certificate variant",
+    "availability manifest or payload",
+    "retention class or declared copy/failure-domain minimum",
+    "verifier contract or unsupported verifier axis",
+    "certificate body, key, or signature",
+    "v1, unknown-version, or cross-version downgrade"
+  ],
+  "recognized_effect_transaction": {
+    "required_phases": [
+      "admitted operation append",
+      "state transition",
+      "individual receipt creation",
+      "checkpoint and root construction",
+      "applicable certificate construction and signing",
+      "required availability commitment",
+      "root publication",
+      "durable ACK or public completion"
+    ],
+    "required_linearization_rule": "No ACK or completion may precede the durable point from which recovery can reproduce the entire byte-identical recognized effect.",
+    "implemented_as_one_production_transaction": false,
+    "smallest_blocker": "The reference v2 emitter consumes already assembled material; no Agentgres-owned production path yet persists all phases at one durable linearization point before ACK.",
+    "crash_matrix_status": "blocked_on_missing_atomic_production_seam",
+    "accepted_recovery_outcomes": ["complete byte-identical recognized effect", "no recognized effect and no authoritative ACK"]
+  },
+  "profile_cutover": {
+    "required_operation_bindings": [
+      "previous and next canonical profile/version",
+      "exact cutover epoch and canonical head",
+      "current authority and governance evidence",
+      "prior-writer fencing",
+      "recovery and downgrade behavior",
+      "availability and verifier requirements"
+    ],
+    "implemented": false,
+    "reason": "No v2 profile is production-selectable, and the missing atomic recognized-effect seam prevents an honest restart/fencing proof.",
+    "compatibility_alias_rule": "Any future alias resolves before admission to exactly one canonical versioned member and never becomes a second runtime identity.",
+    "dual_authority_interval_proven_absent": false
+  },
+  "profile_matrix": [
+    {"profile":"single_authority","specified":true,"emitter_implemented":true,"verifier_implemented":true,"single_node_qualified":"ordering candidate only within the historical 27-operation one-validator M04.9 fixture; v2 end-to-end runtime atomicity not qualified","peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
+    {"profile":"replicated_single_authority","specified":true,"emitter_implemented":false,"verifier_implemented":false,"single_node_qualified":false,"peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
+    {"profile":"threshold_authority","specified":true,"emitter_implemented":false,"verifier_implemented":false,"single_node_qualified":false,"peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
+    {"profile":"bft_consensus","specified":true,"emitter_implemented":false,"verifier_implemented":false,"single_node_qualified":"historical AFT control exists outside the v2 certificate path","peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
+    {"profile":"external_chain_finality","specified":true,"emitter_implemented":false,"verifier_implemented":false,"single_node_qualified":false,"peer_fault_qualified":false,"production_selectable":false,"default_authorized":false}
+  ],
+  "timing_adjudication": {
+    "new_numeric_tripwire": null,
+    "reason": "No new repeated matched release baseline and no profile-specific planted-delay campaign were executed. Existing historical runs have unmatched fresh-chain depth/version mixes and polling quantization.",
+    "required_controls_before_tripwire": ["operation sequence", "depth/version range", "scheduler and block cadence", "notification mechanism", "host/build/backend", "profile", "initial tip"],
+    "phases_kept_separate": ["admission", "proposal wait", "ordering/finality", "durability", "notification transport", "polling", "client observation"]
+  },
+  "adr_0039": {
+    "status": "Proposed",
+    "framework_registration_complete": true,
+    "portable_verification_fail_closed": true,
+    "acceptance_withheld": true,
+    "smallest_exact_acceptance_blocker": "missing production atomic recognized-effect transaction; cutover crash/fencing proof depends on that seam",
+    "acceptance_does_not_require_every_profile": true
+  },
+  "verification": [
+    {"command":"npm run check:architecture-contracts","result":"green"},
+    {"command":"npm run check:architecture-docs","result":"green, 163 files and 11 rules"},
+    {"command":"node scripts/implementation-program.mjs --check","result":"green, 13 modules, 101 build units, 16 acceptance gates, and 41 reachable documents"},
+    {"command":"cargo test -p ioi-finality","result":"green, 11 tests including signed emission, outer-hash-recomputed substitutions, immediate-predecessor body and issuer substitution, unavailable verifier inputs, empty/ephemeral/unverified availability, state-version continuity, unsupported profile/axis, and downgrade refusal"},
+    {"command":"cargo tree -i ioi-finality --depth 1","result":"only ioi-finality itself; no production runtime crate depends on or selects the v2 emitter"},
+    {"command":"git diff --check","result":"green"}
+  ],
+  "delegation_ledger": {
+    "provider": "Claude Code",
+    "attempts": [
+      {"session_id":"ea05b2f8-39d4-4da7-a140-a4720f37e3db","session_name":"m049-finality-opus5-review","outcome":"stopped before consuming the dispatch brief; no review result and no writes"},
+      {"session_id":"473917e3-10a1-4311-b663-662d08690223","session_name":"m049-finality-opus5-review-2","outcome":"completed read-only adversarial review; findings reconciled below; no writes"}
+    ],
+    "session_id": "473917e3-10a1-4311-b663-662d08690223",
+    "session_name": "m049-finality-opus5-review-2",
+    "resolved_model": "claude-opus-5",
+    "reasoning_effort": "xhigh",
+    "entitlement": "first-party claude.ai Max subscription verified by repository owner; $0 metered fallback posture",
+    "scope": "read-only adversarial review of d60c2b711^..d60c2b711",
+    "review_worktree": "/home/heathledger/Documents/ioi/repos/ioi/.claude/worktrees/m049-finality-review",
+    "review_worktree_writes": false,
+    "review_worktree_retired_cleanly": true,
+    "reviewer_gate_result": "not run because the Claude-created worktree remained at 795ee35cc rather than the reviewed commit; the repository owner ran all gates against integrated master",
+    "finding_reconciliation": [
+      {"finding":"F-1 artifact-carried signer expectation is not an external trust root","ruling":"accepted as a claim-boundary constraint; VerifiedClaim now exposes signer identity, while authority_admission/currentness/revocation status remain explicitly unimplemented and refused"},
+      {"finding":"F-2 predecessor body hash not recomputed","ruling":"fixed in 8d4f39871 with full predecessor envelope, signature, domain, epoch, range, state, and head continuity verification"},
+      {"finding":"F-3 empty or obligation-only availability could be established","ruling":"fixed across 8d4f39871 and 41bfc5dfa; verified status, nonempty payloads, non-ephemeral retention, payload bytes, copies, and failure domains are required"},
+      {"finding":"F-4 K1-K7 consequences were inert","ruling":"fixed for emission in 8d4f39871; the emitter permits only resolved canonical ordinary K2/K3, while the verifier's integrity axis deliberately does not claim derivation or admission"},
+      {"finding":"F-5 revocation epoch equality did not prove revocation status","ruling":"accepted as an explicit nonclaim; exact epoch binding and same-epoch issuer continuity are checked, but current revocation status requires a future authority-admission/currentness input"},
+      {"finding":"F-6 verifier required_input_contract_ids ignored","ruling":"fixed in 41bfc5dfa; every claimed axis may name only contracts actually validated in the run"},
+      {"finding":"F-7 state commitment version unchecked","ruling":"fixed across 8d4f39871 and 41bfc5dfa with exact checkpoint and touched-object +1 continuity"},
+      {"finding":"F-8 canon registered while ADR remained Proposed","ruling":"intentional adjudication: stable source-neutral vocabulary is registered, but ADR mechanism acceptance remains Proposed and production selection is prohibited"}
+    ],
+    "metered_spend_usd": 0
+  },
+  "explicit_nonclaims": [
+    "No profile has been added to a runtime default, deployment manifest, compatibility alias, or production cutover.",
+    "A single-authority signature does not establish currentness, non-equivocation, authority admission, economic recognition, or peer safety.",
+    "No peer, quorum, witness, threshold, or external-chain evidence is manufactured from the one-validator fixture.",
+    "No recognized-effect crash matrix or cutover restart matrix is claimed green.",
+    "No numeric latency threshold is selected.",
+    "No batching, JMT, fractal partitioning, runtime default, M04.6 ownership, deterministic merge lane, or scheduled authority soak gate is reopened."
+  ],
+  "spend_and_deployment": {"metered_spend_usd":0,"pushed":false,"released":false,"deployed":false,"provider_contacted":false,"paid_resource_created":false}
+}
