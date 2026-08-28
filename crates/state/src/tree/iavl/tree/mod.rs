@@ -15,7 +15,7 @@ use ioi_api::state::{
     ProofProvider, PrunePlan, StateAccess, StateManager, StateScanIter, VerifiableState,
 };
 use ioi_api::storage::NodeStore;
-use ioi_storage::adapter::{commit_and_persist, DeltaAccumulator};
+use ioi_storage::adapter::{commit_and_persist, commit_and_persist_with_block, DeltaAccumulator};
 use ioi_types::app::{to_root_hash, Membership, RootHash};
 use ioi_types::error::StateError;
 use ioi_types::prelude::OptionExt;
@@ -25,6 +25,7 @@ use std::cmp::{max, Ordering};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 /// Calculates the lexicographical successor of a byte slice.
 /// Returns `None` if the slice is all `0xFF` bytes, as there is no successor.
@@ -44,6 +45,94 @@ fn lexicographical_successor(bytes: &[u8]) -> Option<Vec<u8>> {
     }
     // All bytes were 0xFF, no successor exists in this byte space.
     None
+}
+
+/// Reads the estate's opt-in `IOI_AFT_BENCH_TRACE` bench seam.
+fn benchmark_trace_enabled() -> bool {
+    // Match the existing execution/validator seam exactly: presence enables it.
+    std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
+}
+
+#[derive(Clone, Copy, Default)]
+struct HeightDeltaStats {
+    unique_nodes: usize,
+    new_nodes: usize,
+    new_node_bytes: usize,
+}
+
+/// One `[BENCH-IAVL]` sample describing a single combined state+block commit.
+///
+/// Only ever constructed when the bench seam is on. Counts are captured while the
+/// delta accumulator still holds this version, and the line is rendered only after the
+/// store has acknowledged the write, so a failed persist reports nothing.
+struct CombinedCommitSample {
+    /// The block height being committed.
+    height: u64,
+    /// Byte length of the block payload handed to the combined store operation.
+    block_bytes: usize,
+    /// Wall time of the commitment phase: `stage_height_delta` and nothing else.
+    commitment: Duration,
+    /// Wall time of the `commit_and_persist_with_block` await and nothing else.
+    durable_store: Duration,
+    /// AVL height of the committed root. `None` renders as `unavailable`.
+    tree_depth: Option<i32>,
+    /// Nodes the store is told this height references.
+    unique_nodes: usize,
+    /// Nodes whose bytes this height introduces.
+    new_nodes: usize,
+    /// Total canonical bytes of those new nodes.
+    new_node_bytes: usize,
+}
+
+impl CombinedCommitSample {
+    /// `Some` only when the bench seam is enabled.
+    fn begin(height: u64, block_bytes: usize) -> Option<Self> {
+        if !benchmark_trace_enabled() {
+            return None;
+        }
+        Some(Self::new(height, block_bytes))
+    }
+
+    fn new(height: u64, block_bytes: usize) -> Self {
+        Self {
+            height,
+            block_bytes,
+            commitment: Duration::ZERO,
+            durable_store: Duration::ZERO,
+            tree_depth: None,
+            unique_nodes: 0,
+            new_nodes: 0,
+            new_node_bytes: 0,
+        }
+    }
+
+    /// Renders the single trace line. Durations are fractional milliseconds, because
+    /// these phases are routinely sub-millisecond and integer millis would report
+    /// every one of them as zero.
+    fn render(&self, version_count: usize) -> String {
+        let tree_depth = match self.tree_depth {
+            Some(depth) => depth.to_string(),
+            None => "unavailable".to_string(),
+        };
+        format!(
+            "[BENCH-IAVL] height={} version_count={} tree_depth={} unique_nodes={} \
+             new_nodes={} new_node_bytes={} block_bytes={} commitment_ms={:.3} \
+             durable_store_ms={:.3} atomic_state_block=true",
+            self.height,
+            version_count,
+            tree_depth,
+            self.unique_nodes,
+            self.new_nodes,
+            self.new_node_bytes,
+            self.block_bytes,
+            self.commitment.as_secs_f64() * 1000.0,
+            self.durable_store.as_secs_f64() * 1000.0,
+        )
+    }
+
+    fn emit(&self, version_count: usize) {
+        eprintln!("{}", self.render(version_count));
+    }
 }
 
 /// IAVL tree implementation, now store-aware and lazy-loading.
@@ -469,11 +558,79 @@ where
     }
 
     /// Collects all new nodes from the current version's operations into the delta accumulator.
-    fn collect_height_delta(&mut self) -> Result<(), StateError> {
+    fn collect_height_delta(&mut self) -> Result<HeightDeltaStats, StateError> {
+        let mut stats = HeightDeltaStats::default();
         for (hash, node) in &self.node_cache {
             let bytes = super::encode::encode_node_canonical(node)?;
+            stats.unique_nodes += 1;
+            stats.new_nodes += 1;
+            stats.new_node_bytes += bytes.len();
             self.delta.record_new(*hash, bytes);
         }
+        Ok(stats)
+    }
+
+    /// Pins the working height and folds this version's new nodes into the delta
+    /// accumulator, returning the root hash the durable write must carry.
+    ///
+    /// This performs no persistence and no index mutation, so a failed durable write
+    /// leaves the tree exactly where a retry can resume from.
+    fn stage_height_delta(
+        &mut self,
+        height: u64,
+    ) -> Result<(NodeHash, HeightDeltaStats), StateError> {
+        self.current_height = height;
+        let stats = self.collect_height_delta()?;
+        Ok((self.root_hash.unwrap_or(EMPTY_HASH), stats))
+    }
+
+    /// The AVL height of the node at `root`: the number of edges on the longest
+    /// root-to-leaf path, and `-1` for an empty tree, which is the same convention
+    /// `node_height` uses.
+    ///
+    /// `None` when the root node cannot be read back at all. The trace reports that as
+    /// `unavailable` rather than substituting a guess.
+    fn traced_tree_depth(&self, root: NodeHash) -> Option<i32> {
+        if root == EMPTY_HASH {
+            return Some(-1);
+        }
+        self.get_node(root).ok().flatten().map(|node| node.height)
+    }
+
+    /// Fills in the commitment-phase counters of `sample` from the staged delta.
+    ///
+    /// The counters were accumulated while the canonical bytes were produced, avoiding
+    /// a trace-only second `DeltaAccumulator::build()` and its full byte clone.
+    fn record_commitment_sample(
+        &self,
+        sample: &mut CombinedCommitSample,
+        root: NodeHash,
+        stats: HeightDeltaStats,
+    ) {
+        sample.tree_depth = self.traced_tree_depth(root);
+        sample.unique_nodes = stats.unique_nodes;
+        sample.new_nodes = stats.new_nodes;
+        sample.new_node_bytes = stats.new_node_bytes;
+    }
+
+    /// Applies the post-durability bookkeeping for a version the store has already
+    /// acknowledged: indices, refcounts, and the now-redundant caches.
+    ///
+    /// Only ever called after a successful durable write, so commit indices never
+    /// advance ahead of durability.
+    fn finalize_persisted_version(&mut self, height: u64) -> Result<(), StateError>
+    where
+        CS::Witness: Default,
+    {
+        self.delta.clear();
+
+        // Let the StateManager logic update indices, refcounts, etc.
+        let _ = <Self as StateManager>::commit_version(self, height)?;
+
+        // Now that everything is persisted, it is safe to drop the caches.
+        self.node_cache.clear();
+        self.kv_cache.clear();
+
         Ok(())
     }
 
@@ -485,20 +642,54 @@ where
     where
         CS::Witness: Default,
     {
-        self.current_height = height;
-        self.collect_height_delta()?;
-        let root_hash = self.root_hash.unwrap_or(EMPTY_HASH);
+        let (root_hash, _) = self.stage_height_delta(height)?;
         commit_and_persist(store, height, root_hash, &self.delta)
             .await
             .map_err(|e| ioi_types::error::StateError::Backend(e.to_string()))?;
-        self.delta.clear();
+        self.finalize_persisted_version(height)?;
 
-        // Let the StateManager logic update indices, refcounts, etc.
-        let _ = <Self as StateManager>::commit_version(self, height)?;
+        Ok(root_hash)
+    }
 
-        // Now that everything is persisted, it is safe to drop the caches.
-        self.node_cache.clear();
-        self.kv_cache.clear();
+    /// Commits this version and the block payload for `height` through a single
+    /// combined durable store operation, rather than a state commit followed by a
+    /// separate block write.
+    pub async fn commit_version_with_store_and_block<S: NodeStore + ?Sized>(
+        &mut self,
+        height: u64,
+        store: &S,
+        block_bytes: &[u8],
+    ) -> Result<RootHash, StateError>
+    where
+        CS::Witness: Default,
+    {
+        // `None` unless the bench seam is on, which keeps the untraced path free of
+        // clock reads and of the extra delta materialization the sample needs.
+        let mut sample = CombinedCommitSample::begin(height, block_bytes.len());
+        let commitment_started = sample.as_ref().map(|_| Instant::now());
+
+        let (root_hash, stats) = self.stage_height_delta(height)?;
+
+        if let (Some(sample), Some(started)) = (sample.as_mut(), commitment_started) {
+            sample.commitment = started.elapsed();
+            self.record_commitment_sample(sample, root_hash, stats);
+        }
+
+        let store_started = sample.as_ref().map(|_| Instant::now());
+        commit_and_persist_with_block(store, height, root_hash, &self.delta, block_bytes)
+            .await
+            .map_err(|e| ioi_types::error::StateError::Backend(e.to_string()))?;
+        if let (Some(sample), Some(started)) = (sample.as_mut(), store_started) {
+            sample.durable_store = started.elapsed();
+        }
+
+        self.finalize_persisted_version(height)?;
+
+        // Reached only on a durable commit, and `version_count` is read after the
+        // index has taken this height.
+        if let Some(sample) = sample {
+            sample.emit(self.indices.versions_by_height.len());
+        }
 
         Ok(root_hash)
     }
@@ -769,6 +960,16 @@ where
         store: &dyn NodeStore,
     ) -> Result<RootHash, StateError> {
         self.commit_version_with_store(height, store).await
+    }
+
+    async fn commit_version_persist_with_block(
+        &mut self,
+        height: u64,
+        store: &dyn NodeStore,
+        block_bytes: &[u8],
+    ) -> Result<RootHash, StateError> {
+        self.commit_version_with_store_and_block(height, store, block_bytes)
+            .await
     }
 
     fn adopt_known_root(&mut self, root_bytes: &[u8], version: u64) -> Result<(), StateError> {
