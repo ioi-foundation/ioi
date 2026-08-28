@@ -98,7 +98,6 @@ pub async fn run_ingestion_worker<CS>(
         let CollectedBatch {
             processed_batch,
             expected_ts,
-            anchor,
         } = match maybe_batch {
             Some(v) => v,
             None => continue,
@@ -120,9 +119,6 @@ pub async fn run_ingestion_worker<CS>(
             continue;
         }
 
-        let current_tip = tip_watcher.borrow().clone();
-        let current_tip_height = current_tip.height;
-
         if finalize_valid_transactions(
             &workload_client,
             &tx_pool,
@@ -134,9 +130,7 @@ pub async fn run_ingestion_worker<CS>(
             &mut nonce_cache,
             &semantically_valid_indices,
             &processed_batch,
-            anchor,
-            current_tip_height,
-            &current_tip.validator_set,
+            &tip_watcher,
             expected_ts,
         )
         .await

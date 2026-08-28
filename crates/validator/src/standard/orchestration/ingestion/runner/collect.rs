@@ -47,7 +47,6 @@ fn decode_account_nonce(bytes: &[u8]) -> u64 {
 pub(crate) struct CollectedBatch {
     pub processed_batch: Vec<ProcessedTx>,
     pub expected_ts: u64,
-    pub anchor: ioi_types::app::StateAnchor,
 }
 
 pub(crate) async fn collect_next_batch<CS>(
@@ -242,12 +241,9 @@ where
         .map(timestamp_millis_to_legacy_seconds)
         .unwrap_or(0);
 
-    let anchor = root_struct.to_anchor().unwrap_or_default();
-
     Some(CollectedBatch {
         processed_batch,
         expected_ts,
-        anchor,
     })
 }
 

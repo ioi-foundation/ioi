@@ -4,15 +4,31 @@ use crate::standard::orchestration::mempool::{AddResult, Mempool};
 use ioi_api::chain::WorkloadClientApi;
 use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
-use ioi_types::app::{AccountId, ChainTransaction, StateAnchor};
+use ioi_types::app::{AccountId, ChainTransaction, StateRoot};
 use libp2p::PeerId;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, watch, Mutex};
 
-use crate::standard::orchestration::ingestion::types::ProcessedTx;
+use crate::standard::orchestration::ingestion::types::{ChainTipInfo, ProcessedTx};
 use ioi_client::WorkloadClient;
+
+const MAX_LIVE_TIP_VALIDATION_ATTEMPTS: usize = 8;
+
+fn tip_changed_without_regressing(previous: &ChainTipInfo, observed: &ChainTipInfo) -> bool {
+    observed.height >= previous.height
+        && (observed.height != previous.height || observed.state_root != previous.state_root)
+}
+
+fn tip_anchor(tip: &ChainTipInfo) -> ioi_types::app::StateAnchor {
+    StateRoot(if tip.height > 0 {
+        tip.state_root.clone()
+    } else {
+        tip.genesis_root.clone()
+    })
+    .to_anchor()
+    .unwrap_or_default()
+}
 
 fn relay_fanout() -> usize {
     std::env::var("IOI_AFT_TX_RELAY_FANOUT")
@@ -86,9 +102,7 @@ pub(crate) async fn finalize_valid_transactions(
     nonce_cache: &mut lru::LruCache<ioi_types::app::AccountId, u64>,
     semantically_valid_indices: &[usize],
     processed_batch: &[ProcessedTx],
-    anchor: StateAnchor,
-    current_tip_height: u64,
-    current_validator_set: &[Vec<u8>],
+    tip_watcher: &watch::Receiver<ChainTipInfo>,
     expected_ts: u64,
 ) -> bool {
     let mut ordered_check_indices = semantically_valid_indices.to_vec();
@@ -112,14 +126,58 @@ pub(crate) async fn finalize_valid_transactions(
         .map(|&i| processed_batch[i].tx.clone())
         .collect();
 
-    let check_results = match workload_client
-        .check_transactions_at(anchor, expected_ts, txs_to_check)
-        .await
-    {
-        Ok(res) => res,
-        Err(e) => {
-            tracing::error!(target: "ingestion", "Validation IPC failed: {}", e);
-            return false;
+    // Semantic screening above can take long enough for a fast AFT producer to
+    // advance past the state root captured when this batch was collected. Use
+    // the live committed tip for the authoritative anchored check and retry
+    // only when the watched tip demonstrably advanced. Every successful
+    // admission still comes from check_transactions_at; an unavailable,
+    // unchanged, or regressing anchor fails closed.
+    let mut validation_tip = tip_watcher.borrow().clone();
+    let mut validation_attempts = 0usize;
+    let check_results = loop {
+        validation_attempts += 1;
+        match workload_client
+            .check_transactions_at(
+                tip_anchor(&validation_tip),
+                expected_ts,
+                txs_to_check.clone(),
+            )
+            .await
+        {
+            Ok(results) => break results,
+            Err(error) => {
+                let observed_tip = tip_watcher.borrow().clone();
+                if validation_attempts < MAX_LIVE_TIP_VALIDATION_ATTEMPTS
+                    && tip_changed_without_regressing(&validation_tip, &observed_tip)
+                {
+                    validation_tip = observed_tip;
+                    tokio::task::yield_now().await;
+                    continue;
+                }
+
+                tracing::error!(
+                    target: "ingestion",
+                    attempts = validation_attempts,
+                    attempted_height = validation_tip.height,
+                    "Validation IPC failed closed: {}",
+                    error
+                );
+                let mut status_guard = status_cache.lock().await;
+                for index in semantically_valid_indices {
+                    let processed = &processed_batch[*index];
+                    status_guard.put(
+                        processed.receipt_hash_hex.clone(),
+                        TxStatusEntry {
+                            status: TxStatus::Rejected,
+                            error: Some(format!(
+                                "Anchored validation unavailable after {validation_attempts} attempt(s): {error}"
+                            )),
+                            block_height: None,
+                        },
+                    );
+                }
+                return false;
+            }
         }
     };
 
@@ -127,14 +185,14 @@ pub(crate) async fn finalize_valid_transactions(
     let mut receipt_guard = receipt_map.lock().await;
     let mut accepted_count = 0;
     let (leader_peer_targets, leader_peers) =
-        if current_tip_height == 0 || current_validator_set.is_empty() {
+        if validation_tip.height == 0 || validation_tip.validator_set.is_empty() {
             // Before the first committed tip exists, keep admission cheap and rely on generic publish
             // rather than fetching validator set state to derive targeted relays.
             (0, Vec::new())
         } else {
             let leader_accounts = leader_accounts_for_upcoming_heights(
-                current_tip_height,
-                current_validator_set,
+                validation_tip.height,
+                &validation_tip.validator_set,
                 relay_fanout(),
             );
             let leader_peer_targets = leader_accounts
@@ -352,6 +410,27 @@ mod tests {
                 signature: Vec::new(),
             },
         }))
+    }
+
+    fn tip(height: u64, root_byte: u8) -> ChainTipInfo {
+        ChainTipInfo {
+            height,
+            timestamp: height,
+            timestamp_ms: height.saturating_mul(1_000),
+            gas_used: 0,
+            state_root: vec![root_byte; 32],
+            genesis_root: vec![0; 32],
+            validator_set: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn anchored_validation_retry_requires_a_non_regressing_tip_change() {
+        let original = tip(9, 9);
+        assert!(tip_changed_without_regressing(&original, &tip(10, 10)));
+        assert!(tip_changed_without_regressing(&original, &tip(9, 10)));
+        assert!(!tip_changed_without_regressing(&original, &tip(9, 9)));
+        assert!(!tip_changed_without_regressing(&original, &tip(8, 8)));
     }
 
     #[test]
