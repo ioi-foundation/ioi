@@ -1,0 +1,52 @@
+name: M04.8 Wallet Authority Soak
+
+# Full real-chain authority evidence is scheduled and release-qualifying. It is
+# deliberately absent from push and pull_request: the deterministic 111-test
+# architecture matrix is the merge lane, while this journey preserves the
+# state-depth and restart signal that exposed the tracked latency defect.
+on:
+  schedule:
+    - cron: "47 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: m048-wallet-authority-soak
+  cancel-in-progress: false
+
+jobs:
+  wallet_authority_soak:
+    name: Full M04.8 real wallet-authority journey
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y \
+            pkg-config \
+            cmake \
+            libdbus-1-dev \
+            protobuf-compiler \
+            libxcb1-dev \
+            libxdo-dev
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Run the full release-profile authority soak
+        run: npm --prefix apps/hypervisor run soak:m4-room-participation-contribution-wallet-authority
