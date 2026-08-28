@@ -76,6 +76,7 @@ const BASE = {
   genesis_block_interval_ms: 1000,
   genesis_block_interval_provenance: "default:test-genesis",
   block_timestamp_ms: 1_772_000_412_000,
+  proposal_observed_at_ms: 1_772_000_412_100,
   view_timeout_secs: 2,
 };
 
@@ -88,7 +89,7 @@ const RUN = {
 function traceLines(v) {
   return [
     "2026-08-27T00:00:00Z INFO orchestration: unrelated log framing",
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 ordering_profile=${v.ordering_profile} ticker_interval_ms=${v.ticker_interval_ms} ticker_interval_provenance=${v.ticker_interval_provenance} min_tick_ms=${v.min_tick_ms} min_tick_provenance=${v.min_tick_provenance} genesis_block_interval_ms=${v.genesis_block_interval_ms} genesis_block_interval_provenance=${v.genesis_block_interval_provenance} block_timestamp_ms=${v.block_timestamp_ms} view_timeout_secs=${v.view_timeout_secs}`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 ordering_profile=${v.ordering_profile} ticker_interval_ms=${v.ticker_interval_ms} ticker_interval_provenance=${v.ticker_interval_provenance} min_tick_ms=${v.min_tick_ms} min_tick_provenance=${v.min_tick_provenance} genesis_block_interval_ms=${v.genesis_block_interval_ms} genesis_block_interval_provenance=${v.genesis_block_interval_provenance} block_timestamp_ms=${v.block_timestamp_ms} proposal_observed_at_ms=${v.proposal_observed_at_ms} view_timeout_secs=${v.view_timeout_secs}`,
     `[BENCH-CONSENSUS] proposal_select height=${HEIGHT} view=1 candidate_txs=1 valid_txs=1 select_ms=${v.select_ms} verify_ms=${v.verify_ms}`,
     `[BENCH-CONSENSUS] proposal_process height=${HEIGHT} view=1 tx_count=1 process_block_ms=${v.process_block_ms}`,
     `[BENCH-CONSENSUS] proposal_finalize height=${HEIGHT} view=1 finalize_ms=${v.finalize_ms}`,
@@ -581,7 +582,7 @@ test("an artifact spanning two ordering engines is refused", () => {
   const otherHeight = 413;
   const mixedTrace = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=solo ticker_interval_ms=1000 ticker_interval_provenance=config:block_production_interval_secs min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=1000 genesis_block_interval_provenance=default:test-genesis block_timestamp_ms=1772000413000 view_timeout_secs=2`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=solo ticker_interval_ms=1000 ticker_interval_provenance=config:block_production_interval_secs min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=1000 genesis_block_interval_provenance=default:test-genesis block_timestamp_ms=1772000413000 proposal_observed_at_ms=1772000413100 view_timeout_secs=2`,
     `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
     `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
     `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
@@ -949,7 +950,7 @@ test("a run that changed cadence mid-flight is surfaced as two cadence values", 
   const otherHeight = 413;
   const mixed = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=aft ticker_interval_ms=250 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=250 genesis_block_interval_provenance=env:IOI_BENCH_BLOCK_INTERVAL_MS block_timestamp_ms=1772000412250 view_timeout_secs=2`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=aft ticker_interval_ms=250 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=250 genesis_block_interval_provenance=env:IOI_BENCH_BLOCK_INTERVAL_MS block_timestamp_ms=1772000412250 proposal_observed_at_ms=1772000412350 view_timeout_secs=2`,
     `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
     `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
     `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
@@ -1018,15 +1019,15 @@ test("the wrapper bound matches the tighter of the two receivers", () => {
   );
 });
 
-test("the realized block spacing is derived from observed timestamps, not from the floor", () => {
-  // This is the field that can contradict the configured cadence. If a flag
-  // never reached block production, the configured floor moves and this does
-  // not -- which is exactly the discrepancy the previous artifact could not show.
+test("realized proposal spacing comes from producer wall time, not header timestamps", () => {
+  // Header timestamps advance by the on-chain interval by construction. The
+  // producer wall-clock seam is independent and can show that actual proposal
+  // construction could not keep up with a requested floor.
   const single = inputs();
   const nextHeight = HEIGHT + 1;
   const spacedTrace = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${nextHeight} view=1 ordering_profile=aft ticker_interval_ms=50 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=50 genesis_block_interval_provenance=env:IOI_BENCH_BLOCK_INTERVAL_MS block_timestamp_ms=${BASE.block_timestamp_ms + 1000} view_timeout_secs=2`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${nextHeight} view=1 ordering_profile=aft ticker_interval_ms=50 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=50 genesis_block_interval_provenance=env:IOI_BENCH_BLOCK_INTERVAL_MS block_timestamp_ms=${BASE.block_timestamp_ms + 50} proposal_observed_at_ms=${BASE.proposal_observed_at_ms + 1000} view_timeout_secs=2`,
     `[BENCH-CONSENSUS] proposal_select height=${nextHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
     `[BENCH-CONSENSUS] proposal_process height=${nextHeight} view=1 tx_count=1 process_block_ms=1800`,
     `[BENCH-CONSENSUS] proposal_finalize height=${nextHeight} view=1 finalize_ms=120`,
@@ -1041,10 +1042,10 @@ test("the realized block spacing is derived from observed timestamps, not from t
     traceText: spacedTrace,
   });
 
-  // The configured floor claims 50ms on the second height; the chain actually
-  // spaced the blocks 1000ms apart. Both are reported, and they disagree.
-  assert.deepEqual(profile.ordering_parity.observed_block_interval_ms.values, [1000]);
-  assert.equal(profile.ordering_parity.observed_block_interval_ms.measured, true);
+  // Chain time advances 50ms; producer wall time advances 1000ms. The latter,
+  // and only the latter, is reported as realized proposal spacing.
+  assert.deepEqual(profile.ordering_parity.observed_proposal_interval_ms.values, [1000]);
+  assert.equal(profile.ordering_parity.observed_proposal_interval_ms.measured, true);
   assert.ok(
     profile.ordering_parity.scheduler_and_block_cadence.values.some(
       (value) => value.genesis_block_interval_ms === 50,
@@ -1053,11 +1054,11 @@ test("the realized block spacing is derived from observed timestamps, not from t
   );
 });
 
-test("non-adjacent heights are not differenced into a spacing claim", () => {
+test("non-adjacent heights are not differenced into a proposal-spacing claim", () => {
   // One approval means no adjacent pair, so there is no realized spacing to
   // report. Inventing one from a single height would be fabrication.
   const profile = buildCommitPathProfile(inputs());
-  assert.deepEqual(profile.ordering_parity.observed_block_interval_ms.values, []);
+  assert.deepEqual(profile.ordering_parity.observed_proposal_interval_ms.values, []);
 });
 
 // ---------------------------------------------------------------------------

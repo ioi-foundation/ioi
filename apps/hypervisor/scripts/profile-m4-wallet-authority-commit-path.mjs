@@ -191,10 +191,10 @@ export const BENCH_IAVL_CONTRACT = {
 // only: `run_consensus_ticker` returns before the `select!` that owns the kick
 // receiver, so consensus halts outright. Reported as 0, interpreted here.
 //
-// `block_timestamp_ms` is the one OBSERVED field on the line: the on-chain
-// timestamp the height actually carries. Differencing it across consecutive
-// heights yields the realized block spacing, which is the only value here able
-// to contradict the configured floor beside it.
+// `block_timestamp_ms` is the on-chain timestamp the height carries. Its delta
+// is the configured chain interval by construction, not realized wall time.
+// `proposal_observed_at_ms` is sampled from the producer wall clock and its
+// consecutive-height deltas measure realized proposal spacing.
 //
 // Accepted line shape:
 //   [BENCH-ORDERING] proposal height=<u64> view=<u64> ordering_profile=<name>
@@ -204,6 +204,7 @@ export const BENCH_IAVL_CONTRACT = {
 //                    genesis_block_interval_ms=<u64>
 //                    genesis_block_interval_provenance=<token>
 //                    block_timestamp_ms=<u64>
+//                    proposal_observed_at_ms=<u64>
 //                    view_timeout_secs=<u64>
 export const BENCH_ORDERING_CONTRACT = {
   tag: "[BENCH-ORDERING]",
@@ -220,6 +221,7 @@ export const BENCH_ORDERING_CONTRACT = {
     "genesis_block_interval_ms",
     "genesis_block_interval_provenance",
     "block_timestamp_ms",
+    "proposal_observed_at_ms",
     "view_timeout_secs",
   ],
   known_profiles: ["aft", "solo", "proof_of_authority", "proof_of_stake"],
@@ -241,7 +243,7 @@ export const BENCH_ORDERING_CONTRACT = {
     "unresolved",
   ],
   notes:
-    "Cadence fields are CONFIGURATION resolved as the scheduler and genesis builder resolve it. block_timestamp_ms is the only observation. No duration is carried here; the wait before a proposal picks up a queued tx is not measured by any seam.",
+    "Cadence fields are CONFIGURATION resolved as the scheduler and genesis builder resolve it. block_timestamp_ms is chain-time evidence; proposal_observed_at_ms is producer wall-clock observation. Neither brackets per-transaction queue wait.",
 };
 
 export const BENCH_TAGS = {
@@ -342,7 +344,7 @@ export const PHASES = {
     nested_in: ["client_commit_wait"],
     quantized_by: null,
     unmeasured_reason:
-      "This wait elapses partly between consensus ticks and partly inside the block-production deferral that returns early while expected_timestamp_ms > now_ms; no seam brackets either part. The CONFIGURED floor (genesis_block_interval_ms) and the REALIZED block spacing (observed_block_interval_ms) are both recorded, but neither is this phase's duration: they describe when blocks were due and how far apart they landed, not how long any particular tx waited for one.",
+      "This wait elapses partly between consensus ticks and partly inside the block-production deferral that returns early while expected_timestamp_ms > now_ms; no seam brackets either part. The CONFIGURED floor (genesis_block_interval_ms) and REALIZED producer spacing (observed_proposal_interval_ms) are both recorded, but neither is this phase's duration: they describe when blocks were due and how far apart proposal construction occurred, not how long any particular tx waited for one.",
   },
   ordering_finalization: {
     slot: "ordering_finalization",
@@ -993,6 +995,11 @@ export function buildCommitPathProfile({
           "on-chain block timestamp",
           requestHash,
         ),
+        proposal_observed_at_ms: requireField(
+          integerField(orderingLine.fields, "proposal_observed_at_ms"),
+          "producer proposal observation timestamp",
+          requestHash,
+        ),
         view: integerField(orderingLine.fields, "view"),
       },
       phases,
@@ -1058,27 +1065,31 @@ export function buildCommitPathProfile({
     ),
   ];
 
-  // The realized block spacing, DERIVED FROM OBSERVATION rather than from the
-  // configured floor: consecutive attributed heights differenced by their
-  // on-chain timestamps. This is what can contradict the configured floor -- a
-  // sweep whose flag never reached block production shows the same spacing at
-  // every requested cadence, and this is the field that shows it.
+  // Realized proposal spacing, derived from producer WALL-CLOCK observations.
+  // Header timestamps are deliberately not used: with fixed on-chain timing
+  // their delta equals the configured interval by construction even when the
+  // host cannot produce blocks that quickly.
   //
   // Only adjacent heights are differenced; a gap means intervening blocks were
   // not attributed to an approval, and their spacing is not this profile's to
   // claim.
-  const timestampByHeight = new Map(
-    approvals.map((entry) => [entry.dimensions.committed_height, entry.ordering.block_timestamp_ms]),
+  const proposalObservedAtByHeight = new Map(
+    approvals.map((entry) => [
+      entry.dimensions.committed_height,
+      entry.ordering.proposal_observed_at_ms,
+    ]),
   );
-  const observedBlockIntervalsMs = [
+  const observedProposalIntervalsMs = [
     ...new Set(
-      [...timestampByHeight.keys()]
+      [...proposalObservedAtByHeight.keys()]
         .sort((a, b) => a - b)
         .flatMap((height, index, heights) => {
           if (index === 0) return [];
           const previous = heights[index - 1];
           if (height - previous !== 1) return [];
-          return [timestampByHeight.get(height) - timestampByHeight.get(previous)];
+          return [
+            proposalObservedAtByHeight.get(height) - proposalObservedAtByHeight.get(previous),
+          ];
         }),
     ),
   ].sort((a, b) => a - b);
@@ -1117,7 +1128,7 @@ export function buildCommitPathProfile({
         ],
         // Named rather than implied absent. These are real and unquantified.
         unmeasured_timing_dimensions: [
-          "The wait between a tx entering the mempool and the next proposal picking it up is not bracketed by any seam; only the configured floor and the realized block spacing are reported.",
+          "The wait between a tx entering the mempool and the next proposal picking it up is not bracketed by any seam; only the configured floor and realized producer proposal spacing are reported.",
           "Host scheduling noise, and any variation in when the deferral wake-up fires relative to the due timestamp, are not measured.",
           "Wall-clock alignment of the first block: the initial tip is pinned through IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS for both engines, but the phase of the chain clock relative to the host clock is not recorded.",
         ],
@@ -1157,11 +1168,11 @@ export function buildCommitPathProfile({
       // beside the configured floor precisely so the two can be compared: if a
       // cadence flag did not reach block production, these stay put while the
       // configured value moves.
-      observed_block_interval_ms: {
-        values: observedBlockIntervalsMs,
-        provenance: `derived:${BENCH_ORDERING_CONTRACT.tag}.block_timestamp_ms`,
+      observed_proposal_interval_ms: {
+        values: observedProposalIntervalsMs,
+        provenance: `derived:${BENCH_ORDERING_CONTRACT.tag}.proposal_observed_at_ms`,
         measured: true,
-        note: "Differences between on-chain timestamps of CONSECUTIVE attributed heights. Non-adjacent heights are not differenced. This is the block spacing the chain actually ran at, not a latency.",
+        note: "Producer wall-clock differences between CONSECUTIVE attributed heights. Non-adjacent heights are not differenced. This is realized proposal spacing, not per-transaction queue wait or commit latency.",
       },
       // Reported because it sets the resolution of the client-observed phase:
       // a commit faster than one interval is indistinguishable from any other
@@ -1218,7 +1229,7 @@ export function buildCommitPathProfile({
       // genesis block interval changes nothing about pickup. Stating the false
       // direction invited exactly the wrong reading of a cadence sweep.
       "ticker_interval_ms and min_tick_ms bound only how often consensus is POLLED. They do not bound when a queued tx is picked up: production defers while expected_timestamp_ms > now_ms, so the on-chain genesis_block_interval_ms is the binding floor and a faster ticker buys nothing below it.",
-      "genesis_block_interval_ms is read from the same benchmark override the genesis builder reads, not from the running chain. A resumed chain keeps the genesis it was built with, so on a resumed run this field can name a floor the chain does not have; observed_block_interval_ms is the value that would show it.",
+      "genesis_block_interval_ms is configuration read from the same benchmark override the genesis builder reads, not a state query. The durable cluster manifest pins that interval and refuses a resumed run whose requested value differs; block_timestamp_ms remains chain-time evidence, not wall-clock spacing.",
       "No proof generation, proof size, or cryptographic proof verification is measured anywhere in this artifact.",
       "proof_exact_state_resolution is a post-commit READ of committed state (approval_query_ms + approval_verify_ms). It is not a portable proof, does not produce one, and its cost implies nothing about what producing or verifying one would cost.",
       "receipt_creation_durable_ack is unmeasured: no receipt-creation or receipt-durability timing is claimed by any number here.",

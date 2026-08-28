@@ -121,8 +121,9 @@ pub(super) struct OrderingCadence {
     ///
     /// It is CONFIGURATION read back from the same benchmark override the
     /// genesis builder reads, so it can disagree with the chain a resumed run
-    /// actually carries. The emitted `block_timestamp_ms` is the observation
-    /// that can contradict it; the two are kept separate for that reason.
+    /// actually carries. The emitted `block_timestamp_ms` can expose a
+    /// configured/on-chain mismatch, while `proposal_observed_at_ms` measures
+    /// when this process actually reached proposal construction.
     genesis_block_interval_ms: u64,
     genesis_block_interval_provenance: &'static str,
 }
@@ -1923,15 +1924,21 @@ where
                 // happens in the scheduler outside any instrumented span, so
                 // it is reported as configuration and never as a phase.
                 //
-                // `block_timestamp_ms` is the ONE observed value on this line:
-                // the on-chain timestamp this height actually carries, derived
-                // from chain state by whichever engine produced it. Differencing
-                // it across consecutive heights gives the realized block
-                // spacing, which is the only thing here that can contradict the
-                // configured floor beside it.
+                // `block_timestamp_ms` is the on-chain timestamp this height
+                // carries. It advances by the configured chain interval by
+                // construction; it is NOT wall-clock block spacing.
+                // `proposal_observed_at_ms` is sampled from the producer clock
+                // at this height and is the value whose consecutive-height
+                // deltas measure realized proposal spacing.
                 if let Some((cadence, view_timeout_secs)) = ordering_cadence {
+                    let proposal_observed_at_ms = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_else(|_| Duration::from_secs(0))
+                        .as_millis()
+                        .min(u128::from(u64::MAX))
+                        as u64;
                     eprintln!(
-                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} genesis_block_interval_ms={} genesis_block_interval_provenance={} block_timestamp_ms={} view_timeout_secs={}",
+                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} genesis_block_interval_ms={} genesis_block_interval_provenance={} block_timestamp_ms={} proposal_observed_at_ms={} view_timeout_secs={}",
                         producing_h,
                         view,
                         ordering_profile_label(cons_ty),
@@ -1942,6 +1949,7 @@ where
                         cadence.genesis_block_interval_ms,
                         cadence.genesis_block_interval_provenance,
                         expected_timestamp_ms,
+                        proposal_observed_at_ms,
                         view_timeout_secs,
                     );
                 }

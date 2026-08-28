@@ -54,7 +54,7 @@ const VALIDATOR_PORT_STRIDE: u16 = 100;
 /// state directory. Unset => historical private-tempdir behavior.
 pub const CLUSTER_STATE_DIR_ENV: &str = "IOI_TESTING_CLUSTER_STATE_DIR";
 const CLUSTER_STATE_MANIFEST_FILE: &str = "cluster-state.json";
-const CLUSTER_STATE_SCHEMA_VERSION: u32 = 1;
+const CLUSTER_STATE_SCHEMA_VERSION: u32 = 2;
 
 /// Benchmark-only override for the TEST GENESIS on-chain block interval.
 ///
@@ -79,6 +79,10 @@ pub const BENCHMARK_BLOCK_INTERVAL_MS_ENV: &str = "IOI_BENCH_BLOCK_INTERVAL_MS";
 /// The historical test-genesis interval, preserved exactly when the benchmark
 /// override is absent.
 const DEFAULT_TEST_BLOCK_INTERVAL_MS: u64 = 1_000;
+
+fn default_test_block_interval_ms() -> u64 {
+    DEFAULT_TEST_BLOCK_INTERVAL_MS
+}
 
 /// Bounds on the benchmark override. The floor is 1ms because the on-chain
 /// interval is a millisecond quantity and 0 would mean "no floor at all",
@@ -182,6 +186,11 @@ struct PersistedClusterState {
     commitment_scheme: String,
     aft_safety_mode: String,
     num_validators: usize,
+    /// Genesis-shaping timing identity. A resume under a different benchmark
+    /// interval must fail closed instead of echoing new configuration over an
+    /// old on-chain floor.
+    #[serde(default = "default_test_block_interval_ms")]
+    genesis_block_interval_ms: u64,
     port_block_start: u16,
     validator_base_ports: Vec<u16>,
     validator_identity_keys_hex: Vec<String>,
@@ -1069,6 +1078,14 @@ impl TestClusterBuilder {
                     manifest.num_validators.to_string(),
                     self.num_validators.to_string(),
                 ),
+                (
+                    "genesis_block_interval_ms",
+                    manifest.genesis_block_interval_ms.to_string(),
+                    benchmark_genesis_block_timing()
+                        .0
+                        .base_interval_ms_or_legacy()
+                        .to_string(),
+                ),
             ];
             for (field, recorded, requested) in compatibility {
                 if recorded != requested {
@@ -1869,6 +1886,9 @@ impl TestClusterBuilder {
                 commitment_scheme: self.commitment_scheme.clone(),
                 aft_safety_mode: format!("{:?}", self.aft_safety_mode),
                 num_validators: validator_keys.len(),
+                genesis_block_interval_ms: benchmark_genesis_block_timing()
+                    .0
+                    .base_interval_ms_or_legacy(),
                 port_block_start: validator_base_ports[0],
                 validator_base_ports: validator_base_ports.clone(),
                 validator_identity_keys_hex: validator_keys
