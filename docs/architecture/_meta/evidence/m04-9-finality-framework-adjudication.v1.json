@@ -2,12 +2,16 @@
   "evidence_format": "ioi.m049.finality-framework-adjudication.v1",
   "recorded_at": "2026-08-28",
   "baseline": {
-    "required_local_master": "46eaad373109cea05d9e5947b315e2aa5fa748f5",
-    "required_ancestor": "2a20e73e6c6028cec121142a5a35311d2d91306d",
+    "required_local_master": "ea039da78347b30e6e63743b5a23b644fc5ab9ad",
+    "required_ancestors": [
+      "46eaad373109cea05d9e5947b315e2aa5fa748f5",
+      "2a20e73e6c6028cec121142a5a35311d2d91306d"
+    ],
     "observed_origin_master": "795ee35cc776d2cc30b23e0cb7f86ff1f2fa0173",
     "contract_and_verifier_commit": "d60c2b711",
     "proof_continuity_hardening_commit": "8d4f39871",
     "claim_boundary_hardening_commit": "41bfc5dfa",
+    "atomic_recognized_effect_commit": "c85d3ad53",
     "remote_mutated": false
   },
   "closure_boundary": {
@@ -62,7 +66,8 @@
     "signer_trust_boundary": "The verifier independently establishes signature integrity for the signer identity it returns. The bundle-carried issuer expectation is not an external authority root and therefore does not establish authority admission, currentness, or revocation status; a relying party must pin or resolve that signer outside this integrity-only claim.",
     "explicitly_refused_axes": ["valid_as_of", "currentness", "non_equivocation", "authority_admission", "economic_recognition"],
     "predecessor_rule": "The immediate predecessor body and embedded signature are recomputed; domain, authority and revocation epochs, operation/receipt ranges, state commitment, and canonical head must be contiguous. Authority change is refused because no admitted-cutover proof exists.",
-    "production_runtime_wired": false,
+    "agentgres_recognized_effect_seam_implemented": true,
+    "production_profile_routing_wired": false,
     "production_selectable": false,
     "default_authorized": false
   },
@@ -92,9 +97,49 @@
       "durable ACK or public completion"
     ],
     "required_linearization_rule": "No ACK or completion may precede the durable point from which recovery can reproduce the entire byte-identical recognized effect.",
-    "implemented_as_one_production_transaction": false,
-    "smallest_blocker": "The reference v2 emitter consumes already assembled material; no Agentgres-owned production path yet persists all phases at one durable linearization point before ACK.",
-    "crash_matrix_status": "blocked_on_missing_atomic_production_seam",
+    "scope": "single_authority_v1 with resolved canonical ordinary-admission K2 or K3 and the existing integrity/availability verifier axes only",
+    "production_api": "crates/agentgres/src/recognized_effect.rs::RecognizedEffectStore",
+    "durable_format": "ioi.agentgres-recognized-effect.v1 encoded as JCS in one rooted Agentgres mux operation; it binds the exact v2 bundle, current authority snapshot, prior Agentgres head, effect identity, and five stable outbox intents",
+    "prepared_material": "content-addressed availability bytes plus a fully verified signed candidate; neither is authoritative before canonical commit",
+    "canonical_linearization_point": "the dedicated ioi.recognized-effect.single-authority.v1 mux-domain rooted batch after required device flush; on an interrupted uncertain write, startup first discards partial or unrooted tails, validates any complete rooted retained prefix, and device-flushes it before exposing recovered heads",
+    "projection_rule": "IAVL/Redb state, status, event, root publication, durable ACK, and client notification remain post-commit projections or deliveries; they are not claimed to participate in the mux transaction",
+    "implemented_as_one_agentgres_transaction": true,
+    "atomicity_blocker_closed": true,
+    "crash_matrix_status": "green_34_named_before_after_edges",
+    "crash_matrix": [
+      {
+        "phases": ["admission_validation", "authority_revalidation", "state_transition_construction", "individual_receipt_creation", "checkpoint_construction", "certificate_construction_signing", "availability_byte_persistence", "availability_manifest_validation"],
+        "before": "no recognized effect; clean retry commits once",
+        "after": "no recognized effect; prepared or orphaned availability bytes grant no authority; clean retry commits once"
+      },
+      {
+        "phase": "agentgres_frame_construction",
+        "before": "no recognized effect; clean retry commits once",
+        "after": "no recognized effect; clean retry commits once"
+      },
+      {
+        "phase": "canonical_write",
+        "before": "no recognized effect; clean retry commits once",
+        "after": "uncertain result resolves on reopen: a partial or unrooted tail is discarded, while a complete rooted record is validated, startup-flushed, recovered byte-identically, and an identical retry replays"
+      },
+      {
+        "phase": "canonical_fsync",
+        "before": "uncertain result resolves on reopen to either a discarded incomplete tail or the complete validated and startup-flushed record; the exercised complete rooted write recovered whole",
+        "after": "complete device-flushed record recovers byte-identically; identical retry replays"
+      },
+      {
+        "phase": "head_root_advancement",
+        "before": "complete device-flushed record recovers its exact head/root and bytes; identical retry replays",
+        "after": "complete device-flushed record recovers its exact head/root and bytes; identical retry replays"
+      },
+      {
+        "phases": ["projection_materialization", "root_publication", "committed_status_publication", "transaction_committed_emission", "ack_publication"],
+        "before": "complete canonical record remains; the consequence is pending and redrives from committed bytes",
+        "after": "complete canonical record remains; an existing same-identity/same-bytes consequence replays and changed bytes conflict"
+      }
+    ],
+    "outbox_kinds": ["projection_materialization", "root_publication", "committed_status_publication", "transaction_committed", "ack_publication"],
+    "next_smallest_blocker": "admitted profile cutover with exact prior-writer fencing, restart recovery, downgrade refusal, and proof that no dual-authority interval exists",
     "accepted_recovery_outcomes": ["complete byte-identical recognized effect", "no recognized effect and no authoritative ACK"]
   },
   "profile_cutover": {
@@ -107,12 +152,12 @@
       "availability and verifier requirements"
     ],
     "implemented": false,
-    "reason": "No v2 profile is production-selectable, and the missing atomic recognized-effect seam prevents an honest restart/fencing proof.",
+    "reason": "The atomic recognized-effect seam now exists, but no v2 profile is production-selectable and no admitted cutover operation yet proves writer fencing, restart behavior, downgrade refusal, or absence of a dual-authority interval.",
     "compatibility_alias_rule": "Any future alias resolves before admission to exactly one canonical versioned member and never becomes a second runtime identity.",
     "dual_authority_interval_proven_absent": false
   },
   "profile_matrix": [
-    {"profile":"single_authority","specified":true,"emitter_implemented":true,"verifier_implemented":true,"single_node_qualified":"ordering candidate only within the historical 27-operation one-validator M04.9 fixture; v2 end-to-end runtime atomicity not qualified","peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
+    {"profile":"single_authority","specified":true,"emitter_implemented":true,"verifier_implemented":true,"single_node_qualified":"atomic recognized-effect storage and recovery are qualified for the exact single_authority_v1 emitter/verifier scope; ordering behavior remains bounded by the historical 27-operation one-validator M04.9 fixture","peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
     {"profile":"replicated_single_authority","specified":true,"emitter_implemented":false,"verifier_implemented":false,"single_node_qualified":false,"peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
     {"profile":"threshold_authority","specified":true,"emitter_implemented":false,"verifier_implemented":false,"single_node_qualified":false,"peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
     {"profile":"bft_consensus","specified":true,"emitter_implemented":false,"verifier_implemented":false,"single_node_qualified":"historical AFT control exists outside the v2 certificate path","peer_fault_qualified":false,"production_selectable":false,"default_authorized":false},
@@ -129,7 +174,8 @@
     "framework_registration_complete": true,
     "portable_verification_fail_closed": true,
     "acceptance_withheld": true,
-    "smallest_exact_acceptance_blocker": "missing production atomic recognized-effect transaction; cutover crash/fencing proof depends on that seam",
+    "atomicity_blocker_closed": true,
+    "smallest_exact_acceptance_blocker": "missing admitted profile-cutover operation with prior-writer fencing, restart recovery, downgrade refusal, and no dual-authority interval",
     "acceptance_does_not_require_every_profile": true
   },
   "verification": [
@@ -137,7 +183,8 @@
     {"command":"npm run check:architecture-docs","result":"green, 163 files and 11 rules"},
     {"command":"node scripts/implementation-program.mjs --check","result":"green, 13 modules, 101 build units, 16 acceptance gates, and 41 reachable documents"},
     {"command":"cargo test -p ioi-finality","result":"green, 11 tests including signed emission, outer-hash-recomputed substitutions, immediate-predecessor body and issuer substitution, unavailable verifier inputs, empty/ephemeral/unverified availability, state-version continuity, unsupported profile/axis, and downgrade refusal"},
-    {"command":"cargo tree -i ioi-finality --depth 1","result":"only ioi-finality itself; no production runtime crate depends on or selects the v2 emitter"},
+    {"command":"cargo test -p agentgres","result":"green, 57 tests; seven recognized-effect tests exercise all 34 named crash edges plus replay, authority, head, availability, projection, outbox, partial/unrooted recovery, write/fsync uncertainty, and durability labels"},
+    {"command":"cargo tree -i ioi-finality --depth 2","result":"ioi-finality is consumed by agentgres, which is already consumed by ioi-node and ioi-services; no profile routing, production selection, or default was added"},
     {"command":"git diff --check","result":"green"}
   ],
   "delegation_ledger": {
@@ -166,13 +213,30 @@
       {"finding":"F-7 state commitment version unchecked","ruling":"fixed across 8d4f39871 and 41bfc5dfa with exact checkpoint and touched-object +1 continuity"},
       {"finding":"F-8 canon registered while ADR remained Proposed","ruling":"intentional adjudication: stable source-neutral vocabulary is registered, but ADR mechanism acceptance remains Proposed and production selection is prohibited"}
     ],
+    "atomicity_leg": {
+      "writer_worktree": "/home/heathledger/Documents/ioi/repos/ioi-wt-m049-atomic-recognized-effect",
+      "writer_branch": "codex/m049-atomic-recognized-effect",
+      "fixed_cost_entitlement": "claude.ai OAuth Max subscription; no metered API key or paid fallback used",
+      "attempts": [
+        {"session_id":"1d94f4b3-6955-4e82-8dcd-356c69b61b99","role":"model-entitlement probe","resolved_model":"claude-opus-5","writes":false},
+        {"session_id":"190176ec-dbc1-4e38-9cf0-6fca6793d13b","role":"writer-entitlement probe","resolved_model":"claude-opus-5","writes":false},
+        {"session_id":"4a7965a0-a7cb-4d36-ba6b-ca9e3a93e447","role":"fresh writer-entitlement probe","resolved_model":"claude-opus-5","writes":false},
+        {"background_job_ids":["f0405874","a7940d3f","2c5f3998","079be473","75d46cf2","3cd2b4b3"],"role":"bounded implementation-writer attempts","resolved_model":"claude-opus-5 verified before dispatch","outcome":"retired without edits after nonproductive hidden analysis; one read-only Explore helper was spawned before the no-subagent correction and made no edits"},
+        {"session_id":"0de4975f-9e89-41e6-9845-d991b120bc09","role":"adversarial review attempt","resolved_model":"claude-opus-4-8 with internal claude-haiku-4-5 tool-use metadata","outcome":"rejected under the delegation contract; verdict not used; no writes"},
+        {"session_id":"994473cd-ca5f-4a09-b3e0-b81db4fa70d5","role":"adversarial review","resolved_model":"claude-opus-5 with internal claude-haiku-4-5 tool-use metadata","outcome":"found durability-uncertainty writer poisoning and recoverability defects; findings accepted and fixed; no writes"},
+        {"session_id":"fb7417aa-9a90-4a97-9033-4d29372569e6","role":"remediation re-review","resolved_model":"claude-opus-5 with internal claude-haiku-4-5 tool-use metadata","outcome":"ATOMICITY_BLOCKER_CLOSES; all blocking findings resolved; no writes or test execution"}
+      ],
+      "accepted_review_commit": "c85d3ad53",
+      "accepted_reviewer_verdict": "ATOMICITY_BLOCKER_CLOSES",
+      "codex_is_sole_integrator": true
+    },
     "metered_spend_usd": 0
   },
   "explicit_nonclaims": [
     "No profile has been added to a runtime default, deployment manifest, compatibility alias, or production cutover.",
     "A single-authority signature does not establish currentness, non-equivocation, authority admission, economic recognition, or peer safety.",
     "No peer, quorum, witness, threshold, or external-chain evidence is manufactured from the one-validator fixture.",
-    "No recognized-effect crash matrix or cutover restart matrix is claimed green.",
+    "The recognized-effect crash matrix is green only for the exact Agentgres single_authority_v1 seam; no profile-cutover restart or writer-fencing matrix is claimed green.",
     "No numeric latency threshold is selected.",
     "No batching, JMT, fractal partitioning, runtime default, M04.6 ownership, deterministic merge lane, or scheduled authority soak gate is reopened."
   ],

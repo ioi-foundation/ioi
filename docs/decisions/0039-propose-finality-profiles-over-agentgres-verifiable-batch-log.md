@@ -17,7 +17,12 @@
   persists the admitted operation, state transition, individual receipt, v2
   checkpoint, certificate, availability commitment, and root at one durable
   linearization point before ACK, so atomic recovery and admitted cutover are
-  not established.
+  not established. Revised again 2026-08-28: `c85d3ad53` implements the
+  Agentgres-owned atomic recognized-effect store for the exact
+  `single_authority_v1` scope. Its 34 named crash edges and adversarial suite
+  close the atomicity blocker, but this ADR remains **Proposed**: no admitted
+  profile cutover, prior-writer fencing, restart/downgrade proof, or proof of
+  no dual-authority interval exists, and no profile is selectable or default.
 - Owners: Agentgres / ordering and finality / wallet.network authority
 - Refines if accepted: ADRs 0003 and 0038 and the ordering/finality profiles
 - Bounded by, and does not amend: the source-neutral deterministic admission
@@ -579,21 +584,44 @@ neither v1 schema was modified:
 
 ### Current acceptance blocker
 
-The ADR remains **Proposed**. The smallest framework-level blocker is now the
-missing production recognized-effect transaction: no Agentgres-owned runtime
-path atomically persists the admitted operation append, resulting state,
-individual receipt, v2 checkpoint/root, applicable certificate signature, and
-availability commitment before one durable ACK/public completion. The
-reference emitter operates on already assembled material and therefore does
-not close that transaction boundary.
+The ADR remains **Proposed**. Commit `c85d3ad53` closes the atomicity blocker
+for the exact reference `single_authority_v1`, resolved ordinary K2/K3,
+integrity/availability scope. `RecognizedEffectStore` first persists and
+validates the immutable availability inputs, constructs the complete signed v2
+bundle and stable five-intent outbox, and then appends their JCS record in the
+dedicated Agentgres mux domain. The rooted batch after required device flush is
+the sole authoritative linearization point. An uncertain complete rooted write
+is validated and flushed during reopen before its reconstructed head is
+exposed; partial or unrooted tails are discarded. The writer refuses further
+in-process admission after any durability uncertainty until that reopen.
 
-Until that seam exists, crash injection cannot prove complete-or-none recovery
-for the whole recognized effect, and a profile-change operation cannot prove
-prior-writer fencing or absence of a dual-authority interval. Consequently no
-v2 profile is production-selectable or default-authorized. Peer-bearing AFT,
+Everything outside that record — current IAVL/Redb materialization, status,
+root publication, `TransactionCommitted`, durable ACK, and client notification
+— remains an idempotent post-commit projection or delivery. It is not described
+as cross-store atomicity. Stable consequence identities replay identical bytes
+and refuse changed bytes. Recovery reconstructs the exact committed record and
+may restore missing availability side files from its canonical signed bytes;
+conflicting bytes still fail closed. Prepared candidates and orphaned
+content-addressed bytes remain non-authoritative.
+
+The focused matrix arms the exact before/after edge for all 17 required phases.
+Every preparation/frame-precommit interruption reopens with no effect and
+admits one clean retry. A complete rooted uncertain append reopens only after
+strict validation and startup flush, then an identical retry replays the prior
+bytes. Every post-commit delivery edge reopens with the full canonical effect
+and redrives or replays its consequence. Torn, partial, unrooted, stale-head,
+stale-revocation, changed-byte replay, availability, projection, publication,
+ACK, range, root, predecessor, conflict, recognition, retention, signer, and
+verifier mutations fail closed across the Agentgres and offline-verifier gates.
+
+The next smallest acceptance blocker is now an **admitted profile-cutover
+operation** that binds the prior and next canonical profile/version and proves
+prior-writer fencing, exact restart recovery, downgrade refusal, and absence of
+a dual-authority interval. No v2 profile is production-selectable or
+default-authorized until that separate matrix is green. Peer-bearing AFT,
 threshold/witness, external-chain, and batching work remain separate
-per-profile qualifications, not prerequisites for registering or verifying the
-framework.
+per-profile qualifications, not prerequisites for the atomic seam or portable
+verification framework.
 
 The exact adjudication and per-profile matrix are recorded in
 [`m04-9-finality-framework-adjudication.v1.json`](../architecture/_meta/evidence/m04-9-finality-framework-adjudication.v1.json).
