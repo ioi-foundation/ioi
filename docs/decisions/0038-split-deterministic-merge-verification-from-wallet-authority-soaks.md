@@ -52,6 +52,58 @@ version count. A numeric latency tripwire lands only with a reproducible
 baseline and a mutation that proves the tripwire can fail; an aspirational
 number is not evidence.
 
+### 2026-08-28 measured profiling result
+
+The first complete release-mode profiling leg now separates submission,
+AFT finalization, execution preparation and commit, IAVL commitment
+materialization, Redb persistence, and post-commit wallet resolution for all 27
+authority approvals. It pins the one-validator fixture to readiness lag 1 and
+records height, version count, tree depth, node and byte counts, build profile,
+and backends. The profile is diagnostic observation, not an authority receipt
+or state commitment.
+
+Before repair, AFT finalization grew from 1,503 ms at the low end to 31,056 ms
+at the high end over versions 74–215 and tree depths 9–11. IAVL commitment
+materialization remained 0.003–0.010 ms and Redb persistence remained
+19.875–33.213 ms. This separated the dominant growth from state-tree
+materialization and persistence: steady-state AFT paths were repeatedly
+re-verifying the full canonical-collapse prefix, producing cumulative
+quadratic work.
+
+The repair uses a previously admitted canonical-collapse object as a bounded
+warm-path trust anchor, rejects conflicting replacements, and retains complete
+verification for cold, gap, and recovery inputs. Production observation does
+not re-walk an unchanged already-admitted tip. The profiling run also exposed
+a stale batch-collected transaction-ingestion anchor; authoritative validation
+now begins at the current watched committed tip and retries only after a
+demonstrable non-regressing tip change. IAVL state and block persistence use
+the combined atomic commit path while retaining durability ordering.
+
+After repair, AFT finalization was 56–94 ms through version 919 and tree depth
+12; execution commit was 27–37 ms, commitment materialization was
+0.004–0.009 ms, and persistence was 25.920–36.228 ms. The 27-approval profile
+had 27 distinct heights, no attribution anomalies, and retained all original
+soak work. A mutation restoring the full warm-path re-walk failed the bounded
+depth test, a mutation admitting regressing ingestion tips failed its focused
+test, and the parser's missing-field mutations fail closed.
+
+These measurements do not establish a numeric tripwire. They are one host's
+pre/post evidence, client wait is polling-quantized, and the complete semantic
+soak remains 14/15 because the final restarted OutcomeRoom projection still
+returns the already-recorded unavailable owner-record dependency. Repeated
+release-host runs plus a mutation of the selected budget remain prerequisites
+for a threshold. The exact aggregate and depth buckets and artifact hashes are
+recorded in
+[`m04-8-wallet-authority-commit-path-profile.v1.json`](../architecture/_meta/evidence/m04-8-wallet-authority-commit-path-profile.v1.json).
+
+The ordered ladder stops after step 1 for this defect. Batching was not needed
+to remove the measured dominant growth and individual authority receipts were
+not altered. JMT is not benchmark-qualified because current evidence does not
+establish incremental-commit, persistence/restart, historical-anchor, pruning,
+and proof-surface parity through `StateManager`. Fractal partitioning has no
+measured need; fail-closed cross-partition proof consumption and adjudication
+remain preconditions rather than deferred cleanup.
+
 The ordered performance ladder is:
 
 1. repair the measured commit/execution/consensus usage defect;

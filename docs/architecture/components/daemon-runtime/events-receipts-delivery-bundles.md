@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-08-12.
+Last alignment pass: 2026-08-28.
 Doctrine status: canonical
 Implementation status: mixed (receipts/events live across existing owner planes; portable checkpoint/proof, temporal verification/evaluation, exact-action review/admission, managed-work billing/dispute, physical-action, and GoalRun activation machine contracts have registered schemas and generated projections; production portable cryptographic verification/CLI support, exact-action receipt emitters, managed-work billing/dispute kernels, physical execution, daemon/Agentgres billing/dispute/physical/checkpoint emission, supplier-statement resolution, adjudication/remedy receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipts, full OutcomeRoom/Campaign/embodied lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; dormant inference-computation-proof and composed-delivery-link excerpts remain unregistered)
 Last implementation audit: 2026-07-30
@@ -86,6 +86,16 @@ release controls, support queues, and capability-improvement proposals, but they
 do not replace receipts, state roots, policy decisions, or wallet authority.
 When promoted into training or evaluation material, they must pass through
 policy-bound data views, Data Recipes, and Agentgres refs.
+
+Commit-path profiles are the same class of non-authoritative observation. A
+profile may correlate request hash, transaction hash, height, state version and
+depth, submission, finalization, execution, commitment, persistence, and
+post-commit resolution for diagnosis. It must label inclusive and exclusive
+phases, backend and build provenance, sampling or polling quantization, missing
+correlations, and process-wide rather than operation-exclusive counters. A
+profile never becomes the authority decision, an individual approval receipt,
+a state root, or proof merely because it names those objects. Instrumentation
+must be opt-in and must not change consensus or receipt semantics.
 
 ## Oracle Evidence Admission Receipt
 

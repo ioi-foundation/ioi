@@ -1,0 +1,129 @@
+{
+  "evidence_format": "ioi.m048.commit-path-evidence.v1",
+  "work_item_id": "m04-8-wallet-authority-commit-latency",
+  "measured_at": "2026-08-28",
+  "integration": {
+    "starting_master": "2a20e73e6c6028cec121142a5a35311d2d91306d",
+    "observed_origin_master": "795ee35cc776d2cc30b23e0cb7f86ff1f2fa0173",
+    "pre_repair_source": "1dd5270c4cc03f21c71f04a325d1cb59af33ab31",
+    "post_repair_source": "d396e33e97e8a47a29c2a365e5208f4e76389137"
+  },
+  "measurement_contract": {
+    "build_profile": "release",
+    "state_commitment_backend": "iavl",
+    "durable_store_backend": "redb",
+    "validator_count": 1,
+    "ready_height_lag_max": 1,
+    "approvals_expected": 27,
+    "full_semantic_soak_checks_expected": 15,
+    "phase_units": "milliseconds",
+    "summary_order": ["min", "p50", "p95", "max"],
+    "percentile_method": "sorted_index_floor((sample_count-1)*percentile)",
+    "numeric_tripwire_ms": null,
+    "tripwire_disposition": "withheld_pending_repeated_release_host_baselines_and_a_tripwire_mutation"
+  },
+  "artifact_integrity": {
+    "pre_repair": {
+      "commit_path_profile_sha256": "4128f3c909781deb67cf4e05cc57b3bd7fe5d13b7a8637e16d50fab1baea52d3",
+      "aft_execution_trace_sha256": "280779be4dc5c819d5691d682f0470d786ade93a9836b2b6107fde151f7741f4",
+      "commit_path_observations_sha256": "def1712a5bbd6028aa8d422f05aef4cfcb3c80b264cd53f490903e2f12790779",
+      "guardian_trace_sha256": "49537842ec9a9f16abd56b3cc46d55ab581eb0591f28f9f9b3fcb2880919a2d4",
+      "orchestration_trace_sha256": "bb7d7d2df8fe5b650d5f0b53a1f5468d98da46191fd2313486878abe73826e5b",
+      "workload_trace_sha256": "3714ad4f8eff3db83c301eae21f28817895593c189c57584d1178531e09e92fb",
+      "wallet_authority_log_sha256": "4bdbe460265121c5c579c20e7116892b1c9ae5baf9f9174bb28aa528fb122f2d"
+    },
+    "post_repair": {
+      "commit_path_profile_sha256": "f89a13528df35f67d248b39779d2ec63a31c62c6b0c4e8949c4543b4acc759e0",
+      "aft_execution_trace_sha256": "b59facea04bc608eabf861e9992ea2c04a0e9edd8da136f94b30f4acbad1a972",
+      "commit_path_observations_sha256": "8a62151474817a96b7120f3c46249efa76aaec6cac747b041f395efbe84f6675",
+      "guardian_trace_sha256": "981e7943eb60088beec48d71ec6cbd042e009b0e6f3413214caf9767d40fd1da",
+      "orchestration_trace_sha256": "573ba9b588a578f27a5173e7175f894782e98146cbe00b3458a9d2d62834c07b",
+      "workload_trace_sha256": "a5eb961b8bef3bf893dcebbc1013c628fba7233c3ce0df618da95fbe9a615723",
+      "wallet_authority_log_sha256": "c037f524a5e996124bb06952ed4b6e8673902b0622b12a5e526ce57e9a7bdbea"
+    }
+  },
+  "coverage": {
+    "pre_repair": {"approvals_attributed": 27, "heights_attributed": 27, "approvals_with_anomalies": 0, "route_correlated": 23, "without_route": 4},
+    "post_repair": {"approvals_attributed": 27, "heights_attributed": 27, "approvals_with_anomalies": 0, "route_correlated": 23, "without_route": 4}
+  },
+  "phase_semantics": {
+    "submission_admission": "exclusive submit_transaction RPC wall time",
+    "client_commit_wait": "inclusive and quantized by the 500 ms status poll interval",
+    "aft_finalization": "inclusive proposal selection, block processing, and finalization",
+    "execution_prepare": "inclusive speculative block execution",
+    "execution_commit": "inclusive proof verification, state application, end-block, and durable commit",
+    "state_commitment": "exclusive IAVL commitment-version materialization",
+    "persistence": "exclusive adapter preparation plus Redb version-and-block persistence",
+    "proof_resolution": "exclusive exact post-commit approval state read and match; not proof generation",
+    "consensus_excluding_execution": "derived AFT finalization minus execution commit"
+  },
+  "pre_repair_phase_summary_ms": {
+    "submission_admission": [2, 2, 4, 6],
+    "client_commit_wait": [1002, 50648, 106802, 120830],
+    "aft_finalization": [1503, 13045, 27405, 31056],
+    "execution_prepare": [4, 4, 4, 4],
+    "execution_commit": [21, 27, 33, 34],
+    "state_commitment": [0.003, 0.005, 0.007, 0.01],
+    "persistence": [19.875, 26.084, 31.819, 33.213],
+    "proof_resolution": [0, 0, 1, 1],
+    "consensus_excluding_execution": [1468, 13012, 27372, 31025]
+  },
+  "pre_repair_depth_version_baseline": [
+    {"tree_depth": 9, "version_min": 74, "version_max": 125, "samples": 8, "aft_finalization_ms": [1503, 2583, 5687, 6391], "client_commit_wait_ms": [1002, 7524, 21554, 25073], "execution_commit_ms": [25, 27, 29, 31], "persistence_ms": [24.602, 25.979, 28.45, 29.764]},
+    {"tree_depth": 10, "version_min": 129, "version_max": 194, "samples": 14, "aft_finalization_ms": [7203, 14165, 21803, 23263], "client_commit_wait_ms": [27076, 54143, 84723, 89241], "execution_commit_ms": [21, 27, 33, 34], "persistence_ms": [19.875, 26.005, 31.819, 32.427]},
+    {"tree_depth": 11, "version_min": 198, "version_max": 215, "samples": 5, "aft_finalization_ms": [24456, 27405, 29182, 31056], "client_commit_wait_ms": [95251, 106802, 113321, 120830], "execution_commit_ms": [27, 32, 33, 34], "persistence_ms": [25.86, 30.542, 31.602, 33.213]}
+  ],
+  "post_repair_phase_summary_ms": {
+    "submission_admission": [2, 10, 16, 18],
+    "client_commit_wait": [501, 4516, 7020, 7524],
+    "aft_finalization": [56, 80, 88, 94],
+    "execution_prepare": [4, 4, 4, 6],
+    "execution_commit": [27, 30, 37, 37],
+    "state_commitment": [0.004, 0.005, 0.007, 0.009],
+    "persistence": [25.92, 28.919, 35.797, 36.228],
+    "proof_resolution": [0, 4, 11, 21],
+    "consensus_excluding_execution": [23, 43, 53, 62]
+  },
+  "post_repair_depth_version_baseline": [
+    {"tree_depth": 9, "version_min": 161, "version_max": 202, "samples": 2, "aft_finalization_ms": [56, 56, 56, 56], "client_commit_wait_ms": [501, 501, 501, 501], "execution_commit_ms": [28, 28, 28, 29], "persistence_ms": [26.977, 26.977, 26.977, 27.757]},
+    {"tree_depth": 10, "version_min": 250, "version_max": 340, "samples": 3, "aft_finalization_ms": [57, 58, 58, 73], "client_commit_wait_ms": [1002, 1002, 1002, 1002], "execution_commit_ms": [27, 28, 28, 28], "persistence_ms": [25.92, 27.472, 27.472, 27.566]},
+    {"tree_depth": 11, "version_min": 443, "version_max": 792, "samples": 14, "aft_finalization_ms": [66, 79, 86, 88], "client_commit_wait_ms": [2005, 3512, 5516, 5516], "execution_commit_ms": [28, 34, 37, 37], "persistence_ms": [26.447, 31.173, 35.873, 36.228]},
+    {"tree_depth": 12, "version_min": 811, "version_max": 919, "samples": 8, "aft_finalization_ms": [81, 83, 92, 94], "client_commit_wait_ms": [6020, 6520, 7023, 7524], "execution_commit_ms": [28, 30, 31, 31], "persistence_ms": [26.808, 28.619, 29.638, 29.926]}
+  ],
+  "measured_cause_and_repairs": {
+    "cause": "steady-state AFT paths repeatedly re-walked the full persisted and local canonical-collapse prefix, creating cumulative quadratic work; transaction ingestion also carried a batch-collected state anchor beyond the live committed tip",
+    "repairs": [
+      "replace repeated warm full-prefix verification with bounded admitted-anchor verification while retaining cold and recovery full verification",
+      "skip unchanged production-tip re-verification after that tip was admitted",
+      "anchor authoritative ingestion validation at the current watched committed tip and retry only on a demonstrable non-regressing tip change",
+      "commit IAVL state and block atomically through the combined state abstraction while preserving durability ordering"
+    ],
+    "result": "the dominant depth-correlated AFT growth disappeared through version 919 and depth 12; measured commitment and persistence did not exhibit the former seconds-to-minutes growth"
+  },
+  "mutation_and_fail_closed_evidence": [
+    {"mutation": "restore the full canonical-collapse re-walk on the warm live path", "observed_result": "bounded-depth test failed at depths 6 and 42 with exit 101; the repair was restored and the test passed"},
+    {"mutation": "invert the ingestion non-regressing-tip predicate from >= to <=", "observed_result": "focused test failed with exit 101; the repair was restored and the test passed"},
+    {"mutation": "remove each contracted profiler field", "observed_result": "the 21-test parser and attribution suite passed its fail-closed mutation matrix"}
+  ],
+  "ordered_ladder_disposition": [
+    {"order": 1, "candidate": "commit-path usage repair", "decision": "implemented_and_measured"},
+    {"order": 2, "candidate": "batched commits preserving individual authority receipts", "decision": "not_needed_for_the_measured_dominant_defect_and_not_implemented"},
+    {"order": 3, "candidate": "parity-qualified JMT benchmark through StateManager", "decision": "disqualified_before_benchmark", "reason": "the in-tree candidate lacks demonstrated parity for incremental commit, persistence/restart, historical anchors, pruning, and the exact proof surface"},
+    {"order": 4, "candidate": "fractal partitioning", "decision": "stop_no_measured_need", "reason": "the usage repair removed the measured dominant depth growth; fail-closed cross-partition proof consumption and adjudication remain prerequisites"}
+  ],
+  "semantic_soak": {
+    "pre_repair": {"passed": 14, "expected": 15, "failure": "final restart OutcomeRoom replay returned 503: outcome_room_projection_runtime_dependency_unresolved / outcome_room_owner_record_contract_unavailable"},
+    "post_repair": {"passed": 14, "expected": 15, "failure": "final restart OutcomeRoom replay returned 503: outcome_room_projection_runtime_dependency_unresolved / outcome_room_owner_record_contract_unavailable"},
+    "preserved_depth": "all nine room-child families and auxiliary pairing, terms, and eligibility counts reprojected exactly before the unchanged final replay failure"
+  },
+  "remaining_nonclaims": [
+    "No numeric approval latency budget or tripwire is established by one host's pre/post runs.",
+    "The full semantic soak remains 14/15 and is not green.",
+    "Client commit wait is polling-quantized and includes synthetic chain cadence; it is not exact commit latency.",
+    "CPU deltas are process-wide rather than commit-exclusive.",
+    "Wallet proof/resolution measures exact state query and match, not proof generation.",
+    "The admitted-anchor optimization relies on induction over locally admitted predecessors; cold and recovery paths retain full verification.",
+    "The result does not qualify JMT, authorize batching or partitioning, move M04.6 ownership, or broaden cryptographic and protocol claims.",
+    "The deterministic blocking merge lane and scheduled release-qualification soak remain separate and unchanged."
+  ]
+}
