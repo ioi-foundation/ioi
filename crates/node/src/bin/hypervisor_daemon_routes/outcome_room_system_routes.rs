@@ -3974,6 +3974,10 @@ pub(crate) async fn handle_replay(
 
 #[derive(Default)]
 struct ProjectionRefs {
+    participation_request_refs: BTreeSet<String>,
+    participant_lease_refs: BTreeSet<String>,
+    resource_offer_refs: BTreeSet<String>,
+    capability_offer_refs: BTreeSet<String>,
     participant_refs: BTreeSet<String>,
     frontier_item_refs: BTreeSet<String>,
     work_claim_refs: BTreeSet<String>,
@@ -4394,6 +4398,25 @@ fn graph_omits_room_child_family(contract_id: &str) -> bool {
     )
 }
 
+fn non_graph_ref_bucket<'a>(
+    refs: &'a mut ProjectionRefs,
+    contract_id: &str,
+) -> Option<&'a mut BTreeSet<String>> {
+    match contract_id {
+        "schema://ioi/applications/ioi-ai/room-participation-request/v3" => {
+            Some(&mut refs.participation_request_refs)
+        }
+        "schema://ioi/applications/ioi-ai/room-participant-lease/v3" => {
+            Some(&mut refs.participant_lease_refs)
+        }
+        "schema://ioi/applications/ioi-ai/resource-offer/v3" => Some(&mut refs.resource_offer_refs),
+        "schema://ioi/applications/ioi-ai/capability-offer/v3" => {
+            Some(&mut refs.capability_offer_refs)
+        }
+        _ => None,
+    }
+}
+
 fn insert_graph_projection_ref(
     refs: &mut ProjectionRefs,
     contract_id: &str,
@@ -4401,6 +4424,9 @@ fn insert_graph_projection_ref(
 ) -> Result<Option<usize>, VErr> {
     let Some(bucket) = projection_ref_bucket(refs, contract_id) else {
         if graph_omits_room_child_family(contract_id) {
+            non_graph_ref_bucket(refs, contract_id)
+                .expect("every intentional graph omission has one exact room-ref bucket")
+                .insert(object_ref.to_owned());
             return Ok(None);
         }
         return Err(verr(
@@ -4875,6 +4901,13 @@ fn verify_projection_objects(
         ));
     }
     for (room_field, derived) in [
+        (
+            "participation_request_refs",
+            &refs.participation_request_refs,
+        ),
+        ("participant_lease_refs", &refs.participant_lease_refs),
+        ("resource_offer_refs", &refs.resource_offer_refs),
+        ("capability_offer_refs", &refs.capability_offer_refs),
         ("frontier_item_refs", &refs.frontier_item_refs),
         ("attempt_refs", &refs.attempt_refs),
         ("finding_refs", &refs.finding_refs),
@@ -5122,30 +5155,8 @@ fn load_projection_snapshot(data_dir: &str, room_ref: &str) -> Result<Projection
             &history,
         )?,
     )?;
-    let participant_lease_refs = bounded_ref_set(
-        &room,
-        "participant_lease_refs",
-        "outcome_room_projection_participants_unresolved",
-    )?;
-    for lease_ref in &participant_lease_refs {
-        let lease =
-            super::room_participation_routes::resolve_participant_lease_strict(data_dir, lease_ref)
-                .map_err(|error| verr("outcome_room_projection_participants_unresolved", error))?
-                .ok_or_else(|| {
-                    verr(
-                        "outcome_room_projection_participants_unresolved",
-                        format!("participant lease '{lease_ref}' is absent"),
-                    )
-                })?;
-        if lease.get("outcome_room_ref").and_then(Value::as_str) != Some(room_ref) {
-            return Err(verr(
-                "outcome_room_projection_participants_unresolved",
-                format!("participant lease '{lease_ref}' belongs to another room"),
-            ));
-        }
-    }
     refs.participant_refs
-        .extend(participant_lease_refs.iter().cloned());
+        .extend(refs.participant_lease_refs.iter().cloned());
     ensure_projection_cardinality(
         refs.participant_refs.len(),
         M4_ROOM_REF_SET_MAX,
@@ -5172,7 +5183,7 @@ fn load_projection_snapshot(data_dir: &str, room_ref: &str) -> Result<Projection
         )?;
         permitted_subject_refs.insert(subject.to_owned());
     }
-    permitted_subject_refs.extend(participant_lease_refs);
+    permitted_subject_refs.extend(refs.participant_lease_refs.iter().cloned());
     ensure_projection_cardinality(
         permitted_subject_refs.len(),
         M4_DISCUSSION_SUBJECT_MAX,
@@ -8394,6 +8405,10 @@ mod tests {
                 None,
             );
         }
+        assert_eq!(labeled.participation_request_refs.len(), 1);
+        assert_eq!(labeled.participant_lease_refs.len(), 1);
+        assert_eq!(labeled.resource_offer_refs.len(), 1);
+        assert_eq!(labeled.capability_offer_refs.len(), 1);
         assert_eq!(
             insert_graph_projection_ref(
                 &mut labeled,
