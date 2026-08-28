@@ -8522,7 +8522,7 @@
       "compatibility_aliases":[],
       "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"RetentionClassV1"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"RetentionClassV1"}],
       "positive_fixture_refs":["fixtures/retention-class-v1/positive-bounded.json"],
-      "negative_fixture_refs":[{"path":"fixtures/retention-class-v1/negative-unknown-class.json","expected_failure":"schema"}]
+      "negative_fixture_refs":[{"path":"fixtures/retention-class-v1/negative-unknown-class.json","expected_failure":"schema"},{"path":"fixtures/retention-class-v1/negative-under-replicated.json","expected_failure":"schema"}]
     },
     {
       "contract_id":"schema://ioi/foundations/verifier-contract/v1",
@@ -8548,7 +8548,7 @@
       "compatibility_aliases":[],
       "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"AvailabilityManifestV1"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"AvailabilityManifestV1"}],
       "positive_fixture_refs":["fixtures/availability-manifest-v1/positive-local.json"],
-      "negative_fixture_refs":[{"path":"fixtures/availability-manifest-v1/negative-unknown-claim.json","expected_failure":"schema"}]
+      "negative_fixture_refs":[{"path":"fixtures/availability-manifest-v1/negative-unknown-claim.json","expected_failure":"schema"},{"path":"fixtures/availability-manifest-v1/negative-under-replicated.json","expected_failure":"schema"}]
     },
     {
       "contract_id":"schema://ioi/foundations/finality-certificate/v1",

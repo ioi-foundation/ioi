@@ -14055,6 +14055,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/retention-class/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-under-replicated.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/verifier-contract/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json",
     "expected": "accept",
@@ -14081,6 +14089,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/availability-manifest/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-under-replicated.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -21995,6 +22011,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-under-replicated.json",
+    "contract_id": "schema://ioi/foundations/retention-class/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-under-replicated.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json",
     "contract_id": "schema://ioi/foundations/verifier-contract/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json",
@@ -22019,6 +22042,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json",
     "contract_id": "schema://ioi/foundations/availability-manifest/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-under-replicated.json",
+    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-under-replicated.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -24658,10 +24688,10 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/conflict-authority-binding/v1": "sha256:bf00158ec416c980028ba962fce288c902ff26fb1d9e7a015cf7a8b0b1039e1d",
   "schema://ioi/foundations/retention-class/v1": "sha256:133b48b7b6f98e554637bcf1b42076275e7cf62f9f8917baeab87034566e28a1",
   "schema://ioi/foundations/verifier-contract/v1": "sha256:f8401df3847ff46880da465cad115766c4e08045f9c6d7ac859e2bf9102f125f",
-  "schema://ioi/foundations/availability-manifest/v1": "sha256:978841e19ebb4bed51a8316cb72968df44528844c5e9f10ce84c8d8dd540c88e",
+  "schema://ioi/foundations/availability-manifest/v1": "sha256:9b0105cc8513d94c5321f319197ab5b7d55d257ab4046ad656c087c37bd9f50b",
   "schema://ioi/foundations/finality-certificate/v1": "sha256:72fafb67b3808f3cdea5a0f24b3e646bbc8edcbde020682b7e4b4cc64ee75c57",
   "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b",
-  "schema://ioi/foundations/receipt-checkpoint/v2": "sha256:b9d1210cff0e24e1812605f397c5c37e10109ce53402e122bb82dcfe7c3deb23",
+  "schema://ioi/foundations/receipt-checkpoint/v2": "sha256:2b831906289a3a4f810cb18414cb25c404f756f1fcd97b5a59a57ec3a515b89b",
   "schema://ioi/foundations/receipt-envelope/v1": "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc",
   "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034",
   "schema://ioi/foundations/receipt-proof-bundle/v2": "sha256:445cddcd3318f6f582a7fccd4ce2f0909966668453f99f3a1a41a766482ab4cf",
@@ -80062,7 +80092,56 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "string",
             "pattern": "^policy://[^\\s]{1,248}$"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "retention_class": {
+                  "const": "bounded_retention"
+                }
+              },
+              "required": [
+                "retention_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retain_until": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "retention_class": {
+                  "const": "durable_replicated"
+                }
+              },
+              "required": [
+                "retention_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "minimum_copies": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 1024
+                },
+                "independent_failure_domains": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 1024
+                }
+              }
+            }
+          }
+        ]
       },
       "payload": {
         "type": "object",
@@ -81080,7 +81159,56 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "string",
             "pattern": "^policy://[^\\s]{1,248}$"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "retention_class": {
+                  "const": "bounded_retention"
+                }
+              },
+              "required": [
+                "retention_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retain_until": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "retention_class": {
+                  "const": "durable_replicated"
+                }
+              },
+              "required": [
+                "retention_class"
+              ]
+            },
+            "then": {
+              "properties": {
+                "minimum_copies": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 1024
+                },
+                "independent_failure_domains": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 1024
+                }
+              }
+            }
+          }
+        ]
       },
       "availability": {
         "type": "object",

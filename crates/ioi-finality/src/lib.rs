@@ -35,6 +35,8 @@ pub enum VerificationError {
     UnsupportedProfile { profile: String, variant: String },
     #[error("unsupported verifier axis: {0}")]
     UnsupportedAxis(String),
+    #[error("unsupported recognition semantics: class={class} derivation={derivation}")]
+    UnsupportedRecognition { class: String, derivation: String },
     #[error("contract validation failed for {contract}: {detail}")]
     Contract {
         contract: &'static str,
@@ -80,6 +82,12 @@ fn text(value: &Value, name: &str) -> Result<String, VerificationError> {
 fn number(value: &Value, name: &str) -> Result<u64, VerificationError> {
     field(value, name)?
         .as_u64()
+        .ok_or_else(|| VerificationError::Field(name.into()))
+}
+
+fn boolean(value: &Value, name: &str) -> Result<bool, VerificationError> {
+    field(value, name)?
+        .as_bool()
         .ok_or_else(|| VerificationError::Field(name.into()))
 }
 
@@ -178,6 +186,73 @@ fn state_root(entries: &[Value]) -> Result<String, VerificationError> {
     hash_value(&json!({"domain":"ioi.sorted-state-jcs-sha256.v1","entries":state}))
 }
 
+fn state_map(entries: &[Value]) -> Result<BTreeMap<String, String>, VerificationError> {
+    let mut state = BTreeMap::new();
+    for entry in entries {
+        let key = text(entry, "key")?;
+        let value_hash = text(entry, "value_hash")?;
+        if state.insert(key.clone(), value_hash).is_some() {
+            return Err(VerificationError::Binding(format!(
+                "duplicate state key {key}"
+            )));
+        }
+    }
+    Ok(state)
+}
+
+fn verify_touched_state(
+    binding: &Value,
+    previous_entries: &[Value],
+    resulting_entries: &[Value],
+) -> Result<(), VerificationError> {
+    let previous = state_map(previous_entries)?;
+    let resulting = state_map(resulting_entries)?;
+    let mut touched = BTreeSet::new();
+    for object in array(binding, "touched_objects")? {
+        let object_ref = text(object, "object_ref")?;
+        if !touched.insert(object_ref.clone()) {
+            return Err(VerificationError::Binding(format!(
+                "duplicate touched object {object_ref}"
+            )));
+        }
+        let previous_version = number(object, "previous_version")?;
+        let resulting_version = number(object, "resulting_version")?;
+        if previous_version.checked_add(1) != Some(resulting_version) {
+            return Err(VerificationError::Binding(format!(
+                "non-contiguous object version {object_ref}"
+            )));
+        }
+        match (previous.get(&object_ref), field(object, "previous_head")?) {
+            (None, Value::Null) if previous_version == 0 => {}
+            (Some(actual), Value::String(declared))
+                if previous_version > 0 && actual == declared => {}
+            _ => {
+                return Err(VerificationError::Binding(format!(
+                    "previous touched-object head {object_ref}"
+                )))
+            }
+        }
+        let actual_result = resulting.get(&object_ref).ok_or_else(|| {
+            VerificationError::Binding(format!("missing resulting touched object {object_ref}"))
+        })?;
+        check_eq(
+            actual_result,
+            text(object, "resulting_head")?,
+            "resulting touched-object head",
+        )?;
+    }
+
+    let keys: BTreeSet<&String> = previous.keys().chain(resulting.keys()).collect();
+    for key in keys {
+        if previous.get(key) != resulting.get(key) && !touched.contains(key.as_str()) {
+            return Err(VerificationError::Binding(format!(
+                "state changed outside touched objects: {key}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn range(value: &Value, name: &str) -> Result<(u64, u64), VerificationError> {
     let range = field(value, name)?;
     Ok((number(range, "first")?, number(range, "last")?))
@@ -256,6 +331,9 @@ fn verify_availability(checkpoint: &Value, bundle: &Value) -> Result<(), Verific
     )?;
 
     let supplied = array(bundle, "availability_payloads")?;
+    let retention = field(manifest, "retention")?;
+    let minimum_copies = number(retention, "minimum_copies")? as usize;
+    let independent_failure_domains = number(retention, "independent_failure_domains")? as usize;
     let mut supplied_by_ref = BTreeMap::new();
     for payload in supplied {
         let payload_ref = text(payload, "payload_ref")?;
@@ -289,21 +367,21 @@ fn verify_availability(checkpoint: &Value, bundle: &Value) -> Result<(), Verific
                 "availability payload length".into(),
             ));
         }
+        if array(payload, "location_refs")?.len() < minimum_copies {
+            return Err(VerificationError::Binding(
+                "availability minimum copies".into(),
+            ));
+        }
+        if array(payload, "failure_domain_refs")?.len() < independent_failure_domains {
+            return Err(VerificationError::Binding(
+                "availability independent failure domains".into(),
+            ));
+        }
     }
     Ok(())
 }
 
-fn verify_signature(certificate: &Value, trusted: &Value) -> Result<(), VerificationError> {
-    check_eq(
-        text(certificate, "issuer_key_id")?,
-        text(trusted, "issuer_key_id")?,
-        "trusted issuer key id",
-    )?;
-    check_eq(
-        text(certificate, "issuer_public_key")?,
-        text(trusted, "issuer_public_key")?,
-        "trusted issuer public key",
-    )?;
+fn verify_certificate_signature(certificate: &Value) -> Result<(), VerificationError> {
     let expected_body_hash = hash_value(&without(certificate, &["body_hash", "signature"])?)?;
     check_eq(
         &expected_body_hash,
@@ -322,6 +400,152 @@ fn verify_signature(certificate: &Value, trusted: &Value) -> Result<(), Verifica
     public_key
         .verify(message.as_bytes(), &signature)
         .map_err(|error| VerificationError::Crypto(error.to_string()))
+}
+
+fn verify_signature(certificate: &Value, trusted: &Value) -> Result<(), VerificationError> {
+    check_eq(
+        text(certificate, "issuer_key_id")?,
+        text(trusted, "issuer_key_id")?,
+        "trusted issuer key id",
+    )?;
+    check_eq(
+        text(certificate, "issuer_public_key")?,
+        text(trusted, "issuer_public_key")?,
+        "trusted issuer public key",
+    )?;
+    verify_certificate_signature(certificate)
+}
+
+fn verify_checkpoint_envelope(checkpoint: &Value) -> Result<(), VerificationError> {
+    validate(CHECKPOINT_V2, checkpoint)?;
+    let certificate = field(checkpoint, "finality_certificate")?;
+    let profile = text(checkpoint, "profile")?;
+    let variant = text(certificate, "certificate_variant")?;
+    if profile != "single_authority" || variant != "single_authority_v1" {
+        return Err(VerificationError::UnsupportedProfile { profile, variant });
+    }
+    let expected_schema = architecture_contract_schema_hash(CHECKPOINT_V2)
+        .ok_or_else(|| VerificationError::Field("checkpoint schema hash registry".into()))?;
+    check_eq(
+        expected_schema,
+        text(checkpoint, "schema_hash")?,
+        "checkpoint schema hash",
+    )?;
+
+    let binding = field(checkpoint, "conflict_authority_binding")?;
+    validate(CONFLICT_BINDING_V1, binding)?;
+    let binding_hash = hash_value(&without(binding, &["binding_hash"])?)?;
+    check_eq(
+        &binding_hash,
+        text(binding, "binding_hash")?,
+        "conflict/authority binding hash",
+    )?;
+    check_eq(
+        &binding_hash,
+        text(checkpoint, "conflict_authority_binding_hash")?,
+        "checkpoint conflict/authority binding hash",
+    )?;
+    let recognition = field(checkpoint, "recognition")?;
+    validate(RECOGNITION_V1, recognition)?;
+    check_eq(
+        &binding_hash,
+        text(recognition, "binding_hash")?,
+        "recognition conflict/authority binding hash",
+    )?;
+    if field(binding, "invariant_domain_refs")? != field(recognition, "invariant_domain_refs")? {
+        return Err(VerificationError::Binding(
+            "recognition invariant-domain binding".into(),
+        ));
+    }
+    check_eq(
+        text(binding, "effect_hash")?,
+        text(recognition, "effect_hash")?,
+        "recognition effect hash",
+    )?;
+
+    let verifier = field(checkpoint, "verifier_contract")?;
+    validate(VERIFIER_V1, verifier)?;
+    let verifier_hash = hash_value(&without(verifier, &["verifier_contract_hash"])?)?;
+    check_eq(
+        &verifier_hash,
+        text(verifier, "verifier_contract_hash")?,
+        "verifier contract hash",
+    )?;
+    check_eq(
+        &verifier_hash,
+        text(checkpoint, "verifier_contract_hash")?,
+        "checkpoint verifier contract hash",
+    )?;
+    check_eq(
+        &verifier_hash,
+        text(certificate, "verifier_contract_hash")?,
+        "certificate verifier contract hash",
+    )?;
+    check_eq(
+        text(verifier, "verifier_contract_id")?,
+        text(certificate, "verifier_contract_ref")?,
+        "certificate verifier contract ref",
+    )?;
+
+    let manifest = field(checkpoint, "availability_manifest")?;
+    validate(AVAILABILITY_V1, manifest)?;
+    validate(RETENTION_V1, field(manifest, "retention")?)?;
+    let manifest_hash = hash_value(&without(manifest, &["manifest_hash"])?)?;
+    check_eq(
+        &manifest_hash,
+        text(manifest, "manifest_hash")?,
+        "availability manifest hash",
+    )?;
+    check_eq(
+        &manifest_hash,
+        text(checkpoint, "availability_manifest_hash")?,
+        "checkpoint availability manifest hash",
+    )?;
+    check_eq(
+        text(field(manifest, "retention")?, "retention_class")?,
+        text(checkpoint, "retention_class")?,
+        "checkpoint retention class",
+    )?;
+    check_eq(
+        text(manifest, "availability_verifier_contract_ref")?,
+        text(verifier, "verifier_contract_id")?,
+        "availability verifier contract ref",
+    )?;
+    check_eq(
+        text(manifest, "availability_verifier_contract_hash")?,
+        &verifier_hash,
+        "availability verifier contract hash",
+    )?;
+
+    validate(CERTIFICATE_V1, certificate)?;
+    let checkpoint_hash = hash_value(&without(
+        checkpoint,
+        &["body_hash", "finality_certificate"],
+    )?)?;
+    check_eq(
+        &checkpoint_hash,
+        text(checkpoint, "body_hash")?,
+        "checkpoint body hash",
+    )?;
+    check_eq(
+        &checkpoint_hash,
+        text(certificate, "checkpoint_hash")?,
+        "certificate checkpoint hash",
+    )?;
+    for name in [
+        "domain_id",
+        "authority_epoch",
+        "authority_revocation_epoch",
+        "operation_range",
+        "receipt_range",
+        "profile_contract_version",
+        "profile",
+    ] {
+        if field(checkpoint, name)? != field(certificate, name)? {
+            return Err(VerificationError::Binding(format!("certificate {name}")));
+        }
+    }
+    verify_certificate_signature(certificate)
 }
 
 pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError> {
@@ -384,7 +608,8 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
         .map(str::to_owned)
         .collect();
     for axis in &claimed_axes {
-        if axis != "integrity" && axis != "availability" {
+        if (axis != "integrity" && axis != "availability") || !verifier_axes.contains(axis.as_str())
+        {
             return Err(VerificationError::UnsupportedAxis(axis.clone()));
         }
     }
@@ -394,6 +619,13 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
                 "requested axis not certified: {axis}"
             )));
         }
+    }
+    if claimed_axes.contains("availability")
+        && text(field(checkpoint, "availability_manifest")?, "claim_status")? != "verified"
+    {
+        return Err(VerificationError::Binding(
+            "availability axis requires a verified manifest".into(),
+        ));
     }
 
     let expected_bundle_schema = architecture_contract_schema_hash(BUNDLE_V2)
@@ -428,6 +660,13 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
         text(field(checkpoint, "recognition")?, "binding_hash")?,
         "recognition conflict/authority binding hash",
     )?;
+    if field(binding, "invariant_domain_refs")?
+        != field(field(checkpoint, "recognition")?, "invariant_domain_refs")?
+    {
+        return Err(VerificationError::Binding(
+            "recognition invariant-domain binding".into(),
+        ));
+    }
 
     let verifier_hash = hash_value(&without(verifier, &["verifier_contract_hash"])?)?;
     check_eq(
@@ -475,6 +714,11 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
 
     let previous_state_root = state_root(array(bundle, "previous_state_entries")?)?;
     let resulting_state_root = state_root(array(bundle, "resulting_state_entries")?)?;
+    verify_touched_state(
+        binding,
+        array(bundle, "previous_state_entries")?,
+        array(bundle, "resulting_state_entries")?,
+    )?;
     check_eq(
         &previous_state_root,
         text(field(checkpoint, "previous_state_commitment")?, "root")?,
@@ -513,7 +757,7 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
         (Value::String(expected_ref), Value::String(expected_hash), previous)
             if previous.is_object() =>
         {
-            validate(CHECKPOINT_V2, previous)?;
+            verify_checkpoint_envelope(previous)?;
             check_eq(
                 expected_ref,
                 text(previous, "checkpoint_id")?,
@@ -529,11 +773,67 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
                 text(previous, "resulting_canonical_head")?,
                 "predecessor canonical head",
             )?;
+            check_eq(
+                text(checkpoint, "domain_id")?,
+                text(previous, "domain_id")?,
+                "predecessor domain",
+            )?;
+            check_eq(
+                number(checkpoint, "authority_epoch")?.to_string(),
+                number(previous, "authority_epoch")?.to_string(),
+                "unadmitted predecessor authority change",
+            )?;
+            check_eq(
+                number(checkpoint, "authority_revocation_epoch")?.to_string(),
+                number(previous, "authority_revocation_epoch")?.to_string(),
+                "unadmitted predecessor revocation-epoch change",
+            )?;
+            let previous_certificate = field(previous, "finality_certificate")?;
+            check_eq(
+                text(certificate, "issuer_key_id")?,
+                text(previous_certificate, "issuer_key_id")?,
+                "unadmitted predecessor issuer-key change",
+            )?;
+            check_eq(
+                text(certificate, "issuer_public_key")?,
+                text(previous_certificate, "issuer_public_key")?,
+                "unadmitted predecessor issuer-public-key change",
+            )?;
+            if field(checkpoint, "previous_state_commitment")?
+                != field(previous, "resulting_state_commitment")?
+            {
+                return Err(VerificationError::Binding(
+                    "predecessor state commitment".into(),
+                ));
+            }
+            let (current_operation_first, _) = range(checkpoint, "operation_range")?;
+            let (_, previous_operation_last) = range(previous, "operation_range")?;
+            let (current_receipt_first, _) = range(checkpoint, "receipt_range")?;
+            let (_, previous_receipt_last) = range(previous, "receipt_range")?;
+            if previous_operation_last.checked_add(1) != Some(current_operation_first)
+                || previous_receipt_last.checked_add(1) != Some(current_receipt_first)
+            {
+                return Err(VerificationError::Binding(
+                    "predecessor range continuity".into(),
+                ));
+            }
         }
         _ => {
             return Err(VerificationError::Binding(
                 "previous checkpoint presence".into(),
             ))
+        }
+    }
+    if previous_checkpoint.is_null() {
+        let (operation_first, _) = range(checkpoint, "operation_range")?;
+        let (receipt_first, _) = range(checkpoint, "receipt_range")?;
+        if operation_first != 0
+            || receipt_first != 0
+            || number(field(checkpoint, "previous_state_commitment")?, "version")? != 0
+        {
+            return Err(VerificationError::Binding(
+                "genesis checkpoint continuity".into(),
+            ));
         }
     }
 
@@ -619,6 +919,19 @@ pub fn emit_single_authority(
     )?;
     if profile != "single_authority" || variant != "single_authority_v1" {
         return Err(VerificationError::UnsupportedProfile { profile, variant });
+    }
+    let recognition = field(field(&bundle, "checkpoint")?, "recognition")?;
+    let recognition_class = text(recognition, "recognition_class")?;
+    let derivation = text(recognition, "derivation_status")?;
+    if !matches!(recognition_class.as_str(), "K2" | "K3")
+        || derivation != "resolved"
+        || !boolean(recognition, "canonical_effect")?
+        || !boolean(recognition, "ordinary_admission_permitted")?
+    {
+        return Err(VerificationError::UnsupportedRecognition {
+            class: recognition_class,
+            derivation,
+        });
     }
     let bundle_schema_hash = architecture_contract_schema_hash(BUNDLE_V2)
         .ok_or_else(|| VerificationError::Field("bundle schema hash registry".into()))?

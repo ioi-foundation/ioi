@@ -4518,3 +4518,10 @@ semantics it implements. A recognized shape with an unsupported profile or
 certificate variant is refused, never reported as verified. Production
 selection is a separate qualification: registration does not make a profile
 available, selectable, or default-authorized.
+
+The current `ioi-finality` reference emitter is narrower still: it emits only
+`single_authority_v1` for a resolved, canonical, ordinary-admission K2 or K3
+effect. Its verifier can establish only the explicitly requested and signed
+`integrity` or `availability` axes. It does not establish recognition-class
+derivation, present currentness, non-equivocation, authority admission, or
+economic recognition, and it is not wired to a production runtime selector.
