@@ -345,6 +345,15 @@ fn benchmark_trace_enabled() -> bool {
     std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
 }
 
+/// Whether this fixture must seed height zero near the host clock.
+///
+/// Standing-authority journeys need it for RFC3339 freshness. Ordering-parity
+/// benchmarks need it so the shared timestamp due-time gate actually paces
+/// both engines instead of letting an immediate engine fast-forward from 1970.
+fn requires_initial_tip_timestamp(wall_clock_fixture: bool, benchmark_trace: bool) -> bool {
+    wall_clock_fixture || benchmark_trace
+}
+
 /// The ordering/finality profile this fixture run exercises.
 ///
 /// M04.9 compares the preserved one-validator AFT control against the
@@ -1617,6 +1626,11 @@ fn fixture_command_contract_is_canonical_and_bounded() {
             "selector must reject {rejected:?} instead of defaulting"
         );
     }
+
+    assert!(requires_initial_tip_timestamp(true, false));
+    assert!(requires_initial_tip_timestamp(false, true));
+    assert!(requires_initial_tip_timestamp(true, true));
+    assert!(!requires_initial_tip_timestamp(false, false));
 }
 
 #[tokio::test]
@@ -1896,26 +1910,36 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
     publish_verifier_owner_marker(&fixture_dir)?;
     build_test_artifacts();
     // A real daemon WebAuthn ceremony emits RFC3339 wall-clock evidence.  The
-    // deterministic AFT test chain intentionally starts at Unix second one,
-    // so standing-authority journeys explicitly seed AFT's height-zero parent
-    // clock and the validator harness's initial tip from one timestamp.  This
-    // leaves the normal genesis state root untouched; height one durably
-    // publishes the seeded clock through the ordinary ChainStatus transition.
-    // One-shot and other deterministic fixture consumers retain the default.
-    let wall_clock_genesis_ms = (std::env::var("IOI_HYPERVISOR_WALLET_FIXTURE_WALL_CLOCK")
-        .as_deref()
-        == Ok("1"))
-    .then(|| {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let now_ms: u64 = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("wallet fixture wall clock must follow the Unix epoch")
-            .as_millis()
-            .try_into()
-            .expect("wallet fixture wall clock must fit in u64");
-        now_ms.saturating_sub(1_000)
-    });
-    if let Some(timestamp_ms) = wall_clock_genesis_ms {
+    // deterministic test chain intentionally starts at Unix second one, so
+    // standing-authority journeys and explicit ordering-parity profiles seed
+    // the height-zero parent clock and validator harness's initial tip from
+    // one timestamp. This leaves the normal genesis state root untouched;
+    // height one durably publishes the seeded clock through the ordinary
+    // ChainStatus transition. Other deterministic fixture consumers retain
+    // the default.
+    let wall_clock_fixture =
+        std::env::var("IOI_HYPERVISOR_WALLET_FIXTURE_WALL_CLOCK").as_deref() == Ok("1");
+    // A parity profile must also start close enough to the host clock for the
+    // shared `expected_timestamp_ms > now_ms` production gate to be binding.
+    // Starting at Unix epoch zero lets Solo consume one second of authority
+    // time on every scheduler kick until the chain catches the host, while
+    // AFT's protocol work happens to pace the same timestamps. That varies a
+    // second dimension and can expire otherwise identical leases/challenges.
+    // The benchmark trace is an explicit test-only namespace, so pin its
+    // initial tip without opting it into the standing-authority fixture's
+    // separate conservative 15-second interval below.
+    let initial_tip_timestamp_ms =
+        requires_initial_tip_timestamp(wall_clock_fixture, benchmark_trace_enabled()).then(|| {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let now_ms: u64 = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("wallet fixture wall clock must follow the Unix epoch")
+                .as_millis()
+                .try_into()
+                .expect("wallet fixture wall clock must fit in u64");
+            now_ms.saturating_sub(1_000)
+        });
+    if let Some(timestamp_ms) = initial_tip_timestamp_ms {
         std::env::set_var(
             "IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS",
             timestamp_ms.to_string(),
@@ -1945,7 +1969,7 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         .with_consensus_type(ordering_profile.consensus_type())
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_policy());
-    if wall_clock_genesis_ms.is_some() {
+    if wall_clock_fixture {
         // The real IAVL fixture commits a setup census before publishing
         // readiness. Those blocks can take materially longer than the normal
         // one-second test interval, causing deterministic chain time to fall
