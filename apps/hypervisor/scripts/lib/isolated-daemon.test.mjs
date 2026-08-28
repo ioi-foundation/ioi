@@ -5,7 +5,20 @@ import { createServer } from "node:net";
 import { once } from "node:events";
 import test from "node:test";
 
-import { linuxListenerOwnershipEvidence } from "./isolated-daemon.mjs";
+import {
+  linuxListenerOwnershipEvidence,
+  resolveIsolatedDaemonBinary,
+} from "./isolated-daemon.mjs";
+
+test("isolated daemon defaults to debug and honors the explicit binary override", () => {
+  assert.match(resolveIsolatedDaemonBinary({}), /target\/debug\/hypervisor-daemon$/u);
+  assert.match(
+    resolveIsolatedDaemonBinary({
+      IOI_HYPERVISOR_DAEMON_BINARY: "target/release/hypervisor-daemon",
+    }),
+    /target\/release\/hypervisor-daemon$/u,
+  );
+});
 
 function linuxProcAvailable() {
   return process.platform === "linux" &&

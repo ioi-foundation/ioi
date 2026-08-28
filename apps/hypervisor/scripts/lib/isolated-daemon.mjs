@@ -39,13 +39,24 @@ import {
 } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..", "..");
 const REPO = join(APP, "..", "..");
-export const DAEMON_BINARY = join(REPO, "target", "debug", "hypervisor-daemon");
+// Debug remains the default for the estate's ordinary verifier runs. Release
+// qualification may select an exact prebuilt daemon explicitly; honoring the
+// same override already used by other Hypervisor verifiers prevents a release
+// cluster from silently exercising a stale debug daemon on restart.
+export function resolveIsolatedDaemonBinary(source = process.env) {
+  return resolve(
+    REPO,
+    source.IOI_HYPERVISOR_DAEMON_BINARY ?? "target/debug/hypervisor-daemon",
+  );
+}
+
+export const DAEMON_BINARY = resolveIsolatedDaemonBinary();
 
 // Keep the verifier-only transport-log boundary beside the helper that owns the
 // filenames. Durable-state snapshots may exclude exactly these root files, but

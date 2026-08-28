@@ -21,6 +21,7 @@ import {
   ORDERING_PARITY_SLOTS,
   PHASES,
   READY_HEIGHT_LAG_MAX,
+  RELEASE_DAEMON_BINARY,
   SCHEMA_COMPATIBILITY,
   REQUIRED_PHASES,
   UNMEASURED_PHASES,
@@ -475,6 +476,7 @@ test("the wrapper pins readiness lag because the trace seam would change it", ()
   assert.equal(env.IOI_AFT_BENCH_TRACE, "1");
   assert.equal(env.IOI_AFT_BENCH_TRACE_DIR, "/tmp/trace");
   assert.equal(env.IOI_WALLET_FIXTURE_RELEASE, "1");
+  assert.equal(env.IOI_HYPERVISOR_DAEMON_BINARY, RELEASE_DAEMON_BINARY);
   assert.equal(env.IOI_WALLET_FIXTURE_TEE_LOG, "/tmp/tee.log");
   assert.equal(env.PATH, "/usr/bin", "the surrounding environment is preserved");
 });

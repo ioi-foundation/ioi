@@ -62,6 +62,7 @@
 // Exit: 0 when the soak passed AND a complete profile was built · 1 otherwise.
 
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
@@ -75,6 +76,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO = resolve(HERE, "..", "..", "..");
+export const RELEASE_DAEMON_BINARY = join(REPO, "target", "release", "hypervisor-daemon");
 export const SOAK_VERIFIER = "verify-m4-room-participation-contribution-plane.mjs";
 // BUMPED, because the change is incompatible and a version is the only honest
 // place to say so. `aft_inclusion_finalization` is now `ordering_finalization`
@@ -1257,6 +1260,11 @@ export function profileEnv(baseEnv, traceDir, teeLogPath, options = {}) {
     IOI_AFT_BENCH_TRACE_DIR: traceDir,
     // Fixture stdout carries [BENCH-APPROVAL]; retain it.
     IOI_WALLET_FIXTURE_TEE_LOG: teeLogPath,
+    // The wallet fixture's AFT/Solo cluster already uses release node
+    // binaries. Its external authority daemon and restart path must use the
+    // current release daemon too, or the purported release baseline can
+    // silently execute stale debug code through the isolated-plane helper.
+    IOI_HYPERVISOR_DAEMON_BINARY: RELEASE_DAEMON_BINARY,
     // See the header: without this the trace seam changes readiness semantics.
     IOI_TEST_READY_HEIGHT_LAG_MAX: READY_HEIGHT_LAG_MAX,
   };
@@ -1288,6 +1296,44 @@ export function profileEnv(baseEnv, traceDir, teeLogPath, options = {}) {
     env.ORCH_CONSENSUS_MIN_TICK_MS = String(options.consensusMinTickMs);
   }
   return env;
+}
+
+async function buildReleaseAuthorityDaemon() {
+  const args = [
+    "build",
+    "--locked",
+    "--release",
+    "-p",
+    "ioi-node",
+    "--bin",
+    "hypervisor-daemon",
+  ];
+  const child = spawn("cargo", args, {
+    cwd: REPO,
+    env: process.env,
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  const result = await new Promise((resolveExit) => {
+    child.once("exit", (code, signal) => resolveExit({ code, signal }));
+    child.once("error", (error) =>
+      resolveExit({ code: null, signal: `spawn-error:${error.message}` }),
+    );
+  });
+  if (result.code !== 0) {
+    throw new Error(
+      `release authority-daemon build failed: exit ${result.code}${
+        result.signal ? `/${result.signal}` : ""
+      }`,
+    );
+  }
+  const bytes = readFileSync(RELEASE_DAEMON_BINARY);
+  return {
+    build_profile: "release",
+    build_command: `cargo ${args.join(" ")}`,
+    binary_path: RELEASE_DAEMON_BINARY,
+    binary_sha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
+    binary_size_bytes: bytes.length,
+  };
 }
 
 // The ordering profiles this wrapper may request, matching the fixture's own
@@ -1397,6 +1443,8 @@ async function main() {
     "Running the COMPLETE wallet-authority soak: no approval is reduced, skipped, or reordered.",
   );
 
+  const authorityDaemon = await buildReleaseAuthorityDaemon();
+
   const soak = spawn(process.execPath, [join(HERE, SOAK_VERIFIER)], {
     // Match `npm --prefix apps/hypervisor run soak:...`, whose script cwd is
     // the package directory. The wrapper changes observation only, not cwd.
@@ -1429,6 +1477,7 @@ async function main() {
         soak_exit_code: soakExit.code,
         soak_exit_signal: soakExit.signal ?? null,
         build_profile: "release",
+        authority_daemon: authorityDaemon,
         // Entailed by the line itself: only the IAVL commitment writer emits
         // [BENCH-IAVL], so its presence at a height identifies that backend.
         state_commitment_backend: "iavl",
