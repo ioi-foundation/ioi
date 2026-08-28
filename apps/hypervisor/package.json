@@ -26,6 +26,8 @@
     "check:m4-work-lifecycle-plane": "node scripts/verify-m4-work-lifecycle-plane.mjs",
     "check:m4-room-participation-contribution-architecture": "cargo test --locked -p ioi-node --bin hypervisor-daemon m048_collaboration_routes::m048_tests",
     "soak:m4-room-participation-contribution-wallet-authority": "IOI_WALLET_FIXTURE_RELEASE=1 node scripts/verify-m4-room-participation-contribution-plane.mjs",
+    "profile:m4-wallet-authority-commit-path": "node scripts/profile-m4-wallet-authority-commit-path.mjs",
+    "check:m4-wallet-authority-commit-path-profile": "node --test scripts/profile-m4-wallet-authority-commit-path.test.mjs",
     "check:launch-chain": "node scripts/verify-hypervisor-launch-chain.mjs",
     "check:session-authority": "node scripts/verify-hypervisor-session-authority.mjs",
     "check:projects-saga": "node scripts/verify-hypervisor-projects-saga.mjs",

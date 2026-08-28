@@ -38,6 +38,36 @@ const seeds = new Map([
 ]);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Opt-in commit-path profiling reuses the estate's EXISTING AFT benchmark trace
+// seam (IOI_AFT_BENCH_TRACE / IOI_AFT_BENCH_TRACE_DIR), the same gate
+// crates/execution and crates/validator read. It is not a second tracer, and it
+// is inert unless that seam is explicitly enabled.
+const COMMIT_PATH_OBSERVATIONS_FILE = "commit-path-observations.jsonl";
+
+export function commitPathProfileTraceDir(env = process.env) {
+  if (!env.IOI_AFT_BENCH_TRACE) return null;
+  const dir = env.IOI_AFT_BENCH_TRACE_DIR;
+  return typeof dir === "string" && dir.length > 0 ? dir : null;
+}
+
+// Append one commit-path observation, correlated by `request_hash`.
+//
+// Observations are diagnostics only. A write failure never fails the journey,
+// and nothing written here is read back into any authority decision.
+export function recordCommitPathObservation(kind, observation, env = process.env) {
+  const dir = commitPathProfileTraceDir(env);
+  if (!dir) return;
+  try {
+    appendFileSync(
+      path.join(dir, COMMIT_PATH_OBSERVATIONS_FILE),
+      `${JSON.stringify({ kind, observed_at_ms: Date.now(), ...observation })}\n`,
+    );
+  } catch {
+    /* diagnostics never fail the journey */
+  }
+}
+
 const MAX_PENDING_COMMANDS = 64;
 const MAX_COMMAND_BYTES = 64 * 1024;
 const COMMAND_TIMEOUT_MS = Number(
@@ -368,6 +398,23 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   if (releaseFixture) {
     spawnEnv.IOI_TEST_BUILD_PROFILE = "release";
   }
+  // READINESS SEMANTICS, not a measurement. IOI_AFT_BENCH_TRACE makes the
+  // in-process cluster treat itself as a benchmark harness, which RAISES the
+  // default ready-height lag from 1 to 16 (crates/cli/src/testing/cluster.rs).
+  // A profiled run must keep the soak's exact readiness bar, so the caller has
+  // to pin it — and `sanitizedVerifierBaseEnv` strips every IOI_TEST_* name
+  // before it reaches here, so the pin only survives by being re-asserted
+  // explicitly, exactly as IOI_TEST_BUILD_PROFILE is above.
+  if (process.env.IOI_AFT_BENCH_TRACE) {
+    const readyHeightLagMax = process.env.IOI_TEST_READY_HEIGHT_LAG_MAX;
+    if (!/^[0-9]+$/.test(String(readyHeightLagMax || ""))) {
+      throw new Error(
+        "IOI_AFT_BENCH_TRACE changes cluster readiness semantics; a profiled wallet fixture must " +
+          "pin IOI_TEST_READY_HEIGHT_LAG_MAX to the readiness bar it intends to measure",
+      );
+    }
+    spawnEnv.IOI_TEST_READY_HEIGHT_LAG_MAX = String(readyHeightLagMax);
+  }
   const child = spawn(
     process.execPath,
     [guardianPath],
@@ -635,8 +682,11 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       target_scope: targetScope,
     };
     let response;
+    let recordAttempts = 0;
+    const recordStarted = process.hrtime.bigint();
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
+        recordAttempts += 1;
         response = await runCommand(command);
         break;
       } catch (error) {
@@ -660,6 +710,19 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
     if (response.request_hash !== normalizedRequestHash) {
       throw new Error("wallet.network record_approval response named a different request hash");
     }
+    // Opt-in observation only. The response object is returned exactly as the
+    // fixture produced it; nothing above or below this call is conditioned on
+    // whether profiling is enabled.
+    recordCommitPathObservation("approval_record", {
+      request_hash: normalizedRequestHash,
+      policy_hash: normalizedPolicyHash,
+      target_scope: targetScope,
+      principal_ref: principalRef,
+      record_approval_ms: Number(
+        (process.hrtime.bigint() - recordStarted) / 1_000_000n,
+      ),
+      record_approval_attempts: recordAttempts,
+    });
     return response;
   }
 

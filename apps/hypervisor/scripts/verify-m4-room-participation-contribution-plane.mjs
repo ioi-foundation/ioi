@@ -12,7 +12,10 @@ import {
   sanitizedVerifierBaseEnv,
   startIsolatedPlane,
 } from "./lib/isolated-daemon.mjs";
-import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
+import {
+  recordCommitPathObservation,
+  startRealWalletNetworkPrincipalAuthorityFixture,
+} from "./lib/wallet-network-principal-authority-fixture.mjs";
 import {
   bootstrapActiveSystem,
   exactGenesisBody,
@@ -123,8 +126,25 @@ async function jsonCall(base, method, path, body, headers = {}) {
   });
 }
 
+// Opt-in profiling correlates a governed route with the approval it recorded.
+// It observes wall time around calls that are made identically either way; the
+// helpers' return shapes and every requireValue above them are unchanged.
+const elapsedMs = (startedAt) => Number((process.hrtime.bigint() - startedAt) / 1_000_000n);
+
+function observeGovernedRoute(route, approval, targetScope, timings) {
+  recordCommitPathObservation("governed_route", {
+    route,
+    request_hash: String(approval?.request_hash ?? "").replace(/^sha256:/u, ""),
+    policy_hash: String(approval?.policy_hash ?? "").replace(/^sha256:/u, ""),
+    target_scope: targetScope ?? null,
+    ...timings,
+  });
+}
+
 async function governed(call, resolver, path, body) {
+  const challengeStarted = process.hrtime.bigint();
   const challenge = await call("POST", path, body);
+  const challengeMs = elapsedMs(challengeStarted);
   const refusal = challenge.body?.error ?? challenge.body;
   const approval = refusal?.approval;
   requireValue(
@@ -135,29 +155,51 @@ async function governed(call, resolver, path, body) {
     refusal?.required_authority_ref === SYSTEM_AUTHORITY,
     `authority was not resolved from active System owner truth for ${path}: ${refusal?.required_authority_ref || "none"}`,
   );
+  const mintStarted = process.hrtime.bigint();
   const grant = await resolver.mintRecorded(
     SYSTEM_AUTHORITY,
     approval.policy_hash,
     approval.request_hash,
     refusal.required_scope,
   );
+  const mintRecordedMs = elapsedMs(mintStarted);
+  const resolutionStarted = process.hrtime.bigint();
   const response = await call("POST", path, { ...body, wallet_approval_grant: grant });
+  const authorityResolutionMs = elapsedMs(resolutionStarted);
+  observeGovernedRoute(path, approval, refusal.required_scope, {
+    challenge_ms: challengeMs,
+    mint_recorded_ms: mintRecordedMs,
+    authority_resolution_ms: authorityResolutionMs,
+    response_status: response.status,
+  });
   return { challenge, response, grant };
 }
 
 async function walletAuthorizedPost(call, resolver, path, body, scope) {
+  const challengeStarted = process.hrtime.bigint();
   const challenge = await call("POST", path, body);
+  const challengeMs = elapsedMs(challengeStarted);
   const approval = challenge.body?.approval ?? challenge.body?.error?.approval;
   requireValue(
     challenge.status === 403 && approval?.policy_hash && approval?.request_hash,
     `authority challenge absent for ${path}: ${challenge.status}/${challenge.body?.error?.code || "none"}`,
   );
+  const mintStarted = process.hrtime.bigint();
   const grant = await resolver.mintRecorded(DEPLOYMENT_AUTHORITY, approval.policy_hash, approval.request_hash, scope);
+  const mintRecordedMs = elapsedMs(mintStarted);
   const operationToken = challenge.body?.operation_token ?? challenge.body?.authority_challenge?.operation_token;
+  const resolutionStarted = process.hrtime.bigint();
   const response = await call("POST", path, {
     ...body,
     ...(operationToken ? { operation_token: operationToken } : {}),
     wallet_approval_grant: grant,
+  });
+  const authorityResolutionMs = elapsedMs(resolutionStarted);
+  observeGovernedRoute(path, approval, scope, {
+    challenge_ms: challengeMs,
+    mint_recorded_ms: mintRecordedMs,
+    authority_resolution_ms: authorityResolutionMs,
+    response_status: response.status,
   });
   return { challenge, response, grant };
 }

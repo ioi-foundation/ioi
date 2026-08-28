@@ -89,6 +89,66 @@ fn benchmark_trace_append(line: &str) {
     }
 }
 
+/// A CPU-time reading for the whole workload process.
+///
+/// `RUSAGE_SELF` is the narrowest mechanism that stays CORRECT here. A
+/// thread-scoped `RUSAGE_THREAD` reading looks narrower but would be wrong:
+/// `commit_block` is an async fn whose awaits may resume on a different runtime
+/// thread, so the two ends of the window can be sampled on different threads.
+/// The delta below is therefore process-wide across the commit window — it is
+/// not commit-exclusive — and the trace field names say so.
+#[derive(Clone, Copy)]
+struct ProcessCpuTime {
+    user: Duration,
+    system: Duration,
+}
+
+#[cfg(target_os = "linux")]
+fn process_cpu_time() -> Option<ProcessCpuTime> {
+    fn timeval_to_duration(value: libc::timeval) -> Duration {
+        Duration::new(
+            value.tv_sec.max(0) as u64,
+            (value.tv_usec.max(0) as u32).saturating_mul(1_000),
+        )
+    }
+
+    let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
+    // SAFETY: `getrusage` only writes into the `rusage` it is handed, and the
+    // struct is treated as initialized solely on a success return.
+    let status = unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) };
+    if status != 0 {
+        return None;
+    }
+    let usage = unsafe { usage.assume_init() };
+    Some(ProcessCpuTime {
+        user: timeval_to_duration(usage.ru_utime),
+        system: timeval_to_duration(usage.ru_stime),
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn process_cpu_time() -> Option<ProcessCpuTime> {
+    None
+}
+
+/// Render a CPU delta for the benchmark trace, or the literal `unavailable`.
+///
+/// An absent reading is reported as absent. It is never rendered as `0`, which
+/// a parser would otherwise read as "this commit burned no CPU".
+fn benchmark_cpu_delta_ms(
+    started: Option<ProcessCpuTime>,
+    finished: Option<ProcessCpuTime>,
+    select: fn(&ProcessCpuTime) -> Duration,
+) -> String {
+    match (started, finished) {
+        (Some(started), Some(finished)) => select(&finished)
+            .saturating_sub(select(&started))
+            .as_millis()
+            .to_string(),
+        _ => "unavailable".to_string(),
+    }
+}
+
 fn nonce_scoped_account_id(tx: &ChainTransaction) -> Option<AccountId> {
     match tx {
         ChainTransaction::System(s) => Some(s.header.account_id),
@@ -928,6 +988,7 @@ where
     ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
         let commit_started = Instant::now();
         let benchmark_trace = benchmark_trace_enabled();
+        let commit_cpu_started = benchmark_trace.then(process_cpu_time).flatten();
         let workload = &self.workload_container;
         let mut block = prepared.block;
         let pre_commit_height = self.state.status.height;
@@ -1005,6 +1066,7 @@ where
         };
         let mut next_status = self.state.status.clone();
         let mut committed_block_bytes: Option<Vec<u8>> = None;
+        let mut committed_block_byte_len: Option<usize> = None;
         let supplied_timestamp_ms = block.header.timestamp_ms;
         let supplied_legacy_timestamp = block.header.timestamp;
         let supplied_state_root = block.header.state_root.clone();
@@ -1061,12 +1123,17 @@ where
                 }
             }
         }
+        // The rollback snapshot is a full clone of the live state tree. On a
+        // deepening chain it is a commit-path cost in its own right, so it is
+        // measured separately rather than folded into `total_ms`.
+        let snapshot_clone_started = Instant::now();
         let state_snapshot = if externally_finalized_header {
             let state = state_tree_arc.read().await;
             Some(state.clone())
         } else {
             None
         };
+        let snapshot_clone_elapsed = snapshot_clone_started.elapsed();
         let service_manager_snapshot = Some(self.service_manager.clone());
         let services_snapshot = Some(self.services.clone());
         let service_meta_cache_snapshot = Some(self.service_meta_cache.clone());
@@ -1405,6 +1472,7 @@ where
                     "commit_version_persist() is slow"
                 );
             }
+            committed_block_byte_len = Some(block_bytes.len());
             committed_block_bytes = Some(block_bytes);
 
             {
@@ -1532,8 +1600,20 @@ where
         self.state.status = next_status;
 
         if benchmark_trace {
+            let commit_cpu_finished = process_cpu_time();
+            let proc_cpu_user_ms =
+                benchmark_cpu_delta_ms(commit_cpu_started, commit_cpu_finished, |cpu| cpu.user);
+            let proc_cpu_sys_ms =
+                benchmark_cpu_delta_ms(commit_cpu_started, commit_cpu_finished, |cpu| cpu.system);
+            // `block_bytes` is the canonical encoding length of the committed
+            // block. `proc_cpu_*_ms` are process-wide CPU deltas across this
+            // commit window (see `process_cpu_time`), reported as `unavailable`
+            // when no reading could be taken. `total_ms` remains INCLUSIVE of
+            // `persist_ms`, which is itself inclusive of state commitment and
+            // durable store time; `snapshot_clone_ms` is exclusive of all of
+            // them and is not part of `total_ms`'s nested decomposition.
             eprintln!(
-                "[BENCH-EXEC] commit_block height={} tx_count={} proof_verify_ms={} apply_ms={} end_block_ms={} persist_ms={} put_block_ms={} total_ms={}",
+                "[BENCH-EXEC] commit_block height={} tx_count={} proof_verify_ms={} apply_ms={} end_block_ms={} persist_ms={} put_block_ms={} total_ms={} snapshot_clone_ms={} block_bytes={} proc_cpu_user_ms={} proc_cpu_sys_ms={}",
                 block.header.height,
                 block.transactions.len(),
                 proof_verify_elapsed.as_millis(),
@@ -1542,6 +1622,12 @@ where
                 persist_elapsed.as_millis(),
                 store_elapsed.as_millis(),
                 commit_started.elapsed().as_millis(),
+                snapshot_clone_elapsed.as_millis(),
+                committed_block_byte_len
+                    .map(|len| len.to_string())
+                    .unwrap_or_else(|| "unavailable".to_string()),
+                proc_cpu_user_ms,
+                proc_cpu_sys_ms,
             );
             tracing::info!(
                 target: "execution_bench",
@@ -1553,6 +1639,10 @@ where
                 persist_ms = persist_elapsed.as_millis(),
                 put_block_ms = store_elapsed.as_millis(),
                 total_ms = commit_started.elapsed().as_millis(),
+                snapshot_clone_ms = snapshot_clone_elapsed.as_millis(),
+                block_bytes = ?committed_block_byte_len,
+                proc_cpu_user_ms = %proc_cpu_user_ms,
+                proc_cpu_sys_ms = %proc_cpu_sys_ms,
                 "commit_block timing"
             );
         }

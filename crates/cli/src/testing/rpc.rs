@@ -21,6 +21,38 @@ use tonic::transport::Channel;
 const RPC_RETRY_MAX: usize = 5;
 const RPC_RETRY_BASE_MS: u64 = 80;
 
+/// The fixed interval between committed-status polls.
+///
+/// Every commit-wait measurement taken on this path is quantized to this
+/// interval, so a profile that reports the wait must also report the quantum
+/// rather than presenting the sampled figure as an exact latency.
+const COMMIT_POLL_INTERVAL_MS: u64 = 500;
+
+/// A wall-clock observation of one submission through [`submit_transaction`].
+///
+/// These are measurements of the very path `submit_transaction` already walks.
+/// Producing them changes no admission, commitment, or status truth, and no
+/// field here is ever substituted for a value the chain did not report.
+#[derive(Debug, Clone)]
+pub struct SubmissionProfile {
+    /// The hash the RPC admitted the transaction under.
+    pub tx_hash: String,
+    /// Wall time of the `submit_transaction` RPC call itself.
+    pub admission_ms: u128,
+    /// Wall time from the end of admission until the status read COMMITTED.
+    pub commit_wait_ms: u128,
+    /// How many `get_transaction_status` polls that wait issued.
+    pub commit_poll_count: u64,
+    /// The interval those polls quantize `commit_wait_ms` to.
+    pub commit_poll_interval_ms: u64,
+    /// The EXACT block height the validator recorded for this transaction.
+    ///
+    /// `None` when the status cache published no height. A caller must report
+    /// that absence; the chain tip is a different fact and is never a
+    /// substitute for it.
+    pub committed_height: Option<u64>,
+}
+
 /// Connects to the public gRPC API.
 async fn connect(rpc_addr: &str) -> Result<PublicApiClient<Channel>> {
     let url = if rpc_addr.starts_with("http") {
@@ -130,7 +162,24 @@ pub async fn submit_transaction(
     rpc_addr: &str,
     tx: &ioi_types::app::ChainTransaction,
 ) -> Result<()> {
+    submit_transaction_profiled(rpc_addr, tx).await.map(|_| ())
+}
+
+/// The single implementation behind [`submit_transaction`], additionally
+/// returning what it observed about its own timing.
+///
+/// [`submit_transaction`] delegates here so there is exactly ONE submission
+/// path: a profiled copy that could drift from the path the soak actually
+/// walks would measure a different journey than the one under test.
+pub async fn submit_transaction_profiled(
+    rpc_addr: &str,
+    tx: &ioi_types::app::ChainTransaction,
+) -> Result<SubmissionProfile> {
+    let admission_started = std::time::Instant::now();
     let tx_hash = submit_transaction_no_wait(rpc_addr, tx).await?;
+    let admission_ms = admission_started.elapsed().as_millis();
+    let mut commit_poll_count = 0u64;
+    let mut committed_height = None;
 
     // Poll for status. Long held journeys against the debug wallet fixture
     // legitimately commit slowly as the chain deepens; callers opt into a
@@ -155,11 +204,27 @@ pub async fn submit_transaction(
             tx_hash: tx_hash.clone(),
         });
 
+        commit_poll_count += 1;
         match client.get_transaction_status(req).await {
             Ok(resp) => {
                 let r = resp.into_inner();
                 match TxStatus::try_from(r.status).unwrap_or(TxStatus::Unknown) {
-                    TxStatus::Committed => return Ok(()),
+                    TxStatus::Committed => {
+                        // The status cache publishes the exact including height
+                        // on commit. A zero means it published none; that
+                        // absence is carried forward as absence.
+                        if r.block_height > 0 {
+                            committed_height = Some(r.block_height);
+                        }
+                        return Ok(SubmissionProfile {
+                            tx_hash,
+                            admission_ms,
+                            commit_wait_ms: start.elapsed().as_millis(),
+                            commit_poll_count,
+                            commit_poll_interval_ms: COMMIT_POLL_INTERVAL_MS,
+                            committed_height,
+                        });
+                    }
                     TxStatus::Rejected => {
                         return Err(anyhow!("Transaction rejected: {}", r.error_message));
                     }
@@ -171,7 +236,7 @@ pub async fn submit_transaction(
             }
         }
 
-        sleep(Duration::from_millis(500)).await;
+        sleep(Duration::from_millis(COMMIT_POLL_INTERVAL_MS)).await;
     }
 }
 

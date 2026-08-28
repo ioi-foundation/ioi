@@ -6766,6 +6766,7 @@ dependencies = [
  "ioi-tx",
  "ioi-types",
  "ioi-vm-wasm",
+ "libc",
  "libp2p",
  "log",
  "parity-scale-codec",

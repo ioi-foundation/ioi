@@ -31,6 +31,10 @@ tokio = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["std"] }
 toml = { workspace = true }
+# Read-only `getrusage` for the IOI_AFT_BENCH_TRACE commit CPU accounting in
+# app/state_machine.rs. Nothing outside that trace path uses it, and the trace
+# reports CPU as unavailable rather than inventing a value where it is absent.
+libc = { workspace = true }
 
 # [NEW] Dependencies for Parallel Execution
 dashmap = { workspace = true }

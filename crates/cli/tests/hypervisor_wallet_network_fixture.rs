@@ -25,9 +25,9 @@ use ioi_cli::testing::{
     build_test_artifacts,
     rpc::{
         get_block_by_height, get_chain_height, get_chain_timestamp, query_state_key,
-        tip_height_resilient,
+        submit_transaction_profiled, tip_height_resilient, SubmissionProfile,
     },
-    submit_transaction, wait_for_height, TestCluster,
+    wait_for_height, TestCluster,
 };
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
 use ioi_services::wallet_network::{
@@ -313,10 +313,73 @@ async fn submit<P: Encode>(
     method: &str,
     params: &P,
 ) -> Result<()> {
+    submit_profiled(rpc_addr, signer, chain_id, nonce, method, params)
+        .await
+        .map(|_| ())
+}
+
+/// The single submission path every fixture command uses, additionally
+/// returning what it observed about its own timing.
+///
+/// `submit` delegates here rather than duplicating the call, so a profiled run
+/// and an unprofiled run submit through byte-identical code.
+async fn submit_profiled<P: Encode>(
+    rpc_addr: &str,
+    signer: &Ed25519KeyPair,
+    chain_id: ChainId,
+    nonce: u64,
+    method: &str,
+    params: &P,
+) -> Result<SubmissionProfile> {
     let transaction = create_call(signer, chain_id, nonce, method, params)?;
-    submit_transaction(rpc_addr, &transaction)
+    submit_transaction_profiled(rpc_addr, &transaction)
         .await
         .with_context(|| format!("wallet.network {method} nonce {nonce}"))
+}
+
+/// Is the estate's existing AFT benchmark trace seam enabled?
+///
+/// This is the SAME gate `crates/execution` and `crates/validator` read. The
+/// approval observation below is a consumer of that seam, never a second one.
+fn benchmark_trace_enabled() -> bool {
+    std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
+}
+
+/// Emit one approval-correlated commit-path observation.
+///
+/// The line is written to stdout, which the JS fixture tees to
+/// `IOI_WALLET_FIXTURE_TEE_LOG`. It reports only what was measured: an absent
+/// committed height is reported as `unavailable`, never as a tip reading or a
+/// zero. Nothing here is read back into the fixture's own control flow, so the
+/// approval's grant, receipt, and response truth are untouched.
+#[allow(clippy::too_many_arguments)]
+fn emit_approval_observation(
+    request_hash: &[u8; 32],
+    policy_hash: &[u8; 32],
+    principal_ref: &str,
+    target_scope: &str,
+    submission: &SubmissionProfile,
+    approval_query_ms: u128,
+    approval_verify_ms: u128,
+) {
+    println!(
+        "[BENCH-APPROVAL] request_hash={} policy_hash={} principal_ref={} target_scope={} tx_hash={} admission_ms={} committed_height={} commit_wait_ms={} commit_poll_count={} commit_poll_interval_ms={} approval_query_ms={} approval_verify_ms={}",
+        hex::encode(request_hash),
+        hex::encode(policy_hash),
+        principal_ref,
+        target_scope,
+        submission.tx_hash,
+        submission.admission_ms,
+        submission
+            .committed_height
+            .map(|height| height.to_string())
+            .unwrap_or_else(|| "unavailable".to_string()),
+        submission.commit_wait_ms,
+        submission.commit_poll_count,
+        submission.commit_poll_interval_ms,
+        approval_query_ms,
+        approval_verify_ms,
+    );
 }
 
 fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
@@ -830,7 +893,7 @@ async fn submit_record_approval(
         decided_at_ms,
     };
     let nonce = account_nonce(rpc_addr, &capability_account_id).await?;
-    if let Err(error) = submit(
+    let submission = submit_profiled(
         rpc_addr,
         capability,
         chain_id,
@@ -838,74 +901,98 @@ async fn submit_record_approval(
         "record_approval@v1",
         &approval,
     )
-    .await
-    {
-        // Transaction-status polling can time out after the validator has
-        // already advanced the account nonce and committed the approval.
-        // Recover only from the same complete logical approval at the exact
-        // request-key. A byte-identical retry may carry a later server clock,
-        // so timestamps are checked by the same invariant used above rather
-        // than requiring byte equality. Conflicting records still fail.
-        let recovery_started = std::time::Instant::now();
-        loop {
-            match query_state_key(rpc_addr, &approval_key).await {
-                Ok(Some(persisted_bytes)) => {
-                    let persisted: WalletApprovalDecision = match decode_state_value(
-                        &persisted_bytes,
-                        "approval decision after timeout",
-                    ) {
-                        Ok(persisted) => persisted,
-                        Err(decode_error) => {
-                            return Err(error.context(format!(
-                                "record_approval timeout recovery found undecodable state: {decode_error}"
-                            )));
+    .await;
+    let submission = match submission {
+        Ok(submission) => submission,
+        Err(error) => {
+            // Transaction-status polling can time out after the validator has
+            // already advanced the account nonce and committed the approval.
+            // Recover only from the same complete logical approval at the exact
+            // request-key. A byte-identical retry may carry a later server
+            // clock, so timestamps are checked by the same invariant used above
+            // rather than requiring byte equality. Conflicting records still
+            // fail. A recovered approval yields no submission observation: the
+            // profile reports that absence rather than a fabricated timing.
+            let recovery_started = std::time::Instant::now();
+            loop {
+                match query_state_key(rpc_addr, &approval_key).await {
+                    Ok(Some(persisted_bytes)) => {
+                        let persisted: WalletApprovalDecision = match decode_state_value(
+                            &persisted_bytes,
+                            "approval decision after timeout",
+                        ) {
+                            Ok(persisted) => persisted,
+                            Err(decode_error) => {
+                                return Err(error.context(format!(
+                                    "record_approval timeout recovery found undecodable state: {decode_error}"
+                                )));
+                            }
+                        };
+                        if existing_approval_matches(
+                            &persisted,
+                            request_hash,
+                            policy_hash,
+                            &grant,
+                            target_scope,
+                            reason,
+                        ) {
+                            return Ok(request_hash);
                         }
-                    };
-                    if existing_approval_matches(
-                        &persisted,
-                        request_hash,
-                        policy_hash,
-                        &grant,
-                        target_scope,
-                        reason,
-                    ) {
-                        return Ok(request_hash);
+                        return Err(error.context(
+                            "record_approval timeout recovery found a different approval decision",
+                        ));
                     }
-                    return Err(error.context(
-                        "record_approval timeout recovery found a different approval decision",
-                    ));
+                    Ok(None) | Err(_) if recovery_started.elapsed() < Duration::from_secs(10) => {
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                    _ => break,
                 }
-                Ok(None) | Err(_) if recovery_started.elapsed() < Duration::from_secs(10) => {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                }
-                _ => break,
             }
+            let observed_nonce = account_nonce(rpc_addr, &capability_account_id)
+                .await
+                .unwrap_or(u64::MAX);
+            let observed_height = get_chain_height(rpc_addr).await.unwrap_or(u64::MAX);
+            return Err(error.context(format!(
+                "record_approval diagnostic: submitted_nonce={nonce} observed_nonce={observed_nonce} observed_height={observed_height}"
+            )));
         }
-        let observed_nonce = account_nonce(rpc_addr, &capability_account_id)
-            .await
-            .unwrap_or(u64::MAX);
-        let observed_height = get_chain_height(rpc_addr).await.unwrap_or(u64::MAX);
-        return Err(error.context(format!(
-            "record_approval diagnostic: submitted_nonce={nonce} observed_nonce={observed_nonce} observed_height={observed_height}"
-        )));
-    }
+    };
 
+    // Post-commit exact approval-state resolution: the read that proves this
+    // request hash now names this exact decision. Timing it is the only change
+    // here; the query, the decode, and the exactness check are unaltered.
+    let approval_query_started = std::time::Instant::now();
     let persisted_bytes = query_state_key(rpc_addr, &approval_key)
         .await?
         .ok_or_else(|| anyhow!("committed record_approval emitted no approval decision"))?;
+    let approval_query_ms = approval_query_started.elapsed().as_millis();
+    let approval_verify_started = std::time::Instant::now();
     let persisted: WalletApprovalDecision =
         decode_state_value(&persisted_bytes, "approval decision")?;
-    if !existing_approval_matches(
+    let approval_matches = existing_approval_matches(
         &persisted,
         request_hash,
         policy_hash,
         &grant,
         target_scope,
         reason,
-    ) {
+    );
+    let approval_verify_ms = approval_verify_started.elapsed().as_millis();
+    if !approval_matches {
         return Err(anyhow!(
             "persisted wallet approval decision differs from the submitted logical approval"
         ));
+    }
+    if benchmark_trace_enabled() {
+        emit_approval_observation(
+            &request_hash,
+            &policy_hash,
+            &command.principal_ref,
+            target_scope,
+            &submission,
+            approval_query_ms,
+            approval_verify_ms,
+        );
     }
     Ok(request_hash)
 }
