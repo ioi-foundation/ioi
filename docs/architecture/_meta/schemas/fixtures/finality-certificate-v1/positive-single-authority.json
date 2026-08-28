@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.finality-certificate.v1",
+  "certificate_domain": "ioi.finality-certificate.v1",
+  "certificate_variant": "single_authority_v1",
+  "certificate_id": "finality-certificate://acme/checkpoint/5",
+  "domain_id": "system://acme",
+  "authority_epoch": 3,
+  "authority_revocation_epoch": 0,
+  "checkpoint_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "operation_range": { "first": 8, "last": 9 },
+  "receipt_range": { "first": 8, "last": 9 },
+  "profile_contract_version": "ioi.ordering-admission-finality-profile.v1",
+  "profile": "single_authority",
+  "claimed_axes": ["integrity"],
+  "verifier_contract_ref": "verifier-contract://ioi/receipt-proof-v2/single-authority",
+  "verifier_contract_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "issuer_key_id": "key://acme/finality/3",
+  "issuer_public_key": "3333333333333333333333333333333333333333333333333333333333333333",
+  "body_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "signature_suite": "ed25519",
+  "signature": "55555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555"
+}

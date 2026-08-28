@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/conflict-authority-binding/v1",
+  "title": "ConflictAuthorityBinding",
+  "description": "Exact source-neutral binding of invariant domains, touched object versions, conflict keys, and consumed authority/nullifiers for one effect.",
+  "x-ioi-schema-version": "ioi.conflict-authority-binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "effect_hash", "invariant_domain_refs", "touched_objects", "conflict_keys", "consumed_authority", "joint_conflict_key", "binding_hash"],
+  "properties": {
+    "schema_version": { "const": "ioi.conflict-authority-binding.v1" },
+    "effect_hash": { "$ref": "#/$defs/hash" },
+    "invariant_domain_refs": { "type": "array", "items": { "$ref": "#/$defs/invariantRef" }, "maxItems": 128, "uniqueItems": true },
+    "touched_objects": { "type": "array", "items": { "$ref": "#/$defs/touchedObject" }, "maxItems": 4096 },
+    "conflict_keys": { "type": "array", "items": { "$ref": "#/$defs/conflictKey" }, "maxItems": 4096, "uniqueItems": true },
+    "consumed_authority": { "type": "array", "items": { "$ref": "#/$defs/consumedAuthority" }, "maxItems": 4096 },
+    "joint_conflict_key": { "anyOf": [{ "$ref": "#/$defs/conflictKey" }, { "type": "null" }] },
+    "binding_hash": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "invariantRef": { "type": "string", "pattern": "^invariant://[^\\s]{1,248}$" },
+    "objectRef": { "type": "string", "pattern": "^object://[^\\s]{1,248}$" },
+    "authorityRef": { "type": "string", "pattern": "^(?:grant|lease|capability|authority)://[^\\s]{1,248}$" },
+    "conflictKey": { "type": "string", "pattern": "^conflict-key://[^\\s]{1,248}$" },
+    "touchedObject": { "type": "object", "additionalProperties": false, "required": ["object_ref", "previous_version", "resulting_version", "previous_head", "resulting_head"], "properties": { "object_ref": { "$ref": "#/$defs/objectRef" }, "previous_version": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "resulting_version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }, "previous_head": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] }, "resulting_head": { "$ref": "#/$defs/hash" } } },
+    "consumedAuthority": { "type": "object", "additionalProperties": false, "required": ["authority_ref", "authority_head", "nullifier_commitment", "revocation_epoch", "remaining_allowance_commitment"], "properties": { "authority_ref": { "$ref": "#/$defs/authorityRef" }, "authority_head": { "$ref": "#/$defs/hash" }, "nullifier_commitment": { "$ref": "#/$defs/hash" }, "revocation_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "remaining_allowance_commitment": { "$ref": "#/$defs/hash" } } }
+  }
+}

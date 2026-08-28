@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/verifier-contract/v1",
+  "title": "VerifierContract",
+  "description": "Source-neutral fail-closed verifier contract separating portable verification axes and supported profile/certificate semantics.",
+  "x-ioi-schema-version": "ioi.verifier-contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "verifier_contract_id", "verifier_contract_hash", "supported_checkpoint_versions", "supported_profile_members", "supported_certificate_variants", "axes", "unknown_behavior", "downgrade_behavior"],
+  "properties": {
+    "schema_version": { "const": "ioi.verifier-contract.v1" },
+    "verifier_contract_id": { "type": "string", "pattern": "^verifier-contract://[^\\s]{1,248}$" },
+    "verifier_contract_hash": { "$ref": "#/$defs/hash" },
+    "supported_checkpoint_versions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["ioi.foundations.receipt-checkpoint.v2"] } },
+    "supported_profile_members": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/profile" } },
+    "supported_certificate_variants": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/certificateVariant" } },
+    "axes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["axis", "required_input_contract_ids", "failure_behavior"], "properties": { "axis": { "$ref": "#/$defs/axis" }, "required_input_contract_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^schema://[^\\s]{1,248}$" } }, "failure_behavior": { "const": "fail_closed" } } } },
+    "unknown_behavior": { "const": "refuse" },
+    "downgrade_behavior": { "const": "refuse_cross_version_substitution" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "profile": { "enum": ["single_authority", "replicated_single_authority", "threshold_authority", "bft_consensus", "external_chain_finality"] },
+    "certificateVariant": { "enum": ["single_authority_v1", "replicated_single_authority_v1", "threshold_authority_v1", "bft_consensus_aft_v1", "external_chain_finality_v1"] },
+    "axis": { "enum": ["integrity", "valid_as_of", "currentness", "availability", "non_equivocation", "authority_admission", "economic_recognition"] }
+  }
+}

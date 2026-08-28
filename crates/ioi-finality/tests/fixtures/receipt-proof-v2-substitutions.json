@@ -1,0 +1,62 @@
+[
+  {
+    "id": "root",
+    "pointer": "/checkpoint/receipt_root",
+    "replacement": "sha256:0101010101010101010101010101010101010101010101010101010101010101"
+  },
+  {
+    "id": "predecessor",
+    "pointer": "/checkpoint/previous_checkpoint_hash",
+    "replacement": "sha256:0202020202020202020202020202020202020202020202020202020202020202"
+  },
+  {
+    "id": "receipt_range",
+    "pointer": "/checkpoint/receipt_range/last",
+    "replacement": 9
+  },
+  {
+    "id": "authority_epoch",
+    "pointer": "/trusted_issuer/authority_epoch",
+    "replacement": 9
+  },
+  {
+    "id": "revocation_epoch",
+    "pointer": "/trusted_issuer/revocation_epoch",
+    "replacement": 9
+  },
+  {
+    "id": "conflict_keys",
+    "pointer": "/checkpoint/conflict_authority_binding/conflict_keys/0",
+    "replacement": "conflict-key://substituted"
+  },
+  {
+    "id": "profile",
+    "pointer": "/checkpoint/profile",
+    "replacement": "bft_consensus"
+  },
+  {
+    "id": "manifest",
+    "pointer": "/checkpoint/availability_manifest_hash",
+    "replacement": "sha256:0303030303030303030303030303030303030303030303030303030303030303"
+  },
+  {
+    "id": "retention",
+    "pointer": "/checkpoint/retention_class",
+    "replacement": "archival"
+  },
+  {
+    "id": "verifier",
+    "pointer": "/checkpoint/verifier_contract_hash",
+    "replacement": "sha256:0404040404040404040404040404040404040404040404040404040404040404"
+  },
+  {
+    "id": "certificate",
+    "pointer": "/checkpoint/finality_certificate/signature",
+    "replacement": "05050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505"
+  },
+  {
+    "id": "downgrade",
+    "pointer": "/schema_version",
+    "replacement": "ioi.foundations.receipt-proof-bundle.v1"
+  }
+]

@@ -1,0 +1,1 @@
+{"schema_version":"ioi.retention-class.v1","retention_class":"bounded_retention","retain_until":1893456000000,"minimum_copies":1,"independent_failure_domains":1,"deletion_or_archive_policy_ref":"policy://acme/retention/30d"}

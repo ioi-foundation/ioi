@@ -1,0 +1,25 @@
+[package]
+name = "ioi-finality"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Source-neutral ReceiptCheckpoint v2 emission and offline verification with fail-closed profile support."
+
+[dependencies]
+base64 = { workspace = true }
+hex = { workspace = true }
+ioi-api = { path = "../api" }
+ioi-crypto = { path = "../crypto" }
+ioi-types = { path = "../types" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_jcs = { workspace = true }
+sha2 = "0.10"
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[[bin]]
+name = "ioi-receipt-proof-verify"
+path = "src/main.rs"

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/retention-class/v1",
+  "title": "RetentionClass",
+  "description": "Source-neutral versioned payload retention obligation; it does not evidence fulfillment.",
+  "x-ioi-schema-version": "ioi.retention-class.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "retention_class", "retain_until", "minimum_copies", "independent_failure_domains", "deletion_or_archive_policy_ref"],
+  "properties": {
+    "schema_version": { "const": "ioi.retention-class.v1" },
+    "retention_class": { "enum": ["ephemeral_until_ack", "bounded_retention", "durable_local", "durable_replicated", "archival"] },
+    "retain_until": { "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 9007199254740991 }, { "type": "null" }] },
+    "minimum_copies": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "independent_failure_domains": { "type": "integer", "minimum": 1, "maximum": 1024 },
+    "deletion_or_archive_policy_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" }
+  },
+  "allOf": [
+    { "if": { "properties": { "retention_class": { "const": "bounded_retention" } }, "required": ["retention_class"] }, "then": { "properties": { "retain_until": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 } } } },
+    { "if": { "properties": { "retention_class": { "const": "durable_replicated" } }, "required": ["retention_class"] }, "then": { "properties": { "minimum_copies": { "type": "integer", "minimum": 2, "maximum": 1024 }, "independent_failure_domains": { "type": "integer", "minimum": 2, "maximum": 1024 } } } }
+  ]
+}

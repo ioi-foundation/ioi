@@ -1,0 +1,12 @@
+{
+  "$id":"invariant://ioi/foundations/receipt-proof-bundle/recognized-effect/v2",
+  "language":"ioi.portable-invariants.v1",
+  "contract_id":"schema://ioi/foundations/receipt-proof-bundle/v2",
+  "rules":[
+    {"rule_id":"receipt_proof_bundle_v2.schema_hash.matches_contract","description":"The bundle binds the exact v2 schema.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},
+    {"rule_id":"receipt_proof_bundle_v2.trusted_key.matches_certificate","description":"The offline trust input and certificate name one key.","expression":{"operator":"fields_equal","paths":["$.trusted_issuer.issuer_key_id","$.checkpoint.finality_certificate.issuer_key_id"]}},
+    {"rule_id":"receipt_proof_bundle_v2.trusted_domain.matches_checkpoint","description":"The offline trust input is scoped to the checkpoint domain.","expression":{"operator":"fields_equal","paths":["$.trusted_issuer.domain_id","$.checkpoint.domain_id"]}},
+    {"rule_id":"receipt_proof_bundle_v2.trusted_epoch.matches_checkpoint","description":"The offline trust input is scoped to the exact authority epoch.","expression":{"operator":"fields_equal","paths":["$.trusted_issuer.authority_epoch","$.checkpoint.authority_epoch"]}},
+    {"rule_id":"receipt_proof_bundle_v2.trusted_revocation_epoch.matches_checkpoint","description":"The offline trust input is scoped to the authority revocation epoch revalidated at admission.","expression":{"operator":"fields_equal","paths":["$.trusted_issuer.revocation_epoch","$.checkpoint.authority_revocation_epoch"]}}
+  ]
+}

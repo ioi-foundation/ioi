@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/finality-certificate/v1",
+  "title": "FinalityCertificate",
+  "description": "Source-neutral certificate binding one checkpoint to one versioned ordering/finality claim and named verifier contract.",
+  "x-ioi-schema-version": "ioi.finality-certificate.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "certificate_domain", "certificate_variant", "certificate_id", "domain_id", "authority_epoch", "authority_revocation_epoch", "checkpoint_hash", "operation_range", "receipt_range", "profile_contract_version", "profile", "claimed_axes", "verifier_contract_ref", "verifier_contract_hash", "issuer_key_id", "issuer_public_key", "body_hash", "signature_suite", "signature"],
+  "properties": {
+    "schema_version": { "const": "ioi.finality-certificate.v1" },
+    "certificate_domain": { "const": "ioi.finality-certificate.v1" },
+    "certificate_variant": { "$ref": "#/$defs/variant" },
+    "certificate_id": { "type": "string", "pattern": "^finality-certificate://[^\\s]{1,248}$" },
+    "domain_id": { "type": "string", "pattern": "^(?:system|domain)://[^\\s]{1,248}$" },
+    "authority_epoch": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "authority_revocation_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "checkpoint_hash": { "$ref": "#/$defs/hash" },
+    "operation_range": { "$ref": "#/$defs/range" },
+    "receipt_range": { "$ref": "#/$defs/range" },
+    "profile_contract_version": { "const": "ioi.ordering-admission-finality-profile.v1" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "claimed_axes": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/axis" } },
+    "verifier_contract_ref": { "type": "string", "pattern": "^verifier-contract://[^\\s]{1,248}$" },
+    "verifier_contract_hash": { "$ref": "#/$defs/hash" },
+    "issuer_key_id": { "type": "string", "pattern": "^key://[^\\s]{1,248}$" },
+    "issuer_public_key": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "body_hash": { "$ref": "#/$defs/hash" },
+    "signature_suite": { "const": "ed25519" },
+    "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" }
+  },
+  "allOf": [
+    { "if": { "properties": { "certificate_variant": { "const": "single_authority_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "profile": { "const": "single_authority" } } } },
+    { "if": { "properties": { "certificate_variant": { "const": "replicated_single_authority_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "profile": { "const": "replicated_single_authority" } } } },
+    { "if": { "properties": { "certificate_variant": { "const": "threshold_authority_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "profile": { "const": "threshold_authority" } } } },
+    { "if": { "properties": { "certificate_variant": { "const": "bft_consensus_aft_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "profile": { "const": "bft_consensus" } } } },
+    { "if": { "properties": { "certificate_variant": { "const": "external_chain_finality_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "profile": { "const": "external_chain_finality" } } } }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "range": { "type": "object", "additionalProperties": false, "required": ["first", "last"], "properties": { "first": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "last": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 } } },
+    "profile": { "enum": ["single_authority", "replicated_single_authority", "threshold_authority", "bft_consensus", "external_chain_finality"] },
+    "variant": { "enum": ["single_authority_v1", "replicated_single_authority_v1", "threshold_authority_v1", "bft_consensus_aft_v1", "external_chain_finality_v1"] },
+    "axis": { "enum": ["integrity", "valid_as_of", "currentness", "availability", "non_equivocation", "authority_admission", "economic_recognition"] }
+  }
+}

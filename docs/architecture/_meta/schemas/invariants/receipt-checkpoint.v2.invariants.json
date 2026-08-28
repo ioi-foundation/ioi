@@ -1,0 +1,19 @@
+{
+  "$id":"invariant://ioi/foundations/receipt-checkpoint/recognized-effect/v2",
+  "language":"ioi.portable-invariants.v1",
+  "contract_id":"schema://ioi/foundations/receipt-checkpoint/v2",
+  "rules":[
+    {"rule_id":"receipt_checkpoint_v2.schema_hash.matches_contract","description":"The checkpoint binds the exact v2 schema.","expression":{"operator":"matches_contract_schema_hash","path":"$.schema_hash"}},
+    {"rule_id":"receipt_checkpoint_v2.binding_hash.matches_embedded","description":"The checkpoint's conflict/authority hash matches the embedded binding.","expression":{"operator":"fields_equal","paths":["$.conflict_authority_binding_hash","$.conflict_authority_binding.binding_hash"]}},
+    {"rule_id":"receipt_checkpoint_v2.recognition_binding.matches_conflicts","description":"The derived recognition class binds the exact conflict/authority material.","expression":{"operator":"fields_equal","paths":["$.recognition.binding_hash","$.conflict_authority_binding_hash"]}},
+    {"rule_id":"receipt_checkpoint_v2.availability_hash.matches_embedded","description":"The checkpoint binds the embedded availability manifest.","expression":{"operator":"fields_equal","paths":["$.availability_manifest_hash","$.availability_manifest.manifest_hash"]}},
+    {"rule_id":"receipt_checkpoint_v2.retention.matches_manifest","description":"The checkpoint and manifest name one retention class.","expression":{"operator":"fields_equal","paths":["$.retention_class","$.availability_manifest.retention.retention_class"]}},
+    {"rule_id":"receipt_checkpoint_v2.verifier_hash.matches_embedded","description":"The checkpoint binds the embedded verifier contract.","expression":{"operator":"fields_equal","paths":["$.verifier_contract_hash","$.verifier_contract.verifier_contract_hash"]}},
+    {"rule_id":"receipt_checkpoint_v2.certificate_checkpoint.matches_body","description":"The finality certificate signs this checkpoint body.","expression":{"operator":"fields_equal","paths":["$.body_hash","$.finality_certificate.checkpoint_hash"]}},
+    {"rule_id":"receipt_checkpoint_v2.certificate_profile.matches_checkpoint","description":"Certificate and checkpoint use one canonical profile.","expression":{"operator":"fields_equal","paths":["$.profile","$.finality_certificate.profile"]}},
+    {"rule_id":"receipt_checkpoint_v2.certificate_authority_epoch.matches_checkpoint","description":"Certificate and checkpoint bind one authority epoch.","expression":{"operator":"fields_equal","paths":["$.authority_epoch","$.finality_certificate.authority_epoch"]}},
+    {"rule_id":"receipt_checkpoint_v2.certificate_revocation_epoch.matches_checkpoint","description":"Certificate and checkpoint bind the authority revocation epoch revalidated at admission.","expression":{"operator":"fields_equal","paths":["$.authority_revocation_epoch","$.finality_certificate.authority_revocation_epoch"]}},
+    {"rule_id":"receipt_checkpoint_v2.certificate_operation_range.matches_checkpoint","description":"Certificate and checkpoint bind one operation range.","expression":{"operator":"object_fields_equal","object_paths":["$.operation_range","$.finality_certificate.operation_range"],"fields":["first","last"]}},
+    {"rule_id":"receipt_checkpoint_v2.certificate_receipt_range.matches_checkpoint","description":"Certificate and checkpoint bind one receipt range.","expression":{"operator":"object_fields_equal","object_paths":["$.receipt_range","$.finality_certificate.receipt_range"],"fields":["first","last"]}}
+  ]
+}

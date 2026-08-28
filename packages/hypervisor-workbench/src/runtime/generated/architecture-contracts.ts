@@ -7077,6 +7077,121 @@ export type PhysicalActionExecutionReceiptV1 = {
   receipt_hash: string;
 };
 
+export type RecognitionClassV1 = {
+  schema_version: "ioi.recognition-class.v1";
+  effect_hash: string;
+  recognition_class: "K1" | "K2" | "K3" | "K4" | "K5" | "K6" | "K7";
+  derivation_status: "resolved" | "unknown_invariant_domain" | "unenumerable_conflict_keys" | "ambiguous_rules";
+  invariant_domain_refs: Array<string>;
+  conflict_keys_enumerated: boolean;
+  canonical_effect: boolean;
+  ordinary_admission_permitted: boolean;
+  binding_hash: string;
+};
+
+export type ConflictAuthorityBindingV1 = {
+  schema_version: "ioi.conflict-authority-binding.v1";
+  effect_hash: string;
+  invariant_domain_refs: Array<string>;
+  touched_objects: Array<{
+        object_ref: string;
+        previous_version: number;
+        resulting_version: number;
+        previous_head: string | null;
+        resulting_head: string;
+      }>;
+  conflict_keys: Array<string>;
+  consumed_authority: Array<{
+        authority_ref: string;
+        authority_head: string;
+        nullifier_commitment: string;
+        revocation_epoch: number;
+        remaining_allowance_commitment: string;
+      }>;
+  joint_conflict_key: string | null;
+  binding_hash: string;
+};
+
+export type RetentionClassV1 = {
+  schema_version: "ioi.retention-class.v1";
+  retention_class: "ephemeral_until_ack" | "bounded_retention" | "durable_local" | "durable_replicated" | "archival";
+  retain_until: number | null;
+  minimum_copies: number;
+  independent_failure_domains: number;
+  deletion_or_archive_policy_ref: string;
+};
+
+export type VerifierContractV1 = {
+  schema_version: "ioi.verifier-contract.v1";
+  verifier_contract_id: string;
+  verifier_contract_hash: string;
+  supported_checkpoint_versions: Array<"ioi.foundations.receipt-checkpoint.v2">;
+  supported_profile_members: Array<"single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality">;
+  supported_certificate_variants: Array<"single_authority_v1" | "replicated_single_authority_v1" | "threshold_authority_v1" | "bft_consensus_aft_v1" | "external_chain_finality_v1">;
+  axes: Array<{
+        axis: "integrity" | "valid_as_of" | "currentness" | "availability" | "non_equivocation" | "authority_admission" | "economic_recognition";
+        required_input_contract_ids: Array<string>;
+        failure_behavior: "fail_closed";
+      }>;
+  unknown_behavior: "refuse";
+  downgrade_behavior: "refuse_cross_version_substitution";
+};
+
+export type AvailabilityManifestV1 = {
+  schema_version: "ioi.availability-manifest.v1";
+  manifest_id: string;
+  manifest_hash: string;
+  claim_status: "declared" | "verified";
+  retention: {
+      schema_version: "ioi.retention-class.v1";
+      retention_class: "ephemeral_until_ack" | "bounded_retention" | "durable_local" | "durable_replicated" | "archival";
+      retain_until: number | null;
+      minimum_copies: number;
+      independent_failure_domains: number;
+      deletion_or_archive_policy_ref: string;
+    };
+  payloads: Array<{
+        payload_ref: string;
+        payload_hash: string;
+        byte_length: number;
+        location_refs: Array<string>;
+        failure_domain_refs: Array<string>;
+        retrieval_evidence_refs: Array<string>;
+      }>;
+  availability_verifier_contract_ref: string;
+  availability_verifier_contract_hash: string;
+  failure_behavior: "fail_closed";
+};
+
+export type FinalityCertificateV1 = {
+  schema_version: "ioi.finality-certificate.v1";
+  certificate_domain: "ioi.finality-certificate.v1";
+  certificate_variant: "single_authority_v1" | "replicated_single_authority_v1" | "threshold_authority_v1" | "bft_consensus_aft_v1" | "external_chain_finality_v1";
+  certificate_id: string;
+  domain_id: string;
+  authority_epoch: number;
+  authority_revocation_epoch: number;
+  checkpoint_hash: string;
+  operation_range: {
+      first: number;
+      last: number;
+    };
+  receipt_range: {
+      first: number;
+      last: number;
+    };
+  profile_contract_version: "ioi.ordering-admission-finality-profile.v1";
+  profile: "single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality";
+  claimed_axes: Array<"integrity" | "valid_as_of" | "currentness" | "availability" | "non_equivocation" | "authority_admission" | "economic_recognition">;
+  verifier_contract_ref: string;
+  verifier_contract_hash: string;
+  issuer_key_id: string;
+  issuer_public_key: string;
+  body_hash: string;
+  signature_suite: "ed25519";
+  signature: string;
+};
+
 export type ReceiptCheckpointV1 = {
   schema_version: "ioi.foundations.receipt-checkpoint.v1";
   checkpoint_type: "ioi.receipt-checkpoint";
@@ -7105,6 +7220,153 @@ export type ReceiptCheckpointV1 = {
   signature_suite: "ed25519";
   signature_key_id: string;
   signature: string;
+};
+
+export type ReceiptCheckpointV2 = {
+  schema_version: "ioi.foundations.receipt-checkpoint.v2";
+  checkpoint_type: "ioi.receipt-checkpoint";
+  checkpoint_domain: "ioi.receipt-checkpoint.v2";
+  schema_hash: string;
+  checkpoint_id: string;
+  body_hash: string;
+  domain_id: string;
+  authority_epoch: number;
+  authority_revocation_epoch: number;
+  operation_range: {
+      first: number;
+      last: number;
+    };
+  receipt_range: {
+      first: number;
+      last: number;
+    };
+  previous_checkpoint_ref: string | null;
+  previous_checkpoint_hash: string | null;
+  previous_canonical_head: string;
+  resulting_canonical_head: string;
+  previous_state_commitment: {
+      algorithm: "ioi.sorted-state-jcs-sha256.v1";
+      version: number;
+      root: string;
+    };
+  resulting_state_commitment: {
+      algorithm: "ioi.sorted-state-jcs-sha256.v1";
+      version: number;
+      root: string;
+    };
+  operation_root: string;
+  receipt_root: string;
+  conflict_authority_binding: {
+      schema_version: "ioi.conflict-authority-binding.v1";
+      effect_hash: string;
+      invariant_domain_refs: Array<string>;
+      touched_objects: Array<{
+              object_ref: string;
+              previous_version: number;
+              resulting_version: number;
+              previous_head: string | null;
+              resulting_head: string;
+            }>;
+      conflict_keys: Array<string>;
+      consumed_authority: Array<{
+              authority_ref: string;
+              authority_head: string;
+              nullifier_commitment: string;
+              revocation_epoch: number;
+              remaining_allowance_commitment: string;
+            }>;
+      joint_conflict_key: string | null;
+      binding_hash: string;
+    };
+  conflict_authority_binding_hash: string;
+  constitution_root: string;
+  admission_kernel_root: string;
+  policy_root: string;
+  profile_contract_version: "ioi.ordering-admission-finality-profile.v1";
+  profile: "single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality";
+  recognition: {
+      schema_version: "ioi.recognition-class.v1";
+      effect_hash: string;
+      recognition_class: "K1" | "K2" | "K3" | "K4" | "K5" | "K6" | "K7";
+      derivation_status: "resolved" | "unknown_invariant_domain" | "unenumerable_conflict_keys" | "ambiguous_rules";
+      invariant_domain_refs: Array<string>;
+      conflict_keys_enumerated: boolean;
+      canonical_effect: boolean;
+      ordinary_admission_permitted: boolean;
+      binding_hash: string;
+    };
+  availability_manifest: {
+      schema_version: "ioi.availability-manifest.v1";
+      manifest_id: string;
+      manifest_hash: string;
+      claim_status: "declared" | "verified";
+      retention: {
+            schema_version: "ioi.retention-class.v1";
+            retention_class: "ephemeral_until_ack" | "bounded_retention" | "durable_local" | "durable_replicated" | "archival";
+            retain_until: number | null;
+            minimum_copies: number;
+            independent_failure_domains: number;
+            deletion_or_archive_policy_ref: string;
+          };
+      payloads: Array<{
+              payload_ref: string;
+              payload_hash: string;
+              byte_length: number;
+              location_refs: Array<string>;
+              failure_domain_refs: Array<string>;
+              retrieval_evidence_refs: Array<string>;
+            }>;
+      availability_verifier_contract_ref: string;
+      availability_verifier_contract_hash: string;
+      failure_behavior: "fail_closed";
+    };
+  availability_manifest_hash: string;
+  retention_class: "ephemeral_until_ack" | "bounded_retention" | "durable_local" | "durable_replicated" | "archival";
+  verifier_contract: {
+      schema_version: "ioi.verifier-contract.v1";
+      verifier_contract_id: string;
+      verifier_contract_hash: string;
+      supported_checkpoint_versions: Array<"ioi.foundations.receipt-checkpoint.v2">;
+      supported_profile_members: Array<"single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality">;
+      supported_certificate_variants: Array<"single_authority_v1" | "replicated_single_authority_v1" | "threshold_authority_v1" | "bft_consensus_aft_v1" | "external_chain_finality_v1">;
+      axes: Array<{
+              axis: "integrity" | "valid_as_of" | "currentness" | "availability" | "non_equivocation" | "authority_admission" | "economic_recognition";
+              required_input_contract_ids: Array<string>;
+              failure_behavior: "fail_closed";
+            }>;
+      unknown_behavior: "refuse";
+      downgrade_behavior: "refuse_cross_version_substitution";
+    };
+  verifier_contract_hash: string;
+  durability_class: "buffered" | "device_flush" | "replicated_same_host" | "quorum_replicated";
+  finality_certificate: {
+      schema_version: "ioi.finality-certificate.v1";
+      certificate_domain: "ioi.finality-certificate.v1";
+      certificate_variant: "single_authority_v1" | "replicated_single_authority_v1" | "threshold_authority_v1" | "bft_consensus_aft_v1" | "external_chain_finality_v1";
+      certificate_id: string;
+      domain_id: string;
+      authority_epoch: number;
+      authority_revocation_epoch: number;
+      checkpoint_hash: string;
+      operation_range: {
+            first: number;
+            last: number;
+          };
+      receipt_range: {
+            first: number;
+            last: number;
+          };
+      profile_contract_version: "ioi.ordering-admission-finality-profile.v1";
+      profile: "single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality";
+      claimed_axes: Array<"integrity" | "valid_as_of" | "currentness" | "availability" | "non_equivocation" | "authority_admission" | "economic_recognition">;
+      verifier_contract_ref: string;
+      verifier_contract_hash: string;
+      issuer_key_id: string;
+      issuer_public_key: string;
+      body_hash: string;
+      signature_suite: "ed25519";
+      signature: string;
+    };
 };
 
 export type ReceiptEnvelopeV1 = {
@@ -7179,6 +7441,200 @@ export type ReceiptProofBundleV1 = {
       steps: Array<string>;
       offline_required_inputs: Array<"trusted_key_set" | "signed_revocation_snapshot" | "trusted_time">;
     };
+};
+
+export type ReceiptProofBundleV2 = {
+  schema_version: "ioi.foundations.receipt-proof-bundle.v2";
+  bundle_type: "ioi.receipt-proof-bundle";
+  bundle_domain: "ioi.receipt-proof-bundle.v2";
+  schema_hash: string;
+  bundle_id: string;
+  bundle_hash: string;
+  checkpoint: {
+      schema_version: "ioi.foundations.receipt-checkpoint.v2";
+      checkpoint_type: "ioi.receipt-checkpoint";
+      checkpoint_domain: "ioi.receipt-checkpoint.v2";
+      schema_hash: string;
+      checkpoint_id: string;
+      body_hash: string;
+      domain_id: string;
+      authority_epoch: number;
+      authority_revocation_epoch: number;
+      operation_range: {
+            first: number;
+            last: number;
+          };
+      receipt_range: {
+            first: number;
+            last: number;
+          };
+      previous_checkpoint_ref: string | null;
+      previous_checkpoint_hash: string | null;
+      previous_canonical_head: string;
+      resulting_canonical_head: string;
+      previous_state_commitment: {
+            algorithm: "ioi.sorted-state-jcs-sha256.v1";
+            version: number;
+            root: string;
+          };
+      resulting_state_commitment: {
+            algorithm: "ioi.sorted-state-jcs-sha256.v1";
+            version: number;
+            root: string;
+          };
+      operation_root: string;
+      receipt_root: string;
+      conflict_authority_binding: Record<string, unknown>;
+      conflict_authority_binding_hash: string;
+      constitution_root: string;
+      admission_kernel_root: string;
+      policy_root: string;
+      profile_contract_version: "ioi.ordering-admission-finality-profile.v1";
+      profile: "single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality";
+      recognition: Record<string, unknown>;
+      availability_manifest: Record<string, unknown>;
+      availability_manifest_hash: string;
+      retention_class: "ephemeral_until_ack" | "bounded_retention" | "durable_local" | "durable_replicated" | "archival";
+      verifier_contract: Record<string, unknown>;
+      verifier_contract_hash: string;
+      durability_class: "buffered" | "device_flush" | "replicated_same_host" | "quorum_replicated";
+      finality_certificate: {
+            schema_version: "ioi.finality-certificate.v1";
+            certificate_domain: "ioi.finality-certificate.v1";
+            certificate_variant: "single_authority_v1" | "replicated_single_authority_v1" | "threshold_authority_v1" | "bft_consensus_aft_v1" | "external_chain_finality_v1";
+            certificate_id: string;
+            domain_id: string;
+            authority_epoch: number;
+            authority_revocation_epoch: number;
+            checkpoint_hash: string;
+            operation_range: {
+                    first: number;
+                    last: number;
+                  };
+            receipt_range: {
+                    first: number;
+                    last: number;
+                  };
+            profile_contract_version: "ioi.ordering-admission-finality-profile.v1";
+            profile: "single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality";
+            claimed_axes: Array<"integrity" | "valid_as_of" | "currentness" | "availability" | "non_equivocation" | "authority_admission" | "economic_recognition">;
+            verifier_contract_ref: string;
+            verifier_contract_hash: string;
+            issuer_key_id: string;
+            issuer_public_key: string;
+            body_hash: string;
+            signature_suite: "ed25519";
+            signature: string;
+          };
+    };
+  previous_checkpoint: {
+      schema_version: "ioi.foundations.receipt-checkpoint.v2";
+      checkpoint_type: "ioi.receipt-checkpoint";
+      checkpoint_domain: "ioi.receipt-checkpoint.v2";
+      schema_hash: string;
+      checkpoint_id: string;
+      body_hash: string;
+      domain_id: string;
+      authority_epoch: number;
+      authority_revocation_epoch: number;
+      operation_range: {
+            first: number;
+            last: number;
+          };
+      receipt_range: {
+            first: number;
+            last: number;
+          };
+      previous_checkpoint_ref: string | null;
+      previous_checkpoint_hash: string | null;
+      previous_canonical_head: string;
+      resulting_canonical_head: string;
+      previous_state_commitment: {
+            algorithm: "ioi.sorted-state-jcs-sha256.v1";
+            version: number;
+            root: string;
+          };
+      resulting_state_commitment: {
+            algorithm: "ioi.sorted-state-jcs-sha256.v1";
+            version: number;
+            root: string;
+          };
+      operation_root: string;
+      receipt_root: string;
+      conflict_authority_binding: Record<string, unknown>;
+      conflict_authority_binding_hash: string;
+      constitution_root: string;
+      admission_kernel_root: string;
+      policy_root: string;
+      profile_contract_version: "ioi.ordering-admission-finality-profile.v1";
+      profile: "single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality";
+      recognition: Record<string, unknown>;
+      availability_manifest: Record<string, unknown>;
+      availability_manifest_hash: string;
+      retention_class: "ephemeral_until_ack" | "bounded_retention" | "durable_local" | "durable_replicated" | "archival";
+      verifier_contract: Record<string, unknown>;
+      verifier_contract_hash: string;
+      durability_class: "buffered" | "device_flush" | "replicated_same_host" | "quorum_replicated";
+      finality_certificate: {
+            schema_version: "ioi.finality-certificate.v1";
+            certificate_domain: "ioi.finality-certificate.v1";
+            certificate_variant: "single_authority_v1" | "replicated_single_authority_v1" | "threshold_authority_v1" | "bft_consensus_aft_v1" | "external_chain_finality_v1";
+            certificate_id: string;
+            domain_id: string;
+            authority_epoch: number;
+            authority_revocation_epoch: number;
+            checkpoint_hash: string;
+            operation_range: {
+                    first: number;
+                    last: number;
+                  };
+            receipt_range: {
+                    first: number;
+                    last: number;
+                  };
+            profile_contract_version: "ioi.ordering-admission-finality-profile.v1";
+            profile: "single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality";
+            claimed_axes: Array<"integrity" | "valid_as_of" | "currentness" | "availability" | "non_equivocation" | "authority_admission" | "economic_recognition">;
+            verifier_contract_ref: string;
+            verifier_contract_hash: string;
+            issuer_key_id: string;
+            issuer_public_key: string;
+            body_hash: string;
+            signature_suite: "ed25519";
+            signature: string;
+          };
+    } | null;
+  operations: Array<{
+        sequence: number;
+        body: Record<string, unknown>;
+        body_hash: string;
+      }>;
+  receipts: Array<{
+        sequence: number;
+        body: Record<string, unknown>;
+        body_hash: string;
+      }>;
+  previous_state_entries: Array<{
+        key: string;
+        value_hash: string;
+      }>;
+  resulting_state_entries: Array<{
+        key: string;
+        value_hash: string;
+      }>;
+  availability_payloads: Array<{
+        payload_ref: string;
+        payload_base64: string;
+      }>;
+  trusted_issuer: {
+      issuer_key_id: string;
+      issuer_public_key: string;
+      domain_id: string;
+      authority_epoch: number;
+      revocation_epoch: number;
+    };
+  requested_axes: Array<"integrity" | "valid_as_of" | "currentness" | "availability" | "non_equivocation" | "authority_admission" | "economic_recognition">;
+  compatibility_behavior: "v1_and_unknown_versions_refused";
 };
 
 export type SkillEntryV1 = {
@@ -13551,6 +14007,102 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "physical_action_execution.dispatch.evidence.required_for_terminal_claim"
   },
   {
+    "contract_id": "schema://ioi/foundations/recognition-class/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/recognition-class-v1/positive-k3.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/recognition-class/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/recognition-class-v1/negative-unknown-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conflict-authority-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/positive-consumption.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conflict-authority-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/retention-class/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/positive-bounded.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/retention-class/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-unknown-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verifier-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verifier-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/negative-unknown-axis.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/positive-local.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/finality-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/positive-single-authority.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/finality-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/negative-variant-profile-substitution.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
     "expected": "accept",
@@ -13589,6 +14141,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "receipt_checkpoint.signature_key.matches_issuer_key"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/positive-single-authority.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "receipt_checkpoint_v2.certificate_checkpoint.matches_body"
   },
   {
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
@@ -13661,6 +14229,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "receipt_proof_bundle.leaf_index.matches_inclusion"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "receipt_proof_bundle_v2.trusted_epoch.matches_checkpoint"
   },
   {
     "contract_id": "schema://ioi/foundations/skill-entry/v1",
@@ -21369,6 +21953,90 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/recognition-class-v1/positive-k3.json",
+    "contract_id": "schema://ioi/foundations/recognition-class/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/recognition-class-v1/positive-k3.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/recognition-class-v1/negative-unknown-class.json",
+    "contract_id": "schema://ioi/foundations/recognition-class/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/recognition-class-v1/negative-unknown-class.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/positive-consumption.json",
+    "contract_id": "schema://ioi/foundations/conflict-authority-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/positive-consumption.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/conflict-authority-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/positive-bounded.json",
+    "contract_id": "schema://ioi/foundations/retention-class/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/positive-bounded.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-unknown-class.json",
+    "contract_id": "schema://ioi/foundations/retention-class/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-unknown-class.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json",
+    "contract_id": "schema://ioi/foundations/verifier-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/negative-unknown-axis.json",
+    "contract_id": "schema://ioi/foundations/verifier-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/negative-unknown-axis.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/positive-local.json",
+    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/positive-local.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json",
+    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/positive-single-authority.json",
+    "contract_id": "schema://ioi/foundations/finality-certificate/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/positive-single-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/negative-variant-profile-substitution.json",
+    "contract_id": "schema://ioi/foundations/finality-certificate/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/negative-variant-profile-substitution.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
     "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
@@ -21400,6 +22068,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
     "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/positive-single-authority.json",
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/positive-single-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json",
+    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -21463,6 +22145,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
     "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json",
+    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -23088,6 +23784,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$",
   "^(?:artifact|finding)://[^\\s]{1,248}$",
   "^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$",
+  "^(?:artifact|payload)://[^\\s]{1,248}$",
   "^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$",
   "^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$",
   "^(?:artifact|restricted_view|redacted_summary|evidence|replay)://[^\\s]{1,500}$",
@@ -23152,6 +23849,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:goal|task|service)://[^\\s]{1,500}$",
   "^(?:grant|approval)://[^\\s]{1,500}$",
   "^(?:grant|lease)://[^\\s]{1,248}$",
+  "^(?:grant|lease|capability|authority)://[^\\s]{1,248}$",
   "^(?:grant|policy)://[^\\s]{1,500}$",
   "^(?:grant|resource-lease|compute|view|budget|tool-lease)://[^\\s]{1,500}$",
   "^(?:harness-profile|agent-harness-adapter)://[^\\s]{1,500}$",
@@ -23251,6 +23949,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$",
   "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]{1,500}$",
   "^(?:system|agent|worker|service|org|domain)://[^\\s]{1,500}$",
+  "^(?:system|domain)://[^\\s]{1,248}$",
   "^(?:system|domain)://[^\\s]{1,500}$",
   "^(?:system|domain|org|service|participant-lease)://[^\\s]{1,500}$",
   "^(?:system|domain|policy)://[^\\s]{1,500}$",
@@ -23314,6 +24013,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9a-f]{40}$",
   "^[0-9a-f]{64}$",
   "^[A-Z]{3}$",
+  "^[A-Za-z0-9+/]*={0,2}$",
   "^[A-Za-z0-9.-]+$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$",
@@ -23411,6 +24111,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^autonomous-system-chain://[A-Za-z0-9._:/-]+$",
   "^autonomous-system-chain://[^\\s]{1,248}$",
+  "^availability-manifest://[^\\s]{1,248}$",
   "^boot-profile://[^\\s]{1,248}$",
   "^branch-checkpoint://[^\\s]+$",
   "^branch-merge://[^\\s]+$",
@@ -23437,6 +24138,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^commitment://state-transition/sha256:[0-9a-f]{64}$",
   "^composition://[^\\s]{1,500}$",
   "^compute://[^\\s]{1,500}$",
+  "^conflict-key://[^\\s]{1,248}$",
   "^conformance-profile://[^\\s]{1,248}$",
   "^connector://[^\\s]{1,248}$",
   "^constitution-amendment://[^\\s]{1,248}$",
@@ -23493,6 +24195,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^failover-profile://[^\\s]{1,248}$",
   "^failure-domain://[^\\s]{1,248}$",
   "^fee-basis://[^\\s]{1,248}$",
+  "^finality-certificate://[^\\s]{1,248}$",
   "^finding://[^\\s]{1,500}$",
   "^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$",
   "^foundry-recipe://[^\\s]{1,440}/revision/[1-9][0-9]*$",
@@ -23536,8 +24239,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^install://automation/[^\\s/?#\\\\]{1,160}$",
   "^install://automation/[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$",
+  "^invariant://[^\\s]{1,248}$",
   "^ioi://publisher/[^\\s]{1,224}$",
   "^key://[^\\s]+$",
+  "^key://[^\\s]{1,248}$",
   "^key://[^\\s]{1,500}$",
   "^keyset://[^\\s]+$",
   "^keyset://[^\\s]{1,500}$",
@@ -23549,6 +24254,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^lifecycle-transition://[^\\s]{1,248}$",
   "^lifecycle:[^\\s]{1,500}$",
   "^local-agent-pairing://[^\\s]{1,500}$",
+  "^location://[^\\s]{1,248}$",
   "^lost-suffix://[^\\s]{1,248}$",
   "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -23565,6 +24271,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^node-enforcement://[^\\s]{1,248}$",
   "^node-membership://[^\\s]{1,248}$",
   "^node://[^\\s]{1,248}$",
+  "^object://[^\\s]{1,248}$",
   "^observation://\\S*$",
   "^ontology-assertion://[^\\s]{1,248}$",
   "^ontology://[^\\s]{1,248}$",
@@ -23612,6 +24319,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^project:[^\\s]{1,200}$",
   "^projection://hypervisor/product-surface/\\S*$",
   "^proof://[^\\s]+$",
+  "^proof://[^\\s]{1,248}$",
   "^proof://[^\\s]{1,500}$",
   "^proposal://[A-Za-z0-9._:/-]+$",
   "^proposal://[^\\s]{1,248}$",
@@ -23620,6 +24328,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^query://hypervisor/\\S+$",
   "^quote://[^\\s]{1,500}$",
   "^receipt-checkpoint://[^\\s]+$",
+  "^receipt-checkpoint://[^\\s]{1,248}$",
   "^receipt-log://[^\\s]+$",
   "^receipt-obligation://[^\\s]{1,500}$",
   "^receipt-policy:[^\\s]{1,240}$",
@@ -23746,6 +24455,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^vault://[^\\s]{1,248}$",
   "^verification://[^\\s]{1,248}$",
   "^verifier-challenge://[^\\s]{1,500}$",
+  "^verifier-contract://[^\\s]{1,248}$",
   "^verifier-path://[^\\s]{1,500}$",
   "^verifier://[^\\s]{1,248}$",
   "^wallet-auth-challenge://[A-Za-z0-9._:-]+$",
@@ -23944,9 +24654,17 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/state-transition-commitment/v1": "sha256:f5df0490fd044e2202eb4a3e2671f0038bd1d7b495ba5b53b4efc5e1a7ee9f76",
   "schema://ioi/foundations/outcome-delta/v3": "sha256:ee040b737b47f68264dd0bff1d638b7c539ef4b9679691ca2924e2b4b56085a2",
   "schema://ioi/foundations/physical-action-execution-receipt/v1": "sha256:b6a77eae69259a122ccf374a885071b07e4497095aecbcebaecab9e566855e5a",
+  "schema://ioi/foundations/recognition-class/v1": "sha256:cbdf65d574275b92ac2b890eeb0988f0d421d76174ed3fde28f07f8aaf8cc205",
+  "schema://ioi/foundations/conflict-authority-binding/v1": "sha256:bf00158ec416c980028ba962fce288c902ff26fb1d9e7a015cf7a8b0b1039e1d",
+  "schema://ioi/foundations/retention-class/v1": "sha256:133b48b7b6f98e554637bcf1b42076275e7cf62f9f8917baeab87034566e28a1",
+  "schema://ioi/foundations/verifier-contract/v1": "sha256:f8401df3847ff46880da465cad115766c4e08045f9c6d7ac859e2bf9102f125f",
+  "schema://ioi/foundations/availability-manifest/v1": "sha256:978841e19ebb4bed51a8316cb72968df44528844c5e9f10ce84c8d8dd540c88e",
+  "schema://ioi/foundations/finality-certificate/v1": "sha256:72fafb67b3808f3cdea5a0f24b3e646bbc8edcbde020682b7e4b4cc64ee75c57",
   "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b",
+  "schema://ioi/foundations/receipt-checkpoint/v2": "sha256:b9d1210cff0e24e1812605f397c5c37e10109ce53402e122bb82dcfe7c3deb23",
   "schema://ioi/foundations/receipt-envelope/v1": "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc",
   "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034",
+  "schema://ioi/foundations/receipt-proof-bundle/v2": "sha256:445cddcd3318f6f582a7fccd4ce2f0909966668453f99f3a1a41a766482ab4cf",
   "schema://ioi/foundations/skill-entry/v1": "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699",
   "schema://ioi/foundations/skill-manifest/v1": "sha256:ef38326ea2082a928b2ff7c86f8a27c5b4e885c81eaf58615d8446c1a46df403",
   "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
@@ -78689,6 +79407,980 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/recognition-class/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/recognition-class/v1",
+    "title": "RecognitionClass",
+    "description": "Source-neutral derived recognition relationship class for one proposed or admitted effect.",
+    "x-ioi-schema-version": "ioi.recognition-class.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "effect_hash",
+      "recognition_class",
+      "derivation_status",
+      "invariant_domain_refs",
+      "conflict_keys_enumerated",
+      "canonical_effect",
+      "ordinary_admission_permitted",
+      "binding_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.recognition-class.v1"
+      },
+      "effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "recognition_class": {
+        "enum": [
+          "K1",
+          "K2",
+          "K3",
+          "K4",
+          "K5",
+          "K6",
+          "K7"
+        ]
+      },
+      "derivation_status": {
+        "enum": [
+          "resolved",
+          "unknown_invariant_domain",
+          "unenumerable_conflict_keys",
+          "ambiguous_rules"
+        ]
+      },
+      "invariant_domain_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/invariantRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "conflict_keys_enumerated": {
+        "type": "boolean"
+      },
+      "canonical_effect": {
+        "type": "boolean"
+      },
+      "ordinary_admission_permitted": {
+        "type": "boolean"
+      },
+      "binding_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "derivation_status": {
+              "enum": [
+                "unknown_invariant_domain",
+                "unenumerable_conflict_keys",
+                "ambiguous_rules"
+              ]
+            }
+          },
+          "required": [
+            "derivation_status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "recognition_class": {
+              "const": "K6"
+            },
+            "ordinary_admission_permitted": {
+              "const": false
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recognition_class": {
+              "const": "K1"
+            }
+          },
+          "required": [
+            "recognition_class"
+          ]
+        },
+        "then": {
+          "properties": {
+            "canonical_effect": {
+              "const": false
+            },
+            "ordinary_admission_permitted": {
+              "const": false
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recognition_class": {
+              "const": "K7"
+            }
+          },
+          "required": [
+            "recognition_class"
+          ]
+        },
+        "then": {
+          "properties": {
+            "ordinary_admission_permitted": {
+              "const": false
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "invariantRef": {
+        "type": "string",
+        "pattern": "^invariant://[^\\s]{1,248}$"
+      }
+    }
+  },
+  "schema://ioi/foundations/conflict-authority-binding/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/conflict-authority-binding/v1",
+    "title": "ConflictAuthorityBinding",
+    "description": "Exact source-neutral binding of invariant domains, touched object versions, conflict keys, and consumed authority/nullifiers for one effect.",
+    "x-ioi-schema-version": "ioi.conflict-authority-binding.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "effect_hash",
+      "invariant_domain_refs",
+      "touched_objects",
+      "conflict_keys",
+      "consumed_authority",
+      "joint_conflict_key",
+      "binding_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.conflict-authority-binding.v1"
+      },
+      "effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "invariant_domain_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/invariantRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "touched_objects": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/touchedObject"
+        },
+        "maxItems": 4096
+      },
+      "conflict_keys": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/conflictKey"
+        },
+        "maxItems": 4096,
+        "uniqueItems": true
+      },
+      "consumed_authority": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/consumedAuthority"
+        },
+        "maxItems": 4096
+      },
+      "joint_conflict_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/conflictKey"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "binding_hash": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "invariantRef": {
+        "type": "string",
+        "pattern": "^invariant://[^\\s]{1,248}$"
+      },
+      "objectRef": {
+        "type": "string",
+        "pattern": "^object://[^\\s]{1,248}$"
+      },
+      "authorityRef": {
+        "type": "string",
+        "pattern": "^(?:grant|lease|capability|authority)://[^\\s]{1,248}$"
+      },
+      "conflictKey": {
+        "type": "string",
+        "pattern": "^conflict-key://[^\\s]{1,248}$"
+      },
+      "touchedObject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "object_ref",
+          "previous_version",
+          "resulting_version",
+          "previous_head",
+          "resulting_head"
+        ],
+        "properties": {
+          "object_ref": {
+            "$ref": "#/$defs/objectRef"
+          },
+          "previous_version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "resulting_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "previous_head": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resulting_head": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "consumedAuthority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_ref",
+          "authority_head",
+          "nullifier_commitment",
+          "revocation_epoch",
+          "remaining_allowance_commitment"
+        ],
+        "properties": {
+          "authority_ref": {
+            "$ref": "#/$defs/authorityRef"
+          },
+          "authority_head": {
+            "$ref": "#/$defs/hash"
+          },
+          "nullifier_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "revocation_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "remaining_allowance_commitment": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/retention-class/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/retention-class/v1",
+    "title": "RetentionClass",
+    "description": "Source-neutral versioned payload retention obligation; it does not evidence fulfillment.",
+    "x-ioi-schema-version": "ioi.retention-class.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "retention_class",
+      "retain_until",
+      "minimum_copies",
+      "independent_failure_domains",
+      "deletion_or_archive_policy_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.retention-class.v1"
+      },
+      "retention_class": {
+        "enum": [
+          "ephemeral_until_ack",
+          "bounded_retention",
+          "durable_local",
+          "durable_replicated",
+          "archival"
+        ]
+      },
+      "retain_until": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "minimum_copies": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1024
+      },
+      "independent_failure_domains": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1024
+      },
+      "deletion_or_archive_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "retention_class": {
+              "const": "bounded_retention"
+            }
+          },
+          "required": [
+            "retention_class"
+          ]
+        },
+        "then": {
+          "properties": {
+            "retain_until": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "retention_class": {
+              "const": "durable_replicated"
+            }
+          },
+          "required": [
+            "retention_class"
+          ]
+        },
+        "then": {
+          "properties": {
+            "minimum_copies": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 1024
+            },
+            "independent_failure_domains": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 1024
+            }
+          }
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/verifier-contract/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/verifier-contract/v1",
+    "title": "VerifierContract",
+    "description": "Source-neutral fail-closed verifier contract separating portable verification axes and supported profile/certificate semantics.",
+    "x-ioi-schema-version": "ioi.verifier-contract.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "verifier_contract_id",
+      "verifier_contract_hash",
+      "supported_checkpoint_versions",
+      "supported_profile_members",
+      "supported_certificate_variants",
+      "axes",
+      "unknown_behavior",
+      "downgrade_behavior"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.verifier-contract.v1"
+      },
+      "verifier_contract_id": {
+        "type": "string",
+        "pattern": "^verifier-contract://[^\\s]{1,248}$"
+      },
+      "verifier_contract_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "supported_checkpoint_versions": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "ioi.foundations.receipt-checkpoint.v2"
+          ]
+        }
+      },
+      "supported_profile_members": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/profile"
+        }
+      },
+      "supported_certificate_variants": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/certificateVariant"
+        }
+      },
+      "axes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "axis",
+            "required_input_contract_ids",
+            "failure_behavior"
+          ],
+          "properties": {
+            "axis": {
+              "$ref": "#/$defs/axis"
+            },
+            "required_input_contract_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^schema://[^\\s]{1,248}$"
+              }
+            },
+            "failure_behavior": {
+              "const": "fail_closed"
+            }
+          }
+        }
+      },
+      "unknown_behavior": {
+        "const": "refuse"
+      },
+      "downgrade_behavior": {
+        "const": "refuse_cross_version_substitution"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "profile": {
+        "enum": [
+          "single_authority",
+          "replicated_single_authority",
+          "threshold_authority",
+          "bft_consensus",
+          "external_chain_finality"
+        ]
+      },
+      "certificateVariant": {
+        "enum": [
+          "single_authority_v1",
+          "replicated_single_authority_v1",
+          "threshold_authority_v1",
+          "bft_consensus_aft_v1",
+          "external_chain_finality_v1"
+        ]
+      },
+      "axis": {
+        "enum": [
+          "integrity",
+          "valid_as_of",
+          "currentness",
+          "availability",
+          "non_equivocation",
+          "authority_admission",
+          "economic_recognition"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/availability-manifest/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/availability-manifest/v1",
+    "title": "AvailabilityManifest",
+    "description": "Source-neutral availability and retention obligations for every payload required by a recognized effect.",
+    "x-ioi-schema-version": "ioi.availability-manifest.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "manifest_id",
+      "manifest_hash",
+      "claim_status",
+      "retention",
+      "payloads",
+      "availability_verifier_contract_ref",
+      "availability_verifier_contract_hash",
+      "failure_behavior"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.availability-manifest.v1"
+      },
+      "manifest_id": {
+        "type": "string",
+        "pattern": "^availability-manifest://[^\\s]{1,248}$"
+      },
+      "manifest_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "claim_status": {
+        "enum": [
+          "declared",
+          "verified"
+        ]
+      },
+      "retention": {
+        "$ref": "#/$defs/retention"
+      },
+      "payloads": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/payload"
+        },
+        "maxItems": 4096
+      },
+      "availability_verifier_contract_ref": {
+        "type": "string",
+        "pattern": "^verifier-contract://[^\\s]{1,248}$"
+      },
+      "availability_verifier_contract_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "failure_behavior": {
+        "const": "fail_closed"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "retention": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "retention_class",
+          "retain_until",
+          "minimum_copies",
+          "independent_failure_domains",
+          "deletion_or_archive_policy_ref"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.retention-class.v1"
+          },
+          "retention_class": {
+            "enum": [
+              "ephemeral_until_ack",
+              "bounded_retention",
+              "durable_local",
+              "durable_replicated",
+              "archival"
+            ]
+          },
+          "retain_until": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minimum_copies": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          },
+          "independent_failure_domains": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          },
+          "deletion_or_archive_policy_ref": {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,248}$"
+          }
+        }
+      },
+      "payload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "payload_ref",
+          "payload_hash",
+          "byte_length",
+          "location_refs",
+          "failure_domain_refs",
+          "retrieval_evidence_refs"
+        ],
+        "properties": {
+          "payload_ref": {
+            "type": "string",
+            "pattern": "^(?:artifact|payload)://[^\\s]{1,248}$"
+          },
+          "payload_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "byte_length": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "location_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^location://[^\\s]{1,248}$"
+            }
+          },
+          "failure_domain_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^failure-domain://[^\\s]{1,248}$"
+            }
+          },
+          "retrieval_evidence_refs": {
+            "type": "array",
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$"
+            }
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/finality-certificate/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/finality-certificate/v1",
+    "title": "FinalityCertificate",
+    "description": "Source-neutral certificate binding one checkpoint to one versioned ordering/finality claim and named verifier contract.",
+    "x-ioi-schema-version": "ioi.finality-certificate.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "certificate_domain",
+      "certificate_variant",
+      "certificate_id",
+      "domain_id",
+      "authority_epoch",
+      "authority_revocation_epoch",
+      "checkpoint_hash",
+      "operation_range",
+      "receipt_range",
+      "profile_contract_version",
+      "profile",
+      "claimed_axes",
+      "verifier_contract_ref",
+      "verifier_contract_hash",
+      "issuer_key_id",
+      "issuer_public_key",
+      "body_hash",
+      "signature_suite",
+      "signature"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.finality-certificate.v1"
+      },
+      "certificate_domain": {
+        "const": "ioi.finality-certificate.v1"
+      },
+      "certificate_variant": {
+        "$ref": "#/$defs/variant"
+      },
+      "certificate_id": {
+        "type": "string",
+        "pattern": "^finality-certificate://[^\\s]{1,248}$"
+      },
+      "domain_id": {
+        "type": "string",
+        "pattern": "^(?:system|domain)://[^\\s]{1,248}$"
+      },
+      "authority_epoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "authority_revocation_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "checkpoint_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "operation_range": {
+        "$ref": "#/$defs/range"
+      },
+      "receipt_range": {
+        "$ref": "#/$defs/range"
+      },
+      "profile_contract_version": {
+        "const": "ioi.ordering-admission-finality-profile.v1"
+      },
+      "profile": {
+        "$ref": "#/$defs/profile"
+      },
+      "claimed_axes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/axis"
+        }
+      },
+      "verifier_contract_ref": {
+        "type": "string",
+        "pattern": "^verifier-contract://[^\\s]{1,248}$"
+      },
+      "verifier_contract_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "issuer_key_id": {
+        "type": "string",
+        "pattern": "^key://[^\\s]{1,248}$"
+      },
+      "issuer_public_key": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "body_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "signature_suite": {
+        "const": "ed25519"
+      },
+      "signature": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{128}$"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "certificate_variant": {
+              "const": "single_authority_v1"
+            }
+          },
+          "required": [
+            "certificate_variant"
+          ]
+        },
+        "then": {
+          "properties": {
+            "profile": {
+              "const": "single_authority"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "certificate_variant": {
+              "const": "replicated_single_authority_v1"
+            }
+          },
+          "required": [
+            "certificate_variant"
+          ]
+        },
+        "then": {
+          "properties": {
+            "profile": {
+              "const": "replicated_single_authority"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "certificate_variant": {
+              "const": "threshold_authority_v1"
+            }
+          },
+          "required": [
+            "certificate_variant"
+          ]
+        },
+        "then": {
+          "properties": {
+            "profile": {
+              "const": "threshold_authority"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "certificate_variant": {
+              "const": "bft_consensus_aft_v1"
+            }
+          },
+          "required": [
+            "certificate_variant"
+          ]
+        },
+        "then": {
+          "properties": {
+            "profile": {
+              "const": "bft_consensus"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "certificate_variant": {
+              "const": "external_chain_finality_v1"
+            }
+          },
+          "required": [
+            "certificate_variant"
+          ]
+        },
+        "then": {
+          "properties": {
+            "profile": {
+              "const": "external_chain_finality"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "range": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "first",
+          "last"
+        ],
+        "properties": {
+          "first": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "last": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "profile": {
+        "enum": [
+          "single_authority",
+          "replicated_single_authority",
+          "threshold_authority",
+          "bft_consensus",
+          "external_chain_finality"
+        ]
+      },
+      "variant": {
+        "enum": [
+          "single_authority_v1",
+          "replicated_single_authority_v1",
+          "threshold_authority_v1",
+          "bft_consensus_aft_v1",
+          "external_chain_finality_v1"
+        ]
+      },
+      "axis": {
+        "enum": [
+          "integrity",
+          "valid_as_of",
+          "currentness",
+          "availability",
+          "non_equivocation",
+          "authority_admission",
+          "economic_recognition"
+        ]
+      }
+    }
+  },
   "schema://ioi/foundations/receipt-checkpoint/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/receipt-checkpoint/v1",
@@ -78881,6 +80573,808 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "ed25519Signature": {
         "type": "string",
         "pattern": "^[A-Za-z0-9_-]{86}$"
+      }
+    }
+  },
+  "schema://ioi/foundations/receipt-checkpoint/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/receipt-checkpoint/v2",
+    "title": "ReceiptCheckpoint",
+    "description": "Distinct v2 recognized-effect checkpoint binding exact state, receipt, authority, availability, profile, verifier, and certificate claims without changing ReceiptCheckpoint v1.",
+    "x-ioi-schema-version": "ioi.foundations.receipt-checkpoint.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "checkpoint_type",
+      "checkpoint_domain",
+      "schema_hash",
+      "checkpoint_id",
+      "body_hash",
+      "domain_id",
+      "authority_epoch",
+      "authority_revocation_epoch",
+      "operation_range",
+      "receipt_range",
+      "previous_checkpoint_ref",
+      "previous_checkpoint_hash",
+      "previous_canonical_head",
+      "resulting_canonical_head",
+      "previous_state_commitment",
+      "resulting_state_commitment",
+      "operation_root",
+      "receipt_root",
+      "conflict_authority_binding",
+      "conflict_authority_binding_hash",
+      "constitution_root",
+      "admission_kernel_root",
+      "policy_root",
+      "profile_contract_version",
+      "profile",
+      "recognition",
+      "availability_manifest",
+      "availability_manifest_hash",
+      "retention_class",
+      "verifier_contract",
+      "verifier_contract_hash",
+      "durability_class",
+      "finality_certificate"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.receipt-checkpoint.v2"
+      },
+      "checkpoint_type": {
+        "const": "ioi.receipt-checkpoint"
+      },
+      "checkpoint_domain": {
+        "const": "ioi.receipt-checkpoint.v2"
+      },
+      "schema_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "checkpoint_id": {
+        "$ref": "#/$defs/checkpointRef"
+      },
+      "body_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "domain_id": {
+        "$ref": "#/$defs/domainRef"
+      },
+      "authority_epoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "authority_revocation_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "operation_range": {
+        "$ref": "#/$defs/range"
+      },
+      "receipt_range": {
+        "$ref": "#/$defs/range"
+      },
+      "previous_checkpoint_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/checkpointRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "previous_checkpoint_hash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "previous_canonical_head": {
+        "$ref": "#/$defs/hash"
+      },
+      "resulting_canonical_head": {
+        "$ref": "#/$defs/hash"
+      },
+      "previous_state_commitment": {
+        "$ref": "#/$defs/stateCommitment"
+      },
+      "resulting_state_commitment": {
+        "$ref": "#/$defs/stateCommitment"
+      },
+      "operation_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "conflict_authority_binding": {
+        "$ref": "#/$defs/conflictBinding"
+      },
+      "conflict_authority_binding_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "constitution_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "admission_kernel_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "profile_contract_version": {
+        "const": "ioi.ordering-admission-finality-profile.v1"
+      },
+      "profile": {
+        "$ref": "#/$defs/profile"
+      },
+      "recognition": {
+        "$ref": "#/$defs/recognition"
+      },
+      "availability_manifest": {
+        "$ref": "#/$defs/availability"
+      },
+      "availability_manifest_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "retention_class": {
+        "$ref": "#/$defs/retentionClass"
+      },
+      "verifier_contract": {
+        "$ref": "#/$defs/verifier"
+      },
+      "verifier_contract_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "durability_class": {
+        "enum": [
+          "buffered",
+          "device_flush",
+          "replicated_same_host",
+          "quorum_replicated"
+        ]
+      },
+      "finality_certificate": {
+        "$ref": "#/$defs/certificate"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "checkpointRef": {
+        "type": "string",
+        "pattern": "^receipt-checkpoint://[^\\s]{1,248}$"
+      },
+      "domainRef": {
+        "type": "string",
+        "pattern": "^(?:system|domain)://[^\\s]{1,248}$"
+      },
+      "range": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "first",
+          "last"
+        ],
+        "properties": {
+          "first": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "last": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "stateCommitment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "algorithm",
+          "version",
+          "root"
+        ],
+        "properties": {
+          "algorithm": {
+            "const": "ioi.sorted-state-jcs-sha256.v1"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "root": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "profile": {
+        "enum": [
+          "single_authority",
+          "replicated_single_authority",
+          "threshold_authority",
+          "bft_consensus",
+          "external_chain_finality"
+        ]
+      },
+      "retentionClass": {
+        "enum": [
+          "ephemeral_until_ack",
+          "bounded_retention",
+          "durable_local",
+          "durable_replicated",
+          "archival"
+        ]
+      },
+      "axis": {
+        "enum": [
+          "integrity",
+          "valid_as_of",
+          "currentness",
+          "availability",
+          "non_equivocation",
+          "authority_admission",
+          "economic_recognition"
+        ]
+      },
+      "variant": {
+        "enum": [
+          "single_authority_v1",
+          "replicated_single_authority_v1",
+          "threshold_authority_v1",
+          "bft_consensus_aft_v1",
+          "external_chain_finality_v1"
+        ]
+      },
+      "recognition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "effect_hash",
+          "recognition_class",
+          "derivation_status",
+          "invariant_domain_refs",
+          "conflict_keys_enumerated",
+          "canonical_effect",
+          "ordinary_admission_permitted",
+          "binding_hash"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.recognition-class.v1"
+          },
+          "effect_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "recognition_class": {
+            "enum": [
+              "K1",
+              "K2",
+              "K3",
+              "K4",
+              "K5",
+              "K6",
+              "K7"
+            ]
+          },
+          "derivation_status": {
+            "enum": [
+              "resolved",
+              "unknown_invariant_domain",
+              "unenumerable_conflict_keys",
+              "ambiguous_rules"
+            ]
+          },
+          "invariant_domain_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^invariant://[^\\s]{1,248}$"
+            },
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "conflict_keys_enumerated": {
+            "type": "boolean"
+          },
+          "canonical_effect": {
+            "type": "boolean"
+          },
+          "ordinary_admission_permitted": {
+            "type": "boolean"
+          },
+          "binding_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "conflictBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "effect_hash",
+          "invariant_domain_refs",
+          "touched_objects",
+          "conflict_keys",
+          "consumed_authority",
+          "joint_conflict_key",
+          "binding_hash"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.conflict-authority-binding.v1"
+          },
+          "effect_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "invariant_domain_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^invariant://[^\\s]{1,248}$"
+            },
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "touched_objects": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "object_ref",
+                "previous_version",
+                "resulting_version",
+                "previous_head",
+                "resulting_head"
+              ],
+              "properties": {
+                "object_ref": {
+                  "type": "string",
+                  "pattern": "^object://[^\\s]{1,248}$"
+                },
+                "previous_version": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "resulting_version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "previous_head": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/hash"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "resulting_head": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          },
+          "conflict_keys": {
+            "type": "array",
+            "maxItems": 4096,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^conflict-key://[^\\s]{1,248}$"
+            }
+          },
+          "consumed_authority": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "authority_ref",
+                "authority_head",
+                "nullifier_commitment",
+                "revocation_epoch",
+                "remaining_allowance_commitment"
+              ],
+              "properties": {
+                "authority_ref": {
+                  "type": "string",
+                  "pattern": "^(?:grant|lease|capability|authority)://[^\\s]{1,248}$"
+                },
+                "authority_head": {
+                  "$ref": "#/$defs/hash"
+                },
+                "nullifier_commitment": {
+                  "$ref": "#/$defs/hash"
+                },
+                "revocation_epoch": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "remaining_allowance_commitment": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          },
+          "joint_conflict_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^conflict-key://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "binding_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "retention": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "retention_class",
+          "retain_until",
+          "minimum_copies",
+          "independent_failure_domains",
+          "deletion_or_archive_policy_ref"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.retention-class.v1"
+          },
+          "retention_class": {
+            "$ref": "#/$defs/retentionClass"
+          },
+          "retain_until": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minimum_copies": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          },
+          "independent_failure_domains": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1024
+          },
+          "deletion_or_archive_policy_ref": {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,248}$"
+          }
+        }
+      },
+      "availability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "manifest_id",
+          "manifest_hash",
+          "claim_status",
+          "retention",
+          "payloads",
+          "availability_verifier_contract_ref",
+          "availability_verifier_contract_hash",
+          "failure_behavior"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.availability-manifest.v1"
+          },
+          "manifest_id": {
+            "type": "string",
+            "pattern": "^availability-manifest://[^\\s]{1,248}$"
+          },
+          "manifest_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "claim_status": {
+            "enum": [
+              "declared",
+              "verified"
+            ]
+          },
+          "retention": {
+            "$ref": "#/$defs/retention"
+          },
+          "payloads": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "payload_ref",
+                "payload_hash",
+                "byte_length",
+                "location_refs",
+                "failure_domain_refs",
+                "retrieval_evidence_refs"
+              ],
+              "properties": {
+                "payload_ref": {
+                  "type": "string",
+                  "pattern": "^(?:artifact|payload)://[^\\s]{1,248}$"
+                },
+                "payload_hash": {
+                  "$ref": "#/$defs/hash"
+                },
+                "byte_length": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "location_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^location://[^\\s]{1,248}$"
+                  }
+                },
+                "failure_domain_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1024,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^failure-domain://[^\\s]{1,248}$"
+                  }
+                },
+                "retrieval_evidence_refs": {
+                  "type": "array",
+                  "maxItems": 1024,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$"
+                  }
+                }
+              }
+            }
+          },
+          "availability_verifier_contract_ref": {
+            "type": "string",
+            "pattern": "^verifier-contract://[^\\s]{1,248}$"
+          },
+          "availability_verifier_contract_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "failure_behavior": {
+            "const": "fail_closed"
+          }
+        }
+      },
+      "verifier": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "verifier_contract_id",
+          "verifier_contract_hash",
+          "supported_checkpoint_versions",
+          "supported_profile_members",
+          "supported_certificate_variants",
+          "axes",
+          "unknown_behavior",
+          "downgrade_behavior"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.verifier-contract.v1"
+          },
+          "verifier_contract_id": {
+            "type": "string",
+            "pattern": "^verifier-contract://[^\\s]{1,248}$"
+          },
+          "verifier_contract_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "supported_checkpoint_versions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "const": "ioi.foundations.receipt-checkpoint.v2"
+            }
+          },
+          "supported_profile_members": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/profile"
+            }
+          },
+          "supported_certificate_variants": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/variant"
+            }
+          },
+          "axes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "axis",
+                "required_input_contract_ids",
+                "failure_behavior"
+              ],
+              "properties": {
+                "axis": {
+                  "$ref": "#/$defs/axis"
+                },
+                "required_input_contract_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^schema://[^\\s]{1,248}$"
+                  }
+                },
+                "failure_behavior": {
+                  "const": "fail_closed"
+                }
+              }
+            }
+          },
+          "unknown_behavior": {
+            "const": "refuse"
+          },
+          "downgrade_behavior": {
+            "const": "refuse_cross_version_substitution"
+          }
+        }
+      },
+      "certificate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "certificate_domain",
+          "certificate_variant",
+          "certificate_id",
+          "domain_id",
+          "authority_epoch",
+          "authority_revocation_epoch",
+          "checkpoint_hash",
+          "operation_range",
+          "receipt_range",
+          "profile_contract_version",
+          "profile",
+          "claimed_axes",
+          "verifier_contract_ref",
+          "verifier_contract_hash",
+          "issuer_key_id",
+          "issuer_public_key",
+          "body_hash",
+          "signature_suite",
+          "signature"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.finality-certificate.v1"
+          },
+          "certificate_domain": {
+            "const": "ioi.finality-certificate.v1"
+          },
+          "certificate_variant": {
+            "$ref": "#/$defs/variant"
+          },
+          "certificate_id": {
+            "type": "string",
+            "pattern": "^finality-certificate://[^\\s]{1,248}$"
+          },
+          "domain_id": {
+            "$ref": "#/$defs/domainRef"
+          },
+          "authority_epoch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "authority_revocation_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "checkpoint_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "operation_range": {
+            "$ref": "#/$defs/range"
+          },
+          "receipt_range": {
+            "$ref": "#/$defs/range"
+          },
+          "profile_contract_version": {
+            "const": "ioi.ordering-admission-finality-profile.v1"
+          },
+          "profile": {
+            "$ref": "#/$defs/profile"
+          },
+          "claimed_axes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/axis"
+            }
+          },
+          "verifier_contract_ref": {
+            "type": "string",
+            "pattern": "^verifier-contract://[^\\s]{1,248}$"
+          },
+          "verifier_contract_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "issuer_key_id": {
+            "type": "string",
+            "pattern": "^key://[^\\s]{1,248}$"
+          },
+          "issuer_public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "signature_suite": {
+            "const": "ed25519"
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
+          }
+        }
       }
     }
   },
@@ -79416,6 +81910,561 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "ed25519Signature": {
         "type": "string",
         "pattern": "^[A-Za-z0-9_-]{86}$"
+      }
+    }
+  },
+  "schema://ioi/foundations/receipt-proof-bundle/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/receipt-proof-bundle/v2",
+    "title": "ReceiptProofBundle",
+    "description": "Distinct v2 offline proof bundle carrying every input required to recompute and verify a ReceiptCheckpoint v2 claim; it never reinterprets v1.",
+    "x-ioi-schema-version": "ioi.foundations.receipt-proof-bundle.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "bundle_type",
+      "bundle_domain",
+      "schema_hash",
+      "bundle_id",
+      "bundle_hash",
+      "checkpoint",
+      "previous_checkpoint",
+      "operations",
+      "receipts",
+      "previous_state_entries",
+      "resulting_state_entries",
+      "availability_payloads",
+      "trusted_issuer",
+      "requested_axes",
+      "compatibility_behavior"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.receipt-proof-bundle.v2"
+      },
+      "bundle_type": {
+        "const": "ioi.receipt-proof-bundle"
+      },
+      "bundle_domain": {
+        "const": "ioi.receipt-proof-bundle.v2"
+      },
+      "schema_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "bundle_id": {
+        "type": "string",
+        "pattern": "^proof://[^\\s]{1,248}$"
+      },
+      "bundle_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "checkpoint": {
+        "$ref": "#/$defs/checkpoint"
+      },
+      "previous_checkpoint": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/checkpoint"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "operations": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 65536,
+        "items": {
+          "$ref": "#/$defs/material"
+        }
+      },
+      "receipts": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 65536,
+        "items": {
+          "$ref": "#/$defs/material"
+        }
+      },
+      "previous_state_entries": {
+        "type": "array",
+        "maxItems": 65536,
+        "items": {
+          "$ref": "#/$defs/stateEntry"
+        }
+      },
+      "resulting_state_entries": {
+        "type": "array",
+        "maxItems": 65536,
+        "items": {
+          "$ref": "#/$defs/stateEntry"
+        }
+      },
+      "availability_payloads": {
+        "type": "array",
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "payload_ref",
+            "payload_base64"
+          ],
+          "properties": {
+            "payload_ref": {
+              "type": "string",
+              "pattern": "^(?:artifact|payload)://[^\\s]{1,248}$"
+            },
+            "payload_base64": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9+/]*={0,2}$"
+            }
+          }
+        }
+      },
+      "trusted_issuer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issuer_key_id",
+          "issuer_public_key",
+          "domain_id",
+          "authority_epoch",
+          "revocation_epoch"
+        ],
+        "properties": {
+          "issuer_key_id": {
+            "type": "string",
+            "pattern": "^key://[^\\s]{1,248}$"
+          },
+          "issuer_public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "domain_id": {
+            "type": "string",
+            "pattern": "^(?:system|domain)://[^\\s]{1,248}$"
+          },
+          "authority_epoch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "revocation_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "requested_axes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/axis"
+        }
+      },
+      "compatibility_behavior": {
+        "const": "v1_and_unknown_versions_refused"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "axis": {
+        "enum": [
+          "integrity",
+          "valid_as_of",
+          "currentness",
+          "availability",
+          "non_equivocation",
+          "authority_admission",
+          "economic_recognition"
+        ]
+      },
+      "material": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "body",
+          "body_hash"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "body": {
+            "type": "object"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "stateEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value_hash"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "value_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "checkpoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "checkpoint_type",
+          "checkpoint_domain",
+          "schema_hash",
+          "checkpoint_id",
+          "body_hash",
+          "domain_id",
+          "authority_epoch",
+          "authority_revocation_epoch",
+          "operation_range",
+          "receipt_range",
+          "previous_checkpoint_ref",
+          "previous_checkpoint_hash",
+          "previous_canonical_head",
+          "resulting_canonical_head",
+          "previous_state_commitment",
+          "resulting_state_commitment",
+          "operation_root",
+          "receipt_root",
+          "conflict_authority_binding",
+          "conflict_authority_binding_hash",
+          "constitution_root",
+          "admission_kernel_root",
+          "policy_root",
+          "profile_contract_version",
+          "profile",
+          "recognition",
+          "availability_manifest",
+          "availability_manifest_hash",
+          "retention_class",
+          "verifier_contract",
+          "verifier_contract_hash",
+          "durability_class",
+          "finality_certificate"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.receipt-checkpoint.v2"
+          },
+          "checkpoint_type": {
+            "const": "ioi.receipt-checkpoint"
+          },
+          "checkpoint_domain": {
+            "const": "ioi.receipt-checkpoint.v2"
+          },
+          "schema_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "checkpoint_id": {
+            "type": "string",
+            "pattern": "^receipt-checkpoint://[^\\s]{1,248}$"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "domain_id": {
+            "type": "string",
+            "pattern": "^(?:system|domain)://[^\\s]{1,248}$"
+          },
+          "authority_epoch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "authority_revocation_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "operation_range": {
+            "$ref": "#/$defs/range"
+          },
+          "receipt_range": {
+            "$ref": "#/$defs/range"
+          },
+          "previous_checkpoint_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^receipt-checkpoint://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "previous_checkpoint_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "previous_canonical_head": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_canonical_head": {
+            "$ref": "#/$defs/hash"
+          },
+          "previous_state_commitment": {
+            "$ref": "#/$defs/stateCommitment"
+          },
+          "resulting_state_commitment": {
+            "$ref": "#/$defs/stateCommitment"
+          },
+          "operation_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "conflict_authority_binding": {
+            "type": "object"
+          },
+          "conflict_authority_binding_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "constitution_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admission_kernel_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "policy_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_contract_version": {
+            "const": "ioi.ordering-admission-finality-profile.v1"
+          },
+          "profile": {
+            "enum": [
+              "single_authority",
+              "replicated_single_authority",
+              "threshold_authority",
+              "bft_consensus",
+              "external_chain_finality"
+            ]
+          },
+          "recognition": {
+            "type": "object"
+          },
+          "availability_manifest": {
+            "type": "object"
+          },
+          "availability_manifest_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "retention_class": {
+            "enum": [
+              "ephemeral_until_ack",
+              "bounded_retention",
+              "durable_local",
+              "durable_replicated",
+              "archival"
+            ]
+          },
+          "verifier_contract": {
+            "type": "object"
+          },
+          "verifier_contract_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "durability_class": {
+            "enum": [
+              "buffered",
+              "device_flush",
+              "replicated_same_host",
+              "quorum_replicated"
+            ]
+          },
+          "finality_certificate": {
+            "$ref": "#/$defs/certificate"
+          }
+        }
+      },
+      "certificate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "certificate_domain",
+          "certificate_variant",
+          "certificate_id",
+          "domain_id",
+          "authority_epoch",
+          "authority_revocation_epoch",
+          "checkpoint_hash",
+          "operation_range",
+          "receipt_range",
+          "profile_contract_version",
+          "profile",
+          "claimed_axes",
+          "verifier_contract_ref",
+          "verifier_contract_hash",
+          "issuer_key_id",
+          "issuer_public_key",
+          "body_hash",
+          "signature_suite",
+          "signature"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.finality-certificate.v1"
+          },
+          "certificate_domain": {
+            "const": "ioi.finality-certificate.v1"
+          },
+          "certificate_variant": {
+            "enum": [
+              "single_authority_v1",
+              "replicated_single_authority_v1",
+              "threshold_authority_v1",
+              "bft_consensus_aft_v1",
+              "external_chain_finality_v1"
+            ]
+          },
+          "certificate_id": {
+            "type": "string",
+            "pattern": "^finality-certificate://[^\\s]{1,248}$"
+          },
+          "domain_id": {
+            "type": "string",
+            "pattern": "^(?:system|domain)://[^\\s]{1,248}$"
+          },
+          "authority_epoch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "authority_revocation_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "checkpoint_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "operation_range": {
+            "$ref": "#/$defs/range"
+          },
+          "receipt_range": {
+            "$ref": "#/$defs/range"
+          },
+          "profile_contract_version": {
+            "const": "ioi.ordering-admission-finality-profile.v1"
+          },
+          "profile": {
+            "enum": [
+              "single_authority",
+              "replicated_single_authority",
+              "threshold_authority",
+              "bft_consensus",
+              "external_chain_finality"
+            ]
+          },
+          "claimed_axes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/axis"
+            }
+          },
+          "verifier_contract_ref": {
+            "type": "string",
+            "pattern": "^verifier-contract://[^\\s]{1,248}$"
+          },
+          "verifier_contract_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "issuer_key_id": {
+            "type": "string",
+            "pattern": "^key://[^\\s]{1,248}$"
+          },
+          "issuer_public_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "body_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "signature_suite": {
+            "const": "ed25519"
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
+          }
+        }
+      },
+      "range": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "first",
+          "last"
+        ],
+        "properties": {
+          "first": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "last": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "stateCommitment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "algorithm",
+          "version",
+          "root"
+        ],
+        "properties": {
+          "algorithm": {
+            "const": "ioi.sorted-state-jcs-sha256.v1"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "root": {
+            "$ref": "#/$defs/hash"
+          }
+        }
       }
     }
   },
@@ -98134,6 +101183,80 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/recognition-class/v1": [
+    {
+      "rule_id": "recognition_class.schema_hash.matches_contract",
+      "description": "The binding hash is evaluated by the portable verifier; schema identity is registry-bound.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.binding_hash"
+      }
+    }
+  ],
+  "schema://ioi/foundations/conflict-authority-binding/v1": [
+    {
+      "rule_id": "conflict_authority_binding.effect.present",
+      "description": "Every binding names the exact effect it constrains.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.effect_hash"
+      }
+    }
+  ],
+  "schema://ioi/foundations/retention-class/v1": [
+    {
+      "rule_id": "retention_class.policy.present",
+      "description": "Every retention class names its deletion or archive policy.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.deletion_or_archive_policy_ref"
+      }
+    }
+  ],
+  "schema://ioi/foundations/verifier-contract/v1": [
+    {
+      "rule_id": "verifier_contract.axes.non_empty",
+      "description": "A verifier contract proves no unnamed aggregate claim.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.axes"
+      }
+    }
+  ],
+  "schema://ioi/foundations/availability-manifest/v1": [
+    {
+      "rule_id": "availability_manifest.verifier.present",
+      "description": "Availability is never claimed without a named verifier contract.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.availability_verifier_contract_ref"
+      }
+    }
+  ],
+  "schema://ioi/foundations/finality-certificate/v1": [
+    {
+      "rule_id": "finality_certificate.operation_range.ordered",
+      "description": "The exact operation range is inclusive and non-regressing.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.operation_range.first",
+          "$.operation_range.last"
+        ]
+      }
+    },
+    {
+      "rule_id": "finality_certificate.receipt_range.ordered",
+      "description": "The exact individual-receipt range is inclusive and non-regressing.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.receipt_range.first",
+          "$.receipt_range.last"
+        ]
+      }
+    }
+  ],
   "schema://ioi/foundations/receipt-checkpoint/v1": [
     {
       "rule_id": "receipt_checkpoint.schema_hash.matches_contract",
@@ -98151,6 +101274,145 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "paths": [
           "$.signature_key_id",
           "$.issuer_key_id"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/receipt-checkpoint/v2": [
+    {
+      "rule_id": "receipt_checkpoint_v2.schema_hash.matches_contract",
+      "description": "The checkpoint binds the exact v2 schema.",
+      "expression": {
+        "operator": "matches_contract_schema_hash",
+        "path": "$.schema_hash"
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.binding_hash.matches_embedded",
+      "description": "The checkpoint's conflict/authority hash matches the embedded binding.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.conflict_authority_binding_hash",
+          "$.conflict_authority_binding.binding_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.recognition_binding.matches_conflicts",
+      "description": "The derived recognition class binds the exact conflict/authority material.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.recognition.binding_hash",
+          "$.conflict_authority_binding_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.availability_hash.matches_embedded",
+      "description": "The checkpoint binds the embedded availability manifest.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.availability_manifest_hash",
+          "$.availability_manifest.manifest_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.retention.matches_manifest",
+      "description": "The checkpoint and manifest name one retention class.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.retention_class",
+          "$.availability_manifest.retention.retention_class"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.verifier_hash.matches_embedded",
+      "description": "The checkpoint binds the embedded verifier contract.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.verifier_contract_hash",
+          "$.verifier_contract.verifier_contract_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.certificate_checkpoint.matches_body",
+      "description": "The finality certificate signs this checkpoint body.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.body_hash",
+          "$.finality_certificate.checkpoint_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.certificate_profile.matches_checkpoint",
+      "description": "Certificate and checkpoint use one canonical profile.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.profile",
+          "$.finality_certificate.profile"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.certificate_authority_epoch.matches_checkpoint",
+      "description": "Certificate and checkpoint bind one authority epoch.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.authority_epoch",
+          "$.finality_certificate.authority_epoch"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.certificate_revocation_epoch.matches_checkpoint",
+      "description": "Certificate and checkpoint bind the authority revocation epoch revalidated at admission.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.authority_revocation_epoch",
+          "$.finality_certificate.authority_revocation_epoch"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.certificate_operation_range.matches_checkpoint",
+      "description": "Certificate and checkpoint bind one operation range.",
+      "expression": {
+        "operator": "object_fields_equal",
+        "object_paths": [
+          "$.operation_range",
+          "$.finality_certificate.operation_range"
+        ],
+        "fields": [
+          "first",
+          "last"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_checkpoint_v2.certificate_receipt_range.matches_checkpoint",
+      "description": "Certificate and checkpoint bind one receipt range.",
+      "expression": {
+        "operator": "object_fields_equal",
+        "object_paths": [
+          "$.receipt_range",
+          "$.finality_certificate.receipt_range"
+        ],
+        "fields": [
+          "first",
+          "last"
         ]
       }
     }
@@ -98182,6 +101444,60 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "paths": [
           "$.leaf.leaf_index",
           "$.inclusion_proof.leaf_index"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/receipt-proof-bundle/v2": [
+    {
+      "rule_id": "receipt_proof_bundle_v2.schema_hash.matches_contract",
+      "description": "The bundle binds the exact v2 schema.",
+      "expression": {
+        "operator": "matches_contract_schema_hash",
+        "path": "$.schema_hash"
+      }
+    },
+    {
+      "rule_id": "receipt_proof_bundle_v2.trusted_key.matches_certificate",
+      "description": "The offline trust input and certificate name one key.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.trusted_issuer.issuer_key_id",
+          "$.checkpoint.finality_certificate.issuer_key_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_proof_bundle_v2.trusted_domain.matches_checkpoint",
+      "description": "The offline trust input is scoped to the checkpoint domain.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.trusted_issuer.domain_id",
+          "$.checkpoint.domain_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_proof_bundle_v2.trusted_epoch.matches_checkpoint",
+      "description": "The offline trust input is scoped to the exact authority epoch.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.trusted_issuer.authority_epoch",
+          "$.checkpoint.authority_epoch"
+        ]
+      }
+    },
+    {
+      "rule_id": "receipt_proof_bundle_v2.trusted_revocation_epoch.matches_checkpoint",
+      "description": "The offline trust input is scoped to the authority revocation epoch revalidated at admission.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.trusted_issuer.revocation_epoch",
+          "$.checkpoint.authority_revocation_epoch"
         ]
       }
     }
@@ -100308,10 +103624,52 @@ export function validatePhysicalActionExecutionReceiptV1(
   return validateArchitectureContract("schema://ioi/foundations/physical-action-execution-receipt/v1", value).ok;
 }
 
+export function validateRecognitionClassV1(
+  value: unknown,
+): value is RecognitionClassV1 {
+  return validateArchitectureContract("schema://ioi/foundations/recognition-class/v1", value).ok;
+}
+
+export function validateConflictAuthorityBindingV1(
+  value: unknown,
+): value is ConflictAuthorityBindingV1 {
+  return validateArchitectureContract("schema://ioi/foundations/conflict-authority-binding/v1", value).ok;
+}
+
+export function validateRetentionClassV1(
+  value: unknown,
+): value is RetentionClassV1 {
+  return validateArchitectureContract("schema://ioi/foundations/retention-class/v1", value).ok;
+}
+
+export function validateVerifierContractV1(
+  value: unknown,
+): value is VerifierContractV1 {
+  return validateArchitectureContract("schema://ioi/foundations/verifier-contract/v1", value).ok;
+}
+
+export function validateAvailabilityManifestV1(
+  value: unknown,
+): value is AvailabilityManifestV1 {
+  return validateArchitectureContract("schema://ioi/foundations/availability-manifest/v1", value).ok;
+}
+
+export function validateFinalityCertificateV1(
+  value: unknown,
+): value is FinalityCertificateV1 {
+  return validateArchitectureContract("schema://ioi/foundations/finality-certificate/v1", value).ok;
+}
+
 export function validateReceiptCheckpointV1(
   value: unknown,
 ): value is ReceiptCheckpointV1 {
   return validateArchitectureContract("schema://ioi/foundations/receipt-checkpoint/v1", value).ok;
+}
+
+export function validateReceiptCheckpointV2(
+  value: unknown,
+): value is ReceiptCheckpointV2 {
+  return validateArchitectureContract("schema://ioi/foundations/receipt-checkpoint/v2", value).ok;
 }
 
 export function validateReceiptEnvelopeV1(
@@ -100324,6 +103682,12 @@ export function validateReceiptProofBundleV1(
   value: unknown,
 ): value is ReceiptProofBundleV1 {
   return validateArchitectureContract("schema://ioi/foundations/receipt-proof-bundle/v1", value).ok;
+}
+
+export function validateReceiptProofBundleV2(
+  value: unknown,
+): value is ReceiptProofBundleV2 {
+  return validateArchitectureContract("schema://ioi/foundations/receipt-proof-bundle/v2", value).ok;
 }
 
 export function validateSkillEntryV1(

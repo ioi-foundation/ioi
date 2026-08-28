@@ -1,0 +1,127 @@
+{
+  "schema_version": "ioi.foundations.receipt-checkpoint.v2",
+  "checkpoint_type": "ioi.receipt-checkpoint",
+  "checkpoint_domain": "ioi.receipt-checkpoint.v2",
+  "schema_hash": "sha256:32dccca1f2eff7c4ba3b5e600beb8c1718dab1a1ac341f72d90f6c57e6ffa2a2",
+  "checkpoint_id": "receipt-checkpoint://acme/1",
+  "body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "domain_id": "system://acme",
+  "authority_epoch": 1,
+  "authority_revocation_epoch": 0,
+  "operation_range": { "first": 0, "last": 0 },
+  "receipt_range": { "first": 0, "last": 0 },
+  "previous_checkpoint_ref": null,
+  "previous_checkpoint_hash": null,
+  "previous_canonical_head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "resulting_canonical_head": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "previous_state_commitment": {
+    "algorithm": "ioi.sorted-state-jcs-sha256.v1",
+    "version": 0,
+    "root": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "resulting_state_commitment": {
+    "algorithm": "ioi.sorted-state-jcs-sha256.v1",
+    "version": 1,
+    "root": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+  },
+  "operation_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "receipt_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "conflict_authority_binding": {
+    "schema_version": "ioi.conflict-authority-binding.v1",
+    "effect_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "invariant_domain_refs": ["invariant://ioi/object/head"],
+    "touched_objects": [
+      {
+        "object_ref": "object://acme/item",
+        "previous_version": 0,
+        "resulting_version": 1,
+        "previous_head": null,
+        "resulting_head": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    ],
+    "conflict_keys": ["conflict-key://acme/item"],
+    "consumed_authority": [],
+    "joint_conflict_key": null,
+    "binding_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+  },
+  "conflict_authority_binding_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "constitution_root": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+  "admission_kernel_root": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "policy_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "profile_contract_version": "ioi.ordering-admission-finality-profile.v1",
+  "profile": "single_authority",
+  "recognition": {
+    "schema_version": "ioi.recognition-class.v1",
+    "effect_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "recognition_class": "K2",
+    "derivation_status": "resolved",
+    "invariant_domain_refs": ["invariant://ioi/object/head"],
+    "conflict_keys_enumerated": true,
+    "canonical_effect": true,
+    "ordinary_admission_permitted": true,
+    "binding_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+  },
+  "availability_manifest": {
+    "schema_version": "ioi.availability-manifest.v1",
+    "manifest_id": "availability-manifest://acme/1",
+    "manifest_hash": "sha256:abababababababababababababababababababababababababababababababab",
+    "claim_status": "verified",
+    "retention": {
+      "schema_version": "ioi.retention-class.v1",
+      "retention_class": "durable_local",
+      "retain_until": null,
+      "minimum_copies": 1,
+      "independent_failure_domains": 1,
+      "deletion_or_archive_policy_ref": "policy://acme/retention/local"
+    },
+    "payloads": [],
+    "availability_verifier_contract_ref": "verifier-contract://ioi/receipt-proof-v2/single-authority",
+    "availability_verifier_contract_hash": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+    "failure_behavior": "fail_closed"
+  },
+  "availability_manifest_hash": "sha256:abababababababababababababababababababababababababababababababab",
+  "retention_class": "durable_local",
+  "verifier_contract": {
+    "schema_version": "ioi.verifier-contract.v1",
+    "verifier_contract_id": "verifier-contract://ioi/receipt-proof-v2/single-authority",
+    "verifier_contract_hash": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+    "supported_checkpoint_versions": ["ioi.foundations.receipt-checkpoint.v2"],
+    "supported_profile_members": ["single_authority"],
+    "supported_certificate_variants": ["single_authority_v1"],
+    "axes": [
+      {
+        "axis": "integrity",
+        "required_input_contract_ids": [
+          "schema://ioi/foundations/receipt-proof-bundle/v2"
+        ],
+        "failure_behavior": "fail_closed"
+      }
+    ],
+    "unknown_behavior": "refuse",
+    "downgrade_behavior": "refuse_cross_version_substitution"
+  },
+  "verifier_contract_hash": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+  "durability_class": "device_flush",
+  "finality_certificate": {
+    "schema_version": "ioi.finality-certificate.v1",
+    "certificate_domain": "ioi.finality-certificate.v1",
+    "certificate_variant": "single_authority_v1",
+    "certificate_id": "finality-certificate://acme/1",
+    "domain_id": "system://acme",
+    "authority_epoch": 1,
+    "authority_revocation_epoch": 0,
+    "checkpoint_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "operation_range": { "first": 0, "last": 0 },
+    "receipt_range": { "first": 0, "last": 0 },
+    "profile_contract_version": "ioi.ordering-admission-finality-profile.v1",
+    "profile": "single_authority",
+    "claimed_axes": ["integrity"],
+    "verifier_contract_ref": "verifier-contract://ioi/receipt-proof-v2/single-authority",
+    "verifier_contract_hash": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
+    "issuer_key_id": "key://acme/finality/1",
+    "issuer_public_key": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "body_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "signature_suite": "ed25519",
+    "signature": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  }
+}

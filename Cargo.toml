@@ -13,6 +13,7 @@ exclude = [
 ]
 members = [
     "crates/aft-c8-verifier",
+    "crates/ioi-finality",
     "crates/agentgres",
     "crates/node",
     "crates/cli",

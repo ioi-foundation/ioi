@@ -6781,6 +6781,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ioi-finality"
+version = "0.1.0"
+dependencies = [
+ "base64 0.21.7",
+ "hex",
+ "ioi-api",
+ "ioi-crypto",
+ "ioi-types",
+ "serde",
+ "serde_jcs",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "ioi-ipc"
 version = "0.2.0"
 dependencies = [

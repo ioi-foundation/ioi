@@ -4470,3 +4470,51 @@ archival checkpoint files.
     boundary needs its own emitted decision/derivation evidence before making
     receipt-level assurance; current contract substrate supplies neither
     production propagation nor receipt coverage by implication.
+
+### Recognition, availability, certificate, and verifier contracts
+
+Portable ordering/finality evidence uses source-neutral registered contracts:
+
+- `RecognitionClass` carries the derived K1–K7 relationship class;
+- `ConflictAuthorityBinding` binds the exact invariant domains, touched objects
+  and versions, conflict keys, and consumed capability/nullifier commitments;
+- `RetentionClass` names the retention obligation without claiming it was met;
+- `AvailabilityManifest` binds each required payload hash, location/failure
+  domain, retention class, retrieval rule, and availability verifier;
+- `VerifierContract` names the exact verifier axes, required inputs, supported
+  certificate variants, and fail-closed behavior; and
+- `FinalityCertificate` binds one checkpoint to one canonical versioned
+  ordering/finality profile, authority and revocation epochs, issuer, exact
+  verified axes, and verifier contract.
+
+These contracts name no engine or first-party service. Agentgres is the current
+IOI emitter/state owner where emission is implemented, but it is not a field,
+member, or prerequisite of the universal contract. A certificate signature
+establishes only integrity of the signed preimage unless its named verifier
+contract establishes more. Unknown recognition classes, profile members,
+certificate variants, verifier axes, retention classes, or availability claims
+fail closed.
+
+### ReceiptCheckpoint v2 and ReceiptProofBundle v2
+
+`ReceiptCheckpoint` v1 and `ReceiptProofBundle` v1 retain their exact registered
+linear-hash-chain meanings. The v2 contracts are distinct successors and never
+reinterpret v1. A v1-only verifier refuses v2 as unsupported; a v2 verifier
+refuses v1 as insufficient for a v2 claim. There is no implicit downgrade or
+cross-version substitution.
+
+The v2 checkpoint binds the System/domain and authority plus revocation epochs;
+exact operation and individual-receipt ranges; predecessor checkpoint and canonical head;
+previous and resulting state commitments; operation and receipt roots; exact
+touched-object/conflict-key and consumed-authority commitments; constitution,
+admission-kernel, and policy roots; profile and version; derived recognition
+class; availability manifest and retention class; verifier contract; and
+finality certificate. The v2 proof bundle carries the material required to
+recompute every committed hash offline and structurally embeds the exact v2
+checkpoint shape.
+
+Portable verification supports only a certificate variant whose complete
+semantics it implements. A recognized shape with an unsupported profile or
+certificate variant is refused, never reported as verified. Production
+selection is a separate qualification: registration does not make a profile
+available, selectable, or default-authorized.

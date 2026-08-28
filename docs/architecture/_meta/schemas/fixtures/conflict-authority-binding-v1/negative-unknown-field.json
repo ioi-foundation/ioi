@@ -1,0 +1,1 @@
+{"schema_version":"ioi.conflict-authority-binding.v1","effect_hash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","invariant_domain_refs":[],"touched_objects":[],"conflict_keys":[],"consumed_authority":[],"joint_conflict_key":null,"binding_hash":"sha256:7777777777777777777777777777777777777777777777777777777777777777","ambient_authority":true}

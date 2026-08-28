@@ -1,0 +1,1 @@
+{"schema_version":"ioi.retention-class.v1","retention_class":"forever_maybe","retain_until":null,"minimum_copies":1,"independent_failure_domains":1,"deletion_or_archive_policy_ref":"policy://acme/retention/unknown"}

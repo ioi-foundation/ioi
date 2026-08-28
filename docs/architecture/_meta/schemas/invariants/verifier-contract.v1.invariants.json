@@ -1,0 +1,1 @@
+{"$id":"invariant://ioi/foundations/verifier-contract/fail-closed/v1","language":"ioi.portable-invariants.v1","contract_id":"schema://ioi/foundations/verifier-contract/v1","rules":[{"rule_id":"verifier_contract.axes.non_empty","description":"A verifier contract proves no unnamed aggregate claim.","expression":{"operator":"non_empty","path":"$.axes"}}]}

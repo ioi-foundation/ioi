@@ -8481,6 +8481,89 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/recognition-class/v1",
+      "canonical_name": "RecognitionClass",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#recognition-availability-certificate-and-verifier-contracts",
+      "schema_version": "ioi.recognition-class.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {"successor_of":null,"successor_contract_id":null,"compatibility":"initial","migration_policy":"none","predecessor_remains_valid":false,"wire_mutation_policy":"forbidden","hash_impact":"signature_preimage_changed"},
+      "schema_ref": "recognition-class.v1.schema.json",
+      "cross_field_invariant_refs": [{"invariant_id":"invariant://ioi/foundations/recognition-class/derived/v1","path":"invariants/recognition-class.v1.invariants.json"}],
+      "compatibility_aliases": [],
+      "generated_targets": [{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"RecognitionClassV1"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"RecognitionClassV1"}],
+      "positive_fixture_refs": ["fixtures/recognition-class-v1/positive-k3.json"],
+      "negative_fixture_refs": [{"path":"fixtures/recognition-class-v1/negative-unknown-class.json","expected_failure":"schema"}]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/conflict-authority-binding/v1",
+      "canonical_name": "ConflictAuthorityBinding",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#recognition-availability-certificate-and-verifier-contracts",
+      "schema_version": "ioi.conflict-authority-binding.v1",
+      "maturity": "partial","stability":"provisional","wire_format":"json","canonical_encoding_profile_ref":"encoding-profile://ioi/jcs-json/v1",
+      "evolution":{"successor_of":null,"successor_contract_id":null,"compatibility":"initial","migration_policy":"none","predecessor_remains_valid":false,"wire_mutation_policy":"forbidden","hash_impact":"signature_preimage_changed"},
+      "schema_ref":"conflict-authority-binding.v1.schema.json",
+      "cross_field_invariant_refs":[{"invariant_id":"invariant://ioi/foundations/conflict-authority-binding/exact/v1","path":"invariants/conflict-authority-binding.v1.invariants.json"}],
+      "compatibility_aliases":[],
+      "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"ConflictAuthorityBindingV1"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"ConflictAuthorityBindingV1"}],
+      "positive_fixture_refs":["fixtures/conflict-authority-binding-v1/positive-consumption.json"],
+      "negative_fixture_refs":[{"path":"fixtures/conflict-authority-binding-v1/negative-unknown-field.json","expected_failure":"schema"}]
+    },
+    {
+      "contract_id":"schema://ioi/foundations/retention-class/v1",
+      "canonical_name":"RetentionClass",
+      "canonical_owner_ref":"canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#recognition-availability-certificate-and-verifier-contracts",
+      "schema_version":"ioi.retention-class.v1","maturity":"partial","stability":"provisional","wire_format":"json","canonical_encoding_profile_ref":"encoding-profile://ioi/jcs-json/v1",
+      "evolution":{"successor_of":null,"successor_contract_id":null,"compatibility":"initial","migration_policy":"none","predecessor_remains_valid":false,"wire_mutation_policy":"forbidden","hash_impact":"none"},
+      "schema_ref":"retention-class.v1.schema.json",
+      "cross_field_invariant_refs":[{"invariant_id":"invariant://ioi/foundations/retention-class/requirements/v1","path":"invariants/retention-class.v1.invariants.json"}],
+      "compatibility_aliases":[],
+      "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"RetentionClassV1"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"RetentionClassV1"}],
+      "positive_fixture_refs":["fixtures/retention-class-v1/positive-bounded.json"],
+      "negative_fixture_refs":[{"path":"fixtures/retention-class-v1/negative-unknown-class.json","expected_failure":"schema"}]
+    },
+    {
+      "contract_id":"schema://ioi/foundations/verifier-contract/v1",
+      "canonical_name":"VerifierContract",
+      "canonical_owner_ref":"canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#recognition-availability-certificate-and-verifier-contracts",
+      "schema_version":"ioi.verifier-contract.v1","maturity":"partial","stability":"provisional","wire_format":"json","canonical_encoding_profile_ref":"encoding-profile://ioi/jcs-json/v1",
+      "evolution":{"successor_of":null,"successor_contract_id":null,"compatibility":"initial","migration_policy":"none","predecessor_remains_valid":false,"wire_mutation_policy":"forbidden","hash_impact":"signature_preimage_changed"},
+      "schema_ref":"verifier-contract.v1.schema.json",
+      "cross_field_invariant_refs":[{"invariant_id":"invariant://ioi/foundations/verifier-contract/fail-closed/v1","path":"invariants/verifier-contract.v1.invariants.json"}],
+      "compatibility_aliases":[],
+      "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"VerifierContractV1"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"VerifierContractV1"}],
+      "positive_fixture_refs":["fixtures/verifier-contract-v1/positive-single-authority.json"],
+      "negative_fixture_refs":[{"path":"fixtures/verifier-contract-v1/negative-unknown-axis.json","expected_failure":"schema"}]
+    },
+    {
+      "contract_id":"schema://ioi/foundations/availability-manifest/v1",
+      "canonical_name":"AvailabilityManifest",
+      "canonical_owner_ref":"canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#recognition-availability-certificate-and-verifier-contracts",
+      "schema_version":"ioi.availability-manifest.v1","maturity":"partial","stability":"provisional","wire_format":"json","canonical_encoding_profile_ref":"encoding-profile://ioi/jcs-json/v1",
+      "evolution":{"successor_of":null,"successor_contract_id":null,"compatibility":"initial","migration_policy":"none","predecessor_remains_valid":false,"wire_mutation_policy":"forbidden","hash_impact":"signature_preimage_changed"},
+      "schema_ref":"availability-manifest.v1.schema.json",
+      "cross_field_invariant_refs":[{"invariant_id":"invariant://ioi/foundations/availability-manifest/payloads/v1","path":"invariants/availability-manifest.v1.invariants.json"}],
+      "compatibility_aliases":[],
+      "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"AvailabilityManifestV1"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"AvailabilityManifestV1"}],
+      "positive_fixture_refs":["fixtures/availability-manifest-v1/positive-local.json"],
+      "negative_fixture_refs":[{"path":"fixtures/availability-manifest-v1/negative-unknown-claim.json","expected_failure":"schema"}]
+    },
+    {
+      "contract_id":"schema://ioi/foundations/finality-certificate/v1",
+      "canonical_name":"FinalityCertificate",
+      "canonical_owner_ref":"canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#recognition-availability-certificate-and-verifier-contracts",
+      "schema_version":"ioi.finality-certificate.v1","maturity":"partial","stability":"provisional","wire_format":"json","canonical_encoding_profile_ref":"encoding-profile://ioi/jcs-json/v1",
+      "evolution":{"successor_of":null,"successor_contract_id":null,"compatibility":"initial","migration_policy":"none","predecessor_remains_valid":false,"wire_mutation_policy":"forbidden","hash_impact":"signature_preimage_changed"},
+      "schema_ref":"finality-certificate.v1.schema.json",
+      "cross_field_invariant_refs":[{"invariant_id":"invariant://ioi/foundations/finality-certificate/bindings/v1","path":"invariants/finality-certificate.v1.invariants.json"}],
+      "compatibility_aliases":[],
+      "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"FinalityCertificateV1"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"FinalityCertificateV1"}],
+      "positive_fixture_refs":["fixtures/finality-certificate-v1/positive-single-authority.json"],
+      "negative_fixture_refs":[{"path":"fixtures/finality-certificate-v1/negative-variant-profile-substitution.json","expected_failure":"schema"}]
+    },
+    {
       "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
       "canonical_name": "ReceiptCheckpoint",
       "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs",
@@ -8538,6 +8621,20 @@
           "expected_rule_id": "receipt_checkpoint.signature_key.matches_issuer_key"
         }
       ]
+    },
+    {
+      "contract_id":"schema://ioi/foundations/receipt-checkpoint/v2",
+      "canonical_name":"ReceiptCheckpoint",
+      "canonical_owner_ref":"canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receiptcheckpoint-v2-and-receiptproofbundle-v2",
+      "schema_version":"ioi.foundations.receipt-checkpoint.v2",
+      "maturity":"partial","stability":"provisional","wire_format":"json","canonical_encoding_profile_ref":"encoding-profile://ioi/jcs-json/v1",
+      "evolution":{"successor_of":"schema://ioi/foundations/receipt-checkpoint/v1","successor_contract_id":null,"compatibility":"parallel_version_explicit_refusal","migration_policy":"no_implicit_migration","predecessor_remains_valid":true,"wire_mutation_policy":"forbidden","hash_impact":"signature_preimage_changed"},
+      "schema_ref":"receipt-checkpoint.v2.schema.json",
+      "cross_field_invariant_refs":[{"invariant_id":"invariant://ioi/foundations/receipt-checkpoint/recognized-effect/v2","path":"invariants/receipt-checkpoint.v2.invariants.json"}],
+      "compatibility_aliases":[],
+      "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"ReceiptCheckpointV2"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"ReceiptCheckpointV2"}],
+      "positive_fixture_refs":["fixtures/receipt-checkpoint-v2/positive-single-authority.json"],
+      "negative_fixture_refs":[{"path":"fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json","expected_failure":"invariant","expected_rule_id":"receipt_checkpoint_v2.certificate_checkpoint.matches_body"}]
     },
     {
       "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
@@ -8654,6 +8751,20 @@
           "expected_rule_id": "receipt_proof_bundle.leaf_index.matches_inclusion"
         }
       ]
+    },
+    {
+      "contract_id":"schema://ioi/foundations/receipt-proof-bundle/v2",
+      "canonical_name":"ReceiptProofBundle",
+      "canonical_owner_ref":"canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#receiptcheckpoint-v2-and-receiptproofbundle-v2",
+      "schema_version":"ioi.foundations.receipt-proof-bundle.v2",
+      "maturity":"partial","stability":"provisional","wire_format":"json","canonical_encoding_profile_ref":"encoding-profile://ioi/jcs-json/v1",
+      "evolution":{"successor_of":"schema://ioi/foundations/receipt-proof-bundle/v1","successor_contract_id":null,"compatibility":"parallel_version_explicit_refusal","migration_policy":"no_implicit_migration","predecessor_remains_valid":true,"wire_mutation_policy":"forbidden","hash_impact":"signature_preimage_changed"},
+      "schema_ref":"receipt-proof-bundle.v2.schema.json",
+      "cross_field_invariant_refs":[{"invariant_id":"invariant://ioi/foundations/receipt-proof-bundle/recognized-effect/v2","path":"invariants/receipt-proof-bundle.v2.invariants.json"}],
+      "compatibility_aliases":[],
+      "generated_targets":[{"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"ReceiptProofBundleV2"},{"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"ReceiptProofBundleV2"}],
+      "positive_fixture_refs":["fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json"],
+      "negative_fixture_refs":[{"path":"fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json","expected_failure":"invariant","expected_rule_id":"receipt_proof_bundle_v2.trusted_epoch.matches_checkpoint"}]
     },
     {
       "contract_id": "schema://ioi/foundations/skill-entry/v1",

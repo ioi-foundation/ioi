@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/recognition-class/v1",
+  "title": "RecognitionClass",
+  "description": "Source-neutral derived recognition relationship class for one proposed or admitted effect.",
+  "x-ioi-schema-version": "ioi.recognition-class.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "effect_hash", "recognition_class", "derivation_status", "invariant_domain_refs", "conflict_keys_enumerated", "canonical_effect", "ordinary_admission_permitted", "binding_hash"],
+  "properties": {
+    "schema_version": { "const": "ioi.recognition-class.v1" },
+    "effect_hash": { "$ref": "#/$defs/hash" },
+    "recognition_class": { "enum": ["K1", "K2", "K3", "K4", "K5", "K6", "K7"] },
+    "derivation_status": { "enum": ["resolved", "unknown_invariant_domain", "unenumerable_conflict_keys", "ambiguous_rules"] },
+    "invariant_domain_refs": { "type": "array", "items": { "$ref": "#/$defs/invariantRef" }, "maxItems": 128, "uniqueItems": true },
+    "conflict_keys_enumerated": { "type": "boolean" },
+    "canonical_effect": { "type": "boolean" },
+    "ordinary_admission_permitted": { "type": "boolean" },
+    "binding_hash": { "$ref": "#/$defs/hash" }
+  },
+  "allOf": [
+    { "if": { "properties": { "derivation_status": { "enum": ["unknown_invariant_domain", "unenumerable_conflict_keys", "ambiguous_rules"] } }, "required": ["derivation_status"] }, "then": { "properties": { "recognition_class": { "const": "K6" }, "ordinary_admission_permitted": { "const": false } } } },
+    { "if": { "properties": { "recognition_class": { "const": "K1" } }, "required": ["recognition_class"] }, "then": { "properties": { "canonical_effect": { "const": false }, "ordinary_admission_permitted": { "const": false } } } },
+    { "if": { "properties": { "recognition_class": { "const": "K7" } }, "required": ["recognition_class"] }, "then": { "properties": { "ordinary_admission_permitted": { "const": false } } } }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "invariantRef": { "type": "string", "pattern": "^invariant://[^\\s]{1,248}$" }
+  }
+}

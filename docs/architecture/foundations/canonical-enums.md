@@ -705,12 +705,67 @@ field itself remains planned. Existing Agentgres primary/standby
 mechanisms are evidence for replication and fencing, not a claim that dynamic
 membership, automatic failover, threshold authority, or BFT consensus exists.
 
-Not canon yet: [ADR 0039](../../decisions/0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md)
-proposes seven **recognition relationship classes** (K1–K7) deriving how much
-recognition a proposed effect owes before admission, from private reasoning and
-monotone evidence through authority-expanding constitutional upgrades. It is
-Proposed design vocabulary, deliberately not registered here, and no
-implementation may cite it as a member set.
+## Recognition Relationship Classes (`recognition_class`)
+
+The versioned member set is `ioi.recognition-class.v1`:
+
+```text
+K1 | K2 | K3 | K4 | K5 | K6 | K7
+```
+
+These are relationship classes, not severity selected by a caller. The
+admission kernel derives the class from the invariant domains touched, exact
+conflict keys written, consumed authority, and reliance boundary:
+
+- `K1`: authenticated private reasoning or declared monotone evidence; never
+  an admitted canonical effect by itself;
+- `K2`: ownership-partitioned local mutation over exclusively owned heads;
+- `K3`: externally relied-on consumption of a single-writer scarce object;
+- `K4`: multiwriter or cross-object atomic effect;
+- `K5`: public economic settlement under the selected settlement rule;
+- `K6`: oracle, semantic, legal, real-world, disputed, or unclassifiable
+  adjudication; unknown invariant domains or unenumerable conflict keys resolve
+  here and never to a weaker class; and
+- `K7`: authority expansion or weakening of a guarantee that bounds authority;
+  ordinary admission cannot carry this class (`INV-42`).
+
+The class binds through the registered conflict/authority binding contract.
+K1 evidence reaches a canonical head only by being compiled into a new admitted
+operation at K2 or above. A stronger mechanism may serve a class; a weaker one
+may not. Unknown class spellings fail closed.
+
+## Portable Retention Classes (`retention_class`)
+
+The versioned member set is `ioi.retention-class.v1`:
+
+```text
+ephemeral_until_ack | bounded_retention | durable_local |
+durable_replicated | archival
+```
+
+The class states the storage/retention obligation and never implies that the
+obligation was met. `ephemeral_until_ack` permits deletion only after the
+recognized effect's durable ACK and is never sufficient for a payload required
+for later offline verification. `bounded_retention` carries an exact expiry or
+duration. `durable_local` requires one declared durable failure domain.
+`durable_replicated` requires the declared independent replica threshold.
+`archival` requires the declared archive and retrieval policy. Availability is
+separately evidenced by an `AvailabilityManifest`; an unknown class or a class
+whose required parameters are absent fails closed.
+
+## Portable Verifier Axes (`verifier_axis`)
+
+The versioned member set is `ioi.verifier-axis.v1`:
+
+```text
+integrity | valid_as_of | currentness | availability | non_equivocation |
+authority_admission | economic_recognition
+```
+
+Each axis is a separate claim with separate required inputs and failure
+behavior. Establishing one never promotes another. In particular, signature
+integrity does not establish currentness, availability, non-equivocation,
+authority admission, or economic recognition. Unknown axes fail closed.
 
 ## Autonomous-System Node Roles (`autonomous_system_node_role`)
 

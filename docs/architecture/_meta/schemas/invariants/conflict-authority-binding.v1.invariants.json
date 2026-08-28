@@ -1,0 +1,1 @@
+{"$id":"invariant://ioi/foundations/conflict-authority-binding/exact/v1","language":"ioi.portable-invariants.v1","contract_id":"schema://ioi/foundations/conflict-authority-binding/v1","rules":[{"rule_id":"conflict_authority_binding.effect.present","description":"Every binding names the exact effect it constrains.","expression":{"operator":"non_empty","path":"$.effect_hash"}}]}
