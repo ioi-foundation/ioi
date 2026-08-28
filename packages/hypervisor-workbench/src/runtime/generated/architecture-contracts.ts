@@ -23467,7 +23467,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^dissolution-disposition://[^\\s]{1,248}$",
   "^dissolution-receipt://[^\\s]{1,248}$",
   "^doc://\\S*$",
-  "^domain://[^\\s]{1,500}$",
   "^download-intent://[A-Za-z0-9._:-]+$",
   "^effect://[^\\s]+$",
   "^effect://[^\\s]{1,500}$",
@@ -23776,7 +23775,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
 ] as const;
 
 export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
-  "schema://ioi/applications/ioi-ai/attempt/v3": "sha256:cd1d3175783030983a471006d8ee4827f8f0b24e27bd857f1095610eb21ae45b",
+  "schema://ioi/applications/ioi-ai/attempt/v3": "sha256:75afea38507e624bcd2833433691eb91f2036bdd0f11dcfa7cff2a2ba3fba03f",
   "schema://ioi/applications/ioi-ai/capability-offer/v3": "sha256:add2a12e4fe9e8285568e2f5d7e6e175a2aacf39a21165cfb76323e9b14bda4f",
   "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": "sha256:4153fe127298d00c9836a7ac8e8a62da6fd0c7d4b0c2372717b7468d9a96d632",
   "schema://ioi/applications/ioi-ai/finding/v3": "sha256:58e6e7bf57e42ee280cceda6f928c84855ea18617a2c81c4127d435ba19b7253",
@@ -23966,7 +23965,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/work-claim-lease-envelope/v1": "sha256:ebe0f6bca0871c8be2c763bc4c9b29cd558bb58ef6ca4262c010f7e1fda05ed5",
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v1": "sha256:7f20bf2e1c5cf6e056051a647676c045f41d0af0ccd418805eb8e9f2a280d627",
   "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1": "sha256:0512d443c8bbfe28b3f4ff9906ee081b0a471506882a9f6fb891d7697c4aebb7",
-  "schema://ioi/foundations/objects/attempt-envelope/v1": "sha256:5884e7798b927a8243c1313b9b89dc4de3b6f17e345e616bd830bb0b2ec3c5fe",
+  "schema://ioi/foundations/objects/attempt-envelope/v1": "sha256:8f96ce5059c6b5c0deac5ee781f29f709b17ad5b314a7ecb6655773de687d21b",
   "schema://ioi/foundations/objects/finding-envelope/v1": "sha256:3f6670b624ce8921e3aacaa62a3caa25bf7754e325f2848050cb54d0b78887d5",
   "schema://ioi/foundations/objects/work-result-envelope/v1": "sha256:71268aebf0e18716c1d964bb99c403542ff87b7dc39365e24fc4d21071963c04",
   "schema://ioi/foundations/objects/outcome-delta-envelope/v1": "sha256:d2e27d92cb2812358fddd2d10c5dcb47d6e0f7563306cb2f2dc90bc74aa03350",
@@ -24117,7 +24116,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               },
               "host_domain_ref": {
                 "type": "string",
-                "pattern": "^domain://[^\\s]{1,500}$"
+                "pattern": "^(?:system|domain)://[^\\s]{1,500}$"
               },
               "control_hash": {
                 "$ref": "#/$defs/hash"
@@ -83338,7 +83337,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                   },
                   "host_domain_ref": {
                     "type": "string",
-                    "pattern": "^domain://[^\\s]{1,500}$"
+                    "pattern": "^(?:system|domain)://[^\\s]{1,500}$"
                   },
                   "control_hash": {
                     "type": "string",

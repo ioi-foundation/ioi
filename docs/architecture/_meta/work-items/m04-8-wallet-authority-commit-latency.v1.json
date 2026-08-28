@@ -1,0 +1,60 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m04-8-wallet-authority-commit-latency",
+  "stage_id": "M04",
+  "required_work": [
+    "M04.8",
+    "wallet-authority commit-path profiling"
+  ],
+  "status": "active",
+  "objective": "Measure and repair the minutes-scale wallet-authority approval path without shrinking the full state-deepening soak, then land an evidence-derived per-approval latency tripwire.",
+  "falsifiable_claim": "For a fixed backend and build profile, the profiling harness attributes each approval's wall and CPU time to submission, consensus/finalization, execution, state commitment, durable persistence, and proof/resolution while recording height, state/version depth, and bytes; a planted delay beyond the evidence-derived budget makes the performance qualification lane red.",
+  "canon_owners": [
+    "docs/decisions/0038-split-deterministic-merge-verification-from-wallet-authority-soaks.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/storage-backends/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/verify-m4-room-participation-contribution-plane.mjs",
+      "must_contain": "RESTART: all ten named lifecycles and auxiliary terms/eligibility evidence reproject exactly",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs",
+      "must_contain": "IOI_WALLET_FIXTURE_RELEASE",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/execution/src/app/state_machine.rs",
+      "must_contain": "commit_version_persist() is slow",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/m048-wallet-authority-soak.yml",
+      "must_contain": "soak:m4-room-participation-contribution-wallet-authority",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/decisions/0038-split-deterministic-merge-verification-from-wallet-authority-soaks.md",
+    "apps/hypervisor/scripts/verify-m4-room-participation-contribution-plane.mjs",
+    "apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs",
+    "crates/cli/tests/hypervisor_wallet_network_fixture.rs",
+    "crates/execution/src/app/state_machine.rs",
+    "crates/state/src/tree/iavl/tree/mod.rs",
+    "crates/state/src/tree/jellyfish/tree.rs",
+    "crates/storage/src/redb_epoch_store.rs",
+    ".github/workflows/m048-wallet-authority-soak.yml"
+  ],
+  "adversarial_or_fault_proof": "Open. The M04.8 deterministic matrix is green at 111/111 in approximately 8.4 seconds, while the complete real wallet-authority journey has demonstrated multiple-hour behavior. The first release-profile baseline completed 14/15 checks in approximately two hours: all semantic gates and all nine room-child family restart counts plus pairing/terms/eligibility counts passed, while the first post-health OutcomeRoom replay request returned 503. Earlier debug evidence returned replay 200 with the exact operation count. The verifier now treats generic health and owner-projection readiness separately through a bounded 503 retry that still fails durable unavailability; that adjustment has not been justified by another multi-hour rerun. Release mode removes debug-build ambiguity but has not removed the performance defect. Closure requires component timings across increasing height/depth, warm and restarted runs, single and batched approvals, a parity-qualified backend comparison, and a mutation that defeats the selected latency budget.",
+  "remaining_nonclaims": [
+    "No numeric approval latency budget is established yet.",
+    "The current evidence does not attribute the defect solely to IAVL, Redb/WAL persistence, AFT consensus, cryptography, replay, or their composition.",
+    "Jellyfish is an in-tree qualification candidate, not a production-equivalent successor.",
+    "The scheduled soak proves only the exact profile and environment it runs.",
+    "The release-profile baseline is 14/15, not a green full-soak claim; the bounded owner-readiness retry remains to be exercised by the next scheduled run."
+  ],
+  "source_provenance": "Opened 2026-08-27 from M04.8 verifier evidence: two debug-profile attempts exceeded six hours; later approval commits slowed with chain history; the release-profile baseline remained CPU-heavy and minutes-scale and ended 14/15 on the first post-health replay request while every child-family count reprojected exactly. ADR 0038 preserves the full semantic soak while separating it from the deterministic merge lane.",
+  "last_status_transaction": "2026-08-27"
+}

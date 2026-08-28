@@ -786,7 +786,7 @@ AttemptEnvelope:
   participant_ref:
     participant-lease://... | system://... | worker://... | agent://...
   bound_coordinates:  # null for non-room work; otherwise the hosted coordinates below
-    outcome_room: { record_ref: outcome-room://..., host_domain_ref: domain://..., control_hash: hash }
+    outcome_room: { record_ref: outcome-room://..., host_domain_ref: system://... | domain://..., control_hash: hash }
     frontier_item: { record_ref: frontier://..., outcome_room_ref: outcome-room://..., revision: integer, record_hash: hash }
     work_claim: { record_ref: work-claim://..., outcome_room_ref: outcome-room://..., frontier_item_ref: frontier://..., claimant_ref: participant-lease://..., revision: integer, record_hash: hash }
     participant_lease: { record_ref: participant-lease://..., outcome_room_ref: outcome-room://..., principal_ref: worker://... | agent://..., revision: integer, record_hash: hash }

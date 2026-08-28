@@ -116,6 +116,8 @@ mod k8s_candidate_source;
 mod lambda_candidate_source;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
+#[path = "hypervisor_daemon_routes/m048_collaboration_routes.rs"]
+mod m048_collaboration_routes;
 #[path = "hypervisor_daemon_routes/managed_runtime_routes.rs"]
 mod managed_runtime_routes;
 #[path = "hypervisor_daemon_routes/marketplace_routes.rs"]
@@ -601,6 +603,46 @@ async fn async_main() -> anyhow::Result<()> {
     // room-release tails before readiness. Governed replay performs network I/O and is launched
     // only after the listener is bound, so resolver outage cannot delay readiness.
     room_participation_routes::complete_participation_intents(&data_dir);
+    // M04.8 — the current participation/contribution plane keeps no room-child truth of its own,
+    // so there is nothing here to converge. What it does own is three owner-local evidence
+    // families (pairing sessions, collaboration terms + acceptances, eligibility matches), and a
+    // slot in one of those that cannot be read EXACTLY is indistinguishable from one that was
+    // never written. Census them fail-closed before the listener binds rather than serve a
+    // current route over an ambiguous pairing or acceptance record.
+    if let Err((code, message)) = m048_collaboration_routes::preflight_owner_local_census(&data_dir)
+    {
+        anyhow::bail!("M04.8 owner-local recovery blocks readiness ({code}: {message})");
+    }
+    // M04.8 — converge the one multi-owner boundary this plane has: a pairing session whose
+    // consumption crossed into an Agentgres participation-request admission. This MUST run after
+    // `outcome_room_system_routes::complete_pending` above, because that is what makes "did the
+    // admission linearize" a settled fact rather than a race. Forward when the request is present
+    // (so a spent pairing cannot be replayed), rollback when it is definitively absent (so an
+    // unspent pairing is not lost), and fail closed when it is undecidable.
+    if let Err((code, message)) =
+        m048_collaboration_routes::complete_pairing_consumption_intents(&data_dir)
+    {
+        anyhow::bail!("M04.8 pairing recovery blocks readiness ({code}: {message})");
+    }
+    // M04.8 — converge the admission crossing. Issuing a participant lease and marking its
+    // request admitted are two room children, so a crash can land between them. Both halves live
+    // in the room's own Agentgres history, so the unfinished state is self-describing and this
+    // pass repairs it FORWARD from room truth alone — no retained local intent, no second plane.
+    // It must run after the seam's `complete_pending` above so those children are settled.
+    if let Err((code, message)) =
+        m048_collaboration_routes::complete_participation_admissions(&data_dir)
+    {
+        anyhow::bail!("M04.8 admission recovery blocks readiness ({code}: {message})");
+    }
+    // M04.8 — converge the challenge crossing on the same principle: an admitted VerifierChallenge
+    // whose challenged Finding has not yet taken its disputed standing is a self-describing
+    // half-finished disposition, repaired forward from room truth alone. Idempotent: a Finding
+    // already disputed appends no redundant generation, and no generation is ever removed.
+    if let Err((code, message)) =
+        m048_collaboration_routes::complete_challenge_dispositions(&data_dir)
+    {
+        anyhow::bail!("M04.8 challenge recovery blocks readiness ({code}: {message})");
+    }
 
     let stream_frame_delay_ms = std::env::var("IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS")
         .ok()
@@ -3047,166 +3089,193 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/goal-orchestration/outcome-rooms/:id/product-projection",
             get(outcome_room_system_routes::handle_product_projection),
         )
+        // M04.8 — the hosted pre-admission lane. Pairing and collaboration terms are owner-local
+        // producers; the participation request itself is an Agentgres room child.
+        .route(
+            "/v1/goal-orchestration/local-agent-pairing-sessions",
+            axum::routing::post(m048_collaboration_routes::handle_pairing_create)
+                .get(m048_collaboration_routes::handle_pairing_list),
+        )
+        .route(
+            "/v1/goal-orchestration/local-agent-pairing-sessions/:id",
+            axum::routing::get(m048_collaboration_routes::handle_pairing_get),
+        )
+        .route(
+            "/v1/goal-orchestration/collaboration-terms",
+            axum::routing::post(m048_collaboration_routes::handle_terms_create)
+                .get(m048_collaboration_routes::handle_terms_list),
+        )
+        .route(
+            "/v1/goal-orchestration/collaboration-terms/:id",
+            axum::routing::get(m048_collaboration_routes::handle_terms_get),
+        )
+        .route(
+            "/v1/goal-orchestration/collaboration-terms/:id/accept",
+            axum::routing::post(m048_collaboration_routes::handle_terms_accept),
+        )
+        // The participation-request family is re-pointed at the current generation. The
+        // predecessor handlers are deliberately NOT mounted for this family: leaving them would
+        // let a caller drive current truth through a plane that is no longer authoritative.
         .route(
             "/v1/goal-orchestration/room-participation-requests",
-            axum::routing::post(room_participation_routes::handle_participation_request_create)
-                .get(room_participation_routes::handle_participation_requests_list),
+            axum::routing::post(m048_collaboration_routes::handle_participation_request_create)
+                .get(m048_collaboration_routes::handle_participation_requests_list),
         )
         .route(
             "/v1/goal-orchestration/room-participation-requests/:id",
-            axum::routing::get(room_participation_routes::handle_participation_request_get),
+            axum::routing::get(m048_collaboration_routes::handle_participation_request_get),
         )
         .route(
             "/v1/goal-orchestration/room-participation-requests/:id/transition",
-            axum::routing::post(room_participation_routes::handle_participation_request_transition),
+            axum::routing::post(m048_collaboration_routes::handle_participation_request_transition),
         )
         .route(
             "/v1/goal-orchestration/room-participation-requests/:id/admit",
-            axum::routing::post(room_participation_routes::handle_participation_request_admit),
+            axum::routing::post(m048_collaboration_routes::handle_participation_request_admit),
         )
         .route(
             "/v1/goal-orchestration/room-participant-leases",
-            axum::routing::get(room_participation_routes::handle_participant_leases_list),
+            axum::routing::get(m048_collaboration_routes::handle_participant_leases_list),
         )
         .route(
             "/v1/goal-orchestration/room-participant-leases/:id",
-            axum::routing::get(room_participation_routes::handle_participant_lease_get),
+            axum::routing::get(m048_collaboration_routes::handle_participant_lease_get),
         )
         .route(
             "/v1/goal-orchestration/room-participant-leases/:id/transition",
-            axum::routing::post(room_participation_routes::handle_participant_lease_transition),
+            axum::routing::post(m048_collaboration_routes::handle_participant_lease_transition),
         )
         .route(
             "/v1/goal-orchestration/work-frontier-items",
-            axum::routing::get(work_frontier_claim_routes::handle_frontier_list)
-                .post(work_frontier_claim_routes::handle_frontier_create),
+            axum::routing::get(m048_collaboration_routes::handle_frontier_list)
+                .post(m048_collaboration_routes::handle_frontier_create),
         )
         .route(
             "/v1/goal-orchestration/work-frontier-items/overview",
-            axum::routing::get(work_frontier_claim_routes::handle_frontier_overview),
+            axum::routing::get(m048_collaboration_routes::handle_frontier_overview),
         )
         .route(
             "/v1/goal-orchestration/work-frontier-items/:id",
-            axum::routing::get(work_frontier_claim_routes::handle_frontier_get),
+            axum::routing::get(m048_collaboration_routes::handle_frontier_get),
         )
         .route(
             "/v1/goal-orchestration/work-frontier-items/:id/transition",
-            axum::routing::post(work_frontier_claim_routes::handle_frontier_transition),
+            axum::routing::post(m048_collaboration_routes::handle_frontier_transition),
         )
         .route(
             "/v1/goal-orchestration/work-claim-leases",
-            axum::routing::get(work_frontier_claim_routes::handle_claim_list)
-                .post(work_frontier_claim_routes::handle_claim_acquire),
+            axum::routing::get(m048_collaboration_routes::handle_claim_list)
+                .post(m048_collaboration_routes::handle_claim_acquire),
         )
         .route(
             "/v1/goal-orchestration/work-claim-leases/overview",
-            axum::routing::get(work_frontier_claim_routes::handle_claim_overview),
+            axum::routing::get(m048_collaboration_routes::handle_claim_overview),
         )
         .route(
             "/v1/goal-orchestration/work-claim-leases/:id",
-            axum::routing::get(work_frontier_claim_routes::handle_claim_get),
+            axum::routing::get(m048_collaboration_routes::handle_claim_get),
         )
         .route(
             "/v1/goal-orchestration/work-claim-leases/:id/transition",
-            axum::routing::post(work_frontier_claim_routes::handle_claim_transition),
+            axum::routing::post(m048_collaboration_routes::handle_claim_transition),
         )
         .route(
             "/v1/goal-orchestration/resource-offers",
-            axum::routing::get(resource_capability_offer_routes::handle_resource_list)
-                .post(resource_capability_offer_routes::handle_resource_create),
+            axum::routing::get(m048_collaboration_routes::handle_resource_list)
+                .post(m048_collaboration_routes::handle_resource_create),
         )
         .route(
             "/v1/goal-orchestration/resource-offers/overview",
-            axum::routing::get(resource_capability_offer_routes::handle_resource_overview),
+            axum::routing::get(m048_collaboration_routes::handle_resource_overview),
         )
         .route(
             "/v1/goal-orchestration/resource-offers/:id",
-            axum::routing::get(resource_capability_offer_routes::handle_resource_get),
+            axum::routing::get(m048_collaboration_routes::handle_resource_get),
         )
         .route(
             "/v1/goal-orchestration/resource-offers/:id/transition",
-            axum::routing::post(resource_capability_offer_routes::handle_resource_transition),
+            axum::routing::post(m048_collaboration_routes::handle_resource_transition),
         )
         .route(
             "/v1/goal-orchestration/capability-offers",
-            axum::routing::get(resource_capability_offer_routes::handle_capability_list)
-                .post(resource_capability_offer_routes::handle_capability_create),
+            axum::routing::get(m048_collaboration_routes::handle_capability_list)
+                .post(m048_collaboration_routes::handle_capability_create),
         )
         .route(
             "/v1/goal-orchestration/capability-offers/overview",
-            axum::routing::get(resource_capability_offer_routes::handle_capability_overview),
+            axum::routing::get(m048_collaboration_routes::handle_capability_overview),
         )
         .route(
             "/v1/goal-orchestration/capability-offers/:id",
-            axum::routing::get(resource_capability_offer_routes::handle_capability_get),
+            axum::routing::get(m048_collaboration_routes::handle_capability_get),
         )
         .route(
             "/v1/goal-orchestration/capability-offers/:id/transition",
-            axum::routing::post(resource_capability_offer_routes::handle_capability_transition),
+            axum::routing::post(m048_collaboration_routes::handle_capability_transition),
         )
         .route(
             "/v1/goal-orchestration/work-eligibility-matches",
-            axum::routing::get(resource_capability_offer_routes::handle_match_list)
-                .post(resource_capability_offer_routes::handle_match_create),
+            axum::routing::get(m048_collaboration_routes::handle_match_list)
+                .post(m048_collaboration_routes::handle_match_create),
         )
         .route(
             "/v1/goal-orchestration/work-eligibility-matches/overview",
-            axum::routing::get(resource_capability_offer_routes::handle_match_overview),
+            axum::routing::get(m048_collaboration_routes::handle_match_overview),
         )
         .route(
             "/v1/goal-orchestration/work-eligibility-matches/:id",
-            axum::routing::get(resource_capability_offer_routes::handle_match_get),
+            axum::routing::get(m048_collaboration_routes::handle_match_get),
         )
         .route(
             "/v1/goal-orchestration/attempts",
-            axum::routing::get(attempt_finding_routes::handle_attempt_list)
-                .post(attempt_finding_routes::handle_attempt_create),
+            axum::routing::get(m048_collaboration_routes::handle_attempt_list)
+                .post(m048_collaboration_routes::handle_attempt_create),
         )
         .route(
             "/v1/goal-orchestration/attempts/overview",
-            axum::routing::get(attempt_finding_routes::handle_attempt_overview),
+            axum::routing::get(m048_collaboration_routes::handle_attempt_overview),
         )
         .route(
             "/v1/goal-orchestration/attempts/:id",
-            axum::routing::get(attempt_finding_routes::handle_attempt_get),
+            axum::routing::get(m048_collaboration_routes::handle_attempt_get),
         )
         .route(
             "/v1/goal-orchestration/attempts/:id/transition",
-            axum::routing::post(attempt_finding_routes::handle_attempt_transition),
+            axum::routing::post(m048_collaboration_routes::handle_attempt_transition),
         )
         .route(
             "/v1/goal-orchestration/findings",
-            axum::routing::get(attempt_finding_routes::handle_finding_list)
-                .post(attempt_finding_routes::handle_finding_create),
+            axum::routing::get(m048_collaboration_routes::handle_finding_list)
+                .post(m048_collaboration_routes::handle_finding_create),
         )
         .route(
             "/v1/goal-orchestration/findings/overview",
-            axum::routing::get(attempt_finding_routes::handle_finding_overview),
+            axum::routing::get(m048_collaboration_routes::handle_finding_overview),
         )
         .route(
             "/v1/goal-orchestration/findings/:id",
-            axum::routing::get(attempt_finding_routes::handle_finding_get),
+            axum::routing::get(m048_collaboration_routes::handle_finding_get),
         )
         .route(
             "/v1/goal-orchestration/findings/:id/transition",
-            axum::routing::post(attempt_finding_routes::handle_finding_transition),
+            axum::routing::post(m048_collaboration_routes::handle_finding_transition),
         )
         .route(
             "/v1/goal-orchestration/verifier-challenges",
-            axum::routing::get(verifier_challenge_routes::handle_list)
-                .post(verifier_challenge_routes::handle_create),
+            axum::routing::get(m048_collaboration_routes::handle_challenge_list)
+                .post(m048_collaboration_routes::handle_challenge_create),
         )
         .route(
             "/v1/goal-orchestration/verifier-challenges/overview",
-            axum::routing::get(verifier_challenge_routes::handle_overview),
+            axum::routing::get(m048_collaboration_routes::handle_challenge_overview),
         )
         .route(
             "/v1/goal-orchestration/verifier-challenges/:id",
-            axum::routing::get(verifier_challenge_routes::handle_get),
+            axum::routing::get(m048_collaboration_routes::handle_challenge_get),
         )
         .route(
             "/v1/goal-orchestration/verifier-challenges/:id/transition",
-            axum::routing::post(verifier_challenge_routes::handle_transition),
+            axum::routing::post(m048_collaboration_routes::handle_challenge_transition),
         )
         .route(
             "/v1/hypervisor/placement/resolve",

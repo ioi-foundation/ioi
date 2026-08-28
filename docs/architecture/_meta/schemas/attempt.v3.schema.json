@@ -119,7 +119,7 @@
             },
             "host_domain_ref": {
               "type": "string",
-              "pattern": "^domain://[^\\s]{1,500}$"
+              "pattern": "^(?:system|domain)://[^\\s]{1,500}$"
             },
             "control_hash": {
               "$ref": "#/$defs/hash"

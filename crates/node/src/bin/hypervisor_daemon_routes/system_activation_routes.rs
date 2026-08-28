@@ -2545,6 +2545,57 @@ pub(crate) fn load_active_system_graph(
     Ok(graph)
 }
 
+/// Resolve the wallet signer retained by the verified genesis admission for one active System.
+///
+/// Constitutional `governance_owner_refs` and the principal that authorized genesis are distinct
+/// coordinates. Governed runtime effects consume the latter, so callers must not infer it from
+/// the former or from deployment configuration alone. The genesis loader re-verifies the exact
+/// local aggregate, receipt, wallet consumption, and required Agentgres evidence before this
+/// bridge returns the signer.
+pub(crate) fn load_active_system_governing_authority(
+    data_dir: &str,
+    system_id: &str,
+) -> Result<String, (String, String)> {
+    let graph = load_active_system_graph(data_dir, system_id)?;
+    let key = super::system_genesis_routes::record_tail(system_id);
+    let admission = super::system_genesis_routes::load_verified_admission_by_key(data_dir, &key)?
+        .ok_or_else(|| {
+        verr(
+            "system_genesis_admission_unresolved",
+            "the active System has no verified genesis admission",
+        )
+    })?;
+    let chain_genesis = graph
+        .pointer("/autonomous_system_chain/genesis_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if admission.record.get("system_id").and_then(Value::as_str) != Some(system_id)
+        || admission.record.get("genesis_ref").and_then(Value::as_str) != Some(chain_genesis)
+        || admission
+            .record
+            .get("admission_status")
+            .and_then(Value::as_str)
+            != Some("authorized")
+    {
+        return Err(verr(
+            "system_genesis_admission_mismatch",
+            "the verified genesis admission is not the active chain's authorized owner source",
+        ));
+    }
+    admission
+        .record
+        .get("governing_authority_ref")
+        .and_then(Value::as_str)
+        .filter(|value| value.contains("://") && !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| {
+            verr(
+                "system_genesis_authority_unresolved",
+                "the verified genesis admission carries no governing wallet authority",
+            )
+        })
+}
+
 pub(crate) fn enumerate_family(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>, VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
         Ok(directory) => directory,
