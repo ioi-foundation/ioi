@@ -1,0 +1,396 @@
+{
+  "evidence_format": "ioi.m049.golden-boundary-implementation-status.v1",
+  "recorded_at": "2026-08-28",
+  "subject": "ADR 0039 implementation-evidence status after the M04.9 exact-completion instrumentation leg",
+  "adr": "docs/decisions/0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md",
+  "adr_status": "Proposed",
+  "adr_status_change": "none; this artifact records implementation evidence and does not advance, accept, or weaken the proposal",
+  "historical_parity_evidence": {
+    "artifact": "docs/architecture/_meta/evidence/m04-9-ordering-finality-parity-profile.v1.json",
+    "disposition": "preserved_unchanged",
+    "note": "That artifact records the six-run parity experiment as measured. Slots this leg newly measured were unmeasured there; the historical record is not retroactively edited to match."
+  },
+  "integration": {
+    "starting_ancestor": "a5fea37b6c30e96b7b8646116e806ae8de50043f",
+    "architecture_integration": "28ed325e84639ae3fc185d2f6b9b94395a79b175",
+    "runtime_integration": "d0677b62c1ad4594e9d76d025b7f974c0a31fa05",
+    "required_ancestor": "2a20e73e6c6028cec121142a5a35311d2d91306d",
+    "observed_origin_master": "795ee35cc776d2cc30b23e0cb7f86ff1f2fa0173"
+  },
+  "authority_position": {
+    "runtime_owner": "Agentgres remains IOI's current runtime owner of admitted operational truth and the first-party conforming implementation of the deterministic admission kernel contract C1-C12.",
+    "admission_contract_neutrality": "The Web4 deterministic admission kernel contract C1-C12 is source-neutral by construction; it names no vendor, engine, storage format, hash, signature suite, tree shape, or wire protocol. Conformance is behavioral and confers no authority.",
+    "contract_outranks_implementation": true,
+    "runtime_authority_changed": false,
+    "deployment_default_changed": false,
+    "profile_default_selected": false,
+    "second_spine_created": false,
+    "source": "docs/architecture/foundations/web4-and-ioi-stack.md § The Deterministic Admission Kernel Contract; § Agentgres is the first-party conforming implementation"
+  },
+  "preserved_meanings": [
+    "ReceiptCheckpoint v1 remains exactly the linear ioi.receipt-hash-chain-jcs-sha256.v1 hash-chain contract. Nothing in this leg reinterprets it.",
+    "ReceiptProofBundle v1 remains exactly as registered. Nothing in this leg reinterprets it.",
+    "No successor checkpoint, finality-certificate, or proof-bundle version is introduced, registered, or emitted by this leg.",
+    "The canonical ordering/finality profile vocabulary ioi.ordering-admission-finality-profile.v1 is unchanged; K1-K7 remain deliberately unregistered Proposed vocabulary."
+  ],
+  "implemented": [
+    {
+      "id": "IMP-1",
+      "claim": "An exact transaction-specific completion event exists and is published only after the durable finalized-header update and after the Committed status for that exact transaction.",
+      "surfaces": [
+        "crates/types/src/app/events.rs :: KernelEvent::TransactionCommitted { tx_hash, height, durable_commit_ms, published_at_ms }",
+        "crates/ipc/proto/public/v1/public.proto :: ChainEvent oneof field 12 TransactionCommitted",
+        "crates/validator/src/standard/orchestration/finalize/post_commit.rs :: durably_update_header_then_publish_committed",
+        "crates/validator/src/standard/orchestration/grpc_public/events_handlers/{kernel_mapping,kernel_summary,subscription}.rs"
+      ],
+      "ordering_enforced": "On the canonical finalization path: durable_header_update().await? -> publish_committed_tx_statuses -> publish_transaction_committed_events. The event is driven by the exact hashes the status publisher RETURNED, so on that path an event cannot exist for a transaction whose status was not published.",
+      "path_structure": "On the canonical finalization path, publish_committed_tx_statuses and publish_transaction_committed_events are private helpers nested inside durably_update_header_then_publish_committed, so that path has no module-sibling name that publishes the status or the event independently of the durable update.",
+      "ordering_binding": "The durable-update -> status -> event ordering is bound by the focused tests the_completion_event_is_published_after_durability_and_after_the_status and the_completion_event_has_no_publication_path_outside_the_durable_seam.",
+      "scope_limit_of_that_structure": "KernelEvent::TransactionCommitted is a PUBLIC enum variant. Nesting the helpers constrains the canonical finalization path; it does not make the variant unconstructible elsewhere, and no global compile-time guarantee is claimed. Any other construction site remains reviewable and must not be treated as canonical completion.",
+      "failure_behavior": "If the durable header update fails, the status cache is left exactly as it was, no event is emitted, and the error propagates.",
+      "identity_binding": "tx_hash is the exact hex the submitting RPC returned and the exact key get_transaction_status is served under; never a block hash, height, or chain tip.",
+      "wire_compatibility": "Additive: a new oneof field number and a KernelEvent variant appended at the end of the enum, because Encode/Decode assign variant indices positionally. No existing field number or message is reused, renamed, or given new meaning.",
+      "does_not_claim": [
+        "No measured latency figure is asserted from this event by this artifact.",
+        "Publication is an observation of a commit that already happened; a send with no live subscriber is not an error and the stream is never a participant in the commit."
+      ]
+    },
+    {
+      "id": "IMP-2",
+      "claim": "The profiled client path subscribes to the completion event stream BEFORE submitting.",
+      "surfaces": [
+        "crates/cli/src/testing/rpc.rs :: submit_transaction_profiled",
+        "crates/cli/src/testing/rpc.rs :: watch_transaction_committed_events",
+        "crates/cli/src/testing/rpc.rs :: exact_completion_event_required"
+      ],
+      "reason": "A completion event can only be observed by a stream that already exists, and a single-authority commit can land within a few milliseconds of admission, so opening the stream after the submit RPC would lose exactly the fast completions being measured.",
+      "arming": "Gated on the estate's existing test-only IOI_AFT_BENCH_TRACE. Unarmed, no subscription is opened and the polled path is unchanged.",
+      "absence_semantics": "A missing event is carried forward as absence and fails closed; it is never substituted by the polled height or by another transaction's event.",
+      "does_not_claim": [
+        "No latency figure is asserted from these client-side tests."
+      ]
+    },
+    {
+      "id": "IMP-3",
+      "claim": "Exact per-transaction proposal first-seen and proposal-selection instrumentation exists, correlated by transaction hash.",
+      "surfaces": [
+        "crates/validator/src/standard/orchestration/mempool.rs :: Mempool::first_seen_ms, note_first_seen, forget_first_seen, take_first_seen, with_first_seen_observation",
+        "crates/validator/src/standard/orchestration/consensus/production.rs :: BENCH_PROPOSAL_WAIT_TAG, format_proposal_wait_line"
+      ],
+      "opening_edge": "The mempool records when a hash was FIRST admitted and never overwrites it, so a re-broadcast or a Known re-add does not reset the clock.",
+      "closing_edge": "Sampled the instant the mempool read returned in the producer's selection span, and closed against the exact transactions the proposal carries rather than the candidate set.",
+      "correlation_key": "transaction hash. Height and view are carried as DIMENSIONS of the observation, never as its key, because two transactions in one block waited for different lengths of time.",
+      "isolation": "first_seen_ms is a structure separate from the account queues. Nothing in add, select_transactions, or any pruning decision reads it, so no timestamp reaches admission ordering, nonce arithmetic, block contents, or any canonical state. Bounded at 65536 entries and drained on selection and on every removal path.",
+      "arming": "Resolved once at construction from IOI_AFT_BENCH_TRACE. Unarmed, no timestamp is ever taken and the table stays empty.",
+      "fail_closed": "A backwards clock refuses rather than reporting a plausible zero wait. A transaction re-proposed after its entry was taken reports NO wait rather than a second, wrong one; an absent observation fails closed downstream.",
+      "does_not_claim": [
+        "No realized proposal-spacing or proposal-wait latency value is asserted by this artifact."
+      ]
+    },
+    {
+      "id": "IMP-4",
+      "claim": "The profile artifact now carries separate proposal, order-durability, notification-transport, and client-observation slots.",
+      "surface": "apps/hypervisor/scripts/profile-m4-wallet-authority-commit-path.mjs :: ORDERING_PARITY_SLOTS, PHASES",
+      "slots": [
+        "submission",
+        "admission_queueing",
+        "proposal_cadence_wait",
+        "ordering_finalization",
+        "execution",
+        "state_commitment",
+        "durable_persistence",
+        "receipt_creation",
+        "durable_ack_publication",
+        "completion_notification_transport",
+        "completion_client_observation",
+        "proof_exact_state_resolution"
+      ],
+      "splits": {
+        "receipt_creation_durable_ack": [
+          "receipt_creation (still unmeasured)",
+          "durable_ack_publication (measured server-side leaf)"
+        ],
+        "completion_notification_client_observation": [
+          "completion_notification_transport",
+          "completion_client_observation"
+        ]
+      },
+      "newly_measured": [
+        "proposal_cadence_wait, now measured and exclusive, sourced from [BENCH-PROPOSAL-WAIT].proposal_wait_ms; it spans the inter-tick gap and the block-production deferral without attributing to either",
+        "durable_ack_publication, between the durable finalized-header update and the publication of Committed plus the completion event",
+        "completion_notification_transport, derived across client and server wall clocks"
+      ],
+      "unchanged_slot_semantics": [
+        "client_submission_admission",
+        "ordering_finalization",
+        "execution_prepare",
+        "execution_commit",
+        "state_commitment_materialization",
+        "durable_persistence",
+        "client_commit_wait",
+        "proof_exact_state_resolution"
+      ],
+      "artifact_version_break": "The emitted artifact schema is a v2. A .v1 consumer must not read a .v2 artifact: any consumer that enumerates ORDERING_PARITY_SLOTS, enumerates safe_partition, sums the exclusive leaves, or assumes proposal_cadence_wait and the receipt/notification slots carry no number is broken by the split.",
+      "summation_rule_unchanged": "Inclusive and nested values are still not summed; only declared exclusive leaves form a lower bound, not a complete partition.",
+      "does_not_claim": [
+        "No numeric value in any slot is asserted by this artifact.",
+        "Server-side event fan-out beyond durable_ack_publication is not separately bracketed; it falls between published_at_ms and observed_at_ms alongside the transport itself.",
+        "notification_transport_lag crosses two wall clocks; on separated hosts it carries their offset."
+      ]
+    },
+    {
+      "id": "IMP-5",
+      "claim": "Fail-closed planted-delay seams exist for proposal selection and durable ACK publication.",
+      "surface": "crates/types/src/app/bench_planted_delay.rs",
+      "phases": [
+        "proposal_selection",
+        "durable_ack_publication"
+      ],
+      "call_sites": [
+        "crates/validator/src/standard/orchestration/consensus/production.rs, inside the producer's transaction-selection span",
+        "crates/validator/src/standard/orchestration/finalize/post_commit.rs, between the durable header update and the Committed/event publication"
+      ],
+      "double_arming_required": [
+        "IOI_AFT_BENCH_TRACE (the estate's existing explicit test-only benchmark-trace arming)",
+        "IOI_TESTING_M049_PLANTED_PHASE_DELAY (one exact <phase>=<delay_ms> pair)"
+      ],
+      "refusal_set": [
+        "NotArmed: a spec supplied without the benchmark-trace arming refuses rather than running at full speed under a name that says otherwise",
+        "Malformed: anything other than exactly one phase=delay_ms pair refuses; a list is not partially honoured",
+        "UnknownPhase: a phase with no wired call site refuses, with no case folding and no aliases, so the known set and the wired set are the same set by construction",
+        "DelayOutOfRange: zero, non-numeric, or beyond the 60000 ms ceiling refuses, because an armed no-op reads as a planted delay that did nothing"
+      ],
+      "refusal_mechanism": "Returned as an error on a fallible path; never panicked and never logged-and-ignored.",
+      "unarmed_cost": "Two environment reads and a None. No production default is changed and no planted delay is reachable on any untraced path.",
+      "attribution_ordering": "The proposal-wait observation is sampled BEFORE the ProposalSelection seam, so a delay planted in selection moves select_ms and the inclusive ordering_finalization phase and leaves every reported proposal wait exactly where it was.",
+      "does_not_claim": [
+        "No planted-delay mutation run, and no resulting attribution measurement, is recorded by this artifact.",
+        "The seam exists; the mutation evidence ADR 0039 requires before a numeric tripwire has NOT been produced."
+      ]
+    },
+    {
+      "id": "IMP-6",
+      "claim": "Focused tests bind each of the above to its exact seam.",
+      "tests": {
+        "crates/validator/src/standard/orchestration/consensus/production/tests.rs": [
+          "the_proposal_wait_line_is_keyed_by_transaction_hash_not_height",
+          "two_transactions_at_one_height_yield_two_independent_waits",
+          "a_backwards_clock_refuses_instead_of_becoming_a_plausible_zero_wait",
+          "the_planted_delay_seam_is_wired_after_the_proposal_wait_is_sampled"
+        ],
+        "crates/validator/src/standard/orchestration/finalize/tests_parts/solo_parity_post_commit.rs": [
+          "a_durable_commit_publishes_exactly_one_event_naming_the_exact_transaction",
+          "the_event_carries_the_hash_the_submitting_client_was_given",
+          "two_transactions_at_one_height_produce_two_distinguishable_events",
+          "a_re_finalized_height_republishes_rather_than_inventing_a_new_completion",
+          "an_empty_block_publishes_no_completion_event",
+          "the_completion_event_has_no_publication_path_outside_the_durable_seam",
+          "the_completion_event_is_published_after_durability_and_after_the_status"
+        ],
+        "crates/validator/src/standard/orchestration/mempool.rs": [
+          "unarmed_pool_records_no_first_seen_observation",
+          "armed_pool_records_first_seen_and_selection_takes_it_exactly_once",
+          "a_readd_does_not_reset_the_first_seen_clock",
+          "every_removal_path_drops_the_observation",
+          "multiple_transactions_are_observed_independently_by_hash",
+          "taking_an_unknown_hash_yields_nothing_rather_than_a_default"
+        ],
+        "crates/types/src/app/bench_planted_delay.rs": [
+          "absent_or_blank_spec_plants_nothing",
+          "an_armed_spec_parses_to_exactly_the_named_phase_and_delay",
+          "a_spec_without_the_bench_trace_arming_refuses",
+          "an_unknown_phase_refuses_rather_than_planting_nothing",
+          "a_malformed_spec_refuses",
+          "a_zero_negative_or_excessive_delay_refuses",
+          "every_declared_phase_round_trips_and_the_set_is_exactly_the_wired_set"
+        ],
+        "crates/cli/src/testing/rpc.rs :: exact_completion_tests": [
+          "wrong_transaction_is_never_substituted_for_the_exact_event",
+          "missing_exact_event_fails_when_the_stream_ends",
+          "duplicate_exact_events_retain_one_identity_and_never_change_height",
+          "event_height_disagreement_and_pre_durability_publication_refuse"
+        ]
+      },
+      "what_these_tests_assert": "Event identity, publication ordering relative to durability and status, observation isolation from consensus state, parser line shape, and the refusal set. They assert SHAPE, ORDERING, and REFUSAL only.",
+      "does_not_claim": [
+        "These tests measure no latency. No timing figure in this artifact or in ADR 0039 is derived from them."
+      ]
+    }
+  ],
+  "verification": {
+    "provenance": "Results established by the run at runtime_integration commit d0677b62c1ad4594e9d76d025b7f974c0a31fa05.",
+    "executed_in_this_writing_pass": false,
+    "reason_not_re_executed": "This pass is a bounded documentation-only writing pass owning exactly two files; it ran no build or test commands.",
+    "cargo_target_dir": "/home/heathledger/Documents/ioi/repos/ioi/target",
+    "results": [
+      {"command": "npm --prefix apps/hypervisor run check:m4-wallet-authority-commit-path-profile", "result": "72/72"},
+      {"command": "CARGO_TARGET_DIR=/home/heathledger/Documents/ioi/repos/ioi/target cargo test -p ioi-validator --lib standard::orchestration::finalize::tests:: -- --nocapture", "result": "50/50"},
+      {"command": "CARGO_TARGET_DIR=/home/heathledger/Documents/ioi/repos/ioi/target cargo test -p ioi-validator --lib standard::orchestration::consensus::production::tests:: -- --nocapture", "result": "21/21"},
+      {"command": "cargo test -p ioi-types bench_planted_delay", "result": "7/7"},
+      {"command": "cargo test -p ioi-validator mempool", "result": "8/8"},
+      {"command": "cargo test -p ioi-cli --lib exact_completion_tests", "result": "4/4"},
+      {"command": "cargo test -p ioi-cli --test hypervisor_wallet_network_fixture fixture_command_contract_is_canonical_and_bounded", "result": "1/1"},
+      {"command": "cargo check -p ioi-validator -p ioi-cli", "result": "green"},
+      {"command": "npm run check:architecture-contracts", "result": "green"},
+      {"command": "npm run check:architecture-docs", "result": "green"}
+    ]
+  },
+  "explicit_nonclaims": [
+    "No exact crash injection exists at receipt creation, at checkpoint construction, at finality signing, at root publication, or at ACK, treated as one complete recognized-effect transaction. The Agentgres append, fsync, and combined state-and-block boundaries remain mechanized as recorded in the parity artifact; the receipt/checkpoint/finality/publication/ACK sequence as a single crash-injected recognized effect does not.",
+    "No admitted profile cutover is proven: no cutover epoch, no fencing, no restart across a cutover, no downgrade path, and no proof of the absence of a dual-authority interval (INV-41). Each fresh run still selects one profile before start.",
+    "No repeated matched release-host baselines were produced using the new v2 instrumentation. The historical v1 medians are not restated, re-derived, or upgraded by this leg.",
+    "No numeric latency tripwire is selected, and none is mutation-enforced. The planted-delay seam exists; the mutation run that would have to precede a tripwire has not been performed.",
+    "No peer, quorum, or witness fault evidence exists. The fixture remains one validator exercising no cross-node ordering, and says nothing about either engine with peers.",
+    "No new batching evidence exists. Existing blocks and root commits already preserve individual wallet receipts, and nothing here justifies changing batch or ACK contracts.",
+    "No production checkpoint emission, no production finality certificate, and no cryptographic checkpoint verifier or CLI is implemented. Canon still records generated schemas, invariants, and fixtures only.",
+    "No latency is claimed from any test in this leg. The tests assert shape, ordering, and refusal; they are not measurements.",
+    "No peer safety is claimed, at any profile, by any artifact in this leg.",
+    "No default is altered. The planted-delay seam is inert without both environment variables, the first-seen observation table is unarmed by default, the client subscription is gated on IOI_AFT_BENCH_TRACE, and the completion event is an additive stream field that changes no admission, ordering, execution, or state behavior.",
+    "The completion event's durable_commit_ms and published_at_ms are observations carried alongside a commit; they are never inputs to admission, ordering, execution, or state.",
+    "Signed heads and finality certificates alone still establish none of durability, availability, non-equivocation, freshness, revocation status, admission correctness, or present authority.",
+    "Nothing here qualifies single_authority beyond the exact scope M04.9 qualified: one validator, no cross-node ordering, that 27-operation target-scope sequence, on that fixture."
+  ],
+  "adr_0039_acceptance_gate_status": [
+    {"gate": "exact crash points around append, batch/root construction, state update, receipt creation, certificate signing, and fsync", "status": "partially_mechanized", "detail": "append, fsync, and the combined state-and-block boundary remain mechanized; receipt creation, checkpoint/finality signing, and root publication are not crash-injected, and no crash injection treats the full sequence as one recognized-effect transaction"},
+    {"gate": "deterministic recovery admitting the whole checkpoint or none of it, with no ACK before durable recovery can reproduce the result", "status": "unchanged_from_parity_artifact", "detail": "no new recovery evidence in this leg"},
+    {"gate": "rejection of stale, missing, forged, reordered, replayed, and conflicting checkpoint, receipt, payload, state, and finality evidence", "status": "unchanged_from_parity_artifact", "detail": "the existing wallet authority refusal suite is unchanged; no checkpoint or finality evidence corpus is added"},
+    {"gate": "an event-driven transaction completion identity or an explicit decision to retain polling, with the two costs measured separately", "status": "identity_implemented_costs_not_baselined", "detail": "IMP-1 through IMP-4 supply the exact identity and separate the notification slots; no repeated matched baseline measuring the two costs has been produced"},
+    {"gate": "repeated release-host baselines and a planted-delay mutation before any numeric latency tripwire", "status": "seam_implemented_evidence_absent", "detail": "IMP-5 supplies the fail-closed seams; no mutation run and no repeated release-host baseline exist, so no tripwire may be selected"},
+    {"gate": "profile transition tests proving there is no dual-authority interval", "status": "not_implemented"},
+    {"gate": "portable verification fixtures for every claim a successor proof bundle makes", "status": "not_implemented"},
+    {"gate": "recognition-class derivation test (unknown domain resolves to K6; K1 evidence never reaches a canonical head uncompiled)", "status": "not_implemented"},
+    {"gate": "K7 test proving no ordinary admission path can carry an authority-expanding or guarantee-weakening change", "status": "not_implemented"},
+    {"gate": "downgrade-resistance and v1/successor compatibility test", "status": "not_implemented"}
+  ],
+  "proof_audit_blockers_to_any_v2_successor": [
+    {
+      "id": "PB-1",
+      "blocker": "The K1-K7 recognition classes are Proposed design vocabulary, not a canonical contract member set.",
+      "evidence": {
+        "explicit_non_registration": "docs/architecture/foundations/canonical-enums.md lines 708-713 records K1-K7 as 'Not canon yet', 'Proposed design vocabulary, deliberately not registered here, and no implementation may cite it as a member set'.",
+        "corroborating": ["docs/decisions/README.md — 'The K1-K7 classes are proposed vocabulary and are not a canonical member set'", "ADR 0039 itself forbids any implementation citing them as authority"],
+        "registry": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json contains zero occurrences of recognition_class or recognition class.",
+        "contrast": "The vocabulary ADR 0039 DOES defer to is registered: schema://ioi/foundations/ordering-admission-finality-profile/v1, members single_authority | replicated_single_authority | threshold_authority | bft_consensus | external_chain_finality."
+      },
+      "consequence": "A successor claim binding a 'recognition/finality class' field has no canonical member set to bind to, so the field cannot be validated, and a verifier handed an unknown class value has no defined behavior."
+    },
+    {
+      "id": "PB-2",
+      "blocker": "No FinalityCertificate contract exists.",
+      "evidence": {
+        "registry": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json contains zero occurrences of FinalityCertificate.",
+        "occurrences_are_prose_only": ["docs/decisions/0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md", "docs/architecture/whitepaper.tex", "docs/architecture/_meta/evidence/m04-9-ordering-finality-parity-profile.v1.json"],
+        "adjacent_but_distinct_registered_contracts": [
+          "schema://ioi/foundations/ordering-admission-finality-profile/v1 (OrderingAdmissionFinalityProfile) — the profile vocabulary, not a certificate",
+          "schema://ioi/foundations/ordering-finality-recovery/v1 (OrderingFinalityRecovery)",
+          "schema://ioi/foundations/certificate-acceptance-receipt/v1 (CertificateAcceptanceReceipt) — a receipt for accepting a certificate, not a finality certificate",
+          "schema://ioi/components/hypervisor/c8-certificate/v3 (C8CertificateV3)"
+        ]
+      },
+      "consequence": "A successor claim binding 'the finality certificate and the identity of the verifier that issued or is expected to check it' has no certificate contract to bind, and no verifier contract to name."
+    },
+    {
+      "id": "PB-3",
+      "blocker": "No retention-class vocabulary exists, and no availability-manifest contract exists either.",
+      "evidence": {
+        "retention_class": "Occurs only in ADR 0039's own successor-field list. canonical-enums.md has no retention-class section and the contract registry has zero occurrences.",
+        "availability_manifest": "Also occurs only in that same ADR 0039 sentence. No contract, schema, or field of that name exists anywhere.",
+        "adjacent_but_distinct_registered_things": [
+          "provider_retention_posture (canonical-enums.md): zero_retention | transient_processing | contract_bounded | provider_default | not_applicable — a model-route commercial-rights enum, not a payload retention class",
+          "storage_durability_class (canonical-enums.md)",
+          "information-flow-label.v1 retention object {max_seconds, disposition} with disposition delete | return_to_owner | retain_under_policy | unknown — a per-label disposition, not a named class vocabulary",
+          "schema://ioi/foundations/data-retention-disposition/v1 — state declared | delete_executed, no retention class"
+        ],
+        "note": "The ReceiptProofBundle v1 manifest_domain / manifest_hash / manifest_signature fields are the BUNDLE MANIFEST signature block. They are not an availability manifest and must not be read as one."
+      },
+      "consequence": "The successor field 'availability manifest, retention class, and verifier contract' cannot be spelled at all — neither the manifest nor the class has a contract — so the availability obligation stays an assumption rather than a stated obligation with a named checker (INV-12)."
+    },
+    {
+      "id": "PB-4",
+      "blocker": "No canonical verifier-axis member sets exist for integrity, valid_as_of, or currentness. The three axes are canon PROSE, not a registered member set.",
+      "evidence": {
+        "axes_defined_in_prose": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md lines 267-280 states the verifier reports three conclusions independently: integrity, valid_as_of, currentness. Restated at docs/architecture/foundations/objects/authority-and-access.md line 337.",
+        "illustrative_only": "events-receipts-delivery-bundles.md lines 1674-1676 show proof_integrity / valid_as_of / currentness_at_decision inside a fenced illustrative block for an unregistered receipt profile.",
+        "not_registered": "canonical-enums.md defines no verifier axis. The registered ReceiptProofBundle v1 schema carries no verdict or axis field at all; its verification_instructions carries only profile, free-text steps, and offline_required_inputs.",
+        "status_vocabulary_is_registered_but_the_axis_set_is_not": "The per-claim status member set established | indeterminate | failed | unavailable IS registered, at schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1. The AXIS member set naming integrity / valid_as_of / currentness is not."
+      },
+      "consequence": "ADR 0039 requires that a signature support only the exact claim it was declared to verify under a named verifier contract. A successor bundle can spell the STATUS a verifier reached but not, from a canonical member set, WHICH axis it reached it on, so a downgrade-resistance test has no registered axis vocabulary to compare against."
+    },
+    {
+      "id": "PB-5",
+      "blocker": "The v1 proof-bundle bindings cannot be silently changed.",
+      "evidence": {
+        "adr": "ADR 0039 § Receipt compatibility and portable proofs.",
+        "receipt_checkpoint_v1": {
+          "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
+          "schema_version": "ioi.foundations.receipt-checkpoint.v1",
+          "signature_domain_const": "ioi.receipt-checkpoint.v1",
+          "accumulator_algorithm_const": "ioi.receipt-hash-chain-jcs-sha256.v1",
+          "invariants_id": "invariant://ioi/foundations/receipt-checkpoint/portable-checkpoint/v1",
+          "maturity_stability": "partial / provisional"
+        },
+        "receipt_proof_bundle_v1": {
+          "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
+          "schema_version": "ioi.foundations.receipt-proof-bundle.v1",
+          "manifest_domain_const": "ioi.receipt-proof-bundle-manifest.v1",
+          "verification_profile_const": "ioi.receipt-proof-verification.v1",
+          "invariants_id": "invariant://ioi/foundations/receipt-proof-bundle/portable-proof/v1",
+          "maturity_stability": "partial / provisional"
+        },
+        "generated_bindings": ["packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "crates/types/src/app/generated/architecture_contracts.rs"]
+      },
+      "consequence": "Any successor must be a distinctly versioned structure alongside v1. Introducing a Merkle or batch-inclusion structure by reinterpreting the v1 linear chain would invalidate every proof already issued against it. This is a hard constraint on the successor, not a preference. Both contracts are additionally still provisional, so the successor cannot inherit a settled base."
+    },
+    {
+      "id": "PB-6",
+      "blocker": "The registered v1 negative corpus does not yet cover root, predecessor, revocation, or manifest substitutions.",
+      "evidence": {
+        "registered_negative_corpus_total": 6,
+        "receipt_checkpoint_v1_negatives": [
+          {"fixture": "negative-wrong-domain.json", "expected_failure": "schema", "perturbs": "signature_domain"},
+          {"fixture": "negative-stale-schema-hash.json", "expected_failure": "invariant", "expected_rule_id": "receipt_checkpoint.schema_hash.matches_contract"},
+          {"fixture": "negative-signature-key-mismatch.json", "expected_failure": "invariant", "expected_rule_id": "receipt_checkpoint.signature_key.matches_issuer_key"}
+        ],
+        "receipt_proof_bundle_v1_negatives": [
+          {"fixture": "negative-wrong-domain.json", "expected_failure": "schema", "perturbs": "manifest_domain"},
+          {"fixture": "negative-stale-schema-hash.json", "expected_failure": "invariant", "expected_rule_id": "receipt_proof_bundle.schema_hash.matches_contract"},
+          {"fixture": "negative-leaf-index-mismatch.json", "expected_failure": "invariant", "expected_rule_id": "receipt_proof_bundle.leaf_index.matches_inclusion"}
+        ],
+        "not_covered": [
+          {"class": "state/receipt root substitution", "proof_of_absence": "accumulator_root is byte-identical across the positive and all three negatives in BOTH contracts; inclusion_proof.prefix_root, consistency_proof.from_root and leaf.leaf_hash are likewise unperturbed in every negative"},
+          {"class": "predecessor / previous-checkpoint substitution", "proof_of_absence": "previous_checkpoint_ref, previous_checkpoint_hash, previous_accumulator_size and previous_accumulator_root are identical in every fixture"},
+          {"class": "revocation-status substitution", "proof_of_absence": "revocation_snapshot_ref and revocation_epoch are identical in all four bundle fixtures; ReceiptCheckpoint v1 has no revocation field at all"},
+          {"class": "availability-manifest substitution", "proof_of_absence": "no availability-manifest field exists in either contract (see PB-3); manifest_hash is identical in all four bundle fixtures"}
+        ]
+      },
+      "canon_overclaim_observed": {
+        "location": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md lines 282-284",
+        "text_claims": "that the registered schemas, invariants, and adversarial fixtures encode refusal cases for receipt, type, domain, version, leaf, index, root, predecessor, manifest, signer, key, revocation, and staleness substitution",
+        "registered_reality": "The registered corpus exercises domain, staleness, signer/key, and leaf/index. It contains no fixture for root, predecessor, revocation, manifest, or an independent receipt substitution.",
+        "disposition": "recorded_not_repaired",
+        "reason": "That file is outside this pass's two owned files. Recorded so the discrepancy is not inherited silently by a successor."
+      },
+      "non_registered_adjacent_coverage": "crates/services/src/agentic/runtime/kernel/runtime_goal_pursuit.rs has a unit test receipt_checkpoint_detects_tamper_omission_and_revocation over an ad-hoc ReceiptCheckpointCore struct, asserting receipt_checkpoint_omission, receipt_checkpoint_key_untrusted and receipt_checkpoint_root_mismatch. It is a runtime unit test over a different structure, is not referenced by the contract registry, and does NOT close the registered-fixture gap.",
+      "consequence": "C12 claims conformance only against executable verifiers that include the negative cases. Four substitution classes a successor would have to refuse are not exercised against v1 today, so a successor built on this corpus would inherit an untested refusal surface at exactly the fields ADR 0039 says a guessing verifier can be walked on."
+    },
+    {
+      "id": "PB-7",
+      "blocker": "ReceiptProofBundle v1 does not fully bind its proof material to the registered ReceiptCheckpoint structure.",
+      "evidence": {
+        "bare_checkpoint_declaration": "docs/architecture/_meta/schemas/receipt-proof-bundle.v1.schema.json line 80 declares \"checkpoint\": { \"type\": \"object\" } — a bare object with no $ref to schema://ioi/foundations/receipt-checkpoint/v1, no required properties, and no constraint on its contents.",
+        "previous_checkpoint_likewise": "The adjacent previous_checkpoint is anyOf [object, null], equally unconstrained.",
+        "minimal_invariants": "docs/architecture/_meta/schemas/invariants/receipt-proof-bundle.v1.invariants.json contains exactly two rules: receipt_proof_bundle.schema_hash.matches_contract and receipt_proof_bundle.leaf_index.matches_inclusion. Neither relates the bundle's proof material — accumulator_root, inclusion_proof.prefix_root, leaf.leaf_hash — to the embedded checkpoint's own fields."
+      },
+      "consequence": "A v1 bundle can carry a structurally arbitrary checkpoint object, and schema plus invariant validation will not detect that the embedded checkpoint does not correspond to the proof material presented alongside it. This is a limitation OF v1, recorded as such.",
+      "must_not_be_repaired_by_changing_v1": "Tightening the v1 checkpoint declaration or adding binding invariants to v1 would retroactively invalidate bundles already issued against the registered contract. That is the same failure ADR 0039 forbids for the linear-chain reinterpretation.",
+      "successor_requirement": "A successor must carry its own schema and its own invariants that bind the checkpoint structurally and relationally to the proof material, its own negative fixtures for that binding, and explicit compatibility and downgrade behavior stating what a v1-only verifier does with a successor bundle and what a successor verifier does with a v1 bundle."
+    }
+  ],
+  "next_legs_not_authorized_by_this_artifact": [
+    "Selecting or enforcing a numeric latency tripwire.",
+    "Selecting a deployment default profile, or any profile cutover.",
+    "Emitting, registering, or verifying any successor checkpoint, finality-certificate, or proof-bundle version.",
+    "Registering K1-K7, a retention-class vocabulary, or verifier-axis member sets.",
+    "Any extrapolation to peer-bearing profiles."
+  ]
+}

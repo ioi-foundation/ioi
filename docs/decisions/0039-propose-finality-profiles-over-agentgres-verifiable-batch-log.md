@@ -5,7 +5,10 @@
   canonical enum; the seven recognition **relationship** classes K1–K7 and
   their derivation added; successor-proof field binding and successor
   preconditions made explicit; signature/head claims narrowed to their declared
-  verifier contract)
+  verifier contract. Revised again 2026-08-28: implementation-evidence status
+  recorded against the gates below, and the proof-audit blockers to any
+  successor version stated. The status remains **Proposed**; no gate is closed
+  by that revision and no runtime authority, default, or `v1` meaning changes.)
 - Owners: Agentgres / ordering and finality / wallet.network authority
 - Refines if accepted: ADRs 0003 and 0038 and the ordering/finality profiles
 - Bounded by, and does not amend: the source-neutral deterministic admission
@@ -468,7 +471,113 @@ The proposal may advance only after all of the following are mechanized:
 
 The M04.9 evidence is recorded in
 [`m04-9-ordering-finality-parity-profile.v1.json`](../architecture/_meta/evidence/m04-9-ordering-finality-parity-profile.v1.json).
-It supports proposing this direction, not accepting it.
+It supports proposing this direction, not accepting it. That artifact is the
+historical parity record and is preserved unchanged: slots a later leg newly
+measured were genuinely unmeasured when it was written, and a measurement
+record that is edited to match what came after it is no longer a record.
+
+### Implementation-evidence status
+
+A first instrumentation leg landed at
+`d0677b62c1ad4594e9d76d025b7f974c0a31fa05`. Its status is recorded in
+[`m04-9-golden-boundary-implementation-status.v1.json`](../architecture/_meta/evidence/m04-9-golden-boundary-implementation-status.v1.json).
+Summarized against the gates above: **no gate is closed, and exactly two moved
+partway.** What exists now is:
+
+- an **exact transaction-specific completion event**. On the canonical
+  finalization path it is published only after the finalized header for that
+  height was durably updated *and* `Committed` was published for that exact
+  transaction, and it is driven by the hashes the status publisher returned, so
+  on that path an event cannot exist for a transaction whose status was not
+  published. That path holds its publishers as private nested helpers, which
+  constrains the path — it does **not** make the event unconstructible
+  elsewhere, since the enum variant is public. No global compile-time guarantee
+  is claimed; the ordering is bound by focused tests, and any other
+  construction site remains reviewable and is not canonical completion;
+- **subscription before submit** in the profiled path, because a completion
+  event can only be observed by a stream that already exists;
+- **exact proposal first-seen and selection instrumentation**, correlated by
+  transaction hash with height and view as dimensions rather than as the key,
+  held in a structure no admission, ordering, nonce, or block decision reads;
+- **separate proposal, order-durability, notification-transport, and
+  client-observation slots**, splitting two previously bundled slots; and
+- **fail-closed planted-delay seams** for proposal selection and durable-ACK
+  publication, which refuse on an unarmed, malformed, unknown-phase, or
+  out-of-range spec rather than silently doing nothing, since an armed no-op
+  reads exactly like a planted delay that landed.
+
+Gate four — an event-driven completion identity — now has its **identity**. It
+does not have the separate measurement of the two costs the gate also requires.
+Gate five has its **seam**. It has neither the planted-delay mutation run nor
+the repeated release-host baselines, so **no numeric tripwire may be selected**,
+and none is. The remaining gates are untouched.
+
+The leg claims **no latency**. Its tests assert event identity, publication
+ordering, observation isolation, parser line shape, and the refusal set — shape,
+ordering, and refusal, never a measurement. It claims **no peer safety**: the
+fixture is still one validator exercising no cross-node ordering. It alters
+**no default**: the observation table and the client subscription are unarmed
+without the existing test-only benchmark-trace gate, a planted delay
+additionally requires its own spec, and the completion event is an additive
+stream field whose timestamps are observations carried alongside a commit and
+never inputs to admission, ordering, execution, or state. There is still no
+exact crash injection at receipt creation, checkpoint construction, finality
+signing, root publication, or ACK treated as one recognized-effect transaction;
+no profile cutover, fencing, restart, downgrade, or dual-authority evidence; no
+new batching evidence; and no production checkpoint or finality successor.
+
+### Blockers to any successor version
+
+These are prerequisites, not preferences. A successor built before they are
+resolved would bind fields that have nothing canonical to bind to, or inherit a
+binding `v1` never made, which is the guessing verifier this ADR is written to
+prevent:
+
+1. **K1–K7 are Proposed vocabulary, not a member set.**
+   [`canonical-enums.md`](../architecture/foundations/canonical-enums.md)
+   deliberately does not register them. A successor's *recognition class* field
+   therefore has no validatable domain, and a verifier handed an unknown value
+   has no defined behavior.
+2. **There is no `FinalityCertificate` contract.** Nothing of that name is
+   registered anywhere. The successor field naming the finality certificate and
+   the identity of its verifier has neither a certificate contract to bind nor
+   a verifier contract to name.
+3. **There is no retention-class vocabulary — and no availability-manifest
+   contract either.** Both appear only in this ADR's own successor-field list.
+   Until they exist, availability stays an assumption rather than a stated
+   obligation with a named checker (`INV-12`).
+4. **There are no canonical verifier-axis member sets** for `integrity`,
+   `valid_as_of`, and `currentness`. The three axes are canon *prose*. The
+   per-claim status vocabulary is registered; the axis vocabulary is not, so a
+   successor can spell what a verifier concluded but not, canonically, which
+   axis it concluded it on.
+5. **The `v1` proof-bundle bindings cannot be silently changed.**
+   `ReceiptCheckpoint` v1 and `ReceiptProofBundle` v1 keep their exact
+   registered meanings; both are additionally still *provisional*, so a
+   successor cannot inherit a settled base.
+6. **The registered `v1` negative corpus does not yet cover root, predecessor,
+   revocation, or manifest substitution.** Six negative fixtures exist across
+   both contracts, exercising domain, staleness, signer/key, and leaf/index.
+   The four substitution classes a successor would most need to refuse are
+   unexercised, so a successor built on this corpus inherits an untested
+   refusal surface at precisely the fields a verifier can be walked on. Canon
+   prose currently describes this corpus as broader than it is; the status
+   artifact records that discrepancy against the registered fixtures.
+7. **`ReceiptProofBundle` v1 does not fully bind its proof material to the
+   registered `ReceiptCheckpoint` structure.** The bundle schema declares
+   `checkpoint` as a bare `{ "type": "object" }`, with no `$ref` to the
+   checkpoint contract and no required properties, and its invariants carry
+   only two rules — schema-hash and leaf-index — neither of which relates
+   `accumulator_root`, `prefix_root`, or `leaf_hash` to the embedded
+   checkpoint's own fields. A v1 bundle can therefore carry a structurally
+   arbitrary checkpoint object that validation will not catch. This is a
+   limitation **of v1**, and it must not be repaired by tightening v1:
+   retroactively constraining the registered shape would invalidate bundles
+   already issued against it, which is the same failure this ADR forbids for
+   the linear-chain reinterpretation. A successor needs its own schema and
+   invariants binding the checkpoint to the proof material, its own negative
+   fixtures for that binding, and explicit compatibility and downgrade
+   behavior in both directions.
 
 ## Options explicitly not reopened
 
