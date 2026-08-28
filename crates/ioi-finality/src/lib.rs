@@ -55,6 +55,8 @@ pub struct VerifiedClaim {
     pub checkpoint_id: String,
     pub domain_id: String,
     pub authority_epoch: u64,
+    pub issuer_key_id: String,
+    pub issuer_public_key: String,
     pub profile: String,
     pub certificate_variant: String,
     pub established_axes: Vec<String>,
@@ -588,10 +590,28 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
             "verifier profile/certificate support".into(),
         ));
     }
-    let verifier_axes: BTreeSet<String> = array(verifier, "axes")?
-        .iter()
-        .map(|entry| text(entry, "axis"))
-        .collect::<Result<_, _>>()?;
+    let mut verifier_axis_inputs = BTreeMap::new();
+    for entry in array(verifier, "axes")? {
+        let axis = text(entry, "axis")?;
+        let required_inputs: BTreeSet<String> = array(entry, "required_input_contract_ids")?
+            .iter()
+            .map(|input| {
+                input
+                    .as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| VerificationError::Field("required_input_contract_ids".into()))
+            })
+            .collect::<Result<_, _>>()?;
+        if verifier_axis_inputs
+            .insert(axis.clone(), required_inputs)
+            .is_some()
+        {
+            return Err(VerificationError::Binding(format!(
+                "duplicate verifier axis: {axis}"
+            )));
+        }
+    }
+    let verifier_axes: BTreeSet<String> = verifier_axis_inputs.keys().cloned().collect();
     let requested_axes: Vec<String> = array(bundle, "requested_axes")?
         .iter()
         .map(|axis| axis.as_str().unwrap_or("").to_owned())
@@ -620,12 +640,47 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
             )));
         }
     }
-    if claimed_axes.contains("availability")
-        && text(field(checkpoint, "availability_manifest")?, "claim_status")? != "verified"
-    {
-        return Err(VerificationError::Binding(
-            "availability axis requires a verified manifest".into(),
-        ));
+    let validated_contracts: BTreeSet<&str> = [
+        BUNDLE_V2,
+        CHECKPOINT_V2,
+        CONFLICT_BINDING_V1,
+        RECOGNITION_V1,
+        AVAILABILITY_V1,
+        RETENTION_V1,
+        VERIFIER_V1,
+        CERTIFICATE_V1,
+    ]
+    .into_iter()
+    .collect();
+    for axis in &claimed_axes {
+        let required_inputs = verifier_axis_inputs
+            .get(axis)
+            .ok_or_else(|| VerificationError::UnsupportedAxis(axis.clone()))?;
+        for required in required_inputs {
+            if !validated_contracts.contains(required.as_str()) {
+                return Err(VerificationError::Binding(format!(
+                    "unavailable verifier input contract for {axis}: {required}"
+                )));
+            }
+        }
+    }
+    if claimed_axes.contains("availability") {
+        let manifest = field(checkpoint, "availability_manifest")?;
+        if text(manifest, "claim_status")? != "verified" {
+            return Err(VerificationError::Binding(
+                "availability axis requires a verified manifest".into(),
+            ));
+        }
+        if array(manifest, "payloads")?.is_empty() {
+            return Err(VerificationError::Binding(
+                "availability axis requires at least one payload".into(),
+            ));
+        }
+        if text(field(manifest, "retention")?, "retention_class")? == "ephemeral_until_ack" {
+            return Err(VerificationError::Binding(
+                "availability axis refuses ephemeral retention".into(),
+            ));
+        }
     }
 
     let expected_bundle_schema = architecture_contract_schema_hash(BUNDLE_V2)
@@ -714,6 +769,15 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
 
     let previous_state_root = state_root(array(bundle, "previous_state_entries")?)?;
     let resulting_state_root = state_root(array(bundle, "resulting_state_entries")?)?;
+    let previous_state_version =
+        number(field(checkpoint, "previous_state_commitment")?, "version")?;
+    let resulting_state_version =
+        number(field(checkpoint, "resulting_state_commitment")?, "version")?;
+    if previous_state_version.checked_add(1) != Some(resulting_state_version) {
+        return Err(VerificationError::Binding(
+            "checkpoint state-version continuity".into(),
+        ));
+    }
     verify_touched_state(
         binding,
         array(bundle, "previous_state_entries")?,
@@ -898,6 +962,8 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
         checkpoint_id: text(checkpoint, "checkpoint_id")?,
         domain_id: text(checkpoint, "domain_id")?,
         authority_epoch: number(checkpoint, "authority_epoch")?,
+        issuer_key_id: text(certificate, "issuer_key_id")?,
+        issuer_public_key: text(certificate, "issuer_public_key")?,
         profile: "single_authority".into(),
         certificate_variant: "single_authority_v1".into(),
         established_axes: requested_axes,

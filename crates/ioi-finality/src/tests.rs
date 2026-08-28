@@ -63,6 +63,8 @@ fn emitted_single_authority_bundle_verifies_offline() {
     assert_eq!(claim.profile, "single_authority");
     assert_eq!(claim.certificate_variant, "single_authority_v1");
     assert_eq!(claim.established_axes, vec!["integrity"]);
+    assert_eq!(claim.issuer_key_id, "key://acme/finality/1");
+    assert_eq!(claim.issuer_public_key.len(), 64);
 }
 
 #[test]
@@ -225,6 +227,62 @@ fn recognition_and_binding_invariant_domains_must_match() {
     );
     template["checkpoint"]["recognition"]["invariant_domain_refs"] =
         json!(["invariant://acme/substituted"]);
+    let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
+    assert!(emit_single_authority(template, "key://acme/finality/1", &signing_key).is_err());
+}
+
+#[test]
+fn empty_or_ephemeral_availability_claim_fails_closed() {
+    let mut template = fixture(
+        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
+    );
+    template["requested_axes"] = json!(["availability"]);
+    template["checkpoint"]["finality_certificate"]["claimed_axes"] = json!(["availability"]);
+    template["checkpoint"]["verifier_contract"]["axes"] = json!([{
+        "axis": "availability",
+        "required_input_contract_ids": ["schema://ioi/foundations/availability-manifest/v1"],
+        "failure_behavior": "fail_closed"
+    }]);
+    let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
+    assert!(
+        emit_single_authority(template.clone(), "key://acme/finality/1", &signing_key).is_err()
+    );
+
+    template["checkpoint"]["availability_manifest"]["retention"]["retention_class"] =
+        Value::String("ephemeral_until_ack".into());
+    template["checkpoint"]["retention_class"] = Value::String("ephemeral_until_ack".into());
+    template["checkpoint"]["availability_manifest"]["payloads"] = json!([{
+        "payload_ref": "payload://acme/hello",
+        "payload_hash": "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+        "byte_length": 5,
+        "location_refs": ["location://acme/local/hello"],
+        "failure_domain_refs": ["failure-domain://acme/local"],
+        "retrieval_evidence_refs": []
+    }]);
+    template["availability_payloads"] = json!([{
+        "payload_ref": "payload://acme/hello",
+        "payload_base64": "aGVsbG8="
+    }]);
+    assert!(emit_single_authority(template, "key://acme/finality/1", &signing_key).is_err());
+}
+
+#[test]
+fn unavailable_declared_verifier_input_refuses() {
+    let mut template = fixture(
+        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
+    );
+    template["checkpoint"]["verifier_contract"]["axes"][0]["required_input_contract_ids"] =
+        json!(["schema://acme/unavailable/v1"]);
+    let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
+    assert!(emit_single_authority(template, "key://acme/finality/1", &signing_key).is_err());
+}
+
+#[test]
+fn checkpoint_state_version_must_advance_exactly_once() {
+    let mut template = fixture(
+        "../../docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
+    );
+    template["checkpoint"]["resulting_state_commitment"]["version"] = json!(2);
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
     assert!(emit_single_authority(template, "key://acme/finality/1", &signing_key).is_err());
 }
