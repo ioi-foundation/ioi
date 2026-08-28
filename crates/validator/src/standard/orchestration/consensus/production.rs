@@ -88,6 +88,91 @@ pub(super) fn dispatch_swarm_command(
     }
 }
 
+/// The consensus cadence the scheduler is actually running, with the provenance
+/// of each value.
+///
+/// A cadence-varying parity run changes the ticker through the environment, so
+/// reporting `config.block_production_interval_secs` would be STALE for exactly
+/// the runs the field exists to describe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct OrderingCadence {
+    /// The proposal ticker period. `0` means the scheduler disables the ticker
+    /// entirely and runs kick-driven only; that is reported, not smoothed over.
+    ticker_interval_ms: u64,
+    ticker_interval_provenance: &'static str,
+    /// The minimum spacing the scheduler enforces between kick-driven ticks.
+    min_tick_ms: u64,
+    min_tick_provenance: &'static str,
+}
+
+/// The scheduler's default minimum kick spacing, mirrored from
+/// `lifecycle.rs::run_consensus_ticker`.
+const DEFAULT_CONSENSUS_MIN_TICK_MS: u64 = 50;
+
+/// Resolve the cadence EXACTLY as `lifecycle.rs::run_consensus_ticker` resolves
+/// it, including its edge cases: the millisecond override is honoured only when
+/// it parses AND is non-zero, the seconds override falls back to config when it
+/// does not parse, and the minimum kick spacing accepts zero but falls back to
+/// 50ms when it does not parse.
+///
+/// Deliberately duplicated rather than shared: `lifecycle.rs` is outside this
+/// cut. The duplication is load-bearing, so it is resolved from the raw strings
+/// here -- and unit-tested against the scheduler's edge cases below -- rather
+/// than read from the environment inline, which no test could pin.
+fn resolve_ordering_cadence(
+    block_interval_ms_env: Option<&str>,
+    block_interval_secs_env: Option<&str>,
+    min_tick_ms_env: Option<&str>,
+    config_block_interval_secs: u64,
+) -> OrderingCadence {
+    let (ticker_interval_ms, ticker_interval_provenance) = if let Some(interval_ms) =
+        block_interval_ms_env
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value > 0)
+    {
+        (interval_ms, "env:ORCH_BLOCK_INTERVAL_MS")
+    } else if let Some(interval_secs) =
+        block_interval_secs_env.and_then(|value| value.parse::<u64>().ok())
+    {
+        (
+            interval_secs.saturating_mul(1_000),
+            "env:ORCH_BLOCK_INTERVAL_SECS",
+        )
+    } else {
+        (
+            config_block_interval_secs.saturating_mul(1_000),
+            "config:block_production_interval_secs",
+        )
+    };
+
+    let (min_tick_ms, min_tick_provenance) =
+        match min_tick_ms_env.and_then(|value| value.parse::<u64>().ok()) {
+            Some(value) => (value, "env:ORCH_CONSENSUS_MIN_TICK_MS"),
+            None => (DEFAULT_CONSENSUS_MIN_TICK_MS, "default"),
+        };
+
+    OrderingCadence {
+        ticker_interval_ms,
+        ticker_interval_provenance,
+        min_tick_ms,
+        min_tick_provenance,
+    }
+}
+
+/// Read the cadence the scheduler is running from the same environment the
+/// scheduler reads.
+fn effective_ordering_cadence(config_block_interval_secs: u64) -> OrderingCadence {
+    let block_interval_ms = std::env::var("ORCH_BLOCK_INTERVAL_MS").ok();
+    let block_interval_secs = std::env::var("ORCH_BLOCK_INTERVAL_SECS").ok();
+    let min_tick_ms = std::env::var("ORCH_CONSENSUS_MIN_TICK_MS").ok();
+    resolve_ordering_cadence(
+        block_interval_ms.as_deref(),
+        block_interval_secs.as_deref(),
+        min_tick_ms.as_deref(),
+        config_block_interval_secs,
+    )
+}
+
 /// The ordering/finality profile label used by the M04.9 parity artifact.
 ///
 /// Reports what the node is actually running. It is deliberately derived from
@@ -497,10 +582,16 @@ where
     // already on, so the default path takes no extra lock and emits nothing
     // new. These are CONFIGURATION facts, never phase measurements.
     let ordering_cadence = if benchmark_trace_enabled() {
-        let ctx = context_arc.lock().await;
+        let (config_block_interval_secs, view_timeout_secs) = {
+            let ctx = context_arc.lock().await;
+            (
+                ctx.config.block_production_interval_secs,
+                ctx.config.round_robin_view_timeout_secs,
+            )
+        };
         Some((
-            ctx.config.block_production_interval_secs,
-            ctx.config.round_robin_view_timeout_secs,
+            effective_ordering_cadence(config_block_interval_secs),
+            view_timeout_secs,
         ))
     } else {
         None
@@ -1774,13 +1865,16 @@ where
                 // duration is claimed here -- the inter-tick cadence wait
                 // happens in the scheduler outside any instrumented span, so
                 // it is reported as configuration and never as a phase.
-                if let Some((block_interval_secs, view_timeout_secs)) = ordering_cadence {
+                if let Some((cadence, view_timeout_secs)) = ordering_cadence {
                     eprintln!(
-                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} block_interval_secs={} view_timeout_secs={}",
+                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} view_timeout_secs={}",
                         producing_h,
                         view,
                         ordering_profile_label(cons_ty),
-                        block_interval_secs,
+                        cadence.ticker_interval_ms,
+                        cadence.ticker_interval_provenance,
+                        cadence.min_tick_ms,
+                        cadence.min_tick_provenance,
                         view_timeout_secs,
                     );
                 }

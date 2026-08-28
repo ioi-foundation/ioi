@@ -37,8 +37,9 @@
 // single-authority Solo engine — through the SAME admission, execution, IAVL
 // commitment, Redb durability, restart and status/receipt path. The artifact
 // records which engine actually produced each height (read back from the
-// trace, not assumed from the request), the configured proposal cadence, and
-// the client poll interval.
+// trace, not assumed from the request), the proposal cadence the scheduler
+// actually resolved along with the provenance of each of its values, and the
+// client poll interval.
 //
 // ONE ARTIFACT IS NOT A COMPARISON. This produces a single-profile artifact.
 // Comparing two profiles means running it twice and reading both; no
@@ -49,6 +50,14 @@
 //   node scripts/profile-m4-wallet-authority-commit-path.mjs [--out DIR] [--durable-store NAME]
 //                                                            [--ordering-profile Aft|Solo]
 //                                                            [--poll-interval-ms N]
+//                                                            [--proposal-cadence-ms N]
+//                                                            [--consensus-min-tick-ms N]
+//
+// The three numeric flags are independent knobs on different sides of the
+// boundary: `--poll-interval-ms` sets how often the CLIENT asks whether a tx
+// committed, while `--proposal-cadence-ms` and `--consensus-min-tick-ms` set
+// how often the SERVER's scheduler may produce a block. Each is passed through
+// separately and each is reported separately; none is derived from another.
 //
 // Exit: 0 when the soak passed AND a complete profile was built · 1 otherwise.
 
@@ -67,11 +76,32 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const SOAK_VERIFIER = "verify-m4-room-participation-contribution-plane.mjs";
-// Bumped from ioi.m048.commit-path-profile.v1: the phase set is now the ten
-// M04.9 ordering/finality slots, one phase was renamed off its AFT-specific
-// name, and every value carries an explicit kind. A reader that understood v1
-// would mis-read this, so it does not reuse v1's identifier.
-export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-parity-profile.v1";
+// DELIBERATELY NOT BUMPED. This identifier is pinned by a tracked work item --
+// docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json
+// requires this file to contain exactly this string -- and M04.9 extends that
+// profiling artifact in place rather than producing a new one. Nothing here is
+// a ReceiptCheckpoint or any other consensus-visible structure, so no versioned
+// successor is owed.
+//
+// The extension is additive except for ONE incompatible change, disclosed in
+// `SCHEMA_COMPATIBILITY` below and republished in every artifact: the phase
+// formerly called `aft_inclusion_finalization` is now `ordering_finalization`,
+// because Solo produces that phase too and the AFT-specific name mislabelled
+// every Solo row. A reader keying on the old name learns the rename from the
+// artifact itself rather than having to have read this file.
+export const ARTIFACT_SCHEMA_VERSION = "ioi.m048.commit-path-profile.v1";
+
+// Carried into every artifact so the pinned identifier above cannot silently
+// mislead a reader who remembers the pre-M04.9 phase names.
+export const SCHEMA_COMPATIBILITY = {
+  version: ARTIFACT_SCHEMA_VERSION,
+  extended_by: "M04.9 ordering/finality parity",
+  additive:
+    "ordering_parity, value_kinds, phase_semantics, summation_rule, parser_contract and the unmeasured-phase rows are new; a pre-M04.9 reader ignores them.",
+  renamed_phases: { aft_inclusion_finalization: "ordering_finalization" },
+  why_not_bumped:
+    "The identifier is pinned by the M04.8 work item's code anchor and this is the same artifact extended in place. Phase names are resolved from `phase_semantics` in the artifact, never from this identifier.",
+};
 
 // The readiness bar the unprofiled soak runs under, and which a profiled run
 // must therefore keep. See the header note: the trace seam would otherwise
@@ -131,9 +161,22 @@ export const BENCH_IAVL_CONTRACT = {
 // guessed from the measurement -- the inference that the Solo-reports-Aft
 // defect made impossible.
 //
+// EFFECTIVE, NOT CONFIGURED-AS-WRITTEN. The cadence fields report what the
+// scheduler resolved, with the provenance of each value, because the ticker is
+// overridable by environment: `config.block_production_interval_secs` is stale
+// for exactly the cadence-varying runs these fields exist to describe. The
+// emitter mirrors `lifecycle.rs::run_consensus_ticker` and is unit-tested
+// against its edge cases.
+//
+// `ticker_interval_ms=0` is a real value meaning the scheduler disabled the
+// ticker and ran kick-driven only. It is not an absent measurement.
+//
 // Accepted line shape:
 //   [BENCH-ORDERING] proposal height=<u64> view=<u64> ordering_profile=<name>
-//                    block_interval_secs=<u64> view_timeout_secs=<u64>
+//                    ticker_interval_ms=<u64>
+//                    ticker_interval_provenance=<token>
+//                    min_tick_ms=<u64> min_tick_provenance=<token>
+//                    view_timeout_secs=<u64>
 export const BENCH_ORDERING_CONTRACT = {
   tag: "[BENCH-ORDERING]",
   op: "proposal",
@@ -142,12 +185,24 @@ export const BENCH_ORDERING_CONTRACT = {
     "height",
     "view",
     "ordering_profile",
-    "block_interval_secs",
+    "ticker_interval_ms",
+    "ticker_interval_provenance",
+    "min_tick_ms",
+    "min_tick_provenance",
     "view_timeout_secs",
   ],
   known_profiles: ["aft", "solo", "proof_of_authority", "proof_of_stake"],
+  // Every provenance the emitter can report. An unknown one is refused rather
+  // than recorded, so a value whose origin this parser cannot explain never
+  // reaches the artifact looking explained.
+  known_ticker_provenances: [
+    "env:ORCH_BLOCK_INTERVAL_MS",
+    "env:ORCH_BLOCK_INTERVAL_SECS",
+    "config:block_production_interval_secs",
+  ],
+  known_min_tick_provenances: ["env:ORCH_CONSENSUS_MIN_TICK_MS", "default"],
   notes:
-    "Configuration only. No duration is carried here; the inter-tick cadence wait is not measured by any seam.",
+    "Configuration only, resolved as the scheduler resolves it. No duration is carried here; the inter-tick cadence wait is not measured by any seam.",
 };
 
 export const BENCH_TAGS = {
@@ -648,6 +703,22 @@ export function buildCommitPathProfile({
           `measurements to an unrecognized ordering engine`,
       );
     }
+    // A cadence whose origin this parser cannot name is not evidence of the
+    // cadence: `500` means one thing if it came from the flag under test and
+    // another if the override was ignored and config answered instead.
+    for (const [field, known] of [
+      ["ticker_interval_provenance", BENCH_ORDERING_CONTRACT.known_ticker_provenances],
+      ["min_tick_provenance", BENCH_ORDERING_CONTRACT.known_min_tick_provenances],
+    ]) {
+      const reported = orderingLine.fields[field];
+      if (!known.includes(reported)) {
+        throw new ProfileIncomplete(
+          `approval ${requestHash}: ${BENCH_ORDERING_CONTRACT.tag} at height ${height} reports ` +
+            `${field}=${reported}, which this parser does not know; a cadence whose provenance ` +
+            `cannot be named is not attributable`,
+        );
+      }
+    }
 
     for (const name of BENCH_IAVL_CONTRACT.required_fields) {
       if (tree.fields[name] === undefined) {
@@ -826,17 +897,28 @@ export function buildCommitPathProfile({
       ordering: {
         profile: orderingProfile,
         proposal_cadence: {
-          block_interval_secs: requireField(
-            integerField(orderingLine.fields, "block_interval_secs"),
-            "configured block production interval",
+          // The period the scheduler actually ran, not the config field it may
+          // have overridden. 0 means the ticker was disabled (kick-driven only).
+          ticker_interval_ms: requireField(
+            integerField(orderingLine.fields, "ticker_interval_ms"),
+            "effective proposal ticker interval",
             requestHash,
           ),
+          ticker_interval_provenance: orderingLine.fields.ticker_interval_provenance,
+          // The scheduler's minimum spacing between kick-driven ticks. It bounds
+          // how fast a queued tx can be picked up independently of the ticker,
+          // so a cadence reported without it is only half the cadence.
+          min_tick_ms: requireField(
+            integerField(orderingLine.fields, "min_tick_ms"),
+            "effective consensus minimum tick interval",
+            requestHash,
+          ),
+          min_tick_provenance: orderingLine.fields.min_tick_provenance,
           view_timeout_secs: requireField(
             integerField(orderingLine.fields, "view_timeout_secs"),
             "configured view timeout",
             requestHash,
           ),
-          provenance: "configured",
           measured: false,
         },
         view: integerField(orderingLine.fields, "view"),
@@ -892,7 +974,10 @@ export function buildCommitPathProfile({
     ...new Set(
       approvals.map((entry) =>
         JSON.stringify([
-          entry.ordering.proposal_cadence.block_interval_secs,
+          entry.ordering.proposal_cadence.ticker_interval_ms,
+          entry.ordering.proposal_cadence.ticker_interval_provenance,
+          entry.ordering.proposal_cadence.min_tick_ms,
+          entry.ordering.proposal_cadence.min_tick_provenance,
           entry.ordering.proposal_cadence.view_timeout_secs,
         ]),
       ),
@@ -902,6 +987,7 @@ export function buildCommitPathProfile({
 
   return {
     schema_version: ARTIFACT_SCHEMA_VERSION,
+    schema_compatibility: SCHEMA_COMPATIBILITY,
     generated_at_ms: Date.now(),
     run,
     // The three dimensions an ordering/finality comparison is read against.
@@ -910,10 +996,24 @@ export function buildCommitPathProfile({
       ordering_profile_provenance: `observed:${BENCH_ORDERING_CONTRACT.tag}`,
       proposal_cadence: {
         values: observedCadences.map((entry) => {
-          const [block_interval_secs, view_timeout_secs] = JSON.parse(entry);
-          return { block_interval_secs, view_timeout_secs };
+          const [
+            ticker_interval_ms,
+            ticker_interval_provenance,
+            min_tick_ms,
+            min_tick_provenance,
+            view_timeout_secs,
+          ] = JSON.parse(entry);
+          return {
+            ticker_interval_ms,
+            ticker_interval_provenance,
+            min_tick_ms,
+            min_tick_provenance,
+            view_timeout_secs,
+          };
         }),
-        provenance: "configured",
+        // Each value carries its own provenance above; the cadence is the one
+        // the scheduler resolved, which is not always the one config declares.
+        provenance: `observed:${BENCH_ORDERING_CONTRACT.tag}`,
         measured: false,
       },
       // Reported because it sets the resolution of the client-observed phase:
@@ -957,7 +1057,8 @@ export function buildCommitPathProfile({
       "client_commit_wait is quantized by poll_interval_ms and is not an exact commit latency.",
       "Approvals recorded outside the governed helpers carry no route correlation; see coverage.",
       "This profile proves only the exact build profile, backend, and host it ran on.",
-      "proposal_cadence is CONFIGURATION. The actual wait before a proposal picked up a queued tx is not measured by any seam, so no cadence-wait duration is claimed.",
+      "proposal_cadence is CONFIGURATION, reported as the scheduler resolved it. The actual wait before a proposal picked up a queued tx is not measured by any seam, so no cadence-wait duration is claimed.",
+      "ticker_interval_ms and min_tick_ms bound when a queued tx can be picked up; they do not establish that a run at a given cadence produced any particular latency.",
       "admission_queueing and receipt_creation_durable_ack are unmeasured; their cost is real and contained in neighbouring phases, not zero.",
       "Completion notification is polled, not pushed; no event-driven completion latency is measured.",
       "A single-profile artifact is not a comparison. Comparing two profiles requires two artifacts and is not performed here.",
@@ -985,12 +1086,25 @@ export function profileEnv(baseEnv, traceDir, teeLogPath, options = {}) {
     // See the header: without this the trace seam changes readiness semantics.
     IOI_TEST_READY_HEIGHT_LAG_MAX: READY_HEIGHT_LAG_MAX,
   };
-  // Only set when explicitly asked for. Unset means the fixture runs its own
-  // default (the AFT control, at the 500ms poll interval), so an unflagged
-  // profiling run is byte-identical to the M04.8 behaviour.
+  // Only set when explicitly asked for. Unset means the fixture and the node
+  // run their own defaults (the AFT control, the 500ms poll interval, the
+  // scheduler's own cadence), so an unflagged profiling run is byte-identical
+  // to the M04.8 behaviour.
   if (options.orderingProfile) env.IOI_M049_ORDERING_PROFILE = options.orderingProfile;
-  if (options.pollIntervalMs) {
+  if (options.pollIntervalMs !== null && options.pollIntervalMs !== undefined) {
     env.IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS = String(options.pollIntervalMs);
+  }
+  // The two SERVER-side cadence knobs, distinct from the CLIENT-side poll
+  // interval above. They reach the node by inheritance: this env is handed to
+  // the verifier, which hands it to the wallet fixture guardian, which hands it
+  // to the cargo test that spawns `orchestration` -- and `sanitizedVerifierBaseEnv`
+  // strips only IOI_TEST_*/IOI_HYPERVISOR_WALLET_*/IOI_WALLET_NETWORK_*, so
+  // ORCH_* names survive that boundary intact.
+  if (options.proposalCadenceMs !== null && options.proposalCadenceMs !== undefined) {
+    env.ORCH_BLOCK_INTERVAL_MS = String(options.proposalCadenceMs);
+  }
+  if (options.consensusMinTickMs !== null && options.consensusMinTickMs !== undefined) {
+    env.ORCH_CONSENSUS_MIN_TICK_MS = String(options.consensusMinTickMs);
   }
   return env;
 }
@@ -1000,8 +1114,50 @@ export function profileEnv(baseEnv, traceDir, teeLogPath, options = {}) {
 // through, so a typo cannot silently run the control and be labelled otherwise.
 export const SELECTABLE_ORDERING_PROFILES = ["Aft", "Solo"];
 
+// The bounded numeric wrapper flags.
+//
+// Each is INDEPENDENT: `--poll-interval-ms` is a CLIENT-side status-poll period
+// enforced by crates/cli, while `--proposal-cadence-ms` and
+// `--consensus-min-tick-ms` are SERVER-side scheduler knobs. Setting one must
+// never imply another, or a run that varied a single dimension would silently
+// have varied two and the comparison would answer a question nobody asked.
+//
+// `min` is chosen from what the receiving code actually honours, not from
+// taste. `--proposal-cadence-ms` refuses 0 because the scheduler filters
+// ORCH_BLOCK_INTERVAL_MS on `> 0`: a 0 would be discarded and the node would
+// silently run its config cadence while the flag read as "cadence 0".
+// `--consensus-min-tick-ms` accepts 0 because the scheduler genuinely honours
+// 0 there (no kick throttle).
+export const NUMERIC_FLAGS = {
+  "--poll-interval-ms": {
+    field: "pollIntervalMs",
+    min: 1,
+    max: 5000,
+    why: "the bound crates/cli enforces on IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS",
+  },
+  "--proposal-cadence-ms": {
+    field: "proposalCadenceMs",
+    min: 1,
+    max: 600_000,
+    why: "ORCH_BLOCK_INTERVAL_MS is honoured by the scheduler only when > 0; 0 would be discarded and the node would run its config cadence instead",
+  },
+  "--consensus-min-tick-ms": {
+    field: "consensusMinTickMs",
+    min: 0,
+    max: 600_000,
+    why: "ORCH_CONSENSUS_MIN_TICK_MS is honoured at 0 (no kick throttle); the ceiling keeps a typo from stalling a run past any plausible cadence",
+  },
+};
+
 export function parseArgs(argv) {
-  const args = { out: null, durableStore: "redb", orderingProfile: null, pollIntervalMs: null };
+  const args = {
+    out: null,
+    durableStore: "redb",
+    orderingProfile: null,
+    pollIntervalMs: null,
+    proposalCadenceMs: null,
+    consensusMinTickMs: null,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     // Split on the FIRST `=` only: a path may legitimately contain one.
     const at = argv[index].indexOf("=");
@@ -1022,14 +1178,20 @@ export function parseArgs(argv) {
       }
       args.orderingProfile = value;
       if (inline === undefined) index += 1;
-    } else if (flag === "--poll-interval-ms") {
-      const parsed = Number(value);
-      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5000) {
+    } else if (Object.hasOwn(NUMERIC_FLAGS, flag)) {
+      // `hasOwn`, not a truthiness test: `NUMERIC_FLAGS["constructor"]` would
+      // otherwise resolve up the prototype chain and turn an unrecognized
+      // argument into a confusing bounds error instead of being ignored.
+      const { field, min, max, why } = NUMERIC_FLAGS[flag];
+      // `Number("")` is 0 and `Number(" 5 ")` is 5, so an explicit reject of a
+      // blank value keeps an empty flag from reading as a deliberate bound.
+      const parsed = value === "" || value === undefined ? NaN : Number(value);
+      if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
         throw new Error(
-          `--poll-interval-ms must be an integer in 1..=5000 (the bound crates/cli enforces); got ${JSON.stringify(value)}`,
+          `${flag} must be an integer in ${min}..=${max} (${why}); got ${JSON.stringify(value)}`,
         );
       }
-      args.pollIntervalMs = parsed;
+      args[field] = parsed;
       if (inline === undefined) index += 1;
     }
   }
@@ -1057,6 +1219,8 @@ async function main() {
     env: profileEnv(process.env, traceDir, teeLogPath, {
       orderingProfile: args.orderingProfile,
       pollIntervalMs: args.pollIntervalMs,
+      proposalCadenceMs: args.proposalCadenceMs,
+      consensusMinTickMs: args.consensusMinTickMs,
     }),
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -1092,6 +1256,12 @@ async function main() {
         // a request that did not take effect cannot masquerade as an outcome.
         requested_ordering_profile: args.orderingProfile,
         requested_poll_interval_ms: args.pollIntervalMs,
+        // Likewise REQUESTED. What the scheduler resolved is read back from
+        // [BENCH-ORDERING] into `ordering_parity.proposal_cadence`, each value
+        // with its own provenance, so a request the node discarded cannot
+        // masquerade as the cadence that ran.
+        requested_proposal_cadence_ms: args.proposalCadenceMs,
+        requested_consensus_min_tick_ms: args.consensusMinTickMs,
         readiness_lag_pin: {
           IOI_TEST_READY_HEIGHT_LAG_MAX: READY_HEIGHT_LAG_MAX,
           why: "IOI_AFT_BENCH_TRACE otherwise raises the cluster ready-height lag from 1 to 16",

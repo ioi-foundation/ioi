@@ -21,6 +21,7 @@ import {
   ORDERING_PARITY_SLOTS,
   PHASES,
   READY_HEIGHT_LAG_MAX,
+  SCHEMA_COMPATIBILITY,
   REQUIRED_PHASES,
   UNMEASURED_PHASES,
   VALUE_KINDS,
@@ -68,7 +69,10 @@ const BASE = {
   new_node_bytes: 40960,
   atomic_state_block: "true",
   ordering_profile: "aft",
-  block_interval_secs: 1,
+  ticker_interval_ms: 1000,
+  ticker_interval_provenance: "config:block_production_interval_secs",
+  min_tick_ms: 50,
+  min_tick_provenance: "default",
   view_timeout_secs: 2,
 };
 
@@ -81,7 +85,7 @@ const RUN = {
 function traceLines(v) {
   return [
     "2026-08-27T00:00:00Z INFO orchestration: unrelated log framing",
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 ordering_profile=${v.ordering_profile} block_interval_secs=${v.block_interval_secs} view_timeout_secs=${v.view_timeout_secs}`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 ordering_profile=${v.ordering_profile} ticker_interval_ms=${v.ticker_interval_ms} ticker_interval_provenance=${v.ticker_interval_provenance} min_tick_ms=${v.min_tick_ms} min_tick_provenance=${v.min_tick_provenance} view_timeout_secs=${v.view_timeout_secs}`,
     `[BENCH-CONSENSUS] proposal_select height=${HEIGHT} view=1 candidate_txs=1 valid_txs=1 select_ms=${v.select_ms} verify_ms=${v.verify_ms}`,
     `[BENCH-CONSENSUS] proposal_process height=${HEIGHT} view=1 tx_count=1 process_block_ms=${v.process_block_ms}`,
     `[BENCH-CONSENSUS] proposal_finalize height=${HEIGHT} view=1 finalize_ms=${v.finalize_ms}`,
@@ -260,8 +264,20 @@ test("a complete trace attributes one approval across every required phase", () 
   );
   assert.equal(approval.ordering.profile, BASE.ordering_profile);
   assert.equal(
-    approval.ordering.proposal_cadence.block_interval_secs,
-    BASE.block_interval_secs,
+    approval.ordering.proposal_cadence.ticker_interval_ms,
+    BASE.ticker_interval_ms,
+  );
+  assert.equal(
+    approval.ordering.proposal_cadence.min_tick_ms,
+    BASE.min_tick_ms,
+  );
+  assert.equal(
+    approval.ordering.proposal_cadence.ticker_interval_provenance,
+    BASE.ticker_interval_provenance,
+  );
+  assert.equal(
+    approval.ordering.proposal_cadence.min_tick_provenance,
+    BASE.min_tick_provenance,
   );
   assert.equal(approval.ordering.proposal_cadence.measured, false, "cadence is configuration");
   assert.equal(approval.correlation.authority_resolution_ms, BASE.authority_resolution_ms);
@@ -524,7 +540,7 @@ test("the same scenario profiles under either ordering profile, attributed corre
   // could not tell them apart, no comparison built on it would mean anything.
   const aft = buildCommitPathProfile(inputs({ ordering_profile: "aft" }));
   const solo = buildCommitPathProfile(
-    inputs({ ordering_profile: "solo", block_interval_secs: 1, view_timeout_secs: 2 }),
+    inputs({ ordering_profile: "solo", ticker_interval_ms: 1000, view_timeout_secs: 2 }),
   );
   assert.equal(aft.ordering_parity.ordering_profile, "aft");
   assert.equal(solo.ordering_parity.ordering_profile, "solo");
@@ -562,7 +578,7 @@ test("an artifact spanning two ordering engines is refused", () => {
   const otherHeight = 413;
   const mixedTrace = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=solo block_interval_secs=1 view_timeout_secs=2`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=solo ticker_interval_ms=1000 ticker_interval_provenance=config:block_production_interval_secs min_tick_ms=50 min_tick_provenance=default view_timeout_secs=2`,
     `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
     `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
     `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
@@ -593,11 +609,20 @@ test("unmeasured phases are carried as absent-with-reason, never as zero", () =>
     assert.ok(entry.reason.length > 0, `${name} carries its reason into the artifact`);
     assert.ok(!(name in approval.phases), `${name} must not appear among measured phases`);
   }
-  // The cadence the run was configured with IS recorded — as configuration.
+  // The cadence the run resolved IS recorded — as configuration.
   assert.equal(profile.ordering_parity.proposal_cadence.measured, false);
-  assert.equal(profile.ordering_parity.proposal_cadence.provenance, "configured");
+  assert.equal(
+    profile.ordering_parity.proposal_cadence.provenance,
+    `observed:${BENCH_ORDERING_CONTRACT.tag}`,
+  );
   assert.deepEqual(profile.ordering_parity.proposal_cadence.values, [
-    { block_interval_secs: BASE.block_interval_secs, view_timeout_secs: BASE.view_timeout_secs },
+    {
+      ticker_interval_ms: BASE.ticker_interval_ms,
+      ticker_interval_provenance: BASE.ticker_interval_provenance,
+      min_tick_ms: BASE.min_tick_ms,
+      min_tick_provenance: BASE.min_tick_provenance,
+      view_timeout_secs: BASE.view_timeout_secs,
+    },
   ]);
 });
 
@@ -624,17 +649,135 @@ test("the profile selector and poll interval are bounded at the wrapper too", ()
   }
 });
 
+test("the two scheduler cadence flags are bounded at the wrapper", () => {
+  assert.equal(parseArgs([]).proposalCadenceMs, null, "unflagged runs request no cadence");
+  assert.equal(parseArgs([]).consensusMinTickMs, null);
+  assert.equal(parseArgs(["--proposal-cadence-ms", "250"]).proposalCadenceMs, 250);
+  assert.equal(parseArgs(["--proposal-cadence-ms=250"]).proposalCadenceMs, 250);
+  assert.equal(parseArgs(["--consensus-min-tick-ms", "10"]).consensusMinTickMs, 10);
+  assert.equal(parseArgs(["--consensus-min-tick-ms=10"]).consensusMinTickMs, 10);
+
+  // 0 is refused for the ticker because the scheduler filters
+  // ORCH_BLOCK_INTERVAL_MS on `> 0`: accepting it would let the flag read as
+  // "cadence 0" while the node quietly ran its config cadence instead.
+  for (const bad of ["0", "-1", "600001", "abc", "1.5", ""]) {
+    assert.throws(
+      () => parseArgs(["--proposal-cadence-ms", bad]),
+      /--proposal-cadence-ms must be an integer in 1\.\.=600000/u,
+      `--proposal-cadence-ms must refuse ${JSON.stringify(bad)}`,
+    );
+  }
+  // 0 IS accepted for the minimum kick spacing, because the scheduler honours
+  // it there. The asymmetry is the scheduler's and is mirrored, not tidied.
+  assert.equal(parseArgs(["--consensus-min-tick-ms", "0"]).consensusMinTickMs, 0);
+  for (const bad of ["-1", "600001", "abc", "1.5", ""]) {
+    assert.throws(
+      () => parseArgs(["--consensus-min-tick-ms", bad]),
+      /--consensus-min-tick-ms must be an integer in 0\.\.=600000/u,
+      `--consensus-min-tick-ms must refuse ${JSON.stringify(bad)}`,
+    );
+  }
+});
+
+test("the three numeric flags are independent of one another", () => {
+  // Client poll interval and the two server scheduler knobs sit on opposite
+  // sides of the boundary. If setting one set another, a run that varied a
+  // single dimension would have silently varied two.
+  const only = (flag, raw) => parseArgs([flag, raw]);
+  assert.deepEqual(
+    [only("--poll-interval-ms", "25").proposalCadenceMs, only("--poll-interval-ms", "25").consensusMinTickMs],
+    [null, null],
+    "--poll-interval-ms must not imply a scheduler cadence",
+  );
+  assert.deepEqual(
+    [
+      only("--proposal-cadence-ms", "250").pollIntervalMs,
+      only("--proposal-cadence-ms", "250").consensusMinTickMs,
+    ],
+    [null, null],
+    "--proposal-cadence-ms must not imply a poll interval or a kick spacing",
+  );
+  assert.deepEqual(
+    [
+      only("--consensus-min-tick-ms", "10").pollIntervalMs,
+      only("--consensus-min-tick-ms", "10").proposalCadenceMs,
+    ],
+    [null, null],
+    "--consensus-min-tick-ms must not imply a poll interval or a ticker cadence",
+  );
+  // All three together stay distinct values rather than collapsing onto one.
+  const all = parseArgs([
+    "--poll-interval-ms=25",
+    "--proposal-cadence-ms=250",
+    "--consensus-min-tick-ms=10",
+  ]);
+  assert.deepEqual(
+    [all.pollIntervalMs, all.proposalCadenceMs, all.consensusMinTickMs],
+    [25, 250, 10],
+  );
+});
+
+test("an argument that names an Object.prototype member does not swallow the flag after it", () => {
+  // The flag table is consulted by key. A lookup that walked the prototype
+  // chain would treat `constructor` as a known numeric flag, consume the NEXT
+  // argv token as its value, and either drop a real flag or fail with a bounds
+  // error naming a flag that does not exist. The following-flag case is what
+  // makes this observable — a stray token followed by a number fails silently.
+  const KNOWN = new Set([
+    "out",
+    "durableStore",
+    "orderingProfile",
+    "pollIntervalMs",
+    "proposalCadenceMs",
+    "consensusMinTickMs",
+  ]);
+  for (const stray of ["constructor", "toString", "valueOf", "hasOwnProperty"]) {
+    const args = parseArgs([stray, "--poll-interval-ms", "25"]);
+    assert.equal(
+      args.pollIntervalMs,
+      25,
+      `${stray} must not consume the --poll-interval-ms that follows it`,
+    );
+    assert.deepEqual(
+      Object.keys(args).filter((key) => !KNOWN.has(key)),
+      [],
+      `${stray} must not write a stray key onto the parsed args`,
+    );
+  }
+});
+
 test("requested profile is carried separately from the profile that actually ran", () => {
   const env = profileEnv({}, "/tmp/t", "/tmp/l", {
     orderingProfile: "Solo",
     pollIntervalMs: 25,
+    proposalCadenceMs: 250,
+    consensusMinTickMs: 10,
   });
   assert.equal(env.IOI_M049_ORDERING_PROFILE, "Solo");
   assert.equal(env.IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS, "25");
-  // Unflagged runs must not set either, so they stay byte-identical to M04.8.
+  assert.equal(env.ORCH_BLOCK_INTERVAL_MS, "250");
+  assert.equal(env.ORCH_CONSENSUS_MIN_TICK_MS, "10");
+  // Unflagged runs must not set any of them, so they stay byte-identical to
+  // the M04.8 behaviour.
   const bare = profileEnv({}, "/tmp/t", "/tmp/l");
-  assert.ok(!("IOI_M049_ORDERING_PROFILE" in bare));
-  assert.ok(!("IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS" in bare));
+  for (const name of [
+    "IOI_M049_ORDERING_PROFILE",
+    "IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS",
+    "ORCH_BLOCK_INTERVAL_MS",
+    "ORCH_CONSENSUS_MIN_TICK_MS",
+  ]) {
+    assert.ok(!(name in bare), `an unflagged run must not set ${name}`);
+  }
+  // Each flag sets ONLY its own variable.
+  const cadenceOnly = profileEnv({}, "/tmp/t", "/tmp/l", { proposalCadenceMs: 250 });
+  assert.equal(cadenceOnly.ORCH_BLOCK_INTERVAL_MS, "250");
+  assert.ok(!("ORCH_CONSENSUS_MIN_TICK_MS" in cadenceOnly));
+  assert.ok(!("IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS" in cadenceOnly));
+  const minTickOnly = profileEnv({}, "/tmp/t", "/tmp/l", { consensusMinTickMs: 0 });
+  // 0 is a real request here, so it must survive rather than being dropped as
+  // falsy — the bug this assertion exists to catch.
+  assert.equal(minTickOnly.ORCH_CONSENSUS_MIN_TICK_MS, "0");
+  assert.ok(!("ORCH_BLOCK_INTERVAL_MS" in minTickOnly));
 });
 
 test("the summation rule names only genuinely exclusive phases as summable", () => {
@@ -646,6 +789,147 @@ test("the summation rule names only genuinely exclusive phases as summable", () 
       `${name} is offered as summable, so it must be exclusive`,
     );
   }
-  assert.equal(profile.schema_version, "ioi.m049.ordering-parity-profile.v1");
   assert.equal(Object.keys(VALUE_KINDS).length, 6);
+});
+
+test("the schema identifier stays the one the tracked work item pins", () => {
+  // docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json
+  // carries a code anchor requiring the profiler source to contain exactly this
+  // string. M04.9 extends this artifact in place; it is a diagnostic profile,
+  // not a ReceiptCheckpoint or any other consensus-visible structure, so it
+  // owes no versioned successor.
+  const profile = buildCommitPathProfile(inputs());
+  assert.equal(profile.schema_version, "ioi.m048.commit-path-profile.v1");
+  assert.equal(SCHEMA_COMPATIBILITY.version, profile.schema_version);
+  assert.equal(profile.schema_compatibility.version, profile.schema_version);
+});
+
+test("the one incompatible rename is disclosed in the artifact, not just in a comment", () => {
+  // Reusing v1's identifier is only honest if a reader who keys on v1's phase
+  // names finds out from the artifact that one of them moved.
+  const profile = buildCommitPathProfile(inputs());
+  assert.equal(
+    profile.schema_compatibility.renamed_phases.aft_inclusion_finalization,
+    "ordering_finalization",
+  );
+  // The rename is real: the old name is gone and the new one carries the phase.
+  assert.ok(!("aft_inclusion_finalization" in profile.approvals[0].phases));
+  assert.ok("ordering_finalization" in profile.approvals[0].phases);
+  // Every name the disclosure claims to have renamed TO must actually exist,
+  // or the disclosure would send a reader to a key that is not there either.
+  for (const renamed of Object.values(profile.schema_compatibility.renamed_phases)) {
+    assert.ok(renamed in PHASES, `${renamed} must be a real phase`);
+  }
+});
+
+test("the effective cadence is reported with the provenance of each value", () => {
+  // The whole point of reporting provenance: 250ms means one thing when the
+  // flag under test produced it and another when the override was ignored and
+  // config answered instead. A cadence without its origin cannot distinguish
+  // "the experiment ran at 250ms" from "the experiment's flag did nothing".
+  const overridden = buildCommitPathProfile(
+    inputs({
+      ticker_interval_ms: 250,
+      ticker_interval_provenance: "env:ORCH_BLOCK_INTERVAL_MS",
+      min_tick_ms: 10,
+      min_tick_provenance: "env:ORCH_CONSENSUS_MIN_TICK_MS",
+    }),
+  );
+  const [cadence] = overridden.ordering_parity.proposal_cadence.values;
+  assert.equal(cadence.ticker_interval_ms, 250);
+  assert.equal(cadence.ticker_interval_provenance, "env:ORCH_BLOCK_INTERVAL_MS");
+  assert.equal(cadence.min_tick_ms, 10);
+  assert.equal(cadence.min_tick_provenance, "env:ORCH_CONSENSUS_MIN_TICK_MS");
+
+  // A disabled ticker is a real cadence, reported as 0 rather than dropped.
+  const disabled = buildCommitPathProfile(inputs({ ticker_interval_ms: 0 }));
+  assert.equal(
+    disabled.approvals[0].ordering.proposal_cadence.ticker_interval_ms,
+    0,
+    "ticker_interval_ms=0 means kick-driven only, not an absent measurement",
+  );
+  const zeroKick = buildCommitPathProfile(
+    inputs({ min_tick_ms: 0, min_tick_provenance: "env:ORCH_CONSENSUS_MIN_TICK_MS" }),
+  );
+  assert.equal(zeroKick.approvals[0].ordering.proposal_cadence.min_tick_ms, 0);
+});
+
+test("FAIL CLOSED: a [BENCH-ORDERING] line missing one contracted field is refused", () => {
+  for (const field of BENCH_ORDERING_CONTRACT.required_fields) {
+    if (field === "height") continue; // height loss drops the line from the index entirely
+    const complete = inputs();
+    const stripped = complete.traceText
+      .split("\n")
+      .map((line) =>
+        line.includes(BENCH_ORDERING_CONTRACT.tag)
+          ? line.replace(new RegExp(`\\s${field}=\\S+`, "u"), "")
+          : line,
+      )
+      .join("\n");
+    assert.throws(
+      () => buildCommitPathProfile({ ...complete, traceText: stripped }),
+      new RegExp(`omits required field '${field}'`, "u"),
+      `a [BENCH-ORDERING] line without ${field} must fail closed`,
+    );
+  }
+});
+
+test("FAIL CLOSED: a cadence whose provenance this parser cannot name is refused", () => {
+  // A provenance token the parser does not know means the emitter resolved the
+  // cadence by a path this file has not been taught. Recording the number
+  // anyway would present an unexplained value as an explained one.
+  assert.throws(
+    () => buildCommitPathProfile(inputs({ ticker_interval_provenance: "env:SOMETHING_ELSE" })),
+    /ticker_interval_provenance=env:SOMETHING_ELSE, which this parser does not know/u,
+  );
+  assert.throws(
+    () => buildCommitPathProfile(inputs({ min_tick_provenance: "guessed" })),
+    /min_tick_provenance=guessed, which this parser does not know/u,
+  );
+  // Every provenance the emitter can actually produce is accepted, so the
+  // check above cannot pass by refusing everything.
+  for (const provenance of BENCH_ORDERING_CONTRACT.known_ticker_provenances) {
+    assert.equal(
+      buildCommitPathProfile(inputs({ ticker_interval_provenance: provenance })).approvals[0]
+        .ordering.proposal_cadence.ticker_interval_provenance,
+      provenance,
+    );
+  }
+  for (const provenance of BENCH_ORDERING_CONTRACT.known_min_tick_provenances) {
+    assert.equal(
+      buildCommitPathProfile(inputs({ min_tick_provenance: provenance })).approvals[0].ordering
+        .proposal_cadence.min_tick_provenance,
+      provenance,
+    );
+  }
+});
+
+test("a run that changed cadence mid-flight is surfaced as two cadence values", () => {
+  // Averaging or collapsing them would hide that the run was not one experiment.
+  const single = inputs();
+  const otherHeight = 413;
+  const mixed = [
+    single.traceText,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=aft ticker_interval_ms=250 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default view_timeout_secs=2`,
+    `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
+    `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
+    `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
+    `[BENCH-EXEC] prepare_block height=${otherHeight} tx_count=1 total_ms=300`,
+    `[BENCH-EXEC] commit_block height=${otherHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
+    `${BENCH_IAVL_CONTRACT.tag} commit height=${otherHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
+    `[BENCH-APPROVAL] request_hash=${"c".repeat(64)} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=feedface admission_ms=3 committed_height=${otherHeight} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1`,
+  ].join("\n");
+  const profile = buildCommitPathProfile({
+    ...single,
+    approvalFields: parseApprovalLines(mixed),
+    traceText: mixed,
+  });
+  // One engine throughout, so this is a legal profile — but two cadences, and
+  // both are reported.
+  assert.equal(profile.ordering_parity.ordering_profile, "aft");
+  assert.equal(profile.ordering_parity.proposal_cadence.values.length, 2);
+  assert.deepEqual(
+    profile.ordering_parity.proposal_cadence.values.map((v) => v.ticker_interval_ms).sort((a, b) => a - b),
+    [250, 1000],
+  );
 });

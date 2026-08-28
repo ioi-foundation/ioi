@@ -286,10 +286,19 @@ struct BinaryFeatureConfig<'a> {
 
 impl<'a> BinaryFeatureConfig<'a> {
     fn resolve(&self) -> Result<String> {
+        // Solo needs NO consensus feature: `Consensus::Solo`/`SoloEngine` carry
+        // no `#[cfg]` and are compiled into every `validator-bins` build, unlike
+        // the Aft/PoA/PoS engines which each sit behind their own feature.
+        //
+        // Resolving Solo to `consensus-aft` would compile a whole AFT engine the
+        // Solo node never constructs, and would label the build as the very
+        // profile a parity run is trying to distinguish itself from. `None`
+        // reports the truth: nothing extra is required.
         let consensus_feature = match self.consensus_type {
-            "Aft" => "consensus-aft",
-            "ProofOfAuthority" => "consensus-poa",
-            "ProofOfStake" => "consensus-pos",
+            "Aft" => Some("consensus-aft"),
+            "ProofOfAuthority" => Some("consensus-poa"),
+            "ProofOfStake" => Some("consensus-pos"),
+            "Solo" => None,
             other => return Err(anyhow!("Unsupported test consensus type: {}", other)),
         };
 
@@ -309,13 +318,11 @@ impl<'a> BinaryFeatureConfig<'a> {
             other => return Err(anyhow!("Unsupported commitment scheme: {}", other)),
         };
 
-        let mut features = vec![
-            "validator-bins",
-            consensus_feature,
-            tree_feature,
-            primitive_feature,
-            "vm-wasm",
-        ];
+        // Order is preserved exactly as it was before Solo existed: only the
+        // consensus entry is now conditional.
+        let mut features = vec!["validator-bins"];
+        features.extend(consensus_feature);
+        features.extend([tree_feature, primitive_feature, "vm-wasm"]);
 
         if self.use_malicious_workload {
             features.push("malicious-bin");
@@ -1200,5 +1207,77 @@ mod node_profile_build_tests {
     fn an_absent_profile_requires_a_build() {
         let dir = tempfile::tempdir().expect("profile dir");
         assert!(node_profile_needs_build(dir.path(), false));
+    }
+}
+
+#[cfg(test)]
+mod binary_feature_config_tests {
+    use super::BinaryFeatureConfig;
+
+    fn resolve(consensus_type: &str) -> String {
+        BinaryFeatureConfig {
+            consensus_type,
+            state_tree_type: "IAVL",
+            commitment_scheme_type: "Hash",
+            use_malicious_workload: false,
+            extra_features: &[],
+        }
+        .resolve()
+        .expect("feature resolution")
+    }
+
+    #[test]
+    fn solo_resolves_without_inventing_a_consensus_feature() {
+        // The live blocker this covers: Solo previously hit the catch-all error
+        // arm, so a Solo fixture failed at BUILD time, long before the config
+        // parser that understands "Solo" was ever reached.
+        let features = resolve("Solo");
+        assert!(
+            features.contains("validator-bins"),
+            "Solo still needs the validator binaries: {features}"
+        );
+        // SoloEngine carries no #[cfg] and is compiled into every
+        // validator-bins build, so no consensus feature is required.
+        for invented in ["consensus-aft", "consensus-poa", "consensus-pos"] {
+            assert!(
+                !features.contains(invented),
+                "Solo must not be labelled {invented}; that would compile an engine it never \
+                 constructs and name the build after the profile it is being compared against: \
+                 {features}"
+            );
+        }
+        assert!(features.contains("state-iavl") && features.contains("commitment-hash"));
+        assert!(features.contains("vm-wasm"));
+    }
+
+    #[test]
+    fn the_quorum_engines_still_resolve_to_their_own_features() {
+        // Guards the negative above from passing vacuously: if resolve() simply
+        // stopped emitting consensus features at all, this goes red.
+        assert!(resolve("Aft").contains("consensus-aft"));
+        assert!(resolve("ProofOfAuthority").contains("consensus-poa"));
+        assert!(resolve("ProofOfStake").contains("consensus-pos"));
+        // Feature ORDER is unchanged from before Solo existed.
+        assert_eq!(
+            resolve("Aft"),
+            "validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm"
+        );
+        assert_eq!(
+            resolve("Solo"),
+            "validator-bins,state-iavl,commitment-hash,vm-wasm"
+        );
+    }
+
+    #[test]
+    fn an_unknown_consensus_type_is_still_refused() {
+        assert!(BinaryFeatureConfig {
+            consensus_type: "solo",
+            state_tree_type: "IAVL",
+            commitment_scheme_type: "Hash",
+            use_malicious_workload: false,
+            extra_features: &[],
+        }
+        .resolve()
+        .is_err());
     }
 }
