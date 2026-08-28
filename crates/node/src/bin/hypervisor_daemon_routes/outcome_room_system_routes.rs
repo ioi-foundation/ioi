@@ -4384,6 +4384,39 @@ fn projection_ref_bucket<'a>(
     }
 }
 
+fn graph_omits_room_child_family(contract_id: &str) -> bool {
+    matches!(
+        contract_id,
+        "schema://ioi/applications/ioi-ai/room-participation-request/v3"
+            | "schema://ioi/applications/ioi-ai/room-participant-lease/v3"
+            | "schema://ioi/applications/ioi-ai/resource-offer/v3"
+            | "schema://ioi/applications/ioi-ai/capability-offer/v3"
+    )
+}
+
+fn insert_graph_projection_ref(
+    refs: &mut ProjectionRefs,
+    contract_id: &str,
+    object_ref: &str,
+) -> Result<Option<usize>, VErr> {
+    let Some(bucket) = projection_ref_bucket(refs, contract_id) else {
+        if graph_omits_room_child_family(contract_id) {
+            return Ok(None);
+        }
+        return Err(verr(
+            "outcome_room_projection_object_source_unresolved",
+            format!("admitted object '{object_ref}' has no graph projection family"),
+        ));
+    };
+    if !bucket.insert(object_ref.to_owned()) {
+        return Err(verr(
+            "outcome_room_projection_object_source_unresolved",
+            format!("admitted object ref '{object_ref}' occurs more than once"),
+        ));
+    }
+    Ok(Some(bucket.len()))
+}
+
 fn require_projection_labels(
     refs: &ProjectionRefs,
     label_bearing_object_count: usize,
@@ -4765,26 +4798,14 @@ fn verify_projection_objects(
                 format!("admitted object '{object_ref}' payload no longer matches its root"),
             ));
         }
-        let bucket_size = {
-            let bucket = projection_ref_bucket(&mut refs, contract_id).ok_or_else(|| {
-                verr(
-                    "outcome_room_projection_object_source_unresolved",
-                    format!("admitted object '{object_ref}' has no graph projection family"),
-                )
-            })?;
-            if !bucket.insert(object_ref.to_owned()) {
-                return Err(verr(
-                    "outcome_room_projection_object_source_unresolved",
-                    format!("admitted object ref '{object_ref}' occurs more than once"),
-                ));
-            }
-            bucket.len()
-        };
-        ensure_projection_cardinality(
-            bucket_size,
-            M4_ROOM_REF_SET_MAX,
-            "one room-child projection family",
-        )?;
+        if let Some(bucket_size) = insert_graph_projection_ref(&mut refs, contract_id, object_ref)?
+        {
+            ensure_projection_cardinality(
+                bucket_size,
+                M4_ROOM_REF_SET_MAX,
+                "one room-child projection family",
+            )?;
+        }
         if let Some(labels) = admitted.get("information_flow_label_refs") {
             let labels = labels.as_array().ok_or_else(|| {
                 verr(
@@ -8360,6 +8381,34 @@ mod tests {
             .insert("ifc-label://room/public".to_owned());
         require_projection_labels(&labeled, 1)
             .expect("one label-bearing child with one retained label projects");
+
+        for contract_id in [
+            ROOM_PARTICIPATION_REQUEST_V3_CONTRACT,
+            ROOM_PARTICIPANT_LEASE_V3_CONTRACT,
+            RESOURCE_OFFER_V3_CONTRACT,
+            CAPABILITY_OFFER_V3_CONTRACT,
+        ] {
+            assert_eq!(
+                insert_graph_projection_ref(&mut labeled, contract_id, "object://omitted")
+                    .expect("registered non-graph family is intentionally omitted"),
+                None,
+            );
+        }
+        assert_eq!(
+            insert_graph_projection_ref(
+                &mut labeled,
+                WORK_FRONTIER_ITEM_V3_CONTRACT,
+                "frontier://one",
+            )
+            .expect("registered graph family projects"),
+            Some(1),
+        );
+        assert_eq!(
+            insert_graph_projection_ref(&mut labeled, "schema://unknown/v1", "unknown://one")
+                .expect_err("an unknown graph family must remain fail closed")
+                .0,
+            "outcome_room_projection_object_source_unresolved",
+        );
     }
 
     #[test]
