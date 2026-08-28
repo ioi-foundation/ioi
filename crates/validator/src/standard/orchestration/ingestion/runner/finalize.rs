@@ -8,6 +8,7 @@ use ioi_types::app::{AccountId, ChainTransaction, StateRoot};
 use libp2p::PeerId;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{mpsc, watch, Mutex};
 
 use crate::standard::orchestration::ingestion::types::{ChainTipInfo, ProcessedTx};
@@ -15,9 +16,119 @@ use ioi_client::WorkloadClient;
 
 const MAX_LIVE_TIP_VALIDATION_ATTEMPTS: usize = 8;
 
+/// Total budget for waiting on the committed tip to move, across the WHOLE
+/// anchored-validation loop rather than per attempt.
+///
+/// A per-attempt budget would multiply by `MAX_LIVE_TIP_VALIDATION_ATTEMPTS`
+/// and let one admission hold the ingestion path for an unbounded-looking
+/// stretch. One shared deadline keeps the worst case flat no matter how many
+/// times the anchored check is retried.
+///
+/// Sized to cross a single block boundary at the 1s test cadence with margin.
+/// It is deliberately NOT tied to a configured cadence: this is a bound on how
+/// long admission may wait before failing closed, not a prediction of when the
+/// next block arrives.
+const LIVE_TIP_ADVANCE_BUDGET: Duration = Duration::from_millis(2_000);
+
 fn tip_changed_without_regressing(previous: &ChainTipInfo, observed: &ChainTipInfo) -> bool {
     observed.height >= previous.height
         && (observed.height != previous.height || observed.state_root != previous.state_root)
+}
+
+/// Why a bounded wait for a newer committed tip ended without one.
+///
+/// Carried into the rejection message so an operator can tell "the producer
+/// never moved" from "the watch is gone" from "we ran out of attempts". All
+/// four are fail-closed; none admits a transaction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TipAdvanceFailure {
+    /// The shared deadline expired with the tip still where it was.
+    Timeout,
+    /// Every sender was dropped, so no further tip will ever be published.
+    WatchClosed,
+    /// The watch fired but republished a tip that is not genuinely newer.
+    Unchanged,
+    /// The watch fired with a LOWER height than the anchor that just failed.
+    Regressed,
+    /// `MAX_LIVE_TIP_VALIDATION_ATTEMPTS` is spent; no further retry is allowed
+    /// however the tip moves.
+    AttemptsExhausted,
+}
+
+impl TipAdvanceFailure {
+    fn reason(self) -> &'static str {
+        match self {
+            Self::Timeout => "committed tip did not advance within the wait budget",
+            Self::WatchClosed => "committed-tip watch closed",
+            Self::Unchanged => "committed tip republished unchanged",
+            Self::Regressed => "committed tip regressed",
+            Self::AttemptsExhausted => "retry attempts exhausted",
+        }
+    }
+}
+
+/// The outcome of waiting for the committed tip to move past a failed anchor.
+#[derive(Debug)]
+enum TipAdvance {
+    /// A genuinely newer, non-regressing tip is available; retry against it.
+    Advanced(ChainTipInfo),
+    /// Nothing usable. The caller fails closed.
+    Unavailable(TipAdvanceFailure),
+}
+
+/// Waits, up to `deadline`, for the committed tip to become genuinely newer
+/// than `previous`.
+///
+/// WHY THIS AWAITS RATHER THAN PEEKS. The anchored check can fail because the
+/// historical anchor it needs is momentarily unresolvable while the next height
+/// is still in flight -- `grpc_blockchain.rs` holds the state read lock and
+/// takes `machine.try_lock()`, dropping fallback roots under contention. At the
+/// instant of that failure the committed tip has NOT yet moved, so a
+/// synchronous `borrow()` sees no change and the caller fails closed
+/// immediately, milliseconds before the very block that would have made the
+/// retry succeed. Observed exactly once as: warm AFT fixture durably committed
+/// height 28 (root 264f24a9…, anchor e088825d…), admission at
+/// 2026-08-28T09:35:22.509Z rejected while height 29 was in flight, height 29
+/// finalized shortly after.
+///
+/// The wait is on the EXISTING watch receiver, so it costs no polling and no
+/// root scan -- in particular it never walks the version history looking for a
+/// resolvable anchor, which would be O(version count) per admission.
+///
+/// FAIL CLOSED IN EVERY DIRECTION. A timeout, a closed channel, an unchanged
+/// republish, and a regressing tip all return `Unavailable`. Only a strictly
+/// non-regressing, genuinely changed tip authorises a retry, and that retry
+/// still goes through the authoritative `check_transactions_at`.
+async fn await_non_regressing_tip_change(
+    tip_rx: &mut watch::Receiver<ChainTipInfo>,
+    previous: &ChainTipInfo,
+    deadline: tokio::time::Instant,
+) -> TipAdvance {
+    // Already observable: the tip moved while the failed check was in flight,
+    // so there is nothing to wait for. `borrow_and_update` also marks the
+    // current value seen, so the `changed()` below cannot return instantly for
+    // a value this call has already rejected.
+    {
+        let observed = tip_rx.borrow_and_update().clone();
+        if tip_changed_without_regressing(previous, &observed) {
+            return TipAdvance::Advanced(observed);
+        }
+    }
+
+    match tokio::time::timeout_at(deadline, tip_rx.changed()).await {
+        Err(_elapsed) => TipAdvance::Unavailable(TipAdvanceFailure::Timeout),
+        Ok(Err(_closed)) => TipAdvance::Unavailable(TipAdvanceFailure::WatchClosed),
+        Ok(Ok(())) => {
+            let observed = tip_rx.borrow_and_update().clone();
+            if tip_changed_without_regressing(previous, &observed) {
+                TipAdvance::Advanced(observed)
+            } else if observed.height < previous.height {
+                TipAdvance::Unavailable(TipAdvanceFailure::Regressed)
+            } else {
+                TipAdvance::Unavailable(TipAdvanceFailure::Unchanged)
+            }
+        }
+    }
 }
 
 fn tip_anchor(tip: &ChainTipInfo) -> ioi_types::app::StateAnchor {
@@ -132,7 +243,21 @@ pub(crate) async fn finalize_valid_transactions(
     // only when the watched tip demonstrably advanced. Every successful
     // admission still comes from check_transactions_at; an unavailable,
     // unchanged, or regressing anchor fails closed.
-    let mut validation_tip = tip_watcher.borrow().clone();
+    //
+    // The retry previously PEEKED the watch and gave up if it had not already
+    // moved. That lost the common race outright: the anchored check fails
+    // precisely because the next height is mid-flight, so at that instant the
+    // committed tip is still the old one and the peek always sees no change.
+    // Waiting on the watch, under one shared deadline, converts that
+    // milliseconds-early rejection into a retry against the block that lands
+    // moments later -- without loosening what counts as a valid anchor.
+    let mut tip_rx = tip_watcher.clone();
+    // Marks the current value seen, so a later `changed()` reports a genuinely
+    // new publication rather than whatever the caller's receiver had not yet
+    // observed.
+    let mut validation_tip = tip_rx.borrow_and_update().clone();
+    // ONE deadline for the whole loop, taken before the first attempt.
+    let advance_deadline = tokio::time::Instant::now() + LIVE_TIP_ADVANCE_BUDGET;
     let mut validation_attempts = 0usize;
     let check_results = loop {
         validation_attempts += 1;
@@ -146,19 +271,29 @@ pub(crate) async fn finalize_valid_transactions(
         {
             Ok(results) => break results,
             Err(error) => {
-                let observed_tip = tip_watcher.borrow().clone();
-                if validation_attempts < MAX_LIVE_TIP_VALIDATION_ATTEMPTS
-                    && tip_changed_without_regressing(&validation_tip, &observed_tip)
-                {
-                    validation_tip = observed_tip;
-                    tokio::task::yield_now().await;
-                    continue;
-                }
+                let advance = if validation_attempts < MAX_LIVE_TIP_VALIDATION_ATTEMPTS {
+                    await_non_regressing_tip_change(&mut tip_rx, &validation_tip, advance_deadline)
+                        .await
+                } else {
+                    TipAdvance::Unavailable(TipAdvanceFailure::AttemptsExhausted)
+                };
+
+                let failure = match advance {
+                    TipAdvance::Advanced(observed_tip) => {
+                        validation_tip = observed_tip;
+                        // Preserved from the original retry path: hand the
+                        // producer a scheduling point before re-checking.
+                        tokio::task::yield_now().await;
+                        continue;
+                    }
+                    TipAdvance::Unavailable(failure) => failure,
+                };
 
                 tracing::error!(
                     target: "ingestion",
                     attempts = validation_attempts,
                     attempted_height = validation_tip.height,
+                    failure = failure.reason(),
                     "Validation IPC failed closed: {}",
                     error
                 );
@@ -170,7 +305,8 @@ pub(crate) async fn finalize_valid_transactions(
                         TxStatusEntry {
                             status: TxStatus::Rejected,
                             error: Some(format!(
-                                "Anchored validation unavailable after {validation_attempts} attempt(s): {error}"
+                                "Anchored validation unavailable after {validation_attempts} attempt(s) ({}): {error}",
+                                failure.reason()
                             )),
                             block_height: None,
                         },
@@ -444,5 +580,226 @@ mod tests {
             "start@v1"
         )));
         assert!(!is_desktop_agent_step(&system_call("agentic", "step@v1")));
+    }
+
+    // -----------------------------------------------------------------------
+    // Bounded wait for a newer committed tip
+    // -----------------------------------------------------------------------
+    //
+    // DETERMINISM. `tokio`'s `test-util` feature is not enabled for this crate,
+    // so `start_paused` virtual time is unavailable and enabling it would mean
+    // editing Cargo.toml. Instead the deadline is a parameter:
+    //
+    //   * fail-closed cases pass an ALREADY-ELAPSED deadline, so `timeout_at`
+    //     resolves on the first poll and nothing ever sleeps;
+    //   * success cases pass a deadline far in the future and are woken by an
+    //     actual `send`, so they finish as soon as the watch fires and never
+    //     wait on the clock.
+    //
+    // No test outcome depends on how long anything takes.
+
+    /// Far enough out that a success path can never reach it on any machine,
+    /// while still being a real bound.
+    fn generous_deadline() -> tokio::time::Instant {
+        tokio::time::Instant::now() + Duration::from_secs(3_600)
+    }
+
+    /// Already spent, so the timeout branch is taken without sleeping.
+    fn elapsed_deadline() -> tokio::time::Instant {
+        tokio::time::Instant::now() - Duration::from_secs(1)
+    }
+
+    fn advanced_tip(advance: TipAdvance) -> ChainTipInfo {
+        match advance {
+            TipAdvance::Advanced(tip) => tip,
+            TipAdvance::Unavailable(failure) => {
+                panic!("expected an advance, got {failure:?}")
+            }
+        }
+    }
+
+    fn failure_of(advance: TipAdvance) -> TipAdvanceFailure {
+        match advance {
+            TipAdvance::Unavailable(failure) => failure,
+            TipAdvance::Advanced(tip) => {
+                panic!(
+                    "expected fail-closed, got an advance to height {}",
+                    tip.height
+                )
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn an_already_visible_advance_is_taken_without_waiting() {
+        // The tip moved while the failed anchored check was in flight. There is
+        // nothing to wait for, and waiting would add latency for no reason.
+        let (tx, rx) = watch::channel(tip(28, 28));
+        let mut rx = rx.clone();
+        let previous = rx.borrow_and_update().clone();
+        tx.send(tip(29, 29)).expect("receiver alive");
+
+        // An already-elapsed deadline proves this path never reaches the wait:
+        // if it did, it would time out instead of advancing.
+        let observed = advanced_tip(
+            await_non_regressing_tip_change(&mut rx, &previous, elapsed_deadline()).await,
+        );
+        assert_eq!(observed.height, 29);
+    }
+
+    #[tokio::test]
+    async fn a_tip_that_arrives_after_the_failure_is_awaited_and_retried() {
+        // THE REGRESSION THIS REPAIR EXISTS FOR. At the moment the anchored
+        // check fails, height 29 is still in flight and the committed tip is
+        // still 28 -- a synchronous peek sees no change and fails closed
+        // milliseconds before the block that would have worked.
+        let (tx, rx) = watch::channel(tip(28, 28));
+        let mut rx = rx.clone();
+        let previous = rx.borrow_and_update().clone();
+
+        // Publish only AFTER the waiter is already parked.
+        let sender = tokio::spawn(async move {
+            tokio::task::yield_now().await;
+            tx.send(tip(29, 29)).expect("receiver alive");
+            // Hold the sender so the channel does not close and turn this into
+            // the WatchClosed case by accident.
+            tokio::time::sleep(Duration::from_secs(3_600)).await;
+            drop(tx);
+        });
+
+        let observed = advanced_tip(
+            await_non_regressing_tip_change(&mut rx, &previous, generous_deadline()).await,
+        );
+        assert_eq!(observed.height, 29);
+        assert_eq!(observed.state_root, vec![29u8; 32]);
+        sender.abort();
+    }
+
+    #[tokio::test]
+    async fn a_tip_that_never_moves_fails_closed_on_the_budget() {
+        // Fail closed, not admit: the anchor never became resolvable.
+        let (_tx, rx) = watch::channel(tip(28, 28));
+        let mut rx = rx.clone();
+        let previous = rx.borrow_and_update().clone();
+
+        assert_eq!(
+            failure_of(
+                await_non_regressing_tip_change(&mut rx, &previous, elapsed_deadline()).await
+            ),
+            TipAdvanceFailure::Timeout,
+        );
+    }
+
+    #[tokio::test]
+    async fn a_closed_watch_fails_closed_rather_than_retrying() {
+        // Every sender is gone, so no tip will ever arrive. Retrying against
+        // the stale anchor forever would be the alternative.
+        let (tx, rx) = watch::channel(tip(28, 28));
+        let mut rx = rx.clone();
+        let previous = rx.borrow_and_update().clone();
+        drop(tx);
+
+        assert_eq!(
+            failure_of(
+                await_non_regressing_tip_change(&mut rx, &previous, generous_deadline()).await
+            ),
+            TipAdvanceFailure::WatchClosed,
+        );
+    }
+
+    #[tokio::test]
+    async fn a_regressing_tip_fails_closed_and_is_never_retried_against() {
+        // A lower height is not a newer anchor. Accepting it would validate
+        // against state the chain has moved past.
+        let (tx, rx) = watch::channel(tip(28, 28));
+        let mut rx = rx.clone();
+        let previous = rx.borrow_and_update().clone();
+
+        let sender = tokio::spawn(async move {
+            tokio::task::yield_now().await;
+            tx.send(tip(27, 27)).expect("receiver alive");
+            tokio::time::sleep(Duration::from_secs(3_600)).await;
+            drop(tx);
+        });
+
+        assert_eq!(
+            failure_of(
+                await_non_regressing_tip_change(&mut rx, &previous, generous_deadline()).await
+            ),
+            TipAdvanceFailure::Regressed,
+        );
+        sender.abort();
+    }
+
+    #[tokio::test]
+    async fn an_unchanged_republish_fails_closed_rather_than_counting_as_progress() {
+        // `watch` notifies on every send, even when the value is identical. A
+        // republished height 28 is not the height 29 the retry needs, so
+        // treating the notification alone as progress would retry against the
+        // same unresolvable anchor.
+        let (tx, rx) = watch::channel(tip(28, 28));
+        let mut rx = rx.clone();
+        let previous = rx.borrow_and_update().clone();
+
+        let sender = tokio::spawn(async move {
+            tokio::task::yield_now().await;
+            tx.send(tip(28, 28)).expect("receiver alive");
+            tokio::time::sleep(Duration::from_secs(3_600)).await;
+            drop(tx);
+        });
+
+        assert_eq!(
+            failure_of(
+                await_non_regressing_tip_change(&mut rx, &previous, generous_deadline()).await
+            ),
+            TipAdvanceFailure::Unchanged,
+        );
+        sender.abort();
+    }
+
+    #[tokio::test]
+    async fn a_same_height_root_change_counts_as_a_genuine_advance() {
+        // Guards the Unchanged case above from over-refusing: the existing
+        // non-regression rule admits a same-height tip whose root differs, and
+        // the wait must not narrow that.
+        let (tx, rx) = watch::channel(tip(28, 28));
+        let mut rx = rx.clone();
+        let previous = rx.borrow_and_update().clone();
+
+        let sender = tokio::spawn(async move {
+            tokio::task::yield_now().await;
+            tx.send(tip(28, 99)).expect("receiver alive");
+            tokio::time::sleep(Duration::from_secs(3_600)).await;
+            drop(tx);
+        });
+
+        let observed = advanced_tip(
+            await_non_regressing_tip_change(&mut rx, &previous, generous_deadline()).await,
+        );
+        assert_eq!(observed.height, 28);
+        assert_eq!(observed.state_root, vec![99u8; 32]);
+        sender.abort();
+    }
+
+    #[test]
+    fn every_fail_closed_reason_is_distinct_and_reportable() {
+        // The reason reaches the submitter's rejection message, so an operator
+        // can tell a stalled producer from a dropped watch. Identical strings
+        // would collapse that distinction silently.
+        let reasons = [
+            TipAdvanceFailure::Timeout,
+            TipAdvanceFailure::WatchClosed,
+            TipAdvanceFailure::Unchanged,
+            TipAdvanceFailure::Regressed,
+            TipAdvanceFailure::AttemptsExhausted,
+        ]
+        .map(TipAdvanceFailure::reason);
+        let unique = reasons.iter().collect::<std::collections::HashSet<_>>();
+        assert_eq!(
+            unique.len(),
+            reasons.len(),
+            "reasons must be distinguishable"
+        );
+        assert!(reasons.iter().all(|reason| !reason.is_empty()));
     }
 }
