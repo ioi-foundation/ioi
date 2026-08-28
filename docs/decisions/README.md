@@ -13,6 +13,10 @@ capability claims through the conformance claim coverage index
 (`docs/conformance/README.md`). Any `PG-*` projection appearing in a tracked
 artifact is oversight reporting only, never closure authority.
 
+## Proposed ADRs
+
+- [ADR 0039: Propose Finality Profiles Over The Agentgres Verifiable Batch Log](./0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md) (**Proposed — DESIGN ONLY; no runtime authority change**; supported for review by the M04.9 AFT/Solo parity experiment, while AFT remains the preserved control)
+
 ## Accepted ADRs
 
 - [ADR 0001: Remove SCS And Adopt `ioi-memory` For Product Memory](./0001-scs-deprecation-and-memory-runtime-successor.md)

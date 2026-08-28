@@ -88,15 +88,54 @@ depth test, a mutation admitting regressing ingestion tips failed its focused
 test, and the parser's missing-field mutations fail closed.
 
 These measurements do not establish a numeric tripwire. They are one host's
-pre/post evidence, client wait is polling-quantized, and the complete semantic
-soak remains 14/15 because the final restarted OutcomeRoom projection still
-returns the already-recorded unavailable owner-record dependency. Repeated
+pre/post evidence, client wait is polling-quantized, and the M04.8 artifact's
+complete semantic soak was 14/15 because its final restarted OutcomeRoom
+projection returned the then-unavailable owner-record dependency. Repeated
 release-host runs plus a mutation of the selected budget remain prerequisites
 for a threshold. The exact aggregate and depth buckets and artifact hashes are
 recorded in
 [`m04-8-wallet-authority-commit-path-profile.v1.json`](../architecture/_meta/evidence/m04-8-wallet-authority-commit-path-profile.v1.json).
 
-The ordered ladder stops after step 1 for this defect. Batching was not needed
+### 2026-08-28 ordering/finality parity follow-on
+
+The next release-mode leg compared the repaired one-validator AFT control with
+the existing immediate Solo path through the same wallet admission, execution,
+IAVL state, Redb durability, individual receipt, restart, and authority
+abstractions. Six runs independently configured ordering profile, scheduler
+ticker plus genesis block floor, and polling interval with provenance. Every
+run accepted the same 27-operation target-scope sequence, passed 15/15
+fail-closed semantic checks, and reprojected
+all nine room-child families after restart with status/operations/latest
+sequence `200/21/20`. This follow-on does not rewrite the historical 14/15
+M04.8 artifact above; the intervening replay/ownership repairs are separately
+committed and tested.
+
+The descriptive run-level client medians were Solo/AFT 907/1,481 ms at the
+1,000 ms scheduler/block configuration with 25 ms polling, 106/1,324 ms at the
+100 ms configuration with 25 ms polling, and an effectively null 1,003/1,004
+ms at the 1,000 ms configuration with 500 ms polling. The first pair's
+ordering/finalization medians were 48/60 ms. Independent fresh chains produced
+different depth/version sample mixes, and depth-matched buckets do not preserve
+all aggregate comparisons. Proposal wait and event-driven completion are not
+separately instrumented, realized proposal spacing was unavailable, and the
+client phase is polling-quantized. These values are descriptive rather than
+matched causal estimates. State commitment and Redb persistence remained
+similar across profiles, including Solo at version 4,004 and tree depth 10.
+
+The semantic and restart parity—not an uncontrolled latency delta—supports
+reviewing Solo as a deployment profile, not deleting or demoting the AFT
+control. ADR 0039 records that direction as **Proposed**, with no runtime
+authority. It preserves one Agentgres spine, individual receipts, and exact
+batch/state bindings while separating inclusion, consistency, freshness,
+revocation, admission, and cross-scope adjudication obligations. No numeric
+tripwire is set. Exact phase definitions, depth/version buckets, artifact
+hashes, fault coverage, and nonclaims are recorded in
+[`m04-9-ordering-finality-parity-profile.v1.json`](../architecture/_meta/evidence/m04-9-ordering-finality-parity-profile.v1.json).
+
+The following stop disposition remains historical and specific to the original
+quadratic M04.8 defect; the follow-on evaluates Solo separately without
+reopening the stopped backend or partition candidates. The ordered ladder stops
+after step 1 for this defect. Batching was not needed
 to remove the measured dominant growth and individual authority receipts were
 not altered. JMT is not benchmark-qualified because current evidence does not
 establish incremental-commit, persistence/restart, historical-anchor, pruning,

@@ -1,0 +1,181 @@
+{
+  "evidence_format": "ioi.m049.ordering-finality-parity-evidence.v1",
+  "measured_at": "2026-08-28",
+  "integration": {
+    "starting_master": "6192713b36078fcb241c24b8039d429c91b67e83",
+    "experiment_source": "0dca6d88be64721a169620714e88ad8165d5adba",
+    "required_ancestor": "2a20e73e6c6028cec121142a5a35311d2d91306d",
+    "observed_origin_master": "795ee35cc776d2cc30b23e0cb7f86ff1f2fa0173"
+  },
+  "measurement_contract": {
+    "artifact_schema": "ioi.m049.ordering-finality-parity-profile.v1",
+    "build_profile": "release",
+    "authority_daemon_sha256": "sha256:8dbf62369b0ec609e1a8ab15d13f3f181732dd37eff21c3934e628f39b8a5a69",
+    "authority_daemon_size_bytes": 74617368,
+    "state_commitment_backend": "iavl",
+    "durable_store_backend": "redb",
+    "validator_count": 1,
+    "consensus_min_tick_ms": 50,
+    "approvals_per_run": 27,
+    "semantic_checks_per_run": 15,
+    "summary_order": ["min", "p50", "p95", "max"],
+    "percentile_method": "sorted_index_floor((sample_count-1)*percentile)",
+    "numeric_tripwire_ms": null,
+    "tripwire_disposition": "withheld_pending_repeated_release_hosts_and_a_mutation_of_the_selected_budget"
+  },
+  "experiment_matrix": [
+    {"run_id": "aft-c1000-p25", "ordering_profile": "aft", "scheduler_ticker_ms": 1000, "genesis_block_interval_ms": 1000, "poll_interval_ms": 25, "approvals": 27, "semantic_checks": "15/15", "restart_status_operations_latest_sequence": "200/21/20", "anomalies": 0},
+    {"run_id": "solo-c1000-p25", "ordering_profile": "solo", "scheduler_ticker_ms": 1000, "genesis_block_interval_ms": 1000, "poll_interval_ms": 25, "approvals": 27, "semantic_checks": "15/15", "restart_status_operations_latest_sequence": "200/21/20", "anomalies": 0},
+    {"run_id": "aft-c100-p25", "ordering_profile": "aft", "scheduler_ticker_ms": 100, "genesis_block_interval_ms": 100, "poll_interval_ms": 25, "approvals": 27, "semantic_checks": "15/15", "restart_status_operations_latest_sequence": "200/21/20", "anomalies": 0},
+    {"run_id": "solo-c100-p25", "ordering_profile": "solo", "scheduler_ticker_ms": 100, "genesis_block_interval_ms": 100, "poll_interval_ms": 25, "approvals": 27, "semantic_checks": "15/15", "restart_status_operations_latest_sequence": "200/21/20", "anomalies": 0},
+    {"run_id": "aft-c1000-p500", "ordering_profile": "aft", "scheduler_ticker_ms": 1000, "genesis_block_interval_ms": 1000, "poll_interval_ms": 500, "approvals": 27, "semantic_checks": "15/15", "restart_status_operations_latest_sequence": "200/21/20", "anomalies": 0},
+    {"run_id": "solo-c1000-p500", "ordering_profile": "solo", "scheduler_ticker_ms": 1000, "genesis_block_interval_ms": 1000, "poll_interval_ms": 500, "approvals": 27, "semantic_checks": "15/15", "restart_status_operations_latest_sequence": "200/21/20", "anomalies": 0}
+  ],
+  "dimension_control": {
+    "varied_within_each_aft_solo_pair": ["ordering_profile"],
+    "varied_across_pairs": ["scheduler ticker and genesis block interval", "client status-poll interval"],
+    "held_identical_within_each_pair": [
+      "block-timestamp derivation (both engines use compute_next_timestamp_ms over the same on-chain BlockTimingParams/BlockTimingRuntime)",
+      "genesis block timing (base == min == max == effective, retarget disabled, same value for both profiles)",
+      "scheduler ticker and minimum tick spacing",
+      "client status-poll interval",
+      "admission, execution, IAVL commitment, Redb durability and status/receipt path"
+    ],
+    "unmeasured_timing_dimensions": [
+      "The wait between a tx entering the mempool and the next proposal picking it up is not bracketed by any seam; only the configured floor and realized producer proposal spacing are reported.",
+      "Host scheduling noise, and any variation in when the deferral wake-up fires relative to the due timestamp, are not measured.",
+      "Wall-clock alignment of the first block is not recorded; the initial tip is pinned through IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS for both engines."
+    ],
+    "residual_risk": "A single-validator fixture exercises no cross-node ordering, so this profile says nothing about how either engine behaves with peers. Independent fresh chains also produced different depth/version sample mixes, so aggregate AFT/Solo latency comparisons are descriptive rather than matched causal estimates."
+  },
+  "scheduler_and_block_cadence": {
+    "c1000": {"ticker_interval_ms": 1000, "ticker_interval_provenance": "env:ORCH_BLOCK_INTERVAL_MS", "min_tick_ms": 50, "min_tick_provenance": "env:ORCH_CONSENSUS_MIN_TICK_MS", "genesis_block_interval_ms": 1000, "genesis_block_interval_provenance": "env:IOI_BENCH_BLOCK_INTERVAL_MS", "view_timeout_secs": 2},
+    "c100": {"ticker_interval_ms": 100, "ticker_interval_provenance": "env:ORCH_BLOCK_INTERVAL_MS", "min_tick_ms": 50, "min_tick_provenance": "env:ORCH_CONSENSUS_MIN_TICK_MS", "genesis_block_interval_ms": 100, "genesis_block_interval_provenance": "env:IOI_BENCH_BLOCK_INTERVAL_MS", "view_timeout_secs": 2},
+    "provenance": "observed:[BENCH-ORDERING]",
+    "measured": false,
+    "governs": "genesis_block_interval_ms is the floor that spaces blocks; ticker_interval_ms only decides how often consensus is polled and cannot produce a block earlier than that floor."
+  },
+  "observed_proposal_interval_ms": {
+    "values_in_all_six_runs": [],
+    "provenance": "derived:[BENCH-ORDERING].proposal_observed_at_ms",
+    "measured": true,
+    "reason_empty": "The producer only differences consecutive attributed heights; these runs had no eligible adjacent attributed pair. No realized proposal-spacing estimate is available."
+  },
+  "artifact_integrity": {
+    "aft-c1000-p25": "154662a37651e9a38f48daa9364cd38904f1b95f7faaf3f226a7431798fd132f",
+    "solo-c1000-p25": "81f95af0bc9d2e9a47163b4f3b443df75204a36e8431724172f856cdf526060d",
+    "aft-c100-p25": "0a5cff3fb5bc7147b43205825a552928e49a93a4e60d54b8c2d741a22721ef4d",
+    "solo-c100-p25": "b5647d48a2ec14df55f8b4c6f5220260d55ca65b173072c08547823287fc733d",
+    "aft-c1000-p500": "4232f71992bdb43d820dc1a1315aa99b43eff4a10a035241ca780ff6bbaabfed",
+    "solo-c1000-p500": "7e58c54c25736649a238ea6213b984172b92776daff982500c6b32109fc2ab74"
+  },
+  "phase_semantics": {
+    "submission": "client_submission_admission is inclusive submit_transaction RPC wall time and contains unseparated server admission and mempool enqueue",
+    "admission_and_queueing": "unmeasured; nested in submission and never reported as zero",
+    "proposal_and_cadence_wait": "unmeasured; configured cadence is recorded, but no seam brackets a transaction's mempool-to-proposal wait",
+    "ordering_and_finalization": "inclusive ordering-engine selection, proposal processing and finalization; contains execution and durability",
+    "execution_prepare": "exclusive speculative execution leaf",
+    "execution_commit": "inclusive proof checks, state application, end-block and durable commit; contains commitment and persistence",
+    "state_commitment_materialization": "exclusive IAVL commitment-version materialization",
+    "durable_persistence": "exclusive persistence-adapter preparation plus Redb state-version and block write",
+    "receipt_creation_and_durable_ack": "unmeasured; individual receipts remain inside execution/durability and are not assigned zero cost",
+    "completion_notification_and_client_observation": "inclusive polling upper bound quantized by poll_interval_ms; event-driven completion is unavailable because BlockCommitted carries no transaction identity",
+    "proof_or_exact_state_resolution": "exclusive exact committed approval-state query and match; not proof generation, proof size or cryptographic proof verification",
+    "ordering_excluding_execution_derived": "derived per-approval subtraction ordering_and_finalization inclusive minus execution_commit inclusive; corresponds to the producer's derived_exclusive_ms.consensus_excluding_execution and is not added to any inclusive phase",
+    "summation_rule": "inclusive and nested values are not summed; only declared exclusive leaves form a lower bound, not a complete partition"
+  },
+  "phase_summary_ms": {
+    "aft-c1000-p25": {"submission": [3, 6, 8, 8], "client_observation": [263, 1481, 2245, 2467], "ordering_finalization": [41, 60, 70, 91], "execution_prepare": [4, 5, 5, 7], "execution_commit": [18, 26, 30, 32], "state_commitment": [0.005, 0.006, 0.008, 0.01], "persistence": [16.635, 24.44, 29.15, 30.867], "exact_state_resolution": [0, 3, 8, 9], "ordering_excluding_execution_derived": [14, 32, 36, 57]},
+    "solo-c1000-p25": {"submission": [2, 3, 4, 22], "client_observation": [52, 907, 972, 978], "ordering_finalization": [40, 48, 57, 64], "execution_prepare": [4, 6, 8, 16], "execution_commit": [21, 25, 29, 33], "state_commitment": [0.004, 0.006, 0.01, 0.015], "persistence": [19.725, 23.56, 27.65, 32.069], "exact_state_resolution": [0, 0, 1, 1], "ordering_excluding_execution_derived": [14, 16, 21, 31]},
+    "aft-c100-p25": {"submission": [3, 4, 9, 13], "client_observation": [105, 1324, 2260, 3365], "ordering_finalization": [40, 61, 75, 97], "execution_prepare": [4, 5, 6, 7], "execution_commit": [20, 25, 31, 32], "state_commitment": [0.005, 0.006, 0.008, 0.009], "persistence": [19.12, 23.344, 28.944, 30.761], "exact_state_resolution": [0, 1, 9, 11], "ordering_excluding_execution_derived": [16, 30, 40, 59]},
+    "solo-c100-p25": {"submission": [2, 3, 4, 13], "client_observation": [54, 106, 174, 198], "ordering_finalization": [37, 46, 77, 120], "execution_prepare": [4, 6, 8, 9], "execution_commit": [19, 22, 26, 29], "state_commitment": [0.004, 0.006, 0.009, 0.015], "persistence": [18.382, 20.844, 23.898, 27.674], "exact_state_resolution": [0, 0, 5, 11], "ordering_excluding_execution_derived": [9, 17, 49, 90]},
+    "aft-c1000-p500": {"submission": [3, 4, 8, 27], "client_observation": [1002, 1004, 2008, 2509], "ordering_finalization": [43, 61, 76, 118], "execution_prepare": [4, 7, 7, 9], "execution_commit": [19, 25, 29, 32], "state_commitment": [0.004, 0.008, 0.016, 0.018], "persistence": [17.618, 23.874, 27.466, 29.479], "exact_state_resolution": [0, 1, 5, 7], "ordering_excluding_execution_derived": [16, 30, 44, 78]},
+    "solo-c1000-p500": {"submission": [2, 3, 5, 6], "client_observation": [501, 1003, 1004, 1004], "ordering_finalization": [39, 49, 54, 61], "execution_prepare": [4, 7, 8, 8], "execution_commit": [22, 26, 29, 42], "state_commitment": [0.004, 0.006, 0.01, 0.016], "persistence": [20.763, 25.013, 27.488, 40.906], "exact_state_resolution": [0, 0, 1, 1], "ordering_excluding_execution_derived": [9, 15, 19, 21]}
+  },
+  "depth_version_baseline": [
+    {"run_id": "aft-c1000-p25", "tree_depth": 9, "version_min": 160, "version_max": 186, "samples": 3, "client_observation": [263, 298, 298, 343], "ordering_finalization": [41, 43, 43, 49], "execution_commit": [18, 22, 22, 28], "persistence": [16.635, 20.902, 20.902, 26.917]},
+    {"run_id": "aft-c1000-p25", "tree_depth": 10, "version_min": 200, "version_max": 389, "samples": 10, "client_observation": [317, 804, 1211, 1330], "ordering_finalization": [49, 56, 60, 69], "execution_commit": [21, 24, 28, 31], "persistence": [19.831, 22.77, 26.542, 29.789]},
+    {"run_id": "aft-c1000-p25", "tree_depth": 11, "version_min": 402, "version_max": 525, "samples": 14, "client_observation": [1481, 2003, 2310, 2467], "ordering_finalization": [59, 63, 76, 91], "execution_commit": [21, 26, 30, 32], "persistence": [19.782, 24.634, 29.15, 30.867]},
+    {"run_id": "solo-c1000-p25", "tree_depth": 7, "version_min": 150, "version_max": 201, "samples": 2, "client_observation": [52, 52, 52, 80], "ordering_finalization": [40, 40, 40, 43], "execution_commit": [21, 21, 21, 23], "persistence": [20.259, 20.259, 20.259, 22.35]},
+    {"run_id": "solo-c1000-p25", "tree_depth": 8, "version_min": 288, "version_max": 693, "samples": 5, "client_observation": [78, 79, 911, 944], "ordering_finalization": [41, 46, 49, 50], "execution_commit": [21, 23, 26, 27], "persistence": [20.446, 21.939, 24.214, 25.462]},
+    {"run_id": "solo-c1000-p25", "tree_depth": 9, "version_min": 705, "version_max": 897, "samples": 12, "client_observation": [792, 898, 966, 972], "ordering_finalization": [42, 48, 52, 64], "execution_commit": [21, 25, 29, 33], "persistence": [19.725, 24.488, 28.454, 32.069]},
+    {"run_id": "solo-c1000-p25", "tree_depth": 10, "version_min": 917, "version_max": 1033, "samples": 8, "client_observation": [844, 939, 977, 978], "ordering_finalization": [44, 49, 57, 60], "execution_commit": [22, 25, 28, 28], "persistence": [20.77, 23.56, 26.776, 26.796]},
+    {"run_id": "aft-c100-p25", "tree_depth": 9, "version_min": 92, "version_max": 183, "samples": 5, "client_observation": [105, 184, 210, 293], "ordering_finalization": [40, 46, 47, 56], "execution_commit": [20, 23, 24, 26], "persistence": [19.12, 22.269, 23.144, 24.336]},
+    {"run_id": "aft-c100-p25", "tree_depth": 10, "version_min": 253, "version_max": 384, "samples": 9, "client_observation": [608, 910, 1307, 1324], "ordering_finalization": [52, 55, 66, 75], "execution_commit": [21, 23, 26, 28], "persistence": [19.88, 21.62, 24.488, 26.163]},
+    {"run_id": "aft-c100-p25", "tree_depth": 11, "version_min": 392, "version_max": 513, "samples": 13, "client_observation": [1329, 2007, 2397, 3365], "ordering_finalization": [58, 65, 76, 97], "execution_commit": [24, 27, 31, 32], "persistence": [22.325, 25.2, 29.573, 30.761]},
+    {"run_id": "solo-c100-p25", "tree_depth": 7, "version_min": 159, "version_max": 213, "samples": 2, "client_observation": [54, 54, 54, 105], "ordering_finalization": [37, 37, 37, 37], "execution_commit": [20, 20, 20, 21], "persistence": [19.053, 19.053, 19.053, 20.135]},
+    {"run_id": "solo-c100-p25", "tree_depth": 8, "version_min": 271, "version_max": 843, "samples": 5, "client_observation": [105, 131, 131, 157], "ordering_finalization": [41, 45, 46, 50], "execution_commit": [21, 22, 24, 29], "persistence": [20.295, 20.925, 22.862, 27.674]},
+    {"run_id": "solo-c100-p25", "tree_depth": 9, "version_min": 943, "version_max": 2719, "samples": 12, "client_observation": [80, 106, 174, 175], "ordering_finalization": [37, 44, 54, 81], "execution_commit": [19, 22, 25, 28], "persistence": [18.382, 20.844, 23.322, 26.601]},
+    {"run_id": "solo-c100-p25", "tree_depth": 10, "version_min": 2882, "version_max": 4004, "samples": 8, "client_observation": [77, 106, 167, 198], "ordering_finalization": [45, 48, 77, 120], "execution_commit": [21, 21, 24, 26], "persistence": [18.752, 20.286, 22.304, 23.898]},
+    {"run_id": "aft-c1000-p500", "tree_depth": 8, "version_min": 32, "version_max": 44, "samples": 3, "client_observation": [1002, 1003, 1003, 1004], "ordering_finalization": [43, 44, 44, 44], "execution_commit": [19, 22, 22, 24], "persistence": [17.618, 21.513, 21.513, 23.247]},
+    {"run_id": "aft-c1000-p500", "tree_depth": 9, "version_min": 51, "version_max": 121, "samples": 5, "client_observation": [1002, 1003, 1003, 1003], "ordering_finalization": [46, 58, 60, 61], "execution_commit": [21, 25, 25, 25], "persistence": [20.11, 23.327, 23.336, 23.917]},
+    {"run_id": "aft-c1000-p500", "tree_depth": 10, "version_min": 133, "version_max": 313, "samples": 10, "client_observation": [1002, 1004, 1004, 1505], "ordering_finalization": [49, 60, 65, 79], "execution_commit": [22, 26, 27, 29], "persistence": [20.01, 24.003, 25.469, 27.259]},
+    {"run_id": "aft-c1000-p500", "tree_depth": 11, "version_min": 337, "version_max": 439, "samples": 9, "client_observation": [1505, 2005, 2508, 2509], "ordering_finalization": [60, 65, 76, 118], "execution_commit": [24, 28, 30, 32], "persistence": [22.051, 26.779, 28.115, 29.479]},
+    {"run_id": "solo-c1000-p500", "tree_depth": 7, "version_min": 33, "version_max": 38, "samples": 2, "client_observation": [501, 501, 501, 1003], "ordering_finalization": [39, 39, 39, 42], "execution_commit": [23, 23, 23, 23], "persistence": [21.892, 21.892, 21.892, 22.01]},
+    {"run_id": "solo-c1000-p500", "tree_depth": 8, "version_min": 46, "version_max": 122, "samples": 5, "client_observation": [1003, 1003, 1003, 1004], "ordering_finalization": [43, 45, 50, 53], "execution_commit": [23, 23, 25, 26], "persistence": [21.553, 22.348, 23.773, 25.62]},
+    {"run_id": "solo-c1000-p500", "tree_depth": 9, "version_min": 133, "version_max": 277, "samples": 10, "client_observation": [1002, 1004, 1004, 1004], "ordering_finalization": [44, 48, 50, 56], "execution_commit": [22, 26, 27, 28], "persistence": [20.763, 25.111, 25.985, 26.395]},
+    {"run_id": "solo-c1000-p500", "tree_depth": 10, "version_min": 294, "version_max": 443, "samples": 10, "client_observation": [1003, 1003, 1004, 1004], "ordering_finalization": [46, 50, 54, 61], "execution_commit": [25, 27, 31, 42], "persistence": [24.045, 25.113, 30.491, 40.906]}
+  ],
+  "parity_evidence": {
+    "accepted_scope_sequence_equal": true,
+    "accepted_scope_count": 27,
+    "same_scenario_source": "apps/hypervisor/scripts/verify-m4-room-participation-contribution-plane.mjs",
+    "same_authority_and_receipt_source": "crates/cli/tests/hypervisor_wallet_network_fixture.rs",
+    "same_state_and_durability_abstractions": ["StateManager/IAVL", "Redb combined state-and-block commit"],
+    "individual_receipts_preserved": true,
+    "semantic_checks": "all six runs 15/15",
+    "restart_recovery": "all six runs reprojected 9/9 room-child families; status/operations/latest_sequence was 200/21/20",
+    "one_profile_selected_per_fresh_run": true,
+    "profile_transition_or_dual_authority_interval_tested": false,
+    "ordering_profile_was_only_authority_path_selector": true,
+    "separate_fresh_chains_nonclaim": "random fixture identities, wall-clock evidence and ordering-dependent empty-block/version counts mean byte-identical roots across independent runs are not claimed; equality is the identical operation-scope sequence plus the same fail-closed assertions and exact restart projections"
+  },
+  "mutation_and_fault_results": [
+    {"gate": "profiler attribution and phase semantics", "command": "node --test apps/hypervisor/scripts/profile-m4-wallet-authority-commit-path.test.mjs", "result": "52/52", "coverage": "missing fields, wrong phase attribution, state/durable-store distinction, non-atomic commit, unknown or mixed profiles, cadence provenance, independent controls, non-summability and proof nonclaims"},
+    {"gate": "benchmark initial-tip selector mutation", "command": "cargo test -p ioi-cli --test hypervisor_wallet_network_fixture fixture_command_contract_is_canonical_and_bounded", "result": "red_then_green", "coverage": "changing wall_clock_fixture || benchmark_trace to && failed this fixture contract test; restored code passed"},
+    {"gate": "Agentgres library", "command": "cargo test -p agentgres --lib", "result": "50/50", "coverage": "write and fsync uncertainty stop the writer, device-flush ACK label, torn-tail truncation, partial/unrooted batch discard, exact-head conflict, replay divergence, deterministic roots and stale-primary fencing"},
+    {"gate": "IAVL atomic combined commit", "command": "cargo test -p ioi-state iavl_commit_with_block", "result": "2/2", "coverage": "one combined state-and-block store operation; commit state does not advance before durability"},
+    {"gate": "wallet authority refusal suite", "command": "cargo test -p ioi-services wallet_network::tests -- --nocapture", "result": "75/75", "coverage": "stale, missing, malformed, relocated, replayed, reordered/gapped, nonce-reused, divergent, conflicting-receipt-slot, revoked, expired, wrong-signer and key-substitution evidence refuses without unauthorized mutation"},
+    {"gate": "architecture contract projections", "command": "npm run check:architecture-contracts", "result": "green", "coverage": "ReceiptCheckpoint/ReceiptProofBundle positive and negative schema/invariant fixtures remain current"}
+  ],
+  "crash_point_disposition": [
+    {"point": "append/write", "status": "mechanized", "evidence": "Agentgres writer_write_error_returns_typed_uncertainty_and_stops and torn-tail recovery"},
+    {"point": "batch/root construction", "status": "mechanized_at_agentgres_batch_boundary", "evidence": "partial-domain-root and syntactically-valid-unrooted batches are discarded on recovery; exact projection refuses unrooted frames"},
+    {"point": "state update", "status": "mechanized", "evidence": "IAVL commit state does not advance before the combined durable store operation succeeds"},
+    {"point": "receipt creation", "status": "not_separately_instrumented_or_crash_injected", "evidence": "receipt creation remains nested in execution commit; existing wallet tests prove atomic/idempotent receipt semantics but not a process crash at this exact seam"},
+    {"point": "checkpoint or finality-certificate signing", "status": "unimplemented_for_receipt_checkpoint_v1", "evidence": "canon records generated schemas/invariants/fixtures only; production checkpoint emission and cryptographic verifier/CLI remain planned"},
+    {"point": "fsync", "status": "mechanized_at_agentgres_log_and_combined_state_boundary", "evidence": "Agentgres fsync failure returns typed durability uncertainty and stops; IAVL refuses to advance before durable combined commit"}
+  ],
+  "interpretation": [
+    "Descriptive run-level medians at 25 ms polling were lower for Solo: at 1000 ms configured scheduler/block cadence, client observation was 907 ms versus AFT 1481 ms and ordering/finalization was 48 ms versus 60 ms; at 100 ms cadence, client observation was 106 ms versus 1324 ms. Independent fresh chains produced different depth/version sample mixes, so these aggregates are not matched causal estimates and the 1000 ms/depth-matched buckets do not preserve the same ordering.",
+    "At 1000 ms configured scheduler/block cadence and 500 ms polling, client-observed p50 was effectively null at 1003 ms for Solo versus 1004 ms for AFT. All three AFT/Solo pairs are reported; per-transaction proposal wait and event-driven completion remain unmeasured.",
+    "Changing the poll interval produced values quantized near 500/1000/1500/2000/2500 ms. Independent fresh chains and differing version distributions prevent subtracting the poll runs into an exact notification cost.",
+    "No tested depth/version bucket shows the pre-repair seconds-to-minutes growth in ordering, state commitment or persistence. Solo reached version 4004 at depth 10 under 100 ms cadence without making IAVL commitment or Redb persistence the dominant phase.",
+    "The full semantic and restart parity, not an uncontrolled latency delta, supports treating single-authority/Solo as a deployment-profile candidate. It does not authorize deleting, weakening or demoting the AFT control or extrapolating to peer-bearing profiles."
+  ],
+  "ordered_remedy_disposition": [
+    {"order": 1, "candidate": "commit-path usage or instrumentation repair", "decision": "implemented_and_mutation_tested", "reason": "release daemon selection, timestamp parity, benchmark wall-tip pacing, current committed-state anchoring and restart replay defects were repaired"},
+    {"order": 2, "candidate": "scheduler/block cadence and completion notification", "decision": "configuration_controlled_notification_gap_retained", "reason": "scheduler ticker, genesis block floor and polling were independently configured with provenance; realized proposal spacing was unavailable and event-driven per-transaction completion remains unimplemented"},
+    {"order": 3, "candidate": "immediate single-authority/Solo", "decision": "semantic_parity_qualified_candidate", "reason": "six full runs retained identical accepted scope order, individual receipts, fail-closed checks and restart projections; descriptive latency aggregates are not matched causal estimates"},
+    {"order": 4, "candidate": "batched durable commits with individual receipts", "decision": "not_implemented", "reason": "existing blocks/root commits already preserve individual wallet receipts; the evidence does not yet justify changing batch or ACK contracts"},
+    {"order": 5, "candidate": "Agentgres-aligned architecture refinement", "decision": "proposed_not_accepted", "reason": "ADR 0039 records a reviewable finality-profile and append-log direction without changing runtime authority"},
+    {"candidate": "JMT", "decision": "stopped", "reason": "incremental commit, proof, persistence/restart, pruning and historical-anchor parity through StateManager remain unproven"},
+    {"candidate": "fractal partitioning", "decision": "stopped", "reason": "no measured need and no fail-closed cross-partition proof consumption plus adjudication"}
+  ],
+  "explicit_nonclaims": [
+    "No numeric latency tripwire is established.",
+    "No phase summary sums inclusive or nested values.",
+    "Proposal/cadence wait, admission/queueing and receipt creation/durable ACK are not separately measured.",
+    "Configured scheduler ticker and genesis block floor are not measured per-transaction proposal wait; realized proposal spacing was unavailable because no attributed adjacent-height pair qualified for differencing.",
+    "Event-driven completion latency is not measured.",
+    "Independent fresh chains produced different depth/version mixes, so cross-profile aggregate latency differences are descriptive and not matched causal estimates.",
+    "The single-validator fixture exercises no cross-node ordering and says nothing about either engine with peers.",
+    "No profile transition or dual-authority interval was exercised; each fresh run selected one profile before start.",
+    "No proof generation, proof size or cryptographic proof verification is measured.",
+    "Signed heads or finality certificates alone do not establish non-equivocation, freshness, revocation status, admission correctness or present authority.",
+    "The pre-repair quadratic canonical-collapse behavior was a usage defect, not an inherent BFT cost.",
+    "ReceiptCheckpoint v1 remains the linear ioi.receipt-hash-chain-jcs-sha256.v1 contract.",
+    "The proposed portable-proof successor is not the already-implemented M03.5 portable v3 authority grant verifier and is not implemented here.",
+    "M04.6 ownership, the one-spine law, the deterministic blocking lane and the scheduled release-qualification soak are unchanged."
+  ]
+}
