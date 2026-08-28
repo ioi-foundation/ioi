@@ -1327,3 +1327,343 @@ fn asymptote_observe_committed_block_rejects_corrupted_local_predecessor_chain()
 
     assert!(!accepted);
 }
+
+#[test]
+fn asymptote_committed_block_anchor_work_is_bounded_independent_of_retained_height() {
+    fn continuity_steps_for_commit_after(previous_height: u64) -> u64 {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+        let collapse_chain =
+            test_canonical_collapse_chain_ending(previous_height, [0x21; 32], [0x22; 32]);
+        seed_committed_collapse_chain(&mut engine, &collapse_chain);
+        let previous_collapse = collapse_chain.last().unwrap().clone();
+        let mut header = build_progress_parent_header(previous_height + 1, 0);
+        link_header_to_previous_collapse(&mut header, &previous_collapse);
+        let collapse = derive_canonical_collapse_object_with_previous(
+            &header,
+            &[],
+            Some(&previous_collapse),
+        )
+        .unwrap();
+
+        GuardianMajorityEngine::reset_local_collapse_continuity_steps();
+        let accepted =
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+                &mut engine,
+                &header,
+                Some(&collapse),
+            );
+        assert!(accepted);
+        GuardianMajorityEngine::local_collapse_continuity_steps()
+    }
+
+    let shallow = continuity_steps_for_commit_after(4);
+    let deep = continuity_steps_for_commit_after(40);
+    assert_eq!(shallow, deep, "continuity work grew with retained height");
+    assert_eq!(deep, 3, "unexpected steady-state continuity work");
+}
+
+#[test]
+fn asymptote_bounded_anchor_fails_closed_on_missing_direct_predecessor() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let collapse_chain = test_canonical_collapse_chain_ending(4, [0x23; 32], [0x24; 32]);
+    seed_committed_collapse_chain(&mut engine, &collapse_chain);
+    let previous_collapse = collapse_chain.last().unwrap().clone();
+    engine.committed_collapses.remove(&3);
+
+    let error = engine
+        .verify_admitted_canonical_collapse_anchor(&previous_collapse)
+        .expect_err("missing direct predecessor must be refused");
+    assert!(error.to_string().contains(
+        "missing locally committed canonical collapse object for height 3"
+    ));
+
+    let mut header = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut header, &previous_collapse);
+    let collapse =
+        derive_canonical_collapse_object_with_previous(&header, &[], Some(&previous_collapse))
+            .unwrap();
+    assert!(
+        !<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &header,
+            Some(&collapse),
+        )
+    );
+    assert!(!engine.committed_collapses.contains_key(&5));
+}
+
+#[test]
+fn asymptote_bounded_anchor_rejects_altered_recursive_proof_below_predecessor() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let collapse_chain = test_canonical_collapse_chain_ending(4, [0x25; 32], [0x26; 32]);
+    seed_committed_collapse_chain(&mut engine, &collapse_chain);
+    let previous_collapse = collapse_chain.last().unwrap().clone();
+    let mut tampered = collapse_chain[2].clone();
+    assert_eq!(tampered.height, 3);
+    tampered.continuity_recursive_proof.proof_bytes[0] ^= 0xff;
+    engine.committed_collapses.insert(tampered.height, tampered);
+
+    assert!(engine
+        .verify_admitted_canonical_collapse_anchor(&previous_collapse)
+        .is_err());
+
+    let mut header = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut header, &previous_collapse);
+    let collapse =
+        derive_canonical_collapse_object_with_previous(&header, &[], Some(&previous_collapse))
+            .unwrap();
+    assert!(
+        !<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &header,
+            Some(&collapse),
+        )
+    );
+}
+
+#[test]
+fn asymptote_record_rejects_conflicting_readmission_below_successor() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let chain = test_canonical_collapse_chain_ending(4, [0x27; 32], [0x28; 32]);
+    seed_committed_collapse_chain(&mut engine, &chain);
+    let previous = chain.last().unwrap().clone();
+
+    let mut header_five = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut header_five, &previous);
+    let collapse_five =
+        derive_canonical_collapse_object_with_previous(&header_five, &[], Some(&previous))
+            .unwrap();
+    assert!(
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &header_five,
+            Some(&collapse_five),
+        )
+    );
+
+    let mut header_six = build_progress_parent_header(6, 0);
+    link_header_to_previous_collapse(&mut header_six, &collapse_five);
+    let collapse_six =
+        derive_canonical_collapse_object_with_previous(&header_six, &[], Some(&collapse_five))
+            .unwrap();
+    assert!(
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &header_six,
+            Some(&collapse_six),
+        )
+    );
+
+    let mut forked_header = build_progress_parent_header(5, 1);
+    forked_header.state_root = StateRoot(vec![0x5a; 32]);
+    link_header_to_previous_collapse(&mut forked_header, &previous);
+    let forked =
+        derive_canonical_collapse_object_with_previous(&forked_header, &[], Some(&previous))
+            .unwrap();
+    assert_ne!(
+        canonical_collapse_commitment(&forked),
+        canonical_collapse_commitment(&collapse_five)
+    );
+    assert!(
+        !<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &forked_header,
+            Some(&forked),
+        )
+    );
+    assert_eq!(engine.committed_collapses.get(&5), Some(&collapse_five));
+    assert_eq!(engine.committed_collapses.get(&6), Some(&collapse_six));
+}
+
+#[test]
+fn asymptote_record_still_readmits_conflicting_unanchored_head() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let chain = test_canonical_collapse_chain_ending(4, [0x2b; 32], [0x2c; 32]);
+    seed_committed_collapse_chain(&mut engine, &chain);
+    let previous = chain.last().unwrap().clone();
+
+    let mut original_header = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut original_header, &previous);
+    let original =
+        derive_canonical_collapse_object_with_previous(&original_header, &[], Some(&previous))
+            .unwrap();
+    assert!(
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &original_header,
+            Some(&original),
+        )
+    );
+
+    let mut replacement_header = build_progress_parent_header(5, 1);
+    replacement_header.state_root = StateRoot(vec![0x5b; 32]);
+    link_header_to_previous_collapse(&mut replacement_header, &previous);
+    let replacement =
+        derive_canonical_collapse_object_with_previous(&replacement_header, &[], Some(&previous))
+            .unwrap();
+    assert_ne!(replacement, original);
+    assert!(
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &replacement_header,
+            Some(&replacement),
+        )
+    );
+    assert_eq!(engine.committed_collapses.get(&5), Some(&replacement));
+}
+
+#[test]
+fn full_historical_collapse_verifier_remains_available_for_cold_audit() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let chain = test_canonical_collapse_chain_ending(6, [0x29; 32], [0x2a; 32]);
+    seed_committed_collapse_chain(&mut engine, &chain);
+    let head = chain.last().unwrap().clone();
+
+    GuardianMajorityEngine::reset_local_collapse_continuity_steps();
+    engine
+        .verify_local_canonical_collapse_chain(&head)
+        .expect("full historical chain verifies");
+    assert_eq!(
+        GuardianMajorityEngine::local_collapse_continuity_steps(),
+        6
+    );
+
+    GuardianMajorityEngine::reset_local_collapse_continuity_steps();
+    engine
+        .verify_admitted_canonical_collapse_anchor(&head)
+        .expect("admitted anchor verifies");
+    assert_eq!(
+        GuardianMajorityEngine::local_collapse_continuity_steps(),
+        1
+    );
+
+    // A deep payload mutation outside the successor binding is an explicit
+    // bounded-anchor nonclaim; the retained full verifier still catches it.
+    let mut tampered = chain[1].clone();
+    assert_eq!(tampered.height, 2);
+    tampered.transactions_root_hash[0] ^= 0xff;
+    engine.committed_collapses.insert(tampered.height, tampered);
+    assert!(engine
+        .verify_local_canonical_collapse_chain(&head)
+        .is_err());
+    assert!(engine
+        .verify_admitted_canonical_collapse_anchor(&head)
+        .is_ok());
+}
+
+#[tokio::test]
+async fn parent_view_anchor_work_is_bounded_independent_of_retained_height() {
+    async fn admitted_steps(depth: u64) -> u64 {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+        let chain = test_canonical_collapse_chain_ending(depth, [0x31; 32], [0x32; 32]);
+        seed_committed_collapse_chain(&mut engine, &chain);
+        GuardianMajorityEngine::reset_local_collapse_continuity_steps();
+        engine
+            .verify_canonical_collapse_anchor_with_parent_view(
+                chain.last().unwrap(),
+                &MockAnchoredView::default(),
+            )
+            .await
+            .unwrap();
+        GuardianMajorityEngine::local_collapse_continuity_steps()
+    }
+
+    async fn new_head_steps(depth: u64) -> u64 {
+        let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+        let chain = test_canonical_collapse_chain_ending(depth, [0x33; 32], [0x34; 32]);
+        seed_committed_collapse_chain(&mut engine, &chain);
+        let previous = chain.last().unwrap();
+        let mut header = build_progress_parent_header(depth + 1, 0);
+        link_header_to_previous_collapse(&mut header, previous);
+        let collapse =
+            derive_canonical_collapse_object_with_previous(&header, &[], Some(previous)).unwrap();
+        GuardianMajorityEngine::reset_local_collapse_continuity_steps();
+        engine
+            .verify_canonical_collapse_anchor_with_parent_view(
+                &collapse,
+                &MockAnchoredView::default(),
+            )
+            .await
+            .unwrap();
+        GuardianMajorityEngine::local_collapse_continuity_steps()
+    }
+
+    assert_eq!(admitted_steps(4).await, admitted_steps(40).await);
+    assert_eq!(admitted_steps(40).await, 1);
+    assert_eq!(new_head_steps(4).await, new_head_steps(40).await);
+    assert_eq!(new_head_steps(40).await, 2);
+}
+
+#[tokio::test]
+async fn parent_view_anchor_rejects_head_over_a_different_predecessor() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let admitted = test_canonical_collapse_chain_ending(4, [0x35; 32], [0x36; 32]);
+    seed_committed_collapse_chain(&mut engine, &admitted);
+    let fork = test_canonical_collapse_chain_ending(4, [0x37; 32], [0x38; 32]);
+    let fork_previous = fork.last().unwrap();
+    let mut header = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut header, fork_previous);
+    let collapse =
+        derive_canonical_collapse_object_with_previous(&header, &[], Some(fork_previous)).unwrap();
+
+    assert!(engine
+        .verify_canonical_collapse_anchor_with_parent_view(
+            &collapse,
+            &MockAnchoredView::default(),
+        )
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn parent_view_anchor_rejects_mutated_admitted_predecessor_prefix() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let chain = test_canonical_collapse_chain_ending(4, [0x39; 32], [0x3a; 32]);
+    seed_committed_collapse_chain(&mut engine, &chain);
+    let previous = chain.last().unwrap();
+    let mut header = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut header, previous);
+    let collapse =
+        derive_canonical_collapse_object_with_previous(&header, &[], Some(previous)).unwrap();
+    let mut tampered = chain[2].clone();
+    tampered.continuity_recursive_proof.proof_bytes[0] ^= 0xff;
+    engine.committed_collapses.insert(tampered.height, tampered);
+
+    assert!(engine
+        .verify_canonical_collapse_anchor_with_parent_view(
+            &collapse,
+            &MockAnchoredView::default(),
+        )
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn full_parent_view_historical_verifier_remains_for_cold_recovery() {
+    let engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let chain = test_canonical_collapse_chain_ending(6, [0x3b; 32], [0x3c; 32]);
+    let head = chain.last().unwrap().clone();
+    let mut parent_view = MockAnchoredView::default();
+    insert_published_collapse_chain(&mut parent_view, &chain);
+
+    GuardianMajorityEngine::reset_local_collapse_continuity_steps();
+    engine
+        .verify_canonical_collapse_anchor_with_parent_view(&head, &parent_view)
+        .await
+        .unwrap();
+    assert_eq!(
+        GuardianMajorityEngine::local_collapse_continuity_steps(),
+        6
+    );
+
+    let mut tampered = chain[1].clone();
+    tampered.transactions_root_hash[0] ^= 0xff;
+    parent_view.state.insert(
+        aft_canonical_collapse_object_key(tampered.height),
+        codec::to_bytes_canonical(&tampered).unwrap(),
+    );
+    assert!(engine
+        .verify_canonical_collapse_anchor_with_parent_view(&head, &parent_view)
+        .await
+        .is_err());
+}

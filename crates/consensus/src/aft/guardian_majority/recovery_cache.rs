@@ -89,7 +89,7 @@ impl GuardianMajorityEngine {
                     );
                     return false;
                 };
-                if let Err(error) = self.verify_local_canonical_collapse_chain(previous) {
+                if let Err(error) = self.verify_admitted_canonical_collapse_anchor(previous) {
                     if header.height <= 2 {
                         warn!(
                             target: "consensus",
@@ -204,7 +204,7 @@ impl GuardianMajorityEngine {
                 return false;
             }
             if let Err(error) =
-                self.verify_runtime_canonical_collapse_continuity(expected_collapse, previous)
+                self.verify_canonical_collapse_continuity_step(expected_collapse, previous)
             {
                 if header.height <= 2 {
                     warn!(
@@ -230,6 +230,31 @@ impl GuardianMajorityEngine {
                     error
                 );
                 return false;
+            }
+
+            // A replacement below an already admitted successor would strand
+            // the successor's predecessor binding. Refuse that divergence.
+            // Same-slot enrichment preserves both values below; replacing the
+            // current head remains possible because no successor binds it yet.
+            if let Some(admitted) = self.committed_collapses.get(&header.height) {
+                let conflicting = canonical_collapse_commitment(admitted)
+                    != canonical_collapse_commitment(expected_collapse)
+                    || admitted.continuity_recursive_proof
+                        != expected_collapse.continuity_recursive_proof;
+                if conflicting
+                    && self
+                        .committed_collapses
+                        .contains_key(&header.height.saturating_add(1))
+                {
+                    warn!(
+                        target: "consensus",
+                        height = header.height,
+                        view = header.view,
+                        reason = "conflicting_local_collapse_readmission",
+                        "Rejecting committed header hint in Asymptote."
+                    );
+                    return false;
+                }
             }
         }
 

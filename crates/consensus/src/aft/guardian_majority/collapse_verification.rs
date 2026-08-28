@@ -1,6 +1,35 @@
 use super::*;
 
+// Test-only meter for local canonical-collapse continuity verification steps.
+// Bounded-work tests assert on this counter rather than wall-clock timing. A
+// thread-local keeps concurrently running test threads isolated.
+#[cfg(test)]
+thread_local! {
+    static LOCAL_COLLAPSE_CONTINUITY_STEPS: std::cell::Cell<u64> = std::cell::Cell::new(0);
+}
+
 impl GuardianMajorityEngine {
+    #[cfg(test)]
+    pub(super) fn reset_local_collapse_continuity_steps() {
+        LOCAL_COLLAPSE_CONTINUITY_STEPS.with(|steps| steps.set(0));
+    }
+
+    #[cfg(test)]
+    pub(super) fn local_collapse_continuity_steps() -> u64 {
+        LOCAL_COLLAPSE_CONTINUITY_STEPS.with(|steps| steps.get())
+    }
+
+    /// Verifies exactly one continuity link and meters it in test builds.
+    pub(super) fn verify_canonical_collapse_continuity_step(
+        &self,
+        collapse: &CanonicalCollapseObject,
+        previous: Option<&CanonicalCollapseObject>,
+    ) -> Result<(), ConsensusError> {
+        #[cfg(test)]
+        LOCAL_COLLAPSE_CONTINUITY_STEPS.with(|steps| steps.set(steps.get().saturating_add(1)));
+        self.verify_runtime_canonical_collapse_continuity(collapse, previous)
+    }
+
     pub(super) fn canonical_ordering_collapse_from_header(
         header: &BlockHeader,
     ) -> Result<CanonicalOrderingCollapse, ConsensusError> {
@@ -86,7 +115,7 @@ impl GuardianMajorityEngine {
         };
         bind_canonical_collapse_continuity(&mut collapse, previous)
             .map_err(ConsensusError::BlockVerificationFailed)?;
-        self.verify_runtime_canonical_collapse_continuity(&collapse, previous)?;
+        self.verify_canonical_collapse_continuity_step(&collapse, previous)?;
         Ok(collapse)
     }
 
@@ -109,6 +138,8 @@ impl GuardianMajorityEngine {
         })
     }
 
+    /// Explicit full historical verifier for cold, recovery, and audit paths.
+    /// Steady-state admission uses the bounded admitted anchor below.
     pub(super) fn verify_local_canonical_collapse_chain(
         &self,
         collapse: &CanonicalCollapseObject,
@@ -134,10 +165,43 @@ impl GuardianMajorityEngine {
         chain.reverse();
         let mut previous: Option<&CanonicalCollapseObject> = None;
         for current in &chain {
-            self.verify_runtime_canonical_collapse_continuity(current, previous)?;
+            self.verify_canonical_collapse_continuity_step(current, previous)?;
             previous = Some(current);
         }
         Ok(())
+    }
+
+    /// Bounded trust anchor for a collapse object already admitted locally.
+    ///
+    /// In Asymptote, production writes `committed_collapses` only through
+    /// `record_committed_block`, which admits each object against its already
+    /// admitted predecessor and refuses a conflicting replacement once a
+    /// successor anchors that height. The map is not pruned in this mode. By
+    /// induction, an entry identical to the stored entry carries its verified
+    /// prefix, so only its direct link needs rechecking. Inputs outside that
+    /// invariant fall back to the explicit full verifier.
+    pub(super) fn verify_admitted_canonical_collapse_anchor(
+        &self,
+        collapse: &CanonicalCollapseObject,
+    ) -> Result<(), ConsensusError> {
+        if !matches!(self.safety_mode, AftSafetyMode::Asymptote)
+            || self.committed_collapses.get(&collapse.height) != Some(collapse)
+        {
+            return self.verify_local_canonical_collapse_chain(collapse);
+        }
+        if collapse.height <= 1 {
+            return self.verify_canonical_collapse_continuity_step(collapse, None);
+        }
+        let previous = self
+            .committed_collapses
+            .get(&(collapse.height - 1))
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "missing locally committed canonical collapse object for height {}",
+                    collapse.height - 1
+                ))
+            })?;
+        self.verify_canonical_collapse_continuity_step(collapse, Some(previous))
     }
 
     pub(super) async fn load_published_canonical_collapse_object(
@@ -231,10 +295,36 @@ impl GuardianMajorityEngine {
         chain.reverse();
         let mut previous: Option<&CanonicalCollapseObject> = None;
         for current in &chain {
-            self.verify_runtime_canonical_collapse_continuity(current, previous)?;
+            self.verify_canonical_collapse_continuity_step(current, previous)?;
             previous = Some(current);
         }
         Ok(())
+    }
+
+    /// Verifies against anchored parent state without re-walking an admitted
+    /// prefix. An admitted object costs one direct link; an unadmitted object
+    /// extending an admitted predecessor costs the anchor plus its new link.
+    /// Cold/recovery inputs without an admitted predecessor retain the full
+    /// parent-view historical verifier above.
+    pub(super) async fn verify_canonical_collapse_anchor_with_parent_view(
+        &self,
+        collapse: &CanonicalCollapseObject,
+        parent_view: &dyn AnchoredStateView,
+    ) -> Result<(), ConsensusError> {
+        if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
+            if self.committed_collapses.get(&collapse.height) == Some(collapse) {
+                return self.verify_admitted_canonical_collapse_anchor(collapse);
+            }
+            if collapse.height > 1 {
+                if let Some(previous) = self.committed_collapses.get(&(collapse.height - 1)) {
+                    self.verify_admitted_canonical_collapse_anchor(previous)?;
+                    return self
+                        .verify_canonical_collapse_continuity_step(collapse, Some(previous));
+                }
+            }
+        }
+        self.verify_canonical_collapse_chain_with_parent_view(collapse, parent_view)
+            .await
     }
 
     pub(super) async fn canonical_collapse_extension_certificate_for_height(
@@ -257,7 +347,7 @@ impl GuardianMajorityEngine {
                 height
             )));
         };
-        self.verify_canonical_collapse_chain_with_parent_view(&head, parent_view)
+        self.verify_canonical_collapse_anchor_with_parent_view(&head, parent_view)
             .await?;
         let certificate = canonical_collapse_extension_certificate(height, &head)
             .map_err(ConsensusError::BlockVerificationFailed)?;
@@ -275,7 +365,7 @@ impl GuardianMajorityEngine {
             .previous_canonical_collapse_for_height(header.height, parent_view)
             .await?;
         if let Some(previous) = previous.as_ref() {
-            self.verify_canonical_collapse_chain_with_parent_view(previous, parent_view)
+            self.verify_canonical_collapse_anchor_with_parent_view(previous, parent_view)
                 .await?;
         }
         self.canonical_collapse_from_header_surface_with_previous(header, previous.as_ref())
@@ -294,7 +384,7 @@ impl GuardianMajorityEngine {
             .await?
         {
             Some(published) => {
-                self.verify_canonical_collapse_chain_with_parent_view(&published, parent_view)
+                self.verify_canonical_collapse_anchor_with_parent_view(&published, parent_view)
                     .await?;
                 Ok(canonical_collapse_eq_on_header_surface(
                     &published, &derived,
@@ -317,7 +407,10 @@ impl GuardianMajorityEngine {
             return Ok(false);
         }
         if let Some(local) = previous {
-            if self.verify_local_canonical_collapse_chain(local).is_err() {
+            if self
+                .verify_admitted_canonical_collapse_anchor(local)
+                .is_err()
+            {
                 return Ok(false);
             }
             let Some(certificate) = header.canonical_collapse_extension_certificate.as_ref() else {
@@ -2468,7 +2561,7 @@ impl GuardianMajorityEngine {
                 published.resulting_state_root_hash == derived.resulting_state_root_hash,
             )));
         }
-        self.verify_canonical_collapse_chain_with_parent_view(&published, parent_view)
+        self.verify_canonical_collapse_anchor_with_parent_view(&published, parent_view)
             .await?;
         Ok(())
     }
