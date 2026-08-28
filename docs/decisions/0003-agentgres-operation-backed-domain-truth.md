@@ -62,8 +62,31 @@ receipts/artifacts are canonical.
   impact, probes, and uncertainty records are operational records that can
   influence execution when admitted into Agentgres.
 
+## Later refinement: the substrate contract is source-neutral
+
+This decision names Agentgres the canonical operational state substrate. It has
+since been made explicit *what* that names. The behavioral contract — C1 through
+C12 in
+[`web4-and-ioi-stack.md`](../architecture/foundations/web4-and-ioi-stack.md)
+§ The Deterministic Admission Kernel Contract — is source-neutral and names no
+engine. **Agentgres is IOI's first-party canonical conforming implementation of
+that contract and the current runtime owner of admitted operational truth.**
+
+This refines the wording, not the decision. Three rules attach:
+
+- the contract outranks the implementation: a divergence between Agentgres and
+  C1–C12 is a defect in Agentgres until the contract is amended;
+- another implementation may claim behavioral parity over the same contracts,
+  and parity confers no authority; and
+- parity creates no second admission spine for the same domain, and replacing
+  the runtime owner is a governed cutover with no dual-authority interval
+  (`INV-41`).
+
 ## Canonical References
 
+- `docs/architecture/foundations/web4-and-ioi-stack.md` (source-neutral
+  admission kernel contract C1–C12)
+- `docs/architecture/foundations/invariants.md` (`INV-41`)
 - `docs/architecture/components/agentgres/doctrine.md`
 - `docs/architecture/components/agentgres/api-object-model.md`
 - `docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md`

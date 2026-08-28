@@ -6,7 +6,8 @@ Implementation status: mixed (each invariant lists where it is enforced today)
 Canonical owner: this file for the canonical one-sentence wording of cross-cutting invariants; subject owners apply them.
 Supersedes: repeated restatements of these invariants across foundations, components, and domains docs when wordings drift.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-28 (INV-41 one admission owner per domain and
+INV-42 non-expansion upgrade law added).
 Last implementation audit: 2026-08-08 (registry names owner-doc applications, not code anchors; all cross-links resolve).
 
 ## Purpose
@@ -434,6 +435,40 @@ exact-effect, and receipt pipeline as any other authority crossing.
 Owner application:
 [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md),
 [`../components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md).
+
+**INV-41 — One admission owner per domain; conformance is behavioral.** A
+domain has exactly one component that admits its operational truth. A second
+implementation may satisfy the same substrate contract and claim parity over
+it, but parity is a statement about behavior, not a licence to admit: two
+components admitting truth for one domain is split brain, and a domain that
+allows one is not redundant, it is undefined. Replacing the admission owner is
+a governed cutover with an unambiguous transition and **no dual-authority
+interval** — never a deployment default, a configuration flag, or an inference
+from a passing parity run. Conformance itself is earned only against executable
+verifiers including the negative and crash cases; a passing happy path, a
+matching label, an engine name, or a shared schema is not conformance evidence.
+Owner application: [`web4-and-ioi-stack.md`](./web4-and-ioi-stack.md)
+§ The Deterministic Admission Kernel Contract,
+[`../components/agentgres/doctrine.md`](../components/agentgres/doctrine.md).
+
+**INV-42 — Upgrades do not expand authority.** For an ordinary admitted
+upgrade, the resulting authority is a subset of the authority already held:
+`new_authority ⊆ old_authority`. Narrowing, refactoring, and re-expressing
+authority are ordinary; **expanding it, or weakening a guarantee that bounds
+it, is not an upgrade at all** and cannot ride an upgrade path (`INV-5`,
+`INV-21`). An authority-expanding or authority-weakening change takes its own
+governed path, and that path declares all four of a required approval
+threshold, an enforced delay before effect, a checkpoint that pins the exact
+pre-change state and commitments, and a rollback or freeze that is executable
+without the changed authority. A change whose effect on authority cannot be
+decided is treated as expanding, and refused, rather than admitted as
+equivalent. Ordering, admission, finality, durability, availability,
+non-equivocation, freshness, and revocation guarantees are each in scope:
+relaxing one weakens the bound on every authority that rests on it.
+Owner application:
+[`governed-autonomous-systems.md`](./governed-autonomous-systems.md),
+[`domain-kernels.md`](./domain-kernels.md),
+[`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md).
 
 ## Citation Rule
 

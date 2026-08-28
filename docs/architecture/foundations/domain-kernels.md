@@ -1,10 +1,12 @@
 # Fractal Kernel, L0 Substrate, and Application-Domain Kernels
 
 Status: canonical architecture authority.
-Canonical owner: this file for root/domain kernel boundaries and domain-kernel responsibilities.
+Canonical owner: this file for root/domain kernel boundaries, domain-kernel
+responsibilities, and the proposal-DAG versus accepted-effect boundary.
 Supersedes: overlapping plan prose when kernel ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-12.
+Last alignment pass: 2026-08-28 (admission-kernel contract pointer, governed
+profile change, and the causal-DAG/multiplexed-log boundary added).
 Doctrine status: canonical
 Implementation status: mixed (daemon + Agentgres substrate real; fractal domain-kernel topology speculative)
 Last implementation audit: 2026-07-05
@@ -16,6 +18,19 @@ transitions, enforces policy and authority decisions from their owning
 providers, manages receipts, coordinates domain-local work, and serves as the
 substrate on which Agentgres domains run. It does not create authority by
 itself.
+
+"Deterministic state transitions" is a behavioral contract, not an adjective.
+Its clauses — C1 through C12, covering determinism, authenticated declared
+inputs, the absence of ambient clock/randomness/authority/mutable truth, exact
+heads, operation-backed state with typed receipts, state and receipt
+commitments, atomic durability and ACK, deterministic replay and recovery,
+fail-closed content-addressed payload availability, rebuildable projections,
+boundary revalidation of current authority and revocation, and adversarial
+conformance verifiers — are owned by
+[`web4-and-ioi-stack.md`](./web4-and-ioi-stack.md) § The Deterministic Admission
+Kernel Contract. That contract is source-neutral: it names no engine. Agentgres
+is IOI's first-party conforming implementation and the current runtime owner of
+admitted truth, and a domain has exactly one admission owner (`INV-41`).
 
 Domain kernels are also where MoW routing becomes operational. They bind user
 intent, worker candidates, policy, authority, runtime placement, receipts, and
@@ -414,8 +429,40 @@ Ordering and finality are separately declared as `single_authority`,
 `external_chain_finality`. Node roles are separately declared as admission
 writer, hot standby, state or projection replica, execution worker, artifact
 replica, verifier, threshold-authority member, availability witness, gateway,
-or consensus member. The canonical member sets live
-in [`canonical-enums.md`](./canonical-enums.md).
+or consensus member. The canonical member sets, the versioned vocabulary, the
+compatibility map for proposed and legacy spellings, and the table separating
+ordering from the eight guarantees a profile does *not* decide live in
+[`canonical-enums.md`](./canonical-enums.md).
+
+Changing the declared profile is governed, not configured. Every ordering,
+admission, finality, durability, availability, non-equivocation, freshness, or
+revocation guarantee bounds some authority that rests on it, so relaxing one is
+an authority-weakening change and takes the separately governed path with a
+declared threshold, delay, checkpoint, and executable rollback or freeze
+(`INV-42`). The transition itself is an admitted operation with an unambiguous
+cutover and no dual-authority interval (`INV-41`).
+
+### Proposals may branch; accepted effects may not
+
+Proposals, evidence, findings, observations, and messages may be organized as
+an **authenticated causal DAG**. Concurrency there is honest and useful: two
+participants can propose against the same parent without either being wrong,
+and the DAG records what each actually saw.
+
+Accepted effects are different. Every accepted effect compiles against the
+**exact canonical heads** it names and carries the recognition certificates its
+class requires (C4, C11); it does not inherit admission from its position in a
+causal graph. A causal edge records *what was seen*; it never establishes what
+is *true*, who was *authorized*, or which of two concurrent proposals *wins*.
+Merge is admission, never text or heuristic reconciliation.
+
+A physically shared log is likewise not a semantic order. Several domains may
+share one file, one flush, one batch, or one transport for I/O efficiency while
+each keeps an independent head map, sequence, and commitment chain. Interleaving
+in a multiplexed log creates no ordering relation, no causal relation, and no
+truth coupling between the domains that share it, and no domain may read one
+from adjacency. Global ordering across domains is not required and is not
+implied.
 
 One autonomous system has one stable `system_id` across its declared
 member nodes. A node is a failure, placement, custody, execution, verification,

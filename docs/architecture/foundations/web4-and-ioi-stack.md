@@ -1,10 +1,14 @@
 # Canonical Web4 and the IOI Stack
 
 Status: canonical architecture authority.
-Canonical owner: this file for the Web4 category definition and IOI stack boundary.
+Canonical owner: this file for the Web4 category definition, the IOI stack
+boundary, the source-neutral deterministic admission kernel contract (C1–C12),
+and the institution boundary as stated for the Web4 stack.
 Supersedes: overlapping product or plan prose when the Web4 stack definition conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-08-28 (source-neutral admission kernel contract and
+institution boundary added; Agentgres designated the first-party conforming
+implementation and current runtime owner).
 Doctrine status: canonical
 Implementation status: mixed (category definition; stack layers span built to speculative)
 Last implementation audit: 2026-07-19
@@ -517,6 +521,199 @@ A canonical Web4 application should have:
 26. **Explicit network enrollment** — compatible, connected, and secured
     systems make L1 dependency, service, assurance, fee, and bond boundaries
     explicit.
+
+## The Deterministic Admission Kernel Contract
+
+Canonical Web4 requirement 5 says important state transitions bind to receipts,
+evidence, roots, or commitments. That sentence names an outcome without naming
+the machine that produces it, which lets any store claim it by asserting the
+words. This section states the machine: the **minimum behavioral contract** a
+component must satisfy to be a Web4 deterministic admission kernel — equivalently,
+a conforming operational-state substrate for a Web4 domain.
+
+The contract is **source-neutral by construction**. It names no vendor, engine,
+storage format, hash, signature suite, tree shape, or wire protocol. Any
+implementation satisfying every clause conforms; no implementation conforms by
+being ours. This is the same discipline the reference-implementation contract
+above applies to releases, applied one layer down to the substrate itself.
+
+**C1 — Deterministic transitions.** Admission is a pure function of declared
+inputs and the exact prior state. The same inputs against the same prior state
+produce the same next state, the same commitments, and the same accept/refuse
+decision on every conforming implementation, on every host, at every replay.
+
+**C2 — Authenticated, fully declared inputs.** Every input the transition
+function reads is present in the operation and authenticated to a principal the
+kernel resolved. An input the kernel cannot authenticate is not an input; an
+input the operation does not declare cannot be read.
+
+**C3 — No ambient clock, randomness, authority, or mutable truth.** Inside
+admission there is no wall-clock read, no entropy source, no thread-scheduling
+dependence, no ambient permission, and no mutable row that admission trusts as
+truth. Time, randomness, and authority decisions enter only as recorded,
+authenticated operation inputs, subject to `INV-1`, `INV-37`, and `INV-39`. A
+kernel that reads the clock during admission cannot satisfy C1 and does not
+conform.
+
+**C4 — Exact heads or versions.** Every state-changing operation names the
+exact predecessor it expects — an object head, a sequence, or a state version.
+Admission compares and swaps against it. "Latest" is not an expectation, and a
+transition that would apply against an unexamined head is refused, not merged.
+
+**C5 — Operation-backed state and typed receipts.** State is the fold of
+accepted operations, never a directly mutated store. Every consequential
+crossing mints a typed receipt bound to the boundary facts it actually
+establishes, individually verifiable, and never collapsed into a batch summary
+that hides which operation did what (`INV-9`).
+
+**C6 — State and receipt commitments.** Each admitted unit publishes a state
+commitment and a receipt commitment over exactly the operations it admitted,
+plus the commitment of the unit it follows. Commitment construction may be
+batched and incremental; what it commits to may not be approximate.
+
+**C7 — Atomic durability and ACK.** The acknowledgement boundary is atomic and
+never precedes durability. No ACK may be returned before the append, state
+commitment, individual receipts, and the durable linearization point required
+by the declared durability class have all been reached, and recovery admits an
+entire unit or none of it. A partial unit is not a small success.
+
+**C8 — Deterministic replay and recovery.** From the operation history alone, a
+conforming implementation reconstructs the identical state, commitments, and
+receipt set, and a crash at any point resolves to a state the history explains.
+Recovery replay does not repeat external effects, spend authority again, or
+mint replacement receipts; it reproduces the already admitted history and its
+receipts byte-for-byte. A **new execution** proposed from replayed evidence is a
+new crossing: it revalidates fresh authority under C11 and mints new receipts,
+never re-spending an old grant or reusing an old receipt as proof of that new
+crossing.
+
+**C9 — Fail-closed external payload availability.** External payload bytes are
+content-addressed and referenced, never inlined as truth. Content addressing
+proves integrity and identity; it proves neither availability nor authority. A
+missing, unfetchable, or mismatched payload fails closed by a named reason and
+never degrades to a weaker admitted result (`INV-12`).
+
+**C10 — Rebuildable projections.** Every query surface, index, view, SQL
+bridge, cache, and UI read model is derived and disposable: it can be dropped
+and rebuilt from admitted operations, and it carries a freshness watermark. A
+projection that cannot be rebuilt has become truth by accident, which is a
+defect, not a schema.
+
+**C11 — Current authority and revocation revalidated at the boundary.**
+Authority captured when work was staged is evidence of what was held then.
+Admission revalidates the *current* grant, expiry, revocation epoch, and policy
+against the exact effect immediately before it materializes, and the receipt
+binds the revocation epoch it checked. Stale or revoked authority forces
+re-authorization; it never rides through on a staged decision.
+
+**C12 — Conformance and adversarial verifiers.** Conformance is claimed only
+against executable verifiers that include the negative cases: stale, missing,
+forged, reordered, replayed, truncated, and conflicting operation, receipt,
+payload, commitment, and authority evidence, plus crash injection at each
+boundary in C7. A verifier that cannot fail on its own subject proves nothing,
+and a conformance claim with only happy paths has specified nothing contested.
+
+### Agentgres is the first-party conforming implementation
+
+**Agentgres is IOI's first-party canonical conforming implementation of this
+contract and the current runtime owner of admitted operational truth**
+([ADR 0003](../../decisions/0003-agentgres-operation-backed-domain-truth.md);
+[`../components/agentgres/doctrine.md`](../components/agentgres/doctrine.md)).
+Those are two distinct claims and both matter: *conforming* is a behavioral
+statement about C1–C12, and *current runtime owner* is a statement about which
+component actually admits truth in this estate today.
+
+Three consequences follow, and they are the point of separating the contract
+from the implementation:
+
+1. **The contract outranks the implementation.** A divergence between Agentgres
+   and C1–C12 is a defect in Agentgres until the contract is amended through
+   the change process — never an implicit amendment to the contract. Shipping
+   behavior does not legislate it.
+2. **Parity is over the same contracts.** A second implementation may claim
+   parity only against C1–C12 and the registered contracts they bind, with
+   fixture parity, refusal parity, surface completeness, and independence
+   disclosure as defined in § The Reference-Implementation Contract. Parity is
+   a behavioral claim; it confers no authority.
+3. **Parity may not create dual truth, and may not silently replace Agentgres.**
+   A conforming second implementation does not thereby become a second
+   admission spine beside Agentgres for the same domain. Two components
+   admitting truth for one domain is split brain, not redundancy. Replacing the
+   runtime owner is a governed cutover with an unambiguous transition and no
+   dual-authority interval — never a deployment default, a configuration flag,
+   or an inference from a passing parity run.
+
+Nothing here makes the contract Agentgres-shaped. Agentgres-specific product
+language, engine mechanics, Postgres-bridge positioning, and implementation
+prose stay Agentgres-specific and stay in the Agentgres owner docs.
+
+Implementation status: the contract is a **target conformance statement**. It is
+not a claim that a current implementation has passed all twelve clauses under
+executable adversarial verifiers; C12 in particular is where that claim would
+have to be earned. [ADR 0039](../../decisions/0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md)
+proposes — and does not accept — how ordering and finality obligations vary
+over one spine satisfying this contract.
+
+## The Institution Boundary
+
+"Institution" is load-bearing in the theses above, so it needs a boundary rather
+than a mood. The unit of governance vocabulary is owned by
+[`term-boundaries.md`](./term-boundaries.md); this is its Web4-stack statement.
+
+**An institution is an independently governed bounded System or domain**: one
+stable `system_id` with its own constitution, membership, ordering/admission/
+finality profile, authority root, operational truth, lifecycle, and credible
+exit. Independent governance is the whole test — the institution boundary is
+exactly where authority, truth, risk, and exit stop being someone else's.
+
+None of the following is an institution, no matter how autonomous it looks:
+
+```text
+a model call            cognition, not a governed party
+a subagent / thread fork  a delegation surface inside one system (ADR 0034)
+a GoalRun               one bounded pursue/verify/course-correct loop
+a participant           a leased role inside a room, not a governing body
+an Attempt              durable evidence of tried work
+an OutcomeRoom          a composition over GoalRuns and domains (ADR 0030)
+a HarnessInvocation     one scoped step resolution
+```
+
+Each of those is a *unit of work, delegation, or evidence inside* an
+institution. Promoting one to institution status would let it claim its own
+authority root, its own truth, and its own exit — which is precisely the
+ambient-authority failure `INV-1` and the one-spine rule exist to prevent.
+
+Two boundaries follow directly. Coordination among admitted members of one
+`system_id` is native L0 and never AIIP; AIIP begins only when work crosses
+between independently governed institutions (`INV-32`). And multiplicity inside
+one institution — several models, workers, nodes, providers, or keys under one
+principal — is one party, not many (`INV-18`).
+
+An `OutcomeRoom` is the instructive case. A persistent room is instantiated
+*through genesis as a bounded System*, and it is that resulting System — not the
+room package, not the collaborative work graph, not any participant in it —
+that is the institution.
+
+### Ownership inside the institution
+
+Source-neutral admission does not flatten the owners above it. The following
+ownership laws remain exact:
+
+- **GoalRun** owns application state, executable plans, contexts, and invocation
+  references.
+- **Sessions, launches, threads, HarnessInvocations, and child owners** retain
+  their kernel truth; a parent reference is not ownership.
+- **wallet.network** owns authority, secrets, grants, approvals, payments,
+  revocation, and consumable authority evidence.
+- The **deterministic admission substrate** owns admitted domain-operational
+  truth, object heads, operation history, state and receipt commitments,
+  receipt metadata, replay, recovery, and rebuildable projections. Agentgres is
+  the current IOI runtime owner of that role.
+- **IOI L1** remains optional public registry, rights, settlement, dispute,
+  governance, and commitment finality. It is never the local admission kernel.
+- No application object may mint a parallel admission, receipt, state-root, or
+  authority spine. It may retain references to evidence issued by the owner;
+  it may not become that owner by copying the evidence.
 
 ## IOI System Boundary
 

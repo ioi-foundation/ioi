@@ -7,7 +7,9 @@ files named in [source-of-truth-map.md](./source-of-truth-map.md).
 Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
-Last alignment pass: 2026-07-22.
+Last alignment pass: 2026-08-28 (source-neutral admission kernel contract,
+non-expansion upgrade law, institution boundary, and the versioned
+ordering/finality vocabulary with its compatibility map).
 Doctrine status: canonical
 Implementation status: mixed (cross-owner digest)
 Last implementation audit: 2026-07-22
@@ -284,6 +286,23 @@ synchronized.
   source/verifier posture, applicability, and consequence scopes must match
   immediately before invocation. A rejected or superseded domain-admission
   head blocks the effect even if the oracle decision remains active;
+- the ordering/finality vocabulary is versioned as
+  `ioi.ordering-admission-finality-profile.v1`, and its five members —
+  `single_authority`, `replicated_single_authority`, `threshold_authority`,
+  `bft_consensus`, `external_chain_finality` — are the only spellings. Design
+  prose labels map through the compatibility table in
+  [`canonical-enums.md`](../foundations/canonical-enums.md)
+  (`replicated_cft` → `replicated_single_authority`, `aft` → `bft_consensus`,
+  `external_finality` → `external_chain_finality`); `witnessed_threshold`
+  resolves to nothing and must be decomposed into either `threshold_authority`
+  or a witness contract layered over another profile. A member **names the
+  ordering rule and decides nothing else**: durability, availability,
+  non-equivocation, freshness, revocation, authority admission, economic
+  recognition, and adjudication are separately declared and separately
+  evidenced. A signature supports only the exact claim it was declared to
+  verify under a named verifier contract; by itself a signed head proves none
+  of those guarantees **and does not prove correct ordering either** — ordering
+  compliance is the verifier contract's claim, not the signature's;
 - one stable `system_id` may span several Hypervisor Nodes. Node addition is a
   governed membership transition and never silently widens authority, changes
   quorum/finality, or proves independence. Desired topology and observed
@@ -1078,6 +1097,36 @@ applicable;
   mediation or prevention claims. A custom OS kernel module is optional and
   profile-specific, never a portable prerequisite or universal-control proof;
 - Agentgres is operation-backed domain truth with a Postgres bridge;
+- the behavior a Web4 operational-state substrate must exhibit is a
+  **source-neutral** contract, C1–C12 in
+  [`web4-and-ioi-stack.md`](../foundations/web4-and-ioi-stack.md)
+  § The Deterministic Admission Kernel Contract: deterministic transitions;
+  authenticated fully declared inputs; no ambient clock, randomness, authority,
+  or mutable truth inside admission; exact expected heads or versions;
+  operation-backed state with typed individually verifiable receipts; state and
+  receipt commitments; atomic durability before ACK; deterministic replay and
+  recovery; fail-closed content-addressed payload availability; rebuildable
+  projections; current authority and revocation revalidated at the effect
+  boundary; and adversarial conformance verifiers. **Agentgres is IOI's
+  first-party canonical conforming implementation and the current runtime owner
+  of admitted operational truth.** The contract outranks the implementation, a
+  second implementation may claim behavioral parity over the same contracts,
+  and parity neither creates a second admission spine for one domain nor
+  silently replaces the runtime owner (`INV-41`). The contract is a target
+  conformance statement; no clause-complete adversarial pass is claimed;
+- an ordinary upgrade satisfies `new_authority ⊆ old_authority`. Expanding
+  authority, or weakening an ordering, admission, finality, durability,
+  availability, non-equivocation, freshness, or revocation guarantee that
+  bounds it, is not an upgrade: it takes a separately governed path declaring a
+  threshold, a delay, a checkpoint pinning the exact pre-change state, and a
+  rollback or freeze executable without the changed authority. An undecidable
+  effect on authority is treated as expanding and refused (`INV-42`);
+- an **institution** is an independently governed bounded System or domain —
+  one `system_id` with its own constitution, membership, ordering/finality
+  profile, authority root, truth, lifecycle, and exit. A model call, subagent
+  or thread fork, GoalRun, participant, Attempt, OutcomeRoom, or
+  HarnessInvocation is a unit of work, delegation, or evidence *inside* an
+  institution, never an institution;
 - Agent Wiki / `ioi-memory` is the adjacent context-memory plane for what
   agents can know, retrieve, and remember; Agentgres admits and proves
   durable memory mutations when they become canonical, shared, portable,

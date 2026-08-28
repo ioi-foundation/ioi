@@ -4,7 +4,8 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-08-20.
+Last alignment pass: 2026-08-28 (source-neutral admission kernel contract,
+institution boundary, and non-negotiables 37–38).
 Doctrine status: canonical
 Implementation status: mixed (navigation index over built, partial, planned, and speculative subjects)
 Last implementation audit: 2026-07-19
@@ -219,6 +220,31 @@ records the durable decision below and supersedes the earlier node-equals-local-
 domain/global-L1 framing in ADRs 0011 and 0012.
 [ADR 0017](../decisions/0017-goal-pursuit-workflow-skill-and-harness-taxonomy.md)
 records the pursuit/workflow/skill/step-resolution taxonomy above.
+
+### The operational-truth substrate is a contract, not an engine
+
+What a Web4 operational-state substrate must *do* is stated source-neutrally as
+C1–C12 in [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md)
+§ The Deterministic Admission Kernel Contract: deterministic transitions;
+authenticated fully declared inputs; no ambient clock, randomness, authority,
+or mutable truth inside admission; exact expected heads; operation-backed state
+with typed individually verifiable receipts; state and receipt commitments;
+atomic durability before ACK; deterministic replay and recovery; fail-closed
+content-addressed payload availability; rebuildable projections; current
+authority and revocation revalidated at the effect boundary; and adversarial
+conformance verifiers. The contract names no engine.
+
+**Agentgres is IOI's first-party canonical conforming implementation and the
+current runtime owner of admitted operational truth.** The contract outranks
+the implementation, another implementation may claim behavioral parity over the
+same contracts, and parity neither creates a second admission spine for one
+domain nor silently replaces the runtime owner (`INV-41`). This is a target
+conformance statement; no clause-complete adversarial verifier pass is claimed.
+
+An institution is an independently governed bounded System or domain. A model
+call, subagent or thread fork, GoalRun, participant, Attempt, OutcomeRoom, or
+HarnessInvocation is a unit of work, delegation, or evidence *inside* an
+institution and is never one itself.
 
 ### A bounded DAS is one logical institution across admitted nodes
 
@@ -632,6 +658,15 @@ access to an IOI-hosted room. Same-owner multiplicity never satisfies it.
 36. Reference-product captures, parity matrices, and copied interaction
     patterns are evidence only. They cannot register a product surface, assign
     an owner, or grant operational maturity.
+37. A domain has exactly one admission owner. Behavioral parity with the
+    substrate contract confers no authority to admit, creates no second truth,
+    and replaces no runtime owner except through a governed cutover with no
+    dual-authority interval.
+38. Upgrades narrow authority or leave it unchanged. Expanding authority, or
+    weakening an ordering, admission, finality, durability, availability,
+    non-equivocation, freshness, or revocation guarantee that bounds it, takes
+    a separately governed path with a threshold, a delay, a checkpoint, and an
+    executable rollback or freeze. Undecidable counts as expanding.
 
 ## Implementation Discipline
 

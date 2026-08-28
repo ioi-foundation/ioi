@@ -4,7 +4,9 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`api-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-31.
+Last alignment pass: 2026-08-28 (Agentgres designated the first-party canonical
+conforming implementation and current runtime owner of the source-neutral
+admission kernel contract; parity and one-admission-owner rules recorded).
 Doctrine status: canonical
 Implementation status: partial (the runtime state store and multiple daemon object planes are live; thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody are implementation precedents. `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, invariants, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. The current hosted v2 OutcomeRoom slice admits one bounded-System-backed room, reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph with payload/label custody and reconstructable projections. Current v2 participation, frontier/claim, offer/matching, Attempt/Finding, and VerifierChallenge lifecycles are not started; mounted v1 predecessor planes remain historical executable/source disposition and are fenced from v2 rooms. Per-System writer-transition/fencing control, room discovery, portable exit, federation, acceptance/verdict/settlement, branch/staged-effect object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
 Implementation refs:
@@ -186,6 +188,11 @@ shadow: the multiplexed multi-domain log (`mux.rs`) shares one file and one
 fsync across many domains while every domain keeps an independent head map,
 sequence, and root chain (the file is an I/O artifact, never a truth
 coupling — per-domain heads are proven independent of batch interleaving).
+This is the canonical rule, not a local property of `mux.rs`: a physically
+shared log creates no ordering, causal, or truth relation between the domains
+that share it, and no domain may read one from adjacency
+([`../../foundations/domain-kernels.md`](../../foundations/domain-kernels.md)
+§ Proposals may branch; accepted effects may not).
 Measured: 8 domains through one combined-flush log reach 20.8k aggregate
 admissions/s on the same box where 8 separate logs plateaued at 8.8k
 (2.4×; 88% of the group-commit theoretical bound). And the engine has now
@@ -223,6 +230,37 @@ artifact-ref plane. Any engine hosting those verbs under the invariants is an
 Agentgres substrate. Postgres is the reference **projection and durability
 host**, never the admission owner: the admission path must not depend on
 mutable relational rows being truth (INV-10).
+
+**Where the five verbs come from.** The behavior those verbs must exhibit is
+not defined here. It is the source-neutral deterministic admission kernel
+contract — C1 through C12 — owned by
+[`../../foundations/web4-and-ioi-stack.md`](../../foundations/web4-and-ioi-stack.md)
+§ The Deterministic Admission Kernel Contract, and it names no engine, storage
+format, tree shape, or vendor. **Agentgres is IOI's first-party canonical
+conforming implementation of that contract and the current runtime owner of
+admitted operational truth** ([ADR 0003](../../../decisions/0003-agentgres-operation-backed-domain-truth.md)).
+The five verbs are this implementation's surface over those clauses; C1–C12 are
+what a verifier checks.
+
+Three rules follow, and the third is the one that gets violated:
+
+1. **The contract outranks this implementation.** A divergence between
+   Agentgres and C1–C12 is a defect in Agentgres until the contract is amended
+   through the change process, never an implicit amendment to the contract.
+2. **Parity is claimed over the same contracts.** Another implementation may
+   claim parity only against C1–C12 and the registered contracts they bind,
+   with fixture parity, refusal parity, surface completeness, and independence
+   disclosure. Behavioral parity confers no authority.
+3. **Parity creates no second truth and replaces nothing silently.** A
+   conforming second implementation does not become a second admission spine
+   beside Agentgres for the same domain; a domain has exactly one admission
+   owner (`INV-41`). Changing that owner is a governed cutover with an
+   unambiguous transition and no dual-authority interval — not a deployment
+   default, not a flag, and not an inference from a green parity run.
+
+Agentgres-specific product language, engine mechanics, benchmark numbers, and
+Postgres-bridge positioning stay Agentgres-specific and stay here. The contract
+above stays source-neutral.
 
 **Ownership-partitioned serialization.** Truth is partitioned by ownership so
 that admission of shared canonical heads is the *only* serialization point:

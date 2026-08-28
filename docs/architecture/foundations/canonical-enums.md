@@ -14,7 +14,9 @@ strata, and IOI Network enrollment.
 Settlement-rail selection is also owned here; settlement trigger rules and
 rail-specific fields remain with their envelope/profile owners.
 Superseded by: none.
-Last alignment pass: 2026-07-26.
+Last alignment pass: 2026-08-28 (ordering/finality vocabulary versioned, exact
+compatibility map for proposed and legacy labels added, and the guarantees a
+profile does not decide separated).
 
 ## Purpose
 
@@ -597,7 +599,15 @@ sealed BYOK, and broad provider transports remain planned or unimplemented.
 ## Autonomous-System Ordering And Finality Profiles
 
 Every bounded autonomous system declares how operations become canonical. The
-profile is a property of the logical system, not a synonym for node count:
+profile is a property of the logical system, not a synonym for node count.
+
+The vocabulary is **versioned**, and its version is the schema version of the
+contract that carries it: `ioi.ordering-admission-finality-profile.v1`. The
+member set below is that contract's `profile` enum, and this file and that
+schema state one vocabulary. Adding, renaming, or splitting a member is a
+versioned change to both; prose in any other doc, ADR, plan, or evidence bundle
+that spells a profile differently is an alias to be mapped, never a sixth
+member.
 
 ```text
 single_authority | replicated_single_authority | threshold_authority |
@@ -623,10 +633,84 @@ and improvement boundaries are explicit. Consensus increases the set of
 failures or adversaries the system can tolerate; it does not create bounded
 agency by itself.
 
-Implementation grounding: planned contract field on
-`OrderingAdmissionFinalityProfileEnvelope`. Existing Agentgres primary/standby
+### Compatibility map for proposed and legacy labels
+
+Design prose has used a second spelling of this vocabulary. The map below is
+exact and one-directional: the left column is a **label**, the right column is
+the canonical member it resolves to. A label is never canon, never a schema
+value, and never widens the member set.
+
+| Proposed or legacy label | Canonical member | Note |
+| --- | --- | --- |
+| `single_authority` | `single_authority` | identical; no change |
+| `replicated_cft` | `replicated_single_authority` | crash-fault tolerance under one authority root is replication, not a distinct authority distribution (`INV-23`) |
+| `aft` | `bft_consensus` | AFT is IOI's implementation of the BFT member, not a sixth profile |
+| `external_finality` | `external_chain_finality` | the canonical member already covers any named external finality source, chain or not |
+| `witnessed_threshold` | **does not resolve to one member** | see below — this label conflates two separable guarantees and must be decomposed before use |
+
+`witnessed_threshold` fails to map because it names two different things at
+once. Decompose it before writing either down:
+
+1. when the witnesses **hold admission authority shares** and their quorum is
+   required before an operation is canonical, the profile is
+   `threshold_authority`; and
+2. when the witnesses **only attest to a head they observed** and cannot block
+   admission, that is not an ordering/finality profile at all. It is a
+   non-equivocation and freshness obligation layered *over* whichever profile
+   the system declares, and it is carried by the witness contract — witness
+   set, quorum, observation rule, and failure behavior — not by this enum.
+
+A deployment that writes `witnessed_threshold` as though it were a profile has
+claimed admission strength it may not hold. Resolve it to case 1 or case 2.
+
+### What a profile member decides, and what it does not
+
+The member **declares which ordering and finality rule applies**. It decides
+nothing else, and — this part is easy to lose — declaring a rule is not evidence
+that the rule was followed. These guarantees are separately declared, separately
+evidenced, and separately verifiable; a system claims each one only where it has
+the contract for it:
+
+| Guarantee | Decided by the profile member? | Declared by |
+| --- | --- | --- |
+| ordering | it names the rule; it does not evidence compliance | the profile's ordering rule and conflict rule, proven against its named verifier contract |
+| durability | no | the durability class on each admission ack (`buffered \| device_flush \| replicated_same_host \| quorum_replicated`) |
+| availability | no | content-addressed payload availability, verified fetch-and-hash; missing or mismatched fails closed (`INV-12`) |
+| non-equivocation | no | the witness or transparency contract, with an explicit witness set, quorum, observation rule, and failure behavior |
+| freshness | no | the `TemporalVerificationProfile` and its evaluation (`INV-36`, `INV-39`) |
+| revocation | no | the authority provider's revocation epoch, revalidated at the effect boundary (`INV-1`) |
+| authority admission | no | local/domain policy and the applicable authority provider (`INV-10`) |
+| economic recognition | no | the selected settlement mode and the accepted terms (`INV-11`, `INV-31`) |
+| adjudication | no | the declared dispute/adjudication path (`INV-9`) |
+
+**A signature supports only the exact claim it was declared to verify, under a
+named verifier contract.** By itself, a signed head proves none of durability,
+availability, non-equivocation, freshness, revocation status, authority
+admission, economic recognition, or adjudication — **and it does not prove
+correct ordering either**. A signature establishes that some key signed those
+bytes. That the bytes denote a position in a correctly ordered history is a
+separate claim belonging to a verifier contract that states what was checked,
+against which history, by whom, and what happens on failure. A deployment that
+reads any of these guarantees out of a head signature has skipped the contract
+that owns them; without the verifier contract there is no ordering claim to
+inherit, only a signature.
+
+Implementation grounding: the member set is present in the registered
+`ioi.ordering-admission-finality-profile.v1` schema, and the daemon's
+system-policy and ordering-recovery routes read the declared member and fail
+closed when a system asks the single-writer transition plane to serve a profile
+it does not implement. That is member-spelling enforcement, not an
+implementation of threshold, BFT, or external-finality admission; the envelope
+field itself remains planned. Existing Agentgres primary/standby
 mechanisms are evidence for replication and fencing, not a claim that dynamic
 membership, automatic failover, threshold authority, or BFT consensus exists.
+
+Not canon yet: [ADR 0039](../../decisions/0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md)
+proposes seven **recognition relationship classes** (K1–K7) deriving how much
+recognition a proposed effect owes before admission, from private reasoning and
+monotone evidence through authority-expanding constitutional upgrades. It is
+Proposed design vocabulary, deliberately not registered here, and no
+implementation may cite it as a member set.
 
 ## Autonomous-System Node Roles (`autonomous_system_node_role`)
 

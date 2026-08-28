@@ -15,7 +15,7 @@ artifact is oversight reporting only, never closure authority.
 
 ## Proposed ADRs
 
-- [ADR 0039: Propose Finality Profiles Over The Agentgres Verifiable Batch Log](./0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md) (**Proposed — DESIGN ONLY; no runtime authority change**; supported for review by the M04.9 AFT/Solo parity experiment, while AFT remains the preserved control)
+- [ADR 0039: Propose Finality Profiles Over The Agentgres Verifiable Batch Log](./0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md) (**Proposed — DESIGN ONLY; no runtime authority change**; supported for review by the M04.9 AFT/Solo parity experiment, while AFT remains the preserved control. Revised 2026-08-28: profile labels reconciled to the canonical `ioi.ordering-admission-finality-profile.v1` enum — the earlier `witnessed_threshold` label conflated admission threshold with witness non-equivocation and now decomposes; the proposed-effect → invariants/conflict-keys → recognition class → weakest-sufficient-mechanism → admitted-effect/receipt derivation added over seven relationship classes K1–K7, where private reasoning and monotone evidence stay authenticated causal evidence until compiled into an admitted operation, and an unknown effect or invariant domain resolves to the adjudication class rather than a weaker default; successor checkpoint/finality field binding and successor preconditions made explicit while `ReceiptCheckpoint` v1 and `ReceiptProofBundle` v1 keep their exact meaning without reinterpretation; a signature now supports only its declared verified claim and by itself proves no guarantee, ordering included. The K1–K7 classes are proposed vocabulary and are not a canonical member set)
 
 ## Accepted ADRs
 
