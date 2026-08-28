@@ -18,6 +18,17 @@ pub enum ConsensusType {
     ProofOfAuthority,
     /// Aft Fault Tolerance consensus family.
     Aft,
+    /// Single-authority immediate ordering with no quorum round.
+    ///
+    /// The local node is the sole ordering authority: it proposes, orders and
+    /// finalizes in one step, so a block is final the moment it is produced.
+    /// This is NOT a degenerate AFT configuration and must never be reported
+    /// as one -- it carries no quorum certificate, no view change and no
+    /// canonical collapse surface, so every AFT-gated lane correctly declines
+    /// to run for it. It exists so the ordering/finality profile can be varied
+    /// while admission, execution, state commitment, durability and receipts
+    /// stay on the same path.
+    Solo,
 }
 
 /// Safety mode for the Aft Fault Tolerance consensus family.

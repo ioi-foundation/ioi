@@ -345,6 +345,61 @@ fn benchmark_trace_enabled() -> bool {
     std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
 }
 
+/// The ordering/finality profile this fixture run exercises.
+///
+/// M04.9 compares the preserved one-validator AFT control against the
+/// immediate single-authority Solo engine across the SAME admission,
+/// execution, IAVL commitment, Redb durability, restart and status/receipt
+/// path. Selecting the profile here rather than forking the scenario is what
+/// makes the two runs comparable: identical scenario code, exactly one varied
+/// dimension.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OrderingProfile {
+    /// One-validator AFT. The default, and the control.
+    Aft,
+    /// Single-authority immediate ordering.
+    Solo,
+}
+
+impl OrderingProfile {
+    /// The exact `consensus_type` string handed to the cluster builder.
+    ///
+    /// This is the one place the profile becomes configuration. The builder
+    /// serializes it into `orchestration.toml` and `workload.toml`, so a
+    /// restart re-reads the profile it was started with instead of silently
+    /// adopting a different one.
+    fn consensus_type(self) -> &'static str {
+        match self {
+            OrderingProfile::Aft => "Aft",
+            OrderingProfile::Solo => "Solo",
+        }
+    }
+}
+
+/// Parses the bounded experiment selector.
+///
+/// Exactly two values are accepted, and anything else is an error rather than
+/// a silent fallback to the default: a comparison whose profile was chosen by
+/// a typo would attribute one engine's measurements to the other, which is
+/// worse than not running.
+fn parse_ordering_profile(raw: Option<&str>) -> Result<OrderingProfile> {
+    match raw.map(str::trim) {
+        None | Some("") => Ok(OrderingProfile::Aft),
+        Some("Aft") => Ok(OrderingProfile::Aft),
+        Some("Solo") => Ok(OrderingProfile::Solo),
+        Some(other) => Err(anyhow!(
+            "IOI_M049_ORDERING_PROFILE must be exactly \"Aft\" or \"Solo\" \
+             (unset defaults to \"Aft\"); got {other:?}"
+        )),
+    }
+}
+
+/// The profile selected for this run, defaulting to the AFT control.
+fn ordering_profile() -> Result<OrderingProfile> {
+    let raw = std::env::var("IOI_M049_ORDERING_PROFILE").ok();
+    parse_ordering_profile(raw.as_deref())
+}
+
 /// Emit one approval-correlated commit-path observation.
 ///
 /// The line is written to stdout, which the JS fixture tees to
@@ -1526,6 +1581,42 @@ fn fixture_command_contract_is_canonical_and_bounded() {
         .scope_allowlist
         .iter()
         .any(|scope| scope == GOAL_RUN_CREATE_SCOPE));
+
+    // The M04.9 ordering/finality selector is bounded to exactly two profiles
+    // and defaults to the AFT control.
+    assert_eq!(
+        parse_ordering_profile(None).expect("unset selector defaults"),
+        OrderingProfile::Aft,
+        "an unset selector must run the preserved AFT control, not the experiment"
+    );
+    assert_eq!(
+        parse_ordering_profile(Some("")).expect("empty selector defaults"),
+        OrderingProfile::Aft
+    );
+    assert_eq!(
+        parse_ordering_profile(Some("Aft")).expect("Aft is accepted"),
+        OrderingProfile::Aft
+    );
+    assert_eq!(
+        parse_ordering_profile(Some("Solo")).expect("Solo is accepted"),
+        OrderingProfile::Solo
+    );
+    assert_eq!(OrderingProfile::Aft.consensus_type(), "Aft");
+    assert_eq!(OrderingProfile::Solo.consensus_type(), "Solo");
+    // Surrounding whitespace is trimmed (env plumbing routinely adds it), but
+    // the trimmed value must still be one of the two exact profile names.
+    assert_eq!(
+        parse_ordering_profile(Some("  Solo  ")).expect("padded Solo is accepted"),
+        OrderingProfile::Solo
+    );
+    // Near-misses must fail closed rather than silently running the control:
+    // a run mislabelled as the other profile is worse than no run.
+    for rejected in ["aft", "solo", "SOLO", "ProofOfAuthority", "Solo,Aft"] {
+        assert!(
+            parse_ordering_profile(Some(rejected)).is_err(),
+            "selector must reject {rejected:?} instead of defaulting"
+        );
+    }
 }
 
 #[tokio::test]
@@ -1830,9 +1921,14 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
             timestamp_ms.to_string(),
         );
     }
+    // The ordering/finality profile is the ONLY dimension this selector
+    // varies. Admission, execution, IAVL state commitment, Redb durability,
+    // restart and the status/receipt surfaces below are the same code on both
+    // profiles, which is what makes the two runs comparable at all.
+    let ordering_profile = ordering_profile()?;
     let mut cluster_builder = TestCluster::builder()
         .with_validators(1)
-        .with_consensus_type("Aft")
+        .with_consensus_type(ordering_profile.consensus_type())
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_policy());
     if wall_clock_genesis_ms.is_some() {

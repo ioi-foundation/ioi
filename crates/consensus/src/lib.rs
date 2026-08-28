@@ -83,7 +83,14 @@ impl<T: Clone> Consensus<T> {
             Consensus::ProofOfAuthority(_) => ConsensusType::ProofOfAuthority,
             #[cfg(feature = "pos")]
             Consensus::ProofOfStake(_) => ConsensusType::ProofOfStake,
-            Consensus::Solo(_) => ConsensusType::Aft,
+            // Solo reports Solo. It previously reported Aft, which made every
+            // AFT-gated lane (collapse derivation, ordering publication,
+            // restart-anchor recovery, collapse-backed status demotion) run
+            // against a chain that produces no quorum certificate and no
+            // canonical collapse surface -- and made an ordering/finality
+            // comparison between the two profiles unstatable, because the
+            // control and the variant answered this question identically.
+            Consensus::Solo(_) => ConsensusType::Solo,
             Consensus::_Phantom(_) => unreachable!(),
         }
     }

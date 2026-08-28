@@ -88,6 +88,21 @@ pub(super) fn dispatch_swarm_command(
     }
 }
 
+/// The ordering/finality profile label used by the M04.9 parity artifact.
+///
+/// Reports what the node is actually running. It is deliberately derived from
+/// the configured `ConsensusType` rather than from any observed behaviour, so
+/// a profile can never be inferred backwards from the timings it is meant to
+/// explain.
+fn ordering_profile_label(consensus_type: ioi_types::config::ConsensusType) -> &'static str {
+    match consensus_type {
+        ioi_types::config::ConsensusType::Aft => "aft",
+        ioi_types::config::ConsensusType::Solo => "solo",
+        ioi_types::config::ConsensusType::ProofOfAuthority => "proof_of_authority",
+        ioi_types::config::ConsensusType::ProofOfStake => "proof_of_stake",
+    }
+}
+
 fn parse_failed_tx_index(block_error: &str) -> Option<usize> {
     let marker = "tx_index=";
     let start = block_error.find(marker)? + marker.len();
@@ -477,6 +492,20 @@ where
         )
     };
 
+    // Narrowly gated ordering/finality attribution for the M04.9 parity
+    // experiment. Read ONLY when the estate's existing benchmark trace seam is
+    // already on, so the default path takes no extra lock and emits nothing
+    // new. These are CONFIGURATION facts, never phase measurements.
+    let ordering_cadence = if benchmark_trace_enabled() {
+        let ctx = context_arc.lock().await;
+        Some((
+            ctx.config.block_production_interval_secs,
+            ctx.config.round_robin_view_timeout_secs,
+        ))
+    } else {
+        None
+    };
+
     let node_state: NodeState = node_state_arc.lock().await.clone();
     let known_peer_count = known_peers_ref.lock().await.len();
     let is_quarantined = {
@@ -852,6 +881,11 @@ where
         ioi_types::config::ConsensusType::Aft
             | ioi_types::config::ConsensusType::ProofOfAuthority
             | ioi_types::config::ConsensusType::ProofOfStake
+            // Solo is the sole ordering authority for its own chain, so a
+            // peerless height-1 tick is its normal steady state rather than an
+            // unsynced one. Omitting it here would leave a Solo node unable to
+            // ever produce its first block.
+            | ioi_types::config::ConsensusType::Solo
     );
 
     let isolated_bootstrap = consensus_allows_bootstrap
@@ -1732,6 +1766,24 @@ where
             };
 
             if benchmark_trace_enabled() {
+                // Which ordering profile produced this height, and the cadence
+                // it was configured with. A parity artifact must attribute a
+                // measurement to the engine that produced it rather than infer
+                // the engine from the measurement; that inference is exactly
+                // what the Solo-reports-Aft defect made impossible. No
+                // duration is claimed here -- the inter-tick cadence wait
+                // happens in the scheduler outside any instrumented span, so
+                // it is reported as configuration and never as a phase.
+                if let Some((block_interval_secs, view_timeout_secs)) = ordering_cadence {
+                    eprintln!(
+                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} block_interval_secs={} view_timeout_secs={}",
+                        producing_h,
+                        view,
+                        ordering_profile_label(cons_ty),
+                        block_interval_secs,
+                        view_timeout_secs,
+                    );
+                }
                 eprintln!(
                     "[BENCH-CONSENSUS] proposal_select height={} view={} candidate_txs={} valid_txs={} select_ms={} verify_ms={}",
                     producing_h,

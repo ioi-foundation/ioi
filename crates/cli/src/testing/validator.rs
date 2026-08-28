@@ -696,6 +696,7 @@ impl TestValidator {
             "Aft" => ConsensusType::Aft,
             "ProofOfAuthority" => ConsensusType::ProofOfAuthority,
             "ProofOfStake" => ConsensusType::ProofOfStake,
+            "Solo" => ConsensusType::Solo,
             _ => return Err(anyhow!("Unsupported consensus type: {}", consensus_type)),
         };
 

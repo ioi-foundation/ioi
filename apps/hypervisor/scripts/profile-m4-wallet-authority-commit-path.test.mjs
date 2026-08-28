@@ -16,9 +16,14 @@ import test from "node:test";
 
 import {
   BENCH_IAVL_CONTRACT,
+  BENCH_ORDERING_CONTRACT,
+  EVENT_DRIVEN_COMPLETION,
+  ORDERING_PARITY_SLOTS,
   PHASES,
   READY_HEIGHT_LAG_MAX,
   REQUIRED_PHASES,
+  UNMEASURED_PHASES,
+  VALUE_KINDS,
   buildCommitPathProfile,
   decimalMillisecondField,
   indexByHeight,
@@ -26,6 +31,7 @@ import {
   millisecondValue,
   parseApprovalLines,
   parseBenchLine,
+  parseArgs,
   parseObservationRecords,
   profileEnv,
 } from "./profile-m4-wallet-authority-commit-path.mjs";
@@ -61,6 +67,9 @@ const BASE = {
   new_nodes: 118,
   new_node_bytes: 40960,
   atomic_state_block: "true",
+  ordering_profile: "aft",
+  block_interval_secs: 1,
+  view_timeout_secs: 2,
 };
 
 const RUN = {
@@ -72,6 +81,7 @@ const RUN = {
 function traceLines(v) {
   return [
     "2026-08-27T00:00:00Z INFO orchestration: unrelated log framing",
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 ordering_profile=${v.ordering_profile} block_interval_secs=${v.block_interval_secs} view_timeout_secs=${v.view_timeout_secs}`,
     `[BENCH-CONSENSUS] proposal_select height=${HEIGHT} view=1 candidate_txs=1 valid_txs=1 select_ms=${v.select_ms} verify_ms=${v.verify_ms}`,
     `[BENCH-CONSENSUS] proposal_process height=${HEIGHT} view=1 tx_count=1 process_block_ms=${v.process_block_ms}`,
     `[BENCH-CONSENSUS] proposal_finalize height=${HEIGHT} view=1 finalize_ms=${v.finalize_ms}`,
@@ -123,12 +133,12 @@ const phasesOf = (overrides, options) =>
 const PLANT_FIELD = {
   client_submission_admission: "admission_ms",
   client_commit_wait: "commit_wait_ms",
-  aft_inclusion_finalization: "finalize_ms",
+  ordering_finalization: "finalize_ms",
   execution_prepare: "prepare_total_ms",
   execution_commit: "commit_total_ms",
   state_commitment_materialization: "commitment_ms",
   durable_persistence: "durable_store_ms",
-  wallet_proof_resolution: "approval_query_ms",
+  proof_exact_state_resolution: "approval_query_ms",
 };
 
 const PLANTED_DELAY_MS = 7_000;
@@ -151,24 +161,75 @@ function assertOnlyPhaseMoved(phase, baseline, mutated, delay) {
   }
 }
 
-test("every phase is declared inclusive or exclusive with its nesting named", () => {
-  for (const name of REQUIRED_PHASES) {
+test("every phase is declared inclusive, exclusive, or unmeasured with its nesting named", () => {
+  const allPhases = Object.keys(PHASES);
+  for (const name of allPhases) {
     const phase = PHASES[name];
-    assert.ok(["inclusive", "exclusive"].includes(phase.semantics), `${name} declares semantics`);
-    assert.ok(phase.source.length > 0, `${name} names its source`);
+    assert.ok(
+      ["inclusive", "exclusive", "unmeasured"].includes(phase.semantics),
+      `${name} declares semantics`,
+    );
+    assert.ok(Object.keys(VALUE_KINDS).includes(phase.semantics), `${name} uses a declared kind`);
+    assert.ok(ORDERING_PARITY_SLOTS.includes(phase.slot), `${name} maps to a parity slot`);
+    if (phase.measured) {
+      assert.ok(phase.source.length > 0, `${name} names its source`);
+    } else {
+      assert.equal(phase.source, null, `${name} claims no source it does not have`);
+      assert.ok(
+        (phase.unmeasured_reason ?? "").length > 0,
+        `${name} states WHY it is unmeasured rather than silently vanishing`,
+      );
+    }
     if (phase.semantics === "exclusive") {
       assert.deepEqual(phase.contains, [], `${name} is exclusive so it contains nothing`);
     } else {
       assert.ok(Array.isArray(phase.contains), `${name} lists what it contains`);
     }
     for (const contained of phase.contains) {
-      assert.ok(REQUIRED_PHASES.includes(contained), `${name} contains a real phase`);
+      assert.ok(allPhases.includes(contained), `${name} contains a real phase`);
+    }
+    for (const container of phase.nested_in) {
+      assert.ok(allPhases.includes(container), `${name} is nested in a real phase`);
+      assert.ok(
+        PHASES[container].contains.includes(name),
+        `${name} declares it is nested in ${container}, so ${container} must declare it contains ${name}`,
+      );
     }
   }
   // The double-counting trap this exists to prevent: the two containers of
   // finality time must both declare that they hold the execution beneath them.
-  assert.ok(PHASES.aft_inclusion_finalization.contains.includes("execution_commit"));
+  assert.ok(PHASES.ordering_finalization.contains.includes("execution_commit"));
   assert.ok(PHASES.execution_commit.contains.includes("durable_persistence"));
+});
+
+test("all ten ordering-parity slots are represented, measured or explicitly not", () => {
+  const covered = new Set(Object.values(PHASES).map((phase) => phase.slot));
+  for (const slot of ORDERING_PARITY_SLOTS) {
+    assert.ok(covered.has(slot), `slot '${slot}' must be present, even if unmeasured`);
+  }
+  assert.equal(ORDERING_PARITY_SLOTS.length, 10, "the contract names exactly ten slots");
+  // The three the estate genuinely cannot measure today. If a seam later makes
+  // one of these measurable, this list is the thing that must change.
+  assert.deepEqual(
+    [...UNMEASURED_PHASES].sort(),
+    ["admission_queueing", "proposal_cadence_wait", "receipt_creation_durable_ack"],
+    "unmeasured phases are exactly the ones with no seam",
+  );
+});
+
+test("the client-observed phase is labelled polling-quantized, not an exact latency", () => {
+  assert.equal(PHASES.client_commit_wait.quantized_by, "poll_interval_ms");
+  assert.equal(
+    PHASES.proposal_cadence_wait.semantics,
+    "unmeasured",
+    "cadence WAIT is not measured even though cadence CONFIG is recorded",
+  );
+  assert.equal(EVENT_DRIVEN_COMPLETION.status, "unimplemented");
+  assert.equal(EVENT_DRIVEN_COMPLETION.measured, false);
+  assert.ok(
+    EVENT_DRIVEN_COMPLETION.reason.includes("tx_count"),
+    "the reason names the concrete reason no per-tx completion event exists",
+  );
 });
 
 test("a complete trace attributes one approval across every required phase", () => {
@@ -193,10 +254,16 @@ test("a complete trace attributes one approval across every required phase", () 
   assert.equal(approval.dimensions.durable_store_backend, "redb");
   assert.deepEqual(approval.anomalies, []);
   assert.equal(
-    approval.phases.wallet_proof_resolution,
+    approval.phases.proof_exact_state_resolution,
     BASE.approval_query_ms + BASE.approval_verify_ms,
     "the wallet phase is the post-commit read alone",
   );
+  assert.equal(approval.ordering.profile, BASE.ordering_profile);
+  assert.equal(
+    approval.ordering.proposal_cadence.block_interval_secs,
+    BASE.block_interval_secs,
+  );
+  assert.equal(approval.ordering.proposal_cadence.measured, false, "cadence is configuration");
   assert.equal(approval.correlation.authority_resolution_ms, BASE.authority_resolution_ms);
   assert.equal(profile.coverage.approvals_route_correlated, 1);
   assert.equal(profile.coverage.approvals_without_route, 0);
@@ -445,4 +512,140 @@ test("bench lines are found inside surrounding log framing", () => {
   const index = indexByHeight(framed, "[BENCH-CONSENSUS]", "proposal_finalize");
   assert.equal(integerField(index.get(9).fields, "finalize_ms"), 31);
   assert.equal(parseBenchLine("nothing here", "[BENCH-EXEC]"), null);
+});
+
+// ---------------------------------------------------------------------------
+// Ordering/finality parity
+// ---------------------------------------------------------------------------
+
+test("the same scenario profiles under either ordering profile, attributed correctly", () => {
+  // The parity claim: identical inputs except the ordering engine produce
+  // artifacts that differ ONLY in what the engine is called. If the profiler
+  // could not tell them apart, no comparison built on it would mean anything.
+  const aft = buildCommitPathProfile(inputs({ ordering_profile: "aft" }));
+  const solo = buildCommitPathProfile(
+    inputs({ ordering_profile: "solo", block_interval_secs: 1, view_timeout_secs: 2 }),
+  );
+  assert.equal(aft.ordering_parity.ordering_profile, "aft");
+  assert.equal(solo.ordering_parity.ordering_profile, "solo");
+  assert.equal(solo.approvals[0].ordering.profile, "solo");
+  // Every measured phase is read from the same seams either way.
+  assert.deepEqual(
+    Object.keys(solo.approvals[0].phases).sort(),
+    Object.keys(aft.approvals[0].phases).sort(),
+    "both profiles report the same phase set; only the attribution differs",
+  );
+  assert.equal(
+    aft.ordering_parity.ordering_profile_provenance,
+    `observed:${BENCH_ORDERING_CONTRACT.tag}`,
+    "the profile is observed from the trace, never assumed from the run config",
+  );
+});
+
+test("a profile that cannot name its ordering engine fails closed", () => {
+  // Silently attributing an unlabelled run to the default engine is the exact
+  // failure that made the Solo-reports-Aft defect invisible.
+  assert.throws(
+    () => buildCommitPathProfile(inputs({}, { dropLines: [BENCH_ORDERING_CONTRACT.tag] })),
+    /\[BENCH-ORDERING\] proposal at height .* was not observed/u,
+  );
+  assert.throws(
+    () => buildCommitPathProfile(inputs({ ordering_profile: "quorum_ish" })),
+    /does not know; refusing to attribute/u,
+  );
+});
+
+test("an artifact spanning two ordering engines is refused", () => {
+  // Averaging two engines into one figure would answer the experiment's
+  // question with a number that describes neither.
+  const single = inputs({ ordering_profile: "aft" });
+  const otherHeight = 413;
+  const mixedTrace = [
+    single.traceText,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=solo block_interval_secs=1 view_timeout_secs=2`,
+    `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
+    `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
+    `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
+    `[BENCH-EXEC] prepare_block height=${otherHeight} tx_count=1 total_ms=300`,
+    `[BENCH-EXEC] commit_block height=${otherHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
+    `${BENCH_IAVL_CONTRACT.tag} commit height=${otherHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
+    `[BENCH-APPROVAL] request_hash=${"c".repeat(64)} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=feedface admission_ms=3 committed_height=${otherHeight} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1`,
+  ].join("\n");
+  assert.throws(
+    () =>
+      buildCommitPathProfile({
+        ...single,
+        approvalFields: parseApprovalLines(mixedTrace),
+        traceText: mixedTrace,
+      }),
+    /span more than one ordering profile \(aft, solo\)/u,
+  );
+});
+
+test("unmeasured phases are carried as absent-with-reason, never as zero", () => {
+  const profile = buildCommitPathProfile(inputs());
+  const [approval] = profile.approvals;
+  for (const name of UNMEASURED_PHASES) {
+    assert.ok(name in approval.unmeasured_phases, `${name} is present on the row`);
+    const entry = approval.unmeasured_phases[name];
+    assert.equal(entry.value, null, `${name} must be null, not 0`);
+    assert.equal(entry.kind, "unmeasured");
+    assert.ok(entry.reason.length > 0, `${name} carries its reason into the artifact`);
+    assert.ok(!(name in approval.phases), `${name} must not appear among measured phases`);
+  }
+  // The cadence the run was configured with IS recorded — as configuration.
+  assert.equal(profile.ordering_parity.proposal_cadence.measured, false);
+  assert.equal(profile.ordering_parity.proposal_cadence.provenance, "configured");
+  assert.deepEqual(profile.ordering_parity.proposal_cadence.values, [
+    { block_interval_secs: BASE.block_interval_secs, view_timeout_secs: BASE.view_timeout_secs },
+  ]);
+});
+
+test("the artifact records the poll interval that quantizes the observed phase", () => {
+  const profile = buildCommitPathProfile(inputs({ commit_poll_interval_ms: 25 }));
+  assert.deepEqual(profile.ordering_parity.poll_interval_ms.values, [25]);
+  assert.equal(profile.ordering_parity.poll_interval_ms.quantizes, "client_commit_wait");
+  assert.equal(profile.approvals[0].dimensions.poll_interval_ms, 25);
+});
+
+test("the profile selector and poll interval are bounded at the wrapper too", () => {
+  assert.deepEqual(parseArgs([]).orderingProfile, null, "unflagged runs request nothing");
+  assert.deepEqual(parseArgs([]).pollIntervalMs, null);
+  assert.equal(parseArgs(["--ordering-profile", "Solo"]).orderingProfile, "Solo");
+  assert.equal(parseArgs(["--ordering-profile=Aft"]).orderingProfile, "Aft");
+  assert.equal(parseArgs(["--poll-interval-ms", "25"]).pollIntervalMs, 25);
+  // Same bounds crates/cli enforces; a wrapper that accepted more would let a
+  // value through that the node then silently replaced with its default.
+  for (const bad of ["solo", "AFT", "ProofOfStake", ""]) {
+    assert.throws(() => parseArgs(["--ordering-profile", bad]), /--ordering-profile must be one of/u);
+  }
+  for (const bad of ["0", "5001", "-1", "abc", "1.5"]) {
+    assert.throws(() => parseArgs(["--poll-interval-ms", bad]), /--poll-interval-ms must be/u);
+  }
+});
+
+test("requested profile is carried separately from the profile that actually ran", () => {
+  const env = profileEnv({}, "/tmp/t", "/tmp/l", {
+    orderingProfile: "Solo",
+    pollIntervalMs: 25,
+  });
+  assert.equal(env.IOI_M049_ORDERING_PROFILE, "Solo");
+  assert.equal(env.IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS, "25");
+  // Unflagged runs must not set either, so they stay byte-identical to M04.8.
+  const bare = profileEnv({}, "/tmp/t", "/tmp/l");
+  assert.ok(!("IOI_M049_ORDERING_PROFILE" in bare));
+  assert.ok(!("IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS" in bare));
+});
+
+test("the summation rule names only genuinely exclusive phases as summable", () => {
+  const profile = buildCommitPathProfile(inputs());
+  for (const name of profile.summation_rule.safe_partition) {
+    assert.equal(
+      PHASES[name].semantics,
+      "exclusive",
+      `${name} is offered as summable, so it must be exclusive`,
+    );
+  }
+  assert.equal(profile.schema_version, "ioi.m049.ordering-parity-profile.v1");
+  assert.equal(Object.keys(VALUE_KINDS).length, 6);
 });

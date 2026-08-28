@@ -21,12 +21,58 @@ use tonic::transport::Channel;
 const RPC_RETRY_MAX: usize = 5;
 const RPC_RETRY_BASE_MS: u64 = 80;
 
-/// The fixed interval between committed-status polls.
+/// The default interval between committed-status polls.
 ///
 /// Every commit-wait measurement taken on this path is quantized to this
 /// interval, so a profile that reports the wait must also report the quantum
 /// rather than presenting the sampled figure as an exact latency.
-const COMMIT_POLL_INTERVAL_MS: u64 = 500;
+const DEFAULT_COMMIT_POLL_INTERVAL_MS: u64 = 500;
+
+/// Lower bound on the poll interval. Polling faster than this turns the status
+/// RPC into a busy loop competing with the commit path being measured, so the
+/// sampler would perturb the number it reports.
+const MIN_COMMIT_POLL_INTERVAL_MS: u64 = 1;
+
+/// Upper bound on the poll interval. A coarser quantum would dominate every
+/// phase in the profile and silently turn a commit-latency measurement into a
+/// measurement of the sampler.
+const MAX_COMMIT_POLL_INTERVAL_MS: u64 = 5_000;
+
+/// The interval between committed-status polls.
+///
+/// Independently controllable so an ordering/finality comparison can separate
+/// the observation quantum from the profile under test: at the 500ms default a
+/// sub-100ms Solo commit and a sub-100ms AFT commit are indistinguishable,
+/// because both are rounded up to the same first poll. Changing this changes
+/// only how often the client asks -- no admission, ordering, execution,
+/// commitment, durability or receipt behaviour on the node depends on it.
+///
+/// Unparseable or out-of-range values fall back to the default rather than
+/// silently configuring a degenerate sampler.
+fn commit_poll_interval_ms() -> u64 {
+    let Ok(raw) = std::env::var("IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS") else {
+        return DEFAULT_COMMIT_POLL_INTERVAL_MS;
+    };
+    let trimmed = raw.trim().to_string();
+    let Ok(parsed) = trimmed.parse::<u64>() else {
+        eprintln!(
+            "[ioi-testing-rpc] ignoring unparseable \
+             IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS={trimmed:?}; using default \
+             {DEFAULT_COMMIT_POLL_INTERVAL_MS}ms"
+        );
+        return DEFAULT_COMMIT_POLL_INTERVAL_MS;
+    };
+    if !(MIN_COMMIT_POLL_INTERVAL_MS..=MAX_COMMIT_POLL_INTERVAL_MS).contains(&parsed) {
+        eprintln!(
+            "[ioi-testing-rpc] ignoring out-of-range \
+             IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS={parsed} (valid \
+             {MIN_COMMIT_POLL_INTERVAL_MS}..={MAX_COMMIT_POLL_INTERVAL_MS}); using default \
+             {DEFAULT_COMMIT_POLL_INTERVAL_MS}ms"
+        );
+        return DEFAULT_COMMIT_POLL_INTERVAL_MS;
+    }
+    parsed
+}
 
 /// A wall-clock observation of one submission through [`submit_transaction`].
 ///
@@ -180,6 +226,9 @@ pub async fn submit_transaction_profiled(
     let admission_ms = admission_started.elapsed().as_millis();
     let mut commit_poll_count = 0u64;
     let mut committed_height = None;
+    // Resolved once per submission so every poll in this wait, and the
+    // interval reported alongside it, are the same figure.
+    let poll_interval_ms = commit_poll_interval_ms();
 
     // Poll for status. Long held journeys against the debug wallet fixture
     // legitimately commit slowly as the chain deepens; callers opt into a
@@ -221,7 +270,7 @@ pub async fn submit_transaction_profiled(
                             admission_ms,
                             commit_wait_ms: start.elapsed().as_millis(),
                             commit_poll_count,
-                            commit_poll_interval_ms: COMMIT_POLL_INTERVAL_MS,
+                            commit_poll_interval_ms: poll_interval_ms,
                             committed_height,
                         });
                     }
@@ -236,7 +285,7 @@ pub async fn submit_transaction_profiled(
             }
         }
 
-        sleep(Duration::from_millis(COMMIT_POLL_INTERVAL_MS)).await;
+        sleep(Duration::from_millis(poll_interval_ms)).await;
     }
 }
 

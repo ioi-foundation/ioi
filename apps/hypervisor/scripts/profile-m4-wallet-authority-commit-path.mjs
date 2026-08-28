@@ -32,8 +32,23 @@
 // interpolated, or replaced by a neighbouring fact. A missing required phase
 // fails the build of the artifact.
 //
+// M04.9 ORDERING/FINALITY PARITY. The same wrapper now profiles either
+// ordering profile — the preserved one-validator AFT control, or the immediate
+// single-authority Solo engine — through the SAME admission, execution, IAVL
+// commitment, Redb durability, restart and status/receipt path. The artifact
+// records which engine actually produced each height (read back from the
+// trace, not assumed from the request), the configured proposal cadence, and
+// the client poll interval.
+//
+// ONE ARTIFACT IS NOT A COMPARISON. This produces a single-profile artifact.
+// Comparing two profiles means running it twice and reading both; no
+// cross-profile arithmetic is performed here, and none should be inferred from
+// a single run.
+//
 // Usage:
 //   node scripts/profile-m4-wallet-authority-commit-path.mjs [--out DIR] [--durable-store NAME]
+//                                                            [--ordering-profile Aft|Solo]
+//                                                            [--poll-interval-ms N]
 //
 // Exit: 0 when the soak passed AND a complete profile was built · 1 otherwise.
 
@@ -52,7 +67,11 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const SOAK_VERIFIER = "verify-m4-room-participation-contribution-plane.mjs";
-export const ARTIFACT_SCHEMA_VERSION = "ioi.m048.commit-path-profile.v1";
+// Bumped from ioi.m048.commit-path-profile.v1: the phase set is now the ten
+// M04.9 ordering/finality slots, one phase was renamed off its AFT-specific
+// name, and every value carries an explicit kind. A reader that understood v1
+// would mis-read this, so it does not reuse v1's identifier.
+export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-parity-profile.v1";
 
 // The readiness bar the unprofiled soak runs under, and which a profiled run
 // must therefore keep. See the header note: the trace seam would otherwise
@@ -101,11 +120,42 @@ export const BENCH_IAVL_CONTRACT = {
     "Consumed only. This file never emits [BENCH-IAVL]; crates/state IAVL is owned by another writer.",
 };
 
+// THE ONE PLACE [BENCH-ORDERING] FIELD NAMES ARE ENCODED.
+//
+// Emitted by crates/validator consensus production under the existing
+// IOI_AFT_BENCH_TRACE gate. It states which ordering/finality engine produced
+// a height and the cadence that engine was CONFIGURED with.
+//
+// This is configuration, not timing. It exists so a measurement can be
+// attributed to the engine that produced it rather than the engine being
+// guessed from the measurement -- the inference that the Solo-reports-Aft
+// defect made impossible.
+//
+// Accepted line shape:
+//   [BENCH-ORDERING] proposal height=<u64> view=<u64> ordering_profile=<name>
+//                    block_interval_secs=<u64> view_timeout_secs=<u64>
+export const BENCH_ORDERING_CONTRACT = {
+  tag: "[BENCH-ORDERING]",
+  op: "proposal",
+  correlation_field: "height",
+  required_fields: [
+    "height",
+    "view",
+    "ordering_profile",
+    "block_interval_secs",
+    "view_timeout_secs",
+  ],
+  known_profiles: ["aft", "solo", "proof_of_authority", "proof_of_stake"],
+  notes:
+    "Configuration only. No duration is carried here; the inter-tick cadence wait is not measured by any seam.",
+};
+
 export const BENCH_TAGS = {
   approval: "[BENCH-APPROVAL]",
   consensus: "[BENCH-CONSENSUS]",
   exec: "[BENCH-EXEC]",
   iavl: BENCH_IAVL_CONTRACT.tag,
+  ordering: BENCH_ORDERING_CONTRACT.tag,
 };
 
 // A measurement the emitter could not take is spelled this way rather than
@@ -116,71 +166,192 @@ export const UNAVAILABLE = "unavailable";
 // Phase semantics
 // ---------------------------------------------------------------------------
 
+// The kinds a value in this artifact can have. Every phase declares one, so a
+// reader never has to infer what a number means from its name.
+export const VALUE_KINDS = {
+  inclusive:
+    "Contains the phases named in `contains`. NEVER sum inclusive phases with what they contain.",
+  nested: "Contained by every phase named in `nested_in`; already counted inside each of them.",
+  exclusive: "Disjoint from every other phase. Only exclusive phases may be summed.",
+  derived: "Computed from other values in this artifact rather than read from a trace line.",
+  polling_quantized:
+    "Rounded up to the client status-poll interval. An upper bound on the underlying latency, not the latency.",
+  unmeasured:
+    "No seam measures this. Recorded as absent with a reason; never defaulted, interpolated, or inferred.",
+};
+
+// The ten M04.9 ordering/finality slots, in path order.
+//
+// A slot with no evidence is present and marked `unmeasured` rather than
+// omitted: a phase that silently disappears reads as a phase that costs
+// nothing, which is the failure this whole artifact exists to prevent.
+export const ORDERING_PARITY_SLOTS = [
+  "submission",
+  "admission_queueing",
+  "proposal_cadence_wait",
+  "ordering_finalization",
+  "execution",
+  "state_commitment",
+  "durable_persistence",
+  "receipt_creation_durable_ack",
+  "completion_notification_client_observation",
+  "proof_exact_state_resolution",
+];
+
 // EXPLICIT NESTING. `process_block_ms` measured by consensus CONTAINS the
 // execution prepare and commit it dispatched, and execution's `persist_ms`
 // CONTAINS state commitment and durable store time. Summing every phase would
 // therefore count finality time two or three times. Each phase below declares
-// whether it is `inclusive` (contains the phases it names) or `exclusive`
-// (disjoint from every other phase), so a reader can only add up a set that
-// actually partitions the path.
+// whether it is `inclusive` (contains the phases it names), `exclusive`
+// (disjoint from every other phase), or `unmeasured`, plus what it is nested
+// inside, so a reader can only add up a set that actually partitions the path.
 export const PHASES = {
   client_submission_admission: {
-    semantics: "exclusive",
-    source: "[BENCH-APPROVAL].admission_ms",
-    describes: "wall time of the submit_transaction RPC call that admitted the approval tx",
-    contains: [],
-  },
-  client_commit_wait: {
+    slot: "submission",
+    ordinal: 1,
+    measured: true,
     semantics: "inclusive",
-    source: "[BENCH-APPROVAL].commit_wait_ms",
+    source: "[BENCH-APPROVAL].admission_ms",
     describes:
-      "client-observed wait until the tx reported COMMITTED; quantized by the status poll interval",
-    contains: [
-      "aft_inclusion_finalization",
-      "execution_prepare",
-      "execution_commit",
-      "state_commitment_materialization",
-      "durable_persistence",
-    ],
+      "wall time of the submit_transaction RPC that admitted the approval tx; contains transport and whatever server-side admission and mempool enqueue that call performed",
+    contains: ["admission_queueing"],
+    nested_in: [],
+    quantized_by: null,
   },
-  aft_inclusion_finalization: {
+  admission_queueing: {
+    slot: "admission_queueing",
+    ordinal: 2,
+    measured: false,
+    semantics: "unmeasured",
+    source: null,
+    describes: "server-side admission and mempool enqueue, separated from the submitting RPC",
+    contains: [],
+    nested_in: ["client_submission_admission"],
+    quantized_by: null,
+    unmeasured_reason:
+      "No seam times admission or mempool enqueue apart from the submit_transaction RPC that performs them. The cost is real and is contained in client_submission_admission, but it is not separable from it, so it is not reported as its own number.",
+  },
+  proposal_cadence_wait: {
+    slot: "proposal_cadence_wait",
+    ordinal: 3,
+    measured: false,
+    semantics: "unmeasured",
+    source: null,
+    describes:
+      "wait from the tx sitting in the mempool until the next proposal tick picks it up -- the phase where an immediate single authority and a cadenced quorum engine differ most",
+    contains: [],
+    nested_in: ["client_commit_wait"],
+    quantized_by: null,
+    unmeasured_reason:
+      "The inter-tick wait elapses in the scheduler between consensus ticks, outside every instrumented span; no existing seam brackets it. The CONFIGURED cadence is recorded per approval under `ordering` and at run level, but configuration is not a measurement and is never presented as this phase's duration.",
+  },
+  ordering_finalization: {
+    slot: "ordering_finalization",
+    ordinal: 4,
+    measured: true,
     semantics: "inclusive",
     source:
       "[BENCH-CONSENSUS] proposal_select(select_ms+verify_ms) + proposal_process(process_block_ms) + proposal_finalize(finalize_ms)",
-    describes: "consensus selection, block processing, and finalization at the committed height",
+    // Renamed from `aft_inclusion_finalization`. Solo produces this phase too,
+    // so an AFT-specific name would have mislabelled every Solo row.
+    describes:
+      "ordering-engine selection, block processing, and finalization at the committed height, whichever engine produced it",
     contains: [
       "execution_prepare",
       "execution_commit",
       "state_commitment_materialization",
       "durable_persistence",
+      "receipt_creation_durable_ack",
     ],
+    nested_in: ["client_commit_wait"],
+    quantized_by: null,
   },
   execution_prepare: {
+    slot: "execution",
+    ordinal: 5,
+    measured: true,
     semantics: "inclusive",
     source: "[BENCH-EXEC] prepare_block.total_ms",
     describes: "speculative execution of the block's transactions before commitment",
     contains: [],
+    nested_in: ["client_commit_wait", "ordering_finalization"],
+    quantized_by: null,
   },
   execution_commit: {
+    slot: "execution",
+    ordinal: 5,
+    measured: true,
     semantics: "inclusive",
     source: "[BENCH-EXEC] commit_block.total_ms",
     describes: "proof verification, state application, end-block, and durable commit",
-    contains: ["state_commitment_materialization", "durable_persistence"],
+    contains: [
+      "state_commitment_materialization",
+      "durable_persistence",
+      "receipt_creation_durable_ack",
+    ],
+    nested_in: ["client_commit_wait", "ordering_finalization"],
+    quantized_by: null,
   },
   state_commitment_materialization: {
+    slot: "state_commitment",
+    ordinal: 6,
+    measured: true,
     semantics: "exclusive",
     source: "[BENCH-IAVL].commitment_ms",
     describes: "materializing the new commitment version over the state tree",
     contains: [],
+    nested_in: ["client_commit_wait", "ordering_finalization", "execution_commit"],
+    quantized_by: null,
   },
   durable_persistence: {
+    slot: "durable_persistence",
+    ordinal: 7,
+    measured: true,
     semantics: "exclusive",
     source: "[BENCH-IAVL].durable_store_ms",
     describes:
       "building the persistence adapter input, then writing the committed version and block through the durable store",
     contains: [],
+    nested_in: ["client_commit_wait", "ordering_finalization", "execution_commit"],
+    quantized_by: null,
   },
-  wallet_proof_resolution: {
+  receipt_creation_durable_ack: {
+    slot: "receipt_creation_durable_ack",
+    ordinal: 8,
+    measured: false,
+    semantics: "unmeasured",
+    source: null,
+    describes: "creating the individual authority receipts and durably acknowledging them",
+    contains: [],
+    nested_in: ["client_commit_wait", "ordering_finalization", "execution_commit"],
+    quantized_by: null,
+    unmeasured_reason:
+      "No seam times receipt creation or its durable acknowledgement apart from the commit that writes them. Root batching and individual authority receipts are unchanged by this profiler; their cost is contained in execution_commit and durable_persistence and is not separable there.",
+  },
+  client_commit_wait: {
+    slot: "completion_notification_client_observation",
+    ordinal: 9,
+    measured: true,
+    semantics: "inclusive",
+    source: "[BENCH-APPROVAL].commit_wait_ms",
+    describes:
+      "client-observed wait until the tx reported COMMITTED, by polling; an UPPER BOUND rounded up to the poll interval, not the commit latency",
+    contains: [
+      "proposal_cadence_wait",
+      "ordering_finalization",
+      "execution_prepare",
+      "execution_commit",
+      "state_commitment_materialization",
+      "durable_persistence",
+      "receipt_creation_durable_ack",
+    ],
+    nested_in: [],
+    quantized_by: "poll_interval_ms",
+  },
+  proof_exact_state_resolution: {
+    slot: "proof_exact_state_resolution",
+    ordinal: 10,
+    measured: true,
     semantics: "exclusive",
     source: "[BENCH-APPROVAL].approval_query_ms + [BENCH-APPROVAL].approval_verify_ms",
     describes:
@@ -191,10 +362,34 @@ export const PHASES = {
     // twice. It is carried per approval under `correlation`, as a route-level
     // fact, not as a slice of this approval's own commit path.
     contains: [],
+    nested_in: [],
+    quantized_by: null,
   },
 };
 
-export const REQUIRED_PHASES = Object.keys(PHASES);
+// Phases carrying a number on every approval row.
+export const REQUIRED_PHASES = Object.keys(PHASES).filter((name) => PHASES[name].measured);
+
+// Phases present in the contract but carrying no number, ever.
+export const UNMEASURED_PHASES = Object.keys(PHASES).filter((name) => !PHASES[name].measured);
+
+// Completion notification is POLLED, not pushed.
+//
+// The public API does expose a SubscribeEvents stream, but its BlockCommitted
+// event carries only height and state_root -- `tx_count` is hardcoded to zero
+// and no transaction hash is carried -- so it cannot say WHICH transaction
+// completed. Correlating a specific approval would require a second RPC and a
+// block scan per event, which is an architectural expansion and would measure
+// block observation rather than status publication. So event-driven completion
+// is recorded here as unimplemented rather than estimated.
+export const EVENT_DRIVEN_COMPLETION = {
+  status: "unimplemented",
+  measured: false,
+  reason:
+    "No existing notification abstraction carries per-transaction completion. SubscribeEvents' BlockCommitted carries height and state_root only, with tx_count hardcoded to 0 and no tx hash, so it cannot identify the completing transaction without a second RPC and a block scan.",
+  consequence:
+    "completion_notification_client_observation is polling-quantized and is an upper bound; the push-notification latency it would otherwise be compared against is not measured by this artifact.",
+};
 
 // Dimensions that must be present for an approval row to be complete. A row
 // missing any of these is not downgraded to a partial observation; it fails.
@@ -380,6 +575,7 @@ export function buildCommitPathProfile({
   const execPrepare = indexByHeight(traceText, BENCH_TAGS.exec, "prepare_block");
   const execCommit = indexByHeight(traceText, BENCH_TAGS.exec, "commit_block");
   const iavl = indexByHeight(traceText, BENCH_TAGS.iavl);
+  const ordering = indexByHeight(traceText, BENCH_TAGS.ordering, BENCH_ORDERING_CONTRACT.op);
 
   const approvalRecords = new Map();
   const routeRecords = new Map();
@@ -430,6 +626,28 @@ export function buildCommitPathProfile({
       `[BENCH-CONSENSUS] proposal_finalize at height ${height}`,
       requestHash,
     );
+    // A parity artifact that cannot name the engine that produced a height is
+    // not parity evidence, so this fails closed rather than defaulting.
+    const orderingLine = requireField(
+      ordering.get(height),
+      `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} at height ${height}`,
+      requestHash,
+    );
+    for (const name of BENCH_ORDERING_CONTRACT.required_fields) {
+      if (orderingLine.fields[name] === undefined) {
+        throw new ProfileIncomplete(
+          `approval ${requestHash}: ${BENCH_ORDERING_CONTRACT.tag} at height ${height} omits required field '${name}'`,
+        );
+      }
+    }
+    const orderingProfile = orderingLine.fields.ordering_profile;
+    if (!BENCH_ORDERING_CONTRACT.known_profiles.includes(orderingProfile)) {
+      throw new ProfileIncomplete(
+        `approval ${requestHash}: ${BENCH_ORDERING_CONTRACT.tag} at height ${height} reports ` +
+          `ordering_profile=${orderingProfile}, which this parser does not know; refusing to attribute ` +
+          `measurements to an unrecognized ordering engine`,
+      );
+    }
 
     for (const name of BENCH_IAVL_CONTRACT.required_fields) {
       if (tree.fields[name] === undefined) {
@@ -493,7 +711,7 @@ export function buildCommitPathProfile({
         "committed-status wait time",
         requestHash,
       ),
-      aft_inclusion_finalization: consensusMs,
+      ordering_finalization: consensusMs,
       execution_prepare: requireField(
         integerField(prepare.fields, "total_ms"),
         "execution prepare_block time",
@@ -506,7 +724,7 @@ export function buildCommitPathProfile({
       ),
       state_commitment_materialization: commitmentMs,
       durable_persistence: durableStoreMs,
-      wallet_proof_resolution: proofResolutionMs,
+      proof_exact_state_resolution: proofResolutionMs,
     };
     for (const name of REQUIRED_PHASES) {
       requireField(phases[name] ?? null, `phase '${name}'`, requestHash);
@@ -576,7 +794,7 @@ export function buildCommitPathProfile({
     // the declared nesting does not hold for that observation; it is surfaced
     // as an anomaly rather than clamped away.
     const consensusExclusiveMs =
-      phases.aft_inclusion_finalization - (phases.execution_prepare + phases.execution_commit);
+      phases.ordering_finalization - (phases.execution_prepare + phases.execution_commit);
     const commitExclusiveMs =
       phases.execution_commit - (phases.state_commitment_materialization + phases.durable_persistence);
     const anomalies = [];
@@ -603,7 +821,35 @@ export function buildCommitPathProfile({
       target_scope: fields.target_scope ?? null,
       route: route?.route ?? null,
       tx_hash: fields.tx_hash ?? null,
+      // Which engine ordered this height, and the cadence it was configured
+      // with. Configuration, never a duration.
+      ordering: {
+        profile: orderingProfile,
+        proposal_cadence: {
+          block_interval_secs: requireField(
+            integerField(orderingLine.fields, "block_interval_secs"),
+            "configured block production interval",
+            requestHash,
+          ),
+          view_timeout_secs: requireField(
+            integerField(orderingLine.fields, "view_timeout_secs"),
+            "configured view timeout",
+            requestHash,
+          ),
+          provenance: "configured",
+          measured: false,
+        },
+        view: integerField(orderingLine.fields, "view"),
+      },
       phases,
+      // Present-and-absent, with the reason, so a missing phase reads as
+      // "not measured" rather than "cost nothing".
+      unmeasured_phases: Object.fromEntries(
+        UNMEASURED_PHASES.map((name) => [
+          name,
+          { value: null, kind: "unmeasured", reason: PHASES[name].unmeasured_reason },
+        ]),
+      ),
       derived_exclusive_ms: {
         consensus_excluding_execution: consensusExclusiveMs,
         commit_excluding_commitment_and_store: commitExclusiveMs,
@@ -632,12 +878,70 @@ export function buildCommitPathProfile({
     );
   }
 
+  // A parity artifact must be attributable to ONE ordering profile. A mixed
+  // set would silently average two engines into a single figure, which is
+  // exactly the comparison this artifact exists to make impossible to fake.
+  const observedProfiles = [...new Set(approvals.map((entry) => entry.ordering.profile))].sort();
+  if (observedProfiles.length !== 1) {
+    throw new ProfileIncomplete(
+      `approvals span more than one ordering profile (${observedProfiles.join(", ")}); ` +
+        "a parity profile must attribute every measurement to a single ordering engine",
+    );
+  }
+  const observedCadences = [
+    ...new Set(
+      approvals.map((entry) =>
+        JSON.stringify([
+          entry.ordering.proposal_cadence.block_interval_secs,
+          entry.ordering.proposal_cadence.view_timeout_secs,
+        ]),
+      ),
+    ),
+  ];
+  const pollIntervals = [...new Set(approvals.map((entry) => entry.dimensions.poll_interval_ms))];
+
   return {
     schema_version: ARTIFACT_SCHEMA_VERSION,
     generated_at_ms: Date.now(),
     run,
+    // The three dimensions an ordering/finality comparison is read against.
+    ordering_parity: {
+      ordering_profile: observedProfiles[0],
+      ordering_profile_provenance: `observed:${BENCH_ORDERING_CONTRACT.tag}`,
+      proposal_cadence: {
+        values: observedCadences.map((entry) => {
+          const [block_interval_secs, view_timeout_secs] = JSON.parse(entry);
+          return { block_interval_secs, view_timeout_secs };
+        }),
+        provenance: "configured",
+        measured: false,
+      },
+      // Reported because it sets the resolution of the client-observed phase:
+      // a commit faster than one interval is indistinguishable from any other
+      // commit faster than one interval.
+      poll_interval_ms: { values: pollIntervals, quantizes: "client_commit_wait" },
+      event_driven_completion: EVENT_DRIVEN_COMPLETION,
+      slots: ORDERING_PARITY_SLOTS,
+    },
+    value_kinds: VALUE_KINDS,
     phase_semantics: PHASES,
-    parser_contract: { bench_iavl: BENCH_IAVL_CONTRACT, tags: BENCH_TAGS },
+    // Stated in the artifact so a reader does not have to rederive it from the
+    // nesting graph before adding anything up.
+    summation_rule: {
+      never_sum:
+        "Inclusive phases contain the phases listed in their `contains`. Summing them double- or triple-counts finality time.",
+      safe_partition: [
+        "state_commitment_materialization",
+        "durable_persistence",
+        "proof_exact_state_resolution",
+      ],
+      note: "Use derived_exclusive_ms to partition a container without double counting.",
+    },
+    parser_contract: {
+      bench_iavl: BENCH_IAVL_CONTRACT,
+      bench_ordering: BENCH_ORDERING_CONTRACT,
+      tags: BENCH_TAGS,
+    },
     coverage: {
       approvals_attributed: approvals.length,
       heights_attributed: new Set(approvals.map((a) => a.dimensions.committed_height)).size,
@@ -653,6 +957,10 @@ export function buildCommitPathProfile({
       "client_commit_wait is quantized by poll_interval_ms and is not an exact commit latency.",
       "Approvals recorded outside the governed helpers carry no route correlation; see coverage.",
       "This profile proves only the exact build profile, backend, and host it ran on.",
+      "proposal_cadence is CONFIGURATION. The actual wait before a proposal picked up a queued tx is not measured by any seam, so no cadence-wait duration is claimed.",
+      "admission_queueing and receipt_creation_durable_ack are unmeasured; their cost is real and contained in neighbouring phases, not zero.",
+      "Completion notification is polled, not pushed; no event-driven completion latency is measured.",
+      "A single-profile artifact is not a comparison. Comparing two profiles requires two artifacts and is not performed here.",
     ],
     approvals,
   };
@@ -664,8 +972,8 @@ export { ProfileIncomplete };
 // Runner
 // ---------------------------------------------------------------------------
 
-export function profileEnv(baseEnv, traceDir, teeLogPath) {
-  return {
+export function profileEnv(baseEnv, traceDir, teeLogPath, options = {}) {
+  const env = {
     ...baseEnv,
     // The soak's own release-profile gate, unchanged.
     IOI_WALLET_FIXTURE_RELEASE: "1",
@@ -677,10 +985,23 @@ export function profileEnv(baseEnv, traceDir, teeLogPath) {
     // See the header: without this the trace seam changes readiness semantics.
     IOI_TEST_READY_HEIGHT_LAG_MAX: READY_HEIGHT_LAG_MAX,
   };
+  // Only set when explicitly asked for. Unset means the fixture runs its own
+  // default (the AFT control, at the 500ms poll interval), so an unflagged
+  // profiling run is byte-identical to the M04.8 behaviour.
+  if (options.orderingProfile) env.IOI_M049_ORDERING_PROFILE = options.orderingProfile;
+  if (options.pollIntervalMs) {
+    env.IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS = String(options.pollIntervalMs);
+  }
+  return env;
 }
 
-function parseArgs(argv) {
-  const args = { out: null, durableStore: "redb" };
+// The ordering profiles this wrapper may request, matching the fixture's own
+// bounded selector exactly. Anything else is refused rather than passed
+// through, so a typo cannot silently run the control and be labelled otherwise.
+export const SELECTABLE_ORDERING_PROFILES = ["Aft", "Solo"];
+
+export function parseArgs(argv) {
+  const args = { out: null, durableStore: "redb", orderingProfile: null, pollIntervalMs: null };
   for (let index = 0; index < argv.length; index += 1) {
     // Split on the FIRST `=` only: a path may legitimately contain one.
     const at = argv[index].indexOf("=");
@@ -692,6 +1013,23 @@ function parseArgs(argv) {
       if (inline === undefined) index += 1;
     } else if (flag === "--durable-store") {
       args.durableStore = value;
+      if (inline === undefined) index += 1;
+    } else if (flag === "--ordering-profile") {
+      if (!SELECTABLE_ORDERING_PROFILES.includes(value)) {
+        throw new Error(
+          `--ordering-profile must be one of ${SELECTABLE_ORDERING_PROFILES.join(", ")}; got ${JSON.stringify(value)}`,
+        );
+      }
+      args.orderingProfile = value;
+      if (inline === undefined) index += 1;
+    } else if (flag === "--poll-interval-ms") {
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5000) {
+        throw new Error(
+          `--poll-interval-ms must be an integer in 1..=5000 (the bound crates/cli enforces); got ${JSON.stringify(value)}`,
+        );
+      }
+      args.pollIntervalMs = parsed;
       if (inline === undefined) index += 1;
     }
   }
@@ -716,7 +1054,10 @@ async function main() {
     // Match `npm --prefix apps/hypervisor run soak:...`, whose script cwd is
     // the package directory. The wrapper changes observation only, not cwd.
     cwd: join(HERE, ".."),
-    env: profileEnv(process.env, traceDir, teeLogPath),
+    env: profileEnv(process.env, traceDir, teeLogPath, {
+      orderingProfile: args.orderingProfile,
+      pollIntervalMs: args.pollIntervalMs,
+    }),
     stdio: ["ignore", "inherit", "inherit"],
   });
   const soakExit = await new Promise((resolveExit) => {
@@ -746,6 +1087,11 @@ async function main() {
         // in which case the observed value wins.
         durable_store_backend: args.durableStore,
         durable_store_backend_provenance: "declared:--durable-store",
+        // What was REQUESTED. What actually ran is read back from the trace
+        // into `ordering_parity.ordering_profile`; the two are kept separate so
+        // a request that did not take effect cannot masquerade as an outcome.
+        requested_ordering_profile: args.orderingProfile,
+        requested_poll_interval_ms: args.pollIntervalMs,
         readiness_lag_pin: {
           IOI_TEST_READY_HEIGHT_LAG_MAX: READY_HEIGHT_LAG_MAX,
           why: "IOI_AFT_BENCH_TRACE otherwise raises the cluster ready-height lag from 1 to 16",

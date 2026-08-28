@@ -11,7 +11,22 @@ pub fn engine_from_config(config: &OrchestrationConfig) -> Result<Consensus<Chai
         ConsensusType::Aft => {
             aft_engine(config.aft_safety_mode, config.round_robin_view_timeout_secs)
         }
+        ConsensusType::Solo => solo_engine(),
     }
+}
+
+/// Builds the single-authority immediate-ordering engine.
+///
+/// Selected only by an explicit `consensus_type = "Solo"` in configuration.
+/// There is deliberately no env override and no AFT-internal switch that can
+/// reach this engine: the ordering/finality profile a node runs must be
+/// readable from its configuration alone, or a parity comparison cannot say
+/// which profile produced a given measurement.
+fn solo_engine() -> Result<Consensus<ChainTransaction>> {
+    use crate::solo::SoloEngine;
+
+    log::info!("Using Solo single-authority consensus engine.");
+    Ok(Consensus::Solo(SoloEngine::new()))
 }
 
 #[cfg(feature = "pos")]
