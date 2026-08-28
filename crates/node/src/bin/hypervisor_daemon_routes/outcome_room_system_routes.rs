@@ -4578,6 +4578,34 @@ fn sort_projection_objects_by_admission_order(objects: &mut [Value]) {
     });
 }
 
+fn validate_projected_child_runtime_dependencies(
+    data_dir: &str,
+    room: &Value,
+    contract: ChildContract,
+    admitted: &Value,
+) -> Result<(), VErr> {
+    // Room-native children have no owner publication registry and therefore
+    // no owner-record runtime-dependency bundle to resolve. Their replay
+    // obligations are the registered child contract, Agentgres operation,
+    // receipt, state-root and System-binding checks performed by the caller.
+    // WorkResult and OutcomeDelta remain fail-closed through the owner-plane
+    // validator below.
+    if contract.is_room_native() {
+        return Ok(());
+    }
+    super::goalrun_routes::validate_room_owner_runtime_dependencies(
+        data_dir, room, admitted,
+    )
+    .map_err(|(code, _message)| {
+        verr(
+            "outcome_room_projection_runtime_dependency_unresolved",
+            format!(
+                "admitted owner-published object cannot project because one exact runtime dependency is unavailable ({code})"
+            ),
+        )
+    })
+}
+
 fn verify_projection_objects(
     data_dir: &str,
     room: &Value,
@@ -4636,19 +4664,17 @@ fn verify_projection_objects(
                 format!("admitted object '{object_ref}' fails its registered contract"),
             )
         })?;
-        super::goalrun_routes::validate_room_owner_runtime_dependencies(
-            data_dir,
-            room,
-            admitted,
-        )
-        .map_err(|(code, _message)| {
-            verr(
-                "outcome_room_projection_runtime_dependency_unresolved",
-                format!(
-                    "admitted object '{object_ref}' cannot project because one exact runtime dependency is unavailable ({code})"
-                ),
-            )
-        })?;
+        validate_projected_child_runtime_dependencies(data_dir, room, contract, admitted).map_err(
+            |error| {
+                verr(
+                    &error.0,
+                    format!(
+                        "admitted object '{object_ref}' cannot project because {}",
+                        error.1
+                    ),
+                )
+            },
+        )?;
         let binding = admitted.get("system_binding").ok_or_else(|| {
             verr(
                 "outcome_room_projection_object_source_unresolved",
@@ -6327,6 +6353,46 @@ mod tests {
     const RESOURCE_OFFER_V3_CONTRACT: &str = "schema://ioi/applications/ioi-ai/resource-offer/v3";
     const CAPABILITY_OFFER_V3_CONTRACT: &str =
         "schema://ioi/applications/ioi-ai/capability-offer/v3";
+
+    #[test]
+    fn replay_runtime_dependency_validation_follows_child_ownership_lane() {
+        let room = Value::Null;
+        let admitted = Value::Null;
+        for contract_id in [
+            ROOM_PARTICIPATION_REQUEST_V3_CONTRACT,
+            ROOM_PARTICIPANT_LEASE_V3_CONTRACT,
+            RESOURCE_OFFER_V3_CONTRACT,
+            CAPABILITY_OFFER_V3_CONTRACT,
+            WORK_FRONTIER_ITEM_V3_CONTRACT,
+            "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
+            "schema://ioi/applications/ioi-ai/attempt/v3",
+            "schema://ioi/applications/ioi-ai/finding/v3",
+            "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
+            "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
+        ] {
+            let contract = child_contract(contract_id).expect("registered room-native contract");
+            assert!(contract.is_room_native());
+            validate_projected_child_runtime_dependencies("unused", &room, contract, &admitted)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "room-native replay reached owner validation for {contract_id}: {error:?}"
+                    )
+                });
+        }
+
+        for contract_id in [WORK_RESULT_V3_CONTRACT, OUTCOME_DELTA_V3_CONTRACT] {
+            let contract = child_contract(contract_id).expect("registered owner contract");
+            assert!(!contract.is_room_native());
+            assert_eq!(
+                validate_projected_child_runtime_dependencies(
+                    "unused", &room, contract, &admitted,
+                )
+                .expect_err("owner-published replay must retain exact runtime validation")
+                .0,
+                "outcome_room_projection_runtime_dependency_unresolved",
+            );
+        }
+    }
 
     const ROOM_PARTICIPATION_REQUEST_V3_POSITIVE_FIXTURE: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
