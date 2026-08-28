@@ -1,3 +1,12 @@
+/// Leading characters of an ALREADY-hex identifier.
+///
+/// `prefix_hex_4` takes raw bytes; a transaction hash reaches this stream as
+/// the hex string the submitting client was given, and re-decoding it just to
+/// truncate it would introduce a failure mode in a log helper.
+fn prefix_hex_text_8(hex_text: &str) -> String {
+    hex_text.chars().take(8).collect()
+}
+
 fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String {
     use ioi_types::app::KernelEvent as Ev;
 
@@ -372,6 +381,21 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
         Ev::RuntimeThreadEvent { session_id, .. } => format!(
             "RuntimeThreadEvent session={} (event-log bridge carrier)",
             prefix_hex_4(session_id)
+        ),
+        // The transaction hash is summarized to its leading bytes like every
+        // other identifier here. A summary is a log line, not the event: a
+        // reader correlating an exact submission must read the event itself.
+        Ev::TransactionCommitted {
+            tx_hash,
+            height,
+            durable_commit_ms,
+            published_at_ms,
+        } => format!(
+            "TransactionCommitted tx={} height={} durable_commit_ms={} published_at_ms={}",
+            prefix_hex_text_8(tx_hash),
+            height,
+            durable_commit_ms,
+            published_at_ms
         ),
     }
 }

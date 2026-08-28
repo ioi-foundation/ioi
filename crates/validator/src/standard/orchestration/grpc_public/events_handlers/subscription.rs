@@ -31,27 +31,31 @@ where
     ) -> Result<Response<ReceiverStream<Result<ChainEvent, Status>>>, Status> {
         let ctx_arc = self.get_context().await?;
         let (tx, rx) = mpsc::channel(128);
-        let ctx_clone = ctx_arc.clone();
+
+        // SUBSCRIBED BEFORE THIS RPC RETURNS, not inside the forwarding task.
+        //
+        // These three reads used to happen inside `tokio::spawn` below, which
+        // meant `subscribe_events` could return to the caller BEFORE the
+        // broadcast receivers existed. Any event published in that window was
+        // dropped -- broadcast delivers only to receivers that already exist.
+        //
+        // That window is unobservable for a slow event and fatal for a fast
+        // one, which is exactly the case a per-transaction completion event
+        // creates: a client subscribes, submits, and the transaction commits
+        // in a few milliseconds. Establishing the receivers here makes
+        // "subscribe, then submit" a real guarantee rather than a race the
+        // client usually wins.
+        let (mut tip_rx, mut event_rx, receipt_signing_keypair, receipt_signer_pubkey) = {
+            let ctx = ctx_arc.lock().await;
+            (
+                ctx.tip_sender.subscribe(),
+                ctx.event_broadcaster.subscribe(),
+                ctx.local_keypair.clone(),
+                hex::encode(ctx.local_keypair.public().encode_protobuf()),
+            )
+        };
 
         tokio::spawn(async move {
-            let mut tip_rx = {
-                let ctx = ctx_clone.lock().await;
-                ctx.tip_sender.subscribe()
-            };
-
-            let mut event_rx = {
-                let ctx = ctx_clone.lock().await;
-                ctx.event_broadcaster.subscribe()
-            };
-
-            let (receipt_signing_keypair, receipt_signer_pubkey) = {
-                let ctx = ctx_clone.lock().await;
-                (
-                    ctx.local_keypair.clone(),
-                    hex::encode(ctx.local_keypair.public().encode_protobuf()),
-                )
-            };
-
             loop {
                 tokio::select! {
                     Ok(_) = tip_rx.changed() => {

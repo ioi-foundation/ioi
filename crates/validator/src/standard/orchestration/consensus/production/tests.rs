@@ -1,6 +1,7 @@
 use super::{
-    parse_failed_tx_index, resolve_ordering_cadence, retain_nonce_heads_for_canonical_order,
-    workload_tip_requires_hydration,
+    format_proposal_wait_line, parse_failed_tx_index, resolve_ordering_cadence,
+    retain_nonce_heads_for_canonical_order, workload_tip_requires_hydration,
+    BENCH_PROPOSAL_WAIT_TAG,
 };
 use ioi_types::app::{
     AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
@@ -322,4 +323,98 @@ fn the_ticker_and_the_block_floor_are_resolved_independently() {
     assert_eq!(ticker_only.ticker_interval_ms, 50);
     assert_eq!(floor_only.ticker_interval_ms, base.ticker_interval_ms);
     assert_eq!(floor_only.genesis_block_interval_ms, 50);
+}
+
+// ---------------------------------------------------------------------------
+// [BENCH-PROPOSAL-WAIT]: the per-transaction mempool-to-proposal observation
+// ---------------------------------------------------------------------------
+//
+// M04.9 recorded this wait as unmeasured: "no seam brackets a transaction's
+// mempool-to-proposal wait". These tests bind the line shape the profiler
+// parses, and the one property that makes the observation attributable at all
+// -- that it is keyed by TRANSACTION HASH rather than by height.
+
+#[test]
+fn the_proposal_wait_line_is_keyed_by_transaction_hash_not_height() {
+    let hash = "ab".repeat(32);
+    let line =
+        format_proposal_wait_line(&hash, 412, 3, 1_000, 1_250).expect("ordered observation clocks");
+
+    assert!(
+        line.starts_with(&format!("{BENCH_PROPOSAL_WAIT_TAG} selected ")),
+        "the tag and operation must be exact so a log drain can locate the line: {line}"
+    );
+    // The correlation key.
+    assert!(line.contains(&format!("tx_hash={hash}")));
+    // Dimensions, not keys.
+    assert!(line.contains(" height=412 "));
+    assert!(line.contains(" view=3 "));
+    // The measurement and both of its edges, so a reader can recompute it.
+    assert!(line.contains(" first_seen_at_ms=1000 "));
+    assert!(line.contains(" proposal_selected_at_ms=1250 "));
+    assert!(line.ends_with(" proposal_wait_ms=250"));
+}
+
+#[test]
+fn two_transactions_at_one_height_yield_two_independent_waits() {
+    // The reason the line is hash-keyed. Both transactions below are picked up
+    // by the SAME proposal at the same instant, but they entered the mempool
+    // 850ms apart, so exactly one of them waited 900ms.
+    let early = format_proposal_wait_line(&"11".repeat(32), 412, 0, 1_000, 1_900)
+        .expect("ordered observation clocks");
+    let late = format_proposal_wait_line(&"22".repeat(32), 412, 0, 1_850, 1_900)
+        .expect("ordered observation clocks");
+
+    assert!(early.ends_with(" proposal_wait_ms=900"));
+    assert!(late.ends_with(" proposal_wait_ms=50"));
+    assert_ne!(
+        early, late,
+        "a height-keyed observation would have collapsed these to one value"
+    );
+}
+
+#[test]
+fn a_backwards_clock_refuses_instead_of_becoming_a_plausible_zero_wait() {
+    let error = format_proposal_wait_line(&"33".repeat(32), 9, 0, 2_000, 1_500)
+        .expect_err("a backwards observation clock must fail closed");
+    assert!(error.to_string().contains("clock moved backwards"));
+
+    // A same-millisecond pickup is a real zero, not a fault.
+    let instant = format_proposal_wait_line(&"44".repeat(32), 9, 0, 2_000, 2_000)
+        .expect("equal observation instants are a real zero wait");
+    assert!(instant.ends_with(" proposal_wait_ms=0"));
+}
+
+// ---------------------------------------------------------------------------
+// Planted-delay seam wiring
+// ---------------------------------------------------------------------------
+
+/// The producer source this ordering invariant lives in.
+const PRODUCTION_SOURCE: &str = include_str!("../production.rs");
+
+#[test]
+fn the_planted_delay_seam_is_wired_after_the_proposal_wait_is_sampled() {
+    // Ordering, read off the source. The closing edge of the proposal wait
+    // must be sampled BEFORE the planted delay sleeps, or a delay planted in
+    // selection would inflate every reported proposal wait as well as
+    // select_ms -- and "exactly one phase moved" would be false.
+    let sample_at = PRODUCTION_SOURCE
+        .find("let proposal_selected_at_ms =")
+        .expect("the producer must sample the proposal-wait closing edge");
+    let plant_at = PRODUCTION_SOURCE
+        .find("planted_delay_for(PlantedPhase::ProposalSelection)?")
+        .expect("the producer must carry the planted-delay seam");
+    let select_elapsed_at = PRODUCTION_SOURCE
+        .find("let selection_elapsed = select_started.elapsed();")
+        .expect("the producer must close the selection span");
+
+    assert!(
+        sample_at < plant_at,
+        "the proposal-wait edge must be sampled before the planted delay sleeps"
+    );
+    assert!(
+        plant_at < select_elapsed_at,
+        "the planted delay must sleep INSIDE the selection span it is meant to inflate; \
+         outside it, select_ms would not move and the mutation would prove nothing"
+    );
 }

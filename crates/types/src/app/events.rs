@@ -1046,6 +1046,41 @@ pub enum KernelEvent {
         /// and `event_stream_id`; the bridge fills those from the session lookup).
         event_json: String,
     },
+
+    /// One EXACT transaction reached durable committed linearization.
+    ///
+    /// Appended at the end of this enum on purpose: `Encode`/`Decode` assign
+    /// variant indices positionally, so inserting anywhere else would silently
+    /// renumber every following variant on the wire.
+    ///
+    /// `BlockCommitted` carries a height and a state root and nothing that
+    /// names a transaction (its `tx_count` is hardcoded to zero on the public
+    /// stream), so a client holding a submission hash could not learn from it
+    /// that its OWN transaction completed. Correlating one required a second
+    /// RPC and a block scan, which measures block observation rather than
+    /// completion publication. This event carries the transaction identity
+    /// directly.
+    ///
+    /// DURABILITY IS A PRECONDITION, NOT A COINCIDENCE. This event is
+    /// published only after the finalized block header for `height` was
+    /// durably updated AND `TxStatus::Committed` was published for this
+    /// transaction. It is emitted from inside the seam that enforces that
+    /// ordering, so there is no name anywhere that can emit it earlier.
+    TransactionCommitted {
+        /// The EXACT transaction hash, hex-encoded, in the same spelling the
+        /// submitting client received from `submit_transaction` and the same
+        /// key `get_transaction_status` is served under. It is never a block
+        /// hash, a height, or a chain tip.
+        tx_hash: String,
+        /// The EXACT block height this transaction committed at.
+        height: u64,
+        /// Server wall-clock milliseconds at which the finalized header for
+        /// `height` became durable -- the durable linearization point.
+        durable_commit_ms: u64,
+        /// Server wall-clock milliseconds at which this notification was
+        /// published. Never earlier than `durable_commit_ms`.
+        published_at_ms: u64,
+    },
 }
 
 #[cfg(test)]

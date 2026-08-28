@@ -6,8 +6,36 @@ use parking_lot::Mutex;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const SHARD_COUNT: usize = 64;
+
+/// Ceiling on the observation-only first-seen table.
+///
+/// The table exists solely to bracket the mempool-to-proposal wait. It is
+/// drained on selection and on every hash-keyed removal, so it tracks the
+/// live pool; the ceiling is the backstop for a pathological arrival burst.
+/// Refusing to record past the ceiling loses OBSERVATIONS (which then read as
+/// absent and fail closed downstream) rather than growing without bound, which
+/// would be the instrumentation degrading the path it measures.
+const FIRST_SEEN_OBSERVATION_CAPACITY: usize = 65_536;
+
+/// Whether the observation-only first-seen table is armed.
+///
+/// The estate's existing, explicit, test-only benchmark-trace gate. Unarmed,
+/// no timestamp is ever taken and the table stays empty.
+fn first_seen_observation_armed() -> bool {
+    std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
+}
+
+/// Wall-clock milliseconds since the UNIX epoch.
+fn observation_wall_clock_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64
+}
 
 /// Represents the status of a transaction after attempting to add it to the pool.
 #[derive(Debug, PartialEq, Eq)]
@@ -39,16 +67,26 @@ impl AccountQueue {
         }
     }
 
-    fn update_base_nonce(&mut self, committed_nonce: u64) -> usize {
+    /// Returns the hashes pruned, so the caller can drop their observation
+    /// entries. The count is `len()`; nothing else changed about this path.
+    fn update_base_nonce(&mut self, committed_nonce: u64) -> Vec<TxHash> {
         if committed_nonce > self.pending_nonce {
             self.prune_committed(committed_nonce)
         } else {
-            0
+            Vec::new()
         }
     }
 
-    fn prune_committed(&mut self, new_committed_nonce: u64) -> usize {
-        let mut removed = 0;
+    /// Prunes every queued transaction below the newly committed nonce and
+    /// returns their hashes.
+    ///
+    /// This used to return only a count. It returns the hashes so the
+    /// observation-only first-seen table can be drained on the SAME path that
+    /// drops the transactions -- a table that only shrank on explicit
+    /// hash-keyed removal would retain entries for everything a nonce advance
+    /// swept away.
+    fn prune_committed(&mut self, new_committed_nonce: u64) -> Vec<TxHash> {
+        let mut removed = Vec::new();
         self.pending_nonce = std::cmp::max(self.pending_nonce, new_committed_nonce);
 
         let stale_ready: Vec<u64> = self
@@ -57,8 +95,9 @@ impl AccountQueue {
             .map(|(&n, _)| n)
             .collect();
         for n in stale_ready {
-            self.ready.remove(&n);
-            removed += 1;
+            if let Some((_, hash)) = self.ready.remove(&n) {
+                removed.push(hash);
+            }
         }
 
         let stale_future: Vec<u64> = self
@@ -67,8 +106,9 @@ impl AccountQueue {
             .map(|(&n, _)| n)
             .collect();
         for n in stale_future {
-            self.future.remove(&n);
-            removed += 1;
+            if let Some((_, hash)) = self.future.remove(&n) {
+                removed.push(hash);
+            }
         }
 
         self.try_promote();
@@ -141,11 +181,34 @@ pub struct Mempool {
     hasher: RandomState,
     others: Mutex<VecDeque<(ChainTransaction, TxHash)>>,
     total_count: AtomicUsize,
+    /// OBSERVATION ONLY: when a transaction hash was first admitted here.
+    ///
+    /// M04.9 reported the mempool-to-proposal wait as unmeasured because no
+    /// seam bracketed it. This table is that bracket's opening edge. It is
+    /// deliberately a SEPARATE structure from the account queues: nothing in
+    /// `add`, `select_transactions`, or any pruning decision reads it, so no
+    /// timestamp can reach admission ordering, nonce arithmetic, block
+    /// contents, or any canonical state. Removing this field would change no
+    /// consensus behaviour at all.
+    first_seen_ms: Mutex<HashMap<TxHash, u64>>,
+    /// Whether `first_seen_ms` is maintained. Resolved once at construction so
+    /// the arming cannot change under a running pool and leave half a table.
+    first_seen_armed: bool,
 }
 
 impl Mempool {
     /// Creates a new, empty mempool with a fixed number of internal shards.
     pub fn new() -> Self {
+        Self::with_first_seen_observation(first_seen_observation_armed())
+    }
+
+    /// Creates a mempool with the first-seen observation table explicitly
+    /// armed or disarmed.
+    ///
+    /// Exists so the observation behaviour can be tested for BOTH arming
+    /// states without a test mutating process environment, which would make
+    /// the tests order-dependent against each other.
+    pub fn with_first_seen_observation(first_seen_armed: bool) -> Self {
         let mut shards = Vec::with_capacity(SHARD_COUNT);
         for _ in 0..SHARD_COUNT {
             shards.push(Mutex::new(HashMap::new()));
@@ -155,7 +218,67 @@ impl Mempool {
             hasher: RandomState::new(),
             others: Mutex::new(VecDeque::new()),
             total_count: AtomicUsize::new(0),
+            first_seen_ms: Mutex::new(HashMap::new()),
+            first_seen_armed,
         }
+    }
+
+    /// Records when a hash was FIRST admitted, and never overwrites it.
+    ///
+    /// First-seen means first: a re-broadcast or a `Known` re-add must not
+    /// reset the clock, or a transaction that sat in the pool across several
+    /// proposals would report the wait of its most recent duplicate.
+    fn note_first_seen(&self, hash: TxHash) {
+        if !self.first_seen_armed {
+            return;
+        }
+        let mut guard = self.first_seen_ms.lock();
+        if guard.contains_key(&hash) {
+            return;
+        }
+        if guard.len() >= FIRST_SEEN_OBSERVATION_CAPACITY {
+            return;
+        }
+        guard.insert(hash, observation_wall_clock_ms());
+    }
+
+    /// Drops observation entries for hashes that have left the pool.
+    fn forget_first_seen<'a>(&self, hashes: impl IntoIterator<Item = &'a TxHash>) {
+        if !self.first_seen_armed {
+            return;
+        }
+        let mut guard = self.first_seen_ms.lock();
+        for hash in hashes {
+            guard.remove(hash);
+        }
+    }
+
+    /// Takes the first-seen observations for the hashes a proposal selected,
+    /// REMOVING them.
+    ///
+    /// Removal on selection is what bounds the table: an entry lives from
+    /// admission until the proposal that picked the transaction up, which is
+    /// exactly the interval it measures. A transaction re-proposed after its
+    /// entry was taken therefore reports NO wait rather than a second, wrong
+    /// one -- an absent observation fails closed downstream, a fabricated one
+    /// would not.
+    ///
+    /// Returns nothing when unarmed.
+    pub fn take_first_seen(&self, hashes: &[TxHash]) -> Vec<(TxHash, u64)> {
+        if !self.first_seen_armed {
+            return Vec::new();
+        }
+        let mut guard = self.first_seen_ms.lock();
+        hashes
+            .iter()
+            .filter_map(|hash| guard.remove(hash).map(|at_ms| (*hash, at_ms)))
+            .collect()
+    }
+
+    /// How many first-seen observations are currently held. Test/diagnostic
+    /// only; nothing in the commit path branches on it.
+    pub fn first_seen_observation_len(&self) -> usize {
+        self.first_seen_ms.lock().len()
     }
 
     fn get_shard_index(&self, account: &AccountId) -> usize {
@@ -194,25 +317,41 @@ impl Mempool {
     ) -> AddResult {
         if let Some((account_id, tx_nonce)) = account_info {
             let idx = self.get_shard_index(&account_id);
-            let mut guard = self.shards[idx].lock();
+            let (res, pruned) = {
+                let mut guard = self.shards[idx].lock();
 
-            let queue = guard
-                .entry(account_id)
-                .or_insert_with(|| AccountQueue::new(committed_nonce_state));
+                let queue = guard
+                    .entry(account_id)
+                    .or_insert_with(|| AccountQueue::new(committed_nonce_state));
 
-            let removed = queue.update_base_nonce(committed_nonce_state);
-            self.total_count.fetch_sub(removed, Ordering::Relaxed);
+                let pruned = queue.update_base_nonce(committed_nonce_state);
+                self.total_count.fetch_sub(pruned.len(), Ordering::Relaxed);
 
-            let before_len = queue.ready.len() + queue.future.len();
-            let res = queue.add(tx, hash, tx_nonce);
-            let after_len = queue.ready.len() + queue.future.len();
-            if after_len > before_len {
-                self.total_count
-                    .fetch_add(after_len - before_len, Ordering::Relaxed);
-            }
+                let before_len = queue.ready.len() + queue.future.len();
+                let res = queue.add(tx, hash, tx_nonce);
+                let after_len = queue.ready.len() + queue.future.len();
+                if after_len > before_len {
+                    self.total_count
+                        .fetch_add(after_len - before_len, Ordering::Relaxed);
+                }
+                // Publish the observation before releasing the queue lock that
+                // makes this transaction selectable. Otherwise selection can
+                // win the gap, observe no timestamp, and leave a stale entry
+                // when this thread records it afterwards.
+                if matches!(res, AddResult::Ready | AddResult::Future) {
+                    self.note_first_seen(hash);
+                }
+                (res, pruned)
+            };
+            self.forget_first_seen(pruned.iter());
             res
         } else {
-            self.others.lock().push_back((tx, hash));
+            let mut others = self.others.lock();
+            others.push_back((tx, hash));
+            // Same lock-ordering rule as the account queue: the timestamp is
+            // present before `others` becomes selectable by another thread.
+            self.note_first_seen(hash);
+            drop(others);
             self.total_count.fetch_add(1, Ordering::Relaxed);
             AddResult::Ready
         }
@@ -221,11 +360,18 @@ impl Mempool {
     /// Updates an account's base nonce after a block commit, pruning processed transactions.
     pub fn update_account_nonce(&self, account_id: &AccountId, new_committed_nonce: u64) {
         let idx = self.get_shard_index(account_id);
-        let mut guard = self.shards[idx].lock();
-        if let Some(queue) = guard.get_mut(account_id) {
-            let removed = queue.prune_committed(new_committed_nonce);
-            self.total_count.fetch_sub(removed, Ordering::Relaxed);
-        }
+        let pruned = {
+            let mut guard = self.shards[idx].lock();
+            match guard.get_mut(account_id) {
+                Some(queue) => {
+                    let pruned = queue.prune_committed(new_committed_nonce);
+                    self.total_count.fetch_sub(pruned.len(), Ordering::Relaxed);
+                    pruned
+                }
+                None => Vec::new(),
+            }
+        };
+        self.forget_first_seen(pruned.iter());
     }
 
     /// Efficiently updates multiple accounts in a batch, acquiring each shard lock only once.
@@ -239,23 +385,34 @@ impl Mempool {
         }
 
         for (idx, account_updates) in updates_by_shard {
-            let mut guard = self.shards[idx].lock();
-            let mut total_removed = 0;
+            let removed_hashes = {
+                let mut guard = self.shards[idx].lock();
+                let mut removed_hashes: Vec<TxHash> = Vec::new();
 
-            for (acct, new_committed_nonce) in account_updates {
-                if let Some(queue) = guard.get_mut(acct) {
-                    total_removed += queue.prune_committed(new_committed_nonce);
+                for (acct, new_committed_nonce) in account_updates {
+                    if let Some(queue) = guard.get_mut(acct) {
+                        removed_hashes.extend(queue.prune_committed(new_committed_nonce));
+                    }
                 }
-            }
 
-            if total_removed > 0 {
-                self.total_count.fetch_sub(total_removed, Ordering::Relaxed);
-            }
+                if !removed_hashes.is_empty() {
+                    self.total_count
+                        .fetch_sub(removed_hashes.len(), Ordering::Relaxed);
+                }
+                removed_hashes
+            };
+            self.forget_first_seen(removed_hashes.iter());
         }
     }
 
     /// Removes a specific transaction from any queue by its hash. Used for cleanup.
     pub fn remove_by_hash(&self, hash: &TxHash) {
+        // Dropped FIRST, and unconditionally: this hash is leaving the pool on
+        // every branch below, including the not-found one where it already
+        // left. Doing it here keeps the observation table off every shard-lock
+        // path rather than nesting two locks in four places.
+        self.forget_first_seen([hash]);
+
         if let Some(pos) = self.others.lock().iter().position(|(_, h)| h == hash) {
             self.others.lock().remove(pos);
             self.total_count.fetch_sub(1, Ordering::Relaxed);
@@ -316,18 +473,22 @@ impl Mempool {
     /// nonce-scoped eviction primitive rather than hash-only cleanup.
     pub fn remove_by_account_nonce(&self, account_id: &AccountId, nonce: u64) -> Option<TxHash> {
         let idx = self.get_shard_index(account_id);
-        let mut guard = self.shards[idx].lock();
-        let queue = guard.get_mut(account_id)?;
-        if let Some((_, hash)) = queue.ready.remove(&nonce) {
-            self.total_count.fetch_sub(1, Ordering::Relaxed);
-            queue.repair_hole(nonce);
-            return Some(hash);
-        }
-        if let Some((_, hash)) = queue.future.remove(&nonce) {
-            self.total_count.fetch_sub(1, Ordering::Relaxed);
-            return Some(hash);
-        }
-        None
+        let removed = {
+            let mut guard = self.shards[idx].lock();
+            let queue = guard.get_mut(account_id)?;
+            if let Some((_, hash)) = queue.ready.remove(&nonce) {
+                self.total_count.fetch_sub(1, Ordering::Relaxed);
+                queue.repair_hole(nonce);
+                Some(hash)
+            } else if let Some((_, hash)) = queue.future.remove(&nonce) {
+                self.total_count.fetch_sub(1, Ordering::Relaxed);
+                Some(hash)
+            } else {
+                None
+            }
+        };
+        self.forget_first_seen(removed.iter());
+        removed
     }
 
     /// Selects a batch of valid transactions for inclusion in a new block.
@@ -401,5 +562,172 @@ mod tests {
         assert_eq!(pool.remove_by_account_nonce(&account, 1), Some(hash));
         assert_eq!(pool.len(), 0);
         assert!(pool.select_transactions(8).is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // Observation-only first-seen table
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn unarmed_pool_records_no_first_seen_observation() {
+        // The default path for every non-benchmark run. Nothing is timed, so
+        // nothing can leak into admission or grow without bound.
+        let pool = Mempool::with_first_seen_observation(false);
+        let account = AccountId([1u8; 32]);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+
+        assert_eq!(pool.add(tx, hash, Some((account, 1)), 1), AddResult::Ready);
+        assert_eq!(pool.first_seen_observation_len(), 0);
+        assert!(pool.take_first_seen(&[hash]).is_empty());
+        // And the pool itself behaves identically.
+        assert_eq!(pool.len(), 1);
+        assert_eq!(pool.select_transactions(8).len(), 1);
+    }
+
+    #[test]
+    fn armed_pool_records_first_seen_and_selection_takes_it_exactly_once() {
+        let pool = Mempool::with_first_seen_observation(true);
+        let account = AccountId([2u8; 32]);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+
+        assert_eq!(pool.add(tx, hash, Some((account, 1)), 1), AddResult::Ready);
+        assert_eq!(pool.first_seen_observation_len(), 1);
+
+        let taken = pool.take_first_seen(&[hash]);
+        assert_eq!(taken.len(), 1, "the selecting proposal takes the entry");
+        assert_eq!(taken[0].0, hash, "keyed by the exact transaction hash");
+        assert!(taken[0].1 > 0, "a real wall-clock observation was recorded");
+        assert_eq!(
+            pool.first_seen_observation_len(),
+            0,
+            "selection removes the entry, which is what bounds the table"
+        );
+        // A second take reports ABSENCE rather than inventing a second wait.
+        assert!(pool.take_first_seen(&[hash]).is_empty());
+        // The transaction itself is untouched by the observation being taken.
+        assert_eq!(pool.len(), 1);
+        assert_eq!(pool.select_transactions(8).len(), 1);
+    }
+
+    #[test]
+    fn a_readd_does_not_reset_the_first_seen_clock() {
+        // First-seen means FIRST. A re-broadcast that reset the clock would
+        // report the wait of the duplicate, not of the transaction.
+        let pool = Mempool::with_first_seen_observation(true);
+        let account = AccountId([3u8; 32]);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+
+        assert_eq!(
+            pool.add(tx.clone(), hash, Some((account, 1)), 1),
+            AddResult::Ready
+        );
+        let first = pool.take_first_seen(&[hash]);
+        // Put it back so the observation exists again, then re-add.
+        pool.note_first_seen(hash);
+        let restored = pool.first_seen_ms.lock().get(&hash).copied();
+        assert_eq!(pool.add(tx, hash, Some((account, 1)), 1), AddResult::Known);
+        assert_eq!(
+            pool.first_seen_ms.lock().get(&hash).copied(),
+            restored,
+            "a Known re-add must not overwrite the recorded first-seen time"
+        );
+        assert_eq!(first.len(), 1);
+    }
+
+    #[test]
+    fn every_removal_path_drops_the_observation() {
+        let account = AccountId([4u8; 32]);
+
+        // Hash-keyed removal.
+        let pool = Mempool::with_first_seen_observation(true);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+        pool.add(tx, hash, Some((account, 1)), 1);
+        pool.remove_by_hash(&hash);
+        assert_eq!(pool.first_seen_observation_len(), 0, "remove_by_hash");
+
+        // Nonce-slot removal.
+        let pool = Mempool::with_first_seen_observation(true);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+        pool.add(tx, hash, Some((account, 1)), 1);
+        assert_eq!(pool.remove_by_account_nonce(&account, 1), Some(hash));
+        assert_eq!(
+            pool.first_seen_observation_len(),
+            0,
+            "remove_by_account_nonce"
+        );
+
+        // Nonce-advance pruning, single account.
+        let pool = Mempool::with_first_seen_observation(true);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+        pool.add(tx, hash, Some((account, 1)), 1);
+        pool.update_account_nonce(&account, 2);
+        assert_eq!(pool.len(), 0);
+        assert_eq!(pool.first_seen_observation_len(), 0, "update_account_nonce");
+
+        // Nonce-advance pruning, batch.
+        let pool = Mempool::with_first_seen_observation(true);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+        pool.add(tx, hash, Some((account, 1)), 1);
+        let mut updates = HashMap::new();
+        updates.insert(account, 2u64);
+        pool.update_account_nonces_batch(&updates);
+        assert_eq!(pool.len(), 0);
+        assert_eq!(
+            pool.first_seen_observation_len(),
+            0,
+            "update_account_nonces_batch"
+        );
+    }
+
+    #[test]
+    fn multiple_transactions_are_observed_independently_by_hash() {
+        // Two transactions that will land in the SAME proposal must still
+        // carry two distinct waits. Correlating by height would collapse them.
+        let pool = Mempool::with_first_seen_observation(true);
+        let first_account = AccountId([5u8; 32]);
+        let second_account = AccountId([6u8; 32]);
+        let first = system_tx(first_account, 1);
+        let second = system_tx(second_account, 1);
+        let first_hash = first.hash().expect("hash");
+        let second_hash = second.hash().expect("hash");
+        assert_ne!(first_hash, second_hash);
+
+        pool.add(first, first_hash, Some((first_account, 1)), 1);
+        pool.add(second, second_hash, Some((second_account, 1)), 1);
+        assert_eq!(pool.first_seen_observation_len(), 2);
+
+        let taken = pool.take_first_seen(&[first_hash, second_hash]);
+        assert_eq!(taken.len(), 2);
+        assert_eq!(taken[0].0, first_hash);
+        assert_eq!(taken[1].0, second_hash);
+        assert_eq!(pool.first_seen_observation_len(), 0);
+    }
+
+    #[test]
+    fn taking_an_unknown_hash_yields_nothing_rather_than_a_default() {
+        let pool = Mempool::with_first_seen_observation(true);
+        let account = AccountId([9u8; 32]);
+        let tx = system_tx(account, 1);
+        let hash = tx.hash().expect("hash");
+        pool.add(tx, hash, Some((account, 1)), 1);
+
+        let unknown = system_tx(AccountId([10u8; 32]), 1).hash().expect("hash");
+        let taken = pool.take_first_seen(&[unknown]);
+        assert!(
+            taken.is_empty(),
+            "an unobserved hash must produce no observation, not a zero"
+        );
+        assert_eq!(
+            pool.first_seen_observation_len(),
+            1,
+            "and must not disturb the observation that does exist"
+        );
     }
 }

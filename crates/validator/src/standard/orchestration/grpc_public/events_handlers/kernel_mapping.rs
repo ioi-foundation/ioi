@@ -695,5 +695,21 @@ fn map_kernel_event(
         // event log by the event-log bridge, not projected onto the public gRPC
         // chain-event stream.
         ioi_types::app::KernelEvent::RuntimeThreadEvent { .. } => None,
+        // Per-transaction completion identity. Projected verbatim: every field
+        // is already exactly what the commit path observed, so there is
+        // nothing here to default, derive, or round.
+        ioi_types::app::KernelEvent::TransactionCommitted {
+            tx_hash,
+            height,
+            durable_commit_ms,
+            published_at_ms,
+        } => Some(ChainEventEnum::TransactionCommitted(
+            ioi_ipc::public::TransactionCommitted {
+                tx_hash,
+                height,
+                durable_commit_ms,
+                published_at_ms,
+            },
+        )),
     }
 }

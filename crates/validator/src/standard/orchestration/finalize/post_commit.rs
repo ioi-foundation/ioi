@@ -1,5 +1,24 @@
 use super::*;
 
+use ioi_types::app::bench_planted_delay::{planted_delay_for, PlantedPhase};
+use ioi_types::app::KernelEvent;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::broadcast;
+
+/// Server wall-clock milliseconds since the UNIX epoch.
+///
+/// Saturating rather than panicking: a host whose clock predates the epoch is
+/// a broken host, and a commit path is the wrong place to abort over it. The
+/// value is an OBSERVATION carried alongside the commit, never an input to
+/// admission, ordering, execution, or state.
+fn server_wall_clock_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| Duration::from_secs(0))
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64
+}
+
 #[allow(dead_code)]
 pub(super) fn relay_fanout() -> usize {
     std::env::var("IOI_AFT_TX_RELAY_FANOUT")
@@ -59,27 +78,36 @@ pub(super) fn post_commit_vote_replay_delays_ms() -> Vec<u64> {
         .unwrap_or_else(|| vec![150, 500, 1200])
 }
 
-/// Runs the durable finalized-header update, and publishes `Committed` for the
-/// block's transactions ONLY if that update succeeded.
+/// Runs the durable finalized-header update, and publishes `Committed` plus
+/// the per-transaction completion events for the block's transactions ONLY if
+/// that update succeeded.
 ///
 /// The ordering is the invariant, so it is expressed STRUCTURALLY rather than
-/// by convention. `publish_committed_tx_statuses` is nested inside this
-/// function, not a module sibling: there is no name in `post_commit` -- or
-/// anywhere else -- that can write `Committed` into `tx_status_cache` for a
-/// finalized block. A regression that re-adds an early publication call to
-/// `finalize_and_broadcast_block` does not compile, which is a stronger
-/// guarantee than a test that only checks this helper's own two orderings.
+/// by convention. `publish_committed_tx_statuses` and
+/// `publish_transaction_committed_events` are nested inside this function, not
+/// module siblings: there is no name in `post_commit` -- or anywhere else --
+/// that can write `Committed` into `tx_status_cache`, or emit
+/// `KernelEvent::TransactionCommitted`, for a finalized block. A regression
+/// that re-adds an early publication call to `finalize_and_broadcast_block`
+/// does not compile, which is a stronger guarantee than a test that only
+/// checks this helper's own orderings.
 ///
-/// If the update fails, the status cache is left exactly as it was and the
-/// error propagates, so a client polling `get_transaction_status` continues to
-/// see the pre-commit status instead of a `Committed` the node cannot
-/// substantiate after a restart.
+/// If the update fails, the status cache is left exactly as it was, NO event
+/// is emitted, and the error propagates -- so a client polling
+/// `get_transaction_status` continues to see the pre-commit status, and a
+/// client subscribed to the event stream observes nothing, instead of either
+/// one reporting a `Committed` the node cannot substantiate after a restart.
+///
+/// The event is published AFTER the status, not instead of it: a subscriber
+/// that reacts to the event by reading `get_transaction_status` must not race
+/// its own notification.
 pub(super) async fn durably_update_header_then_publish_committed<F, Fut>(
     durable_header_update: F,
     receipt_map: &Arc<Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
     tx_status_cache: &Arc<
         Mutex<lru::LruCache<String, crate::standard::orchestration::context::TxStatusEntry>>,
     >,
+    event_broadcaster: &broadcast::Sender<KernelEvent>,
     transactions: &[ChainTransaction],
     block_height: u64,
 ) -> Result<()>
@@ -87,8 +115,25 @@ where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = Result<()>>,
 {
+    /// The exact hash a client holds for `tx`.
+    ///
+    /// `receipt_map` records the hex the submitting RPC handed back; the
+    /// fallback is the same digest computed locally, which is what the RPC
+    /// itself encodes. Both spellings are the key `get_transaction_status` is
+    /// served under, so the status entry and the event always name a
+    /// transaction by the SAME string.
+    fn client_visible_tx_hash(
+        receipts: &lru::LruCache<ioi_types::app::TxHash, String>,
+        hash: &ioi_types::app::TxHash,
+    ) -> String {
+        receipts
+            .peek(hash)
+            .cloned()
+            .unwrap_or_else(|| hex::encode(hash))
+    }
+
     /// Writes `Committed` into the status cache for every transaction in a
-    /// block.
+    /// block, and returns the exact hashes it published, in block order.
     ///
     /// NESTED ON PURPOSE -- see the parent's doc comment. Hoisting this back to
     /// module scope re-opens the defect class, because it restores a name an
@@ -100,23 +145,21 @@ where
         >,
         transactions: &[ChainTransaction],
         block_height: u64,
-    ) {
+    ) -> Vec<String> {
         let receipt_guard = receipt_map.lock().await;
         let mut status_guard = tx_status_cache.lock().await;
+        let mut published = Vec::with_capacity(transactions.len());
 
         for tx in transactions {
             let tx_hash_res: Result<ioi_types::app::TxHash, _> = tx.hash();
             if let Ok(h) = tx_hash_res {
-                let tx_hash_hex = receipt_guard
-                    .peek(&h)
-                    .cloned()
-                    .unwrap_or_else(|| hex::encode(h));
+                let tx_hash_hex = client_visible_tx_hash(&receipt_guard, &h);
                 if let Some(entry) = status_guard.get_mut(&tx_hash_hex) {
                     entry.status = TxStatus::Committed;
                     entry.block_height = Some(block_height);
                 } else {
                     status_guard.put(
-                        tx_hash_hex,
+                        tx_hash_hex.clone(),
                         crate::standard::orchestration::context::TxStatusEntry {
                             status: TxStatus::Committed,
                             error: None,
@@ -124,12 +167,63 @@ where
                         },
                     );
                 }
+                published.push(tx_hash_hex);
             }
+        }
+        published
+    }
+
+    /// Emits one `TransactionCommitted` per transaction whose status was just
+    /// published.
+    ///
+    /// NESTED ON PURPOSE, for the same reason as its sibling: an event that
+    /// says a transaction committed is a durability claim, so no name outside
+    /// this seam may emit one. It is driven by the hashes
+    /// `publish_committed_tx_statuses` RETURNED rather than by re-walking the
+    /// transactions, so an event can only exist for a transaction whose status
+    /// was actually published -- the two cannot drift apart.
+    fn publish_transaction_committed_events(
+        event_broadcaster: &broadcast::Sender<KernelEvent>,
+        published_tx_hashes: &[String],
+        block_height: u64,
+        durable_commit_ms: u64,
+        published_at_ms: u64,
+    ) {
+        for tx_hash in published_tx_hashes {
+            // A send with no live subscriber is the ordinary case and is not
+            // an error: the stream is an optional observer of a commit that
+            // has already happened, never a participant in it.
+            let _ = event_broadcaster.send(KernelEvent::TransactionCommitted {
+                tx_hash: tx_hash.clone(),
+                height: block_height,
+                durable_commit_ms,
+                published_at_ms,
+            });
         }
     }
 
     durable_header_update().await?;
-    publish_committed_tx_statuses(receipt_map, tx_status_cache, transactions, block_height).await;
+    let durable_commit_ms = server_wall_clock_ms();
+    // ARMED-ONLY OBSERVATION SEAM. Unarmed this resolves to `None` and adds
+    // nothing but two environment reads. Armed, it inflates exactly the
+    // interval between durable linearization and publication, which is the
+    // interval `durable_ack_publication` reports. A malformed or unarmed spec
+    // refuses here rather than running at full speed under a name that says
+    // otherwise.
+    if let Some(delay) = planted_delay_for(PlantedPhase::DurableAckPublication)? {
+        tokio::time::sleep(delay).await;
+    }
+    let published_tx_hashes =
+        publish_committed_tx_statuses(receipt_map, tx_status_cache, transactions, block_height)
+            .await;
+    let published_at_ms = server_wall_clock_ms().max(durable_commit_ms);
+    publish_transaction_committed_events(
+        event_broadcaster,
+        &published_tx_hashes,
+        block_height,
+        durable_commit_ms,
+        published_at_ms,
+    );
     Ok(())
 }
 
@@ -481,11 +575,12 @@ where
     //
     // This does not weaken the earlier atomic state+block persistence; it only
     // moves the in-memory publication to after the durability it asserts.
-    let (receipt_map, tx_status_cache, workload_client) = {
+    let (receipt_map, tx_status_cache, event_broadcaster, workload_client) = {
         let ctx = context_arc.lock().await;
         (
             ctx.receipt_map.clone(),
             ctx.tx_status_cache.clone(),
+            ctx.event_broadcaster.clone(),
             ctx.view_resolver.workload_client().clone(),
         )
     };
@@ -512,6 +607,7 @@ where
         },
         &receipt_map,
         &tx_status_cache,
+        &event_broadcaster,
         &final_block.transactions,
         block_height,
     )

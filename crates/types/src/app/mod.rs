@@ -10,6 +10,10 @@ pub mod adapter;
 pub mod agentgres_replay;
 /// Data structures for agentic semantic consensus.
 pub mod agentic;
+/// M04.9 planted-phase-delay observation seam. Test-only instrumentation:
+/// arms only under `IOI_AFT_BENCH_TRACE` plus an explicit spec, and refuses
+/// rather than silently planting nothing.
+pub mod bench_planted_delay;
 /// Shared Chat outcome routing and artifact contracts.
 pub mod chat;
 /// Data structures related to consensus, such as the canonical validator set

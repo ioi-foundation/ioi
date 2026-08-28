@@ -1,5 +1,60 @@
 use super::*;
 
+use ioi_types::app::bench_planted_delay::{planted_delay_for, PlantedPhase};
+
+/// THE ONE PLACE the per-transaction proposal-wait observation is emitted.
+///
+/// M04.9 reported this wait as unmeasured because nothing bracketed it: the
+/// wait elapses partly between consensus ticks and partly inside the
+/// block-production deferral, and neither edge was sampled. The mempool now
+/// records the opening edge when a transaction is admitted; this tag closes it
+/// when a proposal picks the transaction up.
+///
+/// CORRELATED BY TRANSACTION HASH, NOT BY HEIGHT. Two transactions in one
+/// block waited for different lengths of time, so a height-keyed line would
+/// have to pick one of them and misattribute the other. Height and view are
+/// carried as DIMENSIONS of the observation, never as its key.
+pub(super) const BENCH_PROPOSAL_WAIT_TAG: &str = "[BENCH-PROPOSAL-WAIT]";
+
+/// Wall-clock milliseconds since the UNIX epoch, for observation only.
+fn proposal_observation_wall_clock_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| Duration::from_secs(0))
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64
+}
+
+/// Renders one `[BENCH-PROPOSAL-WAIT]` line.
+///
+/// Split out from the emitter so the exact line shape the profiler parses can
+/// be asserted without running a producer.
+pub(super) fn format_proposal_wait_line(
+    tx_hash_hex: &str,
+    height: u64,
+    view: u64,
+    first_seen_at_ms: u64,
+    proposal_selected_at_ms: u64,
+) -> Result<String> {
+    let proposal_wait_ms = proposal_selected_at_ms.checked_sub(first_seen_at_ms).ok_or_else(|| {
+        anyhow!(
+            "proposal-wait observation clock moved backwards for tx {}: first_seen_at_ms={} proposal_selected_at_ms={}",
+            tx_hash_hex,
+            first_seen_at_ms,
+            proposal_selected_at_ms
+        )
+    })?;
+    Ok(format!(
+        "{BENCH_PROPOSAL_WAIT_TAG} selected tx_hash={} height={} view={} first_seen_at_ms={} proposal_selected_at_ms={} proposal_wait_ms={}",
+        tx_hash_hex,
+        height,
+        view,
+        first_seen_at_ms,
+        proposal_selected_at_ms,
+        proposal_wait_ms,
+    ))
+}
+
 pub(super) fn duplicate_production_backoff() -> Duration {
     Duration::from_millis(
         std::env::var("IOI_AFT_DUPLICATE_PROPOSAL_BACKOFF_MS")
@@ -1759,6 +1814,19 @@ where
                 tx_pool_ref.select_transactions(proposal_tx_limit),
                 proposal_tx_max_bytes,
             )?;
+            // The CLOSING edge of the per-transaction proposal wait, sampled
+            // the instant the mempool read returned. Deliberately taken BEFORE
+            // the planted-delay seam below, so a delay planted in selection
+            // moves `select_ms` and leaves every reported proposal wait exactly
+            // where it was. Sampled only when the trace is armed.
+            let proposal_selected_at_ms =
+                benchmark_trace_enabled().then(proposal_observation_wall_clock_ms);
+            // ARMED-ONLY OBSERVATION SEAM. Unarmed this is two environment
+            // reads and a `None`. A malformed or unarmed spec refuses here
+            // rather than producing a block that looks planted and is not.
+            if let Some(delay) = planted_delay_for(PlantedPhase::ProposalSelection)? {
+                tokio::time::sleep(delay).await;
+            }
             if benchmark_trace_enabled() && !candidate_txs.is_empty() {
                 eprintln!(
                     "[BENCH-AFT-ORCH] height={} view={} action=selected_transactions count={} pool_len={}",
@@ -1913,6 +1981,28 @@ where
                 header,
                 transactions: ordered_txs,
             };
+
+            // Per-transaction proposal wait, closed against the exact
+            // transactions this proposal carries rather than against the
+            // candidate set: a candidate dropped during verification did not
+            // get picked up by this proposal, and its observation stays in the
+            // mempool for whichever proposal does pick it up.
+            if let Some(selected_at_ms) = proposal_selected_at_ms {
+                let selected_hashes = attempted_txs
+                    .iter()
+                    .filter_map(|tx| tx.hash().ok())
+                    .collect::<Vec<_>>();
+                for (tx_hash, first_seen_at_ms) in tx_pool_ref.take_first_seen(&selected_hashes) {
+                    let line = format_proposal_wait_line(
+                        &hex::encode(tx_hash),
+                        producing_h,
+                        view,
+                        first_seen_at_ms,
+                        selected_at_ms,
+                    )?;
+                    eprintln!("{line}");
+                }
+            }
 
             if benchmark_trace_enabled() {
                 // Which ordering profile produced this height, and the cadence

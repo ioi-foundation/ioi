@@ -131,6 +131,13 @@ message ChainEvent {
 
         // [NEW] Workload receipt stream for auditable actions (exec/fs/net).
         WorkloadReceipt workload_receipt = 11;
+
+        // [NEW] One EXACT transaction reached durable committed linearization.
+        //
+        // Additive: a client that does not know this field sees an unset
+        // oneof and is unaffected. No existing field number or message is
+        // reused, renamed, or given new meaning.
+        TransactionCommitted transaction_committed = 12;
     }
 }
 
@@ -138,6 +145,32 @@ message BlockCommitted {
     uint64 height = 1;
     string state_root = 2; // Hex
     uint64 tx_count = 3;
+}
+
+// Per-transaction completion identity.
+//
+// BlockCommitted answers "a block landed". It cannot answer "MY transaction
+// landed": it carries no transaction identity, and on this stream its tx_count
+// is always zero. A client holding a submission hash therefore had to poll
+// get_transaction_status, which quantizes every completion observation to the
+// poll interval.
+//
+// This message is published ONLY after the finalized header for `height` was
+// durably updated and Committed was published for `tx_hash`. There is no
+// path that publishes it earlier, so observing it entails durability rather
+// than racing it.
+message TransactionCommitted {
+    // Hex, exactly as submit_transaction returned it and exactly the key
+    // get_transaction_status is served under.
+    string tx_hash = 1;
+    // The exact committing height. Never a chain tip and never a substitute
+    // for one.
+    uint64 height = 2;
+    // Server wall-clock ms at which the finalized header became durable.
+    uint64 durable_commit_ms = 3;
+    // Server wall-clock ms at which this notification was published. Never
+    // earlier than durable_commit_ms.
+    uint64 published_at_ms = 4;
 }
 
 message AgentThought {

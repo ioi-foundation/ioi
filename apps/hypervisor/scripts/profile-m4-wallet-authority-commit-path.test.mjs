@@ -17,18 +17,22 @@ import test from "node:test";
 import {
   BENCH_IAVL_CONTRACT,
   BENCH_ORDERING_CONTRACT,
+  BENCH_PROPOSAL_WAIT_CONTRACT,
   EVENT_DRIVEN_COMPLETION,
   ORDERING_PARITY_SLOTS,
   PHASES,
+  PLANTED_DELAY_CONTRACT,
   READY_HEIGHT_LAG_MAX,
   RELEASE_DAEMON_BINARY,
   SCHEMA_COMPATIBILITY,
+  SUPERSEDED_ARTIFACT_SCHEMA_VERSION,
   REQUIRED_PHASES,
   UNMEASURED_PHASES,
   VALUE_KINDS,
   buildCommitPathProfile,
   decimalMillisecondField,
   indexByHeight,
+  indexByTxHash,
   integerField,
   millisecondValue,
   parseApprovalLines,
@@ -40,6 +44,7 @@ import {
 
 const REQUEST_HASH = "a".repeat(64);
 const POLICY_HASH = "b".repeat(64);
+const TX_HASH = "c".repeat(64);
 const HEIGHT = 412;
 
 const BASE = {
@@ -50,6 +55,17 @@ const BASE = {
   approval_query_ms: 7,
   approval_verify_ms: 1,
   authority_resolution_ms: 2600,
+  // Per-transaction proposal wait, hash-correlated.
+  tx_hash: TX_HASH,
+  first_seen_at_ms: 1_772_000_411_100,
+  proposal_selected_at_ms: 1_772_000_412_050,
+  // The exact completion event. `event_wait_ms` is client-side and
+  // single-clock; the three timestamps are raw wall-clock readings, two from
+  // the server and one from the client.
+  event_wait_ms: 2_180,
+  event_durable_commit_ms: 1_772_000_412_140,
+  event_published_at_ms: 1_772_000_412_152,
+  event_observed_at_ms: 1_772_000_412_157,
   select_ms: 4,
   verify_ms: 6,
   process_block_ms: 1800,
@@ -97,7 +113,46 @@ function traceLines(v) {
     `[BENCH-EXEC] prepare_block height=${HEIGHT} tx_count=1 replay_mode=none replay_gate=none nonce_chain_edges=0 replay_debt=0 validation_aborts=0 validation_errors=0 validation_rewinds=0 execution_errors=0 snapshot_ms=1 parallel_exec_ms=2 fallback_exec_ms=0 overlay_ms=0 collect_results_ms=0 roots_ms=1 total_ms=${v.prepare_total_ms}`,
     `[BENCH-EXEC] commit_block height=${HEIGHT} tx_count=1 proof_verify_ms=0 apply_ms=90 end_block_ms=4 persist_ms=${v.commit_persist_ms} put_block_ms=0 total_ms=${v.commit_total_ms} snapshot_clone_ms=${v.snapshot_clone_ms} block_bytes=${v.block_bytes} proc_cpu_user_ms=${v.proc_cpu_user_ms} proc_cpu_sys_ms=${v.proc_cpu_sys_ms}`,
     `${BENCH_IAVL_CONTRACT.tag} commit height=${HEIGHT} version_count=${v.version_count} tree_depth=${v.tree_depth} unique_nodes=${v.unique_nodes} new_nodes=${v.new_nodes} new_node_bytes=${v.new_node_bytes} block_bytes=${v.block_bytes} commitment_ms=${v.commitment_ms} durable_store_ms=${v.durable_store_ms} atomic_state_block=${v.atomic_state_block}`,
-    `[BENCH-APPROVAL] request_hash=${REQUEST_HASH} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=deadbeef admission_ms=${v.admission_ms} committed_height=${v.committed_height ?? HEIGHT} commit_wait_ms=${v.commit_wait_ms} commit_poll_count=${v.commit_poll_count} commit_poll_interval_ms=${v.commit_poll_interval_ms} approval_query_ms=${v.approval_query_ms} approval_verify_ms=${v.approval_verify_ms}`,
+    proposalWaitLine(v),
+    `[BENCH-APPROVAL] request_hash=${REQUEST_HASH} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=${v.tx_hash} admission_ms=${v.admission_ms} committed_height=${v.committed_height ?? HEIGHT} commit_wait_ms=${v.commit_wait_ms} commit_poll_count=${v.commit_poll_count} commit_poll_interval_ms=${v.commit_poll_interval_ms} approval_query_ms=${v.approval_query_ms} approval_verify_ms=${v.approval_verify_ms} event_wait_ms=${v.event_wait_ms} event_committed_height=${v.event_committed_height ?? v.committed_height ?? HEIGHT} event_durable_commit_ms=${v.event_durable_commit_ms} event_published_at_ms=${v.event_published_at_ms} event_observed_at_ms=${v.event_observed_at_ms}`,
+  ];
+}
+
+// The proposal-wait line, rendered exactly as the producer renders it.
+//
+// `proposal_wait_ms` is DERIVED from the two edges here rather than supplied
+// independently, because the profiler rechecks that relationship. A fixture
+// that let them drift would make the recheck untestable.
+function proposalWaitLine(v) {
+  const wait = Math.max(0, v.proposal_selected_at_ms - v.first_seen_at_ms);
+  // `proposal_wait_tx_hash` overrides ONLY this line's hash, so a test can put
+  // a well-formed observation for a different transaction into the trace
+  // without also relabelling the approval that must refuse to borrow it.
+  const txHash = v.proposal_wait_tx_hash ?? v.tx_hash;
+  return `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} tx_hash=${txHash} height=${HEIGHT} view=1 first_seen_at_ms=${v.first_seen_at_ms} proposal_selected_at_ms=${v.proposal_selected_at_ms} proposal_wait_ms=${v.proposal_wait_ms ?? wait}`;
+}
+
+const SECOND_REQUEST_HASH = "c".repeat(64);
+const SECOND_TX_HASH = "e".repeat(64);
+
+// A COMPLETE secondary approval: its per-transaction proposal-wait line and
+// its [BENCH-APPROVAL] line, in that order.
+//
+// Every per-approval field the profiler requires appears here. Tests that only
+// care about a run-level property -- two cadences, two engines, adjacent
+// heights -- still have to supply a complete row, because the profiler refuses
+// an incomplete one. That is the behaviour under test elsewhere, so these
+// fixtures must not quietly opt out of it.
+function secondaryApprovalLines(height, overrides = {}) {
+  const txHash = overrides.txHash ?? SECOND_TX_HASH;
+  const requestHash = overrides.requestHash ?? SECOND_REQUEST_HASH;
+  const firstSeenAtMs = overrides.firstSeenAtMs ?? BASE.first_seen_at_ms;
+  const selectedAtMs = overrides.proposalSelectedAtMs ?? BASE.proposal_selected_at_ms;
+  const eventWaitMs = overrides.eventWaitMs ?? BASE.event_wait_ms;
+  const observedAtMs = overrides.eventObservedAtMs ?? BASE.event_observed_at_ms;
+  return [
+    `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} tx_hash=${txHash} height=${height} view=1 first_seen_at_ms=${firstSeenAtMs} proposal_selected_at_ms=${selectedAtMs} proposal_wait_ms=${Math.max(0, selectedAtMs - firstSeenAtMs)}`,
+    `[BENCH-APPROVAL] request_hash=${requestHash} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=${txHash} admission_ms=3 committed_height=${height} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1 event_wait_ms=${eventWaitMs} event_committed_height=${height} event_durable_commit_ms=${BASE.event_durable_commit_ms} event_published_at_ms=${BASE.event_published_at_ms} event_observed_at_ms=${observedAtMs}`,
   ];
 }
 
@@ -139,9 +194,17 @@ const phasesOf = (overrides, options) =>
   buildCommitPathProfile(inputs(overrides, options)).approvals[0].phases;
 
 // The one source field whose delay each phase is supposed to absorb.
+//
+// `durable_ack_publication` is deliberately ABSENT: it is derived from a pair
+// of timestamps, so no single field moves it alone. Moving either edge moves
+// it and the transport lag together, which is a real two-phase consequence and
+// is asserted exactly, in its own test below, rather than approximated here.
 const PLANT_FIELD = {
   client_submission_admission: "admission_ms",
   client_commit_wait: "commit_wait_ms",
+  client_event_observation: "event_wait_ms",
+  proposal_cadence_wait: "proposal_selected_at_ms",
+  notification_transport_lag: "event_observed_at_ms",
   ordering_finalization: "finalize_ms",
   execution_prepare: "prepare_total_ms",
   execution_commit: "commit_total_ms",
@@ -211,33 +274,76 @@ test("every phase is declared inclusive, exclusive, or unmeasured with its nesti
   assert.ok(PHASES.execution_commit.contains.includes("durable_persistence"));
 });
 
-test("all ten ordering-parity slots are represented, measured or explicitly not", () => {
+test("all twelve ordering-parity slots are represented, measured or explicitly not", () => {
   const covered = new Set(Object.values(PHASES).map((phase) => phase.slot));
   for (const slot of ORDERING_PARITY_SLOTS) {
     assert.ok(covered.has(slot), `slot '${slot}' must be present, even if unmeasured`);
   }
-  assert.equal(ORDERING_PARITY_SLOTS.length, 10, "the contract names exactly ten slots");
-  // The three the estate genuinely cannot measure today. If a seam later makes
+  assert.equal(ORDERING_PARITY_SLOTS.length, 12, "the contract names exactly twelve slots");
+  // The two the estate genuinely cannot measure today. If a seam later makes
   // one of these measurable, this list is the thing that must change.
+  //
+  // It shrank by one for M04.9(a): `proposal_cadence_wait` acquired a seam.
+  // `receipt_creation_durable_ack` did NOT become measurable -- it was split,
+  // and the half that stayed unmeasurable kept the unmeasured label under the
+  // narrower name `receipt_creation`.
   assert.deepEqual(
     [...UNMEASURED_PHASES].sort(),
-    ["admission_queueing", "proposal_cadence_wait", "receipt_creation_durable_ack"],
+    ["admission_queueing", "receipt_creation"],
     "unmeasured phases are exactly the ones with no seam",
   );
 });
 
-test("the client-observed phase is labelled polling-quantized, not an exact latency", () => {
+test("the polled and pushed completion observations are labelled distinctly", () => {
   assert.equal(PHASES.client_commit_wait.quantized_by, "poll_interval_ms");
+  // The exact one is NOT quantized. Sharing a slot with the polled phase is
+  // deliberate -- they observe the same thing -- but sharing a quantum would
+  // have made the exact figure a rounded one.
+  assert.equal(PHASES.client_event_observation.quantized_by, null);
+  assert.equal(
+    PHASES.client_event_observation.slot,
+    PHASES.client_commit_wait.slot,
+    "both observe client-side completion, so both map to that slot",
+  );
+  assert.notEqual(
+    PHASES.client_event_observation.source,
+    PHASES.client_commit_wait.source,
+    "and they come from different sources, so neither can silently stand in for the other",
+  );
   assert.equal(
     PHASES.proposal_cadence_wait.semantics,
-    "unmeasured",
-    "cadence WAIT is not measured even though cadence CONFIG is recorded",
+    "exclusive",
+    "the cadence WAIT is now a measured leaf, distinct from the cadence CONFIG",
   );
-  assert.equal(EVENT_DRIVEN_COMPLETION.status, "unimplemented");
-  assert.equal(EVENT_DRIVEN_COMPLETION.measured, false);
+  assert.equal(EVENT_DRIVEN_COMPLETION.status, "implemented");
+  assert.equal(EVENT_DRIVEN_COMPLETION.measured, true);
   assert.ok(
-    EVENT_DRIVEN_COMPLETION.reason.includes("tx_count"),
-    "the reason names the concrete reason no per-tx completion event exists",
+    /transaction_committed/u.test(EVENT_DRIVEN_COMPLETION.mechanism),
+    "the mechanism names the concrete additive event",
+  );
+  assert.ok(
+    /durably_update_header_then_publish_committed/u.test(
+      EVENT_DRIVEN_COMPLETION.durability_ordering,
+    ),
+    "and names the seam that makes a pre-durability event unreachable",
+  );
+  assert.ok(
+    /fails closed/u.test(EVENT_DRIVEN_COMPLETION.client_discipline),
+    "the client's refusal behaviour is declared, not assumed",
+  );
+  assert.ok(
+    /never substitutes a block height, a chain tip, or the polled result/u.test(
+      EVENT_DRIVEN_COMPLETION.client_discipline,
+    ),
+    "including the substitutions it must not make",
+  );
+  assert.ok(
+    EVENT_DRIVEN_COMPLETION.polling_retained.length > 0,
+    "polling is retained and reported separately, not replaced",
+  );
+  assert.ok(
+    EVENT_DRIVEN_COMPLETION.unmeasured_residual.length > 0,
+    "and what remains unmeasured after this is still named",
   );
 });
 
@@ -591,7 +697,7 @@ test("an artifact spanning two ordering engines is refused", () => {
     `[BENCH-EXEC] prepare_block height=${otherHeight} tx_count=1 total_ms=300`,
     `[BENCH-EXEC] commit_block height=${otherHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
     `${BENCH_IAVL_CONTRACT.tag} commit height=${otherHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
-    `[BENCH-APPROVAL] request_hash=${"c".repeat(64)} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=feedface admission_ms=3 committed_height=${otherHeight} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1`,
+    ...secondaryApprovalLines(otherHeight),
   ].join("\n");
   assert.throws(
     () =>
@@ -806,24 +912,75 @@ test("an incompatible change carries a new schema identifier, not the predecesso
   // would ask a reader holding both artifacts to tell them apart by noticing a
   // disclosure rather than by reading the version.
   const profile = buildCommitPathProfile(inputs());
-  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v1");
+  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v2");
   assert.notEqual(
     profile.schema_version,
     profile.schema_compatibility.predecessor,
     "a breaking change must not reuse its predecessor's identifier",
+  );
+  assert.equal(
+    profile.schema_compatibility.predecessor,
+    SUPERSEDED_ARTIFACT_SCHEMA_VERSION,
+    "the identifier this schema supersedes is named, not implied",
   );
   assert.equal(SCHEMA_COMPATIBILITY.version, profile.schema_version);
   assert.equal(profile.schema_compatibility.version, profile.schema_version);
   assert.equal(profile.schema_compatibility.compatible_with_predecessor, false);
 });
 
-test("the predecessor identifier is carried so the tracked work-item anchor stays satisfied", () => {
+test("both predecessor identifiers are carried so the tracked work-item anchors stay satisfied", () => {
   // docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json
-  // requires the profiler source to CONTAIN this string. A declared lineage
-  // satisfies that honestly; continuing to EMIT it after a breaking change
+  // requires the profiler source to CONTAIN both strings. A declared lineage
+  // satisfies that honestly; continuing to EMIT either after a breaking change
   // would not.
   const profile = buildCommitPathProfile(inputs());
-  assert.equal(profile.schema_compatibility.predecessor, "ioi.m048.commit-path-profile.v1");
+  assert.equal(
+    profile.schema_compatibility.originating_predecessor,
+    "ioi.m048.commit-path-profile.v1",
+  );
+  assert.equal(
+    profile.schema_compatibility.predecessor,
+    "ioi.m049.ordering-finality-parity-profile.v1",
+  );
+});
+
+test("the incompatibility is stated exactly, not as a bare boolean", () => {
+  // "compatible_with_predecessor: false" tells a reader nothing about WHAT
+  // broke, so a consumer cannot tell whether it is affected. The split slots,
+  // the newly-measured phases, and the keys that did NOT change meaning are
+  // all named.
+  const profile = buildCommitPathProfile(inputs());
+  const breaking = profile.schema_compatibility.breaking;
+  assert.deepEqual(breaking.split_slots.receipt_creation_durable_ack, [
+    "receipt_creation",
+    "durable_ack_publication",
+  ]);
+  assert.deepEqual(breaking.split_slots.completion_notification_client_observation, [
+    "completion_notification_transport",
+    "completion_client_observation",
+  ]);
+  assert.deepEqual([...breaking.newly_measured_phases].sort(), [
+    "client_event_observation",
+    "durable_ack_publication",
+    "notification_transport_lag",
+    "proposal_cadence_wait",
+  ]);
+  // Every newly-measured phase really does carry a number now.
+  const [approval] = profile.approvals;
+  for (const name of breaking.newly_measured_phases) {
+    assert.equal(typeof approval.phases[name], "number", `${name} carries a number`);
+  }
+  // Every split slot name really is gone from the slot list, and both halves
+  // really are present.
+  for (const [gone, halves] of Object.entries(breaking.split_slots)) {
+    assert.ok(!ORDERING_PARITY_SLOTS.includes(gone), `${gone} is no longer a slot`);
+    for (const half of halves) {
+      assert.ok(ORDERING_PARITY_SLOTS.includes(half), `${half} is a slot`);
+    }
+  }
+  // The statement names what a narrow consumer can still rely on.
+  assert.ok(/ordering_finalization/u.test(profile.schema_compatibility.compatibility_statement));
+  assert.ok(/enumerates safe_partition/u.test(profile.schema_compatibility.compatibility_statement));
 });
 
 test("every breaking change is disclosed in the artifact, not just in a comment", () => {
@@ -959,7 +1116,7 @@ test("a run that changed cadence mid-flight is surfaced as two cadence values", 
     `[BENCH-EXEC] prepare_block height=${otherHeight} tx_count=1 total_ms=300`,
     `[BENCH-EXEC] commit_block height=${otherHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
     `${BENCH_IAVL_CONTRACT.tag} commit height=${otherHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
-    `[BENCH-APPROVAL] request_hash=${"c".repeat(64)} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=feedface admission_ms=3 committed_height=${otherHeight} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1`,
+    ...secondaryApprovalLines(otherHeight),
   ].join("\n");
   const profile = buildCommitPathProfile({
     ...single,
@@ -1036,7 +1193,7 @@ test("realized proposal spacing comes from producer wall time, not header timest
     `[BENCH-EXEC] prepare_block height=${nextHeight} tx_count=1 total_ms=300`,
     `[BENCH-EXEC] commit_block height=${nextHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
     `${BENCH_IAVL_CONTRACT.tag} commit height=${nextHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
-    `[BENCH-APPROVAL] request_hash=${"c".repeat(64)} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=feedface admission_ms=3 committed_height=${nextHeight} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1`,
+    ...secondaryApprovalLines(nextHeight),
   ].join("\n");
   const profile = buildCommitPathProfile({
     ...single,
@@ -1197,4 +1354,405 @@ test("the artifact discloses what co-varies with the ordering profile", () => {
     "remaining unmeasured timing dimensions are named, not implied absent",
   );
   assert.ok(control.residual_risk.length > 0);
+  // The gap that was closed is REMOVED from the open list. A resolved gap left
+  // listed as open is as misleading as an open gap left unlisted.
+  assert.ok(
+    !control.unmeasured_timing_dimensions.some((entry) =>
+      /is not bracketed by any seam/u.test(entry),
+    ),
+    "the mempool-to-proposal wait is measured now and must not still be listed as unbracketed",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// M04.9(a): per-transaction proposal wait
+// ---------------------------------------------------------------------------
+
+test("the proposal wait is correlated by transaction hash, not by height", () => {
+  const profile = buildCommitPathProfile(inputs());
+  const [approval] = profile.approvals;
+  assert.equal(approval.tx_hash, TX_HASH);
+  assert.equal(
+    approval.phases.proposal_cadence_wait,
+    BASE.proposal_selected_at_ms - BASE.first_seen_at_ms,
+  );
+  assert.equal(approval.proposal_wait.first_seen_at_ms, BASE.first_seen_at_ms);
+  assert.equal(approval.proposal_wait.proposal_selected_at_ms, BASE.proposal_selected_at_ms);
+  assert.equal(approval.proposal_wait.correlated_by, "tx_hash");
+  // The contract states the rule in the artifact, so a reader does not have to
+  // infer it from which fields happen to be present.
+  assert.ok(profile.correlation_contract.by_tx_hash.includes(BENCH_PROPOSAL_WAIT_CONTRACT.tag));
+  assert.ok(!profile.correlation_contract.by_height.includes(BENCH_PROPOSAL_WAIT_CONTRACT.tag));
+});
+
+test("MULTI-TX: two approvals at one height get their own waits and their own events", () => {
+  // The exact defect a height join produces: one transaction's wait copied
+  // onto every row in its block. Both approvals below commit at HEIGHT, so
+  // every height-keyed phase must agree and every hash-keyed phase must not.
+  const base = inputs();
+  const traceText = [
+    base.traceText,
+    ...secondaryApprovalLines(HEIGHT, {
+      requestHash: "d".repeat(64),
+      firstSeenAtMs: BASE.first_seen_at_ms + 700,
+      eventObservedAtMs: BASE.event_observed_at_ms + 40,
+    }),
+  ].join("\n");
+
+  const profile = buildCommitPathProfile({
+    ...base,
+    approvalFields: parseApprovalLines(traceText),
+    traceText,
+  });
+
+  assert.equal(profile.approvals.length, 2);
+  const [first, other] = profile.approvals;
+  assert.equal(first.dimensions.committed_height, other.dimensions.committed_height);
+  assert.notEqual(
+    first.phases.proposal_cadence_wait,
+    other.phases.proposal_cadence_wait,
+    "same height, different waits -- a height join would have made these equal",
+  );
+  assert.equal(first.phases.proposal_cadence_wait, 950);
+  assert.equal(other.phases.proposal_cadence_wait, 250);
+  assert.notEqual(
+    first.phases.notification_transport_lag,
+    other.phases.notification_transport_lag,
+    "and different transport lags",
+  );
+  // The block-level phases DO coincide, which is correct: they measure
+  // per-block work, and one block did it once.
+  assert.equal(first.phases.ordering_finalization, other.phases.ordering_finalization);
+  assert.equal(first.phases.durable_persistence, other.phases.durable_persistence);
+  assert.equal(first.phases.durable_ack_publication, other.phases.durable_ack_publication);
+});
+
+test("FAIL CLOSED: a missing proposal-wait line refuses rather than defaulting the wait", () => {
+  assert.throws(
+    () => buildCommitPathProfile(inputs({}, { dropLines: [BENCH_PROPOSAL_WAIT_CONTRACT.tag] })),
+    /\[BENCH-PROPOSAL-WAIT\] selected for tx/u,
+  );
+});
+
+test("FAIL CLOSED: a proposal-wait line for a DIFFERENT transaction is not borrowed", () => {
+  // The line exists, is well-formed, and names the SAME height -- it simply
+  // belongs to another transaction. Accepting it would report a wait this
+  // approval never experienced, which a height-keyed join would have done.
+  assert.throws(
+    () => buildCommitPathProfile(inputs({ proposal_wait_tx_hash: "f".repeat(64) })),
+    new RegExp(`\\[BENCH-PROPOSAL-WAIT\\] selected for tx ${TX_HASH}`, "u"),
+  );
+});
+
+test("FAIL CLOSED: an approval whose tx_hash is not a hex digest cannot be correlated", () => {
+  // Correlation is by transaction hash, so an approval line that carries no
+  // usable hash has nothing to correlate on. It refuses rather than falling
+  // back to the height it also carries.
+  const base = inputs();
+  const truncated = base.traceText
+    .split("\n")
+    .map((line) =>
+      line.includes("[BENCH-APPROVAL]") ? line.replace(`tx_hash=${TX_HASH}`, "tx_hash=deadbeef") : line,
+    )
+    .join("\n");
+  assert.throws(
+    () =>
+      buildCommitPathProfile({
+        ...base,
+        approvalFields: parseApprovalLines(truncated),
+        traceText: truncated,
+      }),
+    /which is not a 64-character hex transaction hash/u,
+  );
+});
+
+test("FAIL CLOSED: a duplicated proposal-wait line refuses instead of picking one", () => {
+  const base = inputs();
+  const duplicated = [base.traceText, proposalWaitLine({ ...BASE, first_seen_at_ms: 1 })].join(
+    "\n",
+  );
+  assert.throws(
+    () => buildCommitPathProfile({ ...base, traceText: duplicated }),
+    /names tx_hash=c{64} more than once/u,
+  );
+});
+
+test("FAIL CLOSED: a proposal-wait line whose difference contradicts its own edges refuses", () => {
+  // Both raw edges are carried so the reported difference can be RECHECKED.
+  // A line that fails its own recheck is refused, not reconciled.
+  assert.throws(
+    () => buildCommitPathProfile(inputs({ proposal_wait_ms: 4242 })),
+    /is not the saturating difference of its own/u,
+  );
+  // Not vacuous: the honest value passes.
+  assert.equal(
+    buildCommitPathProfile(inputs({ proposal_wait_ms: 950 })).approvals[0].phases
+      .proposal_cadence_wait,
+    950,
+  );
+});
+
+test("FAIL CLOSED: an unknown field on the proposal-wait line does not smuggle in a phase", () => {
+  // Extra fields are ignored -- log framing routinely adds them -- but they can
+  // never SUPPLY a required one. Dropping a required field and adding a
+  // plausible-looking substitute must still refuse.
+  const base = inputs();
+  const tampered = base.traceText
+    .split("\n")
+    .map((line) =>
+      line.includes(BENCH_PROPOSAL_WAIT_CONTRACT.tag)
+        ? line.replace(/proposal_wait_ms=\d+/u, "mempool_wait_ms=950 unrelated_field=abc")
+        : line,
+    )
+    .join("\n");
+  assert.throws(
+    () => buildCommitPathProfile({ ...base, traceText: tampered }),
+    /omits required field 'proposal_wait_ms'/u,
+  );
+});
+
+test("indexByTxHash ignores lines whose hash is not a 64-character hex digest", () => {
+  const text = [
+    `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} selected tx_hash=deadbeef height=1 view=0 first_seen_at_ms=1 proposal_selected_at_ms=2 proposal_wait_ms=1`,
+    `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} selected height=1 view=0 first_seen_at_ms=1 proposal_selected_at_ms=2 proposal_wait_ms=1`,
+    `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} selected tx_hash=${TX_HASH} height=1 view=0 first_seen_at_ms=1 proposal_selected_at_ms=2 proposal_wait_ms=1`,
+  ].join("\n");
+  const { index, duplicates } = indexByTxHash(text, BENCH_PROPOSAL_WAIT_CONTRACT.tag, "selected");
+  assert.deepEqual([...index.keys()], [TX_HASH]);
+  assert.equal(duplicates.size, 0);
+  // A different op on the same tag is not this observation.
+  assert.equal(indexByTxHash(text, BENCH_PROPOSAL_WAIT_CONTRACT.tag, "other").index.size, 0);
+});
+
+// ---------------------------------------------------------------------------
+// M04.9(a): exact per-transaction completion event
+// ---------------------------------------------------------------------------
+
+test("the exact completion event separates publication, transport, and observation", () => {
+  const profile = buildCommitPathProfile(inputs());
+  const [approval] = profile.approvals;
+
+  assert.equal(
+    approval.phases.durable_ack_publication,
+    BASE.event_published_at_ms - BASE.event_durable_commit_ms,
+  );
+  assert.equal(
+    approval.phases.notification_transport_lag,
+    BASE.event_observed_at_ms - BASE.event_published_at_ms,
+  );
+  assert.equal(approval.phases.client_event_observation, BASE.event_wait_ms);
+  // The polled observation is retained beside it, not replaced.
+  assert.equal(approval.phases.client_commit_wait, BASE.commit_wait_ms);
+  assert.notEqual(
+    approval.phases.client_event_observation,
+    approval.phases.client_commit_wait,
+    "two mechanisms, two numbers",
+  );
+  // Raw edges carried so every derived value can be recomputed.
+  assert.equal(approval.completion_event.durable_commit_ms, BASE.event_durable_commit_ms);
+  assert.equal(approval.completion_event.published_at_ms, BASE.event_published_at_ms);
+  assert.equal(approval.completion_event.observed_at_ms, BASE.event_observed_at_ms);
+  assert.equal(approval.completion_event.correlated_by, "tx_hash");
+  assert.ok(
+    /clock/u.test(approval.completion_event.transport_lag_clock_domain),
+    "the cross-clock caveat travels with the value it qualifies",
+  );
+});
+
+test("MUTATION: moving the publication instant moves EXACTLY publication and transport", () => {
+  // `durable_ack_publication` is derived from two timestamps, so no single
+  // field moves it alone. Delaying publication by 7000ms lengthens the
+  // publication interval by 7000 and shortens the transport lag by 7000 --
+  // stated exactly, because approximating it would hide a real consequence.
+  const baseline = phasesOf();
+  const mutated = phasesOf({
+    event_published_at_ms: BASE.event_published_at_ms + PLANTED_DELAY_MS,
+  });
+  assert.equal(
+    mutated.durable_ack_publication,
+    baseline.durable_ack_publication + PLANTED_DELAY_MS,
+  );
+  assert.equal(
+    mutated.notification_transport_lag,
+    baseline.notification_transport_lag - PLANTED_DELAY_MS,
+  );
+  for (const name of REQUIRED_PHASES) {
+    if (name === "durable_ack_publication" || name === "notification_transport_lag") continue;
+    assert.equal(mutated[name], baseline[name], `${name} must not move`);
+  }
+});
+
+test("MUTATION: moving the durable-commit instant moves EXACTLY the publication interval", () => {
+  const baseline = phasesOf();
+  const earlier = phasesOf({
+    event_durable_commit_ms: BASE.event_durable_commit_ms - PLANTED_DELAY_MS,
+  });
+  assert.equal(
+    earlier.durable_ack_publication,
+    baseline.durable_ack_publication + PLANTED_DELAY_MS,
+  );
+  for (const name of REQUIRED_PHASES) {
+    if (name === "durable_ack_publication") continue;
+    assert.equal(earlier[name], baseline[name], `${name} must not move`);
+  }
+});
+
+test("FAIL CLOSED: publication before the durability it asserts refuses", () => {
+  // The impossibility the seam exists to guarantee. If a profile ever carries
+  // this, either the ordering regressed or the timestamps are not what they
+  // claim; neither is something to average into a summary.
+  assert.throws(
+    () =>
+      buildCommitPathProfile(
+        inputs({ event_published_at_ms: BASE.event_durable_commit_ms - 1 }),
+      ),
+    /before the \d+ms durability it asserts/u,
+  );
+  // The boundary is legal: same-millisecond publication is a real zero.
+  assert.equal(
+    buildCommitPathProfile(
+      inputs({ event_published_at_ms: BASE.event_durable_commit_ms }),
+    ).approvals[0].phases.durable_ack_publication,
+    0,
+  );
+});
+
+test("FAIL CLOSED: an event height disagreeing with the committed status refuses", () => {
+  assert.throws(
+    () => buildCommitPathProfile(inputs({ event_committed_height: HEIGHT + 1 })),
+    /does not choose between two disagreeing observations/u,
+  );
+});
+
+test("FAIL CLOSED: a missing exact-event field refuses rather than reporting the polled figure", () => {
+  const base = inputs();
+  for (const [field, pattern] of [
+    ["event_wait_ms", /event-driven completion wait/u],
+    ["event_committed_height", /committing height reported by the completion event/u],
+    ["event_durable_commit_ms", /server durable-linearization timestamp/u],
+    ["event_published_at_ms", /server notification-publication timestamp/u],
+    ["event_observed_at_ms", /client notification-observation timestamp/u],
+  ]) {
+    const stripped = base.traceText
+      .split("\n")
+      .map((line) =>
+        line.includes("[BENCH-APPROVAL]")
+          ? line.replace(new RegExp(`\\s${field}=\\S+`, "u"), "")
+          : line,
+      )
+      .join("\n");
+    assert.throws(
+      () =>
+        buildCommitPathProfile({
+          ...base,
+          approvalFields: parseApprovalLines(stripped),
+          traceText: stripped,
+        }),
+      pattern,
+      `a missing ${field} must refuse`,
+    );
+  }
+});
+
+test("FAIL CLOSED: an `unavailable` exact-event field refuses, and is not read as zero", () => {
+  // The client emits `unavailable` only on a run that never subscribed. Such a
+  // run is not an event-driven profile, and reading `unavailable` as 0 would
+  // report a zero-cost notification.
+  const base = inputs();
+  const unavailable = base.traceText
+    .split("\n")
+    .map((line) =>
+      line.includes("[BENCH-APPROVAL]")
+        ? line.replace(/event_wait_ms=\d+/u, "event_wait_ms=unavailable")
+        : line,
+    )
+    .join("\n");
+  assert.throws(
+    () =>
+      buildCommitPathProfile({
+        ...base,
+        approvalFields: parseApprovalLines(unavailable),
+        traceText: unavailable,
+      }),
+    /event-driven completion wait/u,
+  );
+});
+
+test("a client clock behind the server's is surfaced as an anomaly, never clamped", () => {
+  const profile = buildCommitPathProfile(
+    inputs({ event_observed_at_ms: BASE.event_published_at_ms - 5 }),
+  );
+  const [approval] = profile.approvals;
+  assert.equal(approval.phases.notification_transport_lag, -5, "the reading is not floored at 0");
+  assert.ok(
+    approval.anomalies.some((entry) => entry.startsWith("notification_transport_lag_negative")),
+    "and the disagreement is reported",
+  );
+  assert.equal(profile.coverage.approvals_with_anomalies, 1);
+});
+
+// ---------------------------------------------------------------------------
+// M04.9(a): planted-delay contract
+// ---------------------------------------------------------------------------
+
+test("the planted-delay apparatus is declared, and refuses more than it accepts", () => {
+  const profile = buildCommitPathProfile(inputs());
+  const contract = profile.planted_delay_contract;
+  assert.deepEqual(contract.arming.required_together, [
+    "IOI_AFT_BENCH_TRACE",
+    "IOI_TESTING_M049_PLANTED_PHASE_DELAY",
+  ]);
+  assert.equal(contract, PLANTED_DELAY_CONTRACT);
+  // Every wired phase names WHICH artifact phase it moves, so a reader can
+  // check the attribution claim rather than take it.
+  assert.deepEqual(Object.keys(contract.wired_phases).sort(), [
+    "durable_ack_publication",
+    "proposal_selection",
+  ]);
+  assert.ok(
+    /leaves proposal_cadence_wait where it was/u.test(
+      contract.wired_phases.proposal_selection,
+    ),
+    "the selection seam declares what it does NOT move",
+  );
+  // Both wired phase names correspond to something real: one is an artifact
+  // phase, the other names the span it moves.
+  assert.ok("durable_ack_publication" in PHASES);
+  assert.ok(
+    contract.refuses.some((entry) => /without IOI_AFT_BENCH_TRACE/u.test(entry)),
+    "an unarmed spec refuses rather than silently planting nothing",
+  );
+  assert.ok(contract.refuses.some((entry) => /more than one phase/u.test(entry)));
+  assert.ok(contract.refuses.some((entry) => /zero delay/u.test(entry)));
+  assert.ok(/not a production default/u.test(contract.is_not));
+});
+
+test("the nonclaims name every residual the new instrumentation leaves open", () => {
+  const joined = buildCommitPathProfile(inputs()).nonclaims.join("\n");
+  assert.ok(
+    /proposal_cadence_wait spans the inter-tick gap and the block-production deferral/u.test(
+      joined,
+    ),
+    "the proposal wait does not attribute between the two mechanisms it spans",
+  );
+  assert.ok(
+    /not monotonic-clock derived/u.test(joined),
+    "and it discloses which clock it was taken from",
+  );
+  assert.ok(
+    /durable_ack_publication measures publication AFTER durable linearization/u.test(joined),
+    "the publication interval is not receipt creation",
+  );
+  assert.ok(
+    /It is not a proof of inclusion, a receipt, or an authority grant/u.test(joined),
+    "the completion event is not upgraded into a proof",
+  );
+  assert.ok(
+    /carries their clock offset/u.test(joined),
+    "the cross-clock caveat is a nonclaim, not only a phase annotation",
+  );
+  assert.ok(
+    /receipt_creation is unmeasured/u.test(joined),
+    "receipt creation stays unmeasured after the split",
+  );
 });

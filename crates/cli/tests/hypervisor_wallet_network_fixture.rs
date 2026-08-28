@@ -409,6 +409,20 @@ fn ordering_profile() -> Result<OrderingProfile> {
     parse_ordering_profile(raw.as_deref())
 }
 
+/// The spelling every unmeasured field on the observation line uses.
+///
+/// Distinct from `0` on purpose: a parser reading `0` cannot tell "this cost
+/// nothing" from "this was never measured", and the whole point of the
+/// commit-path artifact is that those two are never confused.
+const OBSERVATION_UNAVAILABLE: &str = "unavailable";
+
+/// Renders one `[BENCH-APPROVAL]` field as a value or as `unavailable`.
+fn observation_field(value: Option<impl ToString>) -> String {
+    value
+        .map(|inner| inner.to_string())
+        .unwrap_or_else(|| OBSERVATION_UNAVAILABLE.to_string())
+}
+
 /// Emit one approval-correlated commit-path observation.
 ///
 /// The line is written to stdout, which the JS fixture tees to
@@ -416,6 +430,12 @@ fn ordering_profile() -> Result<OrderingProfile> {
 /// committed height is reported as `unavailable`, never as a tip reading or a
 /// zero. Nothing here is read back into the fixture's own control flow, so the
 /// approval's grant, receipt, and response truth are untouched.
+///
+/// The `event_*` fields carry the EXACT per-transaction completion event. They
+/// are `unavailable` only on a run that did not subscribe at all: a run that
+/// required an exact event and could not match one fails in
+/// `submit_transaction_profiled` and never reaches this line, so `unavailable`
+/// here never means "the event was expected and missing".
 #[allow(clippy::too_many_arguments)]
 fn emit_approval_observation(
     request_hash: &[u8; 32],
@@ -426,23 +446,26 @@ fn emit_approval_observation(
     approval_query_ms: u128,
     approval_verify_ms: u128,
 ) {
+    let event = submission.completion_event.as_ref();
     println!(
-        "[BENCH-APPROVAL] request_hash={} policy_hash={} principal_ref={} target_scope={} tx_hash={} admission_ms={} committed_height={} commit_wait_ms={} commit_poll_count={} commit_poll_interval_ms={} approval_query_ms={} approval_verify_ms={}",
+        "[BENCH-APPROVAL] request_hash={} policy_hash={} principal_ref={} target_scope={} tx_hash={} admission_ms={} committed_height={} commit_wait_ms={} commit_poll_count={} commit_poll_interval_ms={} approval_query_ms={} approval_verify_ms={} event_wait_ms={} event_committed_height={} event_durable_commit_ms={} event_published_at_ms={} event_observed_at_ms={}",
         hex::encode(request_hash),
         hex::encode(policy_hash),
         principal_ref,
         target_scope,
         submission.tx_hash,
         submission.admission_ms,
-        submission
-            .committed_height
-            .map(|height| height.to_string())
-            .unwrap_or_else(|| "unavailable".to_string()),
+        observation_field(submission.committed_height),
         submission.commit_wait_ms,
         submission.commit_poll_count,
         submission.commit_poll_interval_ms,
         approval_query_ms,
         approval_verify_ms,
+        observation_field(event.map(|observed| observed.event_wait_ms)),
+        observation_field(event.map(|observed| observed.height)),
+        observation_field(event.map(|observed| observed.durable_commit_ms)),
+        observation_field(event.map(|observed| observed.published_at_ms)),
+        observation_field(event.map(|observed| observed.observed_at_wall_ms)),
     );
 }
 
@@ -1631,6 +1654,17 @@ fn fixture_command_contract_is_canonical_and_bounded() {
     assert!(requires_initial_tip_timestamp(false, true));
     assert!(requires_initial_tip_timestamp(true, true));
     assert!(!requires_initial_tip_timestamp(false, false));
+
+    // The M04.9(a) observation line reports an absent measurement as
+    // `unavailable`, never as a zero. `0` is a real value for several of these
+    // fields -- a same-millisecond publication genuinely has a zero-length
+    // durable-ACK interval -- so conflating the two would let the profiler
+    // read "not measured" as "cost nothing", which is the exact failure the
+    // artifact's unmeasured-phase rows exist to prevent.
+    assert_eq!(observation_field(Some(0u64)), "0");
+    assert_eq!(observation_field(Some(41u64)), "41");
+    assert_eq!(observation_field(None::<u64>), OBSERVATION_UNAVAILABLE);
+    assert_eq!(observation_field(None::<u128>), "unavailable");
 }
 
 #[tokio::test]
