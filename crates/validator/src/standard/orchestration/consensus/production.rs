@@ -102,6 +102,23 @@ fn parse_failed_tx_index(block_error: &str) -> Option<usize> {
     }
 }
 
+/// Returns whether the workload tip can replace the locally admitted tip.
+///
+/// The durable canonical-collapse check belongs to this hydration decision. An
+/// unchanged tip was already admitted through that check, so re-walking its
+/// persisted prefix on every consensus tick cannot change the outcome. Ahead,
+/// same-height divergent, and cold-start tips still require hydration and keep
+/// the full fail-closed check.
+fn workload_tip_requires_hydration(
+    workload_tip_height: u64,
+    workload_tip_hash: Option<&[u8]>,
+    local_tip_height: u64,
+    local_tip_hash: Option<&[u8]>,
+) -> bool {
+    workload_tip_height > local_tip_height
+        || (workload_tip_height == local_tip_height && workload_tip_hash != local_tip_hash)
+}
+
 fn nonce_scope(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     match tx {
         ChainTransaction::System(tx) => Some((tx.header.account_id, tx.header.nonce)),
@@ -485,29 +502,32 @@ where
                 .get_block_by_height(status.height)
                 .await
             {
-                if let Err(error) = require_persisted_aft_canonical_collapse_if_needed(
-                    cons_ty,
-                    view_resolver.workload_client().as_ref(),
-                    &workload_tip,
-                )
-                .await
-                {
-                    tracing::warn!(
-                        target: "consensus",
-                        height = workload_tip.header.height,
-                        error = %error,
-                        "Skipping workload-tip hydration because the persisted canonical collapse object is missing or mismatched."
-                    );
-                } else {
-                    let workload_tip_hash = workload_tip.header.hash().ok();
-                    let current_tip_hash = last_committed_block_opt
-                        .as_ref()
-                        .and_then(|block| block.header.hash().ok());
-                    let should_refresh_tip = workload_tip.header.height > initial_local_tip_height
-                        || (workload_tip.header.height == initial_local_tip_height
-                            && workload_tip_hash != current_tip_hash);
+                let workload_tip_hash = workload_tip.header.hash().ok();
+                let current_tip_hash = last_committed_block_opt
+                    .as_ref()
+                    .and_then(|block| block.header.hash().ok());
+                let should_refresh_tip = workload_tip_requires_hydration(
+                    workload_tip.header.height,
+                    workload_tip_hash.as_deref(),
+                    initial_local_tip_height,
+                    current_tip_hash.as_deref(),
+                );
 
-                    if should_refresh_tip {
+                if should_refresh_tip {
+                    if let Err(error) = require_persisted_aft_canonical_collapse_if_needed(
+                        cons_ty,
+                        view_resolver.workload_client().as_ref(),
+                        &workload_tip,
+                    )
+                    .await
+                    {
+                        tracing::warn!(
+                            target: "consensus",
+                            height = workload_tip.header.height,
+                            error = %error,
+                            "Skipping workload-tip hydration because the persisted canonical collapse object is missing or mismatched."
+                        );
+                    } else {
                         {
                             let mut ctx = context_arc.lock().await;
                             let ctx_tip_height = ctx

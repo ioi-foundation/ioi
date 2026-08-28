@@ -1,24 +1,59 @@
 use super::*;
 use async_trait::async_trait;
 use ioi_api::app::ChainStatus;
-use ioi_api::chain::QueryStateResponse;
+use ioi_api::chain::{AnchoredStateView, ChainView, QueryStateResponse};
+use ioi_api::commitment::CommitmentScheme;
+use ioi_api::consensus::{ConsensusControl, ConsensusDecision, PenaltyMechanism};
+use ioi_api::state::{StateAccess, StateManager};
 use ioi_types::app::{
     canonical_collapse_commitment, canonical_collapse_commitment_hash_from_object,
     canonical_collapse_continuity_public_inputs, canonical_collapse_extension_certificate,
     canonical_collapse_recursive_proof_hash,
-    set_canonical_collapse_archived_recovered_history_anchor, AccountId,
-    CanonicalCollapseContinuityProofSystem, CanonicalCollapseExtensionCertificate,
-    QuorumCertificate, SignatureSuite, StateAnchor, StateRoot,
+    set_canonical_collapse_archived_recovered_history_anchor, AccountId, BlockHeader,
+    CanonicalCollapseContinuityProofSystem, CanonicalCollapseExtensionCertificate, ConsensusVote,
+    FailureReport, QuorumCertificate, SignatureSuite, StateAnchor, StateRoot,
 };
-use ioi_types::error::ChainError;
+use ioi_types::error::{ChainError, ConsensusError, TransactionError};
+use libp2p::PeerId;
 use std::any::Any;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::Mutex;
 use zk_driver_succinct::simulated_continuity_proof_bytes;
 
 #[derive(Debug, Default)]
 struct TestWorkloadClient {
     raw_state: Mutex<BTreeMap<Vec<u8>, Vec<u8>>>,
+    blocks: Mutex<BTreeMap<u64, Block<ChainTransaction>>>,
+    raw_state_reads: AtomicUsize,
+    block_reads: AtomicUsize,
+}
+
+impl TestWorkloadClient {
+    async fn seed_collapse(&self, collapse: &CanonicalCollapseObject) {
+        self.raw_state.lock().await.insert(
+            aft_canonical_collapse_object_key(collapse.height),
+            codec::to_bytes_canonical(collapse).expect("encode collapse"),
+        );
+    }
+
+    async fn seed_block(&self, block: &Block<ChainTransaction>) {
+        let mut blocks = self.blocks.lock().await;
+        blocks.insert(block.header.height, block.clone());
+    }
+
+    fn reset_read_counts(&self) {
+        self.raw_state_reads.store(0, Ordering::Relaxed);
+        self.block_reads.store(0, Ordering::Relaxed);
+    }
+
+    fn raw_state_reads(&self) -> usize {
+        self.raw_state_reads.load(Ordering::Relaxed)
+    }
+
+    fn block_reads(&self) -> usize {
+        self.block_reads.load(Ordering::Relaxed)
+    }
 }
 
 #[async_trait]
@@ -41,9 +76,10 @@ impl WorkloadClientApi for TestWorkloadClient {
 
     async fn get_block_by_height(
         &self,
-        _height: u64,
+        height: u64,
     ) -> std::result::Result<Option<Block<ChainTransaction>>, ChainError> {
-        Err(ChainError::ExecutionClient("unused in tests".into()))
+        self.block_reads.fetch_add(1, Ordering::Relaxed);
+        Ok(self.blocks.lock().await.get(&height).cloned())
     }
 
     async fn check_transactions_at(
@@ -67,6 +103,7 @@ impl WorkloadClientApi for TestWorkloadClient {
         &self,
         key: &[u8],
     ) -> std::result::Result<Option<Vec<u8>>, ChainError> {
+        self.raw_state_reads.fetch_add(1, Ordering::Relaxed);
         Ok(self.raw_state.lock().await.get(key).cloned())
     }
 
@@ -105,6 +142,166 @@ impl WorkloadClientApi for TestWorkloadClient {
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+/// Minimal consensus engine that only implements the committed-collapse memory
+/// the live observation path actually consults, so query-count behaviour can be
+/// measured against the real function rather than a re-implementation.
+#[derive(Debug, Default)]
+struct TestConsensusEngine {
+    committed_collapses: BTreeMap<u64, CanonicalCollapseObject>,
+    observed_heights: Vec<u64>,
+}
+
+#[async_trait]
+impl PenaltyMechanism for TestConsensusEngine {
+    async fn apply_penalty(
+        &self,
+        _state: &mut dyn StateAccess,
+        _report: &FailureReport,
+    ) -> std::result::Result<(), TransactionError> {
+        Ok(())
+    }
+}
+
+impl ConsensusControl for TestConsensusEngine {
+    fn experimental_sample_tip(&self) -> Option<([u8; 32], u32)> {
+        None
+    }
+
+    fn observe_experimental_sample(&mut self, _hash: [u8; 32]) {}
+}
+
+#[async_trait]
+impl ConsensusEngine<ChainTransaction> for TestConsensusEngine {
+    async fn decide(
+        &mut self,
+        _our_account_id: &AccountId,
+        _height: u64,
+        _view: u64,
+        _parent_view: &dyn AnchoredStateView,
+        _known_peers: &HashSet<PeerId>,
+    ) -> ConsensusDecision<ChainTransaction> {
+        ConsensusDecision::Stall
+    }
+
+    async fn handle_block_proposal<CS, ST>(
+        &mut self,
+        _block: Block<ChainTransaction>,
+        _chain_view: &dyn ChainView<CS, ST>,
+    ) -> std::result::Result<(), ConsensusError>
+    where
+        CS: CommitmentScheme + Send + Sync,
+        ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
+    {
+        Ok(())
+    }
+
+    async fn handle_vote(
+        &mut self,
+        _vote: ConsensusVote,
+    ) -> std::result::Result<(), ConsensusError> {
+        Ok(())
+    }
+
+    async fn handle_view_change(
+        &mut self,
+        _from: PeerId,
+        _proof_bytes: &[u8],
+    ) -> std::result::Result<(), ConsensusError> {
+        Ok(())
+    }
+
+    fn observe_committed_block(
+        &mut self,
+        header: &BlockHeader,
+        collapse: Option<&CanonicalCollapseObject>,
+    ) -> bool {
+        self.observed_heights.push(header.height);
+        if let Some(collapse) = collapse {
+            self.committed_collapses
+                .insert(header.height, collapse.clone());
+        }
+        true
+    }
+
+    fn canonical_collapse_for_committed_height(
+        &self,
+        height: u64,
+    ) -> Option<CanonicalCollapseObject> {
+        self.committed_collapses.get(&height).cloned()
+    }
+
+    fn reset(&mut self, _height: u64) {}
+}
+
+/// Builds a contiguous, link-correct committed chain of `depth` heights and the
+/// canonical collapse object each height collapses to.
+fn build_live_chain(depth: u64) -> (Vec<Block<ChainTransaction>>, Vec<CanonicalCollapseObject>) {
+    let mut blocks = Vec::new();
+    let mut collapses: Vec<CanonicalCollapseObject> = Vec::new();
+    for height in 1..=depth {
+        let previous = collapses.last().cloned();
+        let block = chain_block(height, previous.as_ref());
+        let collapse = derive_canonical_collapse_object_with_previous(
+            &block.header,
+            &block.transactions,
+            previous.as_ref(),
+        )
+        .expect("chain collapse");
+        blocks.push(block);
+        collapses.push(collapse);
+    }
+    (blocks, collapses)
+}
+
+fn chain_block(height: u64, prior: Option<&CanonicalCollapseObject>) -> Block<ChainTransaction> {
+    let mut block = sample_block();
+    block.header.height = height;
+    block.header.view = height;
+    block.header.state_root = StateRoot(vec![height as u8; 32]);
+    block.header.transactions_root = vec![(height as u8).wrapping_add(0x80); 32];
+    block.header.previous_canonical_collapse_commitment_hash = [0u8; 32];
+    block.header.canonical_collapse_extension_certificate = None;
+    block.header.canonical_order_certificate = None;
+    block.header.canonical_order_certificate = Some(
+        ioi_types::app::build_reference_canonical_order_certificate(&block.header, &[])
+            .expect("reference order cert"),
+    );
+
+    if let Some(prior) = prior {
+        let extension =
+            canonical_collapse_extension_certificate(height, prior).expect("extension certificate");
+        align_block_parent_to_previous_result(&mut block, prior);
+        block.header.previous_canonical_collapse_commitment_hash =
+            canonical_collapse_commitment_hash_from_object(prior).expect("previous hash");
+        block.header.canonical_collapse_extension_certificate = Some(extension);
+    }
+
+    block
+}
+
+async fn seeded_chain_client(
+    blocks: &[Block<ChainTransaction>],
+    collapses: &[CanonicalCollapseObject],
+) -> TestWorkloadClient {
+    let client = TestWorkloadClient::default();
+    for block in blocks {
+        client.seed_block(block).await;
+    }
+    for collapse in collapses {
+        client.seed_collapse(collapse).await;
+    }
+    client
+}
+
+fn warm_engine(admitted: &[CanonicalCollapseObject]) -> Arc<Mutex<TestConsensusEngine>> {
+    let mut engine = TestConsensusEngine::default();
+    for collapse in admitted {
+        let height = collapse.height;
+        engine.committed_collapses.insert(height, collapse.clone());
+    }
+    Arc::new(Mutex::new(engine))
 }
 
 fn sample_block() -> Block<ChainTransaction> {
@@ -642,6 +839,218 @@ async fn require_persisted_aft_canonical_collapse_rejects_corrupted_persisted_pr
         error
             .to_string()
             .contains("persisted canonical collapse continuity verification failed"),
+        "unexpected error: {error}"
+    );
+}
+
+#[tokio::test]
+async fn warm_live_observation_reads_are_bounded_independently_of_retained_height() {
+    // Steady state: the engine already holds every prior height, so observing
+    // the next height must cost a fixed number of reads — one block, the
+    // predecessor collapse it reconciles against, and the collapse at the
+    // observed height. Re-walking retained history would make this grow with
+    // the chain.
+    let mut measurements = Vec::new();
+    for depth in [4u64, 12u64] {
+        let (blocks, collapses) = build_live_chain(depth);
+        let client = seeded_chain_client(&blocks, &collapses).await;
+        let engine = warm_engine(&collapses[..(depth as usize - 1)]);
+
+        client.reset_read_counts();
+        let accepted = observe_live_committed_chain_through_block(
+            &engine,
+            ConsensusType::Aft,
+            &client,
+            blocks.last().expect("tip block"),
+        )
+        .await
+        .expect("warm live observation");
+
+        assert!(accepted, "warm observation at depth {depth} rejected");
+        let observed = engine.lock().await.observed_heights.clone();
+        assert_eq!(observed, vec![depth], "warm over-observed");
+        measurements.push((depth, client.raw_state_reads(), client.block_reads()));
+    }
+
+    for (depth, raw_state_reads, block_reads) in &measurements {
+        // One block, the predecessor collapse, the observed collapse.
+        let reads = (*raw_state_reads, *block_reads);
+        assert_eq!(reads, (2, 1), "warm depth {depth} reads {reads:?}");
+    }
+    let warm_reads = measurements[0].1;
+    assert_eq!(warm_reads, measurements[1].1, "warm reads grew");
+}
+
+#[tokio::test]
+async fn cold_live_hydration_reads_scale_linearly_with_depth() {
+    // A cold engine has no admitted anchor, so it must hydrate the contiguous
+    // chain — but exactly once, verifying each link directly against the link
+    // below it. Re-verifying every prefix would make the read count triangular.
+    let mut measurements = Vec::new();
+    for depth in [4u64, 8u64] {
+        let (blocks, collapses) = build_live_chain(depth);
+        let client = seeded_chain_client(&blocks, &collapses).await;
+        let engine = Arc::new(Mutex::new(TestConsensusEngine::default()));
+
+        client.reset_read_counts();
+        let accepted = observe_live_committed_chain_through_block(
+            &engine,
+            ConsensusType::Aft,
+            &client,
+            blocks.last().expect("tip block"),
+        )
+        .await
+        .expect("cold live hydration");
+
+        assert!(accepted, "cold hydration at depth {depth} rejected");
+        let observed = engine.lock().await.observed_heights.clone();
+        let expected_heights = (1..=depth).collect::<Vec<_>>();
+        assert_eq!(observed, expected_heights, "cold hydration");
+        measurements.push((depth, client.raw_state_reads(), client.block_reads()));
+    }
+
+    for (depth, raw_state_reads, block_reads) in &measurements {
+        // Height 1 reads only its own collapse; every height above it reads its
+        // predecessor and itself. One block read per hydrated height.
+        let reads = (*raw_state_reads, *block_reads);
+        let expected = ((2 * depth - 1) as usize, *depth as usize);
+        assert_eq!(reads, expected, "cold depth {depth} reads {reads:?}");
+    }
+    let (shallow_depth, shallow_reads, _) = measurements[0];
+    let (deep_depth, deep_reads, _) = measurements[1];
+    let growth = deep_reads - shallow_reads;
+    assert_eq!(growth, 2 * (deep_depth - shallow_depth) as usize);
+}
+
+#[tokio::test]
+async fn live_observation_refuses_persisted_predecessor_that_diverges_from_admitted_anchor() {
+    let (blocks, collapses) = build_live_chain(3);
+    let admitted_predecessor = collapses[1].clone();
+
+    // Case 1: same commitment, rewritten recursive proof. A commitment-only
+    // boundary comparison would accept this.
+    let mut tampered_proof = admitted_predecessor.clone();
+    tampered_proof.continuity_recursive_proof.proof_bytes[0] ^= 0xFF;
+    let tampered_commitment = canonical_collapse_commitment(&tampered_proof);
+    let admitted_commitment = canonical_collapse_commitment(&admitted_predecessor);
+    assert_eq!(tampered_commitment, admitted_commitment);
+
+    // Case 2: a genuinely different predecessor at the same height.
+    let mut forked = admitted_predecessor.clone();
+    forked.resulting_state_root_hash = [0x7eu8; 32];
+    ioi_types::app::bind_canonical_collapse_continuity(&mut forked, Some(&collapses[0]))
+        .expect("rebind forked predecessor");
+
+    for (label, persisted_previous) in [("tampered", tampered_proof), ("forked", forked)] {
+        let client = seeded_chain_client(&blocks, &collapses[..1]).await;
+        client.seed_collapse(&persisted_previous).await;
+
+        let error = resolve_live_aft_canonical_collapse_for_block(
+            ConsensusType::Aft,
+            &client,
+            Some(&admitted_predecessor),
+            &blocks[2],
+        )
+        .await
+        .expect_err("a divergent persisted predecessor must be refused");
+        assert!(
+            error
+                .to_string()
+                .contains("does not match the canonical collapse object already admitted"),
+            "unexpected error for the {label} predecessor: {error}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn live_observation_accepts_late_enriched_persisted_predecessor() {
+    // Same-slot publication enriches a persisted collapse object after live
+    // observation has already admitted it: the archived recovered-history anchor
+    // and the ordering bundle land late and sit outside the continuity payload
+    // by construction. The boundary comparison must tolerate exactly those, or
+    // the asymptote publication path refuses its own predecessor.
+    let (blocks, collapses) = build_live_chain(3);
+    let admitted_predecessor = collapses[1].clone();
+    let mut enriched = admitted_predecessor.clone();
+    set_canonical_collapse_archived_recovered_history_anchor(
+        &mut enriched,
+        [0x61u8; 32],
+        [0x62u8; 32],
+        [0x63u8; 32],
+    )
+    .expect("anchor upgrade");
+    enriched.ordering.bulletin_close_hash = [0x64u8; 32];
+    enriched.ordering.bulletin_retrievability_profile_hash = [0x65u8; 32];
+    enriched.ordering.bulletin_shard_manifest_hash = [0x66u8; 32];
+    enriched.ordering.bulletin_custody_receipt_hash = [0x67u8; 32];
+
+    let client = seeded_chain_client(&blocks, &collapses[..1]).await;
+    client.seed_collapse(&enriched).await;
+
+    let resolved = resolve_live_aft_canonical_collapse_for_block(
+        ConsensusType::Aft,
+        &client,
+        Some(&admitted_predecessor),
+        &blocks[2],
+    )
+    .await
+    .expect("late-enriched predecessor must still anchor the successor");
+    assert_eq!(resolved, Some(collapses[2].clone()));
+}
+
+#[tokio::test]
+async fn cold_live_hydration_refuses_corrupt_intermediate_link() {
+    let (blocks, collapses) = build_live_chain(5);
+    let client = seeded_chain_client(&blocks, &collapses).await;
+    let mut corrupted = collapses[2].clone();
+    corrupted.continuity_recursive_proof.proof_bytes[0] ^= 0xFF;
+    client.seed_collapse(&corrupted).await;
+    let engine = Arc::new(Mutex::new(TestConsensusEngine::default()));
+
+    let error = observe_live_committed_chain_through_block(
+        &engine,
+        ConsensusType::Aft,
+        &client,
+        blocks.last().expect("tip block"),
+    )
+    .await
+    .expect_err("a corrupt intermediate link must be refused");
+
+    assert!(
+        error
+            .to_string()
+            .contains("persisted canonical collapse continuity verification failed for height 3"),
+        "unexpected error: {error}"
+    );
+    let observed = engine.lock().await.observed_heights.clone();
+    assert_eq!(observed, vec![1, 2], "hydration skipped the bad link");
+}
+
+#[tokio::test]
+async fn cold_live_hydration_refuses_missing_collapse_ancestor() {
+    let (mut blocks, collapses) = build_live_chain(3);
+    // Height 1 carries no external finality, so it collapses to nothing, and
+    // nothing is persisted for it either: height 2 has no ancestor to extend.
+    blocks[0].header.signature.clear();
+    blocks[0].header.canonical_order_certificate = None;
+    blocks[0].header.oracle_counter = 0;
+    blocks[0].header.oracle_trace_hash = [0u8; 32];
+    let client = seeded_chain_client(&blocks, &collapses[1..]).await;
+    let engine = Arc::new(Mutex::new(TestConsensusEngine::default()));
+
+    let error = observe_live_committed_chain_through_block(
+        &engine,
+        ConsensusType::Aft,
+        &client,
+        blocks.last().expect("tip block"),
+    )
+    .await
+    .expect_err("a missing collapse ancestor must be refused");
+
+    assert!(
+        error
+            .to_string()
+            .contains("missing previous canonical collapse object for height 2"),
         "unexpected error: {error}"
     );
 }

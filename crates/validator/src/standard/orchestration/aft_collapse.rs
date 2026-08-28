@@ -131,15 +131,35 @@ pub(crate) async fn resolve_live_aft_canonical_collapse_for_block(
         let persisted_previous =
             load_persisted_aft_canonical_collapse_object(workload_client, block.header.height - 1)
                 .await?;
-        let previous = match (previous_live_collapse.cloned(), persisted_previous) {
-            (_, Some(persisted_previous)) => {
+        match (previous_live_collapse, persisted_previous) {
+            (Some(admitted), Some(persisted_previous)) => {
+                // The admitted anchor already carries the verified prefix: it was
+                // itself verified directly against its own verified predecessor
+                // when the previous live observation admitted it. The whole
+                // obligation at this seam is therefore that durable state still
+                // agrees with what was admitted — a bounded comparison, never a
+                // re-walk, and a refusal (never a rewind) when it disagrees.
+                if !persisted_predecessor_matches_admitted_anchor(admitted, &persisted_previous) {
+                    return Err(anyhow!(
+                        "persisted canonical collapse object at height {} does not match the canonical collapse object already admitted by live observation",
+                        block.header.height - 1
+                    ));
+                }
+                verify_canonical_collapse_backend(&persisted_previous)?;
+                Some(persisted_previous)
+            }
+            (Some(admitted), None) => {
+                verify_canonical_collapse_backend(admitted)?;
+                Some(admitted.clone())
+            }
+            (None, Some(persisted_previous)) => {
+                // No admitted anchor to inherit trust from (cold engine, or a
+                // gap reaching back into durable state): the contiguous
+                // persisted prefix has to be verified once, in O(depth), before
+                // it can anchor anything.
                 verify_persisted_aft_canonical_collapse_chain(workload_client, &persisted_previous)
                     .await?;
                 Some(persisted_previous)
-            }
-            (Some(previous_live), None) => {
-                verify_canonical_collapse_backend(&previous_live)?;
-                Some(previous_live)
             }
             (None, None) => {
                 return Err(anyhow!(
@@ -147,8 +167,7 @@ pub(crate) async fn resolve_live_aft_canonical_collapse_for_block(
                     block.header.height
                 ));
             }
-        };
-        previous
+        }
     };
 
     let derived = derive_canonical_collapse_object_with_previous(
@@ -174,7 +193,19 @@ pub(crate) async fn resolve_live_aft_canonical_collapse_for_block(
     if let Some(persisted) =
         load_persisted_aft_canonical_collapse_object(workload_client, block.header.height).await?
     {
-        verify_persisted_aft_canonical_collapse_chain(workload_client, &persisted).await?;
+        // The predecessor above is verified, so the newly persisted object is
+        // established by verifying its own link against it directly: the link
+        // binds the predecessor commitment, the rolling accumulator and the
+        // predecessor recursive-proof hash, which is exactly what re-walking
+        // the prefix would re-establish.
+        verify_canonical_collapse_continuity(&persisted, previous.as_ref()).map_err(|error| {
+            anyhow!(
+                "persisted canonical collapse continuity verification failed for height {}: {}",
+                block.header.height,
+                error
+            )
+        })?;
+        verify_canonical_collapse_backend(&persisted)?;
         if !canonical_collapse_eq_on_header_surface(&persisted, &derived) {
             return Err(anyhow!(
                 "persisted canonical collapse object does not match committed block surface at height {}",
@@ -201,40 +232,9 @@ where
         return Ok(false);
     }
 
-    let mut start_height = target_height;
-    if matches!(consensus_type, ConsensusType::Aft) && target_height > 1 {
-        for height in 1..target_height {
-            let known = consensus_engine_ref
-                .lock()
-                .await
-                .canonical_collapse_for_committed_height(height);
-            let Some(known) = known else {
-                start_height = height;
-                break;
-            };
-
-            let Some(persisted) =
-                load_persisted_aft_canonical_collapse_object(workload_client, height).await?
-            else {
-                continue;
-            };
-            verify_persisted_aft_canonical_collapse_chain(workload_client, &persisted).await?;
-
-            if canonical_collapse_commitment(&known) != canonical_collapse_commitment(&persisted) {
-                start_height = height;
-                break;
-            }
-        }
-    }
-
-    let mut previous_live_collapse = if start_height <= 1 {
-        None
-    } else {
-        consensus_engine_ref
-            .lock()
-            .await
-            .canonical_collapse_for_committed_height(start_height - 1)
-    };
+    let (start_height, anchor) =
+        live_observation_start(consensus_engine_ref, consensus_type, target_height).await;
+    let mut previous_live_collapse = anchor;
 
     for height in start_height..=target_height {
         let block = match workload_client
@@ -271,6 +271,69 @@ where
     }
 
     Ok(true)
+}
+
+/// Locates the newest predecessor the consensus engine already holds, i.e. the
+/// newest canonical collapse object a previous successful live observation
+/// admitted, and returns the first height that still has to be observed.
+///
+/// Warm steady state answers in a single in-memory lookup and reads no state at
+/// all. A cold or restarted engine — and a genuine gap — walks back to the first
+/// height it must hydrate, under one lock and without any state reads, so the
+/// hydration that follows is linear in the depth it actually has to cover.
+async fn live_observation_start<CE>(
+    consensus_engine_ref: &Arc<Mutex<CE>>,
+    consensus_type: ConsensusType,
+    target_height: u64,
+) -> (u64, Option<CanonicalCollapseObject>)
+where
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+{
+    if target_height <= 1 {
+        return (target_height, None);
+    }
+
+    let engine = consensus_engine_ref.lock().await;
+    if !matches!(consensus_type, ConsensusType::Aft) {
+        let admitted = engine.canonical_collapse_for_committed_height(target_height - 1);
+        return (target_height, admitted);
+    }
+
+    let mut height = target_height - 1;
+    loop {
+        if let Some(admitted) = engine.canonical_collapse_for_committed_height(height) {
+            return (height + 1, Some(admitted));
+        }
+        if height <= 1 {
+            return (1, None);
+        }
+        height -= 1;
+    }
+}
+
+/// Reports whether a persisted predecessor is the same canonical collapse object
+/// the consensus engine already admitted.
+///
+/// Equality is taken on the stable collapse surface — the header surface, the
+/// rolling accumulator and the recursive proof — because that is exactly what a
+/// successor binds through, so agreement there is agreement on everything the
+/// admitted anchor is trusted for. The late-materialization fields (sealing, the
+/// ordering bundle, the archived recovered-history anchor) sit outside the
+/// continuity payload by construction, since same-slot publication enriches the
+/// persisted object after successors have already extended the slot; they are
+/// not compared here, exactly as they are not compared when a persisted object is
+/// matched against the committed block surface.
+///
+/// Comparing the recursive proof is strictly stronger than comparing
+/// commitments: a persisted object that keeps its commitment but rewrites its
+/// proof bytes is refused just as a forked one is.
+fn persisted_predecessor_matches_admitted_anchor(
+    admitted: &CanonicalCollapseObject,
+    persisted: &CanonicalCollapseObject,
+) -> bool {
+    canonical_collapse_eq_on_header_surface(admitted, persisted)
+        && canonical_collapse_commitment(admitted) == canonical_collapse_commitment(persisted)
+        && admitted.continuity_recursive_proof == persisted.continuity_recursive_proof
 }
 
 pub(crate) async fn require_persisted_aft_canonical_collapse_for_block(

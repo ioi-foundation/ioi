@@ -1,4 +1,6 @@
-use super::{parse_failed_tx_index, retain_nonce_heads_for_canonical_order};
+use super::{
+    parse_failed_tx_index, retain_nonce_heads_for_canonical_order, workload_tip_requires_hydration,
+};
 use ioi_types::app::{
     AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
     SystemPayload, SystemTransaction,
@@ -60,4 +62,45 @@ fn canonical_order_selection_retains_only_each_accounts_lowest_nonce() {
         retained_scopes,
         vec![(second_account, 7), (first_account, 2)]
     );
+}
+
+#[test]
+fn unchanged_workload_tip_does_not_require_hydration() {
+    let hash = [0x11; 32];
+    assert!(!workload_tip_requires_hydration(
+        184,
+        Some(&hash),
+        184,
+        Some(&hash),
+    ));
+}
+
+#[test]
+fn advanced_or_forked_workload_tip_requires_hydration() {
+    let local = [0x11; 32];
+    let fork = [0x22; 32];
+    assert!(workload_tip_requires_hydration(
+        185,
+        Some(&local),
+        184,
+        Some(&local),
+    ));
+    assert!(workload_tip_requires_hydration(
+        184,
+        Some(&fork),
+        184,
+        Some(&local),
+    ));
+}
+
+#[test]
+fn cold_workload_tip_requires_hydration() {
+    let hash = [0x11; 32];
+    assert!(workload_tip_requires_hydration(1, Some(&hash), 0, None,));
+}
+
+#[test]
+fn unhashable_local_tip_fails_toward_hydration() {
+    let hash = [0x11; 32];
+    assert!(workload_tip_requires_hydration(184, Some(&hash), 184, None,));
 }
