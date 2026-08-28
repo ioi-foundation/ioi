@@ -179,11 +179,13 @@
     "acceptance_does_not_require_every_profile": true
   },
   "verification": [
-    {"command":"npm run check:architecture-contracts","result":"green"},
-    {"command":"npm run check:architecture-docs","result":"green, 163 files and 11 rules"},
-    {"command":"node scripts/implementation-program.mjs --check","result":"green, 13 modules, 101 build units, 16 acceptance gates, and 41 reachable documents"},
-    {"command":"cargo test -p ioi-finality","result":"green, 11 tests including signed emission, outer-hash-recomputed substitutions, immediate-predecessor body and issuer substitution, unavailable verifier inputs, empty/ephemeral/unverified availability, state-version continuity, unsupported profile/axis, and downgrade refusal"},
-    {"command":"cargo test -p agentgres","result":"green, 57 tests; seven recognized-effect tests exercise all 34 named crash edges plus replay, authority, head, availability, projection, outbox, partial/unrooted recovery, write/fsync uncertainty, and durability labels"},
+    {"command":"npm run check:architecture-contracts","result":"green in 3.09s"},
+    {"command":"npm run check:architecture-docs","result":"green in 0.02s, 163 files and 11 rules; 10 work-item records and 41 code anchors"},
+    {"command":"node scripts/implementation-program.mjs --check","result":"green in 0.03s, 14 modules, 131 build units, 19 acceptance gates, and 45 reachable documents"},
+    {"command":"npm run check:standing-authority","result":"green in 0.02s; exact-request grant, standing grant, atomic draw accounting, and 200/201 habituation boundary preserved"},
+    {"command":"cargo test -p ioi-finality","result":"green in 8.05s, 11 tests including signed emission, outer-hash-recomputed substitutions, immediate-predecessor body and issuer substitution, unavailable verifier inputs, empty/ephemeral/unverified availability, state-version continuity, unsupported profile/axis, and downgrade refusal"},
+    {"command":"cargo test -p agentgres","result":"green in 49.35s, 57 tests; seven recognized-effect tests exercise all 34 named crash edges plus replay, authority, head, availability, projection, outbox, partial/unrooted recovery, write/fsync uncertainty, and durability labels"},
+    {"command":"npm run check:m4-room-participation-contribution-architecture --workspace=@ioi/hypervisor-app","result":"green in 102.84s, 111 tests; deterministic M04.8 blocking lane"},
     {"command":"cargo tree -i ioi-finality --depth 2","result":"ioi-finality is consumed by agentgres, which is already consumed by ioi-node and ioi-services; no profile routing, production selection, or default was added"},
     {"command":"git diff --check","result":"green"}
   ],
