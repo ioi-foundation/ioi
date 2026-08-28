@@ -4408,12 +4408,12 @@ fn insert_graph_projection_ref(
             format!("admitted object '{object_ref}' has no graph projection family"),
         ));
     };
-    if !bucket.insert(object_ref.to_owned()) {
-        return Err(verr(
-            "outcome_room_projection_object_source_unresolved",
-            format!("admitted object ref '{object_ref}' occurs more than once"),
-        ));
-    }
+    // Graph coordinates are identity sets, while the Agentgres history above
+    // is a generation sequence. Exact-root succession legitimately admits the
+    // same object ref more than once (for example claim acquire, heartbeat and
+    // release); the sequence/operation/receipt checks retain every generation,
+    // and the graph projects that identity once.
+    bucket.insert(object_ref.to_owned());
     Ok(Some(bucket.len()))
 }
 
@@ -8401,6 +8401,15 @@ mod tests {
                 "frontier://one",
             )
             .expect("registered graph family projects"),
+            Some(1),
+        );
+        assert_eq!(
+            insert_graph_projection_ref(
+                &mut labeled,
+                WORK_FRONTIER_ITEM_V3_CONTRACT,
+                "frontier://one",
+            )
+            .expect("an exact successor retains one graph identity"),
             Some(1),
         );
         assert_eq!(
