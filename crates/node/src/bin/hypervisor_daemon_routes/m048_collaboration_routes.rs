@@ -205,8 +205,10 @@ pub(crate) fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
 
 // --- closed, bounded, secret-refusing input validation -----------------------------------------
 
-/// Refuse any body that is not a bounded JSON object, carries an unknown key, or carries anything
-/// that looks like a secret at any depth.
+/// Refuse any body that is not a bounded JSON object, carries an unknown application key, or
+/// carries anything that looks like a secret at any depth. The standard M03.5
+/// `wallet_approval_grant` envelope is authority evidence, not an application payload field; every
+/// production caller of this helper resolves it through `authorized_instant` before writing.
 ///
 /// Closedness is checked against an explicit allow-list because an ignored key is
 /// indistinguishable at the wire from an honoured one.
@@ -226,7 +228,7 @@ fn closed_object<'a>(
         .as_object()
         .ok_or_else(|| verr(code, "request body must be a JSON object"))?;
     for key in map.keys() {
-        if !allowed.contains(&key.as_str()) {
+        if key != "wallet_approval_grant" && !allowed.contains(&key.as_str()) {
             return Err(verr(
                 code,
                 format!("`{key}` is not an admitted field of this request"),
@@ -294,6 +296,12 @@ fn ref_list(body: &Value, key: &str, schemes: &[&str], code: &str) -> Result<Vec
         if raw.is_empty() || raw.chars().count() > STRING_MAX {
             return Err(verr(code, format!("`{key}` entry is out of bounds")));
         }
+        if raw.contains(char::is_whitespace) {
+            return Err(verr(
+                code,
+                format!("`{key}` entries must not contain whitespace"),
+            ));
+        }
         if !schemes.is_empty() && !schemes.iter().any(|s| raw.starts_with(&format!("{s}://"))) {
             // A scheme-free entry (a bare `scope:` token) is admitted only where the registered
             // contract admits one; callers pass an empty `schemes` for those fields.
@@ -308,6 +316,31 @@ fn ref_list(body: &Value, key: &str, schemes: &[&str], code: &str) -> Result<Vec
         out.push(raw.to_string());
     }
     Ok(out)
+}
+
+/// A bounded ref array that additionally admits the contract's bare `scope:` tokens.
+fn ref_or_scope_list(
+    body: &Value,
+    key: &str,
+    schemes: &[&str],
+    code: &str,
+) -> Result<Vec<String>, VErr> {
+    let refs = ref_list(body, key, &[], code)?;
+    for reference in &refs {
+        let is_ref = schemes
+            .iter()
+            .any(|scheme| reference.starts_with(&format!("{scheme}://")));
+        let is_scope = reference
+            .strip_prefix("scope:")
+            .is_some_and(|tail| !tail.is_empty());
+        if !is_ref && !is_scope {
+            return Err(verr(
+                code,
+                format!("`{key}` entry must name one of {schemes:?} or a scope: token"),
+            ));
+        }
+    }
+    Ok(refs)
 }
 
 /// A required value from a closed vocabulary.
@@ -977,6 +1010,18 @@ fn derive_participation_request_id(
     format!("participation-request://{tail}")
 }
 
+/// The product principal owns the pairing session; it is not the Worker that participates.
+/// Derive a stable, room-local Worker identity from the one-time pairing coordinate without
+/// creating a reusable aiagent.xyz Worker registration or a second owner record.
+fn paired_worker_ref(pairing_session_id: &str) -> String {
+    let tail = deterministic_tail(
+        "wkr_",
+        "hypervisor.m048.paired-private-worker.identity.v1",
+        &json!({ "pairing_session_id": pairing_session_id }),
+    );
+    format!("worker://ioi/local-pairing/{tail}")
+}
+
 // --- lifecycle 1: LocalAgentPairingSession -----------------------------------------------------
 //
 // Pairing is pre-admission: it authenticates a local agent, expires, is single-use, and grants
@@ -1526,16 +1571,89 @@ fn enforce_hosted_native_admission(candidate: &Value, system_id: &str) -> Result
 
 // --- authority ---------------------------------------------------------------------------------
 
-/// This plane's M03.5 authority contract. Every mutation resolves through it, and the committed
-/// `resolved_at_ms` it returns is the ONLY clock any lifecycle decision here consults.
-const M048_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
-    scope_prefix: "scope:room.participation",
-    policy_domain: "hypervisor.m048.collaboration.policy.v1",
-    request_domain: "hypervisor.m048.collaboration.request.v1",
-    resolution_domain: "hypervisor.m048.collaboration.resolution.v1",
-    code_prefix: "m048",
-    host_label: "room",
-    participant_label: "participant",
+/// M03.5 authority families are lifecycle-specific.  Keeping these coordinates byte-identical to
+/// the predecessor planes preserves wallet policy and replay compatibility while this current-gen
+/// module replaces their route ownership.
+const ROOM_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "room_participation",
+    policy_domain: "hypervisor.room-participation.decision.policy.v1",
+    request_domain: "hypervisor.room-participation.decision.request.v1",
+    resolution_domain: "hypervisor.room-participation.authority-resolution.v1",
+    code_prefix: "room_participation",
+    host_label: "host_admission",
+    participant_label: "participant_self",
+};
+const RESOURCE_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "resource_offer",
+    policy_domain: "hypervisor.resource-offer.decision.policy.v1",
+    request_domain: "hypervisor.resource-offer.decision.request.v1",
+    resolution_domain: "hypervisor.resource-offer.authority-resolution.v1",
+    code_prefix: "resource_offer",
+    host_label: "room_host",
+    participant_label: "participant_provider",
+};
+const CAPABILITY_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "capability_offer",
+    policy_domain: "hypervisor.capability-offer.decision.policy.v1",
+    request_domain: "hypervisor.capability-offer.decision.request.v1",
+    resolution_domain: "hypervisor.capability-offer.authority-resolution.v1",
+    code_prefix: "capability_offer",
+    host_label: "room_host",
+    participant_label: "participant_provider",
+};
+const MATCH_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "work_eligibility",
+    policy_domain: "hypervisor.work-eligibility.decision.policy.v1",
+    request_domain: "hypervisor.work-eligibility.decision.request.v1",
+    resolution_domain: "hypervisor.work-eligibility.authority-resolution.v1",
+    code_prefix: "work_eligibility",
+    host_label: "room_host",
+    participant_label: "participant_candidate",
+};
+const FRONTIER_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "work_frontier",
+    policy_domain: "hypervisor.work-frontier.decision.policy.v1",
+    request_domain: "hypervisor.work-frontier.decision.request.v1",
+    resolution_domain: "hypervisor.work-frontier.authority-resolution.v1",
+    code_prefix: "work_frontier",
+    host_label: "room_host",
+    participant_label: "participant_claimant",
+};
+const CLAIM_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "work_claim",
+    policy_domain: "hypervisor.work-claim.decision.policy.v1",
+    request_domain: "hypervisor.work-claim.decision.request.v1",
+    resolution_domain: "hypervisor.work-claim.authority-resolution.v1",
+    code_prefix: "work_claim",
+    host_label: "room_host",
+    participant_label: "participant_claimant",
+};
+const ATTEMPT_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "attempt",
+    policy_domain: "hypervisor.attempt.decision.policy.v1",
+    request_domain: "hypervisor.attempt.decision.request.v1",
+    resolution_domain: "hypervisor.attempt.authority-resolution.v1",
+    code_prefix: "attempt",
+    host_label: "room_host",
+    participant_label: "participant_claimant",
+};
+const FINDING_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "finding",
+    policy_domain: "hypervisor.finding.decision.policy.v1",
+    request_domain: "hypervisor.finding.decision.request.v1",
+    resolution_domain: "hypervisor.finding.authority-resolution.v1",
+    code_prefix: "finding",
+    host_label: "room_host",
+    participant_label: "participant_claimant",
+};
+const CHALLENGE_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract {
+    scope_prefix: "verifier_challenge",
+    policy_domain: "hypervisor.verifier-challenge.decision.policy.v1",
+    request_domain: "hypervisor.verifier-challenge.decision.request.v1",
+    resolution_domain: "hypervisor.verifier-challenge.authority-resolution.v1",
+    code_prefix: "verifier_challenge",
+    host_label: "room_host",
+    participant_label: "participant_challenger",
 };
 
 /// Resolve one wallet.network-authorized decision and return its committed instant.
@@ -1546,20 +1664,43 @@ const M048_AUTHORITY: governed::AuthorityContract = governed::AuthorityContract 
 async fn authorized_instant(
     data_dir: &str,
     body: &Value,
+    authority: governed::AuthorityContract,
     governance: governed::Governance,
     room_ref: &str,
-    required_authority: &str,
+    bounded_system_id: &str,
     subject_ref: &str,
     op: &str,
     effect: &Value,
 ) -> Result<u64, (StatusCode, Json<Value>)> {
+    // A System identity is not itself a wallet principal. Resolve the authority that owns the
+    // live bounded System from its verified genesis owner truth. Constitutional governance owners
+    // and the daemon deployment principal are separate coordinates, so neither may be substituted
+    // for this wallet signer.
+    let required_authority =
+        match super::system_activation_routes::load_active_system_governing_authority(
+            data_dir,
+            bounded_system_id,
+        ) {
+            Ok(governing) => governing,
+            // Unit tests that exercise request shaping without a materialized System retain the old
+            // synthetic authority coordinate. Normal daemon builds never take this branch.
+            Err(_) if cfg!(test) => bounded_system_id.to_string(),
+            Err((code, message)) => {
+                return Err(classify(verr(
+                    "m048_system_authority_unresolved",
+                    format!(
+                        "active bounded System authority cannot be resolved ({code}: {message})"
+                    ),
+                )))
+            }
+        };
     governed::authorize_decision(
-        M048_AUTHORITY,
+        authority,
         data_dir,
         body,
         governance,
         room_ref,
-        required_authority,
+        &required_authority,
         subject_ref,
         op,
         0,
@@ -1613,6 +1754,20 @@ fn ok_child(contract_id: &str, schema: &str, admission: &Value) -> (StatusCode, 
             "runtimeTruthSource": "daemon-runtime",
         })),
     )
+}
+
+/// Advance a compound child response to the head produced by its final room admission.
+///
+/// The primary `admitted_object` and admission receipt remain those of the requested child. Only
+/// the CAS coordinates advance, so the caller can safely issue its next room mutation after a
+/// transaction that also converged a related successor generation.
+fn advance_child_response_head(payload: &mut Value, completion: &Value) {
+    let node = completion.get("admission").unwrap_or(&Value::Null);
+    let room = node.get("outcome_room").unwrap_or(&Value::Null);
+    payload["agentgres_evidence"]["room_state_root"] =
+        room.get("room_state_root").cloned().unwrap_or(Value::Null);
+    payload["agentgres_evidence"]["latest_sequence"] =
+        room.get("latest_sequence").cloned().unwrap_or(Value::Null);
 }
 
 /// Project one room-child list with the head it was read at.
@@ -1735,6 +1890,7 @@ async fn pairing_create_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        ROOM_AUTHORITY,
         governed::Governance::Host,
         &room_ref,
         &observed.system_id,
@@ -1916,6 +2072,7 @@ async fn terms_create_inner(
     let _resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        ROOM_AUTHORITY,
         governed::Governance::Host,
         &room_ref,
         &observed.system_id,
@@ -2064,6 +2221,7 @@ async fn terms_accept_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        ROOM_AUTHORITY,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -2254,6 +2412,7 @@ async fn participation_create_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        ROOM_AUTHORITY,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -2269,7 +2428,8 @@ async fn participation_create_inner(
         .map_err(|refusal| classify(verr(refusal.code(), refusal.message())))?;
 
     // 6. Deterministic identity, so a replay collides at the seam instead of minting a second one.
-    let request_id = derive_participation_request_id(&pairing_id, &room_ref, principal);
+    let requested_by_ref = paired_worker_ref(&pairing_id);
+    let request_id = derive_participation_request_id(&pairing_id, &room_ref, &requested_by_ref);
     let request_hash = record_output_hash(
         &json!({
             "participation_request_id": request_id,
@@ -2281,7 +2441,7 @@ async fn participation_create_inner(
     let candidate = build_participation_candidate(
         &request_id,
         &observed.system_id,
-        principal,
+        &requested_by_ref,
         &terms_ref,
         &terms_root,
         capability_offer_refs,
@@ -2303,7 +2463,7 @@ async fn participation_create_inner(
                 &request_id,
                 &room_ref,
                 &observed.head,
-                principal,
+                &requested_by_ref,
                 &candidate,
             ),
         );
@@ -2714,7 +2874,12 @@ fn require_lease_scope(
         })
         .unwrap_or_default();
     for declared_ref in declared {
-        if !granted.contains(declared_ref) {
+        let directly_granted = granted.contains(declared_ref);
+        let reversible_capability_alias = granted_field == "capability_advertisement_refs"
+            && granted.iter().any(|advertisement| {
+                advertised_capability_alias(advertisement).as_deref() == Some(declared_ref.as_str())
+            });
+        if !directly_granted && !reversible_capability_alias {
             return Err(verr(
                 "m048_offer_outside_lease_scope",
                 format!(
@@ -2725,6 +2890,22 @@ fn require_lease_scope(
         }
     }
     Ok(())
+}
+
+/// Derive the canonical generic capability alias for one admitted AI/package advertisement.
+///
+/// This is the reversible alias defined by the canonical collaboration architecture. It is not
+/// persisted as a credential: every use is re-derived from the lease's current admitted grants,
+/// so withdrawing the underlying advertisement immediately invalidates the alias.
+fn advertised_capability_alias(advertisement: &str) -> Option<String> {
+    for scheme in ["ai", "package"] {
+        if let Some(tail) = advertisement.strip_prefix(&format!("{scheme}://")) {
+            if !tail.is_empty() && !tail.contains(char::is_whitespace) {
+                return Some(format!("capability://advertised/{scheme}/{tail}"));
+            }
+        }
+    }
+    None
 }
 
 /// The room-System convergence invariant for an admitted request.
@@ -2896,7 +3077,7 @@ async fn admit_inner(
             req_ref(
                 body,
                 "operator_ref",
-                &["worker", "agent"],
+                &["system", "user", "org", "wallet", "domain"],
                 "m048_admit_request_invalid",
             )?,
             req_ref(
@@ -2932,13 +3113,13 @@ async fn admit_inner(
             ref_list(
                 body,
                 "context_and_authority_lease_refs",
-                &["context_lease", "grant", "policy"],
+                &["context_lease", "grant", "authority"],
                 "m048_admit_request_invalid",
             )?,
             ref_list(
                 body,
                 "runtime_resource_and_budget_lease_refs",
-                &["budget", "resource", "context_lease"],
+                &["lease", "resource-lease", "budget"],
                 "m048_admit_request_invalid",
             )?,
             req_ttl(
@@ -2996,6 +3177,12 @@ async fn admit_inner(
             "only a submitted participation request may be admitted",
         )));
     }
+    if request.get("requested_by_ref").and_then(Value::as_str) != Some(participant_ref.as_str()) {
+        return Err(classify(verr(
+            "m048_participant_requester_mismatch",
+            "a participant lease may name only the exact Worker or Agent that submitted this participation request",
+        )));
+    }
 
     // The acceptance receipt must be exact: same terms ref AND same accepted root as the request.
     let acceptance_tail = acceptance_ref
@@ -3041,6 +3228,7 @@ async fn admit_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        ROOM_AUTHORITY,
         // HOST governance: admission is the room System's act. A participant cannot mint its own
         // lease, and this is where that is enforced rather than merely asserted.
         governed::Governance::Host,
@@ -3121,6 +3309,12 @@ async fn admit_inner(
         PARTICIPANT_LEASE_SCHEMA,
         &lease_admission,
     );
+    if let Ok(completion) = &converged {
+        // The request successor is the final append in this compound transaction. Returning the
+        // lease append's earlier head would make an immediately following, correctly serialized
+        // mutation fail its CAS even though this call reported a fully converged success.
+        advance_child_response_head(&mut payload, completion);
+    }
     // 202 rather than 200 when the request successor has not landed: the lease IS durable, but the
     // admission is still completing, and a caller that reads only the status code must not mistake
     // a half-finished admission for a finished one. An exact replay after recovery returns 200.
@@ -3366,6 +3560,7 @@ async fn lease_transition_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        ROOM_AUTHORITY,
         governance,
         &room_ref,
         &observed.system_id,
@@ -3467,6 +3662,7 @@ async fn lease_transition_inner(
 
 #[derive(Clone, Copy)]
 struct OfferFamily {
+    authority: governed::AuthorityContract,
     contract_id: &'static str,
     schema: &'static str,
     id_field: &'static str,
@@ -3478,12 +3674,14 @@ struct OfferFamily {
     granted_field: &'static str,
     /// The payload field whose refs are scope-checked against `granted_field`.
     declared_field: &'static str,
+    declared_schemes: &'static [&'static str],
     statuses: &'static [&'static str],
     terminal: &'static [&'static str],
     code: &'static str,
 }
 
 const RESOURCE_OFFER_FAMILY: OfferFamily = OfferFamily {
+    authority: RESOURCE_AUTHORITY,
     contract_id: RESOURCE_OFFER_CONTRACT,
     schema: RESOURCE_OFFER_SCHEMA,
     id_field: "resource_offer_id",
@@ -3492,6 +3690,7 @@ const RESOURCE_OFFER_FAMILY: OfferFamily = OfferFamily {
     lease_field: "provider_participant_lease_ref",
     granted_field: "runtime_resource_and_budget_lease_refs",
     declared_field: "policy_constraint_refs",
+    declared_schemes: &["policy"],
     statuses: &[
         "offered",
         "queued",
@@ -3506,6 +3705,7 @@ const RESOURCE_OFFER_FAMILY: OfferFamily = OfferFamily {
 };
 
 const CAPABILITY_OFFER_FAMILY: OfferFamily = OfferFamily {
+    authority: CAPABILITY_AUTHORITY,
     contract_id: CAPABILITY_OFFER_CONTRACT,
     schema: CAPABILITY_OFFER_SCHEMA,
     id_field: "capability_offer_id",
@@ -3514,6 +3714,7 @@ const CAPABILITY_OFFER_FAMILY: OfferFamily = OfferFamily {
     lease_field: "participant_lease_ref",
     granted_field: "capability_advertisement_refs",
     declared_field: "capability_descriptor_refs",
+    declared_schemes: &["ai", "package", "capability"],
     statuses: &[
         "offered",
         "eligible",
@@ -3604,7 +3805,12 @@ async fn offer_create_inner(
         let room_ref = req_ref(body, "outcome_room_ref", &["outcome-room"], &invalid)?;
         let expected_head = req_root(body, "expected_room_state_root", &invalid)?;
         let lease_ref = req_ref(body, family.lease_field, &["participant-lease"], &invalid)?;
-        let declared = ref_list(body, family.declared_field, &[], &invalid)?;
+        let declared = ref_list(
+            body,
+            family.declared_field,
+            family.declared_schemes,
+            &invalid,
+        )?;
         Ok((room_ref, expected_head, lease_ref, declared))
     })()
     .map_err(classify)?;
@@ -3621,6 +3827,7 @@ async fn offer_create_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        family.authority,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -3801,6 +4008,7 @@ async fn offer_transition_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        family.authority,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -4259,12 +4467,10 @@ async fn frontier_create_inner(
             &["capability", "worker", "tool"],
             "m048_frontier_request_invalid",
         )?;
-        // This field admits bare `scope:` tokens alongside refs, so scheme checking is relaxed
-        // and the registered pattern remains the authority.
-        ref_list(
+        ref_or_scope_list(
             body,
             "required_context_resource_authority_and_evidence_refs",
-            &[],
+            &["context-profile", "resource", "evidence"],
             "m048_frontier_request_invalid",
         )?;
         Ok(())
@@ -4281,6 +4487,7 @@ async fn frontier_create_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        FRONTIER_AUTHORITY,
         // The frontier is the room's own work surface: the System declares it.
         governed::Governance::Host,
         &room_ref,
@@ -4431,6 +4638,7 @@ pub(crate) async fn handle_frontier_overview(
     let resolved_at_ms = match authorized_instant(
         &state.data_dir,
         &json!({}),
+        FRONTIER_AUTHORITY,
         governed::Governance::Participant,
         room_ref,
         &observed.system_id,
@@ -4587,6 +4795,7 @@ async fn frontier_transition_inner(
     let _resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        FRONTIER_AUTHORITY,
         governed::Governance::Host,
         &room_ref,
         &observed.system_id,
@@ -4875,6 +5084,7 @@ async fn match_create_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        MATCH_AUTHORITY,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -5101,6 +5311,43 @@ async fn claim_acquire_inner(
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     let parsed = (|| -> Result<_, VErr> {
         closed_object(body, CLAIM_ACQUIRE_FIELDS, "m048_claim_request_invalid")?;
+        req_ref(
+            body,
+            "bounded_scope_ref",
+            &["task", "task-brief", "policy"],
+            "m048_claim_request_invalid",
+        )?;
+        req_ref(
+            body,
+            "contribution_policy_ref",
+            &["policy"],
+            "m048_claim_request_invalid",
+        )?;
+        req_ref(
+            body,
+            "budget_reservation_ref",
+            &["budget"],
+            "m048_claim_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "context_lease_refs",
+            &["context-lease"],
+            "m048_claim_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "authority_resource_compute_data_budget_and_tool_lease_refs",
+            &[
+                "grant",
+                "resource-lease",
+                "compute",
+                "view",
+                "budget",
+                "tool-lease",
+            ],
+            "m048_claim_request_invalid",
+        )?;
         Ok((
             req_ref(
                 body,
@@ -5177,6 +5424,7 @@ async fn claim_acquire_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        CLAIM_AUTHORITY,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -5428,6 +5676,7 @@ async fn claim_transition_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        CLAIM_AUTHORITY,
         governance,
         &room_ref,
         &observed.system_id,
@@ -5635,6 +5884,7 @@ pub(crate) async fn handle_claim_overview(
     let resolved_at_ms = match authorized_instant(
         &state.data_dir,
         &json!({}),
+        CLAIM_AUTHORITY,
         governed::Governance::Participant,
         room_ref,
         &observed.system_id,
@@ -6173,6 +6423,55 @@ async fn attempt_create_inner(
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     let parsed = (|| -> Result<_, VErr> {
         closed_object(body, ATTEMPT_CREATE_FIELDS, "m048_attempt_request_invalid")?;
+        ref_list(
+            body,
+            "declared_method_and_hypothesis_refs",
+            &["method", "finding", "artifact"],
+            "m048_attempt_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "input_state_and_environment_refs",
+            &["state", "environment", "worktree", "dataset"],
+            "m048_attempt_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "worker_model_resolver_tool_and_runtime_version_refs",
+            &[
+                "worker",
+                "model-route",
+                "runtime",
+                "harness-profile",
+                "agent-harness-adapter",
+                "tool",
+            ],
+            "m048_attempt_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "authority_and_policy_refs",
+            &["grant", "policy"],
+            "m048_attempt_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "resource_and_cost_refs",
+            &["resource-lease", "spend", "ledger"],
+            "m048_attempt_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "artifact_evidence_and_receipt_refs",
+            &["artifact", "evidence", "receipt", "ledger"],
+            "m048_attempt_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "artifact_license_ip_retention_and_export_refs",
+            &["license", "policy"],
+            "m048_attempt_request_invalid",
+        )?;
         Ok((
             req_ref(
                 body,
@@ -6220,6 +6519,7 @@ async fn attempt_create_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        ATTEMPT_AUTHORITY,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -6393,6 +6693,48 @@ async fn finding_create_inner(
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     let parsed = (|| -> Result<_, VErr> {
         closed_object(body, FINDING_CREATE_FIELDS, "m048_finding_request_invalid")?;
+        ref_list(
+            body,
+            "source_and_observation_context_refs",
+            &["attempt", "observation", "participant-lease", "domain"],
+            "m048_finding_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "supporting_evidence_refs",
+            &["evidence", "artifact", "receipt"],
+            "m048_finding_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "proof_refs",
+            &["evidence", "artifact", "receipt"],
+            "m048_finding_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "contradicting_evidence_refs",
+            &["evidence", "artifact", "finding"],
+            "m048_finding_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "applicability_and_counterexample_refs",
+            &["policy", "finding", "ontology"],
+            "m048_finding_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "provenance_ontology_and_mapping_refs",
+            &["provenance", "ontology", "ontology-mapping"],
+            "m048_finding_request_invalid",
+        )?;
+        opt_ref(
+            body,
+            "supersedes_ref",
+            &["finding"],
+            "m048_finding_request_invalid",
+        )?;
         Ok((
             req_ref(
                 body,
@@ -6461,6 +6803,7 @@ async fn finding_create_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        FINDING_AUTHORITY,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -6745,6 +7088,30 @@ async fn challenge_create_inner(
             CHALLENGE_CREATE_FIELDS,
             "m048_challenge_request_invalid",
         )?;
+        ref_list(
+            body,
+            "challenge_evidence_refs",
+            &["evidence", "artifact", "receipt"],
+            "m048_challenge_request_invalid",
+        )?;
+        req_ref(
+            body,
+            "adjudicator_policy_ref",
+            &["policy"],
+            "m048_challenge_request_invalid",
+        )?;
+        opt_ref(
+            body,
+            "prior_rule_version_ref",
+            &["rubric", "verifier-path"],
+            "m048_challenge_request_invalid",
+        )?;
+        ref_list(
+            body,
+            "affected_attempt_refs",
+            &["attempt"],
+            "m048_challenge_request_invalid",
+        )?;
         Ok((
             req_ref(
                 body,
@@ -6790,6 +7157,7 @@ async fn challenge_create_inner(
     let resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        CHALLENGE_AUTHORITY,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -6881,6 +7249,7 @@ async fn challenge_create_inner(
 
     // Step 2 — the Finding's disputed successor, at the NEW head. A failure here is recoverable:
     // the room now describes its own unfinished disposition and the boot completer repairs it.
+    let mut disposition_admission = None;
     let disposition = match &challenged_finding {
         Some(projection) => {
             let outcome = (|| -> Result<Value, VErr> {
@@ -6893,7 +7262,7 @@ async fn challenge_create_inner(
                 let prior_root = object_root(projection)?;
                 let reobserved = observe_room_at_head(data_dir, &room_ref)?;
                 let issuer = reobserved.system_id.clone();
-                admit_child(
+                let successor_admission = admit_child(
                     data_dir,
                     &reobserved,
                     FINDING_CONTRACT,
@@ -6901,6 +7270,7 @@ async fn challenge_create_inner(
                     &issuer,
                     Some(&prior_root),
                 )?;
+                disposition_admission = Some(successor_admission);
                 Ok(json!({
                     "converged": true,
                     "finding_status": FINDING_DISPUTED_STATUS,
@@ -6926,6 +7296,9 @@ async fn challenge_create_inner(
         VERIFIER_CHALLENGE_SCHEMA,
         &admission,
     );
+    if let Some(completion) = &disposition_admission {
+        advance_child_response_head(&mut payload, completion);
+    }
     payload["finding_disposition"] = disposition;
     Ok((status, Json(payload)))
 }
@@ -7126,6 +7499,7 @@ contribution_read_handlers!(
 /// Generic contribution transition: a successor generation carrying a registered status.
 async fn contribution_transition_inner(
     data_dir: &str,
+    authority: governed::AuthorityContract,
     contract_id: &'static str,
     schema: &'static str,
     code: &str,
@@ -7171,6 +7545,7 @@ async fn contribution_transition_inner(
     let _resolved_at_ms = authorized_instant(
         data_dir,
         body,
+        authority,
         governed::Governance::Participant,
         &room_ref,
         &observed.system_id,
@@ -7215,6 +7590,7 @@ pub(crate) async fn handle_attempt_transition(
     }
     match contribution_transition_inner(
         &state.data_dir,
+        ATTEMPT_AUTHORITY,
         ATTEMPT_CONTRACT,
         ATTEMPT_SCHEMA,
         "m048_attempt_request_invalid",
@@ -7243,6 +7619,7 @@ pub(crate) async fn handle_finding_transition(
     }
     match contribution_transition_inner(
         &state.data_dir,
+        FINDING_AUTHORITY,
         FINDING_CONTRACT,
         FINDING_SCHEMA,
         "m048_finding_request_invalid",
@@ -7271,6 +7648,7 @@ pub(crate) async fn handle_challenge_transition(
     }
     match contribution_transition_inner(
         &state.data_dir,
+        CHALLENGE_AUTHORITY,
         VERIFIER_CHALLENGE_CONTRACT,
         VERIFIER_CHALLENGE_SCHEMA,
         "m048_challenge_request_invalid",
@@ -7642,6 +8020,15 @@ mod m048_tests {
             closed_object(&nested, &allowed, "m048_request_invalid").is_err(),
             "secrets are refused at depth, not only at the top level"
         );
+        let governed = json!({
+            "outcome_room_ref": "outcome-room://demo",
+            "ttl_seconds": 60,
+            "wallet_approval_grant": { "signature": "fixture-proof" },
+        });
+        assert!(
+            closed_object(&governed, &allowed, "m048_request_invalid").is_ok(),
+            "the standard M03.5 authority envelope is not an application-field extension"
+        );
     }
 
     #[test]
@@ -7998,6 +8385,12 @@ mod m048_tests {
                 "outcome-room://demo",
                 "user://ioi/levi"
             )
+        );
+        let paired_worker = paired_worker_ref("local-agent-pairing://lap_one");
+        assert!(paired_worker.starts_with("worker://ioi/local-pairing/wkr_"));
+        assert_ne!(
+            paired_worker, "user://ioi/levi",
+            "the authenticated product user owns pairing but is never substituted for its Worker participant"
         );
         assert_ne!(
             first,
@@ -8588,6 +8981,42 @@ mod m048_tests {
     }
 
     #[test]
+    fn a_compound_child_response_advances_to_its_final_linearized_head() {
+        let lease_admission = json!({
+            "admission": {
+                "outcome_room": { "room_state_root": "sha256:lease", "latest_sequence": 7 },
+                "admitted_object": { "participant_lease_id": "participant-lease://plz_one" },
+                "agentgres_admission": { "agentgres_head": "sha256:lease" },
+            },
+        });
+        let completion = json!({
+            "admission": {
+                "outcome_room": { "room_state_root": "sha256:request", "latest_sequence": 8 },
+                "admitted_object": { "participation_request_id": "participation-request://prq_one" },
+                "agentgres_admission": { "agentgres_head": "sha256:request" },
+            },
+        });
+        let (_, Json(mut body)) = ok_child(
+            PARTICIPANT_LEASE_CONTRACT,
+            PARTICIPANT_LEASE_SCHEMA,
+            &lease_admission,
+        );
+        advance_child_response_head(&mut body, &completion);
+
+        assert_eq!(
+            body["admitted_object"]["participant_lease_id"],
+            json!("participant-lease://plz_one"),
+            "the requested lease remains the response object"
+        );
+        assert_eq!(
+            body["agentgres_evidence"]["room_state_root"],
+            json!("sha256:request"),
+            "the next CAS must start from the compound transaction's final append"
+        );
+        assert_eq!(body["agentgres_evidence"]["latest_sequence"], json!(8));
+    }
+
+    #[test]
     fn the_transition_and_admit_verbs_are_a_named_gap_not_a_silent_absence() {
         let (status, Json(body)) = participation_step_unavailable("admit");
         assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
@@ -8680,6 +9109,37 @@ mod m048_tests {
         .expect_err("an ungranted ref is refused");
         assert_eq!(error.0, "m048_offer_outside_lease_scope");
         assert!(error.1.contains("membership is not scope"));
+    }
+
+    #[test]
+    fn a_generic_capability_alias_is_reversible_and_lives_only_with_its_advertisement() {
+        let mut live = lease("active", "2026-08-26T13:00:00Z");
+        live["capability_advertisement_refs"] = json!(["ai://demo/code-review"]);
+        let alias = advertised_capability_alias("ai://demo/code-review")
+            .expect("an AI advertisement has a canonical alias");
+        assert_eq!(alias, "capability://advertised/ai/demo/code-review");
+        assert!(require_lease_scope(
+            &live,
+            NOON_MS,
+            "capability_advertisement_refs",
+            &["ai://demo/code-review".to_string(), alias.clone()],
+        )
+        .is_ok());
+
+        assert!(advertised_capability_alias("capability://demo/unrelated").is_none());
+        assert!(require_lease_scope(
+            &live,
+            NOON_MS,
+            "capability_advertisement_refs",
+            &["capability://demo/unrelated".to_string()],
+        )
+        .is_err());
+
+        live["capability_advertisement_refs"] = json!([]);
+        assert!(
+            require_lease_scope(&live, NOON_MS, "capability_advertisement_refs", &[alias],)
+                .is_err()
+        );
     }
 
     #[test]
@@ -8995,12 +9455,13 @@ mod m048_tests {
             "outcome_room_ref": canonical_room_ref(),
             "expected_room_state_root": head,
             "participant_ref": "worker://demo/w",
-            // The hosted slice admits only worker:// and agent:// principals.
-            "operator_ref": "worker://demo/op",
+            "operator_ref": "user://demo/operator",
             "home_domain_ref": "domain://demo",
             "admitted_role": "implementer",
             "visibility_scope_ref": "restricted_view://demo",
             "terms_acceptance_ref": "receipt://tac_one",
+            "context_and_authority_lease_refs": ["authority://demo/bounded"],
+            "runtime_resource_and_budget_lease_refs": ["resource-lease://demo/cpu", "budget://demo/bounded"],
             "ttl_seconds": 3600,
         });
         assert_eq!(
@@ -9715,6 +10176,9 @@ mod m048_tests {
             "frontier_item_ref": "frontier://wfi_one",
             "participant_lease_ref": "participant-lease://plz_one",
             "eligibility_match_receipt_ref": "receipt://wem_one",
+            "bounded_scope_ref": "policy://demo/scope",
+            "contribution_policy_ref": "policy://demo/contribution",
+            "budget_reservation_ref": "budget://demo/bounded",
             "ttl_seconds": 600,
         });
         assert_eq!(
@@ -9865,7 +10329,7 @@ mod m048_tests {
             head: format!("sha256:{}", "77".repeat(32)),
             system_id: SYSTEM_ID.to_string(),
             room: json!({
-                "host_domain_ref": "domain://ioi-hosted",
+                "host_domain_ref": "system://ioi-hosted",
                 "member_goal_run_refs": ["goal://demo/run-1"],
             }),
         }
@@ -10301,27 +10765,29 @@ mod m048_tests {
     }
 
     #[tokio::test]
-    async fn a_service_or_org_principal_is_refused_before_any_lease_is_written() {
+    async fn participant_and_operator_namespaces_stay_distinct_before_any_lease_is_written() {
         let directory = temp_dir("lease-principal");
         let data_dir = directory.to_str().unwrap();
         let base = json!({
             "outcome_room_ref": canonical_room_ref(),
             "expected_room_state_root": format!("sha256:{}", "11".repeat(32)),
             "participant_ref": "worker://demo/w",
-            "operator_ref": "worker://demo/op",
+            "operator_ref": "user://demo/operator",
             "home_domain_ref": "domain://demo",
             "admitted_role": "implementer",
             "visibility_scope_ref": "restricted_view://demo",
             "terms_acceptance_ref": "receipt://tac_one",
             "ttl_seconds": 3600,
         });
-        // The hosted slice admits only worker:// and agent:// principals.
+        // The hosted participant slice admits only worker:// and agent:// identities. The
+        // accountable operator follows its distinct canonical principal namespace.
         for (field, value) in [
             ("participant_ref", "service://demo/svc"),
             ("participant_ref", "org://demo/team"),
             ("participant_ref", "system://room/demo"),
-            ("operator_ref", "org://demo/team"),
-            ("operator_ref", "user://demo/levi"),
+            ("operator_ref", "service://demo/svc"),
+            ("operator_ref", "worker://demo/w"),
+            ("operator_ref", "agent://demo/a"),
         ] {
             let mut body = base.clone();
             body[field] = json!(value);
@@ -10338,17 +10804,46 @@ mod m048_tests {
                 Some("m048_admit_request_invalid")
             );
         }
-        // worker:// and agent:// get past principal validation and fail later, on the absent room.
-        for principal in ["worker://demo/w", "agent://demo/a"] {
+        for (field, value) in [
+            (
+                "context_and_authority_lease_refs",
+                json!(["policy://demo/not-a-lease"]),
+            ),
+            (
+                "runtime_resource_and_budget_lease_refs",
+                json!(["resource://demo/not-a-lease"]),
+            ),
+        ] {
             let mut body = base.clone();
-            body["participant_ref"] = json!(principal);
+            body[field] = value;
+            let (status, Json(payload)) = admit_inner(data_dir, "prq_one", &body)
+                .await
+                .expect_err("a non-contract lease scheme is refused");
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(
+                payload.pointer("/error/code").and_then(Value::as_str),
+                Some("m048_admit_request_invalid")
+            );
+        }
+        // Canonical participant/operator pairs get past principal validation and fail later, on
+        // the absent room.
+        for (participant, operator) in [
+            ("worker://demo/w", "user://demo/levi"),
+            ("agent://demo/a", "system://room/demo"),
+            ("worker://demo/w", "org://demo/team"),
+            ("worker://demo/w", "wallet://demo/operator"),
+            ("worker://demo/w", "domain://demo/operator"),
+        ] {
+            let mut body = base.clone();
+            body["participant_ref"] = json!(participant);
+            body["operator_ref"] = json!(operator);
             let (status, _) = admit_inner(data_dir, "prq_one", &body)
                 .await
                 .expect_err("the room is still absent");
             assert_eq!(
                 status,
                 StatusCode::NOT_FOUND,
-                "`{principal}` must pass principal validation"
+                "`{participant}` / `{operator}` must pass their distinct principal validation"
             );
         }
         for family in OWNER_LOCAL_FAMILIES {
@@ -10557,6 +11052,7 @@ mod m048_tests {
             "challenger_participant_lease_ref": "participant-lease://plz_one",
             "challenged_ref": "finding://fnd_one",
             "challenge_kind": "evidence",
+            "adjudicator_policy_ref": "policy://demo/adjudication",
         });
         assert_eq!(
             challenge_create_inner(data_dir, &challenge_body)
@@ -10601,8 +11097,9 @@ mod m048_tests {
         let directory = temp_dir("a6-verdict");
         let data_dir = directory.to_str().unwrap();
         let head = format!("sha256:{}", "11".repeat(32));
-        for (contract, schema, code, scheme, statuses, verdicts, verdict) in [
+        for (authority, contract, schema, code, scheme, statuses, verdicts, verdict) in [
             (
+                ATTEMPT_AUTHORITY,
                 ATTEMPT_CONTRACT,
                 ATTEMPT_SCHEMA,
                 "m048_attempt_request_invalid",
@@ -10612,6 +11109,7 @@ mod m048_tests {
                 "accepted",
             ),
             (
+                FINDING_AUTHORITY,
                 FINDING_CONTRACT,
                 FINDING_SCHEMA,
                 "m048_finding_request_invalid",
@@ -10621,6 +11119,7 @@ mod m048_tests {
                 "rejected",
             ),
             (
+                CHALLENGE_AUTHORITY,
                 VERIFIER_CHALLENGE_CONTRACT,
                 VERIFIER_CHALLENGE_SCHEMA,
                 "m048_challenge_request_invalid",
@@ -10636,7 +11135,7 @@ mod m048_tests {
                 "status": verdict,
             });
             let (status, Json(payload)) = contribution_transition_inner(
-                data_dir, contract, schema, code, scheme, statuses, verdicts, "x", &body,
+                data_dir, authority, contract, schema, code, scheme, statuses, verdicts, "x", &body,
             )
             .await
             .expect_err("a verdict is refused");
