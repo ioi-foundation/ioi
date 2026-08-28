@@ -18,6 +18,7 @@
 
 pub mod event_stream;
 pub mod mux;
+pub mod recognized_effect;
 pub mod refs;
 pub mod replica;
 

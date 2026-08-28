@@ -294,6 +294,16 @@ enum MuxBatchError {
     DurabilityUncertain(DurabilityUncertainty),
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MuxCommitTestPoint {
+    AfterWrite,
+    BeforeFsync,
+    AfterFsync,
+    BeforeHeadAdvance,
+    AfterHeadAdvance,
+}
+
 impl From<std::io::Error> for MuxBatchError {
     fn from(error: std::io::Error) -> Self {
         Self::Preparation(error)
@@ -734,6 +744,9 @@ pub struct MuxEngine {
     sync_on_commit: bool,
     current_epoch: u64,
     recovery: MuxRecoveryOutcome,
+    admission_stopped: bool,
+    #[cfg(test)]
+    commit_test_point: Option<MuxCommitTestPoint>,
 }
 
 impl MuxEngine {
@@ -760,6 +773,13 @@ impl MuxEngine {
             .create(true)
             .append(true)
             .open(&log_path)?;
+        // A writer may have stopped after a complete rooted write but before
+        // its original fsync returned. Recovery has already discarded every
+        // partial or unrooted tail; flush the validated retained prefix before
+        // exposing its reconstructed heads as canonical in synchronous mode.
+        if sync_on_commit {
+            log.sync_data()?;
+        }
         Ok(Self {
             dir: dir.to_path_buf(),
             log,
@@ -767,7 +787,36 @@ impl MuxEngine {
             sync_on_commit,
             current_epoch: recovery.current_epoch,
             recovery: recovery.outcome,
+            admission_stopped: false,
+            #[cfg(test)]
+            commit_test_point: None,
         })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn arm_commit_test_point(&mut self, point: MuxCommitTestPoint) {
+        self.commit_test_point = Some(point);
+    }
+
+    #[cfg(test)]
+    fn hit_commit_test_point(&mut self, point: MuxCommitTestPoint) -> Result<(), MuxBatchError> {
+        if self.commit_test_point == Some(point) {
+            self.commit_test_point = None;
+            self.admission_stopped = true;
+            return Err(MuxBatchError::DurabilityUncertain(DurabilityUncertainty {
+                stage: match point {
+                    MuxCommitTestPoint::AfterWrite | MuxCommitTestPoint::BeforeFsync => {
+                        DurabilityFailureStage::Write
+                    }
+                    MuxCommitTestPoint::AfterFsync
+                    | MuxCommitTestPoint::BeforeHeadAdvance
+                    | MuxCommitTestPoint::AfterHeadAdvance => DurabilityFailureStage::Fsync,
+                },
+                detail: format!("injected exact mux interruption at {point:?}"),
+                recovery: WriterRecovery::StoppedReopenRequired,
+            }));
+        }
+        Ok(())
     }
 
     pub fn inspect(dir: &Path) -> std::io::Result<MuxStatusSnapshot> {
@@ -791,6 +840,10 @@ impl MuxEngine {
 
     pub fn recovery_outcome(&self) -> &MuxRecoveryOutcome {
         &self.recovery
+    }
+
+    pub(crate) fn stop_admission_until_reopen(&mut self) {
+        self.admission_stopped = true;
     }
 
     pub fn current_epoch(&self) -> u64 {
@@ -933,6 +986,11 @@ impl MuxEngine {
         &mut self,
         ops: Vec<Operation>,
     ) -> Result<(Vec<Result<AdmitAck, Refusal>>, Vec<u8>), MuxBatchError> {
+        if self.admission_stopped {
+            return Err(MuxBatchError::Preparation(std::io::Error::other(
+                "mux admission stopped after durability uncertainty; reopen required",
+            )));
+        }
         if ops.is_empty() {
             return Ok((Vec::new(), Vec::new()));
         }
@@ -1055,14 +1113,20 @@ impl MuxEngine {
         // Durability point: ONE write + (sync mode) ONE fsync for all
         // domains' batches.
         self.log.write_all(&buf).map_err(|error| {
+            self.admission_stopped = true;
             MuxBatchError::DurabilityUncertain(DurabilityUncertainty {
                 stage: DurabilityFailureStage::Write,
                 detail: error.to_string(),
                 recovery: WriterRecovery::StoppedReopenRequired,
             })
         })?;
+        #[cfg(test)]
+        self.hit_commit_test_point(MuxCommitTestPoint::AfterWrite)?;
+        #[cfg(test)]
+        self.hit_commit_test_point(MuxCommitTestPoint::BeforeFsync)?;
         if self.sync_on_commit {
             self.log.sync_data().map_err(|error| {
+                self.admission_stopped = true;
                 MuxBatchError::DurabilityUncertain(DurabilityUncertainty {
                     stage: DurabilityFailureStage::Fsync,
                     detail: error.to_string(),
@@ -1070,12 +1134,16 @@ impl MuxEngine {
                 })
             })?;
         }
+        #[cfg(test)]
+        self.hit_commit_test_point(MuxCommitTestPoint::AfterFsync)?;
         let durability = if self.sync_on_commit {
             Durability::DeviceFlush
         } else {
             Durability::Buffered
         };
         // Commit domain states after durability.
+        #[cfg(test)]
+        self.hit_commit_test_point(MuxCommitTestPoint::BeforeHeadAdvance)?;
         for (domain, br) in &domain_roots {
             let st = self
                 .domains
@@ -1097,6 +1165,8 @@ impl MuxEngine {
             st.next_batch_seq = br.batch_seq + 1;
             st.root = br.root.clone();
         }
+        #[cfg(test)]
+        self.hit_commit_test_point(MuxCommitTestPoint::AfterHeadAdvance)?;
         Ok((results.into_iter().map(|r| r.unwrap()).collect(), buf))
     }
 

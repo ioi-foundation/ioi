@@ -223,9 +223,15 @@ dependencies = [
 name = "agentgres"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.7",
+ "ioi-api",
+ "ioi-crypto",
+ "ioi-finality",
  "serde",
+ "serde_jcs",
  "serde_json",
  "sha2 0.10.9",
+ "tempfile",
 ]
 
 [[package]]

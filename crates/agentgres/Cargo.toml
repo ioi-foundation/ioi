@@ -5,9 +5,17 @@ edition = "2021"
 description = "Agentgres substrate contract v0: deterministic single-writer admission engine (append / validate / advance-head / root / project) with group commit, batch rooting, and O(1) checkpoints. Doctrine: docs/architecture/components/agentgres/doctrine.md (Substrate Contract Doctrine)."
 
 [dependencies]
+base64 = { workspace = true }
+ioi-crypto = { path = "../crypto" }
+ioi-finality = { path = "../ioi-finality" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_jcs = { workspace = true }
 sha2 = "0.10"
+
+[dev-dependencies]
+ioi-api = { path = "../api" }
+tempfile = { workspace = true }
 
 [[bin]]
 name = "substrate-bench"
