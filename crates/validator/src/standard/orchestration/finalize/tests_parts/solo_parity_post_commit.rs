@@ -159,3 +159,94 @@ async fn successful_durable_header_update_publishes_committed() {
         "the exact block height the commit path recorded must be published"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Structural: no early publication path exists at the CALL SITE
+// ---------------------------------------------------------------------------
+//
+// The two tests above bind the helper. That is necessary but not sufficient:
+// the defect this cut repaired lived in `finalize_and_broadcast_block`, and a
+// regression that re-adds an early publication call THERE would leave both of
+// them green.
+//
+// The primary defence is structural rather than assertive -- the publishing
+// function is nested inside `durably_update_header_then_publish_committed`, so
+// no other caller has a name to reach. The check below is the backstop that
+// notices if someone hoists it back out to module scope, which is the single
+// edit that re-opens the defect class.
+
+/// The commit-path source this invariant lives in.
+const POST_COMMIT_SOURCE: &str = include_str!("../post_commit.rs");
+
+#[test]
+fn committed_publication_has_no_module_level_definition() {
+    // A module-level `async fn publish_committed_tx_statuses` is reachable from
+    // every sibling in the file, including `finalize_and_broadcast_block`. A
+    // nested one is reachable only from its parent. The difference is the whole
+    // guarantee, so it is asserted on the source rather than trusted.
+    let module_level_definitions = POST_COMMIT_SOURCE
+        .lines()
+        .filter(|line| {
+            line.starts_with("async fn publish_committed_tx_statuses")
+                || line.starts_with("pub(super) async fn publish_committed_tx_statuses")
+                || line.starts_with("pub(crate) async fn publish_committed_tx_statuses")
+                || line.starts_with("pub async fn publish_committed_tx_statuses")
+        })
+        .count();
+    assert_eq!(
+        module_level_definitions, 0,
+        "publish_committed_tx_statuses must stay NESTED inside \
+         durably_update_header_then_publish_committed; a module-level definition gives \
+         finalize_and_broadcast_block a name it can call before the durable header update, \
+         which is exactly the defect this cut repaired"
+    );
+
+    // Not vacuous: the nested definition must actually be present, indented
+    // inside its parent. If the function were deleted outright the assertion
+    // above would also pass, and nothing would publish Committed at all.
+    let nested_definitions = POST_COMMIT_SOURCE
+        .lines()
+        .filter(|line| {
+            line.starts_with("    async fn publish_committed_tx_statuses")
+        })
+        .count();
+    assert_eq!(
+        nested_definitions, 1,
+        "the nested publisher must exist exactly once inside its parent"
+    );
+}
+
+#[test]
+fn finalize_and_broadcast_block_reaches_committed_only_through_the_durable_seam() {
+    // Every mention of the publisher in this file must be inside the seam.
+    // Concretely: the ONLY call site is the one line inside
+    // `durably_update_header_then_publish_committed`, and the durable update it
+    // guards is awaited before it.
+    let call_sites = POST_COMMIT_SOURCE
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim_start();
+            trimmed.starts_with("publish_committed_tx_statuses(")
+        })
+        .count();
+    assert_eq!(
+        call_sites, 1,
+        "exactly one call site may exist, inside the durable seam"
+    );
+
+    let seam_start = POST_COMMIT_SOURCE
+        .find("pub(super) async fn durably_update_header_then_publish_committed")
+        .expect("the durable seam must exist");
+    let seam_body = &POST_COMMIT_SOURCE[seam_start..];
+    let update_at = seam_body
+        .find("durable_header_update().await?;")
+        .expect("the seam must await the durable header update");
+    let publish_at = seam_body
+        .find("publish_committed_tx_statuses(receipt_map,")
+        .expect("the seam must call the publisher");
+    assert!(
+        update_at < publish_at,
+        "the durable header update must be awaited BEFORE Committed is published; \
+         reversing these two lines restores the original defect"
+    );
+}

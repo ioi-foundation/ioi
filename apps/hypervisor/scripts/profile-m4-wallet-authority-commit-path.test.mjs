@@ -73,6 +73,9 @@ const BASE = {
   ticker_interval_provenance: "config:block_production_interval_secs",
   min_tick_ms: 50,
   min_tick_provenance: "default",
+  genesis_block_interval_ms: 1000,
+  genesis_block_interval_provenance: "default:test-genesis",
+  block_timestamp_ms: 1_772_000_412_000,
   view_timeout_secs: 2,
 };
 
@@ -85,7 +88,7 @@ const RUN = {
 function traceLines(v) {
   return [
     "2026-08-27T00:00:00Z INFO orchestration: unrelated log framing",
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 ordering_profile=${v.ordering_profile} ticker_interval_ms=${v.ticker_interval_ms} ticker_interval_provenance=${v.ticker_interval_provenance} min_tick_ms=${v.min_tick_ms} min_tick_provenance=${v.min_tick_provenance} view_timeout_secs=${v.view_timeout_secs}`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 ordering_profile=${v.ordering_profile} ticker_interval_ms=${v.ticker_interval_ms} ticker_interval_provenance=${v.ticker_interval_provenance} min_tick_ms=${v.min_tick_ms} min_tick_provenance=${v.min_tick_provenance} genesis_block_interval_ms=${v.genesis_block_interval_ms} genesis_block_interval_provenance=${v.genesis_block_interval_provenance} block_timestamp_ms=${v.block_timestamp_ms} view_timeout_secs=${v.view_timeout_secs}`,
     `[BENCH-CONSENSUS] proposal_select height=${HEIGHT} view=1 candidate_txs=1 valid_txs=1 select_ms=${v.select_ms} verify_ms=${v.verify_ms}`,
     `[BENCH-CONSENSUS] proposal_process height=${HEIGHT} view=1 tx_count=1 process_block_ms=${v.process_block_ms}`,
     `[BENCH-CONSENSUS] proposal_finalize height=${HEIGHT} view=1 finalize_ms=${v.finalize_ms}`,
@@ -264,22 +267,22 @@ test("a complete trace attributes one approval across every required phase", () 
   );
   assert.equal(approval.ordering.profile, BASE.ordering_profile);
   assert.equal(
-    approval.ordering.proposal_cadence.ticker_interval_ms,
+    approval.ordering.scheduler_and_block_cadence.ticker_interval_ms,
     BASE.ticker_interval_ms,
   );
   assert.equal(
-    approval.ordering.proposal_cadence.min_tick_ms,
+    approval.ordering.scheduler_and_block_cadence.min_tick_ms,
     BASE.min_tick_ms,
   );
   assert.equal(
-    approval.ordering.proposal_cadence.ticker_interval_provenance,
+    approval.ordering.scheduler_and_block_cadence.ticker_interval_provenance,
     BASE.ticker_interval_provenance,
   );
   assert.equal(
-    approval.ordering.proposal_cadence.min_tick_provenance,
+    approval.ordering.scheduler_and_block_cadence.min_tick_provenance,
     BASE.min_tick_provenance,
   );
-  assert.equal(approval.ordering.proposal_cadence.measured, false, "cadence is configuration");
+  assert.equal(approval.ordering.scheduler_and_block_cadence.measured, false, "cadence is configuration");
   assert.equal(approval.correlation.authority_resolution_ms, BASE.authority_resolution_ms);
   assert.equal(profile.coverage.approvals_route_correlated, 1);
   assert.equal(profile.coverage.approvals_without_route, 0);
@@ -578,7 +581,7 @@ test("an artifact spanning two ordering engines is refused", () => {
   const otherHeight = 413;
   const mixedTrace = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=solo ticker_interval_ms=1000 ticker_interval_provenance=config:block_production_interval_secs min_tick_ms=50 min_tick_provenance=default view_timeout_secs=2`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=solo ticker_interval_ms=1000 ticker_interval_provenance=config:block_production_interval_secs min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=1000 genesis_block_interval_provenance=default:test-genesis block_timestamp_ms=1772000413000 view_timeout_secs=2`,
     `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
     `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
     `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
@@ -610,17 +613,19 @@ test("unmeasured phases are carried as absent-with-reason, never as zero", () =>
     assert.ok(!(name in approval.phases), `${name} must not appear among measured phases`);
   }
   // The cadence the run resolved IS recorded — as configuration.
-  assert.equal(profile.ordering_parity.proposal_cadence.measured, false);
+  assert.equal(profile.ordering_parity.scheduler_and_block_cadence.measured, false);
   assert.equal(
-    profile.ordering_parity.proposal_cadence.provenance,
+    profile.ordering_parity.scheduler_and_block_cadence.provenance,
     `observed:${BENCH_ORDERING_CONTRACT.tag}`,
   );
-  assert.deepEqual(profile.ordering_parity.proposal_cadence.values, [
+  assert.deepEqual(profile.ordering_parity.scheduler_and_block_cadence.values, [
     {
       ticker_interval_ms: BASE.ticker_interval_ms,
       ticker_interval_provenance: BASE.ticker_interval_provenance,
       min_tick_ms: BASE.min_tick_ms,
       min_tick_provenance: BASE.min_tick_provenance,
+      genesis_block_interval_ms: BASE.genesis_block_interval_ms,
+      genesis_block_interval_provenance: BASE.genesis_block_interval_provenance,
       view_timeout_secs: BASE.view_timeout_secs,
     },
   ]);
@@ -660,10 +665,10 @@ test("the two scheduler cadence flags are bounded at the wrapper", () => {
   // 0 is refused for the ticker because the scheduler filters
   // ORCH_BLOCK_INTERVAL_MS on `> 0`: accepting it would let the flag read as
   // "cadence 0" while the node quietly ran its config cadence instead.
-  for (const bad of ["0", "-1", "600001", "abc", "1.5", ""]) {
+  for (const bad of ["0", "-1", "60001", "abc", "1.5", ""]) {
     assert.throws(
       () => parseArgs(["--proposal-cadence-ms", bad]),
-      /--proposal-cadence-ms must be an integer in 1\.\.=600000/u,
+      /--proposal-cadence-ms must be an integer in 1\.\.=60000/u,
       `--proposal-cadence-ms must refuse ${JSON.stringify(bad)}`,
     );
   }
@@ -792,34 +797,53 @@ test("the summation rule names only genuinely exclusive phases as summable", () 
   assert.equal(Object.keys(VALUE_KINDS).length, 6);
 });
 
-test("the schema identifier stays the one the tracked work item pins", () => {
-  // docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json
-  // carries a code anchor requiring the profiler source to contain exactly this
-  // string. M04.9 extends this artifact in place; it is a diagnostic profile,
-  // not a ReceiptCheckpoint or any other consensus-visible structure, so it
-  // owes no versioned successor.
+test("an incompatible change carries a new schema identifier, not the predecessor's", () => {
+  // The change IS breaking -- phases and fields were renamed and `exclusive`
+  // changed meaning -- so it takes its own identifier. Keeping the predecessor's
+  // would ask a reader holding both artifacts to tell them apart by noticing a
+  // disclosure rather than by reading the version.
   const profile = buildCommitPathProfile(inputs());
-  assert.equal(profile.schema_version, "ioi.m048.commit-path-profile.v1");
+  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v1");
+  assert.notEqual(
+    profile.schema_version,
+    profile.schema_compatibility.predecessor,
+    "a breaking change must not reuse its predecessor's identifier",
+  );
   assert.equal(SCHEMA_COMPATIBILITY.version, profile.schema_version);
   assert.equal(profile.schema_compatibility.version, profile.schema_version);
+  assert.equal(profile.schema_compatibility.compatible_with_predecessor, false);
 });
 
-test("the one incompatible rename is disclosed in the artifact, not just in a comment", () => {
-  // Reusing v1's identifier is only honest if a reader who keys on v1's phase
-  // names finds out from the artifact that one of them moved.
+test("the predecessor identifier is carried so the tracked work-item anchor stays satisfied", () => {
+  // docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json
+  // requires the profiler source to CONTAIN this string. A declared lineage
+  // satisfies that honestly; continuing to EMIT it after a breaking change
+  // would not.
   const profile = buildCommitPathProfile(inputs());
-  assert.equal(
-    profile.schema_compatibility.renamed_phases.aft_inclusion_finalization,
-    "ordering_finalization",
-  );
-  // The rename is real: the old name is gone and the new one carries the phase.
+  assert.equal(profile.schema_compatibility.predecessor, "ioi.m048.commit-path-profile.v1");
+});
+
+test("every breaking change is disclosed in the artifact, not just in a comment", () => {
+  const profile = buildCommitPathProfile(inputs());
+  const breaking = profile.schema_compatibility.breaking;
+  assert.equal(breaking.renamed_phases.aft_inclusion_finalization, "ordering_finalization");
+  assert.equal(breaking.renamed_fields.proposal_cadence, "scheduler_and_block_cadence");
+  // The renames are real: old names gone, new names carrying the data.
   assert.ok(!("aft_inclusion_finalization" in profile.approvals[0].phases));
   assert.ok("ordering_finalization" in profile.approvals[0].phases);
+  assert.ok(!("proposal_cadence" in profile.approvals[0].ordering));
+  assert.ok("scheduler_and_block_cadence" in profile.approvals[0].ordering);
+  assert.ok(!("proposal_cadence" in profile.ordering_parity));
+  assert.ok("scheduler_and_block_cadence" in profile.ordering_parity);
   // Every name the disclosure claims to have renamed TO must actually exist,
   // or the disclosure would send a reader to a key that is not there either.
-  for (const renamed of Object.values(profile.schema_compatibility.renamed_phases)) {
+  for (const renamed of Object.values(breaking.renamed_phases)) {
     assert.ok(renamed in PHASES, `${renamed} must be a real phase`);
   }
+  assert.ok(
+    breaking.changed_semantics.includes("execution_prepare"),
+    "the exclusive/leaf relabel must be disclosed too",
+  );
 });
 
 test("the effective cadence is reported with the provenance of each value", () => {
@@ -835,7 +859,7 @@ test("the effective cadence is reported with the provenance of each value", () =
       min_tick_provenance: "env:ORCH_CONSENSUS_MIN_TICK_MS",
     }),
   );
-  const [cadence] = overridden.ordering_parity.proposal_cadence.values;
+  const [cadence] = overridden.ordering_parity.scheduler_and_block_cadence.values;
   assert.equal(cadence.ticker_interval_ms, 250);
   assert.equal(cadence.ticker_interval_provenance, "env:ORCH_BLOCK_INTERVAL_MS");
   assert.equal(cadence.min_tick_ms, 10);
@@ -844,14 +868,14 @@ test("the effective cadence is reported with the provenance of each value", () =
   // A disabled ticker is a real cadence, reported as 0 rather than dropped.
   const disabled = buildCommitPathProfile(inputs({ ticker_interval_ms: 0 }));
   assert.equal(
-    disabled.approvals[0].ordering.proposal_cadence.ticker_interval_ms,
+    disabled.approvals[0].ordering.scheduler_and_block_cadence.ticker_interval_ms,
     0,
     "ticker_interval_ms=0 means kick-driven only, not an absent measurement",
   );
   const zeroKick = buildCommitPathProfile(
     inputs({ min_tick_ms: 0, min_tick_provenance: "env:ORCH_CONSENSUS_MIN_TICK_MS" }),
   );
-  assert.equal(zeroKick.approvals[0].ordering.proposal_cadence.min_tick_ms, 0);
+  assert.equal(zeroKick.approvals[0].ordering.scheduler_and_block_cadence.min_tick_ms, 0);
 });
 
 test("FAIL CLOSED: a [BENCH-ORDERING] line missing one contracted field is refused", () => {
@@ -891,14 +915,29 @@ test("FAIL CLOSED: a cadence whose provenance this parser cannot name is refused
   for (const provenance of BENCH_ORDERING_CONTRACT.known_ticker_provenances) {
     assert.equal(
       buildCommitPathProfile(inputs({ ticker_interval_provenance: provenance })).approvals[0]
-        .ordering.proposal_cadence.ticker_interval_provenance,
+        .ordering.scheduler_and_block_cadence.ticker_interval_provenance,
       provenance,
     );
   }
   for (const provenance of BENCH_ORDERING_CONTRACT.known_min_tick_provenances) {
     assert.equal(
       buildCommitPathProfile(inputs({ min_tick_provenance: provenance })).approvals[0].ordering
-        .proposal_cadence.min_tick_provenance,
+        .scheduler_and_block_cadence.min_tick_provenance,
+      provenance,
+    );
+  }
+  // The block-interval floor is held to the same bar. It matters more than the
+  // others: it is the value that actually spaces blocks, so a floor whose
+  // origin cannot be named is a floor the profile cannot attribute a cadence to.
+  assert.throws(
+    () =>
+      buildCommitPathProfile(inputs({ genesis_block_interval_provenance: "genesis:assumed" })),
+    /genesis_block_interval_provenance=genesis:assumed, which this parser does not know/u,
+  );
+  for (const provenance of BENCH_ORDERING_CONTRACT.known_block_interval_provenances) {
+    assert.equal(
+      buildCommitPathProfile(inputs({ genesis_block_interval_provenance: provenance }))
+        .approvals[0].ordering.scheduler_and_block_cadence.genesis_block_interval_provenance,
       provenance,
     );
   }
@@ -910,7 +949,7 @@ test("a run that changed cadence mid-flight is surfaced as two cadence values", 
   const otherHeight = 413;
   const mixed = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=aft ticker_interval_ms=250 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default view_timeout_secs=2`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=aft ticker_interval_ms=250 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=250 genesis_block_interval_provenance=env:IOI_BENCH_BLOCK_INTERVAL_MS block_timestamp_ms=1772000412250 view_timeout_secs=2`,
     `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
     `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
     `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
@@ -927,9 +966,232 @@ test("a run that changed cadence mid-flight is surfaced as two cadence values", 
   // One engine throughout, so this is a legal profile — but two cadences, and
   // both are reported.
   assert.equal(profile.ordering_parity.ordering_profile, "aft");
-  assert.equal(profile.ordering_parity.proposal_cadence.values.length, 2);
+  assert.equal(profile.ordering_parity.scheduler_and_block_cadence.values.length, 2);
   assert.deepEqual(
-    profile.ordering_parity.proposal_cadence.values.map((v) => v.ticker_interval_ms).sort((a, b) => a - b),
+    profile.ordering_parity.scheduler_and_block_cadence.values.map((v) => v.ticker_interval_ms).sort((a, b) => a - b),
     [250, 1000],
   );
+});
+
+// ---------------------------------------------------------------------------
+// Cadence actually reaches block production
+// ---------------------------------------------------------------------------
+
+test("--proposal-cadence-ms sets BOTH the scheduler ticker and the on-chain genesis floor", () => {
+  // The defect this exists to prevent: the flag moved only the ticker, but
+  // block production defers until the on-chain timestamp is due, so with the
+  // historical 1000ms genesis floor every requested cadence below 1000ms
+  // produced identical 1000ms blocks while the artifact reported the request.
+  const env = profileEnv({}, "/tmp/t", "/tmp/l", { proposalCadenceMs: 50 });
+  assert.equal(env.ORCH_BLOCK_INTERVAL_MS, "50", "the scheduler ticker must move");
+  assert.equal(
+    env.IOI_BENCH_BLOCK_INTERVAL_MS,
+    "50",
+    "the on-chain genesis floor must move too, or the cadence is inert below 1000ms",
+  );
+  assert.equal(
+    env.ORCH_BLOCK_INTERVAL_MS,
+    env.IOI_BENCH_BLOCK_INTERVAL_MS,
+    "one flag means one value; a divergence would silently vary two dimensions",
+  );
+
+  // Unflagged runs touch neither, so the historical genesis is preserved.
+  const bare = profileEnv({}, "/tmp/t", "/tmp/l");
+  assert.ok(!("ORCH_BLOCK_INTERVAL_MS" in bare));
+  assert.ok(!("IOI_BENCH_BLOCK_INTERVAL_MS" in bare));
+
+  // The other two flags must not reach the genesis floor.
+  const minTickOnly = profileEnv({}, "/tmp/t", "/tmp/l", { consensusMinTickMs: 10 });
+  assert.ok(!("IOI_BENCH_BLOCK_INTERVAL_MS" in minTickOnly));
+  const pollOnly = profileEnv({}, "/tmp/t", "/tmp/l", { pollIntervalMs: 25 });
+  assert.ok(!("IOI_BENCH_BLOCK_INTERVAL_MS" in pollOnly));
+});
+
+test("the wrapper bound matches the tighter of the two receivers", () => {
+  // The genesis builder rejects >60000ms by panicking. A wrapper that accepted
+  // more would hand the fixture a value that aborts it during genesis
+  // construction rather than being refused up front.
+  assert.equal(parseArgs(["--proposal-cadence-ms", "60000"]).proposalCadenceMs, 60_000);
+  assert.throws(
+    () => parseArgs(["--proposal-cadence-ms", "60001"]),
+    /--proposal-cadence-ms must be an integer in 1\.\.=60000/u,
+  );
+});
+
+test("the realized block spacing is derived from observed timestamps, not from the floor", () => {
+  // This is the field that can contradict the configured cadence. If a flag
+  // never reached block production, the configured floor moves and this does
+  // not -- which is exactly the discrepancy the previous artifact could not show.
+  const single = inputs();
+  const nextHeight = HEIGHT + 1;
+  const spacedTrace = [
+    single.traceText,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${nextHeight} view=1 ordering_profile=aft ticker_interval_ms=50 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=50 genesis_block_interval_provenance=env:IOI_BENCH_BLOCK_INTERVAL_MS block_timestamp_ms=${BASE.block_timestamp_ms + 1000} view_timeout_secs=2`,
+    `[BENCH-CONSENSUS] proposal_select height=${nextHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
+    `[BENCH-CONSENSUS] proposal_process height=${nextHeight} view=1 tx_count=1 process_block_ms=1800`,
+    `[BENCH-CONSENSUS] proposal_finalize height=${nextHeight} view=1 finalize_ms=120`,
+    `[BENCH-EXEC] prepare_block height=${nextHeight} tx_count=1 total_ms=300`,
+    `[BENCH-EXEC] commit_block height=${nextHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
+    `${BENCH_IAVL_CONTRACT.tag} commit height=${nextHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
+    `[BENCH-APPROVAL] request_hash=${"c".repeat(64)} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=feedface admission_ms=3 committed_height=${nextHeight} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1`,
+  ].join("\n");
+  const profile = buildCommitPathProfile({
+    ...single,
+    approvalFields: parseApprovalLines(spacedTrace),
+    traceText: spacedTrace,
+  });
+
+  // The configured floor claims 50ms on the second height; the chain actually
+  // spaced the blocks 1000ms apart. Both are reported, and they disagree.
+  assert.deepEqual(profile.ordering_parity.observed_block_interval_ms.values, [1000]);
+  assert.equal(profile.ordering_parity.observed_block_interval_ms.measured, true);
+  assert.ok(
+    profile.ordering_parity.scheduler_and_block_cadence.values.some(
+      (value) => value.genesis_block_interval_ms === 50,
+    ),
+    "the configured floor is reported alongside, so the contradiction is visible",
+  );
+});
+
+test("non-adjacent heights are not differenced into a spacing claim", () => {
+  // One approval means no adjacent pair, so there is no realized spacing to
+  // report. Inventing one from a single height would be fabrication.
+  const profile = buildCommitPathProfile(inputs());
+  assert.deepEqual(profile.ordering_parity.observed_block_interval_ms.values, []);
+});
+
+// ---------------------------------------------------------------------------
+// Phase vocabulary
+// ---------------------------------------------------------------------------
+
+test("exclusive means a disjoint LEAF, not disjoint from the containers holding it", () => {
+  // The old wording -- "disjoint from every other phase" -- was contradicted by
+  // the rows carrying it: state_commitment_materialization is exclusive AND
+  // declares it is nested inside execution_commit. Both cannot be true as
+  // written, and a reader resolving the contradiction either way gets the
+  // summation rule wrong.
+  assert.ok(
+    !VALUE_KINDS.exclusive.includes("Disjoint from every other phase"),
+    "the self-contradictory definition must be gone",
+  );
+  assert.ok(VALUE_KINDS.exclusive.includes("LEAF"));
+  assert.ok(
+    VALUE_KINDS.exclusive.includes("OTHER exclusive leaf"),
+    "disjointness must be scoped to other exclusive leaves",
+  );
+  // And the rows are consistent with it: every exclusive phase contains
+  // nothing, and may still be nested.
+  for (const [name, phase] of Object.entries(PHASES)) {
+    if (phase.semantics !== "exclusive") continue;
+    assert.deepEqual(phase.contains, [], `${name} is a leaf, so it contains nothing`);
+  }
+  assert.ok(
+    PHASES.state_commitment_materialization.nested_in.length > 0,
+    "an exclusive leaf can still be nested; that is the point of the correction",
+  );
+});
+
+test("execution_prepare is a summable leaf and is offered as one", () => {
+  // It declares contains: [] and runs before commitment, so it overlaps no
+  // other leaf. Labelling it inclusive kept genuinely disjoint execution time
+  // out of every partition a reader built from safe_partition.
+  assert.equal(PHASES.execution_prepare.semantics, "exclusive");
+  assert.deepEqual(PHASES.execution_prepare.contains, []);
+  const profile = buildCommitPathProfile(inputs());
+  assert.ok(
+    profile.summation_rule.safe_partition.includes("execution_prepare"),
+    "a disjoint measured leaf must be offered as summable",
+  );
+});
+
+test("safe_partition is exactly the exclusive leaves, derived rather than hand-listed", () => {
+  // A hand-maintained list drifts from the labels. Deriving it means a future
+  // relabel cannot leave the summation rule stale.
+  const profile = buildCommitPathProfile(inputs());
+  const exclusiveLeaves = Object.entries(PHASES)
+    .filter(([, phase]) => phase.semantics === "exclusive")
+    .map(([name]) => name)
+    .sort();
+  assert.deepEqual([...profile.summation_rule.safe_partition].sort(), exclusiveLeaves);
+  for (const name of profile.summation_rule.safe_partition) {
+    assert.equal(PHASES[name].semantics, "exclusive");
+  }
+});
+
+test("the summation rule states that the leaves are a lower bound, not a partition of the whole", () => {
+  // Pairwise disjoint is not exhaustive. Saying "partition" without saying
+  // "not exhaustive" invites a reader to treat the sum as the container's total
+  // and conclude the residual is zero.
+  const profile = buildCommitPathProfile(inputs());
+  assert.equal(profile.summation_rule.partition_is_exhaustive, false);
+  assert.ok(profile.summation_rule.note.includes("LOWER BOUND"));
+
+  // The arithmetic backs the wording: the named leaves really do fall short of
+  // the container that holds them.
+  const [approval] = profile.approvals;
+  const leafSumInsideCommit =
+    approval.phases.state_commitment_materialization + approval.phases.durable_persistence;
+  assert.ok(
+    leafSumInsideCommit < approval.phases.execution_commit,
+    "the leaves inside execution_commit must not be claimed to exhaust it",
+  );
+  assert.equal(
+    approval.derived_exclusive_ms.commit_excluding_commitment_and_store,
+    approval.phases.execution_commit - leafSumInsideCommit,
+    "the residual is exactly the shortfall the wording describes",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Nonclaims
+// ---------------------------------------------------------------------------
+
+test("the ticker is NOT claimed to bound when a queued tx is picked up", () => {
+  // The previous nonclaim asserted the false direction outright. Under the
+  // block-timestamp deferral the ticker bounds polling only.
+  const profile = buildCommitPathProfile(inputs());
+  const joined = profile.nonclaims.join("\n");
+  assert.ok(
+    !/ticker_interval_ms and min_tick_ms bound when a queued tx can be picked up/u.test(joined),
+    "the false claim must be gone",
+  );
+  assert.ok(
+    /bound only how often consensus is POLLED/u.test(joined),
+    "and replaced with what they actually bound",
+  );
+  assert.ok(
+    /genesis_block_interval_ms is the binding floor/u.test(joined),
+    "naming the mechanism that does bind pickup",
+  );
+});
+
+test("no proof generation, size, or verification cost is claimed", () => {
+  const profile = buildCommitPathProfile(inputs());
+  const joined = profile.nonclaims.join("\n");
+  assert.ok(/No proof generation, proof size, or cryptographic proof verification is measured/u.test(joined));
+  assert.ok(/not a portable proof/u.test(joined));
+  // The phase that sounds like a proof measurement says what it actually is.
+  assert.ok(
+    PHASES.proof_exact_state_resolution.describes.length > 0,
+    "the phase describes itself",
+  );
+});
+
+test("the artifact discloses what co-varies with the ordering profile", () => {
+  // The prior cut claimed the ordering profile was the only varied dimension
+  // while Solo timestamped on a whole-second wall clock and AFT did not. That
+  // co-variable is now removed at the source; the claim is only admissible
+  // because the shared abstraction makes it true.
+  const profile = buildCommitPathProfile(inputs());
+  const control = profile.ordering_parity.dimension_control;
+  assert.deepEqual(control.varied, ["ordering_profile"]);
+  assert.ok(
+    control.held_identical.some((entry) => /compute_next_timestamp_ms/u.test(entry)),
+    "the shared timestamp derivation is what makes the single-dimension claim true",
+  );
+  assert.ok(
+    control.unmeasured_timing_dimensions.length > 0,
+    "remaining unmeasured timing dimensions are named, not implied absent",
+  );
+  assert.ok(control.residual_risk.length > 0);
 });

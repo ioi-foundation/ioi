@@ -1925,6 +1925,20 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
     // varies. Admission, execution, IAVL state commitment, Redb durability,
     // restart and the status/receipt surfaces below are the same code on both
     // profiles, which is what makes the two runs comparable at all.
+    //
+    // BLOCK TIMESTAMPING IS PART OF THAT SAMENESS, and it was not always.
+    // Solo used to derive `max(now_secs, parent_secs + 1)` from the wall clock
+    // while AFT derived a millisecond timestamp from on-chain
+    // BlockTimingParams/BlockTimingRuntime. Under that split the claim above
+    // was FALSE: a Solo-vs-AFT delta was co-produced by the ordering profile
+    // AND by second-quantized timestamping, with no artifact field separating
+    // them. Both engines now call `compute_next_timestamp_ms` over the same
+    // on-chain timing state with the same inputs, and both fail closed on
+    // missing timing state, so the claim holds.
+    //
+    // The genesis interval both engines are floored by comes from one place
+    // (`IOI_BENCH_BLOCK_INTERVAL_MS`, read by `cluster.rs`), so a
+    // cadence-varying run cannot floor one profile differently from the other.
     let ordering_profile = ordering_profile()?;
     let mut cluster_builder = TestCluster::builder()
         .with_validators(1)

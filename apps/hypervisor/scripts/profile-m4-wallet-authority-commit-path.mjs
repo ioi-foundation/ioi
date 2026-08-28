@@ -76,31 +76,41 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const SOAK_VERIFIER = "verify-m4-room-participation-contribution-plane.mjs";
-// DELIBERATELY NOT BUMPED. This identifier is pinned by a tracked work item --
-// docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json
-// requires this file to contain exactly this string -- and M04.9 extends that
-// profiling artifact in place rather than producing a new one. Nothing here is
-// a ReceiptCheckpoint or any other consensus-visible structure, so no versioned
-// successor is owed.
-//
-// The extension is additive except for ONE incompatible change, disclosed in
-// `SCHEMA_COMPATIBILITY` below and republished in every artifact: the phase
-// formerly called `aft_inclusion_finalization` is now `ordering_finalization`,
-// because Solo produces that phase too and the AFT-specific name mislabelled
-// every Solo row. A reader keying on the old name learns the rename from the
-// artifact itself rather than having to have read this file.
-export const ARTIFACT_SCHEMA_VERSION = "ioi.m048.commit-path-profile.v1";
+// BUMPED, because the change is incompatible and a version is the only honest
+// place to say so. `aft_inclusion_finalization` is now `ordering_finalization`
+// (Solo produces that phase too, so the AFT-specific name mislabelled every
+// Solo row), `proposal_cadence` is now `scheduler_and_block_cadence`, and
+// several phase-vocabulary labels changed meaning. A reader holding a v1
+// artifact and a v2 artifact must be able to tell them apart by identifier
+// alone -- reusing v1 for a breaking rename asks the reader to notice a
+// disclosure they may never read.
+export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-finality-parity-profile.v1";
 
-// Carried into every artifact so the pinned identifier above cannot silently
-// mislead a reader who remembers the pre-M04.9 phase names.
+// The predecessor identifier, carried as a literal.
+//
+// Two jobs. It tells a reader of a v2 artifact exactly which schema it
+// supersedes, and it keeps the tracked M04.8 work-item code anchor
+// (docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json)
+// satisfied -- that anchor requires this file to CONTAIN the string, which a
+// declared lineage does honestly, rather than requiring this file to still
+// EMIT it, which after a breaking change it cannot.
+export const PREDECESSOR_ARTIFACT_SCHEMA_VERSION = "ioi.m048.commit-path-profile.v1";
+
+// Carried into every artifact so a reader resolves the lineage from the
+// artifact rather than from this file.
 export const SCHEMA_COMPATIBILITY = {
   version: ARTIFACT_SCHEMA_VERSION,
+  predecessor: PREDECESSOR_ARTIFACT_SCHEMA_VERSION,
+  compatible_with_predecessor: false,
   extended_by: "M04.9 ordering/finality parity",
   additive:
-    "ordering_parity, value_kinds, phase_semantics, summation_rule, parser_contract and the unmeasured-phase rows are new; a pre-M04.9 reader ignores them.",
-  renamed_phases: { aft_inclusion_finalization: "ordering_finalization" },
-  why_not_bumped:
-    "The identifier is pinned by the M04.8 work item's code anchor and this is the same artifact extended in place. Phase names are resolved from `phase_semantics` in the artifact, never from this identifier.",
+    "ordering_parity, value_kinds, phase_semantics, summation_rule, parser_contract and the unmeasured-phase rows are new; a predecessor reader ignores them.",
+  breaking: {
+    renamed_phases: { aft_inclusion_finalization: "ordering_finalization" },
+    renamed_fields: { proposal_cadence: "scheduler_and_block_cadence" },
+    changed_semantics:
+      "`exclusive` now means a leaf disjoint from other exclusive leaves, not disjoint from every phase; execution_prepare is relabelled from inclusive to exclusive and joins safe_partition.",
+  },
 };
 
 // The readiness bar the unprofiled soak runs under, and which a profiled run
@@ -168,14 +178,32 @@ export const BENCH_IAVL_CONTRACT = {
 // emitter mirrors `lifecycle.rs::run_consensus_ticker` and is unit-tested
 // against its edge cases.
 //
-// `ticker_interval_ms=0` is a real value meaning the scheduler disabled the
-// ticker and ran kick-driven only. It is not an absent measurement.
+// TWO DIFFERENT MECHANISMS, BOTH REQUIRED.
+//   * `ticker_interval_ms` is how often consensus is POLLED.
+//   * `genesis_block_interval_ms` is when a block is DUE -- the on-chain
+//     interval from BlockTimingParams/BlockTimingRuntime. Block production
+//     defers while `expected_timestamp_ms > now_ms`, so THIS is what spaces
+//     blocks. A ticker faster than this floor buys nothing, which is why
+//     reporting the ticker alone once let a cadence sweep look live while
+//     every run sat at the same 1000ms floor.
+//
+// `ticker_interval_ms=0` is a real value, and it does NOT mean kick-driven
+// only: `run_consensus_ticker` returns before the `select!` that owns the kick
+// receiver, so consensus halts outright. Reported as 0, interpreted here.
+//
+// `block_timestamp_ms` is the one OBSERVED field on the line: the on-chain
+// timestamp the height actually carries. Differencing it across consecutive
+// heights yields the realized block spacing, which is the only value here able
+// to contradict the configured floor beside it.
 //
 // Accepted line shape:
 //   [BENCH-ORDERING] proposal height=<u64> view=<u64> ordering_profile=<name>
 //                    ticker_interval_ms=<u64>
 //                    ticker_interval_provenance=<token>
 //                    min_tick_ms=<u64> min_tick_provenance=<token>
+//                    genesis_block_interval_ms=<u64>
+//                    genesis_block_interval_provenance=<token>
+//                    block_timestamp_ms=<u64>
 //                    view_timeout_secs=<u64>
 export const BENCH_ORDERING_CONTRACT = {
   tag: "[BENCH-ORDERING]",
@@ -189,6 +217,9 @@ export const BENCH_ORDERING_CONTRACT = {
     "ticker_interval_provenance",
     "min_tick_ms",
     "min_tick_provenance",
+    "genesis_block_interval_ms",
+    "genesis_block_interval_provenance",
+    "block_timestamp_ms",
     "view_timeout_secs",
   ],
   known_profiles: ["aft", "solo", "proof_of_authority", "proof_of_stake"],
@@ -201,8 +232,16 @@ export const BENCH_ORDERING_CONTRACT = {
     "config:block_production_interval_secs",
   ],
   known_min_tick_provenances: ["env:ORCH_CONSENSUS_MIN_TICK_MS", "default"],
+  // `unresolved` means the emitter saw a value the genesis builder would have
+  // rejected, so no chain with that floor exists. It is accepted as a token and
+  // then refused as a cadence, rather than silently echoed.
+  known_block_interval_provenances: [
+    "env:IOI_BENCH_BLOCK_INTERVAL_MS",
+    "default:test-genesis",
+    "unresolved",
+  ],
   notes:
-    "Configuration only, resolved as the scheduler resolves it. No duration is carried here; the inter-tick cadence wait is not measured by any seam.",
+    "Cadence fields are CONFIGURATION resolved as the scheduler and genesis builder resolve it. block_timestamp_ms is the only observation. No duration is carried here; the wait before a proposal picks up a queued tx is not measured by any seam.",
 };
 
 export const BENCH_TAGS = {
@@ -225,9 +264,14 @@ export const UNAVAILABLE = "unavailable";
 // reader never has to infer what a number means from its name.
 export const VALUE_KINDS = {
   inclusive:
-    "Contains the phases named in `contains`. NEVER sum inclusive phases with what they contain.",
+    "A CONTAINER: contains the phases named in `contains`. NEVER sum an inclusive phase with what it contains.",
   nested: "Contained by every phase named in `nested_in`; already counted inside each of them.",
-  exclusive: "Disjoint from every other phase. Only exclusive phases may be summed.",
+  // The previous wording -- "disjoint from every other phase" -- contradicted
+  // the rows that carry it: state_commitment_materialization IS nested inside
+  // execution_commit and says so. Disjointness is a property among LEAVES, not
+  // between a leaf and the container that holds it.
+  exclusive:
+    "A LEAF: contains nothing, and is disjoint from every OTHER exclusive leaf. It is still nested inside the containers named in `nested_in` -- being a leaf is not being top-level. Exclusive leaves are the only phases that may be summed with each other.",
   derived: "Computed from other values in this artifact rather than read from a trace line.",
   polling_quantized:
     "Rounded up to the client status-poll interval. An upper bound on the underlying latency, not the latency.",
@@ -293,12 +337,12 @@ export const PHASES = {
     semantics: "unmeasured",
     source: null,
     describes:
-      "wait from the tx sitting in the mempool until the next proposal tick picks it up -- the phase where an immediate single authority and a cadenced quorum engine differ most",
+      "wait from the tx sitting in the mempool until a proposal picks it up -- gated by the ON-CHAIN block interval, not by the scheduler ticker",
     contains: [],
     nested_in: ["client_commit_wait"],
     quantized_by: null,
     unmeasured_reason:
-      "The inter-tick wait elapses in the scheduler between consensus ticks, outside every instrumented span; no existing seam brackets it. The CONFIGURED cadence is recorded per approval under `ordering` and at run level, but configuration is not a measurement and is never presented as this phase's duration.",
+      "This wait elapses partly between consensus ticks and partly inside the block-production deferral that returns early while expected_timestamp_ms > now_ms; no seam brackets either part. The CONFIGURED floor (genesis_block_interval_ms) and the REALIZED block spacing (observed_block_interval_ms) are both recorded, but neither is this phase's duration: they describe when blocks were due and how far apart they landed, not how long any particular tx waited for one.",
   },
   ordering_finalization: {
     slot: "ordering_finalization",
@@ -325,7 +369,13 @@ export const PHASES = {
     slot: "execution",
     ordinal: 5,
     measured: true,
-    semantics: "inclusive",
+    // A LEAF, not a container: it declares `contains: []`, and speculative
+    // execution runs before commitment rather than around it, so it overlaps
+    // no other exclusive leaf. Labelling it `inclusive` said it contained
+    // phases it does not, and kept a genuinely summable leaf out of
+    // `safe_partition` -- so a reader following the artifact's own rule dropped
+    // real execution time from every partition.
+    semantics: "exclusive",
     source: "[BENCH-EXEC] prepare_block.total_ms",
     describes: "speculative execution of the block's transactions before commitment",
     contains: [],
@@ -709,6 +759,10 @@ export function buildCommitPathProfile({
     for (const [field, known] of [
       ["ticker_interval_provenance", BENCH_ORDERING_CONTRACT.known_ticker_provenances],
       ["min_tick_provenance", BENCH_ORDERING_CONTRACT.known_min_tick_provenances],
+      [
+        "genesis_block_interval_provenance",
+        BENCH_ORDERING_CONTRACT.known_block_interval_provenances,
+      ],
     ]) {
       const reported = orderingLine.fields[field];
       if (!known.includes(reported)) {
@@ -896,24 +950,35 @@ export function buildCommitPathProfile({
       // with. Configuration, never a duration.
       ordering: {
         profile: orderingProfile,
-        proposal_cadence: {
-          // The period the scheduler actually ran, not the config field it may
-          // have overridden. 0 means the ticker was disabled (kick-driven only).
+        // Renamed from `proposal_cadence`: the container held only the SCHEDULER
+        // period while its name promised the cadence at which proposals happen.
+        // Those are different mechanisms, and the on-chain block interval is the
+        // one that actually governs. The name now says which it carries: both.
+        scheduler_and_block_cadence: {
+          // How often consensus is POLLED, as the scheduler resolved it. 0 means
+          // the ticker loop returns before servicing anything, halting consensus.
           ticker_interval_ms: requireField(
             integerField(orderingLine.fields, "ticker_interval_ms"),
             "effective proposal ticker interval",
             requestHash,
           ),
           ticker_interval_provenance: orderingLine.fields.ticker_interval_provenance,
-          // The scheduler's minimum spacing between kick-driven ticks. It bounds
-          // how fast a queued tx can be picked up independently of the ticker,
-          // so a cadence reported without it is only half the cadence.
+          // The scheduler's minimum spacing between consensus ticks, from any
+          // prior tick rather than only a kick-driven one.
           min_tick_ms: requireField(
             integerField(orderingLine.fields, "min_tick_ms"),
             "effective consensus minimum tick interval",
             requestHash,
           ),
           min_tick_provenance: orderingLine.fields.min_tick_provenance,
+          // When a block is DUE. This is the floor that actually spaces blocks.
+          genesis_block_interval_ms: requireField(
+            integerField(orderingLine.fields, "genesis_block_interval_ms"),
+            "on-chain genesis block interval",
+            requestHash,
+          ),
+          genesis_block_interval_provenance:
+            orderingLine.fields.genesis_block_interval_provenance,
           view_timeout_secs: requireField(
             integerField(orderingLine.fields, "view_timeout_secs"),
             "configured view timeout",
@@ -921,6 +986,13 @@ export function buildCommitPathProfile({
           ),
           measured: false,
         },
+        // OBSERVED, unlike everything above it: the on-chain timestamp this
+        // height carries.
+        block_timestamp_ms: requireField(
+          integerField(orderingLine.fields, "block_timestamp_ms"),
+          "on-chain block timestamp",
+          requestHash,
+        ),
         view: integerField(orderingLine.fields, "view"),
       },
       phases,
@@ -974,15 +1046,42 @@ export function buildCommitPathProfile({
     ...new Set(
       approvals.map((entry) =>
         JSON.stringify([
-          entry.ordering.proposal_cadence.ticker_interval_ms,
-          entry.ordering.proposal_cadence.ticker_interval_provenance,
-          entry.ordering.proposal_cadence.min_tick_ms,
-          entry.ordering.proposal_cadence.min_tick_provenance,
-          entry.ordering.proposal_cadence.view_timeout_secs,
+          entry.ordering.scheduler_and_block_cadence.ticker_interval_ms,
+          entry.ordering.scheduler_and_block_cadence.ticker_interval_provenance,
+          entry.ordering.scheduler_and_block_cadence.min_tick_ms,
+          entry.ordering.scheduler_and_block_cadence.min_tick_provenance,
+          entry.ordering.scheduler_and_block_cadence.genesis_block_interval_ms,
+          entry.ordering.scheduler_and_block_cadence.genesis_block_interval_provenance,
+          entry.ordering.scheduler_and_block_cadence.view_timeout_secs,
         ]),
       ),
     ),
   ];
+
+  // The realized block spacing, DERIVED FROM OBSERVATION rather than from the
+  // configured floor: consecutive attributed heights differenced by their
+  // on-chain timestamps. This is what can contradict the configured floor -- a
+  // sweep whose flag never reached block production shows the same spacing at
+  // every requested cadence, and this is the field that shows it.
+  //
+  // Only adjacent heights are differenced; a gap means intervening blocks were
+  // not attributed to an approval, and their spacing is not this profile's to
+  // claim.
+  const timestampByHeight = new Map(
+    approvals.map((entry) => [entry.dimensions.committed_height, entry.ordering.block_timestamp_ms]),
+  );
+  const observedBlockIntervalsMs = [
+    ...new Set(
+      [...timestampByHeight.keys()]
+        .sort((a, b) => a - b)
+        .flatMap((height, index, heights) => {
+          if (index === 0) return [];
+          const previous = heights[index - 1];
+          if (height - previous !== 1) return [];
+          return [timestampByHeight.get(height) - timestampByHeight.get(previous)];
+        }),
+    ),
+  ].sort((a, b) => a - b);
   const pollIntervals = [...new Set(approvals.map((entry) => entry.dimensions.poll_interval_ms))];
 
   return {
@@ -990,17 +1089,50 @@ export function buildCommitPathProfile({
     schema_compatibility: SCHEMA_COMPATIBILITY,
     generated_at_ms: Date.now(),
     run,
-    // The three dimensions an ordering/finality comparison is read against.
+    // The dimensions an ordering/finality comparison is read against.
     ordering_parity: {
       ordering_profile: observedProfiles[0],
       ordering_profile_provenance: `observed:${BENCH_ORDERING_CONTRACT.tag}`,
-      proposal_cadence: {
+      // WHAT ELSE MOVES WHEN THE ORDERING PROFILE MOVES.
+      //
+      // A comparison is only attributable to the ordering profile if nothing
+      // else varies with it. That claim was previously made and was false:
+      // Solo derived block timestamps from a whole-second wall clock while AFT
+      // derived them from ms-granular on-chain timing state, so a Solo-vs-AFT
+      // delta was co-produced by two mechanisms with nothing separating them.
+      //
+      // That co-variable is now removed at the source rather than disclosed:
+      // both engines call `compute_next_timestamp_ms` over the same
+      // BlockTimingParams/BlockTimingRuntime with the same inputs, and both
+      // fail closed on missing timing state. What remains unmeasured is listed
+      // so a reader is not left to assume the list is empty.
+      dimension_control: {
+        varied: ["ordering_profile"],
+        held_identical: [
+          "block-timestamp derivation (both engines use compute_next_timestamp_ms over the same on-chain BlockTimingParams/BlockTimingRuntime)",
+          "genesis block timing (base == min == max == effective, retarget disabled, same value for both profiles)",
+          "scheduler ticker and minimum tick spacing",
+          "client status-poll interval",
+          "admission, execution, IAVL commitment, Redb durability and status/receipt path",
+        ],
+        // Named rather than implied absent. These are real and unquantified.
+        unmeasured_timing_dimensions: [
+          "The wait between a tx entering the mempool and the next proposal picking it up is not bracketed by any seam; only the configured floor and the realized block spacing are reported.",
+          "Host scheduling noise, and any variation in when the deferral wake-up fires relative to the due timestamp, are not measured.",
+          "Wall-clock alignment of the first block: the initial tip is pinned through IOI_TESTING_INITIAL_TIP_TIMESTAMP_MS for both engines, but the phase of the chain clock relative to the host clock is not recorded.",
+        ],
+        residual_risk:
+          "A single-validator fixture exercises no cross-node ordering, so this profile says nothing about how either engine behaves with peers.",
+      },
+      scheduler_and_block_cadence: {
         values: observedCadences.map((entry) => {
           const [
             ticker_interval_ms,
             ticker_interval_provenance,
             min_tick_ms,
             min_tick_provenance,
+            genesis_block_interval_ms,
+            genesis_block_interval_provenance,
             view_timeout_secs,
           ] = JSON.parse(entry);
           return {
@@ -1008,13 +1140,28 @@ export function buildCommitPathProfile({
             ticker_interval_provenance,
             min_tick_ms,
             min_tick_provenance,
+            genesis_block_interval_ms,
+            genesis_block_interval_provenance,
             view_timeout_secs,
           };
         }),
         // Each value carries its own provenance above; the cadence is the one
-        // the scheduler resolved, which is not always the one config declares.
+        // the scheduler and genesis builder resolved, which is not always the
+        // one config declares.
         provenance: `observed:${BENCH_ORDERING_CONTRACT.tag}`,
         measured: false,
+        governs:
+          "genesis_block_interval_ms is the floor that spaces blocks. ticker_interval_ms only decides how often consensus is polled and cannot produce a block earlier than that floor.",
+      },
+      // The realized spacing, differenced from on-chain block timestamps. Put
+      // beside the configured floor precisely so the two can be compared: if a
+      // cadence flag did not reach block production, these stay put while the
+      // configured value moves.
+      observed_block_interval_ms: {
+        values: observedBlockIntervalsMs,
+        provenance: `derived:${BENCH_ORDERING_CONTRACT.tag}.block_timestamp_ms`,
+        measured: true,
+        note: "Differences between on-chain timestamps of CONSECUTIVE attributed heights. Non-adjacent heights are not differenced. This is the block spacing the chain actually ran at, not a latency.",
       },
       // Reported because it sets the resolution of the client-observed phase:
       // a commit faster than one interval is indistinguishable from any other
@@ -1029,13 +1176,20 @@ export function buildCommitPathProfile({
     // nesting graph before adding anything up.
     summation_rule: {
       never_sum:
-        "Inclusive phases contain the phases listed in their `contains`. Summing them double- or triple-counts finality time.",
-      safe_partition: [
-        "state_commitment_materialization",
-        "durable_persistence",
-        "proof_exact_state_resolution",
-      ],
-      note: "Use derived_exclusive_ms to partition a container without double counting.",
+        "Inclusive phases are containers: each contains the phases listed in its `contains`. Summing a container with anything it contains double- or triple-counts the same time.",
+      // Every exclusive leaf, derived from PHASES rather than hand-listed, so
+      // the rule and the labels cannot drift apart. `execution_prepare` belongs
+      // here: it is disjoint from the other leaves and omitting it dropped real
+      // execution time from every partition a reader built.
+      safe_partition: Object.entries(PHASES)
+        .filter(([, phase]) => phase.semantics === "exclusive")
+        .map(([name]) => name),
+      // Stated precisely rather than loosely: these leaves do NOT sum to any
+      // container. They are pairwise disjoint, so summing them is meaningful;
+      // they are not exhaustive, so the sum is a lower bound on the container,
+      // and the difference is the container's unattributed residual.
+      partition_is_exhaustive: false,
+      note: "The exclusive leaves are pairwise disjoint but do not cover their containers. Their sum is a LOWER BOUND on the enclosing container, never equal to it. Use derived_exclusive_ms for the residual a container holds beyond the leaves named here.",
     },
     parser_contract: {
       bench_iavl: BENCH_IAVL_CONTRACT,
@@ -1057,8 +1211,17 @@ export function buildCommitPathProfile({
       "client_commit_wait is quantized by poll_interval_ms and is not an exact commit latency.",
       "Approvals recorded outside the governed helpers carry no route correlation; see coverage.",
       "This profile proves only the exact build profile, backend, and host it ran on.",
-      "proposal_cadence is CONFIGURATION, reported as the scheduler resolved it. The actual wait before a proposal picked up a queued tx is not measured by any seam, so no cadence-wait duration is claimed.",
-      "ticker_interval_ms and min_tick_ms bound when a queued tx can be picked up; they do not establish that a run at a given cadence produced any particular latency.",
+      "scheduler_and_block_cadence is CONFIGURATION, reported as the scheduler and genesis builder resolved it. The actual wait before a proposal picked up a queued tx is not measured by any seam, so no cadence-wait duration is claimed.",
+      // CORRECTED. The previous wording said the ticker and min-tick BOUND when
+      // a queued tx can be picked up. They do not: block production defers
+      // until the on-chain timestamp is due, so a ticker faster than the
+      // genesis block interval changes nothing about pickup. Stating the false
+      // direction invited exactly the wrong reading of a cadence sweep.
+      "ticker_interval_ms and min_tick_ms bound only how often consensus is POLLED. They do not bound when a queued tx is picked up: production defers while expected_timestamp_ms > now_ms, so the on-chain genesis_block_interval_ms is the binding floor and a faster ticker buys nothing below it.",
+      "genesis_block_interval_ms is read from the same benchmark override the genesis builder reads, not from the running chain. A resumed chain keeps the genesis it was built with, so on a resumed run this field can name a floor the chain does not have; observed_block_interval_ms is the value that would show it.",
+      "No proof generation, proof size, or cryptographic proof verification is measured anywhere in this artifact.",
+      "proof_exact_state_resolution is a post-commit READ of committed state (approval_query_ms + approval_verify_ms). It is not a portable proof, does not produce one, and its cost implies nothing about what producing or verifying one would cost.",
+      "receipt_creation_durable_ack is unmeasured: no receipt-creation or receipt-durability timing is claimed by any number here.",
       "admission_queueing and receipt_creation_durable_ack are unmeasured; their cost is real and contained in neighbouring phases, not zero.",
       "Completion notification is polled, not pushed; no event-driven completion latency is measured.",
       "A single-profile artifact is not a comparison. Comparing two profiles requires two artifacts and is not performed here.",
@@ -1100,8 +1263,15 @@ export function profileEnv(baseEnv, traceDir, teeLogPath, options = {}) {
   // to the cargo test that spawns `orchestration` -- and `sanitizedVerifierBaseEnv`
   // strips only IOI_TEST_*/IOI_HYPERVISOR_WALLET_*/IOI_WALLET_NETWORK_*, so
   // ORCH_* names survive that boundary intact.
+  // ONE FLAG, BOTH MECHANISMS. Setting only the ticker was the defect: block
+  // production defers until the on-chain timestamp is due, so with the
+  // historical 1000ms genesis floor a ticker of 50ms produced 1000ms blocks
+  // while the artifact reported 50. The cadence is only real when the genesis
+  // floor moves with it, so a single flag drives both and they are reported
+  // separately so a reader can see they agreed.
   if (options.proposalCadenceMs !== null && options.proposalCadenceMs !== undefined) {
     env.ORCH_BLOCK_INTERVAL_MS = String(options.proposalCadenceMs);
+    env.IOI_BENCH_BLOCK_INTERVAL_MS = String(options.proposalCadenceMs);
   }
   if (options.consensusMinTickMs !== null && options.consensusMinTickMs !== undefined) {
     env.ORCH_CONSENSUS_MIN_TICK_MS = String(options.consensusMinTickMs);
@@ -1135,11 +1305,15 @@ export const NUMERIC_FLAGS = {
     max: 5000,
     why: "the bound crates/cli enforces on IOI_TESTING_RPC_COMMIT_POLL_INTERVAL_MS",
   },
+  // Drives BOTH the scheduler ticker and the on-chain genesis block interval.
+  // The upper bound is the tighter of the two receivers' bounds: the genesis
+  // builder rejects anything above 60_000ms, so accepting more here would let
+  // the wrapper pass a value that aborts the fixture at genesis construction.
   "--proposal-cadence-ms": {
     field: "proposalCadenceMs",
     min: 1,
-    max: 600_000,
-    why: "ORCH_BLOCK_INTERVAL_MS is honoured by the scheduler only when > 0; 0 would be discarded and the node would run its config cadence instead",
+    max: 60_000,
+    why: "ORCH_BLOCK_INTERVAL_MS is honoured by the scheduler only when > 0, and the genesis builder accepts 1..=60000ms for IOI_BENCH_BLOCK_INTERVAL_MS; this flag sets both, so it takes the tighter bound",
   },
   "--consensus-min-tick-ms": {
     field: "consensusMinTickMs",
@@ -1257,9 +1431,9 @@ async function main() {
         requested_ordering_profile: args.orderingProfile,
         requested_poll_interval_ms: args.pollIntervalMs,
         // Likewise REQUESTED. What the scheduler resolved is read back from
-        // [BENCH-ORDERING] into `ordering_parity.proposal_cadence`, each value
-        // with its own provenance, so a request the node discarded cannot
-        // masquerade as the cadence that ran.
+        // [BENCH-ORDERING] into `ordering_parity.scheduler_and_block_cadence`,
+        // each value with its own provenance, so a request the node discarded
+        // cannot masquerade as the cadence that ran.
         requested_proposal_cadence_ms: args.proposalCadenceMs,
         requested_consensus_min_tick_ms: args.consensusMinTickMs,
         readiness_lag_pin: {

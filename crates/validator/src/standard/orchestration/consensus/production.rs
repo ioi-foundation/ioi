@@ -96,13 +96,35 @@ pub(super) fn dispatch_swarm_command(
 /// the runs the field exists to describe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) struct OrderingCadence {
-    /// The proposal ticker period. `0` means the scheduler disables the ticker
-    /// entirely and runs kick-driven only; that is reported, not smoothed over.
+    /// The proposal ticker period.
+    ///
+    /// `0` means `run_consensus_ticker` returns BEFORE entering the `select!`
+    /// that owns the kick receiver, so neither timed ticks nor kicks are
+    /// serviced and consensus halts. It is emphatically not "kick-driven only".
+    /// The value is reported as-is; the interpretation is stated here so a
+    /// reader does not supply a friendlier one.
     ticker_interval_ms: u64,
     ticker_interval_provenance: &'static str,
-    /// The minimum spacing the scheduler enforces between kick-driven ticks.
+    /// The minimum spacing the scheduler enforces between consensus ticks.
+    ///
+    /// `last_tick` is reset by the timer branch as well as the kick branch, so
+    /// this is the floor from ANY prior tick, not only from a kick-driven one.
     min_tick_ms: u64,
     min_tick_provenance: &'static str,
+    /// The on-chain block interval the TEST GENESIS was built with, in
+    /// milliseconds.
+    ///
+    /// This -- not the ticker -- is what actually spaces blocks: production
+    /// defers while `expected_timestamp_ms > now_ms`, and that timestamp comes
+    /// from `BlockTimingParams`/`BlockTimingRuntime`. A ticker faster than this
+    /// floor buys nothing.
+    ///
+    /// It is CONFIGURATION read back from the same benchmark override the
+    /// genesis builder reads, so it can disagree with the chain a resumed run
+    /// actually carries. The emitted `block_timestamp_ms` is the observation
+    /// that can contradict it; the two are kept separate for that reason.
+    genesis_block_interval_ms: u64,
+    genesis_block_interval_provenance: &'static str,
 }
 
 /// The scheduler's default minimum kick spacing, mirrored from
@@ -123,6 +145,7 @@ fn resolve_ordering_cadence(
     block_interval_ms_env: Option<&str>,
     block_interval_secs_env: Option<&str>,
     min_tick_ms_env: Option<&str>,
+    genesis_block_interval_ms_env: Option<&str>,
     config_block_interval_secs: u64,
 ) -> OrderingCadence {
     let (ticker_interval_ms, ticker_interval_provenance) = if let Some(interval_ms) =
@@ -151,13 +174,45 @@ fn resolve_ordering_cadence(
             None => (DEFAULT_CONSENSUS_MIN_TICK_MS, "default"),
         };
 
+    // Mirrors `cluster.rs::benchmark_genesis_block_timing`, including its
+    // default: an absent or unusable override means the historical 1000ms test
+    // genesis. A value out of the range that builder accepts is reported as
+    // `unresolved` rather than echoed, because the builder would have panicked
+    // and no chain with that floor exists to describe.
+    let (genesis_block_interval_ms, genesis_block_interval_provenance) =
+        match genesis_block_interval_ms_env.map(|value| value.trim()) {
+            None => (
+                DEFAULT_TEST_GENESIS_BLOCK_INTERVAL_MS,
+                "default:test-genesis",
+            ),
+            Some(raw) => match raw.parse::<u64>() {
+                Ok(value)
+                    if (MIN_BENCHMARK_GENESIS_BLOCK_INTERVAL_MS
+                        ..=MAX_BENCHMARK_GENESIS_BLOCK_INTERVAL_MS)
+                        .contains(&value) =>
+                {
+                    (value, "env:IOI_BENCH_BLOCK_INTERVAL_MS")
+                }
+                _ => (0, "unresolved"),
+            },
+        };
+
     OrderingCadence {
         ticker_interval_ms,
         ticker_interval_provenance,
         min_tick_ms,
         min_tick_provenance,
+        genesis_block_interval_ms,
+        genesis_block_interval_provenance,
     }
 }
+
+/// The historical test-genesis block interval, mirrored from
+/// `crates/cli/src/testing/cluster.rs`.
+const DEFAULT_TEST_GENESIS_BLOCK_INTERVAL_MS: u64 = 1_000;
+/// The range the genesis builder accepts, mirrored from the same place.
+const MIN_BENCHMARK_GENESIS_BLOCK_INTERVAL_MS: u64 = 1;
+const MAX_BENCHMARK_GENESIS_BLOCK_INTERVAL_MS: u64 = 60_000;
 
 /// Read the cadence the scheduler is running from the same environment the
 /// scheduler reads.
@@ -165,10 +220,12 @@ fn effective_ordering_cadence(config_block_interval_secs: u64) -> OrderingCadenc
     let block_interval_ms = std::env::var("ORCH_BLOCK_INTERVAL_MS").ok();
     let block_interval_secs = std::env::var("ORCH_BLOCK_INTERVAL_SECS").ok();
     let min_tick_ms = std::env::var("ORCH_CONSENSUS_MIN_TICK_MS").ok();
+    let genesis_block_interval_ms = std::env::var("IOI_BENCH_BLOCK_INTERVAL_MS").ok();
     resolve_ordering_cadence(
         block_interval_ms.as_deref(),
         block_interval_secs.as_deref(),
         min_tick_ms.as_deref(),
+        genesis_block_interval_ms.as_deref(),
         config_block_interval_secs,
     )
 }
@@ -1865,9 +1922,16 @@ where
                 // duration is claimed here -- the inter-tick cadence wait
                 // happens in the scheduler outside any instrumented span, so
                 // it is reported as configuration and never as a phase.
+                //
+                // `block_timestamp_ms` is the ONE observed value on this line:
+                // the on-chain timestamp this height actually carries, derived
+                // from chain state by whichever engine produced it. Differencing
+                // it across consecutive heights gives the realized block
+                // spacing, which is the only thing here that can contradict the
+                // configured floor beside it.
                 if let Some((cadence, view_timeout_secs)) = ordering_cadence {
                     eprintln!(
-                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} view_timeout_secs={}",
+                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} genesis_block_interval_ms={} genesis_block_interval_provenance={} block_timestamp_ms={} view_timeout_secs={}",
                         producing_h,
                         view,
                         ordering_profile_label(cons_ty),
@@ -1875,6 +1939,9 @@ where
                         cadence.ticker_interval_provenance,
                         cadence.min_tick_ms,
                         cadence.min_tick_provenance,
+                        cadence.genesis_block_interval_ms,
+                        cadence.genesis_block_interval_provenance,
+                        expected_timestamp_ms,
                         view_timeout_secs,
                     );
                 }

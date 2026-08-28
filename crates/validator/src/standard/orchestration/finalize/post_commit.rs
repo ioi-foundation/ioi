@@ -59,57 +59,21 @@ pub(super) fn post_commit_vote_replay_delays_ms() -> Vec<u64> {
         .unwrap_or_else(|| vec![150, 500, 1200])
 }
 
-/// Writes `Committed` into the status cache for every transaction in a block.
-///
-/// PRIVATE ON PURPOSE. The commit path must reach this only through
-/// [`durably_update_header_then_publish_committed`], which is the only place
-/// that can establish the durability this status asserts. A caller that
-/// publishes `Committed` without a successful durable header update is
-/// publishing a fact the node cannot honour after a restart.
-async fn publish_committed_tx_statuses(
-    receipt_map: &Arc<Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
-    tx_status_cache: &Arc<
-        Mutex<lru::LruCache<String, crate::standard::orchestration::context::TxStatusEntry>>,
-    >,
-    transactions: &[ChainTransaction],
-    block_height: u64,
-) {
-    let receipt_guard = receipt_map.lock().await;
-    let mut status_guard = tx_status_cache.lock().await;
-
-    for tx in transactions {
-        let tx_hash_res: Result<ioi_types::app::TxHash, _> = tx.hash();
-        if let Ok(h) = tx_hash_res {
-            let tx_hash_hex = receipt_guard
-                .peek(&h)
-                .cloned()
-                .unwrap_or_else(|| hex::encode(h));
-            if let Some(entry) = status_guard.get_mut(&tx_hash_hex) {
-                entry.status = TxStatus::Committed;
-                entry.block_height = Some(block_height);
-            } else {
-                status_guard.put(
-                    tx_hash_hex,
-                    crate::standard::orchestration::context::TxStatusEntry {
-                        status: TxStatus::Committed,
-                        error: None,
-                        block_height: Some(block_height),
-                    },
-                );
-            }
-        }
-    }
-}
-
 /// Runs the durable finalized-header update, and publishes `Committed` for the
 /// block's transactions ONLY if that update succeeded.
 ///
-/// The ordering is the invariant, so it is expressed structurally rather than
-/// by convention: publication is unreachable except through the `Ok` arm of
-/// `durable_header_update`. If the update fails, the status cache is left
-/// exactly as it was and the error propagates, so a client polling
-/// `get_transaction_status` continues to see the pre-commit status instead of
-/// a `Committed` the node cannot substantiate.
+/// The ordering is the invariant, so it is expressed STRUCTURALLY rather than
+/// by convention. `publish_committed_tx_statuses` is nested inside this
+/// function, not a module sibling: there is no name in `post_commit` -- or
+/// anywhere else -- that can write `Committed` into `tx_status_cache` for a
+/// finalized block. A regression that re-adds an early publication call to
+/// `finalize_and_broadcast_block` does not compile, which is a stronger
+/// guarantee than a test that only checks this helper's own two orderings.
+///
+/// If the update fails, the status cache is left exactly as it was and the
+/// error propagates, so a client polling `get_transaction_status` continues to
+/// see the pre-commit status instead of a `Committed` the node cannot
+/// substantiate after a restart.
 pub(super) async fn durably_update_header_then_publish_committed<F, Fut>(
     durable_header_update: F,
     receipt_map: &Arc<Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
@@ -123,6 +87,47 @@ where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = Result<()>>,
 {
+    /// Writes `Committed` into the status cache for every transaction in a
+    /// block.
+    ///
+    /// NESTED ON PURPOSE -- see the parent's doc comment. Hoisting this back to
+    /// module scope re-opens the defect class, because it restores a name an
+    /// early caller could reach.
+    async fn publish_committed_tx_statuses(
+        receipt_map: &Arc<Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
+        tx_status_cache: &Arc<
+            Mutex<lru::LruCache<String, crate::standard::orchestration::context::TxStatusEntry>>,
+        >,
+        transactions: &[ChainTransaction],
+        block_height: u64,
+    ) {
+        let receipt_guard = receipt_map.lock().await;
+        let mut status_guard = tx_status_cache.lock().await;
+
+        for tx in transactions {
+            let tx_hash_res: Result<ioi_types::app::TxHash, _> = tx.hash();
+            if let Ok(h) = tx_hash_res {
+                let tx_hash_hex = receipt_guard
+                    .peek(&h)
+                    .cloned()
+                    .unwrap_or_else(|| hex::encode(h));
+                if let Some(entry) = status_guard.get_mut(&tx_hash_hex) {
+                    entry.status = TxStatus::Committed;
+                    entry.block_height = Some(block_height);
+                } else {
+                    status_guard.put(
+                        tx_hash_hex,
+                        crate::standard::orchestration::context::TxStatusEntry {
+                            status: TxStatus::Committed,
+                            error: None,
+                            block_height: Some(block_height),
+                        },
+                    );
+                }
+            }
+        }
+    }
+
     durable_header_update().await?;
     publish_committed_tx_statuses(receipt_map, tx_status_cache, transactions, block_height).await;
     Ok(())

@@ -56,6 +56,120 @@ pub const CLUSTER_STATE_DIR_ENV: &str = "IOI_TESTING_CLUSTER_STATE_DIR";
 const CLUSTER_STATE_MANIFEST_FILE: &str = "cluster-state.json";
 const CLUSTER_STATE_SCHEMA_VERSION: u32 = 1;
 
+/// Benchmark-only override for the TEST GENESIS on-chain block interval.
+///
+/// WHY THIS EXISTS. The scheduler ticker (`ORCH_BLOCK_INTERVAL_MS`) is not the
+/// gate that spaces blocks. Block production defers until the on-chain
+/// timestamp is due -- `production.rs` returns early while
+/// `expected_timestamp_ms > now_ms` -- and that timestamp comes from the
+/// genesis `BlockTimingParams`/`BlockTimingRuntime`. With the historical
+/// genesis floor of 1s, a ticker set to 50ms changed nothing: blocks still
+/// arrived once per second. A cadence flag that moves only the ticker
+/// therefore names a cadence no run achieved.
+///
+/// So a cadence-varying run must move BOTH, and this is the on-chain half.
+///
+/// NOT `IOI_TEST*`: the verifier's `sanitizedVerifierBaseEnv` strips
+/// `IOI_TEST_`-prefixed names, and `IOI_TESTING_*` survives that only because
+/// the ninth character happens to be `I` rather than `_`. This control is too
+/// load-bearing to survive by coincidence, so it uses a prefix that is not
+/// adjacent to the strip rule at all.
+pub const BENCHMARK_BLOCK_INTERVAL_MS_ENV: &str = "IOI_BENCH_BLOCK_INTERVAL_MS";
+
+/// The historical test-genesis interval, preserved exactly when the benchmark
+/// override is absent.
+const DEFAULT_TEST_BLOCK_INTERVAL_MS: u64 = 1_000;
+
+/// Bounds on the benchmark override. The floor is 1ms because the on-chain
+/// interval is a millisecond quantity and 0 would mean "no floor at all",
+/// which the timestamp gate cannot express. The ceiling is a minute: past that
+/// a fixture is hung rather than slow, and a typo should say so immediately.
+const MIN_BENCHMARK_BLOCK_INTERVAL_MS: u64 = 1;
+const MAX_BENCHMARK_BLOCK_INTERVAL_MS: u64 = 60_000;
+
+/// Resolves the genesis block timing for a test cluster.
+///
+/// Absent the override this returns the historical values byte for byte, so an
+/// ordinary test run is unchanged. When the override is present it pins
+/// `base == min == max == effective` and leaves `retarget_every_blocks` at 0,
+/// so the requested interval is the actual, constant production floor rather
+/// than a starting point an adaptive retarget walks away from. That equality is
+/// what makes the requested cadence a fact about the run.
+///
+/// The same value is applied whatever engine is selected, so AFT and Solo are
+/// floored identically and the ordering profile stays the only varied
+/// dimension.
+///
+/// Rejects an unparseable or out-of-range value by panicking. This is test
+/// infrastructure, and silently ignoring a cadence request is precisely the
+/// defect this control exists to remove.
+fn benchmark_genesis_block_timing() -> (BlockTimingParams, BlockTimingRuntime) {
+    let interval_ms = match std::env::var(BENCHMARK_BLOCK_INTERVAL_MS_ENV) {
+        Ok(raw) => {
+            let trimmed = raw.trim();
+            let parsed = trimmed.parse::<u64>().unwrap_or_else(|_| {
+                panic!(
+                    "{BENCHMARK_BLOCK_INTERVAL_MS_ENV} must be an integer number of \
+                     milliseconds in {MIN_BENCHMARK_BLOCK_INTERVAL_MS}..={MAX_BENCHMARK_BLOCK_INTERVAL_MS}; got {trimmed:?}"
+                )
+            });
+            if !(MIN_BENCHMARK_BLOCK_INTERVAL_MS..=MAX_BENCHMARK_BLOCK_INTERVAL_MS)
+                .contains(&parsed)
+            {
+                panic!(
+                    "{BENCHMARK_BLOCK_INTERVAL_MS_ENV}={parsed} is outside \
+                     {MIN_BENCHMARK_BLOCK_INTERVAL_MS}..={MAX_BENCHMARK_BLOCK_INTERVAL_MS}"
+                );
+            }
+            Some(parsed)
+        }
+        Err(std::env::VarError::NotPresent) => None,
+        Err(error) => panic!("{BENCHMARK_BLOCK_INTERVAL_MS_ENV} is unreadable: {error}"),
+    };
+
+    let Some(interval_ms) = interval_ms else {
+        // Historical default: 1s blocks for fast tests, 5s ceiling.
+        return (
+            BlockTimingParams {
+                base_interval_secs: 1,
+                min_interval_secs: 1,
+                max_interval_secs: 5,
+                target_gas_per_block: 10_000_000,
+                ..Default::default()
+            },
+            BlockTimingRuntime {
+                effective_interval_secs: 1,
+                effective_interval_ms: DEFAULT_TEST_BLOCK_INTERVAL_MS,
+                ema_gas_used: 0,
+            },
+        );
+    };
+
+    // The legacy whole-second fields are mirrored with ceiling rounding so a
+    // reader of the seconds view never sees a 0 interval for a sub-second
+    // chain. The millisecond fields are authoritative -- `*_ms_or_legacy()`
+    // prefers them whenever they are non-zero.
+    let legacy_secs = ioi_types::app::interval_millis_to_legacy_seconds(interval_ms);
+    (
+        BlockTimingParams {
+            base_interval_secs: legacy_secs,
+            min_interval_secs: legacy_secs,
+            max_interval_secs: legacy_secs,
+            target_gas_per_block: 10_000_000,
+            retarget_every_blocks: 0,
+            base_interval_ms: interval_ms,
+            min_interval_ms: interval_ms,
+            max_interval_ms: interval_ms,
+            ..Default::default()
+        },
+        BlockTimingRuntime {
+            effective_interval_secs: legacy_secs,
+            effective_interval_ms: interval_ms,
+            ema_gas_used: 0,
+        },
+    )
+}
+
 /// Durable identity of a stable-state-dir cluster. Written atomically only
 /// after the first build fully succeeds; its absence over a non-empty
 /// directory is treated as a partial or foreign tree and refused outright.
@@ -1162,19 +1276,10 @@ impl TestClusterBuilder {
                         };
                         builder.set_validators(&vs);
 
-                        // Set default block timing (1s blocks for fast tests)
-                        let timing_params = BlockTimingParams {
-                            base_interval_secs: 1,
-                            min_interval_secs: 1,
-                            max_interval_secs: 5,
-                            target_gas_per_block: 10_000_000,
-                            ..Default::default()
-                        };
-                        let timing_runtime = BlockTimingRuntime {
-                            effective_interval_secs: 1,
-                            effective_interval_ms: 1_000,
-                            ema_gas_used: 0,
-                        };
+                        // Set default block timing (1s blocks for fast tests),
+                        // or the pinned fixed interval a cadence-varying
+                        // benchmark asked for.
+                        let (timing_params, timing_runtime) = benchmark_genesis_block_timing();
                         builder.set_block_timing(&timing_params, &timing_runtime);
                     },
                 ),
@@ -1792,5 +1897,123 @@ impl TestClusterBuilder {
             _shared_artifacts: shared_guardian_harness.and_then(|harness| harness.temp_dir),
             _port_block_lock_path: Some(validator_port_lock_path),
         })
+    }
+}
+
+#[cfg(test)]
+mod benchmark_genesis_block_timing_tests {
+    use super::{benchmark_genesis_block_timing, BENCHMARK_BLOCK_INTERVAL_MS_ENV};
+    use ioi_types::app::compute_interval_from_parent_state_ms;
+
+    /// `benchmark_genesis_block_timing` reads process-wide env, so these tests
+    /// serialize and always state the value they want -- including absence.
+    /// Leaving it to ambient state makes them race each other, which is a defect
+    /// this crate has already paid for once.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn with_override<R>(value: Option<&str>, body: impl FnOnce() -> R) -> R {
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match value {
+            Some(raw) => std::env::set_var(BENCHMARK_BLOCK_INTERVAL_MS_ENV, raw),
+            None => std::env::remove_var(BENCHMARK_BLOCK_INTERVAL_MS_ENV),
+        }
+        let result = body();
+        std::env::remove_var(BENCHMARK_BLOCK_INTERVAL_MS_ENV);
+        result
+    }
+
+    #[test]
+    fn an_absent_override_preserves_the_historical_test_genesis_exactly() {
+        // Every existing test depends on these values. A cadence control that
+        // changed the default would silently re-time the whole suite.
+        let (params, runtime) = with_override(None, benchmark_genesis_block_timing);
+        assert_eq!(params.base_interval_secs, 1);
+        assert_eq!(params.min_interval_secs, 1);
+        assert_eq!(params.max_interval_secs, 5);
+        assert_eq!(params.target_gas_per_block, 10_000_000);
+        assert_eq!(runtime.effective_interval_secs, 1);
+        assert_eq!(runtime.effective_interval_ms, 1_000);
+        assert_eq!(runtime.ema_gas_used, 0);
+    }
+
+    #[test]
+    fn the_override_becomes_the_actual_production_floor_not_just_a_stored_number() {
+        // THE POINT OF THE WHOLE CONTROL. Storing the interval is not enough:
+        // it has to survive `compute_interval_from_parent_state_ms`, which
+        // clamps the effective interval to [min, max] and can retarget away
+        // from it. Pinning base == min == max with retarget disabled is what
+        // makes the requested cadence the constant floor blocks are spaced by.
+        for requested in [1_u64, 50, 250, 1_000, 60_000] {
+            let (params, runtime) =
+                with_override(Some(&requested.to_string()), benchmark_genesis_block_timing);
+
+            assert_eq!(params.base_interval_ms, requested);
+            assert_eq!(params.min_interval_ms, requested);
+            assert_eq!(params.max_interval_ms, requested);
+            assert_eq!(runtime.effective_interval_ms, requested);
+            assert_eq!(
+                params.retarget_every_blocks, 0,
+                "adaptive retarget must stay off, or the floor drifts mid-run"
+            );
+
+            // Across a spread of parent heights and gas, the derived interval
+            // never moves off the request.
+            for parent_height in [0_u64, 1, 7, 100, 4_095] {
+                for parent_gas in [0_u64, 5_000_000, 250_000_000] {
+                    assert_eq!(
+                        compute_interval_from_parent_state_ms(
+                            &params,
+                            &runtime,
+                            parent_height,
+                            parent_gas
+                        ),
+                        requested,
+                        "requested {requested}ms must be the interval at height \
+                         {parent_height} with gas {parent_gas}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_sub_second_override_does_not_collapse_to_a_zero_legacy_interval() {
+        // The legacy seconds fields are mirrored with CEILING rounding. Floor
+        // rounding would write 0 there, and `*_ms_or_legacy()` falls back to
+        // the seconds view whenever the ms field is 0 -- so a future edit that
+        // dropped the ms fields would silently yield a zero interval.
+        let (params, runtime) = with_override(Some("50"), benchmark_genesis_block_timing);
+        assert_eq!(params.min_interval_secs, 1);
+        assert_eq!(runtime.effective_interval_secs, 1);
+        assert_eq!(params.min_interval_ms_or_legacy(), 50);
+        assert_eq!(runtime.effective_interval_ms_or_legacy(), 50);
+    }
+
+    #[test]
+    fn an_unusable_override_aborts_rather_than_being_ignored() {
+        // Silently ignoring the request is the exact defect this control
+        // exists to remove: the run would proceed at the historical floor while
+        // the artifact reported the requested cadence.
+        for rejected in ["0", "60001", "-1", "abc", "1.5", "", " "] {
+            let outcome = with_override(Some(rejected), || {
+                std::panic::catch_unwind(benchmark_genesis_block_timing)
+            });
+            assert!(
+                outcome.is_err(),
+                "{rejected:?} must abort genesis construction, not be ignored"
+            );
+        }
+        // Guards the above from passing vacuously: the boundaries are accepted.
+        for accepted in ["1", "60000", " 250 "] {
+            let outcome = with_override(Some(accepted), || {
+                std::panic::catch_unwind(benchmark_genesis_block_timing)
+            });
+            assert!(
+                outcome.is_ok(),
+                "{accepted:?} is in range and must be accepted"
+            );
+        }
     }
 }
