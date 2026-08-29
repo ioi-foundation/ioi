@@ -66,6 +66,28 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         ChainError,
     >;
 
+    /// Atomically replaces the current one-height AFT workload projection.
+    ///
+    /// The validator may call this only after proving that Agentgres has not
+    /// admitted `expected_tip`. Implementations must revalidate the complete
+    /// execution surface under the same lock used for rollback and replacement.
+    async fn replace_unfinalized_tip(
+        &self,
+        _expected_tip: Block<ChainTransaction>,
+        _replacement: Block<ChainTransaction>,
+    ) -> Result<
+        (
+            Block<ChainTransaction>,
+            Vec<Vec<u8>>,
+            Vec<BlockExecutionReceipt>,
+        ),
+        ChainError,
+    > {
+        Err(ChainError::Transaction(
+            "workload does not support fenced AFT tip replacement".into(),
+        ))
+    }
+
     /// Fetches a range of blocks.
     async fn get_blocks_range(
         &self,

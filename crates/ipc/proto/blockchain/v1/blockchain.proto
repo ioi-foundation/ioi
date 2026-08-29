@@ -14,6 +14,9 @@ service ChainControl {
   // Processes a block. Supports Hybrid Data Plane (Inline vs Shared Memory).
   rpc ProcessBlock (ProcessBlockRequest) returns (ProcessBlockResponse);
 
+  // Replaces exactly one unrecognized AFT workload tip under an execution-surface fence.
+  rpc ReplaceUnfinalizedTip (ReplaceUnfinalizedTipRequest) returns (ProcessBlockResponse);
+
   // Fetches a range of blocks for sync. Supports Hybrid Data Plane.
   rpc GetBlocksRange (GetBlocksRangeRequest) returns (GetBlocksRangeResponse);
 
@@ -127,6 +130,17 @@ message ProcessBlockResponse {
   // Canonical SCALE-encoded BlockExecutionReceipt values, exactly one per
   // included transaction and in block order.
   repeated bytes execution_receipts = 3;
+}
+
+message ReplaceUnfinalizedTipRequest {
+  // SCALE-encoded replacement Block<ChainTransaction>.
+  bytes replacement_block_bytes = 1;
+  // Exact workload projection being retired. All fields are revalidated under
+  // the workload machine lock before the parent snapshot is restored.
+  uint64 expected_tip_height = 2;
+  bytes expected_parent_state_root = 3;
+  bytes expected_state_root = 4;
+  bytes expected_transactions_root = 5;
 }
 
 message GetBlocksRangeRequest {

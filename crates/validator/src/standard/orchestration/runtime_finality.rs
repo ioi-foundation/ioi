@@ -243,6 +243,52 @@ where
     Ok(true)
 }
 
+/// Returns whether `height` is still only a workload projection.
+///
+/// Agentgres is the sole authority for this decision. A workload tip at or
+/// below the admitted height is immutable; a strictly later tip may be
+/// replaced by a consensus-valid same-height proposal under the workload's
+/// exact execution-surface fence.
+pub(crate) async fn tip_is_unrecognized<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
+    height: u64,
+) -> Result<bool>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let admitted_height = context
+        .runtime_finality
+        .lock()
+        .await
+        .last_admitted_block()?
+        .map(|block| block.header.height)
+        .unwrap_or(0);
+    Ok(height > admitted_height)
+}
+
 pub(crate) async fn admit_available<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     single_authority_block: Option<&Block<ChainTransaction>>,
@@ -1043,9 +1089,10 @@ impl RuntimeFinalityCoordinator {
     }
 
     /// Returns the restart-recovered exclusion fence for proposal selection.
-    /// Hashes leave the mempool only through an Agentgres-admitted ACK; keeping
-    /// old staged hashes here is harmless because transaction hashes are exact
-    /// byte identities and must never be executed twice.
+    /// Hashes leave the mempool only through an Agentgres-admitted ACK. The
+    /// fence covers staged heights strictly above the admitted head; once the
+    /// head advances, same-height losing candidates stop excluding their
+    /// transactions even though their evidence bytes remain durable.
     pub(crate) fn staged_transaction_hashes(&self) -> BTreeSet<[u8; 32]> {
         self.staged_transaction_hashes.clone()
     }
@@ -1575,6 +1622,11 @@ impl RuntimeFinalityCoordinator {
         let commit = self
             .store
             .commit(prepared, &authority_owner, recorded_at_ms)?;
+        // Forked same-height staged candidates remain durable evidence but
+        // cease to fence their transactions once Agentgres advances past that
+        // height. Rebuild from the rooted head so an abandoned proposal cannot
+        // strand a still-pending transaction forever after replacement.
+        self.staged_transaction_hashes = self.verify_all_staged()?;
         Ok(RuntimeAdmission {
             effect_id,
             block: staged.block,
@@ -1601,6 +1653,10 @@ impl RuntimeFinalityCoordinator {
     }
 
     fn verify_all_staged(&self) -> Result<BTreeSet<[u8; 32]>> {
+        let admitted_height = self
+            .last_admitted_block()?
+            .map(|block| block.header.height)
+            .unwrap_or(0);
         let mut transaction_hashes = BTreeSet::new();
         for entry in fs::read_dir(self.root.join("staged"))? {
             let entry = entry?;
@@ -1617,8 +1673,10 @@ impl RuntimeFinalityCoordinator {
                     "staged finality filename does not bind its block hash"
                 ));
             }
-            for transaction in &staged.block.transactions {
-                transaction_hashes.insert(transaction.hash()?);
+            if staged.block.header.height > admitted_height {
+                for transaction in &staged.block.transactions {
+                    transaction_hashes.insert(transaction.hash()?);
+                }
             }
         }
         Ok(transaction_hashes)
@@ -2546,6 +2604,57 @@ mod tests {
         )
         .unwrap();
         assert!(recovered
+            .staged_transaction_hashes()
+            .contains(&transaction_hash));
+    }
+
+    #[test]
+    fn admitted_same_height_winner_releases_losing_candidate_transaction_fence() {
+        let dir = tempdir().unwrap();
+        let seed = [29_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let transaction = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader::default(),
+            payload: SystemPayload::CallService {
+                service_id: "test".into(),
+                method: "losing-candidate@v1".into(),
+                params: Vec::new(),
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let transaction_hash = transaction.hash().unwrap();
+        let losing = block_with_transactions([7; 32], 1, vec![transaction]);
+        let receipt = BlockExecutionReceipt::for_success(1, 0, transaction_hash, 0, &[]);
+        let mut winning = empty_block([7; 32], 1);
+        winning.header.view = losing.header.view.saturating_add(1);
+        let initial = format!("sha256:{}", hex::encode(losing.header.parent_hash));
+        let mut coordinator = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/replaced-fence".into(),
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            "writer://test/replaced-fence".into(),
+            initial,
+            issuer,
+            &seed,
+        )
+        .unwrap();
+        coordinator.stage_block(losing, vec![receipt]).unwrap();
+        coordinator
+            .stage_block(winning.clone(), Vec::new())
+            .unwrap();
+        assert!(coordinator
+            .staged_transaction_hashes()
+            .contains(&transaction_hash));
+
+        coordinator
+            .admit_single_authority(block_hash(&winning).unwrap(), 1_700_000_000_029)
+            .unwrap();
+
+        assert!(!coordinator
             .staged_transaction_hashes()
             .contains(&transaction_hash));
     }

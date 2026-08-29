@@ -20,7 +20,8 @@ use ioi_ipc::blockchain::{
     GetStakedValidatorsRequest, GetStakedValidatorsResponse, GetStatusRequest, GetStatusResponse,
     KeyValuePair, PrefixScanRequest, PrefixScanResponse, ProcessBlockRequest, ProcessBlockResponse,
     QueryContractRequest, QueryContractResponse, QueryRawStateRequest, QueryRawStateResponse,
-    QueryStateAtRequest, QueryStateAtResponse, UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
+    QueryStateAtRequest, QueryStateAtResponse, ReplaceUnfinalizedTipRequest,
+    UpdateBlockHeaderRequest, UpdateBlockHeaderResponse,
 };
 use ioi_types::{
     app::{Block, ChainId, ChainStatus, ChainTransaction, Membership, StateRoot},
@@ -135,6 +136,56 @@ where
 
         let block_bytes =
             codec::to_bytes_canonical(&processed_block).map_err(|e| Status::internal(e))?;
+
+        Ok(Response::new(ProcessBlockResponse {
+            block_bytes,
+            events,
+            execution_receipts,
+        }))
+    }
+
+    async fn replace_unfinalized_tip(
+        &self,
+        request: Request<ReplaceUnfinalizedTipRequest>,
+    ) -> Result<Response<ProcessBlockResponse>, Status> {
+        let request = request.into_inner();
+        let replacement: Block<ChainTransaction> =
+            codec::from_bytes_canonical(&request.replacement_block_bytes)
+                .map_err(Status::invalid_argument)?;
+        if replacement.header.height != request.expected_tip_height {
+            return Err(Status::invalid_argument(
+                "replacement block height does not match the fenced AFT tip",
+            ));
+        }
+
+        // Rollback, deterministic replay, and replacement commit share one
+        // machine guard. No normal ProcessBlock call can advance the parent or
+        // consume the one-height snapshot between those boundaries.
+        let mut machine = self.ctx.machine.lock().await;
+        machine
+            .rollback_aft_tip_projection(
+                request.expected_tip_height,
+                &request.expected_parent_state_root,
+                &request.expected_state_root,
+                &request.expected_transactions_root,
+            )
+            .await
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        let prepared = machine
+            .prepare_block(replacement)
+            .await
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        let execution_receipts = prepared
+            .execution_receipts
+            .iter()
+            .map(codec::to_bytes_canonical)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Status::internal)?;
+        let (processed_block, events) = machine
+            .commit_block(prepared)
+            .await
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        let block_bytes = codec::to_bytes_canonical(&processed_block).map_err(Status::internal)?;
 
         Ok(Response::new(ProcessBlockResponse {
             block_bytes,

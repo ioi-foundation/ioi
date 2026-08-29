@@ -3,7 +3,7 @@
 use super::{
     derive_canonical_collapse_for_block, derive_canonical_collapse_for_height, end_block,
     resolve_execution_anchor_from_recent_blocks_or_replay_prefix, resolve_execution_parent_anchor,
-    ExecutionMachine,
+    AftTipRollbackSnapshot, ExecutionMachine,
 };
 use crate::app::parallel_state::ParallelStateAccess;
 use crate::mv_memory::MVMemory;
@@ -1201,17 +1201,23 @@ where
         // The rollback snapshot is a full clone of the live state tree. On a
         // deepening chain it is a commit-path cost in its own right, so it is
         // measured separately rather than folded into `total_ms`.
+        let retain_aft_tip_snapshot = self.consensus_engine.consensus_type() == ConsensusType::Aft;
+        let machine_status_snapshot = self.state.status.clone();
+        let recent_blocks_snapshot = self.state.recent_blocks.clone();
+        let recent_aft_recovered_state_snapshot = self.state.recent_aft_recovered_state.clone();
+        let last_state_root_snapshot = self.state.last_state_root.clone();
+        let genesis_state_snapshot = self.state.genesis_state.clone();
         let snapshot_clone_started = Instant::now();
-        let state_snapshot = if externally_finalized_header {
+        let mut state_snapshot = if externally_finalized_header || retain_aft_tip_snapshot {
             let state = state_tree_arc.read().await;
             Some(state.clone())
         } else {
             None
         };
         let snapshot_clone_elapsed = snapshot_clone_started.elapsed();
-        let service_manager_snapshot = Some(self.service_manager.clone());
-        let services_snapshot = Some(self.services.clone());
-        let service_meta_cache_snapshot = Some(self.service_meta_cache.clone());
+        let mut service_manager_snapshot = Some(self.service_manager.clone());
+        let mut services_snapshot = Some(self.services.clone());
+        let mut service_meta_cache_snapshot = Some(self.service_meta_cache.clone());
 
         let final_state_root_bytes_result: Result<Vec<u8>, ChainError> = {
             let mut state = state_tree_arc.write().await;
@@ -1612,7 +1618,7 @@ where
                     eprintln!("{line}");
                     benchmark_trace_append(&line);
                 }
-                if let Some(snapshot) = state_snapshot {
+                if let Some(snapshot) = state_snapshot.take() {
                     let mut state = state_tree_arc.write().await;
                     *state = snapshot;
                     if benchmark_trace {
@@ -1663,13 +1669,13 @@ where
                         );
                     }
                 }
-                if let Some(snapshot) = service_manager_snapshot {
+                if let Some(snapshot) = service_manager_snapshot.take() {
                     self.service_manager = snapshot;
                 }
-                if let Some(snapshot) = services_snapshot {
+                if let Some(snapshot) = services_snapshot.take() {
                     self.services = snapshot;
                 }
-                if let Some(snapshot) = service_meta_cache_snapshot {
+                if let Some(snapshot) = service_meta_cache_snapshot.take() {
                     self.service_meta_cache = snapshot;
                 }
                 return Err(error);
@@ -1742,6 +1748,41 @@ where
             self.state.recent_blocks.remove(0);
         }
         self.state.recent_blocks.push(block.clone());
+
+        // The AFT workload may be one proposal ahead of the Agentgres
+        // recognized-effect head. Preserve exactly one reversible projection
+        // so a consensus-valid higher-view proposal can replace that tip. The
+        // workload never decides whether replacement is authorized; the
+        // validator must first prove the height is still unrecognized and the
+        // rollback method below revalidates the exact projected execution
+        // surface before restoring these bytes.
+        self.aft_tip_rollback = if retain_aft_tip_snapshot {
+            Some(AftTipRollbackSnapshot {
+                projected_height: block.header.height,
+                projected_parent_state_root: block.header.parent_state_root.0.clone(),
+                projected_state_root: block.header.state_root.0.clone(),
+                projected_transactions_root: block.header.transactions_root.clone(),
+                state_tree: state_snapshot.take().ok_or_else(|| {
+                    ChainError::Transaction("AFT tip rollback snapshot missing".into())
+                })?,
+                status: machine_status_snapshot,
+                recent_blocks: recent_blocks_snapshot,
+                recent_aft_recovered_state: recent_aft_recovered_state_snapshot,
+                last_state_root: last_state_root_snapshot,
+                genesis_state: genesis_state_snapshot,
+                services: services_snapshot.take().ok_or_else(|| {
+                    ChainError::Transaction("AFT service rollback snapshot missing".into())
+                })?,
+                service_manager: service_manager_snapshot.take().ok_or_else(|| {
+                    ChainError::Transaction("AFT upgrade rollback snapshot missing".into())
+                })?,
+                service_meta_cache: service_meta_cache_snapshot.take().ok_or_else(|| {
+                    ChainError::Transaction("AFT metadata rollback snapshot missing".into())
+                })?,
+            })
+        } else {
+            None
+        };
 
         let events = vec![];
         Ok((block, events))

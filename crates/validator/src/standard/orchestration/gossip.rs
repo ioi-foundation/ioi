@@ -549,12 +549,148 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                     );
                 }
             }
-            Ok(false) => tracing::warn!(
-                target: "consensus",
-                height = block.header.height,
-                view = block.header.view,
-                "Refusing same-height proposal vote because durable execution is not equivalent"
-            ),
+            Ok(false) => {
+                let replaceable = match super::runtime_finality::tip_is_unrecognized(
+                    context,
+                    block.header.height,
+                )
+                .await
+                {
+                    Ok(replaceable) => replaceable,
+                    Err(error) => {
+                        context
+                            .is_quarantined
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::error!(
+                            target: "consensus",
+                            height = block.header.height,
+                            view = block.header.view,
+                            error = %error,
+                            "Could not establish Agentgres admission floor before same-height replacement; node frozen"
+                        );
+                        return;
+                    }
+                };
+                if !replaceable {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = block.header.height,
+                        view = block.header.view,
+                        "Refusing same-height replacement at or below the Agentgres-admitted head"
+                    );
+                    return;
+                }
+
+                let workload = context.view_resolver.workload_client().clone();
+                let Some(expected_tip) = (match workload
+                    .get_block_by_height(block.header.height)
+                    .await
+                {
+                    Ok(tip) => tip,
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "consensus",
+                            height = block.header.height,
+                            view = block.header.view,
+                            error = %error,
+                            "Refusing same-height replacement because the fenced workload tip is unavailable"
+                        );
+                        return;
+                    }
+                }) else {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = block.header.height,
+                        view = block.header.view,
+                        "Refusing same-height replacement because the workload returned no fenced tip"
+                    );
+                    return;
+                };
+
+                let (processed_block, execution_receipts) = match workload
+                    .replace_unfinalized_tip(expected_tip.clone(), block.clone())
+                    .await
+                {
+                    Ok((processed, _, receipts)) => (processed, receipts),
+                    Err(error) => {
+                        context
+                            .is_quarantined
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::error!(
+                            target: "consensus",
+                            height = block.header.height,
+                            old_view = expected_tip.header.view,
+                            new_view = block.header.view,
+                            error = %error,
+                            "Atomic unrecognized AFT tip replacement failed; node frozen"
+                        );
+                        return;
+                    }
+                };
+                if let Err(error) = super::runtime_finality::stage_runtime_block(
+                    context,
+                    processed_block.clone(),
+                    execution_receipts,
+                )
+                .await
+                {
+                    context
+                        .is_quarantined
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    tracing::error!(
+                        target: "consensus",
+                        height = processed_block.header.height,
+                        error = %error,
+                        "Replacement projection could not be staged; node frozen"
+                    );
+                    return;
+                }
+                context.last_executed_block = Some(processed_block.clone());
+                if let Err(error) = emit_durable_proposal_vote(context, &processed_block).await {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = processed_block.header.height,
+                        view = processed_block.header.view,
+                        error = %error,
+                        "Failed to emit vote after atomic AFT tip replacement"
+                    );
+                    return;
+                }
+                match observe_live_committed_chain_through_block(
+                    &engine_ref,
+                    context.config.consensus_type,
+                    workload.as_ref(),
+                    &processed_block,
+                )
+                .await
+                {
+                    Ok(true) => engine_ref.lock().await.reset(processed_block.header.height),
+                    Ok(false) => tracing::warn!(
+                        target: "consensus",
+                        height = processed_block.header.height,
+                        "Consensus engine ignored the replacement hint because it was not collapse-backed"
+                    ),
+                    Err(error) => tracing::warn!(
+                        target: "consensus",
+                        height = processed_block.header.height,
+                        error = %error,
+                        "Could not reconcile replacement projection into the live collapse chain"
+                    ),
+                }
+                if let Err(error) =
+                    super::runtime_finality::admit_available(context, Some(&processed_block)).await
+                {
+                    context
+                        .is_quarantined
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    tracing::error!(
+                        target: "consensus",
+                        height = processed_block.header.height,
+                        error = %error,
+                        "Terminal runtime finality refusal after AFT tip replacement; node frozen"
+                    );
+                }
+            }
             Err(error) => tracing::warn!(
                 target: "consensus",
                 height = block.header.height,

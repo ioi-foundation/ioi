@@ -33,7 +33,8 @@ use ioi_ipc::blockchain::{
     DebugUnpinHeightRequest, DeployContractRequest, GetBlocksRangeRequest, GetGenesisStatusRequest,
     GetNextStakedValidatorsRequest, GetStakedValidatorsRequest, GetStatusRequest,
     PrefixScanRequest, ProcessBlockRequest, QueryContractRequest, QueryRawStateRequest,
-    QueryStateAtRequest, SharedMemoryHandle, UpdateBlockHeaderRequest,
+    QueryStateAtRequest, ReplaceUnfinalizedTipRequest, SharedMemoryHandle,
+    UpdateBlockHeaderRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -739,6 +740,51 @@ impl WorkloadClientApi for WorkloadClient {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok((processed, resp.events, execution_receipts))
+    }
+
+    async fn replace_unfinalized_tip(
+        &self,
+        expected_tip: Block<ChainTransaction>,
+        replacement: Block<ChainTransaction>,
+    ) -> ioi_types::Result<
+        (
+            Block<ChainTransaction>,
+            Vec<Vec<u8>>,
+            Vec<ioi_api::chain::BlockExecutionReceipt>,
+        ),
+        ChainError,
+    > {
+        let request = ReplaceUnfinalizedTipRequest {
+            replacement_block_bytes: codec::to_bytes_canonical(&replacement)
+                .map_err(ChainError::Transaction)?,
+            expected_tip_height: expected_tip.header.height,
+            expected_parent_state_root: expected_tip.header.parent_state_root.0,
+            expected_state_root: expected_tip.header.state_root.0,
+            expected_transactions_root: expected_tip.header.transactions_root,
+        };
+        let mut client = self.chain.lock().await;
+        let response = client
+            .replace_unfinalized_tip(request)
+            .await
+            .map_err(map_grpc_error)?
+            .into_inner();
+        let processed = codec::from_bytes_canonical(&response.block_bytes).map_err(|error| {
+            ChainError::Transaction(format!(
+                "Failed to decode replacement block response: {error}"
+            ))
+        })?;
+        let execution_receipts = response
+            .execution_receipts
+            .iter()
+            .map(|bytes| {
+                codec::from_bytes_canonical(bytes).map_err(|error| {
+                    ChainError::Transaction(format!(
+                        "Failed to decode replacement execution receipt: {error}"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((processed, response.events, execution_receipts))
     }
 
     async fn get_blocks_range(
