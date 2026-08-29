@@ -5,21 +5,26 @@ use std::sync::Arc;
 
 #[test]
 fn aft_branch_rollback_window_is_bounded_above_agentgres_floor() {
-    assert_eq!(aft_branch_rollback_count(9, 9, 8, 1).unwrap(), 1);
-    assert_eq!(aft_branch_rollback_count(10, 9, 8, 2).unwrap(), 2);
+    assert_eq!(aft_branch_rollback_count(9, 9, 9, 8, 1).unwrap(), 1);
+    assert_eq!(aft_branch_rollback_count(10, 10, 9, 8, 2).unwrap(), 2);
 
-    let recognized = aft_branch_rollback_count(10, 9, 9, 2).unwrap_err();
+    let stale_live_fence = aft_branch_rollback_count(10, 9, 9, 8, 2).unwrap_err();
+    assert!(stale_live_fence
+        .to_string()
+        .contains("stale AFT live-tip fence"));
+
+    let recognized = aft_branch_rollback_count(10, 10, 9, 9, 2).unwrap_err();
     assert!(recognized
         .to_string()
         .contains("at or below Agentgres-recognized"));
 
-    let too_deep = aft_branch_rollback_count(11, 9, 8, 3).unwrap_err();
+    let too_deep = aft_branch_rollback_count(11, 11, 9, 8, 3).unwrap_err();
     assert!(too_deep.to_string().contains("two-chain projection bound"));
 
-    let missing = aft_branch_rollback_count(10, 9, 8, 1).unwrap_err();
+    let missing = aft_branch_rollback_count(10, 10, 9, 8, 1).unwrap_err();
     assert!(missing.to_string().contains("snapshots are unavailable"));
 
-    let stale = aft_branch_rollback_count(8, 9, 7, 2).unwrap_err();
+    let stale = aft_branch_rollback_count(8, 8, 9, 7, 2).unwrap_err();
     assert!(stale.to_string().contains("target 9, live 8"));
 }
 

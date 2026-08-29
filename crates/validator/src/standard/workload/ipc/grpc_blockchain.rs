@@ -152,9 +152,32 @@ where
         let replacement: Block<ChainTransaction> =
             codec::from_bytes_canonical(&request.replacement_block_bytes)
                 .map_err(Status::invalid_argument)?;
+        let expected_target: Block<ChainTransaction> =
+            codec::from_bytes_canonical(&request.expected_target_block_bytes).map_err(|error| {
+                Status::invalid_argument(format!(
+                    "complete expected AFT target block is required: {error}"
+                ))
+            })?;
+        let expected_live_tip: Block<ChainTransaction> = codec::from_bytes_canonical(
+            &request.expected_live_tip_block_bytes,
+        )
+        .map_err(|error| {
+            Status::invalid_argument(format!(
+                "complete expected AFT live-tip block is required: {error}"
+            ))
+        })?;
         if replacement.header.height != request.expected_tip_height {
             return Err(Status::invalid_argument(
                 "replacement block height does not match the fenced AFT tip",
+            ));
+        }
+        if expected_target.header.height != request.expected_tip_height
+            || expected_target.header.parent_state_root.0 != request.expected_parent_state_root
+            || expected_target.header.state_root.0 != request.expected_state_root
+            || expected_target.header.transactions_root != request.expected_transactions_root
+        {
+            return Err(Status::invalid_argument(
+                "complete AFT target block contradicts its compatibility fence",
             ));
         }
 
@@ -164,10 +187,8 @@ where
         let mut machine = self.ctx.machine.lock().await;
         machine
             .rollback_aft_branch_projection(
-                request.expected_tip_height,
-                &request.expected_parent_state_root,
-                &request.expected_state_root,
-                &request.expected_transactions_root,
+                &expected_target,
+                &expected_live_tip,
                 request.recognized_height,
             )
             .await
@@ -185,7 +206,7 @@ where
         let (processed_block, events) = machine
             .commit_block(prepared)
             .await
-            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+            .map_err(|error| Status::aborted(error.to_string()))?;
         let block_bytes = codec::to_bytes_canonical(&processed_block).map_err(Status::internal)?;
 
         Ok(Response::new(ProcessBlockResponse {

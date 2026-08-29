@@ -43,17 +43,10 @@ const AFT_ENRICHMENT_SYNC_MAX_BYTES: u32 = 32 * 1024 * 1024;
 /// extend it, forcing the lagging node to cross a different parent at the next
 /// height.  Exact same-block/enrichment replay is handled before this gate.
 fn replacement_advances_aft_view(current_view: u64, candidate_view: u64) -> bool {
+    // Both arguments belong to the replacement target height. A descendant's
+    // view is scoped to its own height and is fenced by its complete block
+    // bytes, not compared numerically across heights.
     candidate_view > current_view
-}
-
-fn within_aft_branch_replacement_window(
-    consensus_type: ConsensusType,
-    local_height: u64,
-    candidate_height: u64,
-) -> bool {
-    consensus_type == ConsensusType::Aft
-        && candidate_height <= local_height
-        && local_height.saturating_sub(candidate_height) < 2
 }
 
 #[derive(Debug)]
@@ -473,13 +466,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         .last_executed_block
         .as_ref()
         .map_or(0, |b| b.header.height);
-    if block.header.height < our_height
-        && !within_aft_branch_replacement_window(
-            context.config.consensus_type,
-            our_height,
-            block.header.height,
-        )
-    {
+    if block.header.height < our_height {
         if let Err(error) = maybe_apply_block_enrichment(context, &block, false).await {
             tracing::warn!(
                 target: "gossip",
@@ -575,6 +562,19 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 }
             }
             Ok(false) => {
+                if let Err(error) = super::runtime_finality::admit_available(context, None).await {
+                    context
+                        .is_quarantined
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    tracing::error!(
+                        target: "consensus",
+                        height = block.header.height,
+                        view = block.header.view,
+                        error = %error,
+                        "Could not drain pending recognized effects before AFT branch replacement; node frozen"
+                    );
+                    return;
+                }
                 let admitted_height = match super::runtime_finality::agentgres_admitted_height(
                     context,
                 )
@@ -606,7 +606,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 }
 
                 let workload = context.view_resolver.workload_client().clone();
-                let Some(expected_tip) = (match workload
+                let Some(expected_target) = (match workload
                     .get_block_by_height(block.header.height)
                     .await
                 {
@@ -631,22 +631,86 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                     return;
                 };
 
-                if !replacement_advances_aft_view(expected_tip.header.view, block.header.view) {
+                if !replacement_advances_aft_view(expected_target.header.view, block.header.view) {
                     tracing::warn!(
                         target: "consensus",
                         height = block.header.height,
-                        current_view = expected_tip.header.view,
+                        current_view = expected_target.header.view,
                         candidate_view = block.header.view,
                         "Refusing non-advancing AFT branch replacement"
                     );
                     return;
                 }
 
+                let live_status = match workload.get_status().await {
+                    Ok(status) => status,
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "consensus",
+                            height = block.header.height,
+                            error = %error,
+                            "Refusing AFT branch replacement because the workload head is unavailable"
+                        );
+                        return;
+                    }
+                };
+                if live_status.height < block.header.height
+                    || live_status.height.saturating_sub(block.header.height) > 1
+                {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = block.header.height,
+                        workload_height = live_status.height,
+                        "Refusing AFT branch replacement outside the exact two-projection window"
+                    );
+                    return;
+                }
+                let Some(expected_live_tip) = (match workload
+                    .get_block_by_height(live_status.height)
+                    .await
+                {
+                    Ok(tip) => tip,
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "consensus",
+                            height = block.header.height,
+                            workload_height = live_status.height,
+                            error = %error,
+                            "Refusing AFT branch replacement because the exact workload head is unavailable"
+                        );
+                        return;
+                    }
+                }) else {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = block.header.height,
+                        workload_height = live_status.height,
+                        "Refusing AFT branch replacement because the workload returned no exact head"
+                    );
+                    return;
+                };
+
                 let (processed_block, execution_receipts) = match workload
-                    .replace_unfinalized_tip(expected_tip.clone(), block.clone(), admitted_height)
+                    .replace_unfinalized_tip(
+                        expected_target.clone(),
+                        expected_live_tip,
+                        block.clone(),
+                        admitted_height,
+                    )
                     .await
                 {
                     Ok((processed, _, receipts)) => (processed, receipts),
+                    Err(ChainError::Transaction(error)) => {
+                        tracing::warn!(
+                            target: "consensus",
+                            height = block.header.height,
+                            old_view = expected_target.header.view,
+                            new_view = block.header.view,
+                            error = %error,
+                            "AFT branch replacement fence changed before mutation; safely refused"
+                        );
+                        return;
+                    }
                     Err(error) => {
                         context
                             .is_quarantined
@@ -654,7 +718,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                         tracing::error!(
                             target: "consensus",
                             height = block.header.height,
-                            old_view = expected_tip.header.view,
+                            old_view = expected_target.header.view,
                             new_view = block.header.view,
                             error = %error,
                             "Atomic unrecognized AFT tip replacement failed; node frozen"
@@ -974,8 +1038,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 
 #[cfg(test)]
 mod same_height_replacement_tests {
-    use super::{replacement_advances_aft_view, within_aft_branch_replacement_window};
-    use ioi_types::config::ConsensusType;
+    use super::replacement_advances_aft_view;
 
     #[test]
     fn only_a_strictly_later_aft_view_can_replace_a_durable_tip() {
@@ -983,30 +1046,6 @@ mod same_height_replacement_tests {
         assert!(replacement_advances_aft_view(7, 8));
         assert!(!replacement_advances_aft_view(7, 7));
         assert!(!replacement_advances_aft_view(7, 6));
-    }
-
-    #[test]
-    fn aft_branch_window_accepts_only_tip_and_one_descendant() {
-        assert!(within_aft_branch_replacement_window(
-            ConsensusType::Aft,
-            10,
-            10
-        ));
-        assert!(within_aft_branch_replacement_window(
-            ConsensusType::Aft,
-            10,
-            9
-        ));
-        assert!(!within_aft_branch_replacement_window(
-            ConsensusType::Aft,
-            10,
-            8
-        ));
-        assert!(!within_aft_branch_replacement_window(
-            ConsensusType::Solo,
-            10,
-            9
-        ));
     }
 }
 

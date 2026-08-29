@@ -103,7 +103,7 @@ pub struct ExecutionMachineState<CS: CommitmentScheme + Clone> {
 /// AFT executes a proposal before its descendant certificate makes the
 /// proposal an Agentgres-recognized effect.  A higher-view proposal at the
 /// same height may therefore legitimately replace the local projection.  The
-/// Each snapshot is deliberately in-memory and grants no authority. The
+/// snapshot is deliberately in-memory and grants no authority. The
 /// machine retains only the two projections required by the AFT two-chain
 /// pipeline, and callers must separately bind the Agentgres admission floor.
 pub(crate) struct AftTipRollbackSnapshot<ST: StateManager> {
@@ -126,10 +126,17 @@ const MAX_AFT_SPECULATIVE_PROJECTIONS: u64 = 2;
 
 fn aft_branch_rollback_count(
     live_height: u64,
+    expected_live_height: u64,
     target_height: u64,
     recognized_height: u64,
     available_snapshots: usize,
 ) -> Result<usize, ChainError> {
+    if live_height != expected_live_height {
+        return Err(ChainError::Transaction(format!(
+            "stale AFT live-tip fence: expected {}, live {}",
+            expected_live_height, live_height
+        )));
+    }
     if target_height <= recognized_height {
         return Err(ChainError::Transaction(format!(
             "AFT branch replacement target {} is at or below Agentgres-recognized height {}",
@@ -519,10 +526,8 @@ where
     /// evidence of finality or authority.
     pub async fn rollback_aft_branch_projection(
         &mut self,
-        expected_height: u64,
-        expected_parent_state_root: &[u8],
-        expected_state_root: &[u8],
-        expected_transactions_root: &[u8],
+        expected_target: &Block<ChainTransaction>,
+        expected_live_tip: &Block<ChainTransaction>,
         recognized_height: u64,
     ) -> Result<(), ChainError>
     where
@@ -533,9 +538,11 @@ where
                 "tip replacement is available only to the canonical AFT profile".into(),
             ));
         }
+        let expected_height = expected_target.header.height;
         let live_height = self.state.status.height;
         let rollback_count = aft_branch_rollback_count(
             live_height,
+            expected_live_tip.header.height,
             expected_height,
             recognized_height,
             self.aft_tip_rollbacks.len(),
@@ -553,12 +560,22 @@ where
                     expected_height
                 ))
             })?;
-        if target_tip.header.parent_state_root.0 != expected_parent_state_root
-            || target_tip.header.state_root.0 != expected_state_root
-            || target_tip.header.transactions_root != expected_transactions_root
+        if codec::to_bytes_canonical(target_tip).map_err(ChainError::Transaction)?
+            != codec::to_bytes_canonical(expected_target).map_err(ChainError::Transaction)?
         {
             return Err(ChainError::Transaction(
                 "changed-byte or stale AFT branch replacement target fence".into(),
+            ));
+        }
+
+        let live_tip = self.state.recent_blocks.last().ok_or_else(|| {
+            ChainError::Transaction("AFT branch replacement has no live tip block".into())
+        })?;
+        if codec::to_bytes_canonical(live_tip).map_err(ChainError::Transaction)?
+            != codec::to_bytes_canonical(expected_live_tip).map_err(ChainError::Transaction)?
+        {
+            return Err(ChainError::Transaction(
+                "changed-byte or stale AFT branch replacement live-tip fence".into(),
             ));
         }
 
@@ -577,23 +594,64 @@ where
                         projected_height
                     ))
                 })?;
+            let projected_parent = self
+                .state
+                .recent_blocks
+                .iter()
+                .rev()
+                .find(|block| block.header.height.saturating_add(1) == projected_height)
+                .ok_or_else(|| {
+                    ChainError::Transaction(format!(
+                        "AFT projected parent of height {} is unavailable for branch fencing",
+                        projected_height
+                    ))
+                })?;
+            let snapshot_parent = snapshot.recent_blocks.last().ok_or_else(|| {
+                ChainError::Transaction(format!(
+                    "AFT rollback snapshot for height {} has no parent block",
+                    projected_height
+                ))
+            })?;
+            let projected_parent_hash = projected_parent
+                .header
+                .hash()
+                .map_err(|error| ChainError::Transaction(error.to_string()))?;
             if snapshot.projected_height != projected_height
                 || snapshot.projected_parent_state_root != projected.header.parent_state_root.0
                 || snapshot.projected_state_root != projected.header.state_root.0
                 || snapshot.projected_transactions_root != projected.header.transactions_root
                 || snapshot.status.height.saturating_add(1) != projected_height
+                || codec::to_bytes_canonical(snapshot_parent).map_err(ChainError::Transaction)?
+                    != codec::to_bytes_canonical(projected_parent)
+                        .map_err(ChainError::Transaction)?
+                || projected.header.parent_hash.as_slice() != projected_parent_hash.as_slice()
+                || projected.header.parent_state_root != projected_parent.header.state_root
             {
                 return Err(ChainError::Transaction(format!(
                     "AFT rollback snapshot does not bind projected height {}",
                     projected_height
                 )));
             }
+            let snapshot_root = snapshot.state_tree.root_commitment().as_ref().to_vec();
+            if snapshot_root != snapshot.last_state_root {
+                return Err(ChainError::Transaction(format!(
+                    "AFT rollback snapshot for height {} restores root {} instead of {}",
+                    projected_height,
+                    hex::encode(snapshot_root),
+                    hex::encode(&snapshot.last_state_root)
+                )));
+            }
         }
-
-        let live_tip = self.state.recent_blocks.last().ok_or_else(|| {
-            ChainError::Transaction("AFT branch replacement has no live tip block".into())
-        })?;
-        let mut live_root = {
+        let restored_parent = &self.aft_tip_rollbacks[snapshot_start];
+        if restored_parent.status.height.saturating_add(1) != expected_height
+            || restored_parent.last_state_root != expected_target.header.parent_state_root.0
+        {
+            return Err(ChainError::Transaction(format!(
+                "AFT rollback snapshot suffix does not restore the fenced parent of height {}",
+                expected_height
+            )));
+        }
+        let live_root = {
             let state = self.workload_container.state_tree().read_owned().await;
             state.root_commitment().as_ref().to_vec()
         };
@@ -606,28 +664,16 @@ where
             )));
         }
 
-        for projected_height in (expected_height..=live_height).rev() {
-            let snapshot = self.aft_tip_rollbacks.pop().ok_or_else(|| {
-                ChainError::Transaction("AFT branch rollback snapshot disappeared".into())
-            })?;
-            if snapshot.projected_height != projected_height {
-                return Err(ChainError::Transaction(format!(
-                    "AFT branch rollback order changed: expected {}, found {}",
-                    projected_height, snapshot.projected_height
-                )));
-            }
+        // Every fallible fence is complete before split_off mutates the
+        // snapshot stack. A crash before the later durable replacement commit
+        // leaves the pre-call durable projection in place; a completed commit
+        // publishes the replacement bytes.
+        let retired_snapshots = self.aft_tip_rollbacks.split_off(snapshot_start);
+        for snapshot in retired_snapshots.into_iter().rev() {
             {
                 let state_tree = self.workload_container.state_tree();
                 let mut state = state_tree.write().await;
                 *state = snapshot.state_tree;
-                live_root = state.root_commitment().as_ref().to_vec();
-                if live_root != snapshot.last_state_root {
-                    return Err(ChainError::Transaction(format!(
-                        "AFT branch rollback restored root {} instead of parent {}",
-                        hex::encode(&live_root),
-                        hex::encode(&snapshot.last_state_root)
-                    )));
-                }
             }
             self.state.status = snapshot.status;
             self.state.recent_blocks = snapshot.recent_blocks;
@@ -637,15 +683,6 @@ where
             self.services = snapshot.services;
             self.service_manager = snapshot.service_manager;
             self.service_meta_cache = snapshot.service_meta_cache;
-        }
-
-        if self.state.status.height.saturating_add(1) != expected_height
-            || live_root != expected_parent_state_root
-        {
-            return Err(ChainError::Transaction(format!(
-                "AFT branch rollback did not reach the fenced parent of height {}",
-                expected_height
-            )));
         }
 
         tracing::warn!(

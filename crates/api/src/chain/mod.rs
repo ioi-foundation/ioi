@@ -68,12 +68,14 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
 
     /// Atomically replaces a bounded AFT workload projection branch.
     ///
-    /// The validator may call this only after proving that Agentgres has not
-    /// admitted `expected_tip`. Implementations must revalidate the complete
-    /// execution surface under the same lock used for rollback and replacement.
+    /// The validator may call this only after draining pending admission and
+    /// proving that Agentgres has not admitted `expected_target`.
+    /// Implementations must revalidate the complete target and live-tip bytes
+    /// under the same lock used for rollback and replacement.
     async fn replace_unfinalized_tip(
         &self,
-        _expected_tip: Block<ChainTransaction>,
+        _expected_target: Block<ChainTransaction>,
+        _expected_live_tip: Block<ChainTransaction>,
         _replacement: Block<ChainTransaction>,
         _recognized_height: u64,
     ) -> Result<

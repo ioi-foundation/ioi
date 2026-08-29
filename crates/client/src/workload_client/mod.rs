@@ -744,7 +744,8 @@ impl WorkloadClientApi for WorkloadClient {
 
     async fn replace_unfinalized_tip(
         &self,
-        expected_tip: Block<ChainTransaction>,
+        expected_target: Block<ChainTransaction>,
+        expected_live_tip: Block<ChainTransaction>,
         replacement: Block<ChainTransaction>,
         recognized_height: u64,
     ) -> ioi_types::Result<
@@ -758,11 +759,15 @@ impl WorkloadClientApi for WorkloadClient {
         let request = ReplaceUnfinalizedTipRequest {
             replacement_block_bytes: codec::to_bytes_canonical(&replacement)
                 .map_err(ChainError::Transaction)?,
-            expected_tip_height: expected_tip.header.height,
-            expected_parent_state_root: expected_tip.header.parent_state_root.0,
-            expected_state_root: expected_tip.header.state_root.0,
-            expected_transactions_root: expected_tip.header.transactions_root,
+            expected_tip_height: expected_target.header.height,
+            expected_parent_state_root: expected_target.header.parent_state_root.0.clone(),
+            expected_state_root: expected_target.header.state_root.0.clone(),
+            expected_transactions_root: expected_target.header.transactions_root.clone(),
             recognized_height,
+            expected_target_block_bytes: codec::to_bytes_canonical(&expected_target)
+                .map_err(ChainError::Transaction)?,
+            expected_live_tip_block_bytes: codec::to_bytes_canonical(&expected_live_tip)
+                .map_err(ChainError::Transaction)?,
         };
         let mut client = self.chain.lock().await;
         let response = client
