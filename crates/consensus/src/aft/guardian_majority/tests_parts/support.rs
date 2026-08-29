@@ -716,6 +716,128 @@ fn build_validator_sets(validators: Vec<AccountId>) -> ValidatorSetsV1 {
     }
 }
 
+/// A validator set whose members hold real Ed25519 keys.
+///
+/// Evidence built from this fixture can actually be *verified* rather than
+/// merely asserted, which is what the authenticated quorum path requires. Tests
+/// that only need a set of account ids should keep using
+/// [`build_validator_sets`].
+struct AuthenticatedValidators {
+    keypairs: Vec<Keypair>,
+    sets: ValidatorSetsV1,
+}
+
+impl AuthenticatedValidators {
+    /// Builds `count` validators, each with a fresh Ed25519 consensus key.
+    fn new(count: usize) -> Self {
+        let keypairs: Vec<Keypair> = (0..count).map(|_| Keypair::generate_ed25519()).collect();
+        let mut validators: Vec<ValidatorV1> = keypairs
+            .iter()
+            .map(|keypair| {
+                let hash = ioi_types::app::account_id_from_key_material(
+                    SignatureSuite::ED25519,
+                    &keypair.public().encode_protobuf(),
+                )
+                .expect("derive validator key hash");
+                ValidatorV1 {
+                    account_id: AccountId(hash),
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::ED25519,
+                        public_key_hash: hash,
+                        since_height: 1,
+                    },
+                }
+            })
+            .collect();
+        // The canonical set is sorted by account id.
+        validators.sort_by(|left, right| left.account_id.0.cmp(&right.account_id.0));
+        Self {
+            keypairs,
+            sets: ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: validators.len() as u128,
+                    validators,
+                },
+                next: None,
+            },
+        }
+    }
+
+    fn account_id(&self, index: usize) -> AccountId {
+        AccountId(
+            ioi_types::app::account_id_from_key_material(
+                SignatureSuite::ED25519,
+                &self.keypairs[index].public().encode_protobuf(),
+            )
+            .expect("derive validator account id"),
+        )
+    }
+
+    /// Teaches an engine this membership and every member's raw public key.
+    fn install(&self, engine: &mut GuardianMajorityEngine, height: u64) {
+        engine.remember_validator_sets(height, &self.sets);
+        engine.remember_validator_count(height, self.keypairs.len());
+        for keypair in &self.keypairs {
+            assert!(
+                engine.record_validator_public_key(&keypair.public().encode_protobuf()),
+                "engine should record a well-formed Ed25519 consensus key"
+            );
+        }
+    }
+
+    /// Teaches an engine the membership but deliberately withholds the raw
+    /// keys, reproducing a node that has seen chain state but not yet
+    /// authenticated the peers behind it.
+    fn install_without_keys(&self, engine: &mut GuardianMajorityEngine, height: u64) {
+        engine.remember_validator_sets(height, &self.sets);
+        engine.remember_validator_count(height, self.keypairs.len());
+    }
+
+    fn signed_vote(
+        &self,
+        index: usize,
+        height: u64,
+        view: u64,
+        block_hash: [u8; 32],
+    ) -> ConsensusVote {
+        let preimage = authenticated_quorum::consensus_vote_signing_bytes(height, view, &block_hash)
+            .expect("vote preimage");
+        ConsensusVote {
+            height,
+            view,
+            block_hash,
+            voter: self.account_id(index),
+            signature: self.keypairs[index].sign(&preimage).expect("sign vote"),
+        }
+    }
+
+    /// Builds a certificate genuinely signed by each named member.
+    fn signed_qc(
+        &self,
+        signers: &[usize],
+        height: u64,
+        view: u64,
+        block_hash: [u8; 32],
+    ) -> QuorumCertificate {
+        QuorumCertificate {
+            height,
+            view,
+            block_hash,
+            signatures: signers
+                .iter()
+                .map(|index| {
+                    let vote = self.signed_vote(*index, height, view, block_hash);
+                    (vote.voter, vote.signature)
+                })
+                .collect(),
+            aggregated_signature: vec![],
+            signers_bitfield: vec![],
+        }
+    }
+}
+
 fn build_parent_view_with_asymptote_observers(
     committee_manifest: &GuardianCommitteeManifest,
     log_descriptors: &[GuardianTransparencyLogDescriptor],

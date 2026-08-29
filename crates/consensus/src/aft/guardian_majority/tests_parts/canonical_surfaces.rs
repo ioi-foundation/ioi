@@ -2,33 +2,16 @@
 fn reset_promotes_unique_quorum_candidate_for_committed_height() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
     let block_hash = [9u8; 32];
-    engine.remember_validator_count(5, 4);
+    let validators = AuthenticatedValidators::new(4);
+    validators.install(&mut engine, 5);
     engine.vote_pool.insert(
         5,
         HashMap::from([(
             block_hash,
             vec![
-                ConsensusVote {
-                    height: 5,
-                    view: 0,
-                    block_hash,
-                    voter: AccountId([1u8; 32]),
-                    signature: vec![1u8],
-                },
-                ConsensusVote {
-                    height: 5,
-                    view: 0,
-                    block_hash,
-                    voter: AccountId([2u8; 32]),
-                    signature: vec![2u8],
-                },
-                ConsensusVote {
-                    height: 5,
-                    view: 0,
-                    block_hash,
-                    voter: AccountId([3u8; 32]),
-                    signature: vec![3u8],
-                },
+                validators.signed_vote(0, 5, 0, block_hash),
+                validators.signed_vote(1, 5, 0, block_hash),
+                validators.signed_vote(2, 5, 0, block_hash),
             ],
         )]),
     );
@@ -47,36 +30,52 @@ fn reset_promotes_unique_quorum_candidate_for_committed_height() {
 }
 
 #[test]
+fn reset_does_not_promote_quorum_candidate_whose_votes_do_not_verify() {
+    // The promotion path assembles a certificate from the local pool and then
+    // propagates it. Forged votes must not survive that assembly even though
+    // they are numerous enough to clear the threshold.
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
+    let block_hash = [29u8; 32];
+    let validators = AuthenticatedValidators::new(4);
+    validators.install(&mut engine, 5);
+    let forged = |index: usize| {
+        let mut vote = validators.signed_vote(index, 5, 0, block_hash);
+        vote.signature = vec![0xAAu8; 64];
+        vote
+    };
+    engine.vote_pool.insert(
+        5,
+        HashMap::from([(block_hash, vec![forged(0), forged(1), forged(2)])]),
+    );
+
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
+
+    assert!(engine.highest_qc.height < 5);
+    assert!(
+            <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::take_pending_quorum_certificates(
+                &mut engine,
+            )
+            .is_empty()
+        );
+}
+
+#[test]
 fn asymptote_reset_does_not_promote_vote_only_quorum_candidate_for_committed_height() {
+    // The votes here are genuine, so this isolates the Asymptote collapse
+    // requirement. With forged votes the assertion would hold for the wrong
+    // reason and would stop proving anything about collapse backing.
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
     let block_hash = [19u8; 32];
-    engine.remember_validator_count(5, 4);
+    let validators = AuthenticatedValidators::new(4);
+    validators.install(&mut engine, 5);
     engine.vote_pool.insert(
         5,
         HashMap::from([(
             block_hash,
             vec![
-                ConsensusVote {
-                    height: 5,
-                    view: 0,
-                    block_hash,
-                    voter: AccountId([1u8; 32]),
-                    signature: vec![1u8],
-                },
-                ConsensusVote {
-                    height: 5,
-                    view: 0,
-                    block_hash,
-                    voter: AccountId([2u8; 32]),
-                    signature: vec![2u8],
-                },
-                ConsensusVote {
-                    height: 5,
-                    view: 0,
-                    block_hash,
-                    voter: AccountId([3u8; 32]),
-                    signature: vec![3u8],
-                },
+                validators.signed_vote(0, 5, 0, block_hash),
+                validators.signed_vote(1, 5, 0, block_hash),
+                validators.signed_vote(2, 5, 0, block_hash),
             ],
         )]),
     );

@@ -1,18 +1,16 @@
+// These tests exercise the Asymptote collapse-backing rules for quorum
+// certificates. They carry genuine Ed25519 memberships and real signatures so
+// the authenticated path admits the evidence; what each test isolates is the
+// *collapse* gate, not the signature gate. A certificate that failed
+// authentication would be refused for the wrong reason and the test would no
+// longer prove what it claims.
+
 #[tokio::test]
 async fn asymptote_handle_quorum_certificate_does_not_advance_without_local_header() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    engine.remember_validator_count(1, 3);
-    let qc = QuorumCertificate {
-        height: 1,
-        view: 0,
-        block_hash: [44u8; 32],
-        signatures: vec![
-            (AccountId([1u8; 32]), vec![1u8]),
-            (AccountId([2u8; 32]), vec![2u8]),
-        ],
-        aggregated_signature: vec![],
-        signers_bitfield: vec![],
-    };
+    let validators = AuthenticatedValidators::new(3);
+    validators.install(&mut engine, 1);
+    let qc = validators.signed_qc(&[0, 1], 1, 0, [44u8; 32]);
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,
@@ -34,7 +32,8 @@ async fn asymptote_handle_quorum_certificate_does_not_advance_without_local_head
 #[tokio::test]
 async fn asymptote_handle_quorum_certificate_advances_with_local_header() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    engine.remember_validator_count(1, 3);
+    let validators = AuthenticatedValidators::new(3);
+    validators.install(&mut engine, 1);
     let header = build_progress_parent_header(1, 0);
     let block_hash = to_root_hash(&header.hash().unwrap()).unwrap();
     engine
@@ -42,17 +41,7 @@ async fn asymptote_handle_quorum_certificate_advances_with_local_header() {
         .entry((header.height, header.view))
         .or_default()
         .insert(block_hash, header);
-    let qc = QuorumCertificate {
-        height: 1,
-        view: 0,
-        block_hash,
-        signatures: vec![
-            (AccountId([1u8; 32]), vec![1u8]),
-            (AccountId([2u8; 32]), vec![2u8]),
-        ],
-        aggregated_signature: vec![],
-        signers_bitfield: vec![],
-    };
+    let qc = validators.signed_qc(&[0, 1], 1, 0, block_hash);
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,
@@ -69,7 +58,8 @@ async fn asymptote_handle_quorum_certificate_advances_with_local_header() {
 #[tokio::test]
 async fn asymptote_handle_quorum_certificate_does_not_advance_without_previous_anchor() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    engine.remember_validator_count(2, 3);
+    let validators = AuthenticatedValidators::new(3);
+    validators.install(&mut engine, 2);
 
     let previous_collapse = test_canonical_collapse_object(1, None, [60u8; 32], [61u8; 32]);
     let mut header = build_progress_parent_header(2, 0);
@@ -81,17 +71,7 @@ async fn asymptote_handle_quorum_certificate_does_not_advance_without_previous_a
         .or_default()
         .insert(block_hash, header);
 
-    let qc = QuorumCertificate {
-        height: 2,
-        view: 0,
-        block_hash,
-        signatures: vec![
-            (AccountId([1u8; 32]), vec![1u8]),
-            (AccountId([2u8; 32]), vec![2u8]),
-        ],
-        aggregated_signature: vec![],
-        signers_bitfield: vec![],
-    };
+    let qc = validators.signed_qc(&[0, 1], 2, 0, block_hash);
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,
@@ -107,7 +87,8 @@ async fn asymptote_handle_quorum_certificate_does_not_advance_without_previous_a
 async fn asymptote_handle_quorum_certificate_does_not_advance_without_carried_previous_collapse_certificate(
 ) {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    engine.remember_validator_count(2, 3);
+    let validators = AuthenticatedValidators::new(3);
+    validators.install(&mut engine, 2);
 
     let previous_collapse = test_canonical_collapse_object(1, None, [70u8; 32], [71u8; 32]);
     engine
@@ -124,17 +105,7 @@ async fn asymptote_handle_quorum_certificate_does_not_advance_without_carried_pr
         .or_default()
         .insert(block_hash, header);
 
-    let qc = QuorumCertificate {
-        height: 2,
-        view: 0,
-        block_hash,
-        signatures: vec![
-            (AccountId([1u8; 32]), vec![1u8]),
-            (AccountId([2u8; 32]), vec![2u8]),
-        ],
-        aggregated_signature: vec![],
-        signers_bitfield: vec![],
-    };
+    let qc = validators.signed_qc(&[0, 1], 2, 0, block_hash);
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,
@@ -150,7 +121,8 @@ async fn asymptote_handle_quorum_certificate_does_not_advance_without_carried_pr
 async fn asymptote_handle_quorum_certificate_does_not_advance_with_mismatched_local_previous_collapse(
 ) {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    engine.remember_validator_count(3, 3);
+    let validators = AuthenticatedValidators::new(3);
+    validators.install(&mut engine, 3);
 
     let grandparent_collapse = test_canonical_collapse_object(1, None, [72u8; 32], [73u8; 32]);
     let previous_collapse =
@@ -177,17 +149,7 @@ async fn asymptote_handle_quorum_certificate_does_not_advance_with_mismatched_lo
         .or_default()
         .insert(block_hash, header);
 
-    let qc = QuorumCertificate {
-        height: 3,
-        view: 0,
-        block_hash,
-        signatures: vec![
-            (AccountId([1u8; 32]), vec![1u8]),
-            (AccountId([2u8; 32]), vec![2u8]),
-        ],
-        aggregated_signature: vec![],
-        signers_bitfield: vec![],
-    };
+    let qc = validators.signed_qc(&[0, 1], 3, 0, block_hash);
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,
@@ -202,7 +164,8 @@ async fn asymptote_handle_quorum_certificate_does_not_advance_with_mismatched_lo
 #[tokio::test]
 async fn asymptote_handle_quorum_certificate_advances_with_recursive_proof_backed_predecessor() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    engine.remember_validator_count(3, 3);
+    let validators = AuthenticatedValidators::new(3);
+    validators.install(&mut engine, 3);
 
     let grandparent_collapse = test_canonical_collapse_object(1, None, [76u8; 32], [77u8; 32]);
     let previous_collapse =
@@ -226,17 +189,7 @@ async fn asymptote_handle_quorum_certificate_advances_with_recursive_proof_backe
         .or_default()
         .insert(block_hash, header);
 
-    let qc = QuorumCertificate {
-        height: 3,
-        view: 0,
-        block_hash,
-        signatures: vec![
-            (AccountId([1u8; 32]), vec![1u8]),
-            (AccountId([2u8; 32]), vec![2u8]),
-        ],
-        aggregated_signature: vec![],
-        signers_bitfield: vec![],
-    };
+    let qc = validators.signed_qc(&[0, 1], 3, 0, block_hash);
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,
@@ -257,7 +210,8 @@ async fn asymptote_handle_quorum_certificate_rejects_succinct_labeled_predecesso
     // manually because the extension-certificate builder itself refuses
     // succinct-labeled predecessors.
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    engine.remember_validator_count(3, 3);
+    let validators = AuthenticatedValidators::new(3);
+    validators.install(&mut engine, 3);
 
     let grandparent_collapse = test_canonical_collapse_object(1, None, [80u8; 32], [81u8; 32]);
     let mut previous_collapse =
@@ -288,17 +242,7 @@ async fn asymptote_handle_quorum_certificate_rejects_succinct_labeled_predecesso
         .or_default()
         .insert(block_hash, header);
 
-    let qc = QuorumCertificate {
-        height: 3,
-        view: 0,
-        block_hash,
-        signatures: vec![
-            (AccountId([1u8; 32]), vec![1u8]),
-            (AccountId([2u8; 32]), vec![2u8]),
-        ],
-        aggregated_signature: vec![],
-        signers_bitfield: vec![],
-    };
+    let qc = validators.signed_qc(&[0, 1], 3, 0, block_hash);
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,
@@ -313,7 +257,8 @@ async fn asymptote_handle_quorum_certificate_rejects_succinct_labeled_predecesso
 #[tokio::test]
 async fn asymptote_handle_quorum_certificate_rejects_invalid_succinct_predecessor_proof() {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
-    engine.remember_validator_count(3, 3);
+    let validators = AuthenticatedValidators::new(3);
+    validators.install(&mut engine, 3);
 
     let grandparent_collapse = test_canonical_collapse_object(1, None, [84u8; 32], [85u8; 32]);
     let mut previous_collapse =
@@ -348,17 +293,7 @@ async fn asymptote_handle_quorum_certificate_rejects_invalid_succinct_predecesso
         .or_default()
         .insert(block_hash, header);
 
-    let qc = QuorumCertificate {
-        height: 3,
-        view: 0,
-        block_hash,
-        signatures: vec![
-            (AccountId([1u8; 32]), vec![1u8]),
-            (AccountId([2u8; 32]), vec![2u8]),
-        ],
-        aggregated_signature: vec![],
-        signers_bitfield: vec![],
-    };
+    let qc = validators.signed_qc(&[0, 1], 3, 0, block_hash);
 
     <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
         &mut engine,

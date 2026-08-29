@@ -1,11 +1,14 @@
 // Path: crates/consensus/src/aft/guardian_majority/mod.rs
 
+use crate::aft::authenticated_quorum::{self, AftFinalizedQuorumEvent, ValidatorKeyRegistry};
 use crate::common::penalty::apply_quarantine_penalty;
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism};
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView, StateRef};
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::consensus::{CanonicalCollapseContinuityVerifier, ConsensusControl};
+use ioi_api::consensus::{
+    CanonicalCollapseContinuityVerifier, ConsensusControl, NativeAftFinalizedEvidence,
+};
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_crypto::sign::guardian_committee::{verify_quorum_certificate, verify_witness_certificate};
 use ioi_crypto::sign::guardian_log::{
@@ -59,7 +62,7 @@ use ioi_types::app::{
     GuardianWitnessSet, GuardianWitnessStatement, ProofOfDivergence, PublicationFrontier,
     PublicationFrontierContradiction, QuorumCertificate, RecoveredCanonicalHeaderEntry,
     RecoveredCertifiedHeaderEntry, RecoveredRestartBlockHeaderEntry, TimeoutCertificate,
-    ViewChangeVote,
+    ValidatorSetV1, ValidatorSetsV1, ViewChangeVote,
 };
 use ioi_types::codec;
 use ioi_types::config::AftSafetyMode;
@@ -70,7 +73,7 @@ use ioi_types::keys::{
 };
 use libp2p::identity::PublicKey;
 use libp2p::PeerId;
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use tracing::{debug, error, info, warn};
 
 // Imports for Aft deterministic components
@@ -269,6 +272,28 @@ pub struct GuardianMajorityEngine {
     /// Early-height warmup delay so bootstrap blocks are not minted while the
     /// rest of the validator set is still starting up.
     bootstrap_grace_until: Instant,
+
+    // --- Authenticated quorum state ---
+    /// Raw public keys this node has authenticated, keyed by the derived key
+    /// hash a validator record binds. Without a raw key a vote is unverifiable,
+    /// and unverifiable evidence is refused rather than trusted.
+    key_registry: ValidatorKeyRegistry,
+
+    /// Validator sets exactly as read from an anchored state view, recorded
+    /// against the height they were observed at.
+    ///
+    /// `handle_vote` carries no state view, so authentication needs the set it
+    /// was last shown. Storing the full `ValidatorSetsV1` rather than one
+    /// flattened slice keeps `effective_set_for_height` authoritative for any
+    /// height, instead of guessing which set was in force.
+    validator_sets_by_height: BTreeMap<u64, ValidatorSetsV1>,
+
+    /// Finalized-block evidence awaiting a drain by the runtime bridge.
+    finalized_quorum_events: VecDeque<AftFinalizedQuorumEvent>,
+
+    /// Blocks already released as finalized evidence, so a repeated `decide`
+    /// or a re-observed certificate cannot emit the same finality twice.
+    emitted_finalized_quorums: HashSet<(u64, [u8; 32])>,
 }
 
 #[derive(Clone)]

@@ -26,7 +26,10 @@ use async_trait::async_trait;
 use ioi_api::{
     chain::{AnchoredStateView, ChainView},
     commitment::CommitmentScheme,
-    consensus::{ConsensusControl, ConsensusDecision, ConsensusEngine, PenaltyMechanism},
+    consensus::{
+        ConsensusControl, ConsensusDecision, ConsensusEngine, NativeAftFinalizedEvidence,
+        PenaltyMechanism,
+    },
     state::{StateAccess, StateManager},
 };
 use ioi_system::SystemState;
@@ -654,6 +657,62 @@ where
             }
             Consensus::Solo(engine) => {
                 <SoloEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(engine)
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn drain_finalized_native_quorums(&mut self) -> Vec<NativeAftFinalizedEvidence> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::drain_finalized_native_quorums(engine)
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::drain_finalized_native_quorums(
+                    engine,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::drain_finalized_native_quorums(engine)
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::drain_finalized_native_quorums(engine)
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn observe_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::observe_validator_public_key(
+                    engine,
+                    protobuf_public_key,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::observe_validator_public_key(
+                    engine,
+                    protobuf_public_key,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::observe_validator_public_key(
+                    engine,
+                    protobuf_public_key,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::observe_validator_public_key(
+                    engine,
+                    protobuf_public_key,
+                )
             }
             Consensus::_Phantom(_) => unreachable!(),
         }

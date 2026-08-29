@@ -107,6 +107,59 @@ pub trait CanonicalCollapseContinuityVerifier: Send + Sync {
     ) -> Result<(), CoreError>;
 }
 
+/// One member whose signature over a finalized block's own quorum certificate
+/// was cryptographically verified, carried with the raw key material that
+/// verification actually used.
+///
+/// The on-chain validator record binds only a *hash* of the consensus key, so a
+/// downstream consumer cannot recover `public_key` from chain state alone. An
+/// engine that emits this has already checked the signature; it reports the key
+/// so a relying party can recheck rather than take the engine's word.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeAftQuorumSigner {
+    /// The validator-set member whose record bound this key.
+    pub account_id: AccountId,
+    /// The suite the member's active consensus key declares.
+    pub suite: ioi_types::app::SignatureSuite,
+    /// Canonical raw public key bytes used to verify `signature`.
+    pub public_key: Vec<u8>,
+    /// The verified signature over the certificate's native signing preimage.
+    pub signature: Vec<u8>,
+}
+
+/// Evidence that a block reached chained finality under a native quorum, with
+/// every signature independently re-verified at finalization time.
+///
+/// This is deliberately source-neutral: it names no engine and carries no
+/// engine-private state, so any consensus implementation that can prove a
+/// chained commit may emit it.
+///
+/// `quorum_certificate` is the finalized block's **own** certificate — the
+/// parent certificate the two-chain rule committed — never the child
+/// certificate whose arrival triggered the commit.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeAftFinalizedEvidence {
+    /// The finalized block's own quorum certificate.
+    pub quorum_certificate: QuorumCertificate,
+    /// Distinct signers, each re-verified against the effective validator set.
+    pub signers: Vec<NativeAftQuorumSigner>,
+    /// Voting members declared by the effective set at the finalized height.
+    pub total_voting_members: u64,
+    /// Faults the membership honestly tolerates under `n >= 3f + 1`.
+    pub byzantine_fault_tolerance: u64,
+    /// The distinct-signer count the running safety mode required.
+    pub quorum_threshold: u64,
+    /// Distinct members whose signature verified over this exact certificate.
+    /// Never a count of signature bytes present, and never a weight sum.
+    pub distinct_member_signatures_verified: u64,
+    /// Whether this evidence may back a `bft_consensus_aft_v1` export.
+    ///
+    /// Only a classical-BFT safety mode may set this. Majority and guardian
+    /// modes carry different assumptions and are never relabelled as
+    /// `3f+1`/`2f+1`.
+    pub bft_consensus_aft_v1_qualified: bool,
+}
+
 /// The core trait for a pluggable consensus engine, defining the interface for block production and validation.
 #[async_trait]
 pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
@@ -163,6 +216,36 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     /// Returns newly formed quorum certificates that should be propagated to peers.
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
         Vec::new()
+    }
+
+    /// Drains evidence for blocks that reached chained finality since the last
+    /// call.
+    ///
+    /// An engine must queue an entry only after its own commit rule and every
+    /// existing gate have already passed, and must release each finalized block
+    /// exactly once. Draining is destructive: a caller that drops the returned
+    /// evidence has dropped it for good.
+    ///
+    /// Engines with no native quorum notion return nothing.
+    fn drain_finalized_native_quorums(&mut self) -> Vec<NativeAftFinalizedEvidence> {
+        Vec::new()
+    }
+
+    /// Offers the engine a protobuf-encoded public key the node has already
+    /// authenticated, so signature checks can bind a raw key to a validator
+    /// record that stores only a key hash.
+    ///
+    /// This is an *offer*, not an authorization: recording a key grants its
+    /// holder nothing. The key still has to match the hash a validator record
+    /// binds before any signature from it counts. Returns whether the key was
+    /// recorded.
+    ///
+    /// Peer keys do not need this method — [`ConsensusEngine::decide`] already
+    /// receives the authenticated `known_peers` set, and an Ed25519 peer id
+    /// inlines its own key. This exists for the node's own consensus key, which
+    /// appears in no peer set.
+    fn observe_validator_public_key(&mut self, _protobuf_public_key: &[u8]) -> bool {
+        false
     }
 
     /// Records a locally committed block header so engines can use it as a

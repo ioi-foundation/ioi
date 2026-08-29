@@ -613,10 +613,21 @@ impl GuardianMajorityEngine {
             .unwrap_or_default();
 
         if quorum_candidates.len() == 1 {
-            let qc = quorum_candidates
-                .into_iter()
-                .next()
-                .expect("exactly one QC candidate");
+            let Some(qc) = quorum_candidates.into_iter().next() else {
+                return;
+            };
+            // A certificate this node assembles from its own pool is held to
+            // exactly the standard a peer's certificate is, and is checked
+            // before it is remembered, adopted as `highest_qc`, or propagated.
+            if let Err(error) = self.authenticated_quorum(&qc) {
+                debug!(
+                    target: "consensus",
+                    height,
+                    error = %error,
+                    "Refusing to promote a locally assembled quorum certificate that does not independently verify"
+                );
+                return;
+            }
             self.remember_qc(&qc);
             self.highest_qc = qc.clone();
             self.queue_qc_broadcast(&qc);
@@ -718,15 +729,15 @@ impl GuardianMajorityEngine {
             return Ok(());
         }
 
-        let unique_signers: HashSet<AccountId> =
-            qc.signatures.iter().map(|(voter, _)| *voter).collect();
-        let threshold = self.quorum_count_threshold_for_height(qc.height);
-        if unique_signers.len() < threshold {
-            return Err(ConsensusError::BlockVerificationFailed(format!(
-                "QC below quorum threshold for height {}",
-                qc.height
-            )));
-        }
+        // The single authentication chokepoint for quorum certificates. Both
+        // `handle_quorum_certificate` (a peer's certificate) and `handle_vote`
+        // (a certificate this node just assembled from its own pool) land here,
+        // so neither can advance `highest_qc` on unverified signatures.
+        //
+        // This subsumes the old distinct-signer count: the authenticated path
+        // rejects empty and duplicate-signer certificates outright and counts
+        // only signers whose signature actually verified over this exact block.
+        self.authenticated_quorum(&qc)?;
 
         let header = self.local_header_for_qc(&qc);
         let recovered_header = self.local_recovered_header_for_qc(&qc);

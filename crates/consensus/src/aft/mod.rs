@@ -1,4 +1,5 @@
 pub mod adversarial_campaigns;
+pub mod authenticated_quorum;
 pub mod boundary_ring_trace;
 pub mod experimental;
 pub mod guardian_majority;
@@ -8,7 +9,7 @@ use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism}
 use async_trait::async_trait;
 use ioi_api::chain::{AnchoredStateView, ChainView};
 use ioi_api::commitment::CommitmentScheme;
-use ioi_api::consensus::ConsensusControl;
+use ioi_api::consensus::{ConsensusControl, NativeAftFinalizedEvidence};
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_system::SystemState;
 use ioi_types::app::{
@@ -266,6 +267,19 @@ where
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
         <GuardianMajorityEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(
             &mut self.core,
+        )
+    }
+
+    fn drain_finalized_native_quorums(&mut self) -> Vec<NativeAftFinalizedEvidence> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::drain_finalized_native_quorums(
+            &mut self.core,
+        )
+    }
+
+    fn observe_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::observe_validator_public_key(
+            &mut self.core,
+            protobuf_public_key,
         )
     }
 }

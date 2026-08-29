@@ -76,6 +76,12 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         parent_view: &dyn AnchoredStateView,
         known_peers: &HashSet<PeerId>,
     ) -> ConsensusDecision<T> {
+        // Harvest keys from peers the transport already authenticated. An
+        // Ed25519 peer id inlines its own public key, so this recovers the raw
+        // key material that validator records only bind by hash. It grants no
+        // authority: a key still has to match an authorized record to count.
+        self.learn_authenticated_peer_keys(known_peers);
+
         // 1. Poll the Commit Guard
         // Ready commits only become internal finality once their committed slot is
         // also backed by the canonical collapse surface in Asymptote mode.
@@ -105,6 +111,11 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     "Safety Gadget: Finalized height {}",
                     finalized_qc.height
                 );
+                // Only here, after the two-chain rule, the guard timer, and the
+                // collapse gate have all passed. `finalized_qc` is the
+                // finalized block's own certificate, not the child certificate
+                // whose arrival triggered the commit.
+                self.queue_finalized_quorum_event(&finalized_qc);
             } else {
                 break;
             }
@@ -185,6 +196,9 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             return ConsensusDecision::Stall;
         }
         self.remember_validator_count(height, active_validators.len());
+        // Retain the authoritative sets so `handle_vote`, which carries no
+        // state view, can still authenticate against real membership.
+        self.remember_validator_sets(height, &sets);
 
         let mut current_view = { self.pacemaker.lock().await.current_view };
         let bootstrap_first_commit_pending =
@@ -644,6 +658,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .filter(|id| !quarantined.contains(id))
             .collect();
         self.remember_validator_count(header.height, active_validators.len());
+        self.remember_validator_sets(header.height, &sets);
 
         let validator_count = active_validators.len() as u64;
         if validator_count == 0 {
@@ -824,6 +839,11 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     }
 
     async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError> {
+        // Authenticate before the vote can influence any quorum. A vote that
+        // fails here never reaches the pool, so it can never be counted toward
+        // a threshold nor appear in a certificate this node assembles.
+        self.authenticated_vote(&vote)?;
+
         // Safety Check: Don't process votes if not safe
         if !self.safety.safe_to_vote(vote.view, vote.height - 1) {
             // Logic for unsafe vote handling (optional)
@@ -837,6 +857,17 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             return Ok(());
         }
         votes.push(vote.clone());
+
+        // Only votes cast in the certificate's own view may back it. Each vote
+        // signed a preimage that commits to its view, so mixing views would
+        // assemble a certificate whose own signatures cannot verify against it.
+        // In practice a block hash binds one view, so this changes nothing on
+        // the normal path.
+        let votes: Vec<ConsensusVote> = votes
+            .iter()
+            .filter(|pooled| pooled.view == vote.view)
+            .cloned()
+            .collect();
 
         if votes.len() >= threshold {
             let qc = QuorumCertificate {
@@ -950,5 +981,16 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
         self.drain_pending_quorum_certificates()
+    }
+
+    fn drain_finalized_native_quorums(&mut self) -> Vec<NativeAftFinalizedEvidence> {
+        self.take_finalized_quorum_events()
+            .into_iter()
+            .map(Into::into)
+            .collect()
+    }
+
+    fn observe_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {
+        self.record_validator_public_key(protobuf_public_key)
     }
 }

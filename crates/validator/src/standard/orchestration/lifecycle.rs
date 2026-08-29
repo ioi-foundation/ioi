@@ -723,6 +723,27 @@ where
             .await
             .insert(local_account_id, initial_nonce);
 
+        // Register this node's own consensus key before any task that can cast
+        // or replay a self-vote is spawned. Peer keys arrive on their own —
+        // `decide` receives the authenticated `known_peers` set and an Ed25519
+        // peer id inlines its key — but the local key appears in no peer set,
+        // so without this the node cannot verify even its own votes.
+        //
+        // Recording a key authorizes nothing: it still has to match the key
+        // hash an on-chain validator record binds before any signature counts.
+        let local_consensus_public_key = self.local_keypair.public().encode_protobuf();
+        if !self
+            .consensus_engine
+            .lock()
+            .await
+            .observe_validator_public_key(&local_consensus_public_key)
+        {
+            tracing::debug!(
+                target: "orchestration",
+                "Consensus engine did not record the local consensus key; engines without a native quorum notion ignore it."
+            );
+        }
+
         let context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             tx_pool_ref: self.tx_pool.clone(),

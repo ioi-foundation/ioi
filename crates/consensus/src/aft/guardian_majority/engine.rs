@@ -1,5 +1,11 @@
 use super::*;
 
+/// How many observed validator-set snapshots to retain.
+///
+/// Authentication only ever looks near the tip, so this bounds growth while
+/// still covering votes that arrive for recent heights out of order.
+const VALIDATOR_SET_CACHE_DEPTH: usize = 64;
+
 impl GuardianMajorityEngine {
     pub(super) fn benchmark_trace_enabled() -> bool {
         std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
@@ -43,6 +49,10 @@ impl GuardianMajorityEngine {
             bootstrap_grace_until: Instant::now()
                 .checked_add(Duration::from_secs(bootstrap_grace_secs))
                 .unwrap_or_else(Instant::now),
+            key_registry: ValidatorKeyRegistry::new(),
+            validator_sets_by_height: BTreeMap::new(),
+            finalized_quorum_events: VecDeque::new(),
+            emitted_finalized_quorums: HashSet::new(),
         }
     }
 
@@ -123,6 +133,143 @@ impl GuardianMajorityEngine {
             .unwrap_or(self.cached_validator_count)
             .max(1);
         self.quorum_count_threshold(count)
+    }
+
+    /// Records the validator sets exactly as read from an anchored state view.
+    pub(super) fn remember_validator_sets(&mut self, height: u64, sets: &ValidatorSetsV1) {
+        self.validator_sets_by_height.insert(height, sets.clone());
+        while self.validator_sets_by_height.len() > VALIDATOR_SET_CACHE_DEPTH {
+            let Some(oldest) = self.validator_sets_by_height.keys().next().copied() else {
+                break;
+            };
+            self.validator_sets_by_height.remove(&oldest);
+        }
+    }
+
+    /// The effective validator set to authenticate evidence for `height`.
+    ///
+    /// Uses the most recent sets observed at or **below** `height`. There is
+    /// deliberately no fallback to a newer observation: a membership that took
+    /// effect after the evidence was produced must never be used to authenticate
+    /// it, or a rotated-in validator could retroactively validate history it was
+    /// never part of.
+    ///
+    /// Returns `None` when nothing was observed at or below `height`, which
+    /// makes every signature check fail closed rather than admit evidence
+    /// against an assumed membership.
+    pub(super) fn effective_validator_set_for(&self, height: u64) -> Option<ValidatorSetV1> {
+        let sets = self
+            .validator_sets_by_height
+            .range(..=height)
+            .next_back()
+            .map(|(_, sets)| sets)?;
+        Some(effective_set_for_height(sets, height).clone())
+    }
+
+    /// Learns the keys inlined in already-authenticated peer identities.
+    ///
+    /// The transport authenticated these peers, and an Ed25519 peer id carries
+    /// its own public key, so this adds no trust: it only makes a key the node
+    /// already holds usable for signature checks. A peer that is not a
+    /// validator simply never matches a validator record.
+    pub(super) fn learn_authenticated_peer_keys(&mut self, peers: &HashSet<PeerId>) {
+        for peer in peers {
+            let _ = self.key_registry.learn_peer_id(peer);
+        }
+    }
+
+    /// Records a protobuf-encoded public key the node has authenticated.
+    pub(super) fn record_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {
+        let Ok(key) = PublicKey::try_decode_protobuf(protobuf_public_key) else {
+            return false;
+        };
+        self.key_registry.learn_public_key(&key).is_ok()
+    }
+
+    /// Re-verifies a certificate against the effective set and known raw keys.
+    ///
+    /// Used for both received and locally assembled certificates so the two can
+    /// never diverge: a certificate this node built from its own vote pool is
+    /// held to exactly the standard a peer's certificate is.
+    pub(super) fn authenticated_quorum(
+        &self,
+        qc: &QuorumCertificate,
+    ) -> Result<authenticated_quorum::VerifiedQuorum, ConsensusError> {
+        let set = self.effective_validator_set_for(qc.height).ok_or_else(|| {
+            ConsensusError::BlockVerificationFailed(format!(
+                "no observed validator set to authenticate the quorum certificate for height {}",
+                qc.height
+            ))
+        })?;
+        authenticated_quorum::verify_quorum_certificate(
+            qc,
+            &set,
+            &self.key_registry,
+            self.safety_mode,
+            self.quorum_count_threshold_for_height(qc.height),
+        )
+    }
+
+    /// Verifies one loose vote before it may enter the vote pool.
+    pub(super) fn authenticated_vote(
+        &self,
+        vote: &ConsensusVote,
+    ) -> Result<authenticated_quorum::VerifiedSigner, ConsensusError> {
+        let set = self
+            .effective_validator_set_for(vote.height)
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "no observed validator set to authenticate a vote for height {}",
+                    vote.height
+                ))
+            })?;
+        authenticated_quorum::verify_consensus_vote(vote, &set, &self.key_registry)
+    }
+
+    /// Queues finalized-block evidence, exactly once per finalized block.
+    ///
+    /// Callers must already have passed the commit rule and every existing
+    /// guard and collapse gate. The certificate re-verifies here rather than
+    /// reusing an earlier verdict, so evidence is never emitted on the strength
+    /// of a check that happened under a different membership.
+    pub(super) fn queue_finalized_quorum_event(&mut self, qc: &QuorumCertificate) {
+        // Genesis and the synthetic parent certificates the engine mints for
+        // restart continuity carry no signatures by construction. They are
+        // internal scaffolding for parent selection, never quorum evidence, so
+        // they are never exported. `authenticated_quorum` would refuse them
+        // anyway; refusing here keeps the intent explicit.
+        if qc.height == 0 {
+            return;
+        }
+
+        let dedup_key = (qc.height, qc.block_hash);
+        if self.emitted_finalized_quorums.contains(&dedup_key) {
+            return;
+        }
+        match self.authenticated_quorum(qc) {
+            Ok(verified) => {
+                self.emitted_finalized_quorums.insert(dedup_key);
+                self.finalized_quorum_events
+                    .push_back(AftFinalizedQuorumEvent::from_verified(verified));
+            }
+            Err(error) => {
+                // Finality already happened internally; what is missing is the
+                // key material to prove it to a third party. Emitting a
+                // half-populated event would misreport that as a proven quorum.
+                warn!(
+                    target: "consensus",
+                    height = qc.height,
+                    view = qc.view,
+                    error = %error,
+                    "Committed block finalized without independently verifiable quorum evidence; emitting no finality event"
+                );
+            }
+        }
+    }
+
+    /// Drains finalized-block evidence accumulated since the last call.
+    pub(super) fn take_finalized_quorum_events(&mut self) -> Vec<AftFinalizedQuorumEvent> {
+        self.finalized_quorum_events.drain(..).collect()
     }
 
     pub(super) fn remember_qc(&mut self, qc: &QuorumCertificate) {
