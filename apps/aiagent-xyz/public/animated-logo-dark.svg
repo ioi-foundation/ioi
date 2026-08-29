@@ -9,7 +9,7 @@
       }
 
       .st1 {
-        fill: #00234d;
+        fill: #eef4f8;
       }
 
       .st2 {
@@ -176,12 +176,12 @@
     <linearGradient id="linear-gradient" x1="196.91" y1="95.88" x2="240.53" y2="181.48" gradientUnits="userSpaceOnUse">
       <animate attributeName="y1" values="95.88;91.6;95.88;100.16;95.88" dur="8s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"/>
       <animate attributeName="y2" values="181.48;177.2;181.48;185.77;181.48" dur="8s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"/>
-      <stop offset="0" stop-color="#00234d"/>
-      <stop offset=".1333333" stop-color="#00408c"/>
-      <stop offset=".1742667" stop-color="#044994"/>
-      <stop offset=".2983281" stop-color="#1160a8"/>
-      <stop offset=".4152109" stop-color="#186eb4"/>
-      <stop offset=".5166667" stop-color="#1b73b9"/>
+      <stop offset="0" stop-color="#9fc4ea"/>
+      <stop offset=".1333333" stop-color="#8ab4e2"/>
+      <stop offset=".1742667" stop-color="#83b0de"/>
+      <stop offset=".2983281" stop-color="#6da3d8"/>
+      <stop offset=".4152109" stop-color="#5f9bd4"/>
+      <stop offset=".5166667" stop-color="#5897d2"/>
       <stop offset="1" stop-color="#212668"/>
     </linearGradient>
     <linearGradient id="linear-gradient1" x1="225.77" y1="81.17" x2="269.39" y2="166.78" xlink:href="#linear-gradient">
@@ -243,11 +243,11 @@
       <stop offset="0" stop-color="#2fba82"/>
       <stop offset=".45" stop-color="#0ba8b4"/>
       <stop offset=".78" stop-color="#017db9"/>
-      <stop offset="1" stop-color="#00408c"/>
+      <stop offset="1" stop-color="#8ab4e2"/>
       <animate attributeName="y1" values="75.43;70.53;75.43;80.33;75.43" dur="8s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"/>
       <animate attributeName="y2" values="168.81;163.91;168.81;173.71;168.81" dur="8s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"/>
     </linearGradient>
-    <linearGradient id="i-fold-grad" x1="300.02" y1="75.43" x2="300.02" y2="90.83" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00234d"/><stop offset="1" stop-color="#044994"/></linearGradient>
+    <linearGradient id="i-fold-grad" x1="300.02" y1="75.43" x2="300.02" y2="90.83" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9fc4ea"/><stop offset="1" stop-color="#83b0de"/></linearGradient>
     <clipPath id="i-mark-clip">
       <rect x="289.52" y="75.43" width="21" height="93.38" rx="9.8"/>
     </clipPath>

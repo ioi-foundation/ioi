@@ -1,35 +1,49 @@
 @import "tailwindcss";
 
-/* High-density utility styling */
-:root {
-  --bg-app: #f0f2f5;
-  --bg-card: #ffffff;
-  --border: #e1e4e8;
-  --text-main: #1f2937;
-  --text-muted: #6b7280;
-  --primary: #2563eb;    /* Trust Blue */
-  --accent: #d97706;     /* Freelance Gold */
-  --success: #10b981;    /* Profit Green */
-}
+/* Product surfaces own their own colour through the primitives in
+   src/product/ui.jsx. This file carries only the document-level baseline, so
+   the two can never drift apart: body matches the shell's slate-50 ground. */
 
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg-app);
-  color: var(--text-main);
+  background: #f8fafc;
+  color: #020617;
   -webkit-font-smoothing: antialiased;
 }
 
 * { box-sizing: border-box; }
 
-/* Utility Classes */
-.badge {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
+/* Keyboard focus. Buttons carried a focus-visible ring from their own utility
+   class, but links, cards, disclosure summaries and pills did not — 37 of 41
+   interactive elements on the listing page had no focus style at all, which
+   makes the surface unusable by keyboard. One rule covers every focusable
+   element rather than 37 call sites remembering to opt in. */
+:where(a, button, summary, select, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 0.5rem;
 }
-.badge-new { background: #dbeafe; color: #1e40af; }
-.badge-hot { background: #fee2e2; color: #991b1b; }
-.badge-verified { background: #d1fae5; color: #065f46; }
+
+/* The document scrolls under a sticky header; anchor jumps should not land
+   beneath it. Measured rather than guessed: the console routes add a store
+   ticker above the brand row, making the header 163px there against the 144px
+   this used to reserve — so an anchored heading landed 19px behind it while its
+   controls, further down, cleared. 11rem clears the tallest of them. */
+html { scroll-padding-top: 11rem; }
+
+/* The brand mark runs a continuous 10s pulse-and-draw cycle, and cards, pills
+   and popovers all transition. None of it honoured a stated preference for
+   reduced motion, which for some users is a vestibular problem rather than a
+   taste one. Animation is cut to a single frame instead of removed, so nothing
+   disappears or loses its final state. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

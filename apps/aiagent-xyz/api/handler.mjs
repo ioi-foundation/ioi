@@ -96,10 +96,12 @@ export function createApiHandler(service, { developmentAuthority = false, sessio
       if ((params = match(pathname, '/v1/marketplace/workers/:workerId/quote')) && request.method === 'POST') return json(response, 201, await service.quoteWorker(params.workerId, body, context)), true;
       if ((params = match(pathname, '/v1/marketplace/workers/:workerId/instances')) && request.method === 'POST') return json(response, 201, await service.hireWorker(params.workerId, body, context)), true;
 
+      if (request.method === 'GET' && pathname === '/v1/marketplace/quotes') return json(response, 200, { items: await service.listQuotes(context) }), true;
       if (request.method === 'GET' && pathname === '/v1/marketplace/instances') return json(response, 200, { items: await service.listInstances(context) }), true;
       if ((params = match(pathname, '/v1/marketplace/instances/:instanceId'))) {
         if (request.method === 'GET') return json(response, 200, await service.getInstance(params.instanceId, context)), true;
       }
+      if ((params = match(pathname, '/v1/marketplace/instances/:instanceId/onboarding-plan')) && request.method === 'GET') return json(response, 200, await service.onboardingPlan(params.instanceId, context)), true;
       if ((params = match(pathname, '/v1/marketplace/instances/:instanceId/:transition')) && request.method === 'POST' && ['suspend', 'resume', 'archive', 'restore'].includes(params.transition)) return json(response, 202, await service.transitionInstance(params.instanceId, params.transition, body, context)), true;
       if ((params = match(pathname, '/v1/marketplace/instances/:instanceId/integrations')) && request.method === 'POST') return json(response, 201, await service.addIntegration(params.instanceId, body, context)), true;
       if ((params = match(pathname, '/v1/marketplace/instances/:instanceId/integrations/:bindingId/test')) && request.method === 'POST') return json(response, 200, await service.testIntegration(params.instanceId, params.bindingId, body, context)), true;

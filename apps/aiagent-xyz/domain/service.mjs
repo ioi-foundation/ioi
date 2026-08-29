@@ -33,6 +33,189 @@ export const seedState = {
   idempotency: {},
 };
 
+/* ── listing disclosure ─────────────────────────────────────────────────
+ *
+ * A public listing carries a projection of the exact composition the package
+ * owner admitted. Two tiers, and canon draws the line between them.
+ *
+ * Canon, "Listing Admission And Benchmark Metadata": every public worker
+ * listing exposes "ModelRoute policy, HarnessProfile or AgentHarnessAdapter
+ * ref, runtime profile, privacy posture" as DEFAULT metadata. Default is not
+ * the seller's option, so these project whatever the promotion says.
+ *
+ * Canon, "Hire And Configure Flow": the buyer's first act is to "inspect fit,
+ * benchmarks, evals, access needs, runtime options, and delivery options".
+ * Access needs and the task contract are the seller's to admit, and the record
+ * of that decision already exists — `disclosure_allowlist` on the promotion
+ * proposal, which this domain has required, type-checked, stored and receipted
+ * since the first cut, and never once read.
+ */
+const DEFAULT_LISTING_DISCLOSURE = ['model_route_ref', 'harness_ref', 'runtime_profile_ref', 'memory_policy'];
+const ALLOWLISTABLE_DISCLOSURE = ['task_contract', 'integration_surfaces', 'authority_scopes'];
+// Identity: a listing that cannot be named cannot be listed, so these are not
+// disclosure decisions. They are already copied onto the listing at publication
+// and are named here only so an allowlist naming them is not rejected as unknown.
+const LISTING_IDENTITY_FIELDS = ['name', 'description', 'pricing'];
+const KNOWN_DISCLOSURE_FIELDS = [...LISTING_IDENTITY_FIELDS, ...DEFAULT_LISTING_DISCLOSURE, ...ALLOWLISTABLE_DISCLOSURE];
+
+// Four states per field, decided here rather than inferred by a surface:
+//   disclosed   the admitted composition declares it and it may be shown
+//   undeclared  it may be shown, and the composition carries no value for it
+//   withheld    the publisher did not admit this field for public disclosure
+// and, for the whole block, `resolved: false` — the admitted composition could
+// not be reached, which is not the same as a package that declares nothing.
+function projectDisclosure(state, listing) {
+  const registration = state.registrations.find((item) => item.registration_ref === listing.registration_ref);
+  const submission = state.submissions.find((item) => item.submission_id === listing.submission_id);
+  const promotion = submission && state.promotions.find((item) => item.promotion_ref === submission.promotion_ref);
+  const draft = registration && state.drafts.find((item) => item.draft_ref === registration.draft_ref);
+  // The values are only the admitted ones if they are the values that were
+  // hashed. A released draft is immutable, so this holds — and it is asserted
+  // rather than assumed, because the whole disclosure rests on it.
+  if (!draft || !promotion || draft.validation?.composition_root !== listing.composition_root) {
+    return { resolved: false, reason: 'admitted_composition_not_resolvable' };
+  }
+  const allowlist = Array.isArray(promotion.disclosure_allowlist) ? promotion.disclosure_allowlist : [];
+  const fields = {};
+  for (const field of [...DEFAULT_LISTING_DISCLOSURE, ...ALLOWLISTABLE_DISCLOSURE]) {
+    const admitted = DEFAULT_LISTING_DISCLOSURE.includes(field) || allowlist.includes(field);
+    if (!admitted) { fields[field] = { state: 'withheld' }; continue; }
+    const value = draft[field];
+    if (value === undefined || value === null || value === '') { fields[field] = { state: 'undeclared' }; continue; }
+    fields[field] = { state: 'disclosed', value };
+  }
+  return { resolved: true, composition_root: listing.composition_root, fields };
+}
+
+/* ── onboarding plan ────────────────────────────────────────────────────
+ *
+ * Canon, "Managed Worker Onboarding Plans": "Agent onboarding should be compiled
+ * from package declarations and buyer environment state, not hardcoded as a
+ * bespoke wizard per worker." Both sides of that compiler are records this
+ * domain already holds — the admitted composition on one side, the instance's
+ * bindings and runtime assignment on the other — so the plan is a derivation
+ * and never a second spine.
+ *
+ * It compiles three of canon's eleven step kinds, because three are all this
+ * domain has records for, and it says so rather than presenting three as the
+ * whole plan. A plan that silently omitted contact channels and dry runs would
+ * report a worker ready when nothing had checked the things it left out.
+ */
+const COMPILED_STEP_KINDS = ['connector_binding', 'authority_grant', 'runtime_selection'];
+const UNCOMPILED_STEP_KINDS = {
+  contact_channel_binding: 'no ContactDeliveryChannel record exists in this domain',
+  model_route_selection: 'the package declares one model route and nothing selects between routes',
+  harness_selection: 'the package declares one harness and nothing selects between harnesses',
+  schedule_or_standing_order: 'no schedule or standing-order record exists in this domain',
+  notification_policy: 'no notification policy record exists in this domain',
+  dry_run: 'no dry-run record exists in this domain',
+  policy_acceptance: 'no policy-acceptance record exists in this domain',
+  admin_review: 'no admin-review record exists in this domain',
+};
+
+function compileOnboardingPlan(state, instance) {
+  const listing = state.listings.find((item) => item.worker_id === instance.worker_id);
+  const registration = listing && state.registrations.find((item) => item.registration_ref === listing.registration_ref);
+  const draft = registration && state.drafts.find((item) => item.draft_ref === registration.draft_ref);
+  if (!draft || draft.validation?.composition_root !== instance_composition(state, instance)) {
+    return { compiled: false, reason: 'admitted_composition_not_resolvable' };
+  }
+  // The template is where a requirement LEVEL comes from: it declares which
+  // surfaces it requires. A surface the composition names that the template
+  // does not require has no declared level, and this says so rather than
+  // promoting it to `required` — canon's vocabulary has four levels and a
+  // compiler that picks one for the publisher is inventing their manifest.
+  const template = state.templates.find((item) => item.template_ref === draft.template_ref);
+  const requiredSurfaces = template?.required_integration_surfaces || [];
+  const bindings = instance.integrations || [];
+  const boundScopes = new Set(bindings.flatMap((binding) => binding.scope_refs || []));
+
+  const steps = [];
+  for (const surface of draft.integration_surfaces || []) {
+    const binding = bindings.find((item) => item.integration_surface === surface);
+    steps.push({
+      step_ref: `onboarding-step://connector-binding/${encodeURIComponent(surface)}`,
+      kind: 'connector_binding',
+      // Canon's four levels, or null. Null is not "optional".
+      requirement: requiredSurfaces.includes(surface) ? 'required' : null,
+      requirement_source: requiredSurfaces.includes(surface) ? draft.template_ref : null,
+      // This domain's binding states mapped onto canon's step statuses, which is
+      // what a compiler is for. bound_untested is `ready` — the grant exists and
+      // nothing has exercised it; only a test receipt makes it `completed`.
+      status: !binding ? 'missing' : binding.state === 'ready' ? 'completed' : 'ready',
+      integration_surface_ref: surface,
+      authority_grant_refs: binding ? [binding.credential_ref] : [],
+      test_receipt_ref: binding?.test_receipt_ref || null,
+    });
+  }
+  for (const scope of draft.authority_scopes || []) {
+    steps.push({
+      step_ref: `onboarding-step://authority-grant/${encodeURIComponent(scope)}`,
+      kind: 'authority_grant',
+      requirement: null,
+      requirement_source: null,
+      status: boundScopes.has(scope) ? 'completed' : 'missing',
+      authority_requirement_refs: [scope],
+      authority_grant_refs: bindings.filter((item) => (item.scope_refs || []).includes(scope)).map((item) => item.credential_ref),
+      test_receipt_ref: null,
+    });
+  }
+  steps.push({
+    step_ref: 'onboarding-step://runtime-selection',
+    kind: 'runtime_selection',
+    requirement: 'required',
+    requirement_source: 'hire',
+    status: instance.runtime_assignment_ref ? 'completed' : 'missing',
+    runtime_assignment_ref: instance.runtime_assignment_ref || null,
+    test_receipt_ref: null,
+  });
+
+  const missingRequired = steps.filter((step) => step.requirement === 'required' && step.status === 'missing');
+  const undeclared = steps.filter((step) => step.requirement === null && step.status !== 'completed');
+  // Fail closed, and refuse to guess. A missing required step blocks. Everything
+  // completed is full. Anything left over is a step whose requirement level the
+  // package never declared, and a mode compiled over that would be this domain
+  // deciding how much of a worker's manifest is optional.
+  const readiness = missingRequired.length
+    ? { mode: 'blocked', missing_required_steps: missingRequired.map((step) => step.step_ref) }
+    : steps.every((step) => step.status === 'completed')
+      ? { mode: 'full', missing_required_steps: [] }
+      : { mode: null, reason: 'undeclared_requirement_levels', undeclared_steps: undeclared.map((step) => step.step_ref), missing_required_steps: [] };
+
+  return {
+    compiled: true,
+    worker_composition_ref: draft.validation.composition_root,
+    target_instance_ref: `worker-instance://${instance.worker_instance_id}`,
+    steps,
+    readiness: {
+      ...readiness,
+      next_action_ref: steps.find((step) => step.status === 'missing')?.step_ref || null,
+    },
+    compiled_step_kinds: COMPILED_STEP_KINDS,
+    uncompiled_step_kinds: UNCOMPILED_STEP_KINDS,
+  };
+}
+
+// What the admitted composition behind an instance declares it needs. Null when
+// that composition cannot be resolved, which callers treat as a refusal rather
+// than as an empty declaration.
+function declaredAuthority(state, instance) {
+  const registration = state.registrations.find((item) => item.release_ref === instance.release_ref);
+  const draft = registration && state.drafts.find((item) => item.draft_ref === registration.draft_ref);
+  if (!draft || draft.validation?.composition_root !== registration.composition_root) return null;
+  return {
+    integration_surfaces: draft.integration_surfaces || [],
+    authority_scopes: draft.authority_scopes || [],
+  };
+}
+
+// The composition an instance is actually running, taken through the release it
+// was installed from rather than through the listing's current contents.
+const instance_composition = (state, instance) => {
+  const registration = state.registrations.find((item) => item.release_ref === instance.release_ref);
+  return registration?.composition_root ?? null;
+};
+
 export class DomainError extends Error {
   constructor(status, code, message, details = undefined) {
     super(message);
@@ -122,14 +305,35 @@ export class AiagentService {
         state: 'draft',
         name: required(body.name, 'name'),
         description: required(body.description, 'description'),
-        task_contract: body.task_contract || { input: 'SupportTicket', output: 'SupportResolution' },
-        model_route_ref: body.model_route_ref || null,
-        harness_ref: body.harness_ref || null,
-        runtime_profile_ref: body.runtime_profile_ref || null,
-        integration_surfaces: body.integration_surfaces || template.required_integration_surfaces,
-        authority_scopes: body.authority_scopes || [],
-        memory_policy: body.memory_policy || 'buyer-bound',
-        pricing: body.pricing || { asset: 'USD', amount_minor: 4900, cadence: 'month' },
+        // Null where nothing was declared, never a substitute for it. These are
+        // the publisher's declarations about their own package, and three of
+        // them used to be written by this function when the publisher said
+        // nothing: a task contract of SupportTicket → SupportResolution, a
+        // retention posture of buyer-bound, and a price of USD 49.00 a month.
+        //
+        // Every one of those then entered the composition hash, was admitted by
+        // the package owner under it, and — once a listing projects the
+        // composition — would be published as the publisher's own word. The
+        // store this UI was designed against carries seven workers whose task
+        // contract says SupportTicket because of this line, including a game
+        // resource farmer and a medical billing agent.
+        //
+        // A missing declaration is a validation failure, not a default. Canon:
+        // "task classes and typed input/output contracts" is a binding a
+        // registration must carry, and `validateDraft` already refuses a draft
+        // that has no task contract — a refusal this default made unreachable.
+        task_contract: body.task_contract ?? null,
+        model_route_ref: body.model_route_ref ?? null,
+        harness_ref: body.harness_ref ?? null,
+        runtime_profile_ref: body.runtime_profile_ref ?? null,
+        // The one defensible default on this record: a template's required
+        // surfaces are that template's own declaration, and a draft created from
+        // it does require them. It is a value from a record, not one invented
+        // here.
+        integration_surfaces: body.integration_surfaces ?? template.required_integration_surfaces,
+        authority_scopes: body.authority_scopes ?? null,
+        memory_policy: body.memory_policy ?? null,
+        pricing: body.pricing ?? null,
         created_at: now(),
         updated_at: now(),
       };
@@ -230,6 +434,12 @@ export class AiagentService {
         license: required(body.license, 'license'), pricing: required(body.pricing, 'pricing'), created_at: now(),
       };
       if (!Array.isArray(promotion.disclosure_allowlist)) throw new DomainError(422, 'invalid_disclosure', 'disclosure_allowlist must be an array');
+      // The allowlist decides what a public listing carries, so a name nothing
+      // recognises is not a harmless extra: it is a disclosure the seller
+      // believes they made and the projection will never make. Closed set,
+      // refused at admission, with the known names in the error.
+      const unknown = promotion.disclosure_allowlist.filter((field) => !KNOWN_DISCLOSURE_FIELDS.includes(field));
+      if (unknown.length) throw new DomainError(422, 'invalid_disclosure', 'disclosure_allowlist names fields this listing projection cannot disclose', { unknown, known: KNOWN_DISCLOSURE_FIELDS });
       state.promotions.push(promotion);
       const receipt = appendReceipt(state, context, 'worker.promotion.created', promotion.promotion_ref, { registration_ref: registration.registration_ref });
       return { ...promotion, receipt_ref: receipt.receipt_ref };
@@ -295,14 +505,21 @@ export class AiagentService {
     }));
   }
 
+  // Disclosure is projected on read rather than copied at publication. The
+  // composition is immutable and a submitted promotion is no longer editable,
+  // so the two agree forever; projecting keeps one source of truth instead of a
+  // second copy on the listing that could drift from the record that admitted it.
   async listWorkers() {
-    return (await this.store.read()).listings.filter((item) => item.state === 'published');
+    const state = await this.store.read();
+    return state.listings.filter((item) => item.state === 'published')
+      .map((listing) => ({ ...listing, disclosure: projectDisclosure(state, listing) }));
   }
 
   async getWorker(workerId) {
-    const listing = (await this.store.read()).listings.find((item) => item.worker_id === workerId && item.state === 'published');
+    const state = await this.store.read();
+    const listing = state.listings.find((item) => item.worker_id === workerId && item.state === 'published');
     if (!listing) throw new DomainError(404, 'not_found', 'Worker listing was not found');
-    return listing;
+    return { ...listing, disclosure: projectDisclosure(state, listing) };
   }
 
   async quoteWorker(workerId, body, context) {
@@ -317,6 +534,38 @@ export class AiagentService {
       const receipt = appendReceipt(state, context, 'worker.quote.created', quote.quote_ref, { worker_id: workerId, amount: quote.amount }, [decision.receipt_ref]);
       return { ...quote, receipt_ref: receipt.receipt_ref };
     }));
+  }
+
+  // Quotes this principal holds, newest first, each with the listing it was
+  // minted against.
+  //
+  // Expiry is derived here rather than left to a surface: a quote's stored state
+  // is `open` until something consumes it, and an open quote fifteen minutes
+  // past `expires_at` is not open — `hireWorker` already refuses it. A cart that
+  // read `state` alone would have offered a checkout the domain would decline,
+  // which is the same defect in the other direction from an absence rendered as
+  // a finding.
+  async listQuotes(context) {
+    const state = await this.store.read();
+    const now = Date.now();
+    return owned(state.quotes, context, 'buyer_ref')
+      .map((quote) => ({
+        quote_ref: quote.quote_ref,
+        worker_id: quote.worker_id,
+        // Joined here rather than by a caller: a shell that resolved seven
+        // quotes into seven names would read the whole catalogue on every route
+        // to do it. Null when the listing is no longer published, which is a
+        // different fact from a quote with no worker and renders as one.
+        worker_name: state.listings.find((item) => item.worker_id === quote.worker_id && item.state === 'published')?.name ?? null,
+        release_ref: quote.release_ref,
+        amount: quote.amount,
+        expires_at: quote.expires_at,
+        // Three states, not two: the record's own, plus the one time makes true
+        // of it. `expired` is a fact about a stored timestamp, never a guess.
+        state: quote.state === 'open' && Date.parse(quote.expires_at) <= now ? 'expired' : quote.state,
+        owner_decision_receipt_ref: quote.owner_decision?.receipt_ref || null,
+      }))
+      .sort((left, right) => String(right.expires_at).localeCompare(String(left.expires_at)));
   }
 
   async hireWorker(workerId, body, context) {
@@ -362,6 +611,12 @@ export class AiagentService {
     return findOwned((await this.store.read()).instances, instanceId, context, 'worker_instance_id');
   }
 
+  async onboardingPlan(instanceId, context) {
+    const state = await this.store.read();
+    const instance = findOwned(state.instances, instanceId, context, 'worker_instance_id');
+    return compileOnboardingPlan(state, instance);
+  }
+
   async transitionInstance(instanceId, transition, body, context) {
     const payload = { instanceId, transition, ...body };
     const prior = await this.priorResult(context, payload);
@@ -393,7 +648,30 @@ export class AiagentService {
     if ('secret' in body || 'token' in body || 'password' in body) throw new DomainError(422, 'secret_custody_forbidden', 'Submit a credential_ref; marketplace state never accepts raw credentials');
     if (typeof body.credential_ref !== 'string' || !/^(credential-grant|authority-grant):\/\//.test(body.credential_ref)) throw new DomainError(422, 'credential_ref_invalid', 'credential_ref must identify an admitted credential or authority grant');
     if (!Array.isArray(body.scope_refs) || !body.scope_refs.length || body.scope_refs.some((item) => typeof item !== 'string' || !/^[A-Za-z][A-Za-z0-9._:-]+$/.test(item))) throw new DomainError(422, 'scope_refs_invalid', 'scope_refs must be a non-empty array of typed scope refs');
-    const request = { worker_instance_id: instanceId, integration_surface: required(body.integration_surface, 'integration_surface'), credential_ref: required(body.credential_ref, 'credential_ref'), scope_refs: required(body.scope_refs, 'scope_refs') };
+    // A binding may not grant authority the package never asked for, and may not
+    // reach a surface the package never declared.
+    //
+    // Nothing checked either. The seeded deployment binds `tickets:read` and
+    // `replies:draft` against a composition that declares `ticket:read`,
+    // `reply:draft` and `escalation:create` — three scopes granted, none of them
+    // the ones the manifest asked for, and no record anywhere said so until the
+    // onboarding plan compiled the two lists side by side and every authority
+    // step came out missing.
+    //
+    // The estate's structural law runs one way: policy narrows always, and
+    // widens only through governed authority. A buyer over-granting on their own
+    // instance is that law inverted, and the manifest is the ceiling.
+    const declared = declaredAuthority(snapshot, findOwned(snapshot.instances, instanceId, context, 'worker_instance_id'));
+    if (!declared) throw new DomainError(409, 'admitted_composition_not_resolvable', 'The composition this instance runs could not be resolved, so a binding cannot be checked against what it declares');
+    const surface = required(body.integration_surface, 'integration_surface');
+    if (!declared.integration_surfaces.includes(surface)) {
+      throw new DomainError(422, 'surface_not_declared', 'The admitted package does not declare this integration surface', { surface, declared: declared.integration_surfaces });
+    }
+    const undeclaredScopes = body.scope_refs.filter((scope) => !declared.authority_scopes.includes(scope));
+    if (undeclaredScopes.length) {
+      throw new DomainError(422, 'scope_not_declared', 'A binding may not grant a scope the admitted package does not declare', { undeclared: undeclaredScopes, declared: declared.authority_scopes });
+    }
+    const request = { worker_instance_id: instanceId, integration_surface: surface, credential_ref: required(body.credential_ref, 'credential_ref'), scope_refs: required(body.scope_refs, 'scope_refs') };
     const decision = await this.owners.authority.bindIntegration(request, context);
     return this.store.transact((state) => idempotent(state, context, payload, () => {
       const instance = findOwned(state.instances, instanceId, context, 'worker_instance_id');
