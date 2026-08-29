@@ -709,7 +709,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                             old_view = expected_target.header.view,
                             new_view = block.header.view,
                             error = %error,
-                            "AFT branch replacement fence changed before mutation; safely refused"
+                            "AFT branch replacement was refused before mutation or restored to its exact original projection"
                         );
                         return;
                     }

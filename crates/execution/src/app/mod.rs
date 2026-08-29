@@ -122,6 +122,17 @@ pub(crate) struct AftTipRollbackSnapshot<ST: StateManager> {
     pub service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
 }
 
+/// Opaque rollback material held across one speculative AFT replacement.
+///
+/// The token grants no ordering authority. It exists only so a replacement
+/// rejected before changing the durable target block or state root can restore the exact live
+/// projection and its bounded rollback suffix instead of freezing an honest
+/// node on peer-controlled invalid content.
+pub struct AftBranchRollbackTransaction<ST: StateManager> {
+    live_snapshot: AftTipRollbackSnapshot<ST>,
+    retired_snapshots: Vec<AftTipRollbackSnapshot<ST>>,
+}
+
 const MAX_AFT_SPECULATIVE_PROJECTIONS: u64 = 2;
 
 fn aft_branch_rollback_count(
@@ -529,7 +540,7 @@ where
         expected_target: &Block<ChainTransaction>,
         expected_live_tip: &Block<ChainTransaction>,
         recognized_height: u64,
-    ) -> Result<(), ChainError>
+    ) -> Result<AftBranchRollbackTransaction<ST>, ChainError>
     where
         ST: Clone,
     {
@@ -670,21 +681,27 @@ where
         // publishes replacement bytes at the target height; any retired higher
         // projection remains physically present but is hidden by the canonical
         // committed-height read boundary.
+        let live_snapshot = AftTipRollbackSnapshot {
+            projected_height: live_tip.header.height,
+            projected_parent_state_root: live_tip.header.parent_state_root.0.clone(),
+            projected_state_root: live_tip.header.state_root.0.clone(),
+            projected_transactions_root: live_tip.header.transactions_root.clone(),
+            state_tree: {
+                let state = self.workload_container.state_tree().read_owned().await;
+                state.clone()
+            },
+            status: self.state.status.clone(),
+            recent_blocks: self.state.recent_blocks.clone(),
+            recent_aft_recovered_state: self.state.recent_aft_recovered_state.clone(),
+            last_state_root: self.state.last_state_root.clone(),
+            genesis_state: self.state.genesis_state.clone(),
+            services: self.services.clone(),
+            service_manager: self.service_manager.clone(),
+            service_meta_cache: self.service_meta_cache.clone(),
+        };
         let retired_snapshots = self.aft_tip_rollbacks.split_off(snapshot_start);
-        for snapshot in retired_snapshots.into_iter().rev() {
-            {
-                let state_tree = self.workload_container.state_tree();
-                let mut state = state_tree.write().await;
-                *state = snapshot.state_tree;
-            }
-            self.state.status = snapshot.status;
-            self.state.recent_blocks = snapshot.recent_blocks;
-            self.state.recent_aft_recovered_state = snapshot.recent_aft_recovered_state;
-            self.state.last_state_root = snapshot.last_state_root;
-            self.state.genesis_state = snapshot.genesis_state;
-            self.services = snapshot.services;
-            self.service_manager = snapshot.service_manager;
-            self.service_meta_cache = snapshot.service_meta_cache;
+        for snapshot in retired_snapshots.iter().rev() {
+            self.apply_aft_projection_snapshot(snapshot).await;
         }
 
         tracing::warn!(
@@ -695,7 +712,46 @@ where
             restored_root = %hex::encode(&self.state.last_state_root),
             "Rolled back a bounded unrecognized AFT workload branch under exact projection fences"
         );
-        Ok(())
+        Ok(AftBranchRollbackTransaction {
+            live_snapshot,
+            retired_snapshots,
+        })
+    }
+
+    async fn apply_aft_projection_snapshot(&mut self, snapshot: &AftTipRollbackSnapshot<ST>)
+    where
+        ST: Clone,
+    {
+        {
+            let state_tree = self.workload_container.state_tree();
+            let mut state = state_tree.write().await;
+            *state = snapshot.state_tree.clone();
+        }
+        self.state.status = snapshot.status.clone();
+        self.state.recent_blocks = snapshot.recent_blocks.clone();
+        self.state.recent_aft_recovered_state = snapshot.recent_aft_recovered_state.clone();
+        self.state.last_state_root = snapshot.last_state_root.clone();
+        self.state.genesis_state = snapshot.genesis_state.clone();
+        self.services = snapshot.services.clone();
+        self.service_manager = snapshot.service_manager.clone();
+        self.service_meta_cache = snapshot.service_meta_cache.clone();
+    }
+
+    /// Restore the exact pre-replacement live projection after a rejection
+    /// proven to have left the durable target block and state root unchanged.
+    pub async fn restore_aft_branch_projection(
+        &mut self,
+        transaction: AftBranchRollbackTransaction<ST>,
+    ) where
+        ST: Clone,
+    {
+        self.apply_aft_projection_snapshot(&transaction.live_snapshot)
+            .await;
+        self.aft_tip_rollbacks.extend(transaction.retired_snapshots);
+        debug_assert!(
+            self.aft_tip_rollbacks.len() <= MAX_AFT_SPECULATIVE_PROJECTIONS as usize,
+            "restored AFT rollback suffix exceeded its protocol bound"
+        );
     }
 
     pub async fn load_or_initialize_status(

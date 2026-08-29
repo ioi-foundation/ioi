@@ -51,6 +51,22 @@ fn terminal_replacement_error(error: impl std::fmt::Display) -> Status {
     Status::aborted(error.to_string())
 }
 
+fn canonical_block_bytes_match(observed: &Block<ChainTransaction>, expected_bytes: &[u8]) -> bool {
+    codec::to_bytes_canonical(observed)
+        .map(|bytes| bytes == expected_bytes)
+        .unwrap_or(false)
+}
+
+fn canonical_durable_target_matches(
+    observed_block: &Block<ChainTransaction>,
+    observed_root: &[u8; 32],
+    expected_block_bytes: &[u8],
+    expected_root: &[u8],
+) -> bool {
+    canonical_block_bytes_match(observed_block, expected_block_bytes)
+        && observed_root.as_slice() == expected_root
+}
+
 // -----------------------------------------------------------------------------
 // ChainControl Service
 // -----------------------------------------------------------------------------
@@ -213,8 +229,9 @@ where
         // Bounded branch rollback, deterministic replay, and replacement
         // commit share one machine guard. No normal ProcessBlock call can
         // advance the branch or consume a snapshot between those boundaries.
+        let expected_target_bytes = request.expected_target_block_bytes.clone();
         let mut machine = self.ctx.machine.lock().await;
-        machine
+        let rollback = machine
             .rollback_aft_branch_projection(
                 &expected_target,
                 &expected_live_tip,
@@ -222,24 +239,59 @@ where
             )
             .await
             .map_err(|error| Status::failed_precondition(error.to_string()))?;
-        let prepared = machine
-            .prepare_block(replacement)
-            .await
-            // The projection has already been rewound. Any failure from this
-            // point is terminal for the live process and must reach the
-            // caller's quarantine arm rather than masquerading as a harmless
-            // pre-mutation fence refusal.
-            .map_err(terminal_replacement_error)?;
-        let execution_receipts = prepared
+        let prepared = match machine.prepare_block(replacement).await {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                machine.restore_aft_branch_projection(rollback).await;
+                return Err(Status::failed_precondition(format!(
+                    "AFT replacement replay rejected and original projection restored: {error}"
+                )));
+            }
+        };
+        let execution_receipts = match prepared
             .execution_receipts
             .iter()
             .map(codec::to_bytes_canonical)
             .collect::<Result<Vec<_>, _>>()
-            .map_err(Status::internal)?;
-        let (processed_block, events) = machine
-            .commit_block(prepared)
-            .await
-            .map_err(|error| Status::aborted(error.to_string()))?;
+        {
+            Ok(receipts) => receipts,
+            Err(error) => {
+                machine.restore_aft_branch_projection(rollback).await;
+                return Err(Status::internal(error));
+            }
+        };
+        let (processed_block, events) = match machine.commit_block(prepared).await {
+            Ok(committed) => committed,
+            Err(error) => {
+                let durable_target_unchanged = match (
+                    self.ctx
+                        .workload
+                        .store
+                        .get_block_by_height(expected_target.header.height),
+                    self.ctx
+                        .workload
+                        .store
+                        .root_for_height(expected_target.header.height),
+                ) {
+                    (Ok(Some(block)), Ok(Some(root))) => canonical_durable_target_matches(
+                        &block,
+                        &root.0,
+                        &expected_target_bytes,
+                        &expected_target.header.state_root.0,
+                    ),
+                    _ => false,
+                };
+                if durable_target_unchanged {
+                    machine.restore_aft_branch_projection(rollback).await;
+                    return Err(Status::failed_precondition(format!(
+                        "AFT replacement commit rejected before durable target change; original projection restored: {error}"
+                    )));
+                }
+                return Err(terminal_replacement_error(format!(
+                    "AFT replacement commit failed with changed or uncertain durable target: {error}"
+                )));
+            }
+        };
         let block_bytes = codec::to_bytes_canonical(&processed_block).map_err(Status::internal)?;
 
         Ok(Response::new(ProcessBlockResponse {
@@ -459,7 +511,15 @@ where
 
 #[cfg(test)]
 mod aft_replacement_tests {
-    use super::{replacement_parent_fence_matches, terminal_replacement_error};
+    use super::{
+        canonical_block_bytes_match, canonical_durable_target_matches,
+        replacement_parent_fence_matches, terminal_replacement_error,
+    };
+    use ioi_types::app::{
+        AccountId, Block, BlockHeader, ChainTransaction, QuorumCertificate, SignatureSuite,
+        StateRoot,
+    };
+    use ioi_types::codec;
     use tonic::Code;
 
     #[test]
@@ -501,10 +561,71 @@ mod aft_replacement_tests {
     }
 
     #[test]
-    fn every_post_rollback_failure_is_terminal_for_the_live_process() {
+    fn changed_or_uncertain_durable_failure_is_terminal_for_the_live_process() {
         let status = terminal_replacement_error("planted prepare failure");
         assert_eq!(status.code(), Code::Aborted);
         assert_eq!(status.message(), "planted prepare failure");
+    }
+
+    fn block(height: u64, view: u64) -> Block<ChainTransaction> {
+        Block {
+            header: BlockHeader {
+                height,
+                view,
+                parent_hash: [0x11; 32],
+                parent_state_root: StateRoot(vec![0x22; 32]),
+                state_root: StateRoot(vec![0x33; 32]),
+                transactions_root: vec![0x44; 32],
+                timestamp: 1,
+                timestamp_ms: 1_000,
+                gas_used: 0,
+                validator_set: Vec::new(),
+                producer_account_id: AccountId::default(),
+                producer_key_suite: SignatureSuite::ED25519,
+                producer_pubkey_hash: [0; 32],
+                producer_pubkey: Vec::new(),
+                oracle_counter: 0,
+                oracle_trace_hash: [0; 32],
+                guardian_certificate: None,
+                sealed_finality_proof: None,
+                canonical_order_certificate: None,
+                timeout_certificate: None,
+                parent_qc: QuorumCertificate::default(),
+                previous_canonical_collapse_commitment_hash: [0; 32],
+                canonical_collapse_extension_certificate: None,
+                publication_frontier: None,
+                signature: Vec::new(),
+            },
+            transactions: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn durable_target_comparison_refuses_changed_replacement_bytes() {
+        let expected = block(9, 0);
+        let expected_bytes = codec::to_bytes_canonical(&expected).unwrap();
+        assert!(canonical_block_bytes_match(&expected, &expected_bytes));
+        assert!(canonical_durable_target_matches(
+            &expected,
+            &[0x33; 32],
+            &expected_bytes,
+            &expected.header.state_root.0,
+        ));
+
+        let changed_view = block(9, 1);
+        assert!(!canonical_block_bytes_match(&changed_view, &expected_bytes));
+        assert!(!canonical_durable_target_matches(
+            &changed_view,
+            &[0x33; 32],
+            &expected_bytes,
+            &expected.header.state_root.0,
+        ));
+        assert!(!canonical_durable_target_matches(
+            &expected,
+            &[0x55; 32],
+            &expected_bytes,
+            &expected.header.state_root.0,
+        ));
     }
 }
 
