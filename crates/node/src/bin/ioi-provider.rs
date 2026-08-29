@@ -124,6 +124,7 @@ async fn main() -> Result<()> {
             vram_capacity: 0,
         },
         consensus_type: ConsensusType::Aft, // Follows chain consensus
+        finality_profile: None,
         aft_safety_mode: Default::default(),
         guardian_production_mode: Default::default(),
         key_authority: None,

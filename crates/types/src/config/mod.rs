@@ -1197,6 +1197,11 @@ pub struct OrchestrationConfig {
     pub validator_role: ValidatorRole,
     /// The consensus engine type.
     pub consensus_type: ConsensusType,
+    /// Exact versioned runtime finality profile. When absent, the legacy
+    /// `consensus_type` is resolved before admission (`Aft` ->
+    /// `bft_consensus_aft_v1`, `Solo` -> `single_authority_v1`).
+    #[serde(default)]
+    pub finality_profile: Option<RuntimeFinalityProfile>,
     /// Safety mode for the Aft Fault Tolerance family.
     #[serde(default)]
     pub aft_safety_mode: AftSafetyMode,
@@ -1236,6 +1241,38 @@ pub struct OrchestrationConfig {
 }
 
 impl OrchestrationConfig {
+    /// Resolve compatibility input into the one canonical versioned runtime
+    /// profile used by admission. The result, never the alias, is persisted.
+    pub fn resolved_finality_profile(&self) -> Result<RuntimeFinalityProfile, String> {
+        let profile = match self.finality_profile {
+            Some(profile) => profile,
+            None => RuntimeFinalityProfile::from_consensus_type(self.consensus_type).ok_or_else(
+                || {
+                    format!(
+                        "Configuration Error: consensus engine {:?} has no qualified M04.9 runtime finality profile",
+                        self.consensus_type
+                    )
+                },
+            )?,
+        };
+        if !profile.matches_consensus_type(self.consensus_type) {
+            return Err(format!(
+                "Configuration Error: runtime finality profile {} requires its matching consensus engine, not {:?}",
+                profile.certificate_variant(),
+                self.consensus_type
+            ));
+        }
+        if profile == RuntimeFinalityProfile::BftConsensusAftV1
+            && self.aft_safety_mode != AftSafetyMode::ClassicBft
+        {
+            return Err(format!(
+                "Configuration Error: bft_consensus_aft_v1 requires classic_bft safety; {:?} is not peer-BFT evidence",
+                self.aft_safety_mode
+            ));
+        }
+        Ok(profile)
+    }
+
     /// Validates the configuration for semantic correctness.
     pub fn validate(&self) -> Result<(), String> {
         if self.block_production_interval_secs == 0 {
@@ -1244,6 +1281,7 @@ impl OrchestrationConfig {
                     .to_string(),
             );
         }
+        self.resolved_finality_profile()?;
         Ok(())
     }
 }

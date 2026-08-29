@@ -331,6 +331,7 @@ async fn async_main() -> Result<()> {
         config_schema_version: 1,
         validator_role: ValidatorRole::Consensus,
         consensus_type: ConsensusType::ProofOfAuthority,
+        finality_profile: None,
         aft_safety_mode: Default::default(),
         guardian_production_mode: Default::default(),
         key_authority: None,

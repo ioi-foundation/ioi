@@ -453,6 +453,7 @@ where
         chain_id: 1.into(),
         config_schema_version: 0,
         consensus_type: config.consensus_type,
+        finality_profile: None,
         aft_safety_mode: Default::default(),
         guardian_production_mode: Default::default(),
         key_authority: None,

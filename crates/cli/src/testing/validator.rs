@@ -740,6 +740,7 @@ impl TestValidator {
             config_schema_version: 0,
             validator_role: role,
             consensus_type: consensus_enum,
+            finality_profile: None,
             aft_safety_mode,
             guardian_production_mode: Default::default(),
             key_authority: None,

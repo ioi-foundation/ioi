@@ -1,6 +1,7 @@
 use super::{
-    default_service_policies, CommitmentSchemeType, ConsensusType, InferenceConfig, McpMode,
-    StateTreeType, VmFuelCosts, WorkloadConfig, ZkConfig, WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE,
+    default_service_policies, AftSafetyMode, CommitmentSchemeType, ConsensusType, InferenceConfig,
+    McpMode, OrchestrationConfig, RuntimeFinalityProfile, StateTreeType, VmFuelCosts,
+    WorkloadConfig, ZkConfig, WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE,
     WALLET_STANDING_AUTHORITY_CONFIG_MIGRATION_CODE,
 };
 use crate::service_configs::MethodPermission;
@@ -291,4 +292,71 @@ fn desktop_agent_policy_exposes_gate_control_methods() {
             "desktop_agent ActiveServiceMeta must advertise {method}",
         );
     }
+}
+
+#[test]
+fn runtime_finality_profile_aliases_resolve_to_exact_versioned_identities() {
+    for (consensus, input, expected, canonical) in [
+        (
+            "Aft",
+            "aft",
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            "bft_consensus_aft_v1",
+        ),
+        (
+            "Solo",
+            "solo",
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            "single_authority_v1",
+        ),
+    ] {
+        let config: OrchestrationConfig = toml::from_str(&format!(
+            "consensus_type = \"{consensus}\"\nfinality_profile = \"{input}\"\nrpc_listen_address = \"127.0.0.1:0\"\n"
+        ))
+        .expect("compatibility label parses");
+        assert_eq!(
+            config.resolved_finality_profile().expect("resolves"),
+            expected
+        );
+        let serialized = toml::to_string(&config).expect("serializes");
+        assert!(
+            serialized.contains(&format!("finality_profile = \"{canonical}\"")),
+            "canonical identity was not emitted: {serialized}"
+        );
+    }
+}
+
+#[test]
+fn aft_is_the_omitted_profile_default_and_single_authority_is_explicit() {
+    let aft: OrchestrationConfig =
+        toml::from_str("consensus_type = \"Aft\"\nrpc_listen_address = \"127.0.0.1:0\"\n")
+            .expect("AFT config parses");
+    assert_eq!(
+        aft.resolved_finality_profile().expect("AFT resolves"),
+        RuntimeFinalityProfile::BftConsensusAftV1
+    );
+
+    let solo: OrchestrationConfig =
+        toml::from_str("consensus_type = \"Solo\"\nrpc_listen_address = \"127.0.0.1:0\"\n")
+            .expect("Solo config parses");
+    assert_eq!(
+        solo.resolved_finality_profile().expect("Solo resolves"),
+        RuntimeFinalityProfile::SingleAuthorityV1
+    );
+}
+
+#[test]
+fn runtime_profile_engine_and_aft_safety_substitutions_refuse() {
+    let mut config: OrchestrationConfig = toml::from_str(
+        "consensus_type = \"Aft\"\nfinality_profile = \"single_authority_v1\"\nrpc_listen_address = \"127.0.0.1:0\"\n",
+    )
+    .expect("config parses");
+    assert!(config.validate().is_err());
+
+    config.finality_profile = Some(RuntimeFinalityProfile::BftConsensusAftV1);
+    config.aft_safety_mode = AftSafetyMode::GuardianMajority;
+    let error = config
+        .validate()
+        .expect_err("guardian majority is not peer-BFT evidence");
+    assert!(error.contains("requires classic_bft safety"));
 }

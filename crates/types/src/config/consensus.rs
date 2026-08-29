@@ -31,6 +31,69 @@ pub enum ConsensusType {
     Solo,
 }
 
+/// Exact runtime-selectable ordering/finality implementation identity.
+///
+/// This is deliberately narrower than [`ConsensusType`]: only the two M04.9
+/// profiles with complete runtime contracts are representable. Compatibility
+/// labels are accepted while parsing operator configuration, but serialization
+/// always emits one canonical versioned identity.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeFinalityProfile {
+    /// AFT classic-BFT with authenticated native quorum certificates.
+    #[serde(
+        rename = "bft_consensus_aft_v1",
+        alias = "bft_consensus",
+        alias = "aft"
+    )]
+    BftConsensusAftV1,
+    /// One admitted writer with no peer quorum round.
+    #[serde(
+        rename = "single_authority_v1",
+        alias = "single_authority",
+        alias = "solo"
+    )]
+    SingleAuthorityV1,
+}
+
+impl RuntimeFinalityProfile {
+    /// The canonical source-neutral profile member stored in admitted records.
+    pub const fn canonical_member(self) -> &'static str {
+        match self {
+            Self::BftConsensusAftV1 => "bft_consensus",
+            Self::SingleAuthorityV1 => "single_authority",
+        }
+    }
+
+    /// The exact finality-certificate implementation variant.
+    pub const fn certificate_variant(self) -> &'static str {
+        match self {
+            Self::BftConsensusAftV1 => "bft_consensus_aft_v1",
+            Self::SingleAuthorityV1 => "single_authority_v1",
+        }
+    }
+
+    /// Resolve the legacy engine selector only when no explicit profile was
+    /// supplied. AFT remains the default operational profile; Solo remains an
+    /// explicit selection of the non-default single-authority path.
+    pub const fn from_consensus_type(consensus_type: ConsensusType) -> Option<Self> {
+        match consensus_type {
+            ConsensusType::Aft => Some(Self::BftConsensusAftV1),
+            ConsensusType::Solo => Some(Self::SingleAuthorityV1),
+            ConsensusType::ProofOfAuthority | ConsensusType::ProofOfStake => None,
+        }
+    }
+
+    /// Refuse a profile label that does not select the matching executable
+    /// engine. A configuration label never changes engine semantics by itself.
+    pub const fn matches_consensus_type(self, consensus_type: ConsensusType) -> bool {
+        matches!(
+            (self, consensus_type),
+            (Self::BftConsensusAftV1, ConsensusType::Aft)
+                | (Self::SingleAuthorityV1, ConsensusType::Solo)
+        )
+    }
+}
+
 /// Safety mode for the Aft Fault Tolerance consensus family.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
