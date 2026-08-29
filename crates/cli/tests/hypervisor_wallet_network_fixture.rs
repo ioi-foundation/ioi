@@ -618,6 +618,18 @@ async fn account_nonce(rpc_addr: &str, account_id: &[u8; 32]) -> Result<u64> {
     }
 }
 
+async fn wallet_control_root(rpc_addr: &str) -> Result<Option<WalletControlPlaneRootRecord>> {
+    let key = [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"control_root",
+    ]
+    .concat();
+    query_state_key(rpc_addr, &key)
+        .await?
+        .map(|bytes| decode_state_value(&bytes, "wallet control root"))
+        .transpose()
+}
+
 fn wallet_approval_key(request_hash: &[u8; 32]) -> Vec<u8> {
     [
         service_namespace_prefix("wallet_network").as_slice(),
@@ -2073,7 +2085,7 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         let root_seed = fixture_root_seed()?;
         let root = keypair(&root_seed)?;
         let root_public_key = root.public_key().to_bytes();
-        let root_record = WalletControlPlaneRootRecord {
+        let mut root_record = WalletControlPlaneRootRecord {
             account_id: account_id_from_key_material(SignatureSuite::ED25519, &root_public_key)?,
             signature_suite: SignatureSuite::ED25519,
             public_key: root_public_key,
@@ -2091,38 +2103,74 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         // participants = 7). A resumed chain (stable cluster state dir, see
         // IOI_TESTING_CLUSTER_STATE_DIR) already carries all of them; a
         // partially set-up chain is refused rather than repaired.
-        const EXPECTED_POST_SETUP_ROOT_NONCE: u64 = 15;
+        const SETUP_ROOT_TRANSACTIONS: u64 = 15;
         let root_nonce = account_nonce(&rpc_addr, &root_record.account_id).await?;
-        if root_nonce == 0 {
+        let setup_initial_nonce = match wallet_control_root(&rpc_addr).await? {
+            None => {
+                root_record.metadata.insert(
+                    "fixture_setup_initial_nonce".to_string(),
+                    root_nonce.to_string(),
+                );
+                Some(root_nonce)
+            }
+            Some(existing) => {
+                if existing.account_id != root_record.account_id
+                    || existing.signature_suite != root_record.signature_suite
+                    || existing.public_key != root_record.public_key
+                {
+                    return Err(anyhow!(
+                        "wallet fixture chain resume found a substituted control root"
+                    ));
+                }
+                let initial_nonce = existing
+                    .metadata
+                    .get("fixture_setup_initial_nonce")
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "wallet fixture chain resume lacks the setup-initial-nonce marker; \
+                             refusing to guess whether authority setup was complete"
+                        )
+                    })?
+                    .parse::<u64>()
+                    .context("wallet fixture setup-initial-nonce marker is malformed")?;
+                let expected = initial_nonce
+                    .checked_add(SETUP_ROOT_TRANSACTIONS)
+                    .ok_or_else(|| anyhow!("wallet fixture setup nonce overflow"))?;
+                if root_nonce != expected {
+                    return Err(anyhow!(
+                        "wallet fixture chain resume found root nonce {root_nonce}, expected \
+                         {expected} from its rooted initial nonce; refusing a partially \
+                         initialized authority topology"
+                    ));
+                }
+                root_record = existing;
+                None
+            }
+        };
+        if let Some(initial_nonce) = setup_initial_nonce {
             submit(
                 &rpc_addr,
                 &root,
                 chain_id,
-                0,
+                initial_nonce,
                 "configure_control_root@v1",
                 &WalletConfigureControlRootParams {
                     root: root_record.clone(),
                 },
             )
             .await?;
-        } else if root_nonce != EXPECTED_POST_SETUP_ROOT_NONCE {
-            return Err(anyhow!(
-                "wallet fixture chain resume found root nonce {root_nonce}, expected 0 (fresh) \
-                 or {EXPECTED_POST_SETUP_ROOT_NONCE} (fully set up); refusing a partially \
-                 initialized authority topology"
-            ));
         }
 
         let capability = keypair(&CAPABILITY_SEED)?;
         let capability_public_key = capability.public_key().to_bytes();
         let capability_account_id =
             account_id_from_key_material(SignatureSuite::ED25519, &capability_public_key)?;
-        if root_nonce == 0 {
+        if let Some(initial_nonce) = setup_initial_nonce {
             submit(
                 &rpc_addr,
                 &root,
                 chain_id,
-                1,
+                initial_nonce + 1,
                 "register_client@v1",
                 &WalletRegisterClientParams {
                     client: WalletRegisteredClientRecord {
@@ -2173,14 +2221,14 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
                 &rpc_addr,
                 &root,
                 chain_id,
-                2,
+                initial_nonce + 2,
                 "register_approval_authority@v1",
                 &RegisterApprovalAuthorityParams {
                     authority: host_authority.clone(),
                 },
             )
             .await?;
-            let mut nonce = 3;
+            let mut nonce = initial_nonce + 3;
             for (_, authority) in &participant_bindings {
                 submit(
                     &rpc_addr,
@@ -2244,10 +2292,11 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
                 nonce += 1;
             }
             let post_setup_nonce = account_nonce(&rpc_addr, &root_record.account_id).await?;
-            if post_setup_nonce != EXPECTED_POST_SETUP_ROOT_NONCE {
+            let expected_post_setup_nonce = initial_nonce + SETUP_ROOT_TRANSACTIONS;
+            if post_setup_nonce != expected_post_setup_nonce {
                 return Err(anyhow!(
                     "wallet fixture setup committed nonce {post_setup_nonce}, expected \
-                     {EXPECTED_POST_SETUP_ROOT_NONCE}; the resume detector above is stale"
+                     {expected_post_setup_nonce}; the resume detector above is stale"
                 ));
             }
         } else {
