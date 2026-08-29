@@ -356,15 +356,15 @@ fn requires_initial_tip_timestamp(wall_clock_fixture: bool, benchmark_trace: boo
 
 /// The ordering/finality profile this fixture run exercises.
 ///
-/// M04.9 compares the preserved one-validator AFT control against the
-/// immediate single-authority Solo engine across the SAME admission,
+/// M04.9 compares the peer-bearing AFT control against the immediate
+/// single-authority Solo engine across the SAME admission,
 /// execution, IAVL commitment, Redb durability, restart and status/receipt
-/// path. Selecting the profile here rather than forking the scenario is what
-/// makes the two runs comparable: identical scenario code, exactly one varied
-/// dimension.
+/// path. The topology is profile-required rather than hidden: AFT runs the
+/// minimum honest `n=4, f=1, q=3` membership its certificate claims, while
+/// Solo runs its one authority. All other scenario inputs stay identical.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum OrderingProfile {
-    /// One-validator AFT. The default, and the control.
+    /// Four-peer Classic-BFT AFT. The default, and the control.
     Aft,
     /// Single-authority immediate ordering.
     Solo,
@@ -381,6 +381,14 @@ impl OrderingProfile {
         match self {
             OrderingProfile::Aft => "Aft",
             OrderingProfile::Solo => "Solo",
+        }
+    }
+
+    /// Exact runnable topology required by this profile's honest guarantees.
+    fn validator_count(self) -> usize {
+        match self {
+            OrderingProfile::Aft => 4,
+            OrderingProfile::Solo => 1,
         }
     }
 }
@@ -1647,6 +1655,8 @@ fn fixture_command_contract_is_canonical_and_bounded() {
     );
     assert_eq!(OrderingProfile::Aft.consensus_type(), "Aft");
     assert_eq!(OrderingProfile::Solo.consensus_type(), "Solo");
+    assert_eq!(OrderingProfile::Aft.validator_count(), 4);
+    assert_eq!(OrderingProfile::Solo.validator_count(), 1);
     // Surrounding whitespace is trimmed (env plumbing routinely adds it), but
     // the trimmed value must still be one of the two exact profile names.
     assert_eq!(
@@ -2011,7 +2021,7 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
     // cadence-varying run cannot floor one profile differently from the other.
     let ordering_profile = ordering_profile()?;
     let mut cluster_builder = TestCluster::builder()
-        .with_validators(1)
+        .with_validators(ordering_profile.validator_count())
         .with_consensus_type(ordering_profile.consensus_type())
         // The canonical bft_consensus runtime profile is backed by the
         // authenticated classic-BFT certificate contract. GuardianMajority is

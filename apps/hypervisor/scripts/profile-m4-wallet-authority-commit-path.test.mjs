@@ -1344,7 +1344,17 @@ test("the artifact discloses what co-varies with the ordering profile", () => {
   // because the shared abstraction makes it true.
   const profile = buildCommitPathProfile(inputs());
   const control = profile.ordering_parity.dimension_control;
-  assert.deepEqual(control.varied, ["ordering_profile"]);
+  assert.deepEqual(control.varied, [
+    "ordering_profile",
+    "profile-required validator topology",
+  ]);
+  assert.deepEqual(profile.ordering_parity.required_topology, {
+    validator_processes: 4,
+    voting_members: 4,
+    byzantine_fault_tolerance: 1,
+    quorum_rule: "3 distinct authenticated signatures (2f+1)",
+    synchrony_assumption: "partial_synchrony",
+  });
   assert.ok(
     control.held_identical.some((entry) => /compute_next_timestamp_ms/u.test(entry)),
     "the shared timestamp derivation is what makes the single-dimension claim true",

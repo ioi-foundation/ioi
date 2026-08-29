@@ -82,9 +82,17 @@ impl SafetyGadget {
             self.locked_qc = Some(qc_parent.clone());
         }
 
-        // 2. Check 2-Chain Commit Rule (Invariant 2.6)
-        // If Child references Parent directly (consecutive view).
-        if qc_high.view == qc_parent.view + 1 {
+        // 2. Check 2-Chain Commit Rule (Invariant 2.6).
+        //
+        // AFT views are scoped to a block height: the ordinary successful
+        // path is view zero at every height, while a timeout raises the view
+        // only for that height.  Direct ancestry is therefore expressed by
+        // consecutive *heights*, not by numerically consecutive views.  The
+        // caller supplies the parent certificate embedded in the locally
+        // verified child header, so this height check completes the direct
+        // parent relation without silently requiring every new height to
+        // suffer a view change before it can finalize.
+        if qc_high.height == qc_parent.height.saturating_add(1) {
             let commit_height = qc_parent.height;
 
             // Check against currently committed to avoid re-queuing

@@ -18,14 +18,16 @@ fn classic_engine(validators: &AuthenticatedValidators, heights: &[u64]) -> Guar
     engine
 }
 
-/// Seeds a header at `(2, 1)` whose parent certificate sits at `(1, 0)`, which
-/// is the consecutive-view shape the two-chain rule commits on.
+/// Seeds the normal runtime shape: a header at height two, view zero whose
+/// parent certificate sits at height one, view zero. Views are height-scoped;
+/// direct ancestry is established by consecutive heights and the child's
+/// embedded parent certificate.
 fn seed_two_chain(
     engine: &mut GuardianMajorityEngine,
     validators: &AuthenticatedValidators,
 ) -> (QuorumCertificate, QuorumCertificate) {
     let parent_qc = validators.signed_qc(&[0, 1, 2], 1, 0, [0x11u8; 32]);
-    let mut header = build_progress_parent_header(2, 1);
+    let mut header = build_progress_parent_header(2, 0);
     header.parent_qc = parent_qc.clone();
     let block_hash = to_root_hash(&header.hash().unwrap()).unwrap();
     engine
@@ -33,7 +35,7 @@ fn seed_two_chain(
         .entry((header.height, header.view))
         .or_default()
         .insert(block_hash, header);
-    let child_qc = validators.signed_qc(&[0, 1, 2], 2, 1, block_hash);
+    let child_qc = validators.signed_qc(&[0, 1, 2], 2, 0, block_hash);
     (parent_qc, child_qc)
 }
 
@@ -343,6 +345,51 @@ async fn locally_assembled_certificate_from_pooled_votes_advances_highest_qc() {
     assert_eq!(engine.highest_qc.block_hash, block_hash);
 }
 
+#[tokio::test]
+async fn classic_bft_child_proposal_waits_for_exact_authenticated_parent_quorum() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let active_validators = validators
+        .sets
+        .current
+        .validators
+        .iter()
+        .map(|validator| validator.account_id)
+        .collect::<Vec<_>>();
+    let mut parent_view = build_decide_parent_view(active_validators.clone());
+    parent_view.state.insert(
+        VALIDATOR_SET_KEY.to_vec(),
+        write_validator_sets(&validators.sets).unwrap(),
+    );
+    let collapse_chain = test_canonical_collapse_chain_ending(1, [0x21u8; 32], [0x22u8; 32]);
+    insert_published_collapse_chain(&mut parent_view, &collapse_chain);
+    let known_peers = validators
+        .keypairs
+        .iter()
+        .map(|keypair| PeerId::from_public_key(&keypair.public()))
+        .collect::<HashSet<_>>();
+    let mut engine = classic_engine(&validators, &[1, 2]);
+    engine.bootstrap_grace_until = Instant::now() + Duration::from_secs(60);
+
+    let parent_header = build_progress_parent_header(1, 0);
+    let parent_hash = to_root_hash(&parent_header.hash().unwrap()).unwrap();
+    engine.committed_headers.insert(1, parent_header);
+
+    let without_quorum: ConsensusDecision<ChainTransaction> = engine
+        .decide(&active_validators[1], 2, 0, &parent_view, &known_peers)
+        .await;
+    assert!(matches!(without_quorum, ConsensusDecision::WaitForBlock));
+    assert_eq!(engine.highest_qc.height, 0);
+
+    engine.highest_qc = validators.signed_qc(&[0, 1, 2], 1, 0, parent_hash);
+    let with_quorum: ConsensusDecision<ChainTransaction> = engine
+        .decide(&active_validators[1], 2, 0, &parent_view, &known_peers)
+        .await;
+    assert!(matches!(
+        with_quorum,
+        ConsensusDecision::ProduceBlock { view: 0, .. }
+    ));
+}
+
 // --- BFT qualification ----------------------------------------------------
 
 #[test]
@@ -396,7 +443,7 @@ async fn no_finalized_event_before_the_two_chain_rule_fires() {
     let view =
         build_decide_parent_view((0..BFT_MEMBERS).map(|i| validators.account_id(i)).collect());
 
-    // A single certificate with no child at the consecutive view commits
+    // A single certificate with no certified child commits
     // nothing, so nothing may be exported.
     let qc = validators.signed_qc(&[0, 1, 2], 1, 0, [0x11u8; 32]);
     let _ =

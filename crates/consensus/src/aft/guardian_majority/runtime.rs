@@ -367,105 +367,145 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         if leader_id == *our_account_id {
             let parent_qc = if height > 1 {
-                let progress_parent_qc = if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
-                    self.collapse_backed_parent_qc_for_height(height, parent_view)
-                        .await
-                        .ok()
-                        .flatten()
-                } else {
-                    self.synthetic_parent_qc_for_height(height)
-                };
-                if let Some(synthetic_parent_qc) = progress_parent_qc {
-                    let highest_qc_at_parent_height = self.highest_qc.height == height - 1;
-                    let highest_qc_has_local_header =
-                        if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
-                            highest_qc_at_parent_height
-                                && self
-                                    .quorum_certificate_is_collapse_backed(
-                                        &self.highest_qc,
-                                        parent_view,
-                                    )
-                                    .await
-                                    .unwrap_or(false)
-                        } else {
-                            highest_qc_at_parent_height
-                                && self.qc_has_local_restart_context(&self.highest_qc)
-                        };
-
-                    if self.highest_qc.height < height - 1
-                        || (highest_qc_at_parent_height && !highest_qc_has_local_header)
-                    {
-                        if highest_qc_at_parent_height
-                            && self.highest_qc.block_hash != synthetic_parent_qc.block_hash
-                            && !highest_qc_has_local_header
-                        {
-                            info!(
-                                target: "consensus",
-                                height,
-                                current_view,
-                                highest_qc_height = self.highest_qc.height,
-                                highest_qc_hash = %hex::encode(&self.highest_qc.block_hash[..4]),
-                                synthetic_parent_hash = %hex::encode(&synthetic_parent_qc.block_hash[..4]),
-                                "Replacing a headerless parent-height QC with the locally committed synthetic parent QC."
-                            );
-                        }
-                        self.highest_qc = synthetic_parent_qc.clone();
-                        synthetic_parent_qc
-                    } else {
-                        self.highest_qc.clone()
-                    }
-                } else if self.highest_qc.height < height - 1
-                    || (matches!(self.safety_mode, AftSafetyMode::Asymptote)
-                        && self.highest_qc.height == height - 1
-                        && !self
-                            .quorum_certificate_is_collapse_backed(&self.highest_qc, parent_view)
-                            .await
-                            .unwrap_or(false))
-                {
-                    let next_view = current_view + 1;
-                    if self.timeout_votes_sent.insert((height, next_view)) {
+                if matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+                    // The locally committed parent identifies the only block a
+                    // child may extend, but it is not quorum evidence. Classic
+                    // BFT must wait until the exact parent carries a currently
+                    // authenticated 2f+1 certificate. In particular, never
+                    // promote `synthetic_parent_qc_for_height` into authority:
+                    // that helper is an unsigned coordinate/recovery surface.
+                    let expected_parent = self.synthetic_parent_qc_for_height(height);
+                    let authenticated_parent = expected_parent.as_ref().is_some_and(|expected| {
+                        self.highest_qc.height == expected.height
+                            && self.highest_qc.view == expected.view
+                            && self.highest_qc.block_hash == expected.block_hash
+                            && self.authenticated_quorum(&self.highest_qc).is_ok()
+                    });
+                    if !authenticated_parent {
                         if Self::benchmark_trace_enabled() {
                             eprintln!(
+                                "[BENCH-AFT-DECIDE] height={} decision=wait_for_block current_view={} highest_qc_height={} reason=classic_bft_awaiting_authenticated_parent_qc",
+                                height,
+                                current_view,
+                                self.highest_qc.height
+                            );
+                        }
+                        debug!(
+                            target: "consensus",
+                            height,
+                            current_view,
+                            highest_qc_height = self.highest_qc.height,
+                            expected_parent_height = expected_parent.as_ref().map(|qc| qc.height),
+                            "Classic BFT leader is waiting for an authenticated certificate over the exact committed parent."
+                        );
+                        return ConsensusDecision::WaitForBlock;
+                    }
+                    self.highest_qc.clone()
+                } else {
+                    let progress_parent_qc = if matches!(self.safety_mode, AftSafetyMode::Asymptote)
+                    {
+                        self.collapse_backed_parent_qc_for_height(height, parent_view)
+                            .await
+                            .ok()
+                            .flatten()
+                    } else {
+                        self.synthetic_parent_qc_for_height(height)
+                    };
+                    if let Some(synthetic_parent_qc) = progress_parent_qc {
+                        let highest_qc_at_parent_height = self.highest_qc.height == height - 1;
+                        let highest_qc_has_local_header =
+                            if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
+                                highest_qc_at_parent_height
+                                    && self
+                                        .quorum_certificate_is_collapse_backed(
+                                            &self.highest_qc,
+                                            parent_view,
+                                        )
+                                        .await
+                                        .unwrap_or(false)
+                            } else {
+                                highest_qc_at_parent_height
+                                    && self.qc_has_local_restart_context(&self.highest_qc)
+                            };
+
+                        if self.highest_qc.height < height - 1
+                            || (highest_qc_at_parent_height && !highest_qc_has_local_header)
+                        {
+                            if highest_qc_at_parent_height
+                                && self.highest_qc.block_hash != synthetic_parent_qc.block_hash
+                                && !highest_qc_has_local_header
+                            {
+                                info!(
+                                    target: "consensus",
+                                    height,
+                                    current_view,
+                                    highest_qc_height = self.highest_qc.height,
+                                    highest_qc_hash = %hex::encode(&self.highest_qc.block_hash[..4]),
+                                    synthetic_parent_hash = %hex::encode(&synthetic_parent_qc.block_hash[..4]),
+                                    "Replacing a headerless parent-height QC with the locally committed synthetic parent QC."
+                                );
+                            }
+                            self.highest_qc = synthetic_parent_qc.clone();
+                            synthetic_parent_qc
+                        } else {
+                            self.highest_qc.clone()
+                        }
+                    } else if self.highest_qc.height < height - 1
+                        || (matches!(self.safety_mode, AftSafetyMode::Asymptote)
+                            && self.highest_qc.height == height - 1
+                            && !self
+                                .quorum_certificate_is_collapse_backed(
+                                    &self.highest_qc,
+                                    parent_view,
+                                )
+                                .await
+                                .unwrap_or(false))
+                    {
+                        let next_view = current_view + 1;
+                        if self.timeout_votes_sent.insert((height, next_view)) {
+                            if Self::benchmark_trace_enabled() {
+                                eprintln!(
                                 "[BENCH-AFT-DECIDE] height={} decision=timeout current_view={} next_view={} highest_qc_height={} reason=leader_missing_parent_qc",
                                 height,
                                 current_view,
                                 next_view,
                                 self.highest_qc.height
                             );
+                            }
+                            info!(
+                                target: "consensus",
+                                height,
+                                current_view,
+                                next_view,
+                                highest_qc_height = self.highest_qc.height,
+                                "Leader lacks a quorum certificate for the parent height. Emitting a view change vote."
+                            );
+                            return ConsensusDecision::Timeout {
+                                view: next_view,
+                                height,
+                            };
                         }
-                        info!(
+                        debug!(
                             target: "consensus",
                             height,
                             current_view,
                             next_view,
                             highest_qc_height = self.highest_qc.height,
-                            "Leader lacks a quorum certificate for the parent height. Emitting a view change vote."
+                            "Leader is still waiting for a timeout certificate after requesting a view change."
                         );
-                        return ConsensusDecision::Timeout {
-                            view: next_view,
-                            height,
-                        };
-                    }
-                    debug!(
-                        target: "consensus",
-                        height,
-                        current_view,
-                        next_view,
-                        highest_qc_height = self.highest_qc.height,
-                        "Leader is still waiting for a timeout certificate after requesting a view change."
-                    );
-                    if Self::benchmark_trace_enabled() {
-                        eprintln!(
+                        if Self::benchmark_trace_enabled() {
+                            eprintln!(
                             "[BENCH-AFT-DECIDE] height={} decision=wait_for_block current_view={} next_view={} highest_qc_height={} reason=leader_waiting_after_parent_qc_timeout",
                             height,
                             current_view,
                             next_view,
                             self.highest_qc.height
                         );
+                        }
+                        return ConsensusDecision::WaitForBlock;
+                    } else {
+                        self.highest_qc.clone()
                     }
-                    return ConsensusDecision::WaitForBlock;
-                } else {
-                    self.highest_qc.clone()
                 }
             } else {
                 self.highest_qc.clone()

@@ -33,10 +33,11 @@
 // fails the build of the artifact.
 //
 // M04.9 ORDERING/FINALITY PARITY. The same wrapper now profiles either
-// ordering profile — the preserved one-validator AFT control, or the immediate
+// ordering profile — the peer-bearing Classic-BFT AFT control, or the immediate
 // single-authority Solo engine — through the SAME admission, execution, IAVL
 // commitment, Redb durability, restart and status/receipt path. The artifact
-// records which engine actually produced each height (read back from the
+// records each profile's required topology (AFT n=4/f=1/q=3; Solo one
+// authority) and which engine actually produced each height (read back from the
 // trace, not assumed from the request), the proposal cadence the scheduler
 // actually resolved along with the provenance of each of its values, and the
 // client poll interval.
@@ -1561,6 +1562,22 @@ export function buildCommitPathProfile({
     ordering_parity: {
       ordering_profile: observedProfiles[0],
       ordering_profile_provenance: `observed:${BENCH_ORDERING_CONTRACT.tag}`,
+      required_topology:
+        observedProfiles[0] === "aft"
+          ? {
+              validator_processes: 4,
+              voting_members: 4,
+              byzantine_fault_tolerance: 1,
+              quorum_rule: "3 distinct authenticated signatures (2f+1)",
+              synchrony_assumption: "partial_synchrony",
+            }
+          : {
+              validator_processes: 1,
+              voting_members: 1,
+              byzantine_fault_tolerance: 0,
+              quorum_rule: "one active fenced authority",
+              synchrony_assumption: "not_applicable",
+            },
       // WHAT ELSE MOVES WHEN THE ORDERING PROFILE MOVES.
       //
       // A comparison is only attributable to the ordering profile if nothing
@@ -1575,7 +1592,7 @@ export function buildCommitPathProfile({
       // fail closed on missing timing state. What remains unmeasured is listed
       // so a reader is not left to assume the list is empty.
       dimension_control: {
-        varied: ["ordering_profile"],
+        varied: ["ordering_profile", "profile-required validator topology"],
         held_identical: [
           "block-timestamp derivation (both engines use compute_next_timestamp_ms over the same on-chain BlockTimingParams/BlockTimingRuntime)",
           "genesis block timing (base == min == max == effective, retarget disabled, same value for both profiles)",
@@ -1596,7 +1613,9 @@ export function buildCommitPathProfile({
           "Receipt creation remains unbracketed inside execution commit; see the receipt_creation phase.",
         ],
         residual_risk:
-          "A single-validator fixture exercises no cross-node ordering, so this profile says nothing about how either engine behaves with peers.",
+          observedProfiles[0] === "aft"
+            ? "The AFT run exercises the minimum n=4, f=1, q=3 topology only; it does not establish larger-membership, asynchronous, witness, threshold-authority, or external-chain properties."
+            : "The Solo run intentionally has one authority and establishes no peer-fault tolerance; its topology is a profile guarantee boundary, not an AFT-equivalent peer claim.",
       },
       scheduler_and_block_cadence: {
         values: observedCadences.map((entry) => {
@@ -1976,6 +1995,10 @@ async function main() {
         // into `ordering_parity.ordering_profile`; the two are kept separate so
         // a request that did not take effect cannot masquerade as an outcome.
         requested_ordering_profile: args.orderingProfile,
+        requested_validator_topology:
+          args.orderingProfile === "Aft"
+            ? { validator_processes: 4, voting_members: 4, quorum_threshold: 3 }
+            : { validator_processes: 1, voting_members: 1, quorum_threshold: 1 },
         requested_poll_interval_ms: args.pollIntervalMs,
         // Likewise REQUESTED. What the scheduler resolved is read back from
         // [BENCH-ORDERING] into `ordering_parity.scheduler_and_block_cadence`,
