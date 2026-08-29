@@ -6,7 +6,7 @@ Supersedes: older generic capability-grant wording when it conflicts with `scope
 Superseded by: none.
 Last alignment pass: 2026-08-29.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action issuance/verification/admission plus embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, MPC vault, WalletReceipt v2, wallet interoperability, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action issuance/verification/admission plus embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, MPC vault, ProviderConnectionBinding/ceremony/disconnect lifecycle, WalletReceipt v2, wallet interoperability, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -97,6 +97,58 @@ it is planning input and grants no authority. It must resolve to exactly one
 typed contract before simulation, review, approval, execution, or receipt
 claims. An unknown or ambiguous family fails closed rather than reaching a
 generic `execute` escape hatch.
+
+### Authentication, connection, custody, installation, and authority
+
+The one-integration promise includes external accounts and services, but the
+word "connect" must not collapse five different truths:
+
+```text
+AuthFactor
+  proves account access or ceremony posture
+
+ProviderConnectionBinding
+  records a current wallet-principal relationship to one external provider
+  account and the broker/custody route able to act for it
+
+ProviderCredentialBinding
+  identifies protected credential material held by the authority broker
+
+product/System integration binding
+  configures where and how a connector may be used
+
+AuthorityGrant or CapabilityLease
+  conveys bounded permission for exact actions
+```
+
+Connected is not authorized. Authentication does not create a provider
+connection; a successful OAuth or provider ceremony does not grant an agent
+power; credential possession does not install an integration; installation does
+not authorize an action; and a prior successful action does not keep a stale or
+disconnected account usable.
+
+The canonical connected-access journey is:
+
+```text
+authenticate the wallet principal
+  -> conduct a provider-specific, replay-safe authorization ceremony
+  -> bind the exact provider account, granted provider scopes and brokered
+     credential under ProviderConnectionBinding
+  -> install or select that connection in a product/System through its owner
+  -> request and receive separate bounded authority
+  -> broker credential use only at the final permitted hop
+  -> bind provider-native readback and authority/effect receipts
+  -> reauthorize, rotate, disconnect or observe provider revocation
+  -> fence the next use and never resurrect predecessor grants on reconnect
+```
+
+wallet.network owns `ProviderConnectionBinding`, credential custody,
+connection-revocation epoch, reauthorization/successor lineage, and its
+authority receipts. The provider owns the external account and provider-native
+authorization state. The connector or product owner retains configuration,
+sync cursors, imported data, session state and domain semantics. Agentgres
+records admitted operational lineage. A connection health projection is
+evidence, not provider truth or action authority.
 
 Canonical invariant:
 
@@ -442,6 +494,8 @@ wallet.network owns:
 - API keys;
 - OAuth refresh tokens;
 - connector credentials;
+- provider connection bindings, replay-safe provider authorization ceremonies,
+  connection revocation epochs, and reauthorization/successor lineage;
 - provider credential bindings;
 - BYOK model provider keys;
 - sealed archive decryption authority;
@@ -475,6 +529,9 @@ wallet.network does not own:
 - workflow graphs;
 - worker marketplace listings;
 - service order operational state;
+- external provider accounts and their provider-native authorization state;
+- connector installation/configuration, sync cursors, imported provider data,
+  or provider-native operation state;
 - full run traces;
 - Agentgres projections;
 - artifact payload bytes;
@@ -1488,6 +1545,14 @@ profiles select external services such as IOI L1
     use resolves the exact `TemporalVerificationProfile` and recomputable
     `TemporalValidityEvaluation`; wallet.network retains grant/revocation
     ownership while Platform Operability qualifies temporal claims.
+16. Auth factors, provider connections, credential bindings, product/System
+    integration bindings, and authority grants remain distinct objects.
+17. Disconnect, provider-side revocation, expired reauthorization, or credential
+    rotation fences the next brokered use at final admission; reconnect creates
+    successor lineage and never resurrects a predecessor grant.
+18. Model and tool workers receive opaque capability handles and bounded
+    results, not OAuth codes, refresh/access tokens, API keys, cookies, provider
+    sessions, wallet unlock material, or credential-binding contents.
 
 ## One-Line Doctrine
 

@@ -820,6 +820,12 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   key, wallet credential, model-provider key, cloud role, or connector
   credential. It is brokered through policy and grants; agents do not receive the
   raw binding by default.
+- `ProviderConnectionBinding`: a wallet.network-owned, versioned and revocable
+  relationship between one wallet principal and one externally owned provider
+  account, bound to provider-granted scopes, an exact brokered
+  `ProviderCredentialBinding`, custody/audience policy, current verification,
+  reauthorization and successor lineage. It is not an AuthFactor, credential,
+  connector installation, authority grant, provider account, or effect result.
 - `WalletAuthorityClient`: a CLI, MCP, SDK, mobile, web, embedded Hypervisor, or
   enterprise authority service session over wallet.network. It can request,
   inspect, approve, deny, revoke, or receipt authority only through the same

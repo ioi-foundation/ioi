@@ -2,14 +2,14 @@
 
 Status: canonical low-level reference.
 Canonical owner: this file for wallet.network account, auth factor, guardian,
-key-shard, provider credential binding, authority scope, grant, approval, secret
+key-shard, provider connection and credential binding, authority scope, grant, approval, secret
 brokerage, economic-contract-kernel, rail-adapter, payment, exchange, exposure,
 protection, receipt, wallet authority client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
 Last alignment pass: 2026-08-29.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant issuance, portable verification, admission-receipt emission, temporal evaluation, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, WalletReceipt v2, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
+Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant issuance, portable verification, admission-receipt emission, temporal evaluation, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, ProviderConnectionBinding/ceremony/disconnect lifecycle, WalletReceipt v2, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs`
 Last implementation audit: 2026-07-19
@@ -1033,12 +1033,103 @@ Capability leases are the Wallet-native answer to credential orchestration:
 the agent receives a scoped, expiring right to ask Wallet or a provider to use a
 capability. It does not receive long-lived credentials by default.
 
+### Provider Connection Binding
+
+Before credential material can be referenced by a reusable external-account
+connection, wallet.network creates a distinct `ProviderConnectionBinding`.
+The connection is not an AuthFactor, credential, integration installation,
+grant, provider account, or proof that any provider operation succeeded.
+
+Target connected-access APIs:
+
+```http
+POST /v1/connections/authorization/start
+POST /v1/connections/authorization/complete
+GET  /v1/connections
+GET  /v1/connections/{connection_id}
+GET  /v1/connections/{connection_id}/dependents
+POST /v1/connections/{connection_id}/verify
+POST /v1/connections/{connection_id}/reauthorize
+POST /v1/connections/{connection_id}/disconnect
+```
+
+`authorization/start` produces a single-use, expiring
+`ProviderConnectionCeremony` bound to the authenticated wallet principal,
+provider registry/profile revision, exact redirect origin/URI, state and nonce,
+PKCE or the profile's equivalent proof, requested provider scopes, intended
+credential custody/broker profile, permitted audience class, and product-session
+origin. It grants no provider access or machine authority.
+
+`authorization/complete` validates the exact ceremony, provider/issuer,
+redirect, state/nonce, code and PKCE posture, provider-account subject, returned
+scope set, credential response, expiry and applicable provider evidence. It
+refuses replay, scope widening, account/tenant substitution, redirect drift,
+missing custody, and a completion not linked to the authenticated initiating
+principal. Provider-specific adapters may add stronger checks; they cannot
+weaken this common floor.
+
+Target `ProviderConnectionBinding`:
+
+```json
+{
+  "schema_version": "ioi.wallet.provider-connection-binding.v1",
+  "connection_ref": "connection://provider/google/user_123/workspace",
+  "connection_version": 4,
+  "predecessor_ref": "connection://provider/google/user_123/workspace@3",
+  "owner_ref": "wallet://user_123",
+  "provider_profile_ref": "provider-profile://google/workspace@7",
+  "provider_account_subject_hash": "sha256:...",
+  "provider_tenant_subject_hash": "sha256:... | null",
+  "provider_granted_scopes": ["gmail.send", "drive.read"],
+  "credential_binding_ref": "credential://google/user_123/workspace@9",
+  "credential_custody_profile_ref": "custody-profile://brokered/local@2",
+  "permitted_audience_classes": ["connector", "final_invoker"],
+  "connection_revocation_epoch": 5,
+  "reauthorization_required_at": "2026-10-01T00:00:00Z | null",
+  "last_provider_verification": {
+    "observed_at": "2026-08-29T12:00:00Z",
+    "evidence_ref": "evidence://provider-connection/...",
+    "status": "current | degraded | unknown | provider_revoked"
+  },
+  "status": "pending_authorization | active | reauthorization_required | degraded | provider_revoked | disconnected | superseded",
+  "receipt_refs": ["receipt://wallet/provider-connection/..."]
+}
+```
+
+Provider account identifiers are provider evidence and are committed or
+minimally disclosed according to policy; the external provider remains their
+truth owner. `provider_granted_scopes` describes what the provider credential
+could request. It is not a wallet authority grant. Effective use is the most
+restrictive intersection of the current connection, provider-granted scopes,
+credential custody profile, product/System integration binding,
+`RuntimeToolContract`, current `AuthorityGrant` or `CapabilityLease`, rights and
+policy, and final-invoker admission.
+
+Disconnect, provider-side revocation, reauthorization expiry, or credential
+rotation advances the connection revocation epoch. Final admission revalidates
+the exact connection version/status/epoch before every brokered use, so fencing
+does not depend on asynchronous cleanup. Dependent grants and installations
+receive durable quarantine/revocation obligations and receipts. Reconnection
+creates a successor connection and credential binding; predecessor grants do
+not revive or silently retarget.
+
+The connection owner does not store connector configuration, sync cursors,
+imported messages/files, provider operation state, product sessions, or domain
+application state. Product/System integration owners reference the connection
+by ref/version/hash and retain those objects.
+
+This contract family is target canon and remains unregistered/unimplemented
+until its tracked schemas, generated Rust/TypeScript projections, API/SDK/CLI/MCP
+surfaces, offline verifier and lifecycle evidence land. Existing credential
+records or OAuth prototypes do not satisfy the connected-access claim.
+
 ### Provider Credential Binding
 
 Provider credential bindings are brokered credentials managed by wallet.network.
 They are not auth factors and not authority grants. A Google login may bootstrap
-account access; a Google provider credential binding may later authorize Gmail,
-Drive, or other provider scopes only after policy and grant issuance.
+account access; a Google provider credential binding may make Gmail, Drive, or
+other provider scopes reachable through the broker, but only a separate current
+policy decision and grant can authorize their use.
 
 ```json
 {
