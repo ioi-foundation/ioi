@@ -209,15 +209,12 @@ impl GuardianMajorityEngine {
                 )));
             }
             let key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, validator.account_id.as_ref()].concat();
-            let Some(encoded) = view
-                .get(&key)
-                .await
-                .map_err(|error| {
-                    ConsensusError::BlockVerificationFailed(format!(
-                        "failed to read canonical consensus key for validator {}: {error}",
-                        hex::encode(validator.account_id.as_ref())
-                    ))
-                })?
+            let Some(encoded) = view.get(&key).await.map_err(|error| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "failed to read canonical consensus key for validator {}: {error}",
+                    hex::encode(validator.account_id.as_ref())
+                ))
+            })?
             else {
                 // Key unavailability is a liveness condition, not authority.
                 // Continue the state machine, but any vote/QC naming this

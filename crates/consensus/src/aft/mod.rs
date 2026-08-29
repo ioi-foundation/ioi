@@ -15,7 +15,7 @@ use ioi_system::SystemState;
 use ioi_types::app::{
     AccountId, AftRecoveredCertifiedHeaderEntry, AftRecoveredConsensusHeaderEntry,
     AftRecoveredRestartHeaderEntry, Block, BlockHeader, ConsensusVote, FailureReport,
-    QuorumCertificate,
+    QuorumCertificate, ValidatorSetsV1,
 };
 use ioi_types::config::AftSafetyMode;
 use ioi_types::error::{ConsensusError, TransactionError};
@@ -182,6 +182,14 @@ where
             &mut self.core,
             header,
             collapse,
+        )
+    }
+
+    fn observe_validator_sets(&mut self, height: u64, sets: &ValidatorSetsV1) -> bool {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::observe_validator_sets(
+            &mut self.core,
+            height,
+            sets,
         )
     }
 

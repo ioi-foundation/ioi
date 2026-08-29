@@ -648,6 +648,30 @@ fn malformed_key_material_is_rejected_without_being_recorded() {
     ));
 }
 
+#[test]
+fn lifecycle_membership_hydration_authenticates_height_one_before_decide() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    for keypair in &validators.keypairs {
+        assert!(<GuardianMajorityEngine as ConsensusEngine<
+            ChainTransaction,
+        >>::observe_validator_public_key(
+            &mut engine,
+            &keypair.public().encode_protobuf(),
+        ));
+    }
+    assert!(<GuardianMajorityEngine as ConsensusEngine<
+        ChainTransaction,
+    >>::observe_validator_sets(
+        &mut engine, 1, &validators.sets,
+    ));
+
+    let vote = validators.signed_vote(2, 1, 0, [7u8; 32]);
+    assert!(engine.authenticated_vote(&vote).is_ok());
+    let qc = validators.signed_qc(&[0, 1, 2], 1, 0, [7u8; 32]);
+    assert!(engine.authenticated_quorum(&qc).is_ok());
+}
+
 #[tokio::test]
 async fn peer_keys_are_learned_from_the_authenticated_peer_set() {
     let validators = AuthenticatedValidators::new(BFT_MEMBERS);

@@ -725,6 +725,99 @@ where
             .await
             .insert(local_account_id, initial_nonce);
 
+        // Hydrate AFT membership and its canonically stored raw keys before
+        // the main consensus loop can consume votes, QCs, or committed-block
+        // sync events. A follower may never execute `decide` or proposal
+        // handling before such evidence arrives, so those paths cannot be the
+        // sole source of theorem-critical verification material.
+        if matches!(
+            self.config.consensus_type,
+            ioi_types::config::ConsensusType::Aft
+        ) {
+            let observation_height = initial_block
+                .as_ref()
+                .map(|block| block.header.height.saturating_add(1))
+                .unwrap_or(1);
+            let encoded_sets = workload_client
+                .query_raw_state(ioi_types::keys::VALIDATOR_SET_KEY)
+                .await
+                .map_err(|error| {
+                    ValidatorError::Other(format!(
+                        "failed to read canonical AFT validator sets at startup: {error}"
+                    ))
+                })?
+                .ok_or_else(|| {
+                    ValidatorError::Other(
+                        "canonical AFT validator sets are missing at startup".into(),
+                    )
+                })?;
+            let sets = ioi_types::app::read_validator_sets(&encoded_sets).map_err(|error| {
+                ValidatorError::Other(format!(
+                    "failed to decode canonical AFT validator sets at startup: {error}"
+                ))
+            })?;
+            let effective = ioi_types::app::effective_set_for_height(&sets, observation_height);
+            if effective.validators.is_empty() {
+                return Err(ValidatorError::Other(format!(
+                    "canonical AFT validator set is empty at height {observation_height}"
+                )));
+            }
+            let mut canonical_keys = Vec::with_capacity(effective.validators.len());
+            for validator in &effective.validators {
+                if validator.consensus_key.suite != SignatureSuite::ED25519 {
+                    return Err(ValidatorError::Other(format!(
+                        "AFT validator {} declares unsupported consensus suite {:?}",
+                        hex::encode(validator.account_id.as_ref()),
+                        validator.consensus_key.suite
+                    )));
+                }
+                let key = [
+                    ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
+                    validator.account_id.as_ref(),
+                ]
+                .concat();
+                let public_key = workload_client
+                    .query_raw_state(&key)
+                    .await
+                    .map_err(|error| {
+                        ValidatorError::Other(format!(
+                            "failed to read canonical AFT key for validator {}: {error}",
+                            hex::encode(validator.account_id.as_ref())
+                        ))
+                    })?
+                    .ok_or_else(|| {
+                        ValidatorError::Other(format!(
+                            "canonical AFT key is missing for validator {}",
+                            hex::encode(validator.account_id.as_ref())
+                        ))
+                    })?;
+                let derived = account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+                    .map_err(|error| ValidatorError::Other(error.to_string()))?;
+                if derived != validator.consensus_key.public_key_hash {
+                    return Err(ValidatorError::Other(format!(
+                        "canonical AFT key substitution for validator {}: expected={} actual={}",
+                        hex::encode(validator.account_id.as_ref()),
+                        hex::encode(validator.consensus_key.public_key_hash),
+                        hex::encode(derived)
+                    )));
+                }
+                canonical_keys.push(public_key);
+            }
+            let mut engine = self.consensus_engine.lock().await;
+            for public_key in &canonical_keys {
+                if !engine.observe_validator_public_key(public_key) {
+                    return Err(ValidatorError::Other(
+                        "consensus engine refused a canonical AFT validator key".into(),
+                    ));
+                }
+            }
+            if !engine.observe_validator_sets(observation_height, &sets) {
+                return Err(ValidatorError::Other(
+                    "consensus engine refused canonical AFT validator-set hydration".into(),
+                ));
+            }
+        }
+
         // Register this node's own consensus key before any task that can cast
         // or replay a self-vote is spawned. Peer keys arrive on their own —
         // `decide` receives the authenticated `known_peers` set and an Ed25519

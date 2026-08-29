@@ -1064,4 +1064,13 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     fn observe_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {
         self.record_validator_public_key(protobuf_public_key)
     }
+
+    fn observe_validator_sets(&mut self, height: u64, sets: &ValidatorSetsV1) -> bool {
+        self.remember_validator_count(
+            height,
+            effective_set_for_height(sets, height).validators.len(),
+        );
+        self.remember_validator_sets(height, sets);
+        true
+    }
 }

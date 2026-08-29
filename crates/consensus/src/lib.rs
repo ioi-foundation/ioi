@@ -36,7 +36,7 @@ use ioi_system::SystemState;
 use ioi_types::app::{
     AccountId, AftRecoveredCertifiedHeaderEntry, AftRecoveredConsensusHeaderEntry,
     AftRecoveredRestartHeaderEntry, Block, BlockHeader, ConsensusVote, FailureReport,
-    QuorumCertificate,
+    QuorumCertificate, ValidatorSetsV1,
 };
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{ConsensusError, TransactionError};
@@ -713,6 +713,31 @@ where
                     engine,
                     protobuf_public_key,
                 )
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn observe_validator_sets(&mut self, height: u64, sets: &ValidatorSetsV1) -> bool {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::observe_validator_sets(engine, height, sets)
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::observe_validator_sets(
+                    engine, height, sets,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::observe_validator_sets(
+                    engine, height, sets,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::observe_validator_sets(engine, height, sets)
             }
             Consensus::_Phantom(_) => unreachable!(),
         }

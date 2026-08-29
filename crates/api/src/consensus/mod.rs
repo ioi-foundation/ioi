@@ -15,7 +15,7 @@ use ioi_types::app::{
     CanonicalCollapseContinuityPublicInputs, CanonicalCollapseExtensionCertificate,
     CanonicalCollapseObject, ConsensusVote, ProofOfDivergence, QuorumCertificate,
     RecoveredCanonicalHeaderEntry, RecoveredCertifiedHeaderEntry, RecoveredRestartBlockHeaderEntry,
-    TimeoutCertificate,
+    TimeoutCertificate, ValidatorSetsV1,
 };
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
@@ -267,6 +267,16 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
     /// inlines its own key. This exists for the node's own consensus key, which
     /// appears in no peer set.
     fn observe_validator_public_key(&mut self, _protobuf_public_key: &[u8]) -> bool {
+        false
+    }
+
+    /// Offers validator sets read from an anchored canonical state before
+    /// network evidence can arrive.
+    ///
+    /// This is cache hydration, never authorization: every later vote and
+    /// certificate remains bound to the effective set for its exact height.
+    /// Engines without a native membership cache ignore the offer.
+    fn observe_validator_sets(&mut self, _height: u64, _sets: &ValidatorSetsV1) -> bool {
         false
     }
 
