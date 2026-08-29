@@ -1,5 +1,7 @@
 use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
 use super::*;
+use ioi_api::crypto::SerializableKey;
+use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
 where
@@ -280,7 +282,7 @@ where
                             ctx.known_peers_ref.clone(),
                             ctx.swarm_commander.clone(),
                             ctx.config.aft_safety_mode,
-                            ctx.last_committed_block
+                            ctx.last_executed_block
                                 .as_ref()
                                 .map(|block| block.header.height + 1)
                                 .unwrap_or(1),
@@ -289,7 +291,7 @@ where
                                 .and_then(|value| value.parse::<u64>().ok())
                                 .filter(|value| *value > 0)
                                 .unwrap_or(2_000),
-                            ctx.last_committed_block
+                            ctx.last_executed_block
                                 .as_ref()
                                 .map(|block| block.header.height)
                                 .unwrap_or(0),
@@ -521,7 +523,7 @@ where
                                 ))
                             })?;
                             initial_block = Some(block);
-                            tracing::info!(target: "orchestration", "Hydrated last_committed_block (Height {})", status.height);
+                            tracing::info!(target: "orchestration", "Hydrated last_executed_block (Height {})", status.height);
                         }
                         Ok(None) => {
                             tracing::warn!(target: "orchestration", "Status says height {}, but block not found in store!", status.height);
@@ -744,7 +746,62 @@ where
             );
         }
 
-        let context = MainLoopContext::<CS, ST, CE, V> {
+        let configured_profile = self
+            .config
+            .resolved_finality_profile()
+            .map_err(ValidatorError::Config)?;
+        let anchor_block = match initial_block.as_ref() {
+            Some(block) => block.clone(),
+            None => workload_client
+                .get_block_by_height(0)
+                .await
+                .map_err(|error| ValidatorError::Other(error.to_string()))?
+                .ok_or_else(|| {
+                    ValidatorError::Other(
+                        "runtime finality cannot initialize without the canonical genesis block"
+                            .into(),
+                    )
+                })?,
+        };
+        let ed25519 = self.local_keypair.clone().try_into_ed25519().map_err(|_| {
+            ValidatorError::Config("runtime finality requires an Ed25519 node identity".into())
+        })?;
+        let secret = ed25519.secret();
+        let finality_key = Ed25519PrivateKey::from_bytes(secret.as_ref())
+            .map_err(|error| ValidatorError::Config(error.to_string()))?;
+        let issuer_key_id = format!(
+            "key://ioi/finality/{}",
+            hex::encode(
+                finality_key
+                    .public_key()
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?
+                    .to_bytes()
+            )
+        );
+        let runtime_finality = super::runtime_finality::RuntimeFinalityCoordinator::open(
+            self.runtime_finality_root.clone(),
+            format!("chain://ioi/{}", self.config.chain_id.0),
+            configured_profile,
+            format!("writer://ioi/validator/{}", hex::encode(local_account_id.0)),
+            super::runtime_finality::canonical_block_head(&anchor_block)
+                .map_err(|error| ValidatorError::Other(error.to_string()))?,
+            issuer_key_id,
+            secret.as_ref(),
+        )
+        .map_err(|error| {
+            ValidatorError::Other(format!("runtime finality startup refusal: {error}"))
+        })?;
+        let last_admitted_block = runtime_finality
+            .last_admitted_block()
+            .map_err(|error| {
+                ValidatorError::Other(format!(
+                    "runtime finality canonical-tip recovery refusal: {error}"
+                ))
+            })?
+            .or_else(|| initial_block.clone());
+        let runtime_finality = Arc::new(Mutex::new(runtime_finality));
+
+        let mut context = MainLoopContext::<CS, ST, CE, V> {
             chain_ref: chain,
             tx_pool_ref: self.tx_pool.clone(),
             view_resolver,
@@ -762,7 +819,8 @@ where
             genesis_root,
             is_quarantined: self.is_quarantined.clone(),
             pending_attestations: std::collections::HashMap::new(),
-            last_committed_block: initial_block,
+            last_committed_block: last_admitted_block,
+            last_executed_block: initial_block,
             last_tip_vote_replay: None,
             last_production_attempt: None,
             consensus_kick_tx: self.consensus_kick_tx.clone(),
@@ -782,7 +840,16 @@ where
             os_driver: self.os_driver.clone(),
             memory_runtime: self.memory_runtime.clone(),
             event_broadcaster: event_tx,
+            runtime_finality,
         };
+
+        super::runtime_finality::redrive_pending(&mut context)
+            .await
+            .map_err(|error| {
+                ValidatorError::Other(format!(
+                    "runtime finality committed-outbox recovery refusal: {error}"
+                ))
+            })?;
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
         let receiver = receiver_opt.take().ok_or(ValidatorError::Other(

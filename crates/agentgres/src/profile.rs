@@ -337,7 +337,7 @@ impl ProfileBindingsDigest {
 /// Per-profile emit/verify adapter. Implementations must be exact: `verify`
 /// returning `Ok` is a claim that the bundle was checked under that profile's
 /// real contract.
-pub trait ProfileFinalityBinding {
+pub trait ProfileFinalityBinding: Send + Sync {
     fn profile(&self) -> FinalityProfile;
 
     /// Sign a checkpoint template into a complete bundle.

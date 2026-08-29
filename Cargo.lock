@@ -7234,6 +7234,7 @@ dependencies = [
 name = "ioi-validator"
 version = "0.1.0"
 dependencies = [
+ "agentgres",
  "ahash 0.8.12",
  "anyhow",
  "async-trait",
@@ -7258,6 +7259,7 @@ dependencies = [
  "ioi-crypto",
  "ioi-drivers",
  "ioi-execution",
+ "ioi-finality",
  "ioi-ipc",
  "ioi-memory",
  "ioi-networking",

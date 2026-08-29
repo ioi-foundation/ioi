@@ -18,6 +18,8 @@ ioi-tx = { path = "../tx" }
 ioi-vm-wasm = { path = "../vm/wasm", optional = true }
 ioi-crypto = { path = "../crypto" }
 ioi-pii = { path = "../pii" }
+ioi-finality = { path = "../ioi-finality" }
+agentgres = { path = "../agentgres" }
 
 # [FIX] Explicitly disable default features here too, just to be safe/explicit
 ioi-services = { path = "../services", default-features = false }

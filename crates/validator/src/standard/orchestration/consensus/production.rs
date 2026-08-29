@@ -556,10 +556,10 @@ where
 }
 
 pub(super) fn parent_ref_from_last_committed_or_recovered_tip(
-    last_committed_block_opt: &Option<Block<ChainTransaction>>,
+    last_executed_block_opt: &Option<Block<ChainTransaction>>,
     recovered_tip_anchor: Option<&RecoveredConsensusTipAnchor>,
 ) -> Result<Option<StateRef>> {
-    if let Some(last) = last_committed_block_opt.as_ref() {
+    if let Some(last) = last_executed_block_opt.as_ref() {
         let block_hash = to_root_hash(last.header.hash()?)?;
         return Ok(Some(StateRef {
             height: last.header.height,
@@ -578,7 +578,7 @@ pub(super) fn parent_ref_from_last_committed_or_recovered_tip(
 fn normalize_decision_parent_qc(
     decision: ioi_api::consensus::ConsensusDecision<ChainTransaction>,
     parent_ref: &StateRef,
-    last_committed_block_opt: &Option<Block<ChainTransaction>>,
+    last_executed_block_opt: &Option<Block<ChainTransaction>>,
 ) -> ioi_api::consensus::ConsensusDecision<ChainTransaction> {
     match decision {
         ioi_api::consensus::ConsensusDecision::ProduceBlock {
@@ -592,7 +592,7 @@ fn normalize_decision_parent_qc(
             timeout_certificate,
         } => {
             let parent_qc = if parent_qc.height == 0 && parent_qc.block_hash == [0; 32] {
-                let parent_view = last_committed_block_opt
+                let parent_view = last_executed_block_opt
                     .as_ref()
                     .map(|block| block.header.view)
                     .unwrap_or(0);
@@ -666,7 +666,7 @@ where
         swarm_commander,
         local_keypair,
         pqc_signer,
-        mut last_committed_block_opt,
+        mut last_executed_block_opt,
         node_state_arc,
         configured_bootstrap_peers,
         signer,
@@ -682,7 +682,7 @@ where
             ctx.swarm_commander.clone(),
             ctx.local_keypair.clone(),
             ctx.pqc_signer.clone(),
-            ctx.last_committed_block.clone(),
+            ctx.last_executed_block.clone(),
             ctx.node_state.clone(),
             ctx.configured_bootstrap_peers,
             ctx.signer.clone(),
@@ -722,7 +722,7 @@ where
         return Ok(());
     }
 
-    let initial_local_tip_height = last_committed_block_opt
+    let initial_local_tip_height = last_executed_block_opt
         .as_ref()
         .map(|block| block.header.height)
         .unwrap_or(0);
@@ -736,7 +736,7 @@ where
                 .await
             {
                 let workload_tip_hash = workload_tip.header.hash().ok();
-                let current_tip_hash = last_committed_block_opt
+                let current_tip_hash = last_executed_block_opt
                     .as_ref()
                     .and_then(|block| block.header.hash().ok());
                 let should_refresh_tip = workload_tip_requires_hydration(
@@ -764,7 +764,7 @@ where
                         {
                             let mut ctx = context_arc.lock().await;
                             let ctx_tip_height = ctx
-                                .last_committed_block
+                                .last_executed_block
                                 .as_ref()
                                 .map(|block| block.header.height)
                                 .unwrap_or(0);
@@ -773,11 +773,11 @@ where
                                 reconciled_height = workload_tip.header.height,
                                 previous_height = ctx_tip_height,
                                 refreshed_same_height = workload_tip.header.height == ctx_tip_height,
-                                "Hydrating last_committed_block from workload status before consensus tick."
+                                "Hydrating last_executed_block from workload status before consensus tick."
                             );
-                            ctx.last_committed_block = Some(workload_tip.clone());
+                            ctx.last_executed_block = Some(workload_tip.clone());
                         }
-                        last_committed_block_opt = Some(workload_tip);
+                        last_executed_block_opt = Some(workload_tip);
                     }
                 }
             }
@@ -789,8 +789,7 @@ where
     let stitch_window_budget = recovered_consensus_header_stitch_window_budget();
     let stitch_segment_budget = recovered_consensus_header_stitch_segment_budget();
     let stitch_segment_fold_budget = recovered_consensus_header_stitch_segment_fold_budget();
-    if matches!(cons_ty, ioi_types::config::ConsensusType::Aft)
-        && last_committed_block_opt.is_none()
+    if matches!(cons_ty, ioi_types::config::ConsensusType::Aft) && last_executed_block_opt.is_none()
     {
         if let Some(status_height) = workload_status_height.filter(|height| *height > 0) {
             match load_folded_recovered_consensus_headers(
@@ -1006,41 +1005,41 @@ where
         }
     }
 
-    if let Some(last_committed_block) = last_committed_block_opt.as_ref() {
+    if let Some(last_executed_block) = last_executed_block_opt.as_ref() {
         let accepted = observe_live_committed_chain_through_block(
             &consensus_engine_ref,
             cons_ty,
             view_resolver.workload_client().as_ref(),
-            last_committed_block,
+            last_executed_block,
         )
         .await?;
         if !accepted {
             tracing::warn!(
                 target: "consensus",
-                height = last_committed_block.header.height,
-                view = last_committed_block.header.view,
-                sealed = last_committed_block.header.sealed_finality_proof.is_some(),
-                guardian_cert = last_committed_block.header.guardian_certificate.is_some(),
-                order_cert = last_committed_block.header.canonical_order_certificate.is_some(),
-                timestamp_ms = last_committed_block.header.timestamp_ms_or_legacy(),
-                state_root_len = last_committed_block.header.state_root.0.len(),
-                tx_root_len = last_committed_block.header.transactions_root.len(),
+                height = last_executed_block.header.height,
+                view = last_executed_block.header.view,
+                sealed = last_executed_block.header.sealed_finality_proof.is_some(),
+                guardian_cert = last_executed_block.header.guardian_certificate.is_some(),
+                order_cert = last_executed_block.header.canonical_order_certificate.is_some(),
+                timestamp_ms = last_executed_block.header.timestamp_ms_or_legacy(),
+                state_root_len = last_executed_block.header.state_root.0.len(),
+                tx_root_len = last_executed_block.header.transactions_root.len(),
                 "Consensus engine ignored the local-tip committed-block hint during production reconciliation."
             );
         }
     }
 
-    let local_tip_height = last_committed_block_opt
+    let local_tip_height = last_executed_block_opt
         .as_ref()
         .map(|block| block.header.height)
         .or_else(|| recovered_tip_anchor.as_ref().map(|anchor| anchor.height))
         .unwrap_or(0);
-    let validator_count_hint = last_committed_block_opt
+    let validator_count_hint = last_executed_block_opt
         .as_ref()
         .map(|block| block.header.validator_set.len())
         .unwrap_or_else(|| configured_bootstrap_peers.saturating_add(1));
 
-    let parent_h = last_committed_block_opt
+    let parent_h = last_executed_block_opt
         .as_ref()
         .map(|b: &Block<ChainTransaction>| b.header.height)
         .or_else(|| recovered_tip_anchor.as_ref().map(|anchor| anchor.height))
@@ -1048,7 +1047,7 @@ where
     let producing_h = parent_h + 1;
 
     if benchmark_trace_enabled() && producing_h <= 3 {
-        if let Some(last) = last_committed_block_opt.as_ref() {
+        if let Some(last) = last_executed_block_opt.as_ref() {
             let root = last.header.state_root.0.as_slice();
             let root_prefix_len = root.len().min(4);
             eprintln!(
@@ -1122,7 +1121,7 @@ where
         return Ok(());
     }
 
-    if let Some(tip_block) = last_committed_block_opt.as_ref() {
+    if let Some(tip_block) = last_executed_block_opt.as_ref() {
         if let Err(error) = maybe_replay_tip_vote(
             context_arc,
             &consensus_engine_ref,
@@ -1150,7 +1149,7 @@ where
     );
 
     let (parent_ref, _parent_anchor) = match resolve_parent_ref_and_anchor(
-        &last_committed_block_opt,
+        &last_executed_block_opt,
         recovered_tip_anchor.as_ref(),
         view_resolver.as_ref(),
     )
@@ -1172,7 +1171,7 @@ where
             .decide(&our_account_id, producing_h, 0, &*parent_view, &known_peers)
             .await
     };
-    let decision = normalize_decision_parent_qc(decision, &parent_ref, &last_committed_block_opt);
+    let decision = normalize_decision_parent_qc(decision, &parent_ref, &last_executed_block_opt);
 
     if producing_h <= 3 {
         let decision_label = match &decision {
@@ -1297,7 +1296,7 @@ where
             ..
         } => {
             let mut parent_ref = resolve_parent_ref_and_anchor(
-                &last_committed_block_opt,
+                &last_executed_block_opt,
                 recovered_tip_anchor.as_ref(),
                 view_resolver.as_ref(),
             )
@@ -1386,7 +1385,7 @@ where
                         engine.aft_recovered_restart_header_for_quorum_certificate(&parent_qc),
                     )
                 };
-                if last_committed_block_opt.is_none()
+                if last_executed_block_opt.is_none()
                     && certified_parent_header.is_none()
                     && certified_recovered_parent_header.is_none()
                     && certified_recovered_parent_entry.is_none()
@@ -1493,7 +1492,7 @@ where
                 let mut recovered_restart_parent_hash_prefix = String::from("unknown");
 
                 if let (Some(local_tip), Some(certified_parent_header)) =
-                    (last_committed_block_opt.as_ref(), certified_parent_header)
+                    (last_executed_block_opt.as_ref(), certified_parent_header)
                 {
                     let local_tip_hash_prefix = local_tip
                         .header
@@ -1547,24 +1546,19 @@ where
                             })?;
                         {
                             let mut ctx = context_arc.lock().await;
-                            ctx.last_committed_block = Some(reconciled_block.clone());
+                            if ctx
+                                .last_committed_block
+                                .as_ref()
+                                .map(|canonical| {
+                                    canonical.header.height == reconciled_block.header.height
+                                })
+                                .unwrap_or(false)
                             {
-                                let mut chain_guard = ctx.chain_ref.lock().await;
-                                let status = chain_guard.status_mut();
-                                if reconciled_block.header.height >= status.height {
-                                    status.height = reconciled_block.header.height;
-                                    status.latest_timestamp = reconciled_block.header.timestamp;
-                                }
+                                return Err(anyhow!(
+                                    "refusing to rewrite an Agentgres-admitted canonical block during QC reconciliation"
+                                ));
                             }
-                            let _ = ctx.tip_sender.send(ChainTipInfo {
-                                height: reconciled_block.header.height,
-                                timestamp: reconciled_block.header.timestamp,
-                                timestamp_ms: reconciled_block.header.timestamp_ms_or_legacy(),
-                                gas_used: reconciled_block.header.gas_used,
-                                state_root: reconciled_block.header.state_root.0.clone(),
-                                genesis_root: ctx.genesis_root.clone(),
-                                validator_set: reconciled_block.header.validator_set.clone(),
-                            });
+                            ctx.last_executed_block = Some(reconciled_block.clone());
                         }
 
                         {
@@ -1606,9 +1600,9 @@ where
                             );
                         }
 
-                        last_committed_block_opt = Some(reconciled_block);
+                        last_executed_block_opt = Some(reconciled_block);
                         parent_ref = resolve_parent_ref_and_anchor(
-                            &last_committed_block_opt,
+                            &last_executed_block_opt,
                             recovered_tip_anchor.as_ref(),
                             view_resolver.as_ref(),
                         )
@@ -1618,7 +1612,7 @@ where
                     }
                 }
 
-                if !reconciled && last_committed_block_opt.is_none() {
+                if !reconciled && last_executed_block_opt.is_none() {
                     if let Some(recovered_parent_header) = certified_recovered_parent_header {
                         recovered_parent_hash_prefix = hex::encode(
                             &recovered_parent_header.canonical_block_commitment_hash[..4],
@@ -1632,7 +1626,7 @@ where
                         {
                             recovered_tip_anchor = Some(recovered_anchor);
                             parent_ref = resolve_parent_ref_and_anchor(
-                                &last_committed_block_opt,
+                                &last_executed_block_opt,
                                 recovered_tip_anchor.as_ref(),
                                 view_resolver.as_ref(),
                             )
@@ -1651,7 +1645,7 @@ where
                     }
                 }
 
-                if !reconciled && last_committed_block_opt.is_none() {
+                if !reconciled && last_executed_block_opt.is_none() {
                     if let (Some(current_anchor), Some(recovered_parent_entry)) = (
                         recovered_tip_anchor.as_ref(),
                         certified_recovered_parent_entry.as_ref(),
@@ -1670,7 +1664,7 @@ where
                         {
                             recovered_tip_anchor = Some(advanced_anchor);
                             parent_ref = resolve_parent_ref_and_anchor(
-                                &last_committed_block_opt,
+                                &last_executed_block_opt,
                                 recovered_tip_anchor.as_ref(),
                                 view_resolver.as_ref(),
                             )
@@ -1689,7 +1683,7 @@ where
                     }
                 }
 
-                if !reconciled && last_committed_block_opt.is_none() {
+                if !reconciled && last_executed_block_opt.is_none() {
                     if let Some(recovered_restart_parent_entry) =
                         certified_recovered_restart_parent_entry.as_ref()
                     {
@@ -1710,7 +1704,7 @@ where
                         {
                             recovered_tip_anchor = Some(advanced_anchor);
                             parent_ref = resolve_parent_ref_and_anchor(
-                                &last_committed_block_opt,
+                                &last_executed_block_opt,
                                 recovered_tip_anchor.as_ref(),
                                 view_resolver.as_ref(),
                             )
@@ -2312,7 +2306,7 @@ where
 }
 
 pub(super) async fn resolve_parent_ref_and_anchor<V>(
-    last_committed_block_opt: &Option<Block<ChainTransaction>>,
+    last_executed_block_opt: &Option<Block<ChainTransaction>>,
     recovered_tip_anchor: Option<&RecoveredConsensusTipAnchor>,
     view_resolver: &dyn ioi_api::chain::ViewResolver<Verifier = V>,
 ) -> Result<(StateRef, StateAnchor)>
@@ -2320,7 +2314,7 @@ where
     V: Verifier,
 {
     let parent_ref = if let Some(parent_ref) = parent_ref_from_last_committed_or_recovered_tip(
-        last_committed_block_opt,
+        last_executed_block_opt,
         recovered_tip_anchor,
     )? {
         parent_ref

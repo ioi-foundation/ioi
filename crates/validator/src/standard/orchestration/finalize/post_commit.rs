@@ -1,8 +1,12 @@
 use super::*;
 
+#[cfg(test)]
 use ioi_types::app::bench_planted_delay::{planted_delay_for, PlantedPhase};
+#[cfg(test)]
 use ioi_types::app::KernelEvent;
+#[cfg(test)]
 use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(test)]
 use tokio::sync::broadcast;
 
 /// Server wall-clock milliseconds since the UNIX epoch.
@@ -11,6 +15,7 @@ use tokio::sync::broadcast;
 /// a broken host, and a commit path is the wrong place to abort over it. The
 /// value is an OBSERVATION carried alongside the commit, never an input to
 /// admission, ordering, execution, or state.
+#[cfg(test)]
 fn server_wall_clock_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -101,6 +106,7 @@ pub(super) fn post_commit_vote_replay_delays_ms() -> Vec<u64> {
 /// The event is published AFTER the status, not instead of it: a subscriber
 /// that reacts to the event by reading `get_transaction_status` must not race
 /// its own notification.
+#[cfg(test)]
 pub(super) async fn durably_update_header_then_publish_committed<F, Fut>(
     durable_header_update: F,
     receipt_map: &Arc<Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
@@ -512,7 +518,7 @@ where
                 final_block.header.canonical_order_certificate = Some(certificate);
                 let previous_publication_frontier = {
                     let ctx = context_arc.lock().await;
-                    ctx.last_committed_block
+                    ctx.last_executed_block
                         .as_ref()
                         .and_then(|block| block.header.publication_frontier.clone())
                 };
@@ -584,87 +590,39 @@ where
         publish_experimental_recovery_artifacts(&publisher, &final_block).await?;
     }
 
-    // Committed is published ONLY after the signed/finalized header has been
-    // durably updated.
-    //
-    // This publication used to run BEFORE the update below. Because
-    // `tx_status_cache` is the very cache `get_transaction_status` serves, a
-    // failing `update_block_header` returned Err while a client could already
-    // observe Committed for a transaction whose finalized header never
-    // reached durable storage -- and the error path performs no rollback, so
-    // that false Committed was terminal for the life of the cache entry.
-    // Sequencing the durable write first makes the published status entailed
-    // by durability instead of merely concurrent with it.
-    //
-    // This does not weaken the earlier atomic state+block persistence; it only
-    // moves the in-memory publication to after the durability it asserts.
-    let (receipt_map, tx_status_cache, event_broadcaster, workload_client) = {
+    // The workload header is durable execution material, not canonical
+    // ordering/finality truth. It is staged below and may be propagated as an
+    // AFT proposal, but no status, event, public tip, receipt ACK, or mempool
+    // removal is allowed until Agentgres admits the corresponding profile
+    // proof and redrives its committed outbox.
+    let workload_client = {
         let ctx = context_arc.lock().await;
-        (
-            ctx.receipt_map.clone(),
-            ctx.tx_status_cache.clone(),
-            ctx.event_broadcaster.clone(),
-            ctx.view_resolver.workload_client().clone(),
-        )
+        ctx.view_resolver.workload_client().clone()
     };
-    durably_update_header_then_publish_committed(
-        || async {
-            let update_header_started = Instant::now();
-            workload_client
-                .update_block_header(final_block.clone())
-                .await
-                .map_err(|error| {
-                    anyhow!("failed to persist finalized block header update: {error}")
-                })?;
-            let update_header_elapsed = update_header_started.elapsed();
-            if update_header_elapsed.as_millis() >= 250 {
-                tracing::warn!(
-                    target: "consensus",
-                    height = final_block.header.height,
-                    tx_count = final_block.transactions.len(),
-                    elapsed_ms = update_header_elapsed.as_millis(),
-                    "update_block_header() is slow"
-                );
-            }
-            Ok(())
-        },
-        &receipt_map,
-        &tx_status_cache,
-        &event_broadcaster,
-        &final_block.transactions,
-        block_height,
-    )
-    .await?;
+    let update_header_started = Instant::now();
+    workload_client
+        .update_block_header(final_block.clone())
+        .await
+        .map_err(|error| anyhow!("failed to persist finalized block header update: {error}"))?;
+    let update_header_elapsed = update_header_started.elapsed();
+    if update_header_elapsed.as_millis() >= 250 {
+        tracing::warn!(
+            target: "consensus",
+            height = final_block.header.height,
+            tx_count = final_block.transactions.len(),
+            elapsed_ms = update_header_elapsed.as_millis(),
+            "update_block_header() is slow"
+        );
+    }
     {
-        let (chain_ref, tip_sender, genesis_root) = {
-            let mut ctx = context_arc.lock().await;
-            ctx.last_committed_block = Some(final_block.clone());
-            (
-                ctx.chain_ref.clone(),
-                ctx.tip_sender.clone(),
-                ctx.genesis_root.clone(),
-            )
-        };
-        {
-            let mut chain_guard = chain_ref.lock().await;
-            let status = chain_guard.status_mut();
-            if block_height > status.height {
-                status.total_transactions = status
-                    .total_transactions
-                    .saturating_add(final_block.transactions.len() as u64);
-            }
-            status.height = block_height;
-            status.latest_timestamp = final_block.header.timestamp;
-        }
-        let _ = tip_sender.send(ChainTipInfo {
-            height: block_height,
-            timestamp: final_block.header.timestamp,
-            timestamp_ms: final_block.header.timestamp_ms_or_legacy(),
-            gas_used: final_block.header.gas_used,
-            state_root: final_block.header.state_root.0.clone(),
-            genesis_root,
-            validator_set: final_block.header.validator_set.clone(),
-        });
+        let mut ctx = context_arc.lock().await;
+        super::super::runtime_finality::stage_runtime_block(
+            &ctx,
+            final_block.clone(),
+            execution_receipts.clone(),
+        )
+        .await?;
+        ctx.last_executed_block = Some(final_block.clone());
     }
 
     let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
@@ -691,10 +649,6 @@ where
                 );
             }
         });
-    }
-
-    if let Err(e) = crate::standard::orchestration::gossip::prune_mempool(tx_pool, &final_block) {
-        tracing::error!(target: "consensus", event = "mempool_prune_fail", error=%e);
     }
 
     {
@@ -797,6 +751,16 @@ where
             swarm_sender,
             final_block.clone(),
         );
+    }
+
+    // Self-voting (and any QC it completed) runs before this drain so native
+    // AFT evidence can admit the newly finalized ancestor immediately. Under
+    // single_authority_v1 the exact staged block is admitted here instead.
+    // Every publication consequence is redriven from the committed Agentgres
+    // outbox by this call; an empty drain publishes nothing.
+    {
+        let mut ctx = context_arc.lock().await;
+        super::super::runtime_finality::admit_available(&mut ctx, Some(&final_block)).await?;
     }
 
     {
@@ -979,12 +943,12 @@ where
         + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    let (mode, view_resolver, last_committed_block) = {
+    let (mode, view_resolver, last_executed_block) = {
         let ctx = context_arc.lock().await;
         (
             ctx.config.aft_safety_mode,
             ctx.view_resolver.clone(),
-            ctx.last_committed_block.clone(),
+            ctx.last_executed_block.clone(),
         )
     };
 
@@ -1015,8 +979,7 @@ where
             .await;
     }
 
-    let parent_ref =
-        resolve_parent_state_ref(&last_committed_block, view_resolver.as_ref()).await?;
+    let parent_ref = resolve_parent_state_ref(&last_executed_block, view_resolver.as_ref()).await?;
     let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
     let current_epoch = match parent_view.get(CURRENT_EPOCH_KEY).await? {
         Some(bytes) => codec::from_bytes_canonical::<u64>(&bytes)
@@ -1445,7 +1408,7 @@ where
     let refreshed_consensus = {
         let mut ctx = context_arc.lock().await;
         let should_refresh_last_committed = ctx
-            .last_committed_block
+            .last_executed_block
             .as_ref()
             .map(|current| {
                 current.header.height == sealed_block.header.height
@@ -1455,7 +1418,7 @@ where
             })
             .unwrap_or(false);
         if should_refresh_last_committed {
-            ctx.last_committed_block = Some(sealed_block.clone());
+            ctx.last_executed_block = Some(sealed_block.clone());
             Some((
                 ctx.consensus_engine_ref.clone(),
                 ctx.consensus_kick_tx.clone(),
@@ -1544,13 +1507,13 @@ pub(super) fn build_witness_omission_evidence(
 }
 
 pub(super) async fn resolve_parent_state_ref<V>(
-    last_committed_block: &Option<Block<ChainTransaction>>,
+    last_executed_block: &Option<Block<ChainTransaction>>,
     view_resolver: &dyn ioi_api::chain::ViewResolver<Verifier = V>,
 ) -> Result<StateRef>
 where
     V: Verifier,
 {
-    if let Some(last) = last_committed_block.as_ref() {
+    if let Some(last) = last_executed_block.as_ref() {
         return Ok(StateRef {
             height: last.header.height,
             state_root: last.header.state_root.as_ref().to_vec(),

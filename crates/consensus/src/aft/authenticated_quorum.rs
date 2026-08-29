@@ -34,7 +34,9 @@
 //! [`QuorumCertificate`]. See [`ValidatorKeyRegistry`] for how a node learns
 //! the keys it needs without a new message type.
 
-use ioi_api::consensus::{NativeAftFinalizedEvidence, NativeAftQuorumSigner};
+use ioi_api::consensus::{
+    NativeAftFinalizedEvidence, NativeAftMembershipMember, NativeAftQuorumSigner,
+};
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ConsensusVote, QuorumCertificate, SignatureSuite,
     ValidatorSetV1, ValidatorV1,
@@ -243,6 +245,14 @@ pub struct VerifiedSigner {
     pub signature: Vec<u8>,
 }
 
+/// One independently rebound member of the complete effective validator set.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerifiedMember {
+    pub account_id: AccountId,
+    pub suite: SignatureSuite,
+    pub public_key: Vec<u8>,
+}
+
 /// A quorum certificate whose every signer was re-verified from raw key
 /// material against the effective validator set.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -251,6 +261,10 @@ pub struct VerifiedQuorum {
     pub quorum_certificate: QuorumCertificate,
     /// Distinct signers, in certificate order, each with verified key material.
     pub signers: Vec<VerifiedSigner>,
+    /// Complete effective membership, rebound to raw key material.
+    pub members: Vec<VerifiedMember>,
+    /// First height at which this exact set applies.
+    pub membership_effective_from_height: u64,
     /// The safety mode whose threshold this certificate was held to.
     pub safety_mode: AftSafetyMode,
     /// Voting members declared by the effective set at the certified height.
@@ -403,6 +417,58 @@ fn verify_member_signature(
     })
 }
 
+fn verify_member_key(
+    validator: &ValidatorV1,
+    height: u64,
+    registry: &ValidatorKeyRegistry,
+) -> Result<VerifiedMember, ConsensusError> {
+    let record = &validator.consensus_key;
+    if height < record.since_height {
+        return Err(ConsensusError::BlockVerificationFailed(format!(
+            "consensus key for {} is not active until height {}, but the quorum is for height {}",
+            hex::encode(validator.account_id.as_ref()),
+            record.since_height,
+            height
+        )));
+    }
+    if record.suite != SignatureSuite::ED25519 {
+        return Err(ConsensusError::BlockVerificationFailed(format!(
+            "consensus key suite {:?} for {} is not exportable on the native AFT finality path",
+            record.suite,
+            hex::encode(validator.account_id.as_ref())
+        )));
+    }
+    let key = registry.get(&record.public_key_hash).ok_or_else(|| {
+        ConsensusError::BlockVerificationFailed(format!(
+            "no raw public key available for effective validator-set member {}",
+            hex::encode(validator.account_id.as_ref())
+        ))
+    })?;
+    if key.suite() != record.suite || key.key_hash()? != record.public_key_hash {
+        return Err(ConsensusError::BlockVerificationFailed(format!(
+            "registered key does not match the effective validator-set record for {}",
+            hex::encode(validator.account_id.as_ref())
+        )));
+    }
+    let derived_account =
+        account_id_from_key_material(record.suite, key.raw()).map_err(|error| {
+            ConsensusError::BlockVerificationFailed(format!(
+                "failed to derive native AFT member account: {error}"
+            ))
+        })?;
+    if derived_account != validator.account_id.0 {
+        return Err(ConsensusError::BlockVerificationFailed(format!(
+            "effective validator {} uses a rotated consensus key that the current portable finality contract cannot bind to the header account",
+            hex::encode(validator.account_id.as_ref())
+        )));
+    }
+    Ok(VerifiedMember {
+        account_id: validator.account_id,
+        suite: record.suite,
+        public_key: key.raw().to_vec(),
+    })
+}
+
 /// Verifies a single loose vote before it may enter a vote pool.
 ///
 /// `expected` pins the block coordinates the caller is willing to accept, so a
@@ -449,6 +515,11 @@ pub fn verify_quorum_certificate(
         )));
     }
 
+    let members = set
+        .validators
+        .iter()
+        .map(|validator| verify_member_key(validator, qc.height, registry))
+        .collect::<Result<Vec<_>, _>>()?;
     let mut seen: BTreeSet<AccountId> = BTreeSet::new();
     let mut signers = Vec::with_capacity(qc.signatures.len());
     for (voter, signature) in &qc.signatures {
@@ -481,6 +552,8 @@ pub fn verify_quorum_certificate(
     Ok(VerifiedQuorum {
         quorum_certificate: qc.clone(),
         signers,
+        members,
+        membership_effective_from_height: set.effective_from_height,
         safety_mode,
         total_voting_members: set.validators.len() as u64,
         quorum_threshold: threshold,
@@ -499,6 +572,10 @@ pub struct AftFinalizedQuorumEvent {
     pub quorum_certificate: QuorumCertificate,
     /// Every signer re-verified at finalization time, with raw key material.
     pub signers: Vec<VerifiedSigner>,
+    /// Complete effective membership, including non-signers.
+    pub members: Vec<VerifiedMember>,
+    /// First height at which the membership applies.
+    pub membership_effective_from_height: u64,
     /// The safety mode in force when the block finalized.
     pub safety_mode: AftSafetyMode,
     /// Voting members declared by the effective set at the finalized height.
@@ -522,6 +599,8 @@ impl AftFinalizedQuorumEvent {
         Self {
             quorum_certificate: verified.quorum_certificate,
             signers: verified.signers,
+            members: verified.members,
+            membership_effective_from_height: verified.membership_effective_from_height,
             safety_mode: verified.safety_mode,
             total_voting_members: verified.total_voting_members,
             byzantine_fault_tolerance,
@@ -551,11 +630,23 @@ impl From<VerifiedSigner> for NativeAftQuorumSigner {
     }
 }
 
+impl From<VerifiedMember> for NativeAftMembershipMember {
+    fn from(member: VerifiedMember) -> Self {
+        Self {
+            account_id: member.account_id,
+            suite: member.suite,
+            public_key: member.public_key,
+        }
+    }
+}
+
 impl From<AftFinalizedQuorumEvent> for NativeAftFinalizedEvidence {
     fn from(event: AftFinalizedQuorumEvent) -> Self {
         Self {
             quorum_certificate: event.quorum_certificate,
             signers: event.signers.into_iter().map(Into::into).collect(),
+            members: event.members.into_iter().map(Into::into).collect(),
+            membership_effective_from_height: event.membership_effective_from_height,
             total_voting_members: event.total_voting_members,
             byzantine_fault_tolerance: event.byzantine_fault_tolerance,
             quorum_threshold: event.quorum_threshold,

@@ -1,5 +1,6 @@
 // Path: crates/validator/src/standard/orchestration/context.rs
 
+use super::runtime_finality::RuntimeFinalityCoordinator;
 use crate::common::GuardianSigner;
 use crate::config::OrchestrationConfig;
 use crate::standard::orchestration::ingestion::ChainTipInfo;
@@ -127,8 +128,13 @@ where
     pub is_quarantined: Arc<AtomicBool>,
     /// pending attestations for Oracle requests.
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
-    /// The last block committed to the local chain.
+    /// The last block admitted by the canonical Agentgres finality spine.
+    /// Public completion, receipt, and tip surfaces must never advance beyond it.
     pub last_committed_block: Option<Block<ChainTransaction>>,
+    /// The last block durably executed by the workload and staged for finality.
+    /// Under AFT this may be ahead of `last_committed_block` while the peer quorum
+    /// required for canonical admission is still forming.
+    pub last_executed_block: Option<Block<ChainTransaction>>,
     /// The most recent tip vote replayed from workload state into the live consensus engine,
     /// along with the replay timestamp for rate limiting.
     pub last_tip_vote_replay: Option<(u64, u64, [u8; 32], std::time::Instant)>,
@@ -167,4 +173,6 @@ where
     /// [NEW] Event broadcaster for UI feedback
     /// Broadcaster for kernel events to UI subscribers.
     pub event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,
+    /// Sole runtime ordering/finality admission coordinator.
+    pub(crate) runtime_finality: Arc<Mutex<RuntimeFinalityCoordinator>>,
 }

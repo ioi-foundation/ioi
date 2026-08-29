@@ -1547,8 +1547,8 @@ fn runtime_v3_binds_both_real_profiles_without_inventing_receipt_commitment() {
     .expect("AFT runtime bundle verifies");
     assert_eq!(aft.profile, "bft_consensus");
     assert_eq!(aft.certificate_variant, "bft_consensus_aft_v1");
-    assert_eq!(aft.operation_count, 2);
-    assert_eq!(aft.receipt_count, 2);
+    assert_eq!(aft.operation_count, 3);
+    assert_eq!(aft.receipt_count, 3);
     assert!(aft.native_quorum_verified);
     assert!(aft.effect_committed_in_block);
     assert!(!aft.receipts_committed_in_block);
@@ -1564,6 +1564,50 @@ fn runtime_v3_binds_both_real_profiles_without_inventing_receipt_commitment() {
     assert!(!single.native_quorum_verified);
     assert!(single.effect_committed_in_block);
     assert!(!single.receipts_committed_in_block);
+}
+
+#[test]
+fn runtime_v3_empty_block_advances_with_a_block_transition_receipt() {
+    let (fixture, block_bytes, _) = native_effect_fixture(Vec::new(), 42);
+    let block: Block<ChainTransaction> =
+        from_bytes_canonical(&block_bytes).expect("empty runtime block decodes");
+    let bundle = emit_runtime_bundle_v3(
+        RuntimeBundleV3Input {
+            bundle_id: "proof://acme/runtime/empty/8",
+            checkpoint_id: "receipt-checkpoint://acme/runtime/empty/8",
+            certificate_id: "finality-certificate://acme/runtime/empty/8",
+            availability_manifest_id: "availability-manifest://acme/runtime/empty/8",
+            block_payload_ref: "payload://acme/runtime/block/empty/8",
+            domain_id: "domain://acme/runtime",
+            authority_epoch: 9,
+            authority_revocation_epoch: 4,
+            profile: RuntimeFinalityProfile::BftConsensusAftV1,
+            profile_epoch: 3,
+            writer_identity: "writer://acme/validator/1",
+            fence_token: 17,
+            operation_sequence_first: 44,
+            receipt_sequence_first: 84,
+            previous_checkpoint_ref: None,
+            previous_checkpoint_hash: None,
+            authority_policy_root: RUNTIME_TEST_HASH,
+            governance_policy_root: RUNTIME_TEST_HASH,
+            availability_policy_root: RUNTIME_TEST_HASH,
+            retention_policy_root: RUNTIME_TEST_HASH,
+            location_ref: "agentgres://acme/runtime/block/empty/8",
+            failure_domain_ref: "failure-domain://acme/local-device",
+            verifier_contract_hash: RUNTIME_TEST_HASH,
+            issuer_key_id: "key://acme/finality/9",
+            block: &block,
+            receipts: &[],
+            native_aft: Some(&fixture.finalized),
+        },
+        &native_issuer(),
+    )
+    .expect("empty block emits through the explicit v3 successor");
+    let claim = verify_runtime_bundle_v3(&bundle).expect("empty block verifies offline");
+    assert_eq!(claim.operation_count, 1);
+    assert_eq!(claim.receipt_count, 1);
+    assert!(claim.native_quorum_verified);
 }
 
 #[test]
@@ -1598,8 +1642,8 @@ fn runtime_v3_signed_boundary_substitutions_fail_closed() {
             json!(RUNTIME_TEST_HASH),
         ),
         ("/operations/0/sequence", json!(42)),
-        ("/operations/0/body/transaction_base64", json!("AA==")),
-        ("/receipts/0/body/gas_used", json!(1)),
+        ("/operations/1/body/transaction_base64", json!("AA==")),
+        ("/receipts/1/body/gas_used", json!(1)),
         (
             "/checkpoint/resulting_state_commitment/root_base64",
             json!("AA=="),

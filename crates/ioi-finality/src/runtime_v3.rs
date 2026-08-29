@@ -350,8 +350,45 @@ fn build_materials(
             "one execution receipt per block transaction".into(),
         ));
     }
-    let mut operations = Vec::with_capacity(input.block.transactions.len());
-    let mut receipts = Vec::with_capacity(input.receipts.len());
+    let block_hash: [u8; 32] = input
+        .block
+        .header
+        .hash()
+        .map_err(|error| VerificationError::Field(error.to_string()))?
+        .as_slice()
+        .try_into()
+        .map_err(|_| VerificationError::Field("runtime block hash".into()))?;
+    let block_operation = json!({
+        "schema": "ioi.runtime-block-transition-operation.v1",
+        "height": input.block.header.height,
+        "view": input.block.header.view,
+        "previous_canonical_head": hash_prefixed(&input.block.header.parent_hash),
+        "resulting_canonical_head": hash_prefixed(&block_hash),
+        "previous_state_root": hash_bytes(input.block.header.parent_state_root.as_ref()),
+        "resulting_state_root": hash_bytes(input.block.header.state_root.as_ref()),
+        "transaction_count": input.block.transactions.len() as u64,
+    });
+    let block_receipt = json!({
+        "schema": "ioi.runtime-block-transition-receipt.v1",
+        "height": input.block.header.height,
+        "resulting_canonical_head": hash_prefixed(&block_hash),
+        "resulting_state_root": hash_bytes(input.block.header.state_root.as_ref()),
+        "transaction_count": input.block.transactions.len() as u64,
+        "execution_gas_accounted_by_individual_receipts": input.block.header.gas_used,
+        "outcome": "success",
+    });
+    let mut operations = Vec::with_capacity(input.block.transactions.len() + 1);
+    operations.push(RuntimeMaterialV3 {
+        sequence: input.operation_sequence_first,
+        body_hash: hash_value(&block_operation)?,
+        body: block_operation,
+    });
+    let mut receipts = Vec::with_capacity(input.receipts.len() + 1);
+    receipts.push(RuntimeMaterialV3 {
+        sequence: input.receipt_sequence_first,
+        body_hash: hash_value(&block_receipt)?,
+        body: block_receipt,
+    });
     for (index, (transaction, receipt)) in input
         .block
         .transactions
@@ -361,11 +398,11 @@ fn build_materials(
     {
         let operation_sequence = input
             .operation_sequence_first
-            .checked_add(index as u64)
+            .checked_add(index as u64 + 1)
             .ok_or_else(|| VerificationError::Field("operation sequence overflow".into()))?;
         let receipt_sequence = input
             .receipt_sequence_first
-            .checked_add(index as u64)
+            .checked_add(index as u64 + 1)
             .ok_or_else(|| VerificationError::Field("receipt sequence overflow".into()))?;
         let tx_hash = transaction
             .hash()
@@ -1231,10 +1268,55 @@ pub fn verify_runtime_bundle_v3(
         }
     }
 
-    let mut bindings = Vec::with_capacity(bundle.operations.len());
+    let expected_block_operation = json!({
+        "schema": "ioi.runtime-block-transition-operation.v1",
+        "height": block.header.height,
+        "view": block.header.view,
+        "previous_canonical_head": hash_prefixed(&block.header.parent_hash),
+        "resulting_canonical_head": hash_prefixed(&block_hash),
+        "previous_state_root": hash_bytes(block.header.parent_state_root.as_ref()),
+        "resulting_state_root": hash_bytes(block.header.state_root.as_ref()),
+        "transaction_count": block.transactions.len() as u64,
+    });
+    let block_operation = bundle
+        .operations
+        .first()
+        .ok_or_else(|| VerificationError::Binding("runtime block operation absent".into()))?;
+    if block_operation.sequence != checkpoint.operation_range.first
+        || block_operation.body != expected_block_operation
+        || block_operation.body_hash != hash_value(&expected_block_operation)?
+    {
+        return Err(VerificationError::Binding(
+            "runtime block transition operation".into(),
+        ));
+    }
+    let expected_block_receipt = json!({
+        "schema": "ioi.runtime-block-transition-receipt.v1",
+        "height": block.header.height,
+        "resulting_canonical_head": hash_prefixed(&block_hash),
+        "resulting_state_root": hash_bytes(block.header.state_root.as_ref()),
+        "transaction_count": block.transactions.len() as u64,
+        "execution_gas_accounted_by_individual_receipts": block.header.gas_used,
+        "outcome": "success",
+    });
+    let block_receipt = bundle
+        .receipts
+        .first()
+        .ok_or_else(|| VerificationError::Binding("runtime block receipt absent".into()))?;
+    if block_receipt.sequence != checkpoint.receipt_range.first
+        || block_receipt.body != expected_block_receipt
+        || block_receipt.body_hash != hash_value(&expected_block_receipt)?
+    {
+        return Err(VerificationError::Binding(
+            "runtime block transition receipt".into(),
+        ));
+    }
+
+    let mut bindings = Vec::with_capacity(block.transactions.len());
     for (index, (operation, transaction)) in bundle
         .operations
         .iter()
+        .skip(1)
         .zip(block.transactions.iter())
         .enumerate()
     {
@@ -1242,7 +1324,7 @@ pub fn verify_runtime_bundle_v3(
         let expected_sequence = checkpoint
             .operation_range
             .first
-            .checked_add(index as u64)
+            .checked_add(index as u64 + 1)
             .ok_or_else(|| VerificationError::Binding("operation sequence overflow".into()))?;
         let transaction_bytes = BASE64
             .decode(
@@ -1278,7 +1360,9 @@ pub fn verify_runtime_bundle_v3(
             transaction_bytes,
         });
     }
-    if bindings.len() != block.transactions.len() {
+    if bindings.len() != block.transactions.len()
+        || bundle.operations.len() != block.transactions.len() + 1
+    {
         return Err(VerificationError::Binding(
             "runtime operation coverage".into(),
         ));
@@ -1287,6 +1371,7 @@ pub fn verify_runtime_bundle_v3(
     for (index, (receipt, transaction)) in bundle
         .receipts
         .iter()
+        .skip(1)
         .zip(block.transactions.iter())
         .enumerate()
     {
@@ -1294,7 +1379,7 @@ pub fn verify_runtime_bundle_v3(
         let expected_sequence = checkpoint
             .receipt_range
             .first
-            .checked_add(index as u64)
+            .checked_add(index as u64 + 1)
             .ok_or_else(|| VerificationError::Binding("receipt sequence overflow".into()))?;
         let tx_hash = transaction
             .hash()
@@ -1338,7 +1423,8 @@ pub fn verify_runtime_bundle_v3(
             )));
         }
     }
-    if bundle.receipts.len() != block.transactions.len() || receipt_gas != block.header.gas_used {
+    if bundle.receipts.len() != block.transactions.len() + 1 || receipt_gas != block.header.gas_used
+    {
         return Err(VerificationError::Binding(
             "runtime receipt coverage/gas".into(),
         ));

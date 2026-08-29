@@ -3,6 +3,7 @@
 //! The part of the libp2p implementation handling the BlockSync trait.
 
 use super::{
+    aft_collapse::observe_live_committed_chain_through_block,
     context::{MainLoopContext, SyncProgress},
     gossip,
 };
@@ -11,7 +12,6 @@ use ioi_api::{
     consensus::ConsensusEngine,
     state::{StateManager, Verifier},
 };
-use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::{SwarmCommand, SyncResponse};
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{Block, ChainTransaction};
@@ -83,7 +83,7 @@ pub async fn start_catchup_to_peer<CS, ST, CE, V>(
         + Debug,
 {
     let local_height = context
-        .last_committed_block
+        .last_executed_block
         .as_ref()
         .map(|b| b.header.height)
         .unwrap_or(0);
@@ -232,7 +232,7 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    let committed_tip = context.last_committed_block.as_ref();
+    let committed_tip = context.last_executed_block.as_ref();
     let committed_height = committed_tip.map(|block| block.header.height).unwrap_or(0);
     let committed_hash = committed_tip.and_then(|block| block.header.hash().ok());
     let mut blocks = context
@@ -307,7 +307,7 @@ pub async fn handle_status_response<CS, ST, CE, V>(
     }
 
     let our_height = context
-        .last_committed_block
+        .last_executed_block
         .as_ref()
         .map(|b| b.header.height)
         .unwrap_or(0);
@@ -425,7 +425,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     let workload_client = context.view_resolver.workload_client().clone();
     if context.sync_progress.is_none() {
         let mut local_height = context
-            .last_committed_block
+            .last_executed_block
             .as_ref()
             .map(|block| block.header.height)
             .unwrap_or(0);
@@ -435,7 +435,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                     workload_client.get_block_by_height(status.height).await
                 {
                     local_height = workload_tip.header.height;
-                    context.last_committed_block = Some(workload_tip);
+                    context.last_executed_block = Some(workload_tip);
                 }
             }
         }
@@ -490,7 +490,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     }
 
     let mut local_height = context
-        .last_committed_block
+        .last_executed_block
         .as_ref()
         .map(|block| block.header.height)
         .unwrap_or(0);
@@ -499,7 +499,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             if let Ok(Some(workload_tip)) = workload_client.get_block_by_height(status.height).await
             {
                 local_height = workload_tip.header.height;
-                context.last_committed_block = Some(workload_tip);
+                context.last_executed_block = Some(workload_tip);
             }
         }
     }
@@ -601,9 +601,6 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         return;
     }
 
-    let receipt_map = context.receipt_map.clone();
-    let tx_status_cache = context.tx_status_cache.clone();
-
     for block in blocks {
         let applying_height = block.header.height;
         let workload_height = workload_client
@@ -612,7 +609,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             .map(|status| status.height)
             .unwrap_or_else(|_| {
                 context
-                    .last_committed_block
+                    .last_executed_block
                     .as_ref()
                     .map(|candidate| candidate.header.height)
                     .unwrap_or(0)
@@ -625,9 +622,9 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                         if let Ok(Some(reconciled_block)) =
                             workload_client.get_block_by_height(applying_height).await
                         {
-                            context.last_committed_block = Some(reconciled_block);
+                            context.last_executed_block = Some(reconciled_block);
                         } else {
-                            context.last_committed_block = Some(block.clone());
+                            context.last_executed_block = Some(block.clone());
                         }
                         if let Some(progress) = context.sync_progress.as_mut() {
                             progress.next = progress.next.max(applying_height);
@@ -656,7 +653,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                 if let Ok(Some(workload_tip)) =
                     workload_client.get_block_by_height(workload_height).await
                 {
-                    context.last_committed_block = Some(workload_tip);
+                    context.last_executed_block = Some(workload_tip);
                 }
                 if let Some(progress) = context.sync_progress.as_mut() {
                     progress.next = progress.next.max(workload_height);
@@ -672,8 +669,11 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             }
         }
 
-        let processed_block = match workload_client.process_block(block.clone()).await {
-            Ok((processed_block, _, _execution_receipts)) => processed_block,
+        let (processed_block, execution_receipts) = match workload_client
+            .process_block(block.clone())
+            .await
+        {
+            Ok((processed_block, _, execution_receipts)) => (processed_block, execution_receipts),
             Err(error) => {
                 tracing::warn!(
                     target: "sync",
@@ -695,43 +695,68 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         if let Some(progress) = context.sync_progress.as_mut() {
             progress.next = processed_block.header.height;
         }
+        if let Err(error) = super::runtime_finality::stage_runtime_block(
+            context,
+            processed_block.clone(),
+            execution_receipts,
+        )
+        .await
         {
-            let receipt_guard = receipt_map.lock().await;
-            let mut status_guard = tx_status_cache.lock().await;
-            for tx in &processed_block.transactions {
-                if let Ok(h) = tx.hash() {
-                    let tx_hash_hex = receipt_guard
-                        .peek(&h)
-                        .cloned()
-                        .unwrap_or_else(|| hex::encode(h));
-                    if let Some(entry) = status_guard.get_mut(&tx_hash_hex) {
-                        entry.status = TxStatus::Committed;
-                        entry.block_height = Some(applying_height);
-                    } else {
-                        status_guard.put(
-                            tx_hash_hex,
-                            crate::standard::orchestration::context::TxStatusEntry {
-                                status: TxStatus::Committed,
-                                error: None,
-                                block_height: Some(applying_height),
-                            },
-                        );
-                    }
-                }
+            context
+                .is_quarantined
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            tracing::error!(
+                target: "consensus",
+                height = processed_block.header.height,
+                error = %error,
+                "Terminal runtime finality staging refusal during sync; node frozen"
+            );
+            return;
+        }
+        context.last_executed_block = Some(processed_block.clone());
+        match observe_live_committed_chain_through_block(
+            &context.consensus_engine_ref,
+            context.config.consensus_type,
+            workload_client.as_ref(),
+            &processed_block,
+        )
+        .await
+        {
+            Ok(true) => context
+                .consensus_engine_ref
+                .lock()
+                .await
+                .reset(processed_block.header.height),
+            Ok(false) => tracing::warn!(
+                target: "sync",
+                height = processed_block.header.height,
+                "Consensus engine ignored the synced execution hint because it was not collapse-backed"
+            ),
+            Err(error) => {
+                tracing::warn!(
+                    target: "sync",
+                    height = processed_block.header.height,
+                    error = %error,
+                    "Could not reconcile synced execution with the live consensus engine"
+                );
+                retry_sync_from_peer_set(context, Some(peer)).await;
+                return;
             }
         }
+        if let Err(error) =
+            super::runtime_finality::admit_available(context, Some(&processed_block)).await
         {
-            let mut chain_guard = context.chain_ref.lock().await;
-            let status = chain_guard.status_mut();
-            if processed_block.header.height > status.height {
-                status.total_transactions = status
-                    .total_transactions
-                    .saturating_add(processed_block.transactions.len() as u64);
-            }
-            status.height = processed_block.header.height;
-            status.latest_timestamp = processed_block.header.timestamp;
+            context
+                .is_quarantined
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            tracing::error!(
+                target: "consensus",
+                height = processed_block.header.height,
+                error = %error,
+                "Terminal runtime finality admission refusal during sync; node frozen"
+            );
+            return;
         }
-        context.last_committed_block = Some(processed_block);
     }
 
     if context
@@ -823,7 +848,7 @@ where
     context.sync_progress = None;
     log::info!("Block sync complete!");
 
-    if let Some(tip_block) = context.last_committed_block.clone() {
+    if let Some(tip_block) = context.last_executed_block.clone() {
         // [FIX] Reset the consensus engine to the new tip so it doesn't think it's behind.
         context
             .consensus_engine_ref

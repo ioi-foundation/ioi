@@ -442,6 +442,7 @@ where
         inference_runtime: inference_runtime.clone(),
         // [FIX] Pass os_driver
         os_driver: os_driver.clone(),
+        runtime_finality_root: data_dir.join("ordering-finality"),
     };
 
     let orchestration = Arc::new(Orchestrator::new(&config, deps, commitment_scheme.clone())?);

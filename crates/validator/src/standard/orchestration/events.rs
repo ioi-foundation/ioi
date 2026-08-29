@@ -245,6 +245,17 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                         }
                     }
                 }
+                let mut ctx = context_arc.lock().await;
+                if let Err(error) = super::runtime_finality::admit_available(&mut ctx, None).await {
+                    ctx.is_quarantined
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    tracing::error!(
+                        target: "consensus",
+                        error = %error,
+                        "Terminal runtime finality admission refusal after vote; node frozen"
+                    );
+                    return;
+                }
                 let _ = kick_tx.send(());
             }
         }
@@ -284,6 +295,18 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                     e
                 );
             } else {
+                drop(engine);
+                let mut ctx = context_arc.lock().await;
+                if let Err(error) = super::runtime_finality::admit_available(&mut ctx, None).await {
+                    ctx.is_quarantined
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    tracing::error!(
+                        target: "consensus",
+                        error = %error,
+                        "Terminal runtime finality admission refusal after quorum certificate; node frozen"
+                    );
+                    return;
+                }
                 let _ = kick_tx.send(());
             }
         }

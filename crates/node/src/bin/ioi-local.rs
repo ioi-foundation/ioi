@@ -838,6 +838,7 @@ async fn async_main() -> Result<()> {
         os_driver: os_driver.clone(),
         memory_runtime: Some(memory_runtime.clone()),
         event_broadcaster: Some(event_tx.clone()),
+        runtime_finality_root: opts.data_dir.join("ordering-finality"),
     };
 
     let orchestrator = Arc::new(Orchestrator::<

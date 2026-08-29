@@ -522,6 +522,79 @@ pub struct RecognizedEffectStore {
 }
 
 impl RecognizedEffectStore {
+    /// Open an already-sealed spine without asking process configuration to
+    /// restate genesis. This is the restart path: the initial profile, writer,
+    /// authority, bindings, and canonical head come only from the rooted first
+    /// record. `Ok(None)` means no spine history exists yet.
+    pub fn open_existing(
+        root: &Path,
+        domain_id: impl Into<String>,
+    ) -> Result<Option<Self>, RecognizedEffectError> {
+        Self::open_existing_with_bindings(root, domain_id, ProfileBindings::production())
+    }
+
+    pub fn open_existing_with_bindings(
+        root: &Path,
+        domain_id: impl Into<String>,
+        bindings: ProfileBindings,
+    ) -> Result<Option<Self>, RecognizedEffectError> {
+        let domain_id = domain_id.into();
+        validate_token("domain_id", &domain_id)?;
+        fs::create_dir_all(root)?;
+        fs::create_dir_all(root.join("availability"))?;
+        fs::create_dir_all(root.join("deliveries"))?;
+        fs::create_dir_all(root.join("projections"))?;
+        let _spine_lock = acquire_spine_lock(root)?;
+        let mux = MuxEngine::open(&root.join("canonical"), true)?;
+        let object_ref = profile_spine_object_ref(&domain_id);
+        let history = mux.project_exact_history(AGENTGRES_PROFILE_SPINE_DOMAIN, &object_ref)?;
+        let Some(first) = history.first() else {
+            return Ok(None);
+        };
+        if first.operation.op_kind != OP_KIND_GENESIS {
+            return Err(RecognizedEffectError::Invalid(
+                "profile spine history does not begin with rooted genesis".into(),
+            ));
+        }
+        let sealed: ProfileGenesisRecord = serde_json::from_value(first.operation.payload.clone())?;
+        validate_genesis_record(&sealed)?;
+        if sealed.domain_id != domain_id {
+            return Err(RecognizedEffectError::Invalid(
+                "profile spine genesis domain mismatch".into(),
+            ));
+        }
+        let mut store = Self {
+            root: root.to_path_buf(),
+            domain_id,
+            object_ref,
+            initial_canonical_head: sealed.initial_canonical_head.clone(),
+            canonical_head: sealed.initial_canonical_head.clone(),
+            mux,
+            bindings,
+            genesis: None,
+            state: SpineState::Active(ActiveProfile {
+                identity: sealed.identity.clone(),
+                profile_epoch: sealed.profile_epoch,
+                writer_identity: sealed.writer_identity.clone(),
+                fence_token: sealed.fence_token,
+                bindings: sealed.bindings.clone(),
+                authority: sealed.authority.clone(),
+                installed_by: None,
+            }),
+            bound_writer: None,
+            effects: BTreeMap::new(),
+            cutovers: BTreeMap::new(),
+            freezes: BTreeSet::new(),
+            last_batch_seq: 0,
+            #[cfg(test)]
+            armed_crash: None,
+            #[cfg(test)]
+            observed_points: Vec::new(),
+        };
+        store.recover()?;
+        Ok(Some(store))
+    }
+
     /// Open the spine, sealing `genesis` if this is its first open.
     ///
     /// On every later open the presented genesis must match the sealed one
@@ -549,6 +622,15 @@ impl RecognizedEffectStore {
         validate_hash("initial_canonical_head", &genesis.initial_canonical_head)?;
         genesis.identity.validate()?;
         genesis.bindings.validate()?;
+        if genesis.authority.domain_id != domain_id
+            || genesis.authority.authority_epoch == 0
+            || !genesis.authority.admission_permitted
+        {
+            return Err(RecognizedEffectError::Invalid(
+                "profile spine genesis authority does not authorize this domain".into(),
+            ));
+        }
+        validate_token("genesis issuer_key_id", &genesis.authority.issuer_key_id)?;
         fs::create_dir_all(root)?;
         fs::create_dir_all(root.join("availability"))?;
         fs::create_dir_all(root.join("deliveries"))?;
@@ -574,6 +656,7 @@ impl RecognizedEffectStore {
                 writer_identity: genesis.writer_identity.clone(),
                 fence_token: genesis.fence_token,
                 bindings: genesis.bindings.clone(),
+                authority: genesis.authority.clone(),
                 installed_by: None,
             }),
             bound_writer: None,
@@ -618,6 +701,21 @@ impl RecognizedEffectStore {
 
     pub fn committed(&self, effect_id: &str) -> Option<&CommittedRecognizedEffect> {
         self.effects.get(effect_id)
+    }
+
+    /// Last recognized effect in Agentgres admission order.
+    pub fn last_committed_effect(&self) -> Option<&CommittedRecognizedEffect> {
+        self.effects
+            .values()
+            .max_by_key(|effect| effect.operation_sequence)
+    }
+
+    /// All recognized effects in Agentgres admission order. Used only to
+    /// redrive idempotent consequences after restart.
+    pub fn committed_effects_in_order(&self) -> Vec<&CommittedRecognizedEffect> {
+        let mut effects = self.effects.values().collect::<Vec<_>>();
+        effects.sort_by_key(|effect| effect.operation_sequence);
+        effects
     }
 
     /// Prove eligibility: exact writer identity AND exact active fence token.
@@ -706,6 +804,7 @@ impl RecognizedEffectStore {
             writer_identity: sealed.writer_identity.clone(),
             fence_token: sealed.fence_token,
             bindings: sealed.bindings.clone(),
+            authority: sealed.authority.clone(),
             installed_by: None,
         });
         self.effects.clear();
@@ -769,6 +868,9 @@ impl RecognizedEffectStore {
         if sealed.bindings != presented.bindings {
             return Err(mismatch("bindings"));
         }
+        if sealed.authority != presented.authority {
+            return Err(mismatch("authority"));
+        }
         Ok(())
     }
 
@@ -782,6 +884,7 @@ impl RecognizedEffectStore {
             fence_token: genesis.fence_token,
             initial_canonical_head: genesis.initial_canonical_head.clone(),
             bindings: genesis.bindings.clone(),
+            authority: genesis.authority.clone(),
             record_hash: String::new(),
         };
         record.record_hash = genesis_record_hash(&record)?;
@@ -795,6 +898,7 @@ impl RecognizedEffectStore {
             writer_identity: record.writer_identity.clone(),
             fence_token: record.fence_token,
             bindings: record.bindings.clone(),
+            authority: record.authority.clone(),
             installed_by: None,
         });
         self.genesis = Some(record);
@@ -1387,6 +1491,9 @@ impl RecognizedEffectStore {
             }
             .into_error());
         }
+        if record.authority != active.authority {
+            return Err(RecognizedEffectError::StaleAuthority);
+        }
         record.bindings.require_exact(&active.bindings)
     }
 
@@ -1539,6 +1646,7 @@ impl RecognizedEffectStore {
             writer_identity: record.to_writer_identity.clone(),
             fence_token: record.to_fence_token,
             bindings: record.bindings.clone(),
+            authority: record.authority.clone(),
             installed_by: Some(record.cutover_id.clone()),
         });
         // The writer that authored this cutover is retired by it. It must
@@ -1731,6 +1839,7 @@ impl RecognizedEffectStore {
                         writer_identity: record.writer_identity.clone(),
                         fence_token: record.fence_token,
                         bindings: record.bindings.clone(),
+                        authority: record.authority.clone(),
                         installed_by: None,
                     });
                     self.genesis = Some(record);
@@ -1764,6 +1873,7 @@ impl RecognizedEffectStore {
                         writer_identity: record.to_writer_identity.clone(),
                         fence_token: record.to_fence_token,
                         bindings: record.bindings.clone(),
+                        authority: record.authority.clone(),
                         installed_by: Some(record.cutover_id.clone()),
                     });
                     let cutover_id = record.cutover_id.clone();

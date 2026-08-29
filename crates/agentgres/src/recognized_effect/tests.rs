@@ -62,6 +62,7 @@ fn genesis(profile: FinalityProfile, writer: &str, fence_token: u64) -> SpineGen
         fence_token,
         initial_canonical_head: INITIAL_HEAD.into(),
         bindings: bindings_digest(),
+        authority: authority(),
     }
 }
 

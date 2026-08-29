@@ -127,6 +127,23 @@ pub struct NativeAftQuorumSigner {
     pub signature: Vec<u8>,
 }
 
+/// One member of the complete effective validator set used to authenticate a
+/// native AFT quorum.
+///
+/// This is deliberately distinct from [`NativeAftQuorumSigner`]: a valid
+/// `2f+1` certificate normally omits up to `f` members, while an offline
+/// verifier needs the complete `3f+1` membership in order to recompute the
+/// fault assumption and quorum rule honestly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeAftMembershipMember {
+    /// The validator-set account committed by the finalized block header.
+    pub account_id: AccountId,
+    /// The suite declared by the effective validator-set key record.
+    pub suite: ioi_types::app::SignatureSuite,
+    /// Canonical raw public key bytes bound by that key record.
+    pub public_key: Vec<u8>,
+}
+
 /// Evidence that a block reached chained finality under a native quorum, with
 /// every signature independently re-verified at finalization time.
 ///
@@ -143,6 +160,11 @@ pub struct NativeAftFinalizedEvidence {
     pub quorum_certificate: QuorumCertificate,
     /// Distinct signers, each re-verified against the effective validator set.
     pub signers: Vec<NativeAftQuorumSigner>,
+    /// Complete effective membership, including members that did not sign the
+    /// particular certificate.
+    pub members: Vec<NativeAftMembershipMember>,
+    /// First height at which this exact effective validator set applies.
+    pub membership_effective_from_height: u64,
     /// Voting members declared by the effective set at the finalized height.
     pub total_voting_members: u64,
     /// Faults the membership honestly tolerates under `n >= 3f + 1`.

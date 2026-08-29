@@ -11,7 +11,6 @@ use ioi_api::chain::{AnchoredStateView, StateRef, WorkloadClientApi};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use ioi_api::state::{StateAccess, StateManager, Verifier};
-use ioi_ipc::public::TxStatus;
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{AccountId, Block, ChainTransaction, FailureReport, StateRoot},
@@ -367,7 +366,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let our_height = context
-        .last_committed_block
+        .last_executed_block
         .as_ref()
         .map_or(0, |b| b.header.height);
     if block.header.height <= our_height {
@@ -505,21 +504,27 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         .process_block(block)
         .await
     {
-        Ok((processed_block, _, _execution_receipts)) => {
+        Ok((processed_block, _, execution_receipts)) => {
             tracing::debug!(target: "gossip", "Workload processed block #{}", processed_block.header.height);
-            context.last_committed_block = Some(processed_block.clone());
-
+            if let Err(error) = super::runtime_finality::stage_runtime_block(
+                context,
+                processed_block.clone(),
+                execution_receipts,
+            )
+            .await
             {
-                let mut chain_guard = context.chain_ref.lock().await;
-                let status = chain_guard.status_mut();
-                if processed_block.header.height > status.height {
-                    status.total_transactions = status
-                        .total_transactions
-                        .saturating_add(processed_block.transactions.len() as u64);
-                }
-                status.height = processed_block.header.height;
-                status.latest_timestamp = processed_block.header.timestamp;
+                context
+                    .is_quarantined
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                tracing::error!(
+                    target: "consensus",
+                    height = processed_block.header.height,
+                    error = %error,
+                    "Terminal runtime finality staging refusal; node frozen"
+                );
+                return;
             }
+            context.last_executed_block = Some(processed_block.clone());
 
             {
                 let accepted = match observe_live_committed_chain_through_block(
@@ -552,36 +557,19 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 }
             }
 
+            if let Err(error) =
+                super::runtime_finality::admit_available(context, Some(&processed_block)).await
             {
-                let receipt_guard = context.receipt_map.lock().await;
-                let mut status_guard = context.tx_status_cache.lock().await;
-                let block_height = processed_block.header.height;
-
-                for tx in &processed_block.transactions {
-                    if let Ok(h) = tx.hash() {
-                        let tx_hash_hex = receipt_guard
-                            .peek(&h)
-                            .cloned()
-                            .unwrap_or_else(|| hex::encode(h));
-                        if let Some(entry) = status_guard.get_mut(&tx_hash_hex) {
-                            entry.status = TxStatus::Committed;
-                            entry.block_height = Some(block_height);
-                        } else {
-                            status_guard.put(
-                                tx_hash_hex,
-                                crate::standard::orchestration::context::TxStatusEntry {
-                                    status: TxStatus::Committed,
-                                    error: None,
-                                    block_height: Some(block_height),
-                                },
-                            );
-                        }
-                    }
-                }
-            }
-
-            if let Err(e) = prune_mempool(&context.tx_pool_ref, &processed_block) {
-                tracing::error!(target: "gossip", event="mempool_prune_fail", error=%e);
+                context
+                    .is_quarantined
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                tracing::error!(
+                    target: "consensus",
+                    height = processed_block.header.height,
+                    error = %error,
+                    "Terminal runtime finality admission refusal; node frozen"
+                );
+                return;
             }
 
             if processed_block.header.sealed_finality_proof.is_none() {
@@ -779,12 +767,12 @@ where
     drop(engine);
 
     let enriched_tip_is_current = context
-        .last_committed_block
+        .last_executed_block
         .as_ref()
         .map(|candidate| candidate.header.height)
         == Some(block.header.height);
     if enriched_tip_is_current && accepted {
-        context.last_committed_block = Some(block.clone());
+        context.last_executed_block = Some(block.clone());
     }
 
     tracing::info!(

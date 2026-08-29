@@ -334,6 +334,10 @@ pub struct ProfileGenesisRecord {
     pub fence_token: u64,
     pub initial_canonical_head: String,
     pub bindings: ProfileBindingsDigest,
+    /// Authority snapshot sealed into the same rooted genesis record. Side
+    /// files and process configuration cannot manufacture the initial
+    /// authority/revocation coordinates.
+    pub authority: AuthoritySnapshot,
     pub record_hash: String,
 }
 
@@ -505,7 +509,8 @@ pub(crate) fn validate_cutover_record(
         }
         .into_error());
     }
-    if direction == GuaranteeDirection::Weakening && record.guarantee_delta.lost_guarantees.is_empty()
+    if direction == GuaranteeDirection::Weakening
+        && record.guarantee_delta.lost_guarantees.is_empty()
     {
         return Err(ProfileRefusal::GuaranteeDeltaIncomplete {
             detail: "a weakening must name the guarantees it gives up".into(),
@@ -590,6 +595,15 @@ pub(crate) fn validate_genesis_record(
     validate_hash("initial_canonical_head", &record.initial_canonical_head)?;
     record.identity.validate()?;
     record.bindings.validate()?;
+    if record.authority.domain_id != record.domain_id
+        || record.authority.authority_epoch == 0
+        || !record.authority.admission_permitted
+    {
+        return Err(RecognizedEffectError::Invalid(
+            "profile-genesis authority snapshot is not admissible for the domain".into(),
+        ));
+    }
+    validate_token("genesis issuer_key_id", &record.authority.issuer_key_id)?;
     // Fence token zero is reserved for "no eligible writer", so a sealed
     // genesis must claim a real token.
     if record.fence_token == 0 {
@@ -686,6 +700,7 @@ pub struct SpineGenesis {
     pub fence_token: u64,
     pub initial_canonical_head: String,
     pub bindings: ProfileBindingsDigest,
+    pub authority: AuthoritySnapshot,
 }
 
 /// A writer's claim on the spine: exact identity plus exact fence token.
@@ -722,6 +737,9 @@ pub struct ActiveProfile {
     pub writer_identity: String,
     pub fence_token: u64,
     pub bindings: ProfileBindingsDigest,
+    /// Authority in force for every effect and control operation admitted
+    /// under this profile epoch.
+    pub authority: AuthoritySnapshot,
     /// The cutover that installed this profile; absent at genesis.
     pub installed_by: Option<String>,
 }

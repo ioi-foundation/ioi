@@ -90,6 +90,7 @@ mod view_resolver;
 mod events;
 mod finalize;
 mod lifecycle;
+pub(crate) mod runtime_finality;
 
 /// Transition logic
 pub mod transition;
@@ -130,7 +131,7 @@ use futures::FutureExt;
 use ingestion::{run_ingestion_worker, ChainTipInfo, IngestionConfig};
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::error::VmError;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A struct to hold the numerous dependencies for the Orchestrator.
 pub struct OrchestrationDependencies<CE, V> {
@@ -166,6 +167,8 @@ pub struct OrchestrationDependencies<CE, V> {
     pub memory_runtime: Option<Arc<MemoryRuntime>>,
     /// Shared event broadcaster
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
+    /// Local durable root for the Agentgres finality spine and inert staging.
+    pub runtime_finality_root: PathBuf,
 }
 
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
@@ -281,6 +284,7 @@ where
     pub memory_runtime: Option<Arc<MemoryRuntime>>,
     /// Shared event broadcaster.
     pub event_broadcaster: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>>,
+    runtime_finality_root: PathBuf,
 }
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -358,6 +362,7 @@ where
             os_driver: deps.os_driver,
             memory_runtime: deps.memory_runtime,
             event_broadcaster: deps.event_broadcaster,
+            runtime_finality_root: deps.runtime_finality_root,
         })
     }
 

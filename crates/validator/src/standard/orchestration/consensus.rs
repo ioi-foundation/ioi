@@ -4,7 +4,6 @@ use super::aft_collapse::{
 };
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
-use crate::standard::orchestration::ingestion::ChainTipInfo;
 use crate::standard::orchestration::mempool::Mempool;
 use anyhow::{anyhow, Result};
 use ioi_api::chain::StateRef;

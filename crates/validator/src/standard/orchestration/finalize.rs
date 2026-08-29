@@ -16,6 +16,7 @@ use ioi_api::{
     state::{StateManager, Verifier},
 };
 // REMOVED: use ioi_client::WorkloadClient;
+#[cfg(test)]
 use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
@@ -97,7 +98,6 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::common::GuardianSigner;
 use crate::standard::orchestration::context::MainLoopContext;
-use crate::standard::orchestration::ingestion::ChainTipInfo;
 use crate::standard::orchestration::mempool::{AddResult, Mempool};
 #[cfg(test)]
 use ioi_types::app::{
