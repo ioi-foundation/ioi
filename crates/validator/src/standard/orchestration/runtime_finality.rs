@@ -32,8 +32,9 @@ use ioi_finality::{
 };
 use ioi_ipc::public::TxStatus;
 use ioi_services::wallet_network::{
-    AuthorizeFinalityProfileCutoverParamsV1, GovernedFinalityProfileCutoverV1,
-    GovernedRollbackKindV1, AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
+    governed_cutover_approval_request_hash, AuthorizeFinalityProfileCutoverParamsV1,
+    GovernedFinalityProfileCutoverV1, GovernedRollbackKindV1,
+    AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
 };
 use ioi_types::app::{Block, ChainTransaction, KernelEvent, SignatureSuite, SystemPayload};
 use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
@@ -1672,34 +1673,39 @@ mod tests {
         let approvals = authority_ids
             .iter()
             .enumerate()
-            .map(
-                |(index, authority_id)| ConsumeApprovalGrantForEffectV2Params {
-                    request_hash: operation.operation_hash,
+            .map(|(index, authority_id)| {
+                let expected_principal_authority = ExpectedPrincipalAuthorityBinding {
+                    principal_ref: format!("principal://test/{index}"),
+                    required_scope: FINALITY_PROFILE_CUTOVER_SCOPE.into(),
+                    coordinates: PrincipalAuthorityBindingCoordinates {
+                        binding_ref: format!("principal-authority-binding://test/{index}"),
+                        binding_version: operation.authority_epoch,
+                        binding_hash: [80 + index as u8; 32],
+                    },
+                    approval_authority: ApprovalAuthority {
+                        schema_version: 1,
+                        authority_id: *authority_id,
+                        public_key: vec![100 + index as u8; 32],
+                        signature_suite: SignatureSuite::ED25519,
+                        expires_at: u64::MAX,
+                        revoked: false,
+                        scope_allowlist: vec![FINALITY_PROFILE_CUTOVER_SCOPE.into()],
+                    },
+                    approval_authority_snapshot_hash: [120 + index as u8; 32],
+                };
+                ConsumeApprovalGrantForEffectV2Params {
+                    request_hash: governed_cutover_approval_request_hash(
+                        operation.operation_hash,
+                        &expected_principal_authority,
+                    )
+                    .unwrap(),
                     grant_hash: [40 + index as u8; 32],
                     consumption_id: [60 + index as u8; 32],
-                    expected_principal_authority: ExpectedPrincipalAuthorityBinding {
-                        principal_ref: format!("principal://test/{index}"),
-                        required_scope: FINALITY_PROFILE_CUTOVER_SCOPE.into(),
-                        coordinates: PrincipalAuthorityBindingCoordinates {
-                            binding_ref: format!("principal-authority-binding://test/{index}"),
-                            binding_version: operation.authority_epoch,
-                            binding_hash: [80 + index as u8; 32],
-                        },
-                        approval_authority: ApprovalAuthority {
-                            schema_version: 1,
-                            authority_id: *authority_id,
-                            public_key: vec![100 + index as u8; 32],
-                            signature_suite: SignatureSuite::ED25519,
-                            expires_at: u64::MAX,
-                            revoked: false,
-                            scope_allowlist: vec![FINALITY_PROFILE_CUTOVER_SCOPE.into()],
-                        },
-                        approval_authority_snapshot_hash: [120 + index as u8; 32],
-                    },
+                    expected_principal_authority,
                     expected_target_label: FINALITY_PROFILE_CUTOVER_SCOPE.into(),
                     expected_max_usages: 1,
-                },
-            )
+                }
+            })
             .collect();
         let request = AuthorizeFinalityProfileCutoverParamsV1 {
             operation,

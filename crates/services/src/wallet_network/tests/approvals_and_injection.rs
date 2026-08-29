@@ -88,9 +88,232 @@ fn governed_finality_weakening_preflights_inv42_before_consuming_wallet_grants()
     assert!(state.data.is_empty());
 }
 
+#[test]
+fn governed_finality_weakening_consumes_two_distinct_one_shot_authorities() {
+    const FIRST_PRINCIPAL: &str = "org://wallet-network/finality-governor/one";
+    const SECOND_PRINCIPAL: &str = "org://wallet-network/finality-governor/two";
+
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let root_keypair = Ed25519KeyPair::generate().expect("root keypair");
+    let root_public_key = root_keypair.public_key().to_bytes();
+    let root = WalletControlPlaneRootRecord {
+        account_id: account_id_from_key_material(SignatureSuite::ED25519, &root_public_key)
+            .expect("root id"),
+        signature_suite: SignatureSuite::ED25519,
+        public_key: root_public_key,
+        registered_at_ms: 0,
+        updated_at_ms: 0,
+        metadata: BTreeMap::new(),
+    };
+    with_ctx_signer(root.account_id, |ctx| {
+        run_async(
+            service.handle_service_call(
+                &mut state,
+                "configure_control_root@v1",
+                &codec::to_bytes_canonical(&WalletConfigureControlRootParams {
+                    root: root.clone(),
+                })
+                .expect("encode root"),
+                ctx,
+            ),
+        )
+        .expect("configure root");
+    });
+    let client = WalletRegisteredClientRecord {
+        client_id: [7; 32],
+        label: "finality governance test".to_string(),
+        surface: VaultSurface::Desktop,
+        signature_suite: SignatureSuite::ED25519,
+        public_key: vec![0x91; 32],
+        role: WalletClientRole::ControlPlaneAdmin,
+        state: WalletClientState::Active,
+        registered_at_ms: EFFECT_NOW_MS,
+        updated_at_ms: EFFECT_NOW_MS,
+        expires_at_ms: Some(1_900_000_000_000),
+        allowed_provider_families: Vec::new(),
+        metadata: BTreeMap::new(),
+    };
+    state
+        .insert(
+            &registered_client_key(&client.client_id),
+            &codec::to_bytes_canonical(&client).expect("encode client"),
+        )
+        .expect("store client");
+
+    let mut operation = GovernedFinalityProfileCutoverV1 {
+        schema_version: GOVERNED_FINALITY_PROFILE_CUTOVER_SCHEMA_VERSION,
+        operation_hash: [0; 32],
+        cutover_id: "profile-cutover://test/inv42/two-authorities".into(),
+        domain_id: "chain://test/inv42".into(),
+        expected_from_profile: "bft_consensus".into(),
+        expected_from_profile_contract_version: "ioi.runtime-finality-profile.v1".into(),
+        expected_from_writer_identity: "writer://test/aft".into(),
+        expected_from_profile_epoch: 3,
+        expected_from_fence_token: 7,
+        expected_prior_canonical_head: format!("sha256:{}", "a".repeat(64)),
+        to_profile: "single_authority".into(),
+        to_profile_contract_version: "ioi.runtime-finality-profile.v1".into(),
+        to_writer_identity: "writer://test/single".into(),
+        to_fence_token: 8,
+        authority_epoch: 1,
+        revocation_epoch: 0,
+        approval_threshold: 2,
+        activation_not_before_ms: EFFECT_NOW_MS + 10_000,
+        activation_checkpoint_height: 43,
+        rollback_kind: GovernedRollbackKindV1::Freeze,
+        rollback_executor_writer_identity: "writer://test/rollback".into(),
+        rollback_authorization_refs: vec!["wallet-governance://test/rollback".into()],
+        rollback_target_profile: None,
+    };
+    operation.operation_hash = operation.compute_operation_hash().expect("operation hash");
+
+    let mut approvals = Vec::new();
+    for (index, principal_ref) in [FIRST_PRINCIPAL, SECOND_PRINCIPAL].iter().enumerate() {
+        let mut approver = new_approval_signer();
+        approver.authority.scope_allowlist = vec![FINALITY_PROFILE_CUTOVER_SCOPE.to_string()];
+        let proof = effect_binding_proof(
+            &root_keypair,
+            &root,
+            principal_ref,
+            &approver.authority,
+            PrincipalAuthorityBindingStatus::Active,
+            None,
+            1_850_000_000_000,
+        );
+        let expected = ExpectedPrincipalAuthorityBinding {
+            principal_ref: (*principal_ref).to_string(),
+            required_scope: FINALITY_PROFILE_CUTOVER_SCOPE.to_string(),
+            coordinates: proof.coordinates(),
+            approval_authority: approver.authority.clone(),
+            approval_authority_snapshot_hash: proof.statement.approval_authority_snapshot_hash,
+        };
+        let approval_request_hash =
+            governed_cutover_approval_request_hash(operation.operation_hash, &expected)
+                .expect("approval request hash");
+        with_ctx_signer(root.account_id, |ctx| {
+            run_async(
+                service.handle_service_call(
+                    &mut state,
+                    "register_approval_authority@v1",
+                    &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+                        authority: approver.authority.clone(),
+                    })
+                    .expect("encode authority"),
+                    ctx,
+                ),
+            )
+            .expect("register authority");
+        });
+        with_ctx_signer(root.account_id, |ctx| {
+            run_async(
+                service.handle_service_call(
+                    &mut state,
+                    "issue_principal_authority_binding@v1",
+                    &codec::to_bytes_canonical(&IssuePrincipalAuthorityBindingParams {
+                        proof: proof.clone(),
+                    })
+                    .expect("encode binding"),
+                    ctx,
+                ),
+            )
+            .expect("issue binding");
+        });
+
+        let policy_hash = [0xa0 + index as u8; 32];
+        let decision = WalletApprovalDecision {
+            interception: WalletInterceptionContext {
+                session_id: None,
+                request_hash: approval_request_hash,
+                target: ActionTarget::Custom(FINALITY_PROFILE_CUTOVER_SCOPE.to_string()),
+                policy_hash,
+                value_usd_micros: None,
+                reason: "governed finality weakening".to_string(),
+                intercepted_at_ms: EFFECT_NOW_MS,
+            },
+            decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+            approval_grant: Some(signed_wallet_approval_grant(
+                &approver,
+                approval_request_hash,
+                policy_hash,
+                [7; 32],
+                [0xb0 + index as u8; 32],
+                1,
+                Some(1),
+                1_850_000_000_000,
+            )),
+            surface: VaultSurface::Desktop,
+            decided_at_ms: EFFECT_NOW_MS,
+        };
+        let grant_hash = decision
+            .approval_grant
+            .as_ref()
+            .expect("grant")
+            .artifact_hash()
+            .expect("grant hash");
+        with_ctx(|ctx| {
+            run_async(service.handle_service_call(
+                &mut state,
+                "record_approval@v1",
+                &codec::to_bytes_canonical(&decision).expect("encode decision"),
+                ctx,
+            ))
+            .expect("record approval");
+        });
+        approvals.push(effect_consume_v2_params(
+            approval_request_hash,
+            grant_hash,
+            [0xc0 + index as u8; 32],
+            &expected,
+            FINALITY_PROFILE_CUTOVER_SCOPE.to_string(),
+            1,
+        ));
+    }
+
+    let params = AuthorizeFinalityProfileCutoverParamsV1 {
+        operation: operation.clone(),
+        approvals,
+    };
+    let encoded = codec::to_bytes_canonical(&params).expect("encode governed cutover");
+    with_ctx(|ctx| {
+        run_async(service.handle_service_call(
+            &mut state,
+            AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
+            &encoded,
+            ctx,
+        ))
+        .expect("authorize weakening");
+    });
+
+    let receipt_key = [
+        b"finality_profile_cutover_authorization_receipt::".as_slice(),
+        operation.operation_hash.as_slice(),
+    ]
+    .concat();
+    let receipt: FinalityProfileCutoverAuthorizationReceiptV1 = load_typed(&state, &receipt_key)
+        .expect("load finality receipt")
+        .expect("finality receipt");
+    assert_eq!(receipt.operation_hash, operation.operation_hash);
+    assert_eq!(receipt.authority_epoch, 1);
+    assert_eq!(receipt.revocation_epoch, 0);
+    assert_eq!(receipt.authority_refs.len(), 2);
+    assert_ne!(receipt.authority_refs[0], receipt.authority_refs[1]);
+
+    with_ctx(|ctx| {
+        run_async(service.handle_service_call(
+            &mut state,
+            AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
+            &encoded,
+            ctx,
+        ))
+        .expect("exact authorization replay");
+    });
+}
+
 fn effect_binding_proof(
     root_keypair: &Ed25519KeyPair,
     root: &WalletControlPlaneRootRecord,
+    principal_ref: &str,
     authority: &ApprovalAuthority,
     status: PrincipalAuthorityBindingStatus,
     previous: Option<&PrincipalAuthorityBindingProofV1>,
@@ -99,7 +322,7 @@ fn effect_binding_proof(
     let previous_coordinates = previous.map(PrincipalAuthorityBindingProofV1::coordinates);
     let statement = PrincipalAuthorityBindingStatementV1 {
         schema_version: PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
-        principal_ref: EFFECT_PRINCIPAL_REF.to_string(),
+        principal_ref: principal_ref.to_string(),
         authority_kind: PrincipalAuthorityKind::Approval,
         binding_version: previous_coordinates
             .as_ref()
@@ -159,6 +382,7 @@ fn install_effect_binding(
     let proof = effect_binding_proof(
         &root_keypair,
         &root,
+        EFFECT_PRINCIPAL_REF,
         authority,
         PrincipalAuthorityBindingStatus::Active,
         None,
@@ -239,6 +463,7 @@ fn mutate_effect_binding(
     let proof = effect_binding_proof(
         &fixture.root_keypair,
         &fixture.root,
+        EFFECT_PRINCIPAL_REF,
         authority,
         status,
         Some(&fixture.proof),

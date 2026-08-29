@@ -41,10 +41,10 @@ mod support;
 mod validation;
 
 pub use finality_control::{
-    AuthorizeFinalityProfileCutoverParamsV1, FinalityProfileCutoverAuthorizationReceiptV1,
-    GovernedFinalityProfileCutoverV1, GovernedRollbackKindV1,
-    AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD, FINALITY_PROFILE_CUTOVER_SCOPE,
-    GOVERNED_FINALITY_PROFILE_CUTOVER_SCHEMA_VERSION,
+    governed_cutover_approval_request_hash, AuthorizeFinalityProfileCutoverParamsV1,
+    FinalityProfileCutoverAuthorizationReceiptV1, GovernedFinalityProfileCutoverV1,
+    GovernedRollbackKindV1, AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
+    FINALITY_PROFILE_CUTOVER_SCOPE, GOVERNED_FINALITY_PROFILE_CUTOVER_SCHEMA_VERSION,
 };
 pub use validation::verify_wallet_signature_proof;
 

@@ -9,7 +9,10 @@
 use super::handlers;
 use super::keys::approval_effect_consumption_receipt_key;
 use super::support::block_timestamp_ms;
-use super::{ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params};
+use super::{
+    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
+    ExpectedPrincipalAuthorityBinding,
+};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::codec;
@@ -30,7 +33,10 @@ pub enum GovernedRollbackKindV1 {
 }
 
 /// Exact owner-authored cutover request. `operation_hash` covers every field
-/// except the approval consumptions, whose `request_hash` must all equal it.
+/// except the approval consumptions. Each consumption signs a distinct,
+/// domain-separated request derived from this hash and its exact authority
+/// binding, allowing a real threshold without colliding in the wallet's
+/// request-keyed approval history.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct GovernedFinalityProfileCutoverV1 {
     pub schema_version: u16,
@@ -187,12 +193,46 @@ pub struct AuthorizeFinalityProfileCutoverParamsV1 {
     pub approvals: Vec<ConsumeApprovalGrantForEffectV2Params>,
 }
 
+#[derive(Encode)]
+struct GovernedCutoverApprovalRequestHashMaterial<'a> {
+    domain: &'static str,
+    operation_hash: [u8; 32],
+    principal_ref: &'a str,
+    required_scope: &'a str,
+    authority_id: [u8; 32],
+    approval_authority_snapshot_hash: [u8; 32],
+    binding_ref: &'a str,
+    binding_version: u64,
+    binding_hash: [u8; 32],
+}
+
+pub fn governed_cutover_approval_request_hash(
+    operation_hash: [u8; 32],
+    expected: &ExpectedPrincipalAuthorityBinding,
+) -> Result<[u8; 32], TransactionError> {
+    let bytes = codec::to_bytes_canonical(&GovernedCutoverApprovalRequestHashMaterial {
+        domain: "ioi.wallet-network.governed-finality-profile-cutover-approval-request.v1",
+        operation_hash,
+        principal_ref: &expected.principal_ref,
+        required_scope: &expected.required_scope,
+        authority_id: expected.approval_authority.authority_id,
+        approval_authority_snapshot_hash: expected.approval_authority_snapshot_hash,
+        binding_ref: &expected.coordinates.binding_ref,
+        binding_version: expected.coordinates.binding_version,
+        binding_hash: expected.coordinates.binding_hash,
+    })
+    .map_err(TransactionError::Invalid)?;
+    ioi_crypto::algorithms::hash::sha256(&bytes)
+        .map_err(|error| TransactionError::Invalid(error.to_string()))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct FinalityProfileCutoverAuthorizationReceiptV1 {
     pub schema_version: u16,
     pub operation_hash: [u8; 32],
     pub cutover_id: String,
     pub authority_refs: Vec<String>,
+    pub approval_request_hashes: Vec<[u8; 32]>,
     pub authority_epoch: u64,
     pub revocation_epoch: u64,
 }
@@ -230,8 +270,13 @@ pub(crate) fn authorize_finality_profile_cutover(
     }
     let mut authorities = BTreeSet::new();
     let mut consumptions = BTreeSet::new();
+    let mut approval_request_hashes = BTreeSet::new();
     for approval in &params.approvals {
-        if approval.request_hash != params.operation.operation_hash
+        let expected_request_hash = governed_cutover_approval_request_hash(
+            params.operation.operation_hash,
+            &approval.expected_principal_authority,
+        )?;
+        if approval.request_hash != expected_request_hash
             || approval.expected_target_label != FINALITY_PROFILE_CUTOVER_SCOPE
             || approval.expected_max_usages != 1
             || approval.expected_principal_authority.required_scope
@@ -253,6 +298,7 @@ pub(crate) fn authorize_finality_profile_cutover(
                 .approval_authority
                 .authority_id,
         ) || !consumptions.insert(approval.consumption_id)
+            || !approval_request_hashes.insert(approval.request_hash)
         {
             return Err(TransactionError::Invalid(
                 "governed finality cutover approvals are not distinct".into(),
@@ -292,6 +338,7 @@ pub(crate) fn authorize_finality_profile_cutover(
             .into_iter()
             .map(|authority| format!("wallet-approval-authority://{}", hex::encode(authority)))
             .collect(),
+        approval_request_hashes: approval_request_hashes.into_iter().collect(),
         authority_epoch: params.operation.authority_epoch,
         revocation_epoch: params.operation.revocation_epoch,
     };
