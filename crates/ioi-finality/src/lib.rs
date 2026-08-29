@@ -94,6 +94,9 @@
 
 #![forbid(unsafe_code)]
 
+mod runtime_v3;
+pub use runtime_v3::*;
+
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use ioi_api::crypto::{SerializableKey, SigningKey, VerifyingKey};

@@ -1,5 +1,7 @@
 use super::*;
+use ioi_api::chain::BlockExecutionReceipt;
 use ioi_types::app::{ApplicationTransaction, SignHeader, SignatureProof};
+use ioi_types::config::RuntimeFinalityProfile;
 use std::fs;
 use std::path::PathBuf;
 
@@ -1447,4 +1449,203 @@ fn a_block_committing_no_validator_set_binds_no_membership() {
     )
     .expect_err("an empty committed validator set pins nothing");
     assert!(matches!(refusal, VerificationError::ConsensusEvidence(_)));
+}
+
+const RUNTIME_TEST_HASH: &str =
+    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+fn runtime_v3_bundle(profile: RuntimeFinalityProfile) -> Value {
+    let transactions = vec![native_effect_transaction(11), native_effect_transaction(12)];
+    let (fixture, block_bytes, _) = native_effect_fixture(transactions, 41);
+    let block: Block<ChainTransaction> =
+        from_bytes_canonical(&block_bytes).expect("runtime block decodes");
+    let receipts: Vec<_> = block
+        .transactions
+        .iter()
+        .enumerate()
+        .map(|(index, transaction)| {
+            BlockExecutionReceipt::for_success(
+                block.header.height,
+                index as u64,
+                transaction.hash().expect("transaction hashes"),
+                0,
+                &[],
+            )
+        })
+        .collect();
+    let native_aft = match profile {
+        RuntimeFinalityProfile::BftConsensusAftV1 => Some(&fixture.finalized),
+        RuntimeFinalityProfile::SingleAuthorityV1 => None,
+    };
+    emit_runtime_bundle_v3(
+        RuntimeBundleV3Input {
+            bundle_id: "proof://acme/runtime/7",
+            checkpoint_id: "receipt-checkpoint://acme/runtime/7",
+            certificate_id: "finality-certificate://acme/runtime/7",
+            availability_manifest_id: "availability-manifest://acme/runtime/7",
+            block_payload_ref: "payload://acme/runtime/block/7",
+            domain_id: "domain://acme/runtime",
+            authority_epoch: 9,
+            authority_revocation_epoch: 4,
+            profile,
+            profile_epoch: 3,
+            writer_identity: "writer://acme/validator/1",
+            fence_token: 17,
+            operation_sequence_first: 41,
+            receipt_sequence_first: 81,
+            previous_checkpoint_ref: Some("receipt-checkpoint://acme/runtime/6"),
+            previous_checkpoint_hash: Some(RUNTIME_TEST_HASH),
+            authority_policy_root: RUNTIME_TEST_HASH,
+            governance_policy_root: RUNTIME_TEST_HASH,
+            availability_policy_root: RUNTIME_TEST_HASH,
+            retention_policy_root: RUNTIME_TEST_HASH,
+            location_ref: "agentgres://acme/runtime/block/7",
+            failure_domain_ref: "failure-domain://acme/local-device",
+            verifier_contract_hash: RUNTIME_TEST_HASH,
+            issuer_key_id: "key://acme/finality/9",
+            block: &block,
+            receipts: &receipts,
+            native_aft,
+        },
+        &native_issuer(),
+    )
+    .expect("runtime v3 fixture emits and self-verifies")
+}
+
+fn rehash_runtime_outer(bundle: &mut Value) {
+    let outer = hash_value(&without(bundle, &["bundle_hash"]).expect("bundle preimage"))
+        .expect("bundle hash");
+    set_text(bundle, "bundle_hash", outer).expect("sets bundle hash");
+}
+
+/// Re-sign a mutated runtime certificate with the trusted issuer. This makes
+/// native-evidence tests prove the peer rule itself rather than stopping at the
+/// outer issuer signature.
+fn reissue_runtime_certificate(bundle: &mut Value) {
+    let issuer = native_issuer();
+    let certificate = bundle
+        .pointer_mut("/checkpoint/finality_certificate")
+        .expect("runtime certificate");
+    let body_hash = hash_value(
+        &without(certificate, &["body_hash", "signature"]).expect("certificate preimage"),
+    )
+    .expect("certificate hash");
+    set_text(certificate, "body_hash", body_hash.clone()).expect("sets certificate hash");
+    let signature = issuer
+        .sign(format!("{RUNTIME_CERTIFICATE_V2}\0{body_hash}").as_bytes())
+        .expect("issuer re-signs runtime certificate");
+    set_text(certificate, "signature", hex::encode(signature.to_bytes()))
+        .expect("sets certificate signature");
+    rehash_runtime_outer(bundle);
+}
+
+#[test]
+fn runtime_v3_binds_both_real_profiles_without_inventing_receipt_commitment() {
+    let aft = verify_runtime_bundle_v3(&runtime_v3_bundle(
+        RuntimeFinalityProfile::BftConsensusAftV1,
+    ))
+    .expect("AFT runtime bundle verifies");
+    assert_eq!(aft.profile, "bft_consensus");
+    assert_eq!(aft.certificate_variant, "bft_consensus_aft_v1");
+    assert_eq!(aft.operation_count, 2);
+    assert_eq!(aft.receipt_count, 2);
+    assert!(aft.native_quorum_verified);
+    assert!(aft.effect_committed_in_block);
+    assert!(!aft.receipts_committed_in_block);
+    assert_eq!(aft.profile_epoch, 3);
+    assert_eq!(aft.fence_token, 17);
+
+    let single = verify_runtime_bundle_v3(&runtime_v3_bundle(
+        RuntimeFinalityProfile::SingleAuthorityV1,
+    ))
+    .expect("single-authority runtime bundle verifies");
+    assert_eq!(single.profile, "single_authority");
+    assert_eq!(single.certificate_variant, "single_authority_v1");
+    assert!(!single.native_quorum_verified);
+    assert!(single.effect_committed_in_block);
+    assert!(!single.receipts_committed_in_block);
+}
+
+#[test]
+fn runtime_v3_verifier_never_reinterprets_predecessor_versions() {
+    for version in [
+        "schema://ioi/foundations/receipt-proof-bundle/v1",
+        BUNDLE_V2,
+        "ioi.foundations.receipt-proof-bundle.v4",
+    ] {
+        assert_eq!(
+            verify_runtime_bundle_v3(&json!({"schema_version": version})),
+            Err(VerificationError::UnsupportedVersion(version.to_owned()))
+        );
+    }
+}
+
+#[test]
+fn runtime_v3_signed_boundary_substitutions_fail_closed() {
+    let original = runtime_v3_bundle(RuntimeFinalityProfile::BftConsensusAftV1);
+    let substitutions = [
+        ("/checkpoint/profile", json!("single_authority")),
+        ("/checkpoint/writer_fence/profile_epoch", json!(4)),
+        (
+            "/checkpoint/writer_fence/writer_identity",
+            json!("writer://stale"),
+        ),
+        ("/checkpoint/writer_fence/fence_token", json!(18)),
+        ("/checkpoint/authority_epoch", json!(10)),
+        ("/checkpoint/authority_revocation_epoch", json!(5)),
+        (
+            "/checkpoint/previous_canonical_head",
+            json!(RUNTIME_TEST_HASH),
+        ),
+        ("/operations/0/sequence", json!(42)),
+        ("/operations/0/body/transaction_base64", json!("AA==")),
+        ("/receipts/0/body/gas_used", json!(1)),
+        (
+            "/checkpoint/resulting_state_commitment/root_base64",
+            json!("AA=="),
+        ),
+        ("/availability_payloads/0/payload_base64", json!("AA==")),
+        (
+            "/checkpoint/verifier_contract_hash",
+            json!(RUNTIME_TEST_HASH.replace('a', "b")),
+        ),
+        (
+            "/checkpoint/availability_policy_root",
+            json!(RUNTIME_TEST_HASH.replace('a', "d")),
+        ),
+        (
+            "/checkpoint/availability_manifest/retention_policy_root",
+            json!(RUNTIME_TEST_HASH.replace('a', "c")),
+        ),
+    ];
+    for (pointer, replacement) in substitutions {
+        let mut bundle = original.clone();
+        *bundle.pointer_mut(pointer).expect("substitution pointer") = replacement;
+        rehash_runtime_outer(&mut bundle);
+        assert!(
+            verify_runtime_bundle_v3(&bundle).is_err(),
+            "runtime substitution unexpectedly verified: {pointer}"
+        );
+    }
+}
+
+#[test]
+fn runtime_v3_peer_evidence_refuses_forgery_even_after_issuer_reissue() {
+    let mut forged = runtime_v3_bundle(RuntimeFinalityProfile::BftConsensusAftV1);
+    forged["checkpoint"]["finality_certificate"]["native_aft_evidence"]["votes"][0]["signature"] =
+        Value::String("00".repeat(64));
+    reissue_runtime_certificate(&mut forged);
+    assert!(matches!(
+        verify_runtime_bundle_v3(&forged),
+        Err(VerificationError::ConsensusEvidence(_) | VerificationError::Crypto(_))
+    ));
+
+    let mut relabelled = runtime_v3_bundle(RuntimeFinalityProfile::BftConsensusAftV1);
+    relabelled["checkpoint"]["finality_certificate"]["native_aft_evidence"]["fault_model"] =
+        Value::String("crash".into());
+    reissue_runtime_certificate(&mut relabelled);
+    assert!(matches!(
+        verify_runtime_bundle_v3(&relabelled),
+        Err(VerificationError::ConsensusEvidence(_))
+    ));
 }
