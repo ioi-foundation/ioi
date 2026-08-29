@@ -33,6 +33,8 @@ pub(super) fn format_proposal_wait_line(
     tx_hash_hex: &str,
     height: u64,
     view: u64,
+    producer_account_id: &str,
+    producer_node: &str,
     first_seen_at_ms: u64,
     proposal_selected_at_ms: u64,
 ) -> Result<String> {
@@ -45,10 +47,12 @@ pub(super) fn format_proposal_wait_line(
         )
     })?;
     Ok(format!(
-        "{BENCH_PROPOSAL_WAIT_TAG} selected tx_hash={} height={} view={} first_seen_at_ms={} proposal_selected_at_ms={} proposal_wait_ms={}",
+        "{BENCH_PROPOSAL_WAIT_TAG} selected tx_hash={} height={} view={} producer_account_id={} producer_node={} first_seen_at_ms={} proposal_selected_at_ms={} proposal_wait_ms={}",
         tx_hash_hex,
         height,
         view,
+        producer_account_id,
+        producer_node,
         first_seen_at_ms,
         proposal_selected_at_ms,
         proposal_wait_ms,
@@ -2045,6 +2049,8 @@ where
                 valid_txs.clone()
             };
             let attempted_txs = ordered_txs.clone();
+            let producer_account_id_hex = hex::encode(our_account_id.0);
+            let producer_node = benchmark_node_label();
             let new_block_template = Block {
                 header,
                 transactions: ordered_txs,
@@ -2065,6 +2071,8 @@ where
                         &hex::encode(tx_hash),
                         producing_h,
                         view,
+                        &producer_account_id_hex,
+                        &producer_node,
                         first_seen_at_ms,
                         selected_at_ms,
                     )?;
@@ -2096,9 +2104,11 @@ where
                         .min(u128::from(u64::MAX))
                         as u64;
                     eprintln!(
-                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} genesis_block_interval_ms={} genesis_block_interval_provenance={} block_timestamp_ms={} proposal_observed_at_ms={} view_timeout_secs={}",
+                        "[BENCH-ORDERING] proposal height={} view={} producer_account_id={} producer_node={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} genesis_block_interval_ms={} genesis_block_interval_provenance={} block_timestamp_ms={} proposal_observed_at_ms={} view_timeout_secs={}",
                         producing_h,
                         view,
+                        producer_account_id_hex,
+                        producer_node,
                         ordering_profile_label(cons_ty),
                         cadence.ticker_interval_ms,
                         cadence.ticker_interval_provenance,
@@ -2112,9 +2122,11 @@ where
                     );
                 }
                 eprintln!(
-                    "[BENCH-CONSENSUS] proposal_select height={} view={} candidate_txs={} valid_txs={} select_ms={} verify_ms={}",
+                    "[BENCH-CONSENSUS] proposal_select height={} view={} producer_account_id={} producer_node={} candidate_txs={} valid_txs={} select_ms={} verify_ms={}",
                     producing_h,
                     view,
+                    producer_account_id_hex,
+                    producer_node,
                     candidate_txs.len(),
                     valid_txs.len(),
                     selection_elapsed.as_millis(),
@@ -2143,9 +2155,11 @@ where
                     let process_elapsed = process_started.elapsed();
                     if benchmark_trace_enabled() {
                         eprintln!(
-                            "[BENCH-CONSENSUS] proposal_process height={} view={} tx_count={} process_block_ms={}",
+                            "[BENCH-CONSENSUS] proposal_process height={} view={} producer_account_id={} producer_node={} tx_count={} process_block_ms={}",
                             final_block.header.height,
                             view,
+                            producer_account_id_hex,
+                            producer_node,
                             final_block.transactions.len(),
                             process_elapsed.as_millis(),
                         );
@@ -2209,9 +2223,11 @@ where
                     let finalize_elapsed = finalize_started.elapsed();
                     if benchmark_trace_enabled() {
                         eprintln!(
-                            "[BENCH-CONSENSUS] proposal_finalize height={} view={} finalize_ms={}",
+                            "[BENCH-CONSENSUS] proposal_finalize height={} view={} producer_account_id={} producer_node={} finalize_ms={}",
                             producing_h,
                             view,
+                            producer_account_id_hex,
+                            producer_node,
                             finalize_elapsed.as_millis(),
                         );
                         tracing::info!(

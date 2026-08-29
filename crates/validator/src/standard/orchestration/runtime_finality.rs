@@ -953,6 +953,27 @@ async fn publish_statuses(
     block: &Block<ChainTransaction>,
 ) -> Vec<String> {
     let hashes = client_visible_hashes(receipt_map, block).await;
+    if std::env::var_os("IOI_AFT_BENCH_TRACE").is_some() {
+        let observer_node = std::env::var("IOI_AFT_BENCH_NODE_LABEL")
+            .ok()
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| format!("pid-{}", std::process::id()));
+        let canonical_block_hash = block_hash(block)
+            .map(hex::encode)
+            .unwrap_or_else(|_| "unavailable".to_string());
+        let producer_account_id = hex::encode(block.header.producer_account_id.0);
+        for tx_hash in &hashes {
+            eprintln!(
+                "[BENCH-CANONICAL-TX] admitted tx_hash={} height={} view={} producer_account_id={} canonical_block_hash={} observer_node={}",
+                tx_hash,
+                block.header.height,
+                block.header.view,
+                producer_account_id,
+                canonical_block_hash,
+                observer_node,
+            );
+        }
+    }
     let mut statuses = tx_status_cache.lock().await;
     for tx_hash in &hashes {
         if let Some(entry) = statuses.get_mut(tx_hash) {

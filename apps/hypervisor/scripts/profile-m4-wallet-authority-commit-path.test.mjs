@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  BENCH_CANONICAL_TX_CONTRACT,
   BENCH_IAVL_CONTRACT,
   BENCH_ORDERING_CONTRACT,
   BENCH_PROPOSAL_WAIT_CONTRACT,
@@ -46,6 +47,11 @@ const REQUEST_HASH = "a".repeat(64);
 const POLICY_HASH = "b".repeat(64);
 const TX_HASH = "c".repeat(64);
 const HEIGHT = 412;
+const PRODUCER_ACCOUNT_ID = "d".repeat(64);
+const PRODUCER_NODE = "validator-20000-orch";
+const WORKLOAD_NODE = "validator-20000-workload";
+const BLOCK_PAYLOAD_HASH = "e".repeat(64);
+const CANONICAL_BLOCK_HASH = "f".repeat(64);
 
 const BASE = {
   admission_ms: 3,
@@ -106,14 +112,15 @@ const RUN = {
 function traceLines(v) {
   return [
     "2026-08-27T00:00:00Z INFO orchestration: unrelated log framing",
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 ordering_profile=${v.ordering_profile} ticker_interval_ms=${v.ticker_interval_ms} ticker_interval_provenance=${v.ticker_interval_provenance} min_tick_ms=${v.min_tick_ms} min_tick_provenance=${v.min_tick_provenance} genesis_block_interval_ms=${v.genesis_block_interval_ms} genesis_block_interval_provenance=${v.genesis_block_interval_provenance} block_timestamp_ms=${v.block_timestamp_ms} proposal_observed_at_ms=${v.proposal_observed_at_ms} view_timeout_secs=${v.view_timeout_secs}`,
-    `[BENCH-CONSENSUS] proposal_select height=${HEIGHT} view=1 candidate_txs=1 valid_txs=1 select_ms=${v.select_ms} verify_ms=${v.verify_ms}`,
-    `[BENCH-CONSENSUS] proposal_process height=${HEIGHT} view=1 tx_count=1 process_block_ms=${v.process_block_ms}`,
-    `[BENCH-CONSENSUS] proposal_finalize height=${HEIGHT} view=1 finalize_ms=${v.finalize_ms}`,
-    `[BENCH-EXEC] prepare_block height=${HEIGHT} tx_count=1 replay_mode=none replay_gate=none nonce_chain_edges=0 replay_debt=0 validation_aborts=0 validation_errors=0 validation_rewinds=0 execution_errors=0 snapshot_ms=1 parallel_exec_ms=2 fallback_exec_ms=0 overlay_ms=0 collect_results_ms=0 roots_ms=1 total_ms=${v.prepare_total_ms}`,
-    `[BENCH-EXEC] commit_block height=${HEIGHT} tx_count=1 proof_verify_ms=0 apply_ms=90 end_block_ms=4 persist_ms=${v.commit_persist_ms} put_block_ms=0 total_ms=${v.commit_total_ms} snapshot_clone_ms=${v.snapshot_clone_ms} block_bytes=${v.block_bytes} proc_cpu_user_ms=${v.proc_cpu_user_ms} proc_cpu_sys_ms=${v.proc_cpu_sys_ms}`,
-    `${BENCH_IAVL_CONTRACT.tag} commit height=${HEIGHT} version_count=${v.version_count} tree_depth=${v.tree_depth} unique_nodes=${v.unique_nodes} new_nodes=${v.new_nodes} new_node_bytes=${v.new_node_bytes} block_bytes=${v.block_bytes} commitment_ms=${v.commitment_ms} durable_store_ms=${v.durable_store_ms} atomic_state_block=${v.atomic_state_block}`,
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} ordering_profile=${v.ordering_profile} ticker_interval_ms=${v.ticker_interval_ms} ticker_interval_provenance=${v.ticker_interval_provenance} min_tick_ms=${v.min_tick_ms} min_tick_provenance=${v.min_tick_provenance} genesis_block_interval_ms=${v.genesis_block_interval_ms} genesis_block_interval_provenance=${v.genesis_block_interval_provenance} block_timestamp_ms=${v.block_timestamp_ms} proposal_observed_at_ms=${v.proposal_observed_at_ms} view_timeout_secs=${v.view_timeout_secs}`,
+    `[BENCH-CONSENSUS] proposal_select height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} candidate_txs=1 valid_txs=1 select_ms=${v.select_ms} verify_ms=${v.verify_ms}`,
+    `[BENCH-CONSENSUS] proposal_process height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} tx_count=1 process_block_ms=${v.process_block_ms}`,
+    `[BENCH-CONSENSUS] proposal_finalize height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} finalize_ms=${v.finalize_ms}`,
+    `[BENCH-EXEC] prepare_block observer_node=${WORKLOAD_NODE} height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} tx_count=1 replay_mode=none replay_gate=none nonce_chain_edges=0 replay_debt=0 validation_aborts=0 validation_errors=0 validation_rewinds=0 execution_errors=0 snapshot_ms=1 parallel_exec_ms=2 fallback_exec_ms=0 overlay_ms=0 collect_results_ms=0 roots_ms=1 total_ms=${v.prepare_total_ms}`,
+    `[BENCH-EXEC] commit_block observer_node=${WORKLOAD_NODE} height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} block_payload_hash=${BLOCK_PAYLOAD_HASH} tx_count=1 proof_verify_ms=0 apply_ms=90 end_block_ms=4 persist_ms=${v.commit_persist_ms} put_block_ms=0 total_ms=${v.commit_total_ms} snapshot_clone_ms=${v.snapshot_clone_ms} block_bytes=${v.block_bytes} proc_cpu_user_ms=${v.proc_cpu_user_ms} proc_cpu_sys_ms=${v.proc_cpu_sys_ms}`,
+    `${BENCH_IAVL_CONTRACT.tag} commit observer_node=${WORKLOAD_NODE} height=${HEIGHT} block_payload_hash=${BLOCK_PAYLOAD_HASH} version_count=${v.version_count} tree_depth=${v.tree_depth} unique_nodes=${v.unique_nodes} new_nodes=${v.new_nodes} new_node_bytes=${v.new_node_bytes} block_bytes=${v.block_bytes} commitment_ms=${v.commitment_ms} durable_store_ms=${v.durable_store_ms} atomic_state_block=${v.atomic_state_block}`,
     proposalWaitLine(v),
+    `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} tx_hash=${v.tx_hash} height=${v.committed_height ?? HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} canonical_block_hash=${CANONICAL_BLOCK_HASH} observer_node=${PRODUCER_NODE}`,
     `[BENCH-APPROVAL] request_hash=${REQUEST_HASH} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=${v.tx_hash} admission_ms=${v.admission_ms} committed_height=${v.committed_height ?? HEIGHT} commit_wait_ms=${v.commit_wait_ms} commit_poll_count=${v.commit_poll_count} commit_poll_interval_ms=${v.commit_poll_interval_ms} approval_query_ms=${v.approval_query_ms} approval_verify_ms=${v.approval_verify_ms} event_wait_ms=${v.event_wait_ms} event_committed_height=${v.event_committed_height ?? v.committed_height ?? HEIGHT} event_durable_commit_ms=${v.event_durable_commit_ms} event_published_at_ms=${v.event_published_at_ms} event_observed_at_ms=${v.event_observed_at_ms}`,
   ];
 }
@@ -129,7 +136,7 @@ function proposalWaitLine(v) {
   // a well-formed observation for a different transaction into the trace
   // without also relabelling the approval that must refuse to borrow it.
   const txHash = v.proposal_wait_tx_hash ?? v.tx_hash;
-  return `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} tx_hash=${txHash} height=${HEIGHT} view=1 first_seen_at_ms=${v.first_seen_at_ms} proposal_selected_at_ms=${v.proposal_selected_at_ms} proposal_wait_ms=${v.proposal_wait_ms ?? wait}`;
+  return `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} tx_hash=${txHash} height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} first_seen_at_ms=${v.first_seen_at_ms} proposal_selected_at_ms=${v.proposal_selected_at_ms} proposal_wait_ms=${v.proposal_wait_ms ?? wait}`;
 }
 
 const SECOND_REQUEST_HASH = "c".repeat(64);
@@ -151,8 +158,29 @@ function secondaryApprovalLines(height, overrides = {}) {
   const eventWaitMs = overrides.eventWaitMs ?? BASE.event_wait_ms;
   const observedAtMs = overrides.eventObservedAtMs ?? BASE.event_observed_at_ms;
   return [
-    `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} tx_hash=${txHash} height=${height} view=1 first_seen_at_ms=${firstSeenAtMs} proposal_selected_at_ms=${selectedAtMs} proposal_wait_ms=${Math.max(0, selectedAtMs - firstSeenAtMs)}`,
+    `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} tx_hash=${txHash} height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} first_seen_at_ms=${firstSeenAtMs} proposal_selected_at_ms=${selectedAtMs} proposal_wait_ms=${Math.max(0, selectedAtMs - firstSeenAtMs)}`,
+    `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} tx_hash=${txHash} height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} canonical_block_hash=${CANONICAL_BLOCK_HASH} observer_node=${PRODUCER_NODE}`,
     `[BENCH-APPROVAL] request_hash=${requestHash} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=${txHash} admission_ms=3 committed_height=${height} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1 event_wait_ms=${eventWaitMs} event_committed_height=${height} event_durable_commit_ms=${BASE.event_durable_commit_ms} event_published_at_ms=${BASE.event_published_at_ms} event_observed_at_ms=${observedAtMs}`,
+  ];
+}
+
+function secondaryBlockLines(height, overrides = {}) {
+  const orderingProfile = overrides.orderingProfile ?? "aft";
+  const tickerIntervalMs = overrides.tickerIntervalMs ?? 1000;
+  const tickerProvenance = overrides.tickerProvenance ?? "config:block_production_interval_secs";
+  const genesisIntervalMs = overrides.genesisIntervalMs ?? 1000;
+  const genesisProvenance = overrides.genesisProvenance ?? "default:test-genesis";
+  const blockTimestampMs = overrides.blockTimestampMs ?? 1_772_000_413_000;
+  const proposalObservedAtMs = overrides.proposalObservedAtMs ?? 1_772_000_413_100;
+  return [
+    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} ordering_profile=${orderingProfile} ticker_interval_ms=${tickerIntervalMs} ticker_interval_provenance=${tickerProvenance} min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=${genesisIntervalMs} genesis_block_interval_provenance=${genesisProvenance} block_timestamp_ms=${blockTimestampMs} proposal_observed_at_ms=${proposalObservedAtMs} view_timeout_secs=2`,
+    `[BENCH-CONSENSUS] proposal_select height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
+    `[BENCH-CONSENSUS] proposal_process height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} tx_count=1 process_block_ms=1800`,
+    `[BENCH-CONSENSUS] proposal_finalize height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} finalize_ms=120`,
+    `[BENCH-EXEC] prepare_block observer_node=${WORKLOAD_NODE} height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} tx_count=1 total_ms=300`,
+    `[BENCH-EXEC] commit_block observer_node=${WORKLOAD_NODE} height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} block_payload_hash=${BLOCK_PAYLOAD_HASH} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
+    `${BENCH_IAVL_CONTRACT.tag} commit observer_node=${WORKLOAD_NODE} height=${height} block_payload_hash=${BLOCK_PAYLOAD_HASH} version_count=${height} tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
+    ...secondaryApprovalLines(height, overrides),
   ];
 }
 
@@ -457,12 +485,12 @@ test("MUTATION: durable store and state commitment are not interchangeable", () 
 
 test("FAIL CLOSED: deleting a required phase's source line refuses to build a profile", () => {
   const cases = [
-    ["[BENCH-IAVL]", /\[BENCH-IAVL\] at height/u],
-    ["commit_block", /commit_block at height/u],
-    ["prepare_block", /prepare_block at height/u],
-    ["proposal_finalize", /proposal_finalize at height/u],
-    ["proposal_select", /proposal_select at height/u],
-    ["proposal_process", /proposal_process at height/u],
+    ["[BENCH-IAVL]", /\[BENCH-IAVL\] canonical payload/u],
+    ["commit_block", /commit_block for canonical attempt/u],
+    ["prepare_block", /prepare_block for canonical attempt/u],
+    ["[BENCH-CONSENSUS] proposal_finalize", /proposal_finalize for canonical attempt/u],
+    ["[BENCH-CONSENSUS] proposal_select", /proposal_select for canonical attempt/u],
+    ["[BENCH-CONSENSUS] proposal_process", /proposal_process for canonical attempt/u],
   ];
   for (const [fragment, expected] of cases) {
     assert.throws(
@@ -475,7 +503,7 @@ test("FAIL CLOSED: deleting a required phase's source line refuses to build a pr
 
 test("FAIL CLOSED: a [BENCH-IAVL] line missing one contracted field is refused", () => {
   for (const field of BENCH_IAVL_CONTRACT.required_fields) {
-    if (field === "height") continue; // height loss drops the line from the index entirely
+    const identityField = ["height", "observer_node", "block_payload_hash"].includes(field);
     const complete = inputs();
     const stripped = complete.traceText
       .split("\n")
@@ -487,7 +515,9 @@ test("FAIL CLOSED: a [BENCH-IAVL] line missing one contracted field is refused",
       .join("\n");
     assert.throws(
       () => buildCommitPathProfile({ ...complete, traceText: stripped }),
-      new RegExp(`omits required field '${field}'`, "u"),
+      identityField
+        ? /canonical payload .* has 0 observations/u
+        : new RegExp(`omits required field '${field}'`, "u"),
       `a [BENCH-IAVL] line without ${field} must fail closed`,
     );
   }
@@ -601,16 +631,15 @@ test("an observed durable_store on the [BENCH-IAVL] line outranks the declared o
   );
 });
 
-test("a repeated height is surfaced, not silently collapsed", () => {
+test("a repeated canonical-attempt observation is refused rather than silently collapsed", () => {
   const complete = inputs();
   const replayed = `${complete.traceText}\n${
     complete.traceText.split("\n").find((line) => line.includes("commit_block"))
   }`;
-  const profile = buildCommitPathProfile({ ...complete, traceText: replayed });
-  assert.ok(
-    profile.approvals[0].anomalies.some((entry) => entry.startsWith("exec_commit_height_observed_2")),
+  assert.throws(
+    () => buildCommitPathProfile({ ...complete, traceText: replayed }),
+    /commit_block .* has 2 observations/u,
   );
-  assert.equal(profile.coverage.approvals_with_anomalies, 1);
 });
 
 test("declared nesting that does not hold is surfaced, not clamped", () => {
@@ -675,7 +704,7 @@ test("a profile that cannot name its ordering engine fails closed", () => {
   // failure that made the Solo-reports-Aft defect invisible.
   assert.throws(
     () => buildCommitPathProfile(inputs({}, { dropLines: [BENCH_ORDERING_CONTRACT.tag] })),
-    /\[BENCH-ORDERING\] proposal at height .* was not observed/u,
+    /\[BENCH-ORDERING\] canonical attempt .* has 0 observations/u,
   );
   assert.throws(
     () => buildCommitPathProfile(inputs({ ordering_profile: "quorum_ish" })),
@@ -690,14 +719,7 @@ test("an artifact spanning two ordering engines is refused", () => {
   const otherHeight = 413;
   const mixedTrace = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=solo ticker_interval_ms=1000 ticker_interval_provenance=config:block_production_interval_secs min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=1000 genesis_block_interval_provenance=default:test-genesis block_timestamp_ms=1772000413000 proposal_observed_at_ms=1772000413100 view_timeout_secs=2`,
-    `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
-    `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
-    `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
-    `[BENCH-EXEC] prepare_block height=${otherHeight} tx_count=1 total_ms=300`,
-    `[BENCH-EXEC] commit_block height=${otherHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
-    `${BENCH_IAVL_CONTRACT.tag} commit height=${otherHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
-    ...secondaryApprovalLines(otherHeight),
+    ...secondaryBlockLines(otherHeight, { orderingProfile: "solo" }),
   ].join("\n");
   assert.throws(
     () =>
@@ -912,7 +934,7 @@ test("an incompatible change carries a new schema identifier, not the predecesso
   // would ask a reader holding both artifacts to tell them apart by noticing a
   // disclosure rather than by reading the version.
   const profile = buildCommitPathProfile(inputs());
-  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v2");
+  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v3");
   assert.notEqual(
     profile.schema_version,
     profile.schema_compatibility.predecessor,
@@ -920,7 +942,7 @@ test("an incompatible change carries a new schema identifier, not the predecesso
   );
   assert.equal(
     profile.schema_compatibility.predecessor,
-    SUPERSEDED_ARTIFACT_SCHEMA_VERSION,
+    "ioi.m049.ordering-finality-parity-profile.v2",
     "the identifier this schema supersedes is named, not implied",
   );
   assert.equal(SCHEMA_COMPATIBILITY.version, profile.schema_version);
@@ -940,26 +962,63 @@ test("both predecessor identifiers are carried so the tracked work-item anchors 
   );
   assert.equal(
     profile.schema_compatibility.predecessor,
-    "ioi.m049.ordering-finality-parity-profile.v1",
+    "ioi.m049.ordering-finality-parity-profile.v2",
   );
+  assert.equal(SUPERSEDED_ARTIFACT_SCHEMA_VERSION, "ioi.m049.ordering-finality-parity-profile.v1");
 });
 
 test("the incompatibility is stated exactly, not as a bare boolean", () => {
   // "compatible_with_predecessor: false" tells a reader nothing about WHAT
-  // broke, so a consumer cannot tell whether it is affected. The split slots,
-  // the newly-measured phases, and the keys that did NOT change meaning are
-  // all named.
+  // broke. v3 names its newly required causal identities; the older phase
+  // splits remain available separately as historical v1-to-v2 lineage.
   const profile = buildCommitPathProfile(inputs());
   const breaking = profile.schema_compatibility.breaking;
-  assert.deepEqual(breaking.split_slots.receipt_creation_durable_ack, [
+  assert.deepEqual(breaking.required_identity_fields.proposal_and_ordering, [
+    "producer_account_id",
+    "producer_node",
+  ]);
+  assert.deepEqual(breaking.required_identity_fields.execution, [
+    "observer_node",
+    "view",
+    "producer_account_id",
+    "block_payload_hash",
+  ]);
+  assert.deepEqual(breaking.required_identity_fields.persistence, [
+    "observer_node",
+    "block_payload_hash",
+  ]);
+  assert.deepEqual(breaking.required_identity_fields.canonical_admission, [
+    "tx_hash",
+    "height",
+    "view",
+    "producer_account_id",
+    "canonical_block_hash",
+    "observer_node",
+  ]);
+  assert.ok(
+    breaking.changed_semantics.includes("selected block phases by height"),
+    "the corrected height-only causal-attribution defect must be disclosed",
+  );
+  assert.ok(/v2 consumer must not read a v3 artifact/u.test(
+    profile.schema_compatibility.compatibility_statement,
+  ));
+  assert.ok(/Agentgres-admitted canonical attempt/u.test(
+    profile.schema_compatibility.compatibility_statement,
+  ));
+});
+
+test("historical v1-to-v2 incompatibilities remain explicit without masquerading as v3 breaks", () => {
+  const profile = buildCommitPathProfile(inputs());
+  const historical = profile.schema_compatibility.historical_lineage.v1_to_v2;
+  assert.deepEqual(historical.split_slots.receipt_creation_durable_ack, [
     "receipt_creation",
     "durable_ack_publication",
   ]);
-  assert.deepEqual(breaking.split_slots.completion_notification_client_observation, [
+  assert.deepEqual(historical.split_slots.completion_notification_client_observation, [
     "completion_notification_transport",
     "completion_client_observation",
   ]);
-  assert.deepEqual([...breaking.newly_measured_phases].sort(), [
+  assert.deepEqual([...historical.newly_measured_phases].sort(), [
     "client_event_observation",
     "durable_ack_publication",
     "notification_transport_lag",
@@ -967,27 +1026,24 @@ test("the incompatibility is stated exactly, not as a bare boolean", () => {
   ]);
   // Every newly-measured phase really does carry a number now.
   const [approval] = profile.approvals;
-  for (const name of breaking.newly_measured_phases) {
+  for (const name of historical.newly_measured_phases) {
     assert.equal(typeof approval.phases[name], "number", `${name} carries a number`);
   }
   // Every split slot name really is gone from the slot list, and both halves
   // really are present.
-  for (const [gone, halves] of Object.entries(breaking.split_slots)) {
+  for (const [gone, halves] of Object.entries(historical.split_slots)) {
     assert.ok(!ORDERING_PARITY_SLOTS.includes(gone), `${gone} is no longer a slot`);
     for (const half of halves) {
       assert.ok(ORDERING_PARITY_SLOTS.includes(half), `${half} is a slot`);
     }
   }
-  // The statement names what a narrow consumer can still rely on.
-  assert.ok(/ordering_finalization/u.test(profile.schema_compatibility.compatibility_statement));
-  assert.ok(/enumerates safe_partition/u.test(profile.schema_compatibility.compatibility_statement));
 });
 
-test("every breaking change is disclosed in the artifact, not just in a comment", () => {
+test("every historical v1-to-v2 rename remains disclosed in the artifact", () => {
   const profile = buildCommitPathProfile(inputs());
-  const breaking = profile.schema_compatibility.breaking;
-  assert.equal(breaking.renamed_phases.aft_inclusion_finalization, "ordering_finalization");
-  assert.equal(breaking.renamed_fields.proposal_cadence, "scheduler_and_block_cadence");
+  const historical = profile.schema_compatibility.historical_lineage.v1_to_v2;
+  assert.equal(historical.renamed_phases.aft_inclusion_finalization, "ordering_finalization");
+  assert.equal(historical.renamed_fields.proposal_cadence, "scheduler_and_block_cadence");
   // The renames are real: old names gone, new names carrying the data.
   assert.ok(!("aft_inclusion_finalization" in profile.approvals[0].phases));
   assert.ok("ordering_finalization" in profile.approvals[0].phases);
@@ -997,13 +1053,9 @@ test("every breaking change is disclosed in the artifact, not just in a comment"
   assert.ok("scheduler_and_block_cadence" in profile.ordering_parity);
   // Every name the disclosure claims to have renamed TO must actually exist,
   // or the disclosure would send a reader to a key that is not there either.
-  for (const renamed of Object.values(breaking.renamed_phases)) {
+  for (const renamed of Object.values(historical.renamed_phases)) {
     assert.ok(renamed in PHASES, `${renamed} must be a real phase`);
   }
-  assert.ok(
-    breaking.changed_semantics.includes("execution_prepare"),
-    "the exclusive/leaf relabel must be disclosed too",
-  );
 });
 
 test("the effective cadence is reported with the provenance of each value", () => {
@@ -1040,7 +1092,7 @@ test("the effective cadence is reported with the provenance of each value", () =
 
 test("FAIL CLOSED: a [BENCH-ORDERING] line missing one contracted field is refused", () => {
   for (const field of BENCH_ORDERING_CONTRACT.required_fields) {
-    if (field === "height") continue; // height loss drops the line from the index entirely
+    const identityField = ["height", "view", "producer_account_id"].includes(field);
     const complete = inputs();
     const stripped = complete.traceText
       .split("\n")
@@ -1052,7 +1104,9 @@ test("FAIL CLOSED: a [BENCH-ORDERING] line missing one contracted field is refus
       .join("\n");
     assert.throws(
       () => buildCommitPathProfile({ ...complete, traceText: stripped }),
-      new RegExp(`omits required field '${field}'`, "u"),
+      identityField
+        ? /\[BENCH-ORDERING\] canonical attempt .* has 0 observations/u
+        : new RegExp(`omits required field '${field}'`, "u"),
       `a [BENCH-ORDERING] line without ${field} must fail closed`,
     );
   }
@@ -1109,14 +1163,14 @@ test("a run that changed cadence mid-flight is surfaced as two cadence values", 
   const otherHeight = 413;
   const mixed = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${otherHeight} view=1 ordering_profile=aft ticker_interval_ms=250 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=250 genesis_block_interval_provenance=env:IOI_BENCH_BLOCK_INTERVAL_MS block_timestamp_ms=1772000412250 proposal_observed_at_ms=1772000412350 view_timeout_secs=2`,
-    `[BENCH-CONSENSUS] proposal_select height=${otherHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
-    `[BENCH-CONSENSUS] proposal_process height=${otherHeight} view=1 tx_count=1 process_block_ms=1800`,
-    `[BENCH-CONSENSUS] proposal_finalize height=${otherHeight} view=1 finalize_ms=120`,
-    `[BENCH-EXEC] prepare_block height=${otherHeight} tx_count=1 total_ms=300`,
-    `[BENCH-EXEC] commit_block height=${otherHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
-    `${BENCH_IAVL_CONTRACT.tag} commit height=${otherHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
-    ...secondaryApprovalLines(otherHeight),
+    ...secondaryBlockLines(otherHeight, {
+      tickerIntervalMs: 250,
+      tickerProvenance: "env:ORCH_BLOCK_INTERVAL_MS",
+      genesisIntervalMs: 250,
+      genesisProvenance: "env:IOI_BENCH_BLOCK_INTERVAL_MS",
+      blockTimestampMs: 1_772_000_412_250,
+      proposalObservedAtMs: 1_772_000_412_350,
+    }),
   ].join("\n");
   const profile = buildCommitPathProfile({
     ...single,
@@ -1186,14 +1240,14 @@ test("realized proposal spacing comes from producer wall time, not header timest
   const nextHeight = HEIGHT + 1;
   const spacedTrace = [
     single.traceText,
-    `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} height=${nextHeight} view=1 ordering_profile=aft ticker_interval_ms=50 ticker_interval_provenance=env:ORCH_BLOCK_INTERVAL_MS min_tick_ms=50 min_tick_provenance=default genesis_block_interval_ms=50 genesis_block_interval_provenance=env:IOI_BENCH_BLOCK_INTERVAL_MS block_timestamp_ms=${BASE.block_timestamp_ms + 50} proposal_observed_at_ms=${BASE.proposal_observed_at_ms + 1000} view_timeout_secs=2`,
-    `[BENCH-CONSENSUS] proposal_select height=${nextHeight} view=1 candidate_txs=1 valid_txs=1 select_ms=4 verify_ms=6`,
-    `[BENCH-CONSENSUS] proposal_process height=${nextHeight} view=1 tx_count=1 process_block_ms=1800`,
-    `[BENCH-CONSENSUS] proposal_finalize height=${nextHeight} view=1 finalize_ms=120`,
-    `[BENCH-EXEC] prepare_block height=${nextHeight} tx_count=1 total_ms=300`,
-    `[BENCH-EXEC] commit_block height=${nextHeight} tx_count=1 persist_ms=1200 total_ms=1400 snapshot_clone_ms=40 block_bytes=5121 proc_cpu_user_ms=900 proc_cpu_sys_ms=130`,
-    `${BENCH_IAVL_CONTRACT.tag} commit height=${nextHeight} version_count=413 tree_depth=17 unique_nodes=9001 new_nodes=118 new_node_bytes=40960 block_bytes=5121 commitment_ms=700 durable_store_ms=460 atomic_state_block=true`,
-    ...secondaryApprovalLines(nextHeight),
+    ...secondaryBlockLines(nextHeight, {
+      tickerIntervalMs: 50,
+      tickerProvenance: "env:ORCH_BLOCK_INTERVAL_MS",
+      genesisIntervalMs: 50,
+      genesisProvenance: "env:IOI_BENCH_BLOCK_INTERVAL_MS",
+      blockTimestampMs: BASE.block_timestamp_ms + 50,
+      proposalObservedAtMs: BASE.proposal_observed_at_ms + 1000,
+    }),
   ].join("\n");
   const profile = buildCommitPathProfile({
     ...single,
@@ -1440,7 +1494,7 @@ test("MULTI-TX: two approvals at one height get their own waits and their own ev
 test("FAIL CLOSED: a missing proposal-wait line refuses rather than defaulting the wait", () => {
   assert.throws(
     () => buildCommitPathProfile(inputs({}, { dropLines: [BENCH_PROPOSAL_WAIT_CONTRACT.tag] })),
-    /\[BENCH-PROPOSAL-WAIT\] selected for tx/u,
+    /\[BENCH-PROPOSAL-WAIT\] canonical attempt for tx/u,
   );
 });
 
@@ -1450,7 +1504,7 @@ test("FAIL CLOSED: a proposal-wait line for a DIFFERENT transaction is not borro
   // approval never experienced, which a height-keyed join would have done.
   assert.throws(
     () => buildCommitPathProfile(inputs({ proposal_wait_tx_hash: "f".repeat(64) })),
-    new RegExp(`\\[BENCH-PROPOSAL-WAIT\\] selected for tx ${TX_HASH}`, "u"),
+    new RegExp(`\\[BENCH-PROPOSAL-WAIT\\] canonical attempt for tx ${TX_HASH}`, "u"),
   );
 });
 
@@ -1483,7 +1537,40 @@ test("FAIL CLOSED: a duplicated proposal-wait line refuses instead of picking on
   );
   assert.throws(
     () => buildCommitPathProfile({ ...base, traceText: duplicated }),
-    /names tx_hash=c{64} more than once/u,
+    /canonical attempt for tx c{64} has 2 observations/u,
+  );
+});
+
+test("peer-bearing noncanonical proposal attempts remain visible but are not attributed", () => {
+  const base = inputs();
+  const otherProducer = "1".repeat(64);
+  const losingAttempt =
+    `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} ` +
+    `tx_hash=${TX_HASH} height=${HEIGHT} view=0 producer_account_id=${otherProducer} ` +
+    "producer_node=validator-20100-orch first_seen_at_ms=1772000411001 " +
+    "proposal_selected_at_ms=1772000412051 proposal_wait_ms=1050";
+  const traceText = `${base.traceText}\n${losingAttempt}`;
+  const profile = buildCommitPathProfile({ ...base, traceText });
+  assert.equal(profile.approvals[0].phases.proposal_cadence_wait, 950);
+  assert.equal(profile.approvals[0].proposal_wait.selected_from_attempt_observations, 2);
+  assert.equal(profile.approvals[0].canonical_attempt.view, 1);
+  assert.equal(profile.approvals[0].canonical_attempt.producer_account_id, PRODUCER_ACCOUNT_ID);
+});
+
+test("Agentgres observer replicas must agree on one canonical attempt", () => {
+  const base = inputs();
+  const replicated =
+    `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} ` +
+    `tx_hash=${TX_HASH} height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} ` +
+    `canonical_block_hash=${CANONICAL_BLOCK_HASH} observer_node=validator-20100-orch`;
+  const replicatedTrace = `${base.traceText}\n${replicated}`;
+  const profile = buildCommitPathProfile({ ...base, traceText: replicatedTrace });
+  assert.equal(profile.approvals[0].canonical_attempt.agentgres_observer_count, 2);
+
+  const conflicting = replicated.replace("view=1", "view=2");
+  assert.throws(
+    () => buildCommitPathProfile({ ...base, traceText: `${base.traceText}\n${conflicting}` }),
+    /reported 2 canonical identities/u,
   );
 });
 

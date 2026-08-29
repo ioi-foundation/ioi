@@ -66,10 +66,12 @@ struct HeightDeltaStats {
 /// delta accumulator still holds this version, and the line is rendered only after the
 /// store has acknowledged the write, so a failed persist reports nothing.
 struct CombinedCommitSample {
+    observer_node: String,
     /// The block height being committed.
     height: u64,
     /// Byte length of the block payload handed to the combined store operation.
     block_bytes: usize,
+    block_payload_hash: Option<[u8; 32]>,
     /// Wall time of the commitment phase: `stage_height_delta` and nothing else.
     commitment: Duration,
     /// Wall time of the `commit_and_persist_with_block` await and nothing else.
@@ -86,17 +88,22 @@ struct CombinedCommitSample {
 
 impl CombinedCommitSample {
     /// `Some` only when the bench seam is enabled.
-    fn begin(height: u64, block_bytes: usize) -> Option<Self> {
+    fn begin(height: u64, block_bytes: &[u8]) -> Option<Self> {
         if !benchmark_trace_enabled() {
             return None;
         }
         Some(Self::new(height, block_bytes))
     }
 
-    fn new(height: u64, block_bytes: usize) -> Self {
+    fn new(height: u64, block_bytes: &[u8]) -> Self {
         Self {
+            observer_node: std::env::var("IOI_AFT_BENCH_NODE_LABEL")
+                .ok()
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| format!("pid-{}", std::process::id())),
             height,
-            block_bytes,
+            block_bytes: block_bytes.len(),
+            block_payload_hash: ioi_crypto::algorithms::hash::sha256(block_bytes).ok(),
             commitment: Duration::ZERO,
             durable_store: Duration::ZERO,
             tree_depth: None,
@@ -114,11 +121,17 @@ impl CombinedCommitSample {
             Some(depth) => depth.to_string(),
             None => "unavailable".to_string(),
         };
+        let block_payload_hash = self
+            .block_payload_hash
+            .map(hex::encode)
+            .unwrap_or_else(|| "unavailable".to_string());
         format!(
-            "[BENCH-IAVL] height={} version_count={} tree_depth={} unique_nodes={} \
+            "[BENCH-IAVL] observer_node={} height={} block_payload_hash={} version_count={} tree_depth={} unique_nodes={} \
              new_nodes={} new_node_bytes={} block_bytes={} commitment_ms={:.3} \
              durable_store_ms={:.3} atomic_state_block=true",
+            self.observer_node,
             self.height,
+            block_payload_hash,
             version_count,
             tree_depth,
             self.unique_nodes,
@@ -665,7 +678,7 @@ where
     {
         // `None` unless the bench seam is on, which keeps the untraced path free of
         // clock reads and of the extra delta materialization the sample needs.
-        let mut sample = CombinedCommitSample::begin(height, block_bytes.len());
+        let mut sample = CombinedCommitSample::begin(height, block_bytes);
         let commitment_started = sample.as_ref().map(|_| Instant::now());
 
         let (root_hash, stats) = self.stage_height_delta(height)?;
