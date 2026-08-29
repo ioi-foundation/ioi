@@ -22,6 +22,16 @@ fn test_iavl_commit_with_witness_and_create_proof() {
     tree.commit_version(1).unwrap();
 
     let root_commitment = tree.root_commitment();
+    let anchor = ioi_types::app::StateRoot(root_commitment.as_ref().to_vec())
+        .to_anchor()
+        .unwrap();
+    assert_eq!(
+        tree.commitment_from_anchor(&anchor.0)
+            .expect("retained IAVL anchor must resolve")
+            .as_ref(),
+        root_commitment.as_ref(),
+        "StateRoot::to_anchor is a hash identity, not the raw 32-byte IAVL root"
+    );
 
     // 3. ASSERT EXISTENCE PROOF
     // The `create_proof` method should now correctly use the new trait signature.

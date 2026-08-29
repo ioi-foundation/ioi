@@ -856,7 +856,11 @@ where
     }
 
     fn commitment_from_anchor(&self, anchor: &[u8; 32]) -> Option<Self::Commitment> {
-        self.commitment_from_bytes(anchor).ok()
+        if let Some(root_hash) = self.indices.roots_by_anchor.get(anchor) {
+            return self.commitment_from_bytes(root_hash).ok();
+        }
+        let direct = self.commitment_from_bytes(anchor).ok()?;
+        self.version_exists_for_root(&direct).then_some(direct)
     }
 
     fn commitment_from_bytes(&self, bytes: &[u8]) -> Result<Self::Commitment, StateError> {
@@ -938,6 +942,7 @@ where
             }
         }
         *count += 1;
+        self.indices.index_root_anchor(root_hash);
 
         // This logic is now moved to `commit_version_with_store`
         // self.node_cache.clear();
@@ -984,6 +989,7 @@ where
             self.indices.roots.insert(root_hash, None);
         }
         *self.indices.root_refcount.entry(root_hash).or_insert(0) += 1;
+        self.indices.index_root_anchor(root_hash);
 
         if self.current_height < version {
             self.current_height = version;
