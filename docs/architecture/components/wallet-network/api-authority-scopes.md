@@ -3,13 +3,13 @@
 Status: canonical low-level reference.
 Canonical owner: this file for wallet.network account, auth factor, guardian,
 key-shard, provider credential binding, authority scope, grant, approval, secret
-brokerage, payment, exchange, exposure, protection, receipt, wallet authority
-client, and revocation APIs.
+brokerage, economic-intent, rail-adapter, payment, exchange, exposure,
+protection, receipt, wallet authority client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-08-09.
+Last alignment pass: 2026-08-29.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant issuance, portable verification, admission-receipt emission, temporal evaluation, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, and WalletReceipt v2 surfaces remain planned)
+Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant issuance, portable verification, admission-receipt emission, temporal evaluation, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, WalletReceipt v2, and unified economic-intent/rail-adapter surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs`
 Last implementation audit: 2026-07-19
@@ -1563,6 +1563,141 @@ raw-sign arbitrary payloads, raise limits, disable step-up, enroll guardians, or
 turn authentication into authority without policy, grant issuance, revocation
 semantics, and receipts.
 
+## Unified Economic Intent and Rail-Adapter Contract
+
+wallet.network exposes one economic authority family across source-neutral
+payment and value-movement intents. The common family is a product and protocol
+contract over existing authority owners; it is not a second wallet, commercial
+ledger, final invoker, execution database, or settlement spine.
+
+The closed initial intent-kind vocabulary is:
+
+```text
+payment
+transfer
+purchase
+escrow
+payout
+refund
+exchange
+subscription
+value_retirement
+settlement
+```
+
+Position-bearing trade, prediction, margin, leverage, and ongoing exposure are
+not ordinary members of this lifecycle. Their specialized intent contracts may
+reuse the common authority and evidence envelope, but they retain separate
+eligibility, risk, lifecycle, and close-out semantics.
+
+A product may offer one SDK, MCP tool family, or `/v1/economic-intents` entry
+surface while retaining resource-oriented HTTP endpoints. Every entry compiles
+to the same versioned objects and the existing wallet.network authority path:
+
+```text
+EconomicIntent
+  -> EconomicRouteQuote candidates
+  -> reviewed EconomicExecutionPlan
+  -> AuthorityScopeRequest / ActionRequestEnvelope
+  -> approval, denial, AuthorityGrant or CapabilityLease
+  -> existing final invoker
+  -> rail-native outcome and readback
+  -> EconomicReceipt and reconciliation projection
+```
+
+`EconomicIntent` binds at minimum:
+
+```text
+schema and intent profile versions
+intent id, kind, idempotency identity and predecessor
+principal, acting subject, beneficiary and applicable counterparty
+purpose plus order, service, invoice or obligation refs
+exact value legs with asset/currency, integer quantity and role
+maximum total debit and separately bounded fee/FX/slippage exposure
+funding-source and destination refs without raw credentials
+allowed and prohibited rail, custody, route and provider constraints
+required finality, reversibility, refund, dispute and time bounds
+rights, eligibility, jurisdiction and policy refs
+authority-request and exact-effect bindings when derived
+expiry, revocation posture and receipt obligations
+```
+
+Amounts use registered assets, currencies, integer quantities, and declared
+precision. A decimal display string, provider float, exchange-rate estimate, or
+currency symbol is never authoritative arithmetic.
+
+An `EconomicRouteQuote` declares rather than hides:
+
+```text
+adapter and capability-declaration versions
+provider, processor, venue, chain or escrow identity
+funding and delivery rail
+quoted debit, credit, fee, FX, slippage and reserve components
+quote expiry and exact quote commitment
+expected completion and provider observation boundaries
+finality, reversibility, chargeback, custody and availability classes
+required authentication, eligibility, compliance and counterparty evidence
+provider idempotency/readback coordinates and typed failure modes
+```
+
+The selected quote compiles into one immutable `EconomicExecutionPlan`. Any
+change to amount, beneficiary, asset, route, provider, fees, expiry, risk,
+finality, reversibility, rights, policy, or authority posture requires a new
+plan and, where policy requires it, a new review and approval. A quote is never
+authority, and an approval of one plan cannot authorize fallback to another.
+
+The common lifecycle projection may report:
+
+```text
+proposed
+quoted
+review_required
+authorized
+execution_pending
+externally_pending
+reconciliation_required
+partially_settled
+settled
+refunded
+reversed
+disputed
+refused
+expired
+cancelled
+```
+
+These are projection classes, not assertions that rails share semantics.
+`settled` is legal only under the intent's declared settlement/finality profile
+and required provider-native or chain-native evidence. Delayed, reversible,
+chargeback-bearing, probabilistic-finality, and irreversible outcomes remain
+distinguishable. Unknown or ambiguous execution becomes
+`reconciliation_required`; it is never retried, refunded, paid out, entitled,
+or reported as settled by inference.
+
+Every rail adapter publishes a versioned capability declaration and implements
+quote, exact-plan execution, observation/readback, reconciliation, and receipt
+evidence for only the operations it supports. Unsupported combinations fail
+before authority or effect with a typed reason. Adapters cannot:
+
+- receive raw authority or custody material when a brokered last-hop use is
+  sufficient;
+- mint or widen a grant, choose policy, or approve their own candidate;
+- replace the intent-root-before-effect and outcome/readback reconciliation
+  protocol;
+- erase rail-native identifiers, statuses, fees, reversibility, finality, or
+  dispute evidence behind a generic success boolean;
+- make an external provider, chain, webhook, or indexer the Wallet or Agentgres
+  truth owner.
+
+The conformance suite must use at least two adapters with materially different
+settlement behavior and mutation-test adapter substitution, unsupported
+capabilities, amount/precision, quote expiry, beneficiary, route, fee, finality,
+reversibility, idempotency, duplicate/reordered events, ambiguous execution,
+readback divergence, refund/reversal/dispute, authority and revocation. A
+multi-rail production claim additionally requires fresh live evidence for at
+least two named rail families; deterministic fixtures establish contract
+conformance, not live rail availability or legal eligibility.
+
 ## Payment and Escrow API
 
 ```http
@@ -1574,6 +1709,8 @@ POST /v1/escrows/{escrow_id}/dispute
 ```
 
 wallet.network abstracts whether the user pays in IOI, stablecoin, fiat, or credits.
+These endpoints are typed conveniences over the common economic-intent family;
+they do not define a separate authorization, execution, or receipt path.
 
 ## Exchange and Route Authority API
 
