@@ -1804,8 +1804,17 @@ where
                 .unwrap_or(20_000);
             let proposal_tx_max_bytes = proposal_tx_select_max_bytes();
             let select_started = Instant::now();
+            let staged_transaction_hashes = {
+                let runtime_finality = {
+                    let ctx = context_arc.lock().await;
+                    Arc::clone(&ctx.runtime_finality)
+                };
+                let hashes = runtime_finality.lock().await.staged_transaction_hashes();
+                hashes
+            };
             let candidate_txs: Vec<ChainTransaction> = trim_candidate_transactions_to_byte_budget(
-                tx_pool_ref.select_transactions(proposal_tx_limit),
+                tx_pool_ref
+                    .select_transactions_excluding(proposal_tx_limit, &staged_transaction_hashes),
                 proposal_tx_max_bytes,
             )?;
             // The CLOSING edge of the per-transaction proposal wait, sampled

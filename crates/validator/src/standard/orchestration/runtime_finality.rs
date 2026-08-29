@@ -111,6 +111,15 @@ pub(crate) struct RuntimeFinalityCoordinator {
     issuer_key_id: String,
     signing_key: Ed25519PrivateKey,
     store: RecognizedEffectStore,
+    /// Transaction hashes already durably executed into staged blocks.
+    ///
+    /// A native AFT block is not Agentgres-admissible until its descendant QC
+    /// proves finality.  During that interval the transaction must remain in
+    /// the mempool (only the admitted outbox may prune it), but it must not be
+    /// selected against the advanced workload state a second time.  This set
+    /// is rebuilt from device-flushed staged bytes on restart and therefore is
+    /// an exclusion fence, not a second source of canonical truth.
+    staged_transaction_hashes: BTreeSet<[u8; 32]>,
 }
 
 pub(crate) async fn stage_runtime_block<CS, ST, CE, V>(
@@ -699,7 +708,7 @@ impl RuntimeFinalityCoordinator {
         if let Some(claim) = writer_claim {
             store.bind_writer(claim)?;
         }
-        let coordinator = Self {
+        let mut coordinator = Self {
             root,
             domain_id,
             local_writer_root: writer_identity,
@@ -707,8 +716,9 @@ impl RuntimeFinalityCoordinator {
             issuer_key_id,
             signing_key,
             store,
+            staged_transaction_hashes: BTreeSet::new(),
         };
-        coordinator.verify_all_staged()?;
+        coordinator.staged_transaction_hashes = coordinator.verify_all_staged()?;
         Ok(coordinator)
     }
 
@@ -741,11 +751,16 @@ impl RuntimeFinalityCoordinator {
     }
 
     pub(crate) fn stage_block(
-        &self,
+        &mut self,
         block: Block<ChainTransaction>,
         receipts: Vec<BlockExecutionReceipt>,
     ) -> Result<()> {
         validate_receipts(&block, &receipts)?;
+        let transaction_hashes = block
+            .transactions
+            .iter()
+            .map(ChainTransaction::hash)
+            .collect::<Result<Vec<_>, _>>()?;
         let mut staged = StagedBlock {
             schema: STAGED_BLOCK_SCHEMA.into(),
             block,
@@ -755,7 +770,17 @@ impl RuntimeFinalityCoordinator {
         staged.stage_hash = staged_hash(&staged)?;
         let bytes = to_bytes_canonical(&staged).map_err(anyhow::Error::msg)?;
         let path = self.staged_path(&block_hash(&staged.block)?);
-        persist_exact_device_flushed(&path, &bytes)
+        persist_exact_device_flushed(&path, &bytes)?;
+        self.staged_transaction_hashes.extend(transaction_hashes);
+        Ok(())
+    }
+
+    /// Returns the restart-recovered exclusion fence for proposal selection.
+    /// Hashes leave the mempool only through an Agentgres-admitted ACK; keeping
+    /// old staged hashes here is harmless because transaction hashes are exact
+    /// byte identities and must never be executed twice.
+    pub(crate) fn staged_transaction_hashes(&self) -> BTreeSet<[u8; 32]> {
+        self.staged_transaction_hashes.clone()
     }
 
     pub(crate) fn admit_single_authority(
@@ -1274,7 +1299,8 @@ impl RuntimeFinalityCoordinator {
         Ok(staged)
     }
 
-    fn verify_all_staged(&self) -> Result<()> {
+    fn verify_all_staged(&self) -> Result<BTreeSet<[u8; 32]>> {
+        let mut transaction_hashes = BTreeSet::new();
         for entry in fs::read_dir(self.root.join("staged"))? {
             let entry = entry?;
             let path = entry.path();
@@ -1290,8 +1316,11 @@ impl RuntimeFinalityCoordinator {
                     "staged finality filename does not bind its block hash"
                 ));
             }
+            for transaction in &staged.block.transactions {
+                transaction_hashes.insert(transaction.hash()?);
+            }
         }
-        Ok(())
+        Ok(transaction_hashes)
     }
 }
 
@@ -1987,7 +2016,7 @@ mod tests {
         );
         let block = empty_block([1; 32], 1);
         let initial = format!("sha256:{}", hex::encode(block.header.parent_hash));
-        let coordinator = RuntimeFinalityCoordinator::open(
+        let mut coordinator = RuntimeFinalityCoordinator::open(
             dir.path().to_path_buf(),
             "chain://test/1".into(),
             RuntimeFinalityProfile::SingleAuthorityV1,
@@ -2004,6 +2033,59 @@ mod tests {
             .read_staged(&block_hash(&block).unwrap())
             .unwrap();
         assert_eq!(recovered.block, block);
+    }
+
+    #[test]
+    fn staged_transaction_exclusion_fence_recovers_from_durable_bytes() {
+        let dir = tempdir().unwrap();
+        let seed = [19_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let transaction = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader::default(),
+            payload: SystemPayload::CallService {
+                service_id: "test".into(),
+                method: "staged@v1".into(),
+                params: Vec::new(),
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let transaction_hash = transaction.hash().unwrap();
+        let block = block_with_transactions([1; 32], 1, vec![transaction]);
+        let receipt = BlockExecutionReceipt::for_success(1, 0, transaction_hash, 0, &[]);
+        let initial = format!("sha256:{}", hex::encode(block.header.parent_hash));
+        let mut coordinator = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/staged-fence".into(),
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            "writer://test/staged-fence".into(),
+            initial.clone(),
+            issuer.clone(),
+            &seed,
+        )
+        .unwrap();
+        coordinator.stage_block(block, vec![receipt]).unwrap();
+        assert!(coordinator
+            .staged_transaction_hashes()
+            .contains(&transaction_hash));
+        drop(coordinator);
+
+        let recovered = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/staged-fence".into(),
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            "writer://test/staged-fence".into(),
+            initial,
+            issuer,
+            &seed,
+        )
+        .unwrap();
+        assert!(recovered
+            .staged_transaction_hashes()
+            .contains(&transaction_hash));
     }
 
     #[test]

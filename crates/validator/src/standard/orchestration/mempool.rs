@@ -3,7 +3,7 @@
 use ahash::RandomState;
 use ioi_types::app::{AccountId, ChainTransaction, TxHash};
 use parking_lot::Mutex;
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -493,12 +493,30 @@ impl Mempool {
 
     /// Selects a batch of valid transactions for inclusion in a new block.
     pub fn select_transactions(&self, total_limit: usize) -> Vec<ChainTransaction> {
+        self.select_transactions_excluding(total_limit, &BTreeSet::new())
+    }
+
+    /// Selects transactions while retaining durably staged, not-yet-admitted
+    /// transactions in the pool but excluding them from another execution.
+    /// Only Agentgres outbox delivery is allowed to advance/prune committed
+    /// nonces; this read-only fence covers the native-AFT finality lag.
+    pub fn select_transactions_excluding(
+        &self,
+        total_limit: usize,
+        excluded_hashes: &BTreeSet<TxHash>,
+    ) -> Vec<ChainTransaction> {
         let mut selected = Vec::with_capacity(total_limit);
 
         {
             let guard = self.others.lock();
-            for (tx, _) in guard.iter().take(total_limit) {
+            for (tx, hash) in guard.iter() {
+                if excluded_hashes.contains(hash) {
+                    continue;
+                }
                 selected.push(tx.clone());
+                if selected.len() >= total_limit {
+                    break;
+                }
             }
         }
 
@@ -509,7 +527,10 @@ impl Mempool {
         'outer: for shard in &self.shards {
             let guard = shard.lock();
             for queue in guard.values() {
-                for (tx, _) in queue.ready.values() {
+                for (tx, hash) in queue.ready.values() {
+                    if excluded_hashes.contains(hash) {
+                        continue;
+                    }
                     if selected.len() >= total_limit {
                         break 'outer;
                     }
@@ -562,6 +583,39 @@ mod tests {
         assert_eq!(pool.remove_by_account_nonce(&account, 1), Some(hash));
         assert_eq!(pool.len(), 0);
         assert!(pool.select_transactions(8).is_empty());
+    }
+
+    #[test]
+    fn staged_exclusion_keeps_transaction_in_pool_without_reselecting_it() {
+        let pool = Mempool::new();
+        let first_account = AccountId([8u8; 32]);
+        let second_account = AccountId([9u8; 32]);
+        let staged = system_tx(first_account, 0);
+        let eligible = system_tx(second_account, 0);
+        let staged_hash = staged.hash().expect("staged hash");
+        let eligible_hash = eligible.hash().expect("eligible hash");
+
+        assert_eq!(
+            pool.add(staged, staged_hash, Some((first_account, 0)), 0),
+            AddResult::Ready
+        );
+        assert_eq!(
+            pool.add(eligible, eligible_hash, Some((second_account, 0)), 0),
+            AddResult::Ready
+        );
+
+        let selected = pool.select_transactions_excluding(8, &BTreeSet::from([staged_hash]));
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].hash().unwrap(), eligible_hash);
+        assert_eq!(
+            pool.len(),
+            2,
+            "selection exclusion must not acknowledge or prune"
+        );
+        assert_eq!(
+            pool.peek_account_nonce(&first_account, 0),
+            Some(staged_hash)
+        );
     }
 
     // -----------------------------------------------------------------------
