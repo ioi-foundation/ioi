@@ -101,7 +101,10 @@ use ioi_crypto::sign::eddsa::{Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signat
 use ioi_types::app::generated::architecture_contracts::{
     architecture_contract_schema_hash, validate_architecture_contract,
 };
-use ioi_types::app::{account_id_from_key_material, BlockHeader, SignatureSuite};
+use ioi_types::app::{
+    account_id_from_key_material, canonical_transactions_root, Block, BlockHeader,
+    ChainTransaction, SignatureSuite,
+};
 use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -137,6 +140,14 @@ const NATIVE_AFT_VOTE_DOMAIN: &str = "ioi.aft-consensus-vote.scale-height-view-b
 /// The only implemented checkpoint/block association. See
 /// [`VerifiedNativeAftBlock::effect_committed_in_block`].
 const DECLARED_ASSOCIATION: &str = "declared_association_v1";
+
+/// Explicit successor association for a durable, full native block. Unlike
+/// [`DECLARED_ASSOCIATION`], every byte named by this mode can be recomputed:
+/// the certified header, ordered transactions, transaction root, operation
+/// coverage, and the pre/post state roots.
+pub const FULL_BLOCK_EFFECT_COMMITMENT: &str = "full_block_effect_commitment_v1";
+
+const FULL_BLOCK_OPERATION_ROOT_DOMAIN: &str = "ioi.full-block-operation-root.scale.v1";
 
 /// The exact native AFT vote preimage: SCALE over `(height, view, block_hash)`,
 /// which is byte-for-byte what `codec::to_bytes_canonical(&vote_payload)`
@@ -269,6 +280,184 @@ pub struct VerifiedNativeAftBlock {
     /// into the block, plus a new named `effect_commitment` mode. A relying
     /// party must not read a verified quorum as peer agreement on the effect.
     pub effect_committed_in_block: bool,
+}
+
+/// One recognized operation's exact position in a native full block.
+///
+/// The transaction bytes are carried rather than only their hash so changed-
+/// byte replay is refused even if a caller presents a stale cached digest. A
+/// complete binding has exactly one row for every transaction, in block order,
+/// with contiguous operation sequences.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeAftOperationBinding {
+    pub operation_sequence: u64,
+    pub transaction_index: u64,
+    pub transaction_bytes: Vec<u8>,
+}
+
+/// Structural facts recomputed from a full native block whose header is the
+/// exact header certified by AFT.
+///
+/// This result establishes the block/effect association only. It must be
+/// combined with [`VerifiedQuorum`] before a caller claims peer finality.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifiedNativeAftEffectBlock {
+    pub block_height: u64,
+    pub block_view: u64,
+    pub block_hash: String,
+    pub transaction_count: u64,
+    pub transaction_root: String,
+    pub first_operation_sequence: Option<u64>,
+    pub last_operation_sequence: Option<u64>,
+    pub operation_root: String,
+    pub previous_state_root: Vec<u8>,
+    pub resulting_state_root: Vec<u8>,
+    pub full_block_bytes_reverified: bool,
+    pub effect_committed_in_block: bool,
+    /// Native blocks do not commit individual receipt bytes today. This stays
+    /// false until an explicit block/header successor adds that commitment.
+    pub receipts_committed_in_block: bool,
+}
+
+/// Recompute the association between a native AFT-finalized header and every
+/// operation in the durable full block that owns that header.
+///
+/// This is the execution-association primitive for an explicit successor
+/// bundle. It intentionally does not reinterpret ReceiptCheckpoint v1/v2 or
+/// ReceiptProofBundle v1/v2. A caller must separately verify the quorum in
+/// [`NativeAftFinalizedBlock`]; this function proves only that the exact block
+/// certified there contains the exact ordered transaction bytes and state
+/// transition supplied here.
+pub fn verify_native_aft_full_block_effects(
+    finalized: &NativeAftFinalizedBlock,
+    full_block_bytes: &[u8],
+    bindings: &[NativeAftOperationBinding],
+    expected_previous_state_root: &[u8],
+    expected_resulting_state_root: &[u8],
+) -> Result<VerifiedNativeAftEffectBlock, VerificationError> {
+    let certified_header: BlockHeader = from_bytes_canonical(&finalized.block_header_bytes)
+        .map_err(|error| refuse_evidence(format!("certified header does not decode: {error}")))?;
+    let block: Block<ChainTransaction> = from_bytes_canonical(full_block_bytes)
+        .map_err(|error| refuse_evidence(format!("full block does not decode: {error}")))?;
+
+    let full_header_bytes = to_bytes_canonical(&block.header)
+        .map_err(|error| refuse_evidence(format!("full block header does not encode: {error}")))?;
+    if full_header_bytes != finalized.block_header_bytes || block.header != certified_header {
+        return Err(refuse_evidence(
+            "full block header is not byte-for-byte the quorum-certified header",
+        ));
+    }
+
+    let certificate = &finalized.quorum_certificate;
+    let block_hash: [u8; 32] = block
+        .header
+        .hash()
+        .map_err(|error| refuse_evidence(format!("full block header does not hash: {error}")))?
+        .as_slice()
+        .try_into()
+        .map_err(|_| refuse_evidence("full block header hash is not 32 bytes"))?;
+    if block_hash != certificate.block_hash
+        || block.header.height != certificate.height
+        || block.header.view != certificate.view
+    {
+        return Err(refuse_evidence(
+            "full block height/view/hash does not match the native quorum certificate",
+        ));
+    }
+
+    let transaction_root = canonical_transactions_root(&block.transactions).map_err(|error| {
+        refuse_evidence(format!(
+            "full block transaction root does not derive: {error}"
+        ))
+    })?;
+    if transaction_root != block.header.transactions_root {
+        return Err(refuse_evidence(
+            "full block transactions do not derive onto the certified header transaction root",
+        ));
+    }
+    if block.header.parent_state_root.as_ref() != expected_previous_state_root {
+        return Err(refuse_evidence(
+            "recognized effect previous state root is not the certified block parent state root",
+        ));
+    }
+    if block.header.state_root.as_ref() != expected_resulting_state_root {
+        return Err(refuse_evidence(
+            "recognized effect resulting state root is not the certified block state root",
+        ));
+    }
+    if bindings.len() != block.transactions.len() {
+        return Err(refuse_evidence(format!(
+            "operation binding covers {} rows but the certified block contains {} transactions",
+            bindings.len(),
+            block.transactions.len()
+        )));
+    }
+
+    let mut operation_rows = Vec::with_capacity(bindings.len());
+    let mut first_sequence = None;
+    let mut previous_sequence: Option<u64> = None;
+    for (index, (binding, transaction)) in
+        bindings.iter().zip(block.transactions.iter()).enumerate()
+    {
+        let expected_index = u64::try_from(index)
+            .map_err(|_| refuse_evidence("transaction index does not fit in u64"))?;
+        if binding.transaction_index != expected_index {
+            return Err(refuse_evidence(format!(
+                "operation binding index {} is not the block position {expected_index}",
+                binding.transaction_index
+            )));
+        }
+        if let Some(previous) = previous_sequence {
+            if previous.checked_add(1) != Some(binding.operation_sequence) {
+                return Err(refuse_evidence(
+                    "operation binding sequence is duplicated, reordered, or has a gap",
+                ));
+            }
+        } else {
+            first_sequence = Some(binding.operation_sequence);
+        }
+        let canonical_transaction = to_bytes_canonical(transaction).map_err(|error| {
+            refuse_evidence(format!(
+                "block transaction {index} does not encode: {error}"
+            ))
+        })?;
+        if canonical_transaction != binding.transaction_bytes {
+            return Err(refuse_evidence(format!(
+                "operation binding bytes differ from certified block transaction {index}"
+            )));
+        }
+        let transaction_hash = transaction.hash().map_err(|error| {
+            refuse_evidence(format!("transaction {index} does not hash: {error}"))
+        })?;
+        operation_rows.push((
+            binding.operation_sequence,
+            binding.transaction_index,
+            transaction_hash,
+        ));
+        previous_sequence = Some(binding.operation_sequence);
+    }
+
+    let operation_root_bytes =
+        to_bytes_canonical(&(FULL_BLOCK_OPERATION_ROOT_DOMAIN.as_bytes(), &operation_rows))
+            .map_err(|error| {
+                refuse_evidence(format!("operation root material does not encode: {error}"))
+            })?;
+
+    Ok(VerifiedNativeAftEffectBlock {
+        block_height: block.header.height,
+        block_view: block.header.view,
+        block_hash: hash_prefixed(&block_hash),
+        transaction_count: block.transactions.len() as u64,
+        transaction_root: format!("sha256:{}", hex::encode(&transaction_root)),
+        first_operation_sequence: first_sequence,
+        last_operation_sequence: previous_sequence,
+        operation_root: hash_bytes(&operation_root_bytes),
+        previous_state_root: block.header.parent_state_root.0,
+        resulting_state_root: block.header.state_root.0,
+        full_block_bytes_reverified: true,
+        effect_committed_in_block: true,
+        receipts_committed_in_block: false,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

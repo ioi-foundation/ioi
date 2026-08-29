@@ -1,4 +1,5 @@
 use super::*;
+use ioi_types::app::{ApplicationTransaction, SignHeader, SignatureProof};
 use std::fs;
 use std::path::PathBuf;
 
@@ -852,6 +853,85 @@ fn native_fixture(voters: &[usize], height: u64, view: u64) -> NativeFixture {
     }
 }
 
+fn native_effect_transaction(code: u8) -> ChainTransaction {
+    ChainTransaction::Application(ApplicationTransaction::DeployContract {
+        header: SignHeader::default(),
+        code: vec![code],
+        signature_proof: SignatureProof::default(),
+    })
+}
+
+fn native_effect_fixture(
+    transactions: Vec<ChainTransaction>,
+    first_sequence: u64,
+) -> (NativeFixture, Vec<u8>, Vec<NativeAftOperationBinding>) {
+    let keys = bft_member_keys();
+    let members = native_members();
+    let mut header = native_header(&members, NATIVE_HEIGHT, NATIVE_VIEW);
+    header.transactions_root =
+        canonical_transactions_root(&transactions).expect("transaction root derives");
+    let header_bytes = to_bytes_canonical(&header).expect("header encodes");
+    let block_hash: [u8; 32] = header
+        .hash()
+        .expect("header hashes")
+        .as_slice()
+        .try_into()
+        .expect("32-byte digest");
+    let message =
+        native_aft_vote_message(NATIVE_HEIGHT, NATIVE_VIEW, &block_hash).expect("vote message");
+    let signatures = [0_usize, 1, 2]
+        .iter()
+        .map(|index| {
+            (
+                native_account(&members[*index]),
+                keys[*index]
+                    .sign(&message)
+                    .expect("member signs")
+                    .to_bytes()
+                    .to_vec(),
+            )
+        })
+        .collect();
+    let bindings = transactions
+        .iter()
+        .enumerate()
+        .map(|(index, transaction)| NativeAftOperationBinding {
+            operation_sequence: first_sequence + index as u64,
+            transaction_index: index as u64,
+            transaction_bytes: to_bytes_canonical(transaction).expect("transaction encodes"),
+        })
+        .collect();
+    let full_block_bytes = to_bytes_canonical(&Block {
+        header,
+        transactions,
+    })
+    .expect("full block encodes");
+    (
+        NativeFixture {
+            finalized: NativeAftFinalizedBlock {
+                block_header_bytes: header_bytes.clone(),
+                quorum_certificate: QuorumCertificate {
+                    height: NATIVE_HEIGHT,
+                    view: NATIVE_VIEW,
+                    block_hash,
+                    signatures,
+                    aggregated_signature: Vec::new(),
+                    signers_bitfield: Vec::new(),
+                },
+                members,
+                membership_ref: "node-membership://acme/aft/1".into(),
+                membership_epoch: 1,
+                consensus_protocol_ref: "protocol://ioi/aft/v1".into(),
+                byzantine_fault_tolerance: 1,
+            },
+            header_bytes,
+            block_hash,
+        },
+        full_block_bytes,
+        bindings,
+    )
+}
+
 /// The template with its availability declaration filled in from the real
 /// header bytes, the way a runtime would publish the block before certifying.
 fn native_template(header_bytes: &[u8]) -> Value {
@@ -931,6 +1011,112 @@ fn native_aft_quorum_verifies_offline_and_reports_its_binding() {
     // The load-bearing nonclaim: a verified quorum certifies the block, never
     // this checkpoint's effect.
     assert!(!block.effect_committed_in_block);
+}
+
+#[test]
+fn full_native_block_binds_every_operation_and_both_state_roots() {
+    let (fixture, block_bytes, bindings) = native_effect_fixture(
+        vec![native_effect_transaction(1), native_effect_transaction(2)],
+        41,
+    );
+    let verified = verify_native_aft_full_block_effects(
+        &fixture.finalized,
+        &block_bytes,
+        &bindings,
+        &[2_u8; 32],
+        &[3_u8; 32],
+    )
+    .expect("full block association verifies");
+    assert_eq!(verified.block_height, NATIVE_HEIGHT);
+    assert_eq!(verified.block_view, NATIVE_VIEW);
+    assert_eq!(verified.transaction_count, 2);
+    assert_eq!(verified.first_operation_sequence, Some(41));
+    assert_eq!(verified.last_operation_sequence, Some(42));
+    assert!(verified.full_block_bytes_reverified);
+    assert!(verified.effect_committed_in_block);
+    assert!(
+        !verified.receipts_committed_in_block,
+        "the current header has no receipt commitment"
+    );
+}
+
+#[test]
+fn full_native_block_effect_substitutions_fail_closed() {
+    let (fixture, block_bytes, bindings) = native_effect_fixture(
+        vec![native_effect_transaction(1), native_effect_transaction(2)],
+        41,
+    );
+
+    let mut changed_bytes = bindings.clone();
+    changed_bytes[0].transaction_bytes.push(0);
+    assert!(verify_native_aft_full_block_effects(
+        &fixture.finalized,
+        &block_bytes,
+        &changed_bytes,
+        &[2_u8; 32],
+        &[3_u8; 32],
+    )
+    .is_err());
+
+    let mut reordered = bindings.clone();
+    reordered.swap(0, 1);
+    assert!(verify_native_aft_full_block_effects(
+        &fixture.finalized,
+        &block_bytes,
+        &reordered,
+        &[2_u8; 32],
+        &[3_u8; 32],
+    )
+    .is_err());
+
+    let mut sequence_gap = bindings.clone();
+    sequence_gap[1].operation_sequence += 1;
+    assert!(verify_native_aft_full_block_effects(
+        &fixture.finalized,
+        &block_bytes,
+        &sequence_gap,
+        &[2_u8; 32],
+        &[3_u8; 32],
+    )
+    .is_err());
+
+    assert!(verify_native_aft_full_block_effects(
+        &fixture.finalized,
+        &block_bytes,
+        &bindings,
+        &[9_u8; 32],
+        &[3_u8; 32],
+    )
+    .is_err());
+    assert!(verify_native_aft_full_block_effects(
+        &fixture.finalized,
+        &block_bytes,
+        &bindings,
+        &[2_u8; 32],
+        &[9_u8; 32],
+    )
+    .is_err());
+
+    let mut torn = block_bytes.clone();
+    torn.pop();
+    assert!(verify_native_aft_full_block_effects(
+        &fixture.finalized,
+        &torn,
+        &bindings,
+        &[2_u8; 32],
+        &[3_u8; 32],
+    )
+    .is_err());
+
+    let short = &bindings[..1];
+    assert!(verify_native_aft_full_block_effects(
+        &fixture.finalized,
+        &block_bytes,
+        short,
+        &[2_u8; 32],
+        &[3_u8; 32],
+    )
+    .is_err());
 }
 
 #[test]
