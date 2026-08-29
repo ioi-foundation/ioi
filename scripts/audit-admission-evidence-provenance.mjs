@@ -485,7 +485,10 @@ const H_BASELINE = [
   "environment_routes.rs::handle_env_port_expose",
   "environment_routes.rs::handle_env_port_unexpose",
   "environment_routes.rs::handle_environment_get",
-  "goalrun_routes.rs::handle_goal_run_activation_draft",
+  // "goalrun_routes.rs::handle_goal_run_activation_draft" — LEFT the baseline 2026-08-29
+  // (M04.7/M04.8 hosted outcome-room): the handler now resolves the activation principal and
+  // tenant-scoped request identity in-handler and refuses on disagreement; the vanishing
+  // entry is the ratchet improving, not a stale pin.
   "harness_routes.rs::handle_harness_profile_select_default",
   "hypervisor_environment_routes.rs::handle_environment_transition",
   "hypervisoros_node_routes.rs::handle_node_transition",
