@@ -695,10 +695,7 @@ fn browser_tab_tools_split_read_from_write_scope() {
         close: true,
     };
 
-    assert_eq!(
-        list_tool.target(),
-        crate::app::ActionTarget::BrowserInspect
-    );
+    assert_eq!(list_tool.target(), crate::app::ActionTarget::BrowserInspect);
     assert_eq!(
         switch_tool.target(),
         crate::app::ActionTarget::BrowserInteract
