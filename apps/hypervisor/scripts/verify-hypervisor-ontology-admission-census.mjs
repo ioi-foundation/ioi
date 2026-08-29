@@ -301,11 +301,25 @@ const PINNED = {
   // primitive-fact validation, execution eligibility/budget tests, and the zero-indexed event
   // correction add 1,012 reachable source tokens and 21 foreign-qualified names. They change no
   // ODK mention, writer bucket, filesystem call, other adjudication bucket, or owner/admitter edge.
-  modules: 98,
+  // M04.6–M04.8 hosted outcome-room + work-lifecycle re-derivation (2026-08-29, red-master
+  // repair — master's census had drifted unpinned since the 2026-08-26 red run, before the
+  // aiagent-xyz landing was pushed): work_lifecycle_routes.rs (the pre-push drift) and
+  // m048_collaboration_routes.rs join the reachable graph — +2 modules, +7,814 source tokens,
+  // +323 opaque initialisers, +114 foreign-qualified names. GoalRun persistence consolidated:
+  // create_direct_goal_run's two runtime-family writer calls became
+  // persist_canonical_goal_run_lifecycle writing the literal non-ODK family
+  // "goal-run-context-cells" (runtime 303→302, non-ODK 236→237, ODK family bucket unchanged at
+  // 58). m048_collaboration_routes adds one runtime-family durable-seam writer (persist_local).
+  // Ten data includes: m048's work-claim-lease.v3 schema and self-census reads (router source
+  // plus its own source twice), and outcome_room_system_routes' self-census read plus five
+  // concat!-arg fixture includes — the five new opaque include arguments and the five new bare
+  // #[cfg(test)] assemblies. No ODK mention, raw-filesystem call, or owner/admitter edge
+  // changes; family mentions, judged token positions, and filesystem reach are unchanged.
+  modules: 100,
   familyMentions: 284,
-  tokenMentions: 120206,
+  tokenMentions: 128020,
   judgedTokenPositions: 281,
-  productionWriterCalls: { family: 58, nonFamilyLiteral: 236, runtimeParameter: 303 },
+  productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -324,17 +338,17 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4097,
-    "opaque-initialiser": 1663,
+    "foreign-qualified": 4211,
+    "opaque-initialiser": 1986,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 33, dataBytes: 0, dataOpaqueArg: 8 },
+  includes: { splicedCode: 0, dataStr: 43, dataBytes: 0, dataOpaqueArg: 13 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
-  compileAssembly: { production: 0, test: 10 },
+  compileAssembly: { production: 0, test: 15 },
 };
 
 /**
