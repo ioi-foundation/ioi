@@ -2,7 +2,7 @@
   "schema_version": "ioi.foundations.receipt-proof-bundle.v2",
   "bundle_type": "ioi.receipt-proof-bundle",
   "bundle_domain": "ioi.receipt-proof-bundle.v2",
-  "schema_hash": "sha256:04f2390dad71ef3be4b14cb95ebafede7a4968834d1d71458f3a0971255274e3",
+  "schema_hash": "sha256:e342077c0ff89b18e00ae07948ac86e6eed7bac1c103152ea834bee294a902c2",
   "bundle_id": "proof://acme/1",
   "bundle_hash": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
   "checkpoint": {

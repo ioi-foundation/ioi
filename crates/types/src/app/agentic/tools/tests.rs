@@ -654,7 +654,7 @@ fn browser_upload_target_maps_to_browser_interact_scope() {
 }
 
 #[test]
-fn browser_dropdown_tools_target_map_to_browser_interact_scope() {
+fn browser_dropdown_tools_split_read_from_write_scope() {
     let options_tool = AgentTool::BrowserDropdownOptions {
         id: None,
         selector: Some("select[name='country']".to_string()),
@@ -670,7 +670,7 @@ fn browser_dropdown_tools_target_map_to_browser_interact_scope() {
 
     assert_eq!(
         options_tool.target(),
-        crate::app::ActionTarget::BrowserInteract
+        crate::app::ActionTarget::BrowserInspect
     );
     assert_eq!(
         select_tool.target(),
@@ -685,7 +685,7 @@ fn browser_go_back_target_maps_to_browser_interact_scope() {
 }
 
 #[test]
-fn browser_tab_tools_target_map_to_browser_interact_scope() {
+fn browser_tab_tools_split_read_from_write_scope() {
     let list_tool = AgentTool::BrowserTabList {};
     let switch_tool = AgentTool::BrowserTabSwitch {
         tab_id: "tab-a".to_string(),
@@ -697,7 +697,7 @@ fn browser_tab_tools_target_map_to_browser_interact_scope() {
 
     assert_eq!(
         list_tool.target(),
-        crate::app::ActionTarget::BrowserInteract
+        crate::app::ActionTarget::BrowserInspect
     );
     assert_eq!(
         switch_tool.target(),

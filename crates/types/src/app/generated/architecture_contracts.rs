@@ -114060,7 +114060,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         mutation_id: None,
         value_json: None,
         ajv_schema_accept: true,
-        oracle_contract_accept: false,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json"#,
@@ -114181,7 +114181,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         mutation_id: None,
         value_json: None,
         ajv_schema_accept: true,
-        oracle_contract_accept: false,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json"#,

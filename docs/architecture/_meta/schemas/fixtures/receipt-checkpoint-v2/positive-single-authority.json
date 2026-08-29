@@ -2,7 +2,7 @@
   "schema_version": "ioi.foundations.receipt-checkpoint.v2",
   "checkpoint_type": "ioi.receipt-checkpoint",
   "checkpoint_domain": "ioi.receipt-checkpoint.v2",
-  "schema_hash": "sha256:32dccca1f2eff7c4ba3b5e600beb8c1718dab1a1ac341f72d90f6c57e6ffa2a2",
+  "schema_hash": "sha256:03a1b3509bef4d50f638926346929a2707d71d35079691a508ce759bc1f7bc50",
   "checkpoint_id": "receipt-checkpoint://acme/1",
   "body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "domain_id": "system://acme",
