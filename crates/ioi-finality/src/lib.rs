@@ -3,6 +3,51 @@
 //! Agentgres is IOI's current runtime owner and may call the emitter, but no
 //! universal type or verifier rule below depends on Agentgres. Unsupported
 //! profile/certificate semantics refuse before signature verification.
+//!
+//! Two canonical `ioi.ordering-admission-finality-profile.v1` members are
+//! implemented: `single_authority`/`single_authority_v1` and
+//! `bft_consensus`/`bft_consensus_aft_v1`. AFT is IOI's implementation of the
+//! BFT member, not a sixth profile, so it is spelled with the canonical member
+//! and carries its own certificate variant.
+//!
+//! ## What a verified claim does and does not establish
+//!
+//! The claim returned by [`verify_bundle`] establishes only the axes this code
+//! actually recomputes — today `integrity` and `availability`, and only when the
+//! declared verifier contract lists them with inputs this crate validated. It
+//! never promotes an axis because a profile sounds stronger. In particular a
+//! verified `bft_consensus` quorum does **not** establish `non_equivocation`:
+//! a quorum certificate over one checkpoint says nothing about whether the same
+//! members also signed a conflicting checkpoint at the same view, which is a
+//! witness/transparency obligation with its own contract. `currentness` and
+//! `authority_admission` remain refused for both profiles.
+//!
+//! ## Why the quorum floors exist
+//!
+//! A `bft_consensus` label and a single issuer signature are not peer safety.
+//! [`verify_bundle`] therefore refuses a `bft_consensus_aft_v1` certificate
+//! unless a declared membership of distinct members with distinct keys produced
+//! at least a `2f + 1` quorum of distinct verified signatures over the exact
+//! checkpoint, under a membership that tolerates at least one Byzantine fault
+//! and satisfies `n >= 3f + 1`.
+//!
+//! ## Certificate compatibility
+//!
+//! `FinalityCertificate` v1 cannot honestly bind peer quorum evidence in its
+//! originally registered shape: every field is typed and closed, so there is
+//! nowhere to put a membership, a threshold, or per-member signatures. Rather
+//! than mint a successor certificate version — which would cascade into
+//! `ReceiptCheckpoint` v3 and `ReceiptProofBundle` v3 for a field no
+//! already-implemented variant may carry — this crate adds one
+//! **variant-conditional** field, `consensus_evidence`, that the schema
+//! *requires* for `bft_consensus_aft_v1`. Because the field is absent from a
+//! `single_authority_v1` certificate, its JCS preimage, `body_hash`, signature
+//! message, and signature are byte-identical to those issued before the field
+//! existed. The repository schema dialect implements no negation keyword, so
+//! refusing the field on a non-BFT variant is this verifier's obligation rather
+//! than the schema's: see [`verify_variant_evidence_presence`], which both the
+//! emitter and the verifier run. `ReceiptCheckpoint` v1 and `ReceiptProofBundle`
+//! v1 are untouched and remain refused by this verifier.
 
 #![forbid(unsafe_code)]
 
@@ -26,6 +71,41 @@ const AVAILABILITY_V1: &str = "schema://ioi/foundations/availability-manifest/v1
 const RETENTION_V1: &str = "schema://ioi/foundations/retention-class/v1";
 const VERIFIER_V1: &str = "schema://ioi/foundations/verifier-contract/v1";
 const CERTIFICATE_V1: &str = "schema://ioi/foundations/finality-certificate/v1";
+const CONSENSUS_EVIDENCE_V1: &str = "ioi.bft-consensus-evidence.v1";
+const CONSENSUS_MEMBERSHIP_DOMAIN: &str = "ioi.bft-consensus-membership.v1";
+const CONSENSUS_VOTE_DOMAIN: &str = "ioi.bft-consensus-vote.v1";
+
+/// Canonical `ioi.ordering-admission-finality-profile.v1` member set, owned by
+/// `docs/architecture/foundations/canonical-enums.md`. A wire `profile` value
+/// outside this set is refused; a label is never a wire value.
+const CANONICAL_PROFILES: [&str; 5] = [
+    "single_authority",
+    "replicated_single_authority",
+    "threshold_authority",
+    "bft_consensus",
+    "external_chain_finality",
+];
+
+/// The exact `(canonical member, certificate variant)` pairs this crate emits
+/// and verifies. Every other canonical member refuses as unimplemented rather
+/// than degrading to a weaker one it could check.
+const IMPLEMENTED_PROFILES: [(&str, &str); 2] = [
+    ("single_authority", "single_authority_v1"),
+    ("bft_consensus", "bft_consensus_aft_v1"),
+];
+
+/// Compatibility labels from the canonical-enums compatibility map. The left
+/// value is a label used in design prose; the right value is the canonical
+/// member it resolves to before admission. Canonical members resolve to
+/// themselves and are handled by [`CANONICAL_PROFILES`].
+const PROFILE_LABEL_ALIASES: [(&str, &str); 3] = [
+    ("replicated_cft", "replicated_single_authority"),
+    ("aft", "bft_consensus"),
+    ("external_finality", "external_chain_finality"),
+];
+
+/// Labels the canonical map deliberately refuses to resolve to one member.
+const UNRESOLVABLE_PROFILE_LABELS: [&str; 1] = ["witnessed_threshold"];
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum VerificationError {
@@ -33,6 +113,16 @@ pub enum VerificationError {
     UnsupportedVersion(String),
     #[error("unsupported profile semantics: profile={profile} variant={variant}")]
     UnsupportedProfile { profile: String, variant: String },
+    #[error(
+        "profile label {label} does not resolve to one canonical member: decompose it into \
+         threshold_authority when the witnesses hold admission authority shares, or into a \
+         witness contract layered over the declared profile when they only attest to a head"
+    )]
+    AmbiguousProfileLabel { label: String },
+    #[error("unknown profile label: {0}")]
+    UnknownProfileLabel(String),
+    #[error("consensus evidence refused: {0}")]
+    ConsensusEvidence(String),
     #[error("unsupported verifier axis: {0}")]
     UnsupportedAxis(String),
     #[error("unsupported recognition semantics: class={class} derivation={derivation}")]
@@ -50,6 +140,23 @@ pub enum VerificationError {
     Crypto(String),
 }
 
+/// The peer-quorum facts a `bft_consensus_aft_v1` certificate established, each
+/// recomputed offline. This is the whole quorum claim: it does not extend to
+/// non-equivocation, freshness, or authority admission.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifiedQuorum {
+    pub membership_ref: String,
+    pub membership_hash: String,
+    pub membership_epoch: u64,
+    pub view: u64,
+    pub total_voting_members: u64,
+    pub byzantine_fault_tolerance: u64,
+    pub quorum_threshold: u64,
+    /// Distinct declared members whose signature over this exact checkpoint
+    /// verified. Never a count of signature bytes present.
+    pub distinct_member_signatures_verified: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifiedClaim {
     pub checkpoint_id: String,
@@ -57,9 +164,78 @@ pub struct VerifiedClaim {
     pub authority_epoch: u64,
     pub issuer_key_id: String,
     pub issuer_public_key: String,
+    /// The canonical member carried on the wire, never a resolved label.
     pub profile: String,
     pub certificate_variant: String,
+    /// Exactly the axes this verifier recomputed. Never widened by profile.
     pub established_axes: Vec<String>,
+    /// Present only for `bft_consensus`; `None` says no quorum was claimed or
+    /// checked, never that a quorum was assumed.
+    pub quorum: Option<VerifiedQuorum>,
+}
+
+/// Axes this crate refuses for every profile, because it does not check them.
+/// Named so a relying party reads the boundary from the code rather than
+/// inferring it from an empty result.
+pub const UNESTABLISHED_AXES: [&str; 5] = [
+    "valid_as_of",
+    "currentness",
+    "non_equivocation",
+    "authority_admission",
+    "economic_recognition",
+];
+
+/// Resolve one ordering/finality **label** to its canonical member before
+/// admission. Canonical members resolve to themselves; the compatibility labels
+/// resolve per `canonical-enums.md`; `witnessed_threshold` deliberately refuses
+/// because it conflates two separable guarantees. The result is the only value
+/// that may appear on the wire — this function is an ingest step, and a label is
+/// never itself a schema value.
+pub fn resolve_profile_label(label: &str) -> Result<&'static str, VerificationError> {
+    for member in CANONICAL_PROFILES {
+        if member == label {
+            return Ok(member);
+        }
+    }
+    for (alias, member) in PROFILE_LABEL_ALIASES {
+        if alias == label {
+            return Ok(member);
+        }
+    }
+    if UNRESOLVABLE_PROFILE_LABELS.contains(&label) {
+        return Err(VerificationError::AmbiguousProfileLabel {
+            label: label.to_owned(),
+        });
+    }
+    Err(VerificationError::UnknownProfileLabel(label.to_owned()))
+}
+
+/// The certificate variant this crate implements for one canonical member, or
+/// `None` when the member is canonical but unimplemented here.
+fn implemented_variant(member: &str) -> Option<&'static str> {
+    for (profile, variant) in IMPLEMENTED_PROFILES {
+        if profile == member {
+            return Some(variant);
+        }
+    }
+    None
+}
+
+/// Read the wire profile/variant pair and admit it only when it is an exactly
+/// implemented canonical pair. A compatibility label on the wire refuses here
+/// rather than being resolved, because resolution happens before admission.
+fn admitted_profile(
+    checkpoint: &Value,
+    certificate: &Value,
+) -> Result<(&'static str, &'static str), VerificationError> {
+    let profile = text(checkpoint, "profile")?;
+    let variant = text(certificate, "certificate_variant")?;
+    for (member, expected) in IMPLEMENTED_PROFILES {
+        if member == profile && expected == variant {
+            return Ok((member, expected));
+        }
+    }
+    Err(VerificationError::UnsupportedProfile { profile, variant })
 }
 
 fn object(value: &Value) -> Result<&Map<String, Value>, VerificationError> {
@@ -383,6 +559,206 @@ fn verify_availability(checkpoint: &Value, bundle: &Value) -> Result<(), Verific
     Ok(())
 }
 
+fn refuse_evidence(detail: impl Into<String>) -> VerificationError {
+    VerificationError::ConsensusEvidence(detail.into())
+}
+
+/// JCS hash over exactly the membership-defining surface: every evidence field
+/// except the recorded hash, the votes cast under it, and the view. Binding it
+/// means a membership, threshold, or fault-model swap cannot hide behind a
+/// quorum that verified against a different set. The view is excluded on
+/// purpose — it identifies one decision, not the membership, and successive
+/// checkpoints inside one authority epoch advance the view while the membership
+/// must not move. The vote message binds the view separately.
+fn consensus_membership_hash(evidence: &Value) -> Result<String, VerificationError> {
+    hash_value(&json!({
+        "domain": CONSENSUS_MEMBERSHIP_DOMAIN,
+        "membership": without(evidence, &["membership_hash", "votes", "view"])?,
+    }))
+}
+
+/// The exact bytes every declared voting member signs. Binding institution,
+/// authority epoch, membership, view, and checkpoint body means one member
+/// signature cannot be replayed into another institution, epoch, membership,
+/// view, or batch.
+fn consensus_vote_message(
+    domain_id: &str,
+    authority_epoch: u64,
+    membership_hash: &str,
+    view: u64,
+    checkpoint_hash: &str,
+) -> Vec<u8> {
+    format!(
+        "{CONSENSUS_VOTE_DOMAIN}\0{domain_id}\0{authority_epoch}\0{membership_hash}\0{view}\0{checkpoint_hash}"
+    )
+    .into_bytes()
+}
+
+/// `consensus_evidence` is required for the BFT variant and forbidden for every
+/// other one. The schema states the required direction; the forbidden direction
+/// is stated only here, because the repository schema dialect implements no
+/// negation keyword. Both the emitter and the verifier call this, so no artifact
+/// this crate produces or accepts carries quorum evidence under a variant whose
+/// preimage must not contain it.
+fn verify_variant_evidence_presence(
+    certificate: &Value,
+    variant: &str,
+) -> Result<(), VerificationError> {
+    let present = object(certificate)?.contains_key("consensus_evidence");
+    match (variant, present) {
+        ("bft_consensus_aft_v1", true) => Ok(()),
+        ("bft_consensus_aft_v1", false) => Err(refuse_evidence(
+            "bft_consensus_aft_v1 certificate carries no consensus evidence",
+        )),
+        (_, false) => Ok(()),
+        (other, true) => Err(refuse_evidence(format!(
+            "{other} certificate must not carry consensus evidence"
+        ))),
+    }
+}
+
+/// Recompute the whole peer-quorum claim offline. Every branch refuses; none
+/// treats the `bft_consensus` label, the issuer signature, or the presence of
+/// signature bytes as evidence that peers agreed.
+fn verify_consensus_evidence(
+    checkpoint: &Value,
+    certificate: &Value,
+    checkpoint_hash: &str,
+) -> Result<VerifiedQuorum, VerificationError> {
+    let evidence = field(certificate, "consensus_evidence")?;
+    check_eq(
+        text(evidence, "schema_version")?,
+        CONSENSUS_EVIDENCE_V1,
+        "consensus evidence schema version",
+    )?;
+    if text(evidence, "fault_model")? != "byzantine" {
+        return Err(refuse_evidence(
+            "bft_consensus requires a declared byzantine fault model",
+        ));
+    }
+
+    let declared_members = number(evidence, "total_voting_members")?;
+    let tolerated = number(evidence, "byzantine_fault_tolerance")?;
+    let threshold = number(evidence, "quorum_threshold")?;
+    if tolerated == 0 {
+        return Err(refuse_evidence(
+            "a membership tolerating zero byzantine faults is single_authority under a bft label",
+        ));
+    }
+    let minimum_members = tolerated
+        .checked_mul(3)
+        .and_then(|value| value.checked_add(1))
+        .ok_or_else(|| refuse_evidence("declared byzantine fault tolerance overflows"))?;
+    if declared_members < minimum_members {
+        return Err(refuse_evidence(format!(
+            "membership of {declared_members} cannot tolerate {tolerated} byzantine faults, which needs {minimum_members}"
+        )));
+    }
+    let minimum_threshold = tolerated
+        .checked_mul(2)
+        .and_then(|value| value.checked_add(1))
+        .ok_or_else(|| refuse_evidence("declared byzantine fault tolerance overflows"))?;
+    if threshold < minimum_threshold {
+        return Err(refuse_evidence(format!(
+            "quorum threshold {threshold} is below the {minimum_threshold} required to tolerate {tolerated} byzantine faults"
+        )));
+    }
+    if threshold > declared_members {
+        return Err(refuse_evidence(
+            "quorum threshold exceeds the declared membership",
+        ));
+    }
+
+    let members = array(evidence, "members")?;
+    if members.len() as u64 != declared_members {
+        return Err(refuse_evidence(
+            "declared member count does not match the supplied membership",
+        ));
+    }
+    let mut member_keys = BTreeMap::new();
+    let mut distinct_keys = BTreeSet::new();
+    for member in members {
+        let member_ref = text(member, "member_ref")?;
+        let public_key = text(member, "public_key")?;
+        if !distinct_keys.insert(public_key.clone()) {
+            return Err(refuse_evidence(format!(
+                "duplicate member public key at {member_ref}: one key holding several seats is one signer, not a quorum"
+            )));
+        }
+        if member_keys.insert(member_ref.clone(), public_key).is_some() {
+            return Err(refuse_evidence(format!("duplicate member {member_ref}")));
+        }
+    }
+
+    let membership_hash = consensus_membership_hash(evidence)?;
+    check_eq(
+        &membership_hash,
+        text(evidence, "membership_hash")?,
+        "consensus membership hash",
+    )?;
+
+    let view = number(evidence, "view")?;
+    let message = consensus_vote_message(
+        &text(checkpoint, "domain_id")?,
+        number(checkpoint, "authority_epoch")?,
+        &membership_hash,
+        view,
+        checkpoint_hash,
+    );
+    let mut voted = BTreeSet::new();
+    for vote in array(evidence, "votes")? {
+        let member_ref = text(vote, "member_ref")?;
+        let public_key = member_keys
+            .get(&member_ref)
+            .ok_or_else(|| refuse_evidence(format!("vote from undeclared member {member_ref}")))?;
+        if !voted.insert(member_ref.clone()) {
+            return Err(refuse_evidence(format!("duplicate vote from {member_ref}")));
+        }
+        let key_bytes =
+            hex::decode(public_key).map_err(|error| VerificationError::Crypto(error.to_string()))?;
+        let signature_bytes = hex::decode(text(vote, "signature")?)
+            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+        let public = Ed25519PublicKey::from_bytes(&key_bytes)
+            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+        let signature = Ed25519Signature::from_bytes(&signature_bytes)
+            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+        public.verify(&message, &signature).map_err(|_| {
+            refuse_evidence(format!(
+                "member {member_ref} did not sign this checkpoint under this membership and view"
+            ))
+        })?;
+    }
+    let verified = voted.len() as u64;
+    if verified < threshold {
+        return Err(refuse_evidence(format!(
+            "{verified} verified member signatures is below the declared quorum threshold {threshold}"
+        )));
+    }
+
+    let issuer_public_key = text(certificate, "issuer_public_key")?;
+    let issuer_member = member_keys
+        .iter()
+        .find(|(_, key)| **key == issuer_public_key)
+        .map(|(member_ref, _)| member_ref.clone())
+        .ok_or_else(|| refuse_evidence("certificate issuer is not a declared voting member"))?;
+    if !voted.contains(&issuer_member) {
+        return Err(refuse_evidence(format!(
+            "certificate issuer {issuer_member} aggregated a quorum it did not vote in"
+        )));
+    }
+
+    Ok(VerifiedQuorum {
+        membership_ref: text(evidence, "membership_ref")?,
+        membership_hash,
+        membership_epoch: number(evidence, "membership_epoch")?,
+        view,
+        total_voting_members: declared_members,
+        byzantine_fault_tolerance: tolerated,
+        quorum_threshold: threshold,
+        distinct_member_signatures_verified: verified,
+    })
+}
+
 fn verify_certificate_signature(certificate: &Value) -> Result<(), VerificationError> {
     let expected_body_hash = hash_value(&without(certificate, &["body_hash", "signature"])?)?;
     check_eq(
@@ -419,13 +795,10 @@ fn verify_signature(certificate: &Value, trusted: &Value) -> Result<(), Verifica
 }
 
 fn verify_checkpoint_envelope(checkpoint: &Value) -> Result<(), VerificationError> {
-    validate(CHECKPOINT_V2, checkpoint)?;
     let certificate = field(checkpoint, "finality_certificate")?;
-    let profile = text(checkpoint, "profile")?;
-    let variant = text(certificate, "certificate_variant")?;
-    if profile != "single_authority" || variant != "single_authority_v1" {
-        return Err(VerificationError::UnsupportedProfile { profile, variant });
-    }
+    let (_, variant) = admitted_profile(checkpoint, certificate)?;
+    verify_variant_evidence_presence(certificate, variant)?;
+    validate(CHECKPOINT_V2, checkpoint)?;
     let expected_schema = architecture_contract_schema_hash(CHECKPOINT_V2)
         .ok_or_else(|| VerificationError::Field("checkpoint schema hash registry".into()))?;
     check_eq(
@@ -547,7 +920,11 @@ fn verify_checkpoint_envelope(checkpoint: &Value) -> Result<(), VerificationErro
             return Err(VerificationError::Binding(format!("certificate {name}")));
         }
     }
-    verify_certificate_signature(certificate)
+    verify_certificate_signature(certificate)?;
+    if variant == "bft_consensus_aft_v1" {
+        verify_consensus_evidence(checkpoint, certificate, &checkpoint_hash)?;
+    }
+    Ok(())
 }
 
 pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError> {
@@ -555,8 +932,14 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
     if version != "ioi.foundations.receipt-proof-bundle.v2" {
         return Err(VerificationError::UnsupportedVersion(version));
     }
-    validate(BUNDLE_V2, bundle)?;
     let checkpoint = field(bundle, "checkpoint")?;
+    let certificate = field(checkpoint, "finality_certificate")?;
+    let (profile, variant) = admitted_profile(checkpoint, certificate)?;
+    // Preflight the variant-specific evidence before schema validation so a
+    // relabelled certificate gets the precise fail-closed refusal instead of
+    // being mistaken for a generic malformed document.
+    verify_variant_evidence_presence(certificate, variant)?;
+    validate(BUNDLE_V2, bundle)?;
     validate(CHECKPOINT_V2, checkpoint)?;
     validate(
         CONFLICT_BINDING_V1,
@@ -566,12 +949,6 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
     validate(VERIFIER_V1, field(checkpoint, "verifier_contract")?)?;
     validate(CERTIFICATE_V1, field(checkpoint, "finality_certificate")?)?;
 
-    let certificate = field(checkpoint, "finality_certificate")?;
-    let profile = text(checkpoint, "profile")?;
-    let variant = text(certificate, "certificate_variant")?;
-    if profile != "single_authority" || variant != "single_authority_v1" {
-        return Err(VerificationError::UnsupportedProfile { profile, variant });
-    }
     let verifier = field(checkpoint, "verifier_contract")?;
     let verifier_profiles: BTreeSet<String> = array(verifier, "supported_profile_members")?
         .iter()
@@ -583,9 +960,7 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
         .filter_map(Value::as_str)
         .map(str::to_owned)
         .collect();
-    if !verifier_profiles.contains(profile.as_str())
-        || !verifier_variants.contains(variant.as_str())
-    {
+    if !verifier_profiles.contains(profile) || !verifier_variants.contains(variant) {
         return Err(VerificationError::Binding(
             "verifier profile/certificate support".into(),
         ));
@@ -863,6 +1238,31 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
                 text(previous_certificate, "issuer_public_key")?,
                 "unadmitted predecessor issuer-public-key change",
             )?;
+            // A profile change is an admitted cutover operation, never an
+            // adjacent-checkpoint edit (`INV-41`); refusing it here also stops a
+            // stronger-profile history from being continued under a weaker one.
+            check_eq(
+                text(checkpoint, "profile")?,
+                text(previous, "profile")?,
+                "unadmitted predecessor profile change",
+            )?;
+            check_eq(
+                text(certificate, "certificate_variant")?,
+                text(previous_certificate, "certificate_variant")?,
+                "unadmitted predecessor certificate-variant change",
+            )?;
+            if variant == "bft_consensus_aft_v1" {
+                // Membership bounds the authority that rests on the quorum, so
+                // it may not move inside one authority epoch (`INV-42`).
+                check_eq(
+                    text(field(certificate, "consensus_evidence")?, "membership_hash")?,
+                    text(
+                        field(previous_certificate, "consensus_evidence")?,
+                        "membership_hash",
+                    )?,
+                    "unadmitted predecessor consensus-membership change",
+                )?;
+            }
             if field(checkpoint, "previous_state_commitment")?
                 != field(previous, "resulting_state_commitment")?
             {
@@ -955,6 +1355,17 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
         "trusted domain",
     )?;
     verify_signature(certificate, trusted)?;
+    // The issuer signature is checked first so quorum evidence is never read out
+    // of a certificate whose own binding has not been established.
+    let quorum = if variant == "bft_consensus_aft_v1" {
+        Some(verify_consensus_evidence(
+            checkpoint,
+            certificate,
+            &checkpoint_hash,
+        )?)
+    } else {
+        None
+    };
 
     let bundle_hash = hash_value(&without(bundle, &["bundle_hash"])?)?;
     check_eq(bundle_hash, text(bundle, "bundle_hash")?, "bundle hash")?;
@@ -964,28 +1375,91 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
         authority_epoch: number(checkpoint, "authority_epoch")?,
         issuer_key_id: text(certificate, "issuer_key_id")?,
         issuer_public_key: text(certificate, "issuer_public_key")?,
-        profile: "single_authority".into(),
-        certificate_variant: "single_authority_v1".into(),
+        profile: profile.to_owned(),
+        certificate_variant: variant.to_owned(),
         established_axes: requested_axes,
+        quorum,
     })
 }
 
-/// Finalize and sign one caller-supplied v2 template for the only production
-/// semantics currently implemented by this crate. Every derived field is
-/// overwritten, then the complete result is verified before it is returned.
-pub fn emit_single_authority(
+/// One template whose checkpoint body is fully derived and hashed, but whose
+/// certificate is not yet issued. It exists because peer votes can only be cast
+/// over a batch that is already decided: for `bft_consensus` the members sign
+/// [`PreparedCheckpoint::vote_message`], and only then is the certificate
+/// aggregated and signed. `consensus_evidence` lives inside the certificate,
+/// which is excluded from the checkpoint body hash, so installing votes later
+/// cannot move the batch they were cast over.
+#[derive(Debug, Clone)]
+pub struct PreparedCheckpoint {
+    bundle: Value,
+    profile: &'static str,
+    certificate_variant: &'static str,
+    checkpoint_hash: String,
+    vote_message: Option<Vec<u8>>,
+}
+
+impl PreparedCheckpoint {
+    /// The canonical member this checkpoint was prepared under.
+    pub fn profile(&self) -> &'static str {
+        self.profile
+    }
+
+    /// The certificate variant the finalizer will issue.
+    pub fn certificate_variant(&self) -> &'static str {
+        self.certificate_variant
+    }
+
+    /// The decided checkpoint body hash the certificate will bind.
+    pub fn checkpoint_hash(&self) -> &str {
+        &self.checkpoint_hash
+    }
+
+    /// The exact bytes each declared voting member signs. `None` for a profile
+    /// whose admission does not take peer votes — never an empty message that
+    /// would let a caller collect signatures over nothing.
+    pub fn vote_message(&self) -> Option<&[u8]> {
+        self.vote_message.as_deref()
+    }
+}
+
+/// One declared member's vote over [`PreparedCheckpoint::vote_message`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BftVote {
+    pub member_ref: String,
+    /// Hex-encoded Ed25519 signature over the prepared vote message.
+    pub signature: String,
+}
+
+/// Derive and hash one caller-supplied v2 template under a resolved
+/// ordering/finality profile. `profile_label` is resolved through the canonical
+/// compatibility map before admission, and the resolved member must equal the
+/// canonical member already written on the wire — a label is never accepted as
+/// a wire value. Every derived field is overwritten from the supplied material.
+pub fn prepare_checkpoint(
     mut bundle: Value,
-    issuer_key_id: &str,
-    signing_key: &Ed25519PrivateKey,
-) -> Result<Value, VerificationError> {
-    let profile = text(field(&bundle, "checkpoint")?, "profile")?;
-    let variant = text(
+    profile_label: &str,
+) -> Result<PreparedCheckpoint, VerificationError> {
+    let member = resolve_profile_label(profile_label)?;
+    let wire_profile = text(field(&bundle, "checkpoint")?, "profile")?;
+    let wire_variant = text(
         field(field(&bundle, "checkpoint")?, "finality_certificate")?,
         "certificate_variant",
     )?;
-    if profile != "single_authority" || variant != "single_authority_v1" {
-        return Err(VerificationError::UnsupportedProfile { profile, variant });
+    if wire_profile != member {
+        return Err(VerificationError::UnsupportedProfile {
+            profile: wire_profile,
+            variant: wire_variant,
+        });
     }
+    let variant = match implemented_variant(member) {
+        Some(variant) if variant == wire_variant => variant,
+        _ => {
+            return Err(VerificationError::UnsupportedProfile {
+                profile: wire_profile,
+                variant: wire_variant,
+            })
+        }
+    };
     let recognition = field(field(&bundle, "checkpoint")?, "recognition")?;
     let recognition_class = text(recognition, "recognition_class")?;
     let derivation = text(recognition, "derivation_status")?;
@@ -1072,15 +1546,11 @@ pub fn emit_single_authority(
         "verifier_contract_id",
     )?;
     let manifest = field_mut(checkpoint, "availability_manifest")?;
-    set_text(
-        manifest,
-        "availability_verifier_contract_ref",
-        verifier_id.clone(),
-    )?;
+    set_text(manifest, "availability_verifier_contract_ref", verifier_id)?;
     set_text(
         manifest,
         "availability_verifier_contract_hash",
-        verifier_hash.clone(),
+        verifier_hash,
     )?;
     let manifest_hash = hash_value(&without(manifest, &["manifest_hash"])?)?;
     set_text(manifest, "manifest_hash", manifest_hash.clone())?;
@@ -1095,6 +1565,60 @@ pub fn emit_single_authority(
         &["body_hash", "finality_certificate"],
     )?)?;
     set_text(checkpoint, "body_hash", checkpoint_hash.clone())?;
+
+    let domain_id = text(checkpoint, "domain_id")?;
+    let authority_epoch = number(checkpoint, "authority_epoch")?;
+    let certificate = field_mut(checkpoint, "finality_certificate")?;
+    verify_variant_evidence_presence(certificate, variant)?;
+    let vote_message = if variant == "bft_consensus_aft_v1" {
+        let evidence = field_mut(certificate, "consensus_evidence")?;
+        if !array(evidence, "votes")?.is_empty() {
+            return Err(refuse_evidence(
+                "a prepared template carries no votes: members sign the prepared vote message, then the quorum is supplied to finalize_bft_consensus",
+            ));
+        }
+        let membership_hash = consensus_membership_hash(evidence)?;
+        set_text(evidence, "membership_hash", membership_hash.clone())?;
+        let view = number(evidence, "view")?;
+        Some(consensus_vote_message(
+            &domain_id,
+            authority_epoch,
+            &membership_hash,
+            view,
+            &checkpoint_hash,
+        ))
+    } else {
+        None
+    };
+
+    Ok(PreparedCheckpoint {
+        bundle,
+        profile: member,
+        certificate_variant: variant,
+        checkpoint_hash,
+        vote_message,
+    })
+}
+
+/// Issue, sign, and fully re-verify the certificate over a prepared checkpoint.
+fn finalize(
+    prepared: PreparedCheckpoint,
+    votes: &[BftVote],
+    issuer_key_id: &str,
+    signing_key: &Ed25519PrivateKey,
+) -> Result<Value, VerificationError> {
+    let PreparedCheckpoint {
+        mut bundle,
+        certificate_variant: variant,
+        checkpoint_hash,
+        ..
+    } = prepared;
+    let checkpoint = field_mut(&mut bundle, "checkpoint")?;
+    let verifier_id = text(
+        field(checkpoint, "verifier_contract")?,
+        "verifier_contract_id",
+    )?;
+    let verifier_hash = text(checkpoint, "verifier_contract_hash")?;
 
     let certificate_fields = [
         "domain_id",
@@ -1127,6 +1651,20 @@ pub fn emit_single_authority(
         "issuer_public_key",
         hex::encode(public_key.to_bytes()),
     )?;
+    // Votes are installed before the certificate body hash, so the issuer
+    // signature commits to the exact quorum rather than merely accompanying it.
+    if variant == "bft_consensus_aft_v1" {
+        let installed = votes
+            .iter()
+            .map(|vote| json!({"member_ref": vote.member_ref, "signature": vote.signature}))
+            .collect::<Vec<_>>();
+        let evidence = field_mut(certificate, "consensus_evidence")?;
+        object_mut(evidence)?.insert("votes".into(), Value::Array(installed));
+    } else if !votes.is_empty() {
+        return Err(refuse_evidence(format!(
+            "{variant} admission takes no peer votes"
+        )));
+    }
     let certificate_hash = hash_value(&without(certificate, &["body_hash", "signature"])?)?;
     set_text(certificate, "body_hash", certificate_hash.clone())?;
     let message = format!("ioi.finality-certificate.v1\0{certificate_hash}");
@@ -1148,6 +1686,56 @@ pub fn emit_single_authority(
     set_text(&mut bundle, "bundle_hash", bundle_hash)?;
     verify_bundle(&bundle)?;
     Ok(bundle)
+}
+
+/// Issue and sign a `single_authority_v1` certificate over a prepared
+/// checkpoint. Refuses a checkpoint prepared under any other member.
+pub fn finalize_single_authority(
+    prepared: PreparedCheckpoint,
+    issuer_key_id: &str,
+    signing_key: &Ed25519PrivateKey,
+) -> Result<Value, VerificationError> {
+    if prepared.certificate_variant != "single_authority_v1" {
+        return Err(VerificationError::UnsupportedProfile {
+            profile: prepared.profile.to_owned(),
+            variant: prepared.certificate_variant.to_owned(),
+        });
+    }
+    finalize(prepared, &[], issuer_key_id, signing_key)
+}
+
+/// Aggregate a peer quorum into a `bft_consensus_aft_v1` certificate and sign
+/// it. The supplied votes must be signatures over
+/// [`PreparedCheckpoint::vote_message`] by distinct declared members; the full
+/// quorum is re-verified from the finished bundle before it is returned, so an
+/// insufficient, duplicated, undeclared, or unrelated vote set refuses here
+/// rather than shipping a certificate whose label outruns its evidence.
+pub fn finalize_bft_consensus(
+    prepared: PreparedCheckpoint,
+    votes: &[BftVote],
+    issuer_key_id: &str,
+    signing_key: &Ed25519PrivateKey,
+) -> Result<Value, VerificationError> {
+    if prepared.certificate_variant != "bft_consensus_aft_v1" {
+        return Err(VerificationError::UnsupportedProfile {
+            profile: prepared.profile.to_owned(),
+            variant: prepared.certificate_variant.to_owned(),
+        });
+    }
+    finalize(prepared, votes, issuer_key_id, signing_key)
+}
+
+/// Finalize and sign one caller-supplied `single_authority` v2 template. Every
+/// derived field is overwritten, then the complete result is verified before it
+/// is returned. Retained with its original signature and behaviour; it is
+/// [`prepare_checkpoint`] plus [`finalize_single_authority`].
+pub fn emit_single_authority(
+    bundle: Value,
+    issuer_key_id: &str,
+    signing_key: &Ed25519PrivateKey,
+) -> Result<Value, VerificationError> {
+    let prepared = prepare_checkpoint(bundle, "single_authority")?;
+    finalize_single_authority(prepared, issuer_key_id, signing_key)
 }
 
 fn object_mut(value: &mut Value) -> Result<&mut Map<String, Value>, VerificationError> {

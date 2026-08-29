@@ -7190,6 +7190,26 @@ export type FinalityCertificateV1 = {
   body_hash: string;
   signature_suite: "ed25519";
   signature: string;
+  consensus_evidence?: {
+      schema_version: "ioi.bft-consensus-evidence.v1";
+      consensus_protocol_ref: string;
+      membership_ref: string;
+      membership_epoch: number;
+      fault_model: "byzantine";
+      total_voting_members: number;
+      byzantine_fault_tolerance: number;
+      quorum_threshold: number;
+      view: number;
+      members: Array<{
+              member_ref: string;
+              public_key: string;
+            }>;
+      votes: Array<{
+              member_ref: string;
+              signature: string;
+            }>;
+      membership_hash: string;
+    };
 };
 
 export type ReceiptCheckpointV1 = {
@@ -7366,6 +7386,26 @@ export type ReceiptCheckpointV2 = {
       body_hash: string;
       signature_suite: "ed25519";
       signature: string;
+      consensus_evidence?: {
+            schema_version: "ioi.bft-consensus-evidence.v1";
+            consensus_protocol_ref: string;
+            membership_ref: string;
+            membership_epoch: number;
+            fault_model: "byzantine";
+            total_voting_members: number;
+            byzantine_fault_tolerance: number;
+            quorum_threshold: number;
+            view: number;
+            members: Array<{
+                      member_ref: string;
+                      public_key: string;
+                    }>;
+            votes: Array<{
+                      member_ref: string;
+                      signature: string;
+                    }>;
+            membership_hash: string;
+          };
     };
 };
 
@@ -7525,6 +7565,26 @@ export type ReceiptProofBundleV2 = {
             body_hash: string;
             signature_suite: "ed25519";
             signature: string;
+            consensus_evidence?: {
+                    schema_version: "ioi.bft-consensus-evidence.v1";
+                    consensus_protocol_ref: string;
+                    membership_ref: string;
+                    membership_epoch: number;
+                    fault_model: "byzantine";
+                    total_voting_members: number;
+                    byzantine_fault_tolerance: number;
+                    quorum_threshold: number;
+                    view: number;
+                    members: Array<{
+                                member_ref: string;
+                                public_key: string;
+                              }>;
+                    votes: Array<{
+                                member_ref: string;
+                                signature: string;
+                              }>;
+                    membership_hash: string;
+                  };
           };
     };
   previous_checkpoint: {
@@ -7602,6 +7662,26 @@ export type ReceiptProofBundleV2 = {
             body_hash: string;
             signature_suite: "ed25519";
             signature: string;
+            consensus_evidence?: {
+                    schema_version: "ioi.bft-consensus-evidence.v1";
+                    consensus_protocol_ref: string;
+                    membership_ref: string;
+                    membership_epoch: number;
+                    fault_model: "byzantine";
+                    total_voting_members: number;
+                    byzantine_fault_tolerance: number;
+                    quorum_threshold: number;
+                    view: number;
+                    members: Array<{
+                                member_ref: string;
+                                public_key: string;
+                              }>;
+                    votes: Array<{
+                                member_ref: string;
+                                signature: string;
+                              }>;
+                    membership_hash: string;
+                  };
           };
     } | null;
   operations: Array<{
@@ -24353,6 +24433,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^proof://[^\\s]{1,500}$",
   "^proposal://[A-Za-z0-9._:/-]+$",
   "^proposal://[^\\s]{1,248}$",
+  "^protocol://[^\\s]{1,248}$",
   "^provenance://[^\\s]{1,248}$",
   "^qualification-proposal://foundry/[^\\s]{1,500}$",
   "^query://hypervisor/\\S+$",
@@ -24689,12 +24770,12 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/retention-class/v1": "sha256:133b48b7b6f98e554637bcf1b42076275e7cf62f9f8917baeab87034566e28a1",
   "schema://ioi/foundations/verifier-contract/v1": "sha256:f8401df3847ff46880da465cad115766c4e08045f9c6d7ac859e2bf9102f125f",
   "schema://ioi/foundations/availability-manifest/v1": "sha256:9b0105cc8513d94c5321f319197ab5b7d55d257ab4046ad656c087c37bd9f50b",
-  "schema://ioi/foundations/finality-certificate/v1": "sha256:72fafb67b3808f3cdea5a0f24b3e646bbc8edcbde020682b7e4b4cc64ee75c57",
+  "schema://ioi/foundations/finality-certificate/v1": "sha256:0589c7292c5b9aba0cb38da1f117fe562d6f8b0e7042f54e643ae7ac73e47e02",
   "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b",
-  "schema://ioi/foundations/receipt-checkpoint/v2": "sha256:2b831906289a3a4f810cb18414cb25c404f756f1fcd97b5a59a57ec3a515b89b",
+  "schema://ioi/foundations/receipt-checkpoint/v2": "sha256:44f8c3bbb2c8740ce922616e89960c7ff1ace77f9d0cd4b765686788c3f8faaf",
   "schema://ioi/foundations/receipt-envelope/v1": "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc",
   "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034",
-  "schema://ioi/foundations/receipt-proof-bundle/v2": "sha256:445cddcd3318f6f582a7fccd4ce2f0909966668453f99f3a1a41a766482ab4cf",
+  "schema://ioi/foundations/receipt-proof-bundle/v2": "sha256:e885627a693cbd88a924844354238640874e1f6e358c0b5c0086a4031fd4d262",
   "schema://ioi/foundations/skill-entry/v1": "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699",
   "schema://ioi/foundations/skill-manifest/v1": "sha256:ef38326ea2082a928b2ff7c86f8a27c5b4e885c81eaf58615d8446c1a46df403",
   "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
@@ -80305,9 +80386,34 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "signature": {
         "type": "string",
         "pattern": "^[0-9a-f]{128}$"
+      },
+      "consensus_evidence": {
+        "$ref": "#/$defs/consensusEvidence"
       }
     },
     "allOf": [
+      {
+        "if": {
+          "properties": {
+            "certificate_variant": {
+              "const": "bft_consensus_aft_v1"
+            }
+          },
+          "required": [
+            "certificate_variant"
+          ]
+        },
+        "then": {
+          "properties": {
+            "consensus_evidence": {
+              "$ref": "#/$defs/consensusEvidence"
+            }
+          },
+          "required": [
+            "consensus_evidence"
+          ]
+        }
+      },
       {
         "if": {
           "properties": {
@@ -80457,6 +80563,117 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "authority_admission",
           "economic_recognition"
         ]
+      },
+      "consensusEvidence": {
+        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "consensus_protocol_ref",
+          "membership_ref",
+          "membership_epoch",
+          "fault_model",
+          "total_voting_members",
+          "byzantine_fault_tolerance",
+          "quorum_threshold",
+          "view",
+          "members",
+          "votes",
+          "membership_hash"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.bft-consensus-evidence.v1"
+          },
+          "consensus_protocol_ref": {
+            "type": "string",
+            "pattern": "^protocol://[^\\s]{1,248}$"
+          },
+          "membership_ref": {
+            "type": "string",
+            "pattern": "^node-membership://[^\\s]{1,248}$"
+          },
+          "membership_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "fault_model": {
+            "const": "byzantine"
+          },
+          "total_voting_members": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 1024
+          },
+          "byzantine_fault_tolerance": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 341
+          },
+          "quorum_threshold": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 1024
+          },
+          "view": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "members": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "member_ref",
+                "public_key"
+              ],
+              "properties": {
+                "member_ref": {
+                  "type": "string",
+                  "pattern": "^node://[^\\s]{1,248}$"
+                },
+                "public_key": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          },
+          "votes": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "member_ref",
+                "signature"
+              ],
+              "properties": {
+                "member_ref": {
+                  "type": "string",
+                  "pattern": "^node://[^\\s]{1,248}$"
+                },
+                "signature": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{128}$"
+                }
+              }
+            }
+          },
+          "membership_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
       }
     }
   },
@@ -80918,6 +81135,117 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "bft_consensus_aft_v1",
           "external_chain_finality_v1"
         ]
+      },
+      "consensusEvidence": {
+        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "consensus_protocol_ref",
+          "membership_ref",
+          "membership_epoch",
+          "fault_model",
+          "total_voting_members",
+          "byzantine_fault_tolerance",
+          "quorum_threshold",
+          "view",
+          "members",
+          "votes",
+          "membership_hash"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.bft-consensus-evidence.v1"
+          },
+          "consensus_protocol_ref": {
+            "type": "string",
+            "pattern": "^protocol://[^\\s]{1,248}$"
+          },
+          "membership_ref": {
+            "type": "string",
+            "pattern": "^node-membership://[^\\s]{1,248}$"
+          },
+          "membership_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "fault_model": {
+            "const": "byzantine"
+          },
+          "total_voting_members": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 1024
+          },
+          "byzantine_fault_tolerance": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 341
+          },
+          "quorum_threshold": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 1024
+          },
+          "view": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "members": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "member_ref",
+                "public_key"
+              ],
+              "properties": {
+                "member_ref": {
+                  "type": "string",
+                  "pattern": "^node://[^\\s]{1,248}$"
+                },
+                "public_key": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          },
+          "votes": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "member_ref",
+                "signature"
+              ],
+              "properties": {
+                "member_ref": {
+                  "type": "string",
+                  "pattern": "^node://[^\\s]{1,248}$"
+                },
+                "signature": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{128}$"
+                }
+              }
+            }
+          },
+          "membership_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
       },
       "recognition": {
         "type": "object",
@@ -81501,8 +81829,35 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "signature": {
             "type": "string",
             "pattern": "^[0-9a-f]{128}$"
+          },
+          "consensus_evidence": {
+            "$ref": "#/$defs/consensusEvidence"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "certificate_variant": {
+                  "const": "bft_consensus_aft_v1"
+                }
+              },
+              "required": [
+                "certificate_variant"
+              ]
+            },
+            "then": {
+              "properties": {
+                "consensus_evidence": {
+                  "$ref": "#/$defs/consensusEvidence"
+                }
+              },
+              "required": [
+                "consensus_evidence"
+              ]
+            }
+          }
+        ]
       }
     }
   },
@@ -82215,6 +82570,117 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "economic_recognition"
         ]
       },
+      "consensusEvidence": {
+        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "consensus_protocol_ref",
+          "membership_ref",
+          "membership_epoch",
+          "fault_model",
+          "total_voting_members",
+          "byzantine_fault_tolerance",
+          "quorum_threshold",
+          "view",
+          "members",
+          "votes",
+          "membership_hash"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.bft-consensus-evidence.v1"
+          },
+          "consensus_protocol_ref": {
+            "type": "string",
+            "pattern": "^protocol://[^\\s]{1,248}$"
+          },
+          "membership_ref": {
+            "type": "string",
+            "pattern": "^node-membership://[^\\s]{1,248}$"
+          },
+          "membership_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "fault_model": {
+            "const": "byzantine"
+          },
+          "total_voting_members": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 1024
+          },
+          "byzantine_fault_tolerance": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 341
+          },
+          "quorum_threshold": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 1024
+          },
+          "view": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "members": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "member_ref",
+                "public_key"
+              ],
+              "properties": {
+                "member_ref": {
+                  "type": "string",
+                  "pattern": "^node://[^\\s]{1,248}$"
+                },
+                "public_key": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            }
+          },
+          "votes": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 1024,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "member_ref",
+                "signature"
+              ],
+              "properties": {
+                "member_ref": {
+                  "type": "string",
+                  "pattern": "^node://[^\\s]{1,248}$"
+                },
+                "signature": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{128}$"
+                }
+              }
+            }
+          },
+          "membership_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
       "material": {
         "type": "object",
         "additionalProperties": false,
@@ -82549,8 +83015,35 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "signature": {
             "type": "string",
             "pattern": "^[0-9a-f]{128}$"
+          },
+          "consensus_evidence": {
+            "$ref": "#/$defs/consensusEvidence"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "certificate_variant": {
+                  "const": "bft_consensus_aft_v1"
+                }
+              },
+              "required": [
+                "certificate_variant"
+              ]
+            },
+            "then": {
+              "properties": {
+                "consensus_evidence": {
+                  "$ref": "#/$defs/consensusEvidence"
+                }
+              },
+              "required": [
+                "consensus_evidence"
+              ]
+            }
+          }
+        ]
       },
       "range": {
         "type": "object",

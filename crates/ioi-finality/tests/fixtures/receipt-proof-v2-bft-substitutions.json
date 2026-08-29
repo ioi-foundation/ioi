@@ -1,0 +1,172 @@
+[
+  {
+    "id": "profile_downgrade_to_single_authority",
+    "pointer": "/checkpoint/profile",
+    "replacement": "single_authority"
+  },
+  {
+    "id": "profile_alias_on_the_wire",
+    "pointer": "/checkpoint/profile",
+    "replacement": "aft"
+  },
+  {
+    "id": "profile_unimplemented_member",
+    "pointer": "/checkpoint/profile",
+    "replacement": "threshold_authority"
+  },
+  {
+    "id": "certificate_variant_downgrade",
+    "pointer": "/checkpoint/finality_certificate/certificate_variant",
+    "replacement": "single_authority_v1"
+  },
+  {
+    "id": "verifier_supported_profile_substituted",
+    "pointer": "/checkpoint/verifier_contract/supported_profile_members/0",
+    "replacement": "single_authority"
+  },
+  {
+    "id": "verifier_supported_variant_substituted",
+    "pointer": "/checkpoint/verifier_contract/supported_certificate_variants/0",
+    "replacement": "single_authority_v1"
+  },
+  {
+    "id": "consensus_fault_model_weakened",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/fault_model",
+    "replacement": "crash"
+  },
+  {
+    "id": "consensus_zero_fault_tolerance",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/byzantine_fault_tolerance",
+    "replacement": 0
+  },
+  {
+    "id": "consensus_quorum_threshold_below_bound",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/quorum_threshold",
+    "replacement": 2
+  },
+  {
+    "id": "consensus_quorum_threshold_above_membership",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/quorum_threshold",
+    "replacement": 5
+  },
+  {
+    "id": "consensus_membership_count_shrunk",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/total_voting_members",
+    "replacement": 3
+  },
+  {
+    "id": "consensus_membership_hash_substituted",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/membership_hash",
+    "replacement": "sha256:0606060606060606060606060606060606060606060606060606060606060606"
+  },
+  {
+    "id": "consensus_membership_ref_substituted",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/membership_ref",
+    "replacement": "node-membership://acme/aft/substituted"
+  },
+  {
+    "id": "consensus_membership_epoch_substituted",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/membership_epoch",
+    "replacement": 9
+  },
+  {
+    "id": "consensus_protocol_substituted",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/consensus_protocol_ref",
+    "replacement": "protocol://acme/substituted/v1"
+  },
+  {
+    "id": "consensus_member_key_substituted",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/members/0/public_key",
+    "replacement": "0707070707070707070707070707070707070707070707070707070707070707"
+  },
+  {
+    "id": "consensus_member_ref_substituted",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/members/0/member_ref",
+    "replacement": "node://acme/aft/substituted"
+  },
+  {
+    "id": "consensus_view_substituted",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/view",
+    "replacement": 9
+  },
+  {
+    "id": "consensus_vote_from_undeclared_member",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/votes/0/member_ref",
+    "replacement": "node://acme/aft/9"
+  },
+  {
+    "id": "consensus_vote_duplicated",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/votes/2/member_ref",
+    "replacement": "node://acme/aft/0"
+  },
+  {
+    "id": "consensus_vote_signature_substituted",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/votes/0/signature",
+    "replacement": "08080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808080808"
+  },
+  {
+    "id": "consensus_votes_emptied",
+    "pointer": "/checkpoint/finality_certificate/consensus_evidence/votes",
+    "replacement": []
+  },
+  {
+    "id": "certificate_signature_substituted",
+    "pointer": "/checkpoint/finality_certificate/signature",
+    "replacement": "05050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505050505"
+  },
+  {
+    "id": "certificate_checkpoint_hash_substituted",
+    "pointer": "/checkpoint/finality_certificate/checkpoint_hash",
+    "replacement": "sha256:0909090909090909090909090909090909090909090909090909090909090909"
+  },
+  {
+    "id": "receipt_root_substituted",
+    "pointer": "/checkpoint/receipt_root",
+    "replacement": "sha256:0101010101010101010101010101010101010101010101010101010101010101"
+  },
+  {
+    "id": "predecessor_hash_substituted",
+    "pointer": "/checkpoint/previous_checkpoint_hash",
+    "replacement": "sha256:0202020202020202020202020202020202020202020202020202020202020202"
+  },
+  {
+    "id": "receipt_range_substituted",
+    "pointer": "/checkpoint/receipt_range/last",
+    "replacement": 9
+  },
+  {
+    "id": "trusted_authority_epoch_substituted",
+    "pointer": "/trusted_issuer/authority_epoch",
+    "replacement": 9
+  },
+  {
+    "id": "trusted_revocation_epoch_substituted",
+    "pointer": "/trusted_issuer/revocation_epoch",
+    "replacement": 9
+  },
+  {
+    "id": "conflict_key_substituted",
+    "pointer": "/checkpoint/conflict_authority_binding/conflict_keys/0",
+    "replacement": "conflict-key://substituted"
+  },
+  {
+    "id": "availability_manifest_hash_substituted",
+    "pointer": "/checkpoint/availability_manifest_hash",
+    "replacement": "sha256:0303030303030303030303030303030303030303030303030303030303030303"
+  },
+  {
+    "id": "retention_class_substituted",
+    "pointer": "/checkpoint/retention_class",
+    "replacement": "archival"
+  },
+  {
+    "id": "verifier_contract_hash_substituted",
+    "pointer": "/checkpoint/verifier_contract_hash",
+    "replacement": "sha256:0404040404040404040404040404040404040404040404040404040404040404"
+  },
+  {
+    "id": "cross_version_downgrade",
+    "pointer": "/schema_version",
+    "replacement": "ioi.foundations.receipt-proof-bundle.v1"
+  }
+]

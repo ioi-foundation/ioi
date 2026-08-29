@@ -27,9 +27,11 @@
     "issuer_public_key": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "body_hash": { "$ref": "#/$defs/hash" },
     "signature_suite": { "const": "ed25519" },
-    "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" }
+    "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "consensus_evidence": { "$ref": "#/$defs/consensusEvidence" }
   },
   "allOf": [
+    { "if": { "properties": { "certificate_variant": { "const": "bft_consensus_aft_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "consensus_evidence": { "$ref": "#/$defs/consensusEvidence" } }, "required": ["consensus_evidence"] } },
     { "if": { "properties": { "certificate_variant": { "const": "single_authority_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "profile": { "const": "single_authority" } } } },
     { "if": { "properties": { "certificate_variant": { "const": "replicated_single_authority_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "profile": { "const": "replicated_single_authority" } } } },
     { "if": { "properties": { "certificate_variant": { "const": "threshold_authority_v1" } }, "required": ["certificate_variant"] }, "then": { "properties": { "profile": { "const": "threshold_authority" } } } },
@@ -41,6 +43,26 @@
     "range": { "type": "object", "additionalProperties": false, "required": ["first", "last"], "properties": { "first": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, "last": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 } } },
     "profile": { "enum": ["single_authority", "replicated_single_authority", "threshold_authority", "bft_consensus", "external_chain_finality"] },
     "variant": { "enum": ["single_authority_v1", "replicated_single_authority_v1", "threshold_authority_v1", "bft_consensus_aft_v1", "external_chain_finality_v1"] },
-    "axis": { "enum": ["integrity", "valid_as_of", "currentness", "availability", "non_equivocation", "authority_admission", "economic_recognition"] }
+    "axis": { "enum": ["integrity", "valid_as_of", "currentness", "availability", "non_equivocation", "authority_admission", "economic_recognition"] },
+    "consensusEvidence": {
+      "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "consensus_protocol_ref", "membership_ref", "membership_epoch", "fault_model", "total_voting_members", "byzantine_fault_tolerance", "quorum_threshold", "view", "members", "votes", "membership_hash"],
+      "properties": {
+        "schema_version": { "const": "ioi.bft-consensus-evidence.v1" },
+        "consensus_protocol_ref": { "type": "string", "pattern": "^protocol://[^\\s]{1,248}$" },
+        "membership_ref": { "type": "string", "pattern": "^node-membership://[^\\s]{1,248}$" },
+        "membership_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "fault_model": { "const": "byzantine" },
+        "total_voting_members": { "type": "integer", "minimum": 4, "maximum": 1024 },
+        "byzantine_fault_tolerance": { "type": "integer", "minimum": 1, "maximum": 341 },
+        "quorum_threshold": { "type": "integer", "minimum": 3, "maximum": 1024 },
+        "view": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "members": { "type": "array", "minItems": 4, "maxItems": 1024, "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["member_ref", "public_key"], "properties": { "member_ref": { "type": "string", "pattern": "^node://[^\\s]{1,248}$" }, "public_key": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } } },
+        "votes": { "type": "array", "minItems": 3, "maxItems": 1024, "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["member_ref", "signature"], "properties": { "member_ref": { "type": "string", "pattern": "^node://[^\\s]{1,248}$" }, "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" } } } },
+        "membership_hash": { "$ref": "#/$defs/hash" }
+      }
+    }
   }
 }

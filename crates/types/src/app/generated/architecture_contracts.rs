@@ -217,12 +217,12 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/retention-class/v1", "sha256:133b48b7b6f98e554637bcf1b42076275e7cf62f9f8917baeab87034566e28a1"),
     ("schema://ioi/foundations/verifier-contract/v1", "sha256:f8401df3847ff46880da465cad115766c4e08045f9c6d7ac859e2bf9102f125f"),
     ("schema://ioi/foundations/availability-manifest/v1", "sha256:9b0105cc8513d94c5321f319197ab5b7d55d257ab4046ad656c087c37bd9f50b"),
-    ("schema://ioi/foundations/finality-certificate/v1", "sha256:72fafb67b3808f3cdea5a0f24b3e646bbc8edcbde020682b7e4b4cc64ee75c57"),
+    ("schema://ioi/foundations/finality-certificate/v1", "sha256:0589c7292c5b9aba0cb38da1f117fe562d6f8b0e7042f54e643ae7ac73e47e02"),
     ("schema://ioi/foundations/receipt-checkpoint/v1", "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b"),
-    ("schema://ioi/foundations/receipt-checkpoint/v2", "sha256:2b831906289a3a4f810cb18414cb25c404f756f1fcd97b5a59a57ec3a515b89b"),
+    ("schema://ioi/foundations/receipt-checkpoint/v2", "sha256:44f8c3bbb2c8740ce922616e89960c7ff1ace77f9d0cd4b765686788c3f8faaf"),
     ("schema://ioi/foundations/receipt-envelope/v1", "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc"),
     ("schema://ioi/foundations/receipt-proof-bundle/v1", "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034"),
-    ("schema://ioi/foundations/receipt-proof-bundle/v2", "sha256:445cddcd3318f6f582a7fccd4ce2f0909966668453f99f3a1a41a766482ab4cf"),
+    ("schema://ioi/foundations/receipt-proof-bundle/v2", "sha256:e885627a693cbd88a924844354238640874e1f6e358c0b5c0086a4031fd4d262"),
     ("schema://ioi/foundations/skill-entry/v1", "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699"),
     ("schema://ioi/foundations/skill-manifest/v1", "sha256:ef38326ea2082a928b2ff7c86f8a27c5b4e885c81eaf58615d8446c1a46df403"),
     ("schema://ioi/foundations/system-scoped-object-binding/v1", "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917"),
@@ -77194,6 +77194,8 @@ pub struct FinalityCertificateV1 {
     pub body_hash: String,
     pub signature_suite: FinalityCertificateV1SignatureSuite,
     pub signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consensus_evidence: Option<FinalityCertificateV1ConsensusEvidence>,
 }
 
 impl<'de> serde::Deserialize<'de> for FinalityCertificateV1 {
@@ -77204,7 +77206,7 @@ impl<'de> serde::Deserialize<'de> for FinalityCertificateV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/finality-certificate/v1"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/finality-certificate/v1","title":"FinalityCertificate","description":"Source-neutral certificate binding one checkpoint to one versioned ordering/finality claim and named verifier contract.","x-ioi-schema-version":"ioi.finality-certificate.v1","type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"single_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"single_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"replicated_single_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"replicated_single_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"threshold_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"threshold_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"bft_consensus"}}}},{"if":{"properties":{"certificate_variant":{"const":"external_chain_finality_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"external_chain_finality"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/finality-certificate/v1","title":"FinalityCertificate","description":"Source-neutral certificate binding one checkpoint to one versioned ordering/finality claim and named verifier contract.","x-ioi-schema-version":"ioi.finality-certificate.v1","type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}},{"if":{"properties":{"certificate_variant":{"const":"single_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"single_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"replicated_single_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"replicated_single_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"threshold_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"threshold_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"bft_consensus"}}}},{"if":{"properties":{"certificate_variant":{"const":"external_chain_finality_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"external_chain_finality"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"consensusEvidence":{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -77339,6 +77341,13 @@ impl<'de> serde::Deserialize<'de> for FinalityCertificateV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
             )
             .map_err(serde::de::Error::custom)?,
+            consensus_evidence: match object.remove(r#"consensus_evidence"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<FinalityCertificateV1ConsensusEvidence>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
         })
     }
 }
@@ -77489,6 +77498,211 @@ pub enum FinalityCertificateV1ClaimedAxesItem {
 pub enum FinalityCertificateV1SignatureSuite {
     #[serde(rename = r#"ed25519"#)]
     Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FinalityCertificateV1ConsensusEvidence {
+    pub schema_version: FinalityCertificateV1ConsensusEvidenceSchemaVersion,
+    pub consensus_protocol_ref: String,
+    pub membership_ref: String,
+    pub membership_epoch: ArchitectureContractInteger,
+    pub fault_model: FinalityCertificateV1ConsensusEvidenceFaultModel,
+    pub total_voting_members: ArchitectureContractInteger,
+    pub byzantine_fault_tolerance: ArchitectureContractInteger,
+    pub quorum_threshold: ArchitectureContractInteger,
+    pub view: ArchitectureContractInteger,
+    pub members: Vec<FinalityCertificateV1ConsensusEvidenceMembersItem>,
+    pub votes: Vec<FinalityCertificateV1ConsensusEvidenceVotesItem>,
+    pub membership_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FinalityCertificateV1ConsensusEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/finality-certificate/v1"#,
+            r##"{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                FinalityCertificateV1ConsensusEvidenceSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consensus_protocol_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"consensus_protocol_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consensus_protocol_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"membership_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fault_model:
+                serde_json::from_value::<FinalityCertificateV1ConsensusEvidenceFaultModel>(
+                    object
+                        .remove(r#"fault_model"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"fault_model"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            total_voting_members: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"total_voting_members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"total_voting_members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byzantine_fault_tolerance: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byzantine_fault_tolerance"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"byzantine_fault_tolerance"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quorum_threshold: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"quorum_threshold"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quorum_threshold"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            view: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"view"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"view"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            members:
+                serde_json::from_value::<Vec<FinalityCertificateV1ConsensusEvidenceMembersItem>>(
+                    object
+                        .remove(r#"members"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"members"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            votes: serde_json::from_value::<Vec<FinalityCertificateV1ConsensusEvidenceVotesItem>>(
+                object
+                    .remove(r#"votes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"votes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FinalityCertificateV1ConsensusEvidenceSchemaVersion {
+    #[serde(rename = r#"ioi.bft-consensus-evidence.v1"#)]
+    IoiBftConsensusEvidenceV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FinalityCertificateV1ConsensusEvidenceFaultModel {
+    #[serde(rename = r#"byzantine"#)]
+    Byzantine,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FinalityCertificateV1ConsensusEvidenceMembersItem {
+    pub member_ref: String,
+    pub public_key: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FinalityCertificateV1ConsensusEvidenceMembersItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/finality-certificate/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FinalityCertificateV1ConsensusEvidenceVotesItem {
+    pub member_ref: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FinalityCertificateV1ConsensusEvidenceVotesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/finality-certificate/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -77805,7 +78019,7 @@ impl<'de> serde::Deserialize<'de> for ReceiptCheckpointV2 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/receipt-checkpoint/v2"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v2","title":"ReceiptCheckpoint","description":"Distinct v2 recognized-effect checkpoint binding exact state, receipt, authority, availability, profile, verifier, and certificate claims without changing ReceiptCheckpoint v1.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v2","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","checkpoint_domain","schema_hash","checkpoint_id","body_hash","domain_id","authority_epoch","authority_revocation_epoch","operation_range","receipt_range","previous_checkpoint_ref","previous_checkpoint_hash","previous_canonical_head","resulting_canonical_head","previous_state_commitment","resulting_state_commitment","operation_root","receipt_root","conflict_authority_binding","conflict_authority_binding_hash","constitution_root","admission_kernel_root","policy_root","profile_contract_version","profile","recognition","availability_manifest","availability_manifest_hash","retention_class","verifier_contract","verifier_contract_hash","durability_class","finality_certificate"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v2"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"checkpoint_domain":{"const":"ioi.receipt-checkpoint.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"body_hash":{"$ref":"#/$defs/hash"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"previous_canonical_head":{"$ref":"#/$defs/hash"},"resulting_canonical_head":{"$ref":"#/$defs/hash"},"previous_state_commitment":{"$ref":"#/$defs/stateCommitment"},"resulting_state_commitment":{"$ref":"#/$defs/stateCommitment"},"operation_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"conflict_authority_binding":{"$ref":"#/$defs/conflictBinding"},"conflict_authority_binding_hash":{"$ref":"#/$defs/hash"},"constitution_root":{"$ref":"#/$defs/hash"},"admission_kernel_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"recognition":{"$ref":"#/$defs/recognition"},"availability_manifest":{"$ref":"#/$defs/availability"},"availability_manifest_hash":{"$ref":"#/$defs/hash"},"retention_class":{"$ref":"#/$defs/retentionClass"},"verifier_contract":{"$ref":"#/$defs/verifier"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"durability_class":{"enum":["buffered","device_flush","replicated_same_host","quorum_replicated"]},"finality_certificate":{"$ref":"#/$defs/certificate"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},"domainRef":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"stateCommitment":{"type":"object","additionalProperties":false,"required":["algorithm","version","root"],"properties":{"algorithm":{"const":"ioi.sorted-state-jcs-sha256.v1"},"version":{"type":"integer","minimum":0,"maximum":9007199254740991},"root":{"$ref":"#/$defs/hash"}}},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"retentionClass":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"recognition":{"type":"object","additionalProperties":false,"required":["schema_version","effect_hash","recognition_class","derivation_status","invariant_domain_refs","conflict_keys_enumerated","canonical_effect","ordinary_admission_permitted","binding_hash"],"properties":{"schema_version":{"const":"ioi.recognition-class.v1"},"effect_hash":{"$ref":"#/$defs/hash"},"recognition_class":{"enum":["K1","K2","K3","K4","K5","K6","K7"]},"derivation_status":{"enum":["resolved","unknown_invariant_domain","unenumerable_conflict_keys","ambiguous_rules"]},"invariant_domain_refs":{"type":"array","items":{"type":"string","pattern":"^invariant://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"conflict_keys_enumerated":{"type":"boolean"},"canonical_effect":{"type":"boolean"},"ordinary_admission_permitted":{"type":"boolean"},"binding_hash":{"$ref":"#/$defs/hash"}}},"conflictBinding":{"type":"object","additionalProperties":false,"required":["schema_version","effect_hash","invariant_domain_refs","touched_objects","conflict_keys","consumed_authority","joint_conflict_key","binding_hash"],"properties":{"schema_version":{"const":"ioi.conflict-authority-binding.v1"},"effect_hash":{"$ref":"#/$defs/hash"},"invariant_domain_refs":{"type":"array","items":{"type":"string","pattern":"^invariant://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"touched_objects":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["object_ref","previous_version","resulting_version","previous_head","resulting_head"],"properties":{"object_ref":{"type":"string","pattern":"^object://[^\\s]{1,248}$"},"previous_version":{"type":"integer","minimum":0,"maximum":9007199254740991},"resulting_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"previous_head":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_head":{"$ref":"#/$defs/hash"}}}},"conflict_keys":{"type":"array","maxItems":4096,"uniqueItems":true,"items":{"type":"string","pattern":"^conflict-key://[^\\s]{1,248}$"}},"consumed_authority":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["authority_ref","authority_head","nullifier_commitment","revocation_epoch","remaining_allowance_commitment"],"properties":{"authority_ref":{"type":"string","pattern":"^(?:grant|lease|capability|authority)://[^\\s]{1,248}$"},"authority_head":{"$ref":"#/$defs/hash"},"nullifier_commitment":{"$ref":"#/$defs/hash"},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"remaining_allowance_commitment":{"$ref":"#/$defs/hash"}}}},"joint_conflict_key":{"anyOf":[{"type":"string","pattern":"^conflict-key://[^\\s]{1,248}$"},{"type":"null"}]},"binding_hash":{"$ref":"#/$defs/hash"}}},"retention":{"type":"object","additionalProperties":false,"required":["schema_version","retention_class","retain_until","minimum_copies","independent_failure_domains","deletion_or_archive_policy_ref"],"properties":{"schema_version":{"const":"ioi.retention-class.v1"},"retention_class":{"$ref":"#/$defs/retentionClass"},"retain_until":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"minimum_copies":{"type":"integer","minimum":1,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":1,"maximum":1024},"deletion_or_archive_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"retention_class":{"const":"bounded_retention"}},"required":["retention_class"]},"then":{"properties":{"retain_until":{"type":"integer","minimum":1,"maximum":9007199254740991}}}},{"if":{"properties":{"retention_class":{"const":"durable_replicated"}},"required":["retention_class"]},"then":{"properties":{"minimum_copies":{"type":"integer","minimum":2,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":2,"maximum":1024}}}}]},"availability":{"type":"object","additionalProperties":false,"required":["schema_version","manifest_id","manifest_hash","claim_status","retention","payloads","availability_verifier_contract_ref","availability_verifier_contract_hash","failure_behavior"],"properties":{"schema_version":{"const":"ioi.availability-manifest.v1"},"manifest_id":{"type":"string","pattern":"^availability-manifest://[^\\s]{1,248}$"},"manifest_hash":{"$ref":"#/$defs/hash"},"claim_status":{"enum":["declared","verified"]},"retention":{"$ref":"#/$defs/retention"},"payloads":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_hash","byte_length","location_refs","failure_domain_refs","retrieval_evidence_refs"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_hash":{"$ref":"#/$defs/hash"},"byte_length":{"type":"integer","minimum":0,"maximum":9007199254740991},"location_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^location://[^\\s]{1,248}$"}},"failure_domain_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^failure-domain://[^\\s]{1,248}$"}},"retrieval_evidence_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"}}}}},"availability_verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"availability_verifier_contract_hash":{"$ref":"#/$defs/hash"},"failure_behavior":{"const":"fail_closed"}}},"verifier":{"type":"object","additionalProperties":false,"required":["schema_version","verifier_contract_id","verifier_contract_hash","supported_checkpoint_versions","supported_profile_members","supported_certificate_variants","axes","unknown_behavior","downgrade_behavior"],"properties":{"schema_version":{"const":"ioi.verifier-contract.v1"},"verifier_contract_id":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"supported_checkpoint_versions":{"type":"array","minItems":1,"uniqueItems":true,"items":{"const":"ioi.foundations.receipt-checkpoint.v2"}},"supported_profile_members":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/profile"}},"supported_certificate_variants":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/variant"}},"axes":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["axis","required_input_contract_ids","failure_behavior"],"properties":{"axis":{"$ref":"#/$defs/axis"},"required_input_contract_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"}},"failure_behavior":{"const":"fail_closed"}}}},"unknown_behavior":{"const":"refuse"},"downgrade_behavior":{"const":"refuse_cross_version_substitution"}}},"certificate":{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v2","title":"ReceiptCheckpoint","description":"Distinct v2 recognized-effect checkpoint binding exact state, receipt, authority, availability, profile, verifier, and certificate claims without changing ReceiptCheckpoint v1.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v2","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","checkpoint_domain","schema_hash","checkpoint_id","body_hash","domain_id","authority_epoch","authority_revocation_epoch","operation_range","receipt_range","previous_checkpoint_ref","previous_checkpoint_hash","previous_canonical_head","resulting_canonical_head","previous_state_commitment","resulting_state_commitment","operation_root","receipt_root","conflict_authority_binding","conflict_authority_binding_hash","constitution_root","admission_kernel_root","policy_root","profile_contract_version","profile","recognition","availability_manifest","availability_manifest_hash","retention_class","verifier_contract","verifier_contract_hash","durability_class","finality_certificate"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v2"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"checkpoint_domain":{"const":"ioi.receipt-checkpoint.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"body_hash":{"$ref":"#/$defs/hash"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"previous_canonical_head":{"$ref":"#/$defs/hash"},"resulting_canonical_head":{"$ref":"#/$defs/hash"},"previous_state_commitment":{"$ref":"#/$defs/stateCommitment"},"resulting_state_commitment":{"$ref":"#/$defs/stateCommitment"},"operation_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"conflict_authority_binding":{"$ref":"#/$defs/conflictBinding"},"conflict_authority_binding_hash":{"$ref":"#/$defs/hash"},"constitution_root":{"$ref":"#/$defs/hash"},"admission_kernel_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"recognition":{"$ref":"#/$defs/recognition"},"availability_manifest":{"$ref":"#/$defs/availability"},"availability_manifest_hash":{"$ref":"#/$defs/hash"},"retention_class":{"$ref":"#/$defs/retentionClass"},"verifier_contract":{"$ref":"#/$defs/verifier"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"durability_class":{"enum":["buffered","device_flush","replicated_same_host","quorum_replicated"]},"finality_certificate":{"$ref":"#/$defs/certificate"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},"domainRef":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"stateCommitment":{"type":"object","additionalProperties":false,"required":["algorithm","version","root"],"properties":{"algorithm":{"const":"ioi.sorted-state-jcs-sha256.v1"},"version":{"type":"integer","minimum":0,"maximum":9007199254740991},"root":{"$ref":"#/$defs/hash"}}},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"retentionClass":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"consensusEvidence":{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}},"recognition":{"type":"object","additionalProperties":false,"required":["schema_version","effect_hash","recognition_class","derivation_status","invariant_domain_refs","conflict_keys_enumerated","canonical_effect","ordinary_admission_permitted","binding_hash"],"properties":{"schema_version":{"const":"ioi.recognition-class.v1"},"effect_hash":{"$ref":"#/$defs/hash"},"recognition_class":{"enum":["K1","K2","K3","K4","K5","K6","K7"]},"derivation_status":{"enum":["resolved","unknown_invariant_domain","unenumerable_conflict_keys","ambiguous_rules"]},"invariant_domain_refs":{"type":"array","items":{"type":"string","pattern":"^invariant://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"conflict_keys_enumerated":{"type":"boolean"},"canonical_effect":{"type":"boolean"},"ordinary_admission_permitted":{"type":"boolean"},"binding_hash":{"$ref":"#/$defs/hash"}}},"conflictBinding":{"type":"object","additionalProperties":false,"required":["schema_version","effect_hash","invariant_domain_refs","touched_objects","conflict_keys","consumed_authority","joint_conflict_key","binding_hash"],"properties":{"schema_version":{"const":"ioi.conflict-authority-binding.v1"},"effect_hash":{"$ref":"#/$defs/hash"},"invariant_domain_refs":{"type":"array","items":{"type":"string","pattern":"^invariant://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"touched_objects":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["object_ref","previous_version","resulting_version","previous_head","resulting_head"],"properties":{"object_ref":{"type":"string","pattern":"^object://[^\\s]{1,248}$"},"previous_version":{"type":"integer","minimum":0,"maximum":9007199254740991},"resulting_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"previous_head":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_head":{"$ref":"#/$defs/hash"}}}},"conflict_keys":{"type":"array","maxItems":4096,"uniqueItems":true,"items":{"type":"string","pattern":"^conflict-key://[^\\s]{1,248}$"}},"consumed_authority":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["authority_ref","authority_head","nullifier_commitment","revocation_epoch","remaining_allowance_commitment"],"properties":{"authority_ref":{"type":"string","pattern":"^(?:grant|lease|capability|authority)://[^\\s]{1,248}$"},"authority_head":{"$ref":"#/$defs/hash"},"nullifier_commitment":{"$ref":"#/$defs/hash"},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"remaining_allowance_commitment":{"$ref":"#/$defs/hash"}}}},"joint_conflict_key":{"anyOf":[{"type":"string","pattern":"^conflict-key://[^\\s]{1,248}$"},{"type":"null"}]},"binding_hash":{"$ref":"#/$defs/hash"}}},"retention":{"type":"object","additionalProperties":false,"required":["schema_version","retention_class","retain_until","minimum_copies","independent_failure_domains","deletion_or_archive_policy_ref"],"properties":{"schema_version":{"const":"ioi.retention-class.v1"},"retention_class":{"$ref":"#/$defs/retentionClass"},"retain_until":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"minimum_copies":{"type":"integer","minimum":1,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":1,"maximum":1024},"deletion_or_archive_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"retention_class":{"const":"bounded_retention"}},"required":["retention_class"]},"then":{"properties":{"retain_until":{"type":"integer","minimum":1,"maximum":9007199254740991}}}},{"if":{"properties":{"retention_class":{"const":"durable_replicated"}},"required":["retention_class"]},"then":{"properties":{"minimum_copies":{"type":"integer","minimum":2,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":2,"maximum":1024}}}}]},"availability":{"type":"object","additionalProperties":false,"required":["schema_version","manifest_id","manifest_hash","claim_status","retention","payloads","availability_verifier_contract_ref","availability_verifier_contract_hash","failure_behavior"],"properties":{"schema_version":{"const":"ioi.availability-manifest.v1"},"manifest_id":{"type":"string","pattern":"^availability-manifest://[^\\s]{1,248}$"},"manifest_hash":{"$ref":"#/$defs/hash"},"claim_status":{"enum":["declared","verified"]},"retention":{"$ref":"#/$defs/retention"},"payloads":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_hash","byte_length","location_refs","failure_domain_refs","retrieval_evidence_refs"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_hash":{"$ref":"#/$defs/hash"},"byte_length":{"type":"integer","minimum":0,"maximum":9007199254740991},"location_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^location://[^\\s]{1,248}$"}},"failure_domain_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^failure-domain://[^\\s]{1,248}$"}},"retrieval_evidence_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"}}}}},"availability_verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"availability_verifier_contract_hash":{"$ref":"#/$defs/hash"},"failure_behavior":{"const":"fail_closed"}}},"verifier":{"type":"object","additionalProperties":false,"required":["schema_version","verifier_contract_id","verifier_contract_hash","supported_checkpoint_versions","supported_profile_members","supported_certificate_variants","axes","unknown_behavior","downgrade_behavior"],"properties":{"schema_version":{"const":"ioi.verifier-contract.v1"},"verifier_contract_id":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"supported_checkpoint_versions":{"type":"array","minItems":1,"uniqueItems":true,"items":{"const":"ioi.foundations.receipt-checkpoint.v2"}},"supported_profile_members":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/profile"}},"supported_certificate_variants":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/variant"}},"axes":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["axis","required_input_contract_ids","failure_behavior"],"properties":{"axis":{"$ref":"#/$defs/axis"},"required_input_contract_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"}},"failure_behavior":{"const":"fail_closed"}}}},"unknown_behavior":{"const":"refuse"},"downgrade_behavior":{"const":"refuse_cross_version_substitution"}}},"certificate":{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}}]}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -79187,6 +79401,8 @@ pub struct ReceiptCheckpointV2FinalityCertificate {
     pub body_hash: String,
     pub signature_suite: ReceiptCheckpointV2FinalityCertificateSignatureSuite,
     pub signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consensus_evidence: Option<ReceiptCheckpointV2FinalityCertificateConsensusEvidence>,
 }
 
 impl<'de> serde::Deserialize<'de> for ReceiptCheckpointV2FinalityCertificate {
@@ -79197,7 +79413,7 @@ impl<'de> serde::Deserialize<'de> for ReceiptCheckpointV2FinalityCertificate {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/receipt-checkpoint/v2"#,
-            r##"{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"##,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}}]}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -79346,6 +79562,13 @@ impl<'de> serde::Deserialize<'de> for ReceiptCheckpointV2FinalityCertificate {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
             )
             .map_err(serde::de::Error::custom)?,
+            consensus_evidence: match object.remove(r#"consensus_evidence"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ReceiptCheckpointV2FinalityCertificateConsensusEvidence>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
         })
     }
 }
@@ -79496,6 +79719,219 @@ pub enum ReceiptCheckpointV2FinalityCertificateClaimedAxesItem {
 pub enum ReceiptCheckpointV2FinalityCertificateSignatureSuite {
     #[serde(rename = r#"ed25519"#)]
     Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptCheckpointV2FinalityCertificateConsensusEvidence {
+    pub schema_version: ReceiptCheckpointV2FinalityCertificateConsensusEvidenceSchemaVersion,
+    pub consensus_protocol_ref: String,
+    pub membership_ref: String,
+    pub membership_epoch: ArchitectureContractInteger,
+    pub fault_model: ReceiptCheckpointV2FinalityCertificateConsensusEvidenceFaultModel,
+    pub total_voting_members: ArchitectureContractInteger,
+    pub byzantine_fault_tolerance: ArchitectureContractInteger,
+    pub quorum_threshold: ArchitectureContractInteger,
+    pub view: ArchitectureContractInteger,
+    pub members: Vec<ReceiptCheckpointV2FinalityCertificateConsensusEvidenceMembersItem>,
+    pub votes: Vec<ReceiptCheckpointV2FinalityCertificateConsensusEvidenceVotesItem>,
+    pub membership_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ReceiptCheckpointV2FinalityCertificateConsensusEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-checkpoint/v2"#,
+            r##"{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                ReceiptCheckpointV2FinalityCertificateConsensusEvidenceSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consensus_protocol_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"consensus_protocol_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consensus_protocol_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"membership_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fault_model: serde_json::from_value::<
+                ReceiptCheckpointV2FinalityCertificateConsensusEvidenceFaultModel,
+            >(
+                object
+                    .remove(r#"fault_model"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fault_model"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            total_voting_members: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"total_voting_members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"total_voting_members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byzantine_fault_tolerance: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byzantine_fault_tolerance"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"byzantine_fault_tolerance"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quorum_threshold: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"quorum_threshold"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quorum_threshold"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            view: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"view"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"view"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            members: serde_json::from_value::<
+                Vec<ReceiptCheckpointV2FinalityCertificateConsensusEvidenceMembersItem>,
+            >(
+                object
+                    .remove(r#"members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            votes: serde_json::from_value::<
+                Vec<ReceiptCheckpointV2FinalityCertificateConsensusEvidenceVotesItem>,
+            >(
+                object
+                    .remove(r#"votes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"votes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV2FinalityCertificateConsensusEvidenceSchemaVersion {
+    #[serde(rename = r#"ioi.bft-consensus-evidence.v1"#)]
+    IoiBftConsensusEvidenceV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptCheckpointV2FinalityCertificateConsensusEvidenceFaultModel {
+    #[serde(rename = r#"byzantine"#)]
+    Byzantine,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptCheckpointV2FinalityCertificateConsensusEvidenceMembersItem {
+    pub member_ref: String,
+    pub public_key: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ReceiptCheckpointV2FinalityCertificateConsensusEvidenceMembersItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-checkpoint/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptCheckpointV2FinalityCertificateConsensusEvidenceVotesItem {
+    pub member_ref: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ReceiptCheckpointV2FinalityCertificateConsensusEvidenceVotesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-checkpoint/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -80237,7 +80673,7 @@ impl<'de> serde::Deserialize<'de> for ReceiptProofBundleV2 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-proof-bundle/v2","title":"ReceiptProofBundle","description":"Distinct v2 offline proof bundle carrying every input required to recompute and verify a ReceiptCheckpoint v2 claim; it never reinterprets v1.","x-ioi-schema-version":"ioi.foundations.receipt-proof-bundle.v2","type":"object","additionalProperties":false,"required":["schema_version","bundle_type","bundle_domain","schema_hash","bundle_id","bundle_hash","checkpoint","previous_checkpoint","operations","receipts","previous_state_entries","resulting_state_entries","availability_payloads","trusted_issuer","requested_axes","compatibility_behavior"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-proof-bundle.v2"},"bundle_type":{"const":"ioi.receipt-proof-bundle"},"bundle_domain":{"const":"ioi.receipt-proof-bundle.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"bundle_id":{"type":"string","pattern":"^proof://[^\\s]{1,248}$"},"bundle_hash":{"$ref":"#/$defs/hash"},"checkpoint":{"$ref":"#/$defs/checkpoint"},"previous_checkpoint":{"anyOf":[{"$ref":"#/$defs/checkpoint"},{"type":"null"}]},"operations":{"type":"array","minItems":1,"maxItems":65536,"items":{"$ref":"#/$defs/material"}},"receipts":{"type":"array","minItems":1,"maxItems":65536,"items":{"$ref":"#/$defs/material"}},"previous_state_entries":{"type":"array","maxItems":65536,"items":{"$ref":"#/$defs/stateEntry"}},"resulting_state_entries":{"type":"array","maxItems":65536,"items":{"$ref":"#/$defs/stateEntry"}},"availability_payloads":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_base64"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_base64":{"type":"string","pattern":"^[A-Za-z0-9+/]*={0,2}$"}}}},"trusted_issuer":{"type":"object","additionalProperties":false,"required":["issuer_key_id","issuer_public_key","domain_id","authority_epoch","revocation_epoch"],"properties":{"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"requested_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"compatibility_behavior":{"const":"v1_and_unknown_versions_refused"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"material":{"type":"object","additionalProperties":false,"required":["sequence","body","body_hash"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"body":{"type":"object"},"body_hash":{"$ref":"#/$defs/hash"}}},"stateEntry":{"type":"object","additionalProperties":false,"required":["key","value_hash"],"properties":{"key":{"type":"string","minLength":1,"maxLength":1024},"value_hash":{"$ref":"#/$defs/hash"}}},"checkpoint":{"type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","checkpoint_domain","schema_hash","checkpoint_id","body_hash","domain_id","authority_epoch","authority_revocation_epoch","operation_range","receipt_range","previous_checkpoint_ref","previous_checkpoint_hash","previous_canonical_head","resulting_canonical_head","previous_state_commitment","resulting_state_commitment","operation_root","receipt_root","conflict_authority_binding","conflict_authority_binding_hash","constitution_root","admission_kernel_root","policy_root","profile_contract_version","profile","recognition","availability_manifest","availability_manifest_hash","retention_class","verifier_contract","verifier_contract_hash","durability_class","finality_certificate"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v2"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"checkpoint_domain":{"const":"ioi.receipt-checkpoint.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"checkpoint_id":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},"body_hash":{"$ref":"#/$defs/hash"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"previous_checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"previous_canonical_head":{"$ref":"#/$defs/hash"},"resulting_canonical_head":{"$ref":"#/$defs/hash"},"previous_state_commitment":{"$ref":"#/$defs/stateCommitment"},"resulting_state_commitment":{"$ref":"#/$defs/stateCommitment"},"operation_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"conflict_authority_binding":{"type":"object"},"conflict_authority_binding_hash":{"$ref":"#/$defs/hash"},"constitution_root":{"$ref":"#/$defs/hash"},"admission_kernel_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"recognition":{"type":"object"},"availability_manifest":{"type":"object"},"availability_manifest_hash":{"$ref":"#/$defs/hash"},"retention_class":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"verifier_contract":{"type":"object"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"durability_class":{"enum":["buffered","device_flush","replicated_same_host","quorum_replicated"]},"finality_certificate":{"$ref":"#/$defs/certificate"}}},"certificate":{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"stateCommitment":{"type":"object","additionalProperties":false,"required":["algorithm","version","root"],"properties":{"algorithm":{"const":"ioi.sorted-state-jcs-sha256.v1"},"version":{"type":"integer","minimum":0,"maximum":9007199254740991},"root":{"$ref":"#/$defs/hash"}}}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-proof-bundle/v2","title":"ReceiptProofBundle","description":"Distinct v2 offline proof bundle carrying every input required to recompute and verify a ReceiptCheckpoint v2 claim; it never reinterprets v1.","x-ioi-schema-version":"ioi.foundations.receipt-proof-bundle.v2","type":"object","additionalProperties":false,"required":["schema_version","bundle_type","bundle_domain","schema_hash","bundle_id","bundle_hash","checkpoint","previous_checkpoint","operations","receipts","previous_state_entries","resulting_state_entries","availability_payloads","trusted_issuer","requested_axes","compatibility_behavior"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-proof-bundle.v2"},"bundle_type":{"const":"ioi.receipt-proof-bundle"},"bundle_domain":{"const":"ioi.receipt-proof-bundle.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"bundle_id":{"type":"string","pattern":"^proof://[^\\s]{1,248}$"},"bundle_hash":{"$ref":"#/$defs/hash"},"checkpoint":{"$ref":"#/$defs/checkpoint"},"previous_checkpoint":{"anyOf":[{"$ref":"#/$defs/checkpoint"},{"type":"null"}]},"operations":{"type":"array","minItems":1,"maxItems":65536,"items":{"$ref":"#/$defs/material"}},"receipts":{"type":"array","minItems":1,"maxItems":65536,"items":{"$ref":"#/$defs/material"}},"previous_state_entries":{"type":"array","maxItems":65536,"items":{"$ref":"#/$defs/stateEntry"}},"resulting_state_entries":{"type":"array","maxItems":65536,"items":{"$ref":"#/$defs/stateEntry"}},"availability_payloads":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_base64"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_base64":{"type":"string","pattern":"^[A-Za-z0-9+/]*={0,2}$"}}}},"trusted_issuer":{"type":"object","additionalProperties":false,"required":["issuer_key_id","issuer_public_key","domain_id","authority_epoch","revocation_epoch"],"properties":{"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"requested_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"compatibility_behavior":{"const":"v1_and_unknown_versions_refused"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"consensusEvidence":{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}},"material":{"type":"object","additionalProperties":false,"required":["sequence","body","body_hash"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"body":{"type":"object"},"body_hash":{"$ref":"#/$defs/hash"}}},"stateEntry":{"type":"object","additionalProperties":false,"required":["key","value_hash"],"properties":{"key":{"type":"string","minLength":1,"maxLength":1024},"value_hash":{"$ref":"#/$defs/hash"}}},"checkpoint":{"type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","checkpoint_domain","schema_hash","checkpoint_id","body_hash","domain_id","authority_epoch","authority_revocation_epoch","operation_range","receipt_range","previous_checkpoint_ref","previous_checkpoint_hash","previous_canonical_head","resulting_canonical_head","previous_state_commitment","resulting_state_commitment","operation_root","receipt_root","conflict_authority_binding","conflict_authority_binding_hash","constitution_root","admission_kernel_root","policy_root","profile_contract_version","profile","recognition","availability_manifest","availability_manifest_hash","retention_class","verifier_contract","verifier_contract_hash","durability_class","finality_certificate"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v2"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"checkpoint_domain":{"const":"ioi.receipt-checkpoint.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"checkpoint_id":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},"body_hash":{"$ref":"#/$defs/hash"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"previous_checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"previous_canonical_head":{"$ref":"#/$defs/hash"},"resulting_canonical_head":{"$ref":"#/$defs/hash"},"previous_state_commitment":{"$ref":"#/$defs/stateCommitment"},"resulting_state_commitment":{"$ref":"#/$defs/stateCommitment"},"operation_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"conflict_authority_binding":{"type":"object"},"conflict_authority_binding_hash":{"$ref":"#/$defs/hash"},"constitution_root":{"$ref":"#/$defs/hash"},"admission_kernel_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"recognition":{"type":"object"},"availability_manifest":{"type":"object"},"availability_manifest_hash":{"$ref":"#/$defs/hash"},"retention_class":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"verifier_contract":{"type":"object"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"durability_class":{"enum":["buffered","device_flush","replicated_same_host","quorum_replicated"]},"finality_certificate":{"$ref":"#/$defs/certificate"}}},"certificate":{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}}]},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"stateCommitment":{"type":"object","additionalProperties":false,"required":["algorithm","version","root"],"properties":{"algorithm":{"const":"ioi.sorted-state-jcs-sha256.v1"},"version":{"type":"integer","minimum":0,"maximum":9007199254740991},"root":{"$ref":"#/$defs/hash"}}}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -80942,6 +81378,9 @@ pub struct ReceiptProofBundleV2CheckpointFinalityCertificate {
     pub body_hash: String,
     pub signature_suite: ReceiptProofBundleV2CheckpointFinalityCertificateSignatureSuite,
     pub signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consensus_evidence:
+        Option<ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidence>,
 }
 
 impl<'de> serde::Deserialize<'de> for ReceiptProofBundleV2CheckpointFinalityCertificate {
@@ -80952,7 +81391,7 @@ impl<'de> serde::Deserialize<'de> for ReceiptProofBundleV2CheckpointFinalityCert
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
-            r##"{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"##,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}}]}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -81103,6 +81542,13 @@ impl<'de> serde::Deserialize<'de> for ReceiptProofBundleV2CheckpointFinalityCert
                     .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
             )
             .map_err(serde::de::Error::custom)?,
+            consensus_evidence: match object.remove(r#"consensus_evidence"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidence>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
         })
     }
 }
@@ -81257,6 +81703,222 @@ pub enum ReceiptProofBundleV2CheckpointFinalityCertificateClaimedAxesItem {
 pub enum ReceiptProofBundleV2CheckpointFinalityCertificateSignatureSuite {
     #[serde(rename = r#"ed25519"#)]
     Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidence {
+    pub schema_version:
+        ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceSchemaVersion,
+    pub consensus_protocol_ref: String,
+    pub membership_ref: String,
+    pub membership_epoch: ArchitectureContractInteger,
+    pub fault_model: ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceFaultModel,
+    pub total_voting_members: ArchitectureContractInteger,
+    pub byzantine_fault_tolerance: ArchitectureContractInteger,
+    pub quorum_threshold: ArchitectureContractInteger,
+    pub view: ArchitectureContractInteger,
+    pub members: Vec<ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceMembersItem>,
+    pub votes: Vec<ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceVotesItem>,
+    pub membership_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidence
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
+            r##"{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consensus_protocol_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"consensus_protocol_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consensus_protocol_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"membership_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fault_model: serde_json::from_value::<
+                ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceFaultModel,
+            >(
+                object
+                    .remove(r#"fault_model"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fault_model"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            total_voting_members: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"total_voting_members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"total_voting_members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byzantine_fault_tolerance: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byzantine_fault_tolerance"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"byzantine_fault_tolerance"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quorum_threshold: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"quorum_threshold"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quorum_threshold"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            view: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"view"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"view"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            members: serde_json::from_value::<
+                Vec<ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceMembersItem>,
+            >(
+                object
+                    .remove(r#"members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            votes: serde_json::from_value::<
+                Vec<ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceVotesItem>,
+            >(
+                object
+                    .remove(r#"votes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"votes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceSchemaVersion {
+    #[serde(rename = r#"ioi.bft-consensus-evidence.v1"#)]
+    IoiBftConsensusEvidenceV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceFaultModel {
+    #[serde(rename = r#"byzantine"#)]
+    Byzantine,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceMembersItem {
+    pub member_ref: String,
+    pub public_key: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceMembersItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceVotesItem {
+    pub member_ref: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ReceiptProofBundleV2CheckpointFinalityCertificateConsensusEvidenceVotesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -81841,6 +82503,9 @@ pub struct ReceiptProofBundleV2PreviousCheckpointFinalityCertificate {
     pub body_hash: String,
     pub signature_suite: ReceiptProofBundleV2PreviousCheckpointFinalityCertificateSignatureSuite,
     pub signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub consensus_evidence:
+        Option<ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidence>,
 }
 
 impl<'de> serde::Deserialize<'de> for ReceiptProofBundleV2PreviousCheckpointFinalityCertificate {
@@ -81851,7 +82516,7 @@ impl<'de> serde::Deserialize<'de> for ReceiptProofBundleV2PreviousCheckpointFina
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
-            r##"{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"##,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}}]}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -82002,6 +82667,15 @@ impl<'de> serde::Deserialize<'de> for ReceiptProofBundleV2PreviousCheckpointFina
                     .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
             )
             .map_err(serde::de::Error::custom)?,
+            consensus_evidence: match object.remove(r#"consensus_evidence"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<
+                        ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidence,
+                    >,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
         })
     }
 }
@@ -82156,6 +82830,215 @@ pub enum ReceiptProofBundleV2PreviousCheckpointFinalityCertificateClaimedAxesIte
 pub enum ReceiptProofBundleV2PreviousCheckpointFinalityCertificateSignatureSuite {
     #[serde(rename = r#"ed25519"#)]
     Ed25519,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidence {
+    pub schema_version:
+        ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceSchemaVersion,
+    pub consensus_protocol_ref: String,
+    pub membership_ref: String,
+    pub membership_epoch: ArchitectureContractInteger,
+    pub fault_model:
+        ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceFaultModel,
+    pub total_voting_members: ArchitectureContractInteger,
+    pub byzantine_fault_tolerance: ArchitectureContractInteger,
+    pub quorum_threshold: ArchitectureContractInteger,
+    pub view: ArchitectureContractInteger,
+    pub members:
+        Vec<ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceMembersItem>,
+    pub votes:
+        Vec<ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceVotesItem>,
+    pub membership_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidence
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
+            r##"{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consensus_protocol_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"consensus_protocol_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consensus_protocol_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"membership_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fault_model: serde_json::from_value::<ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceFaultModel>(
+                object
+                    .remove(r#"fault_model"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fault_model"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            total_voting_members: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"total_voting_members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"total_voting_members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byzantine_fault_tolerance: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byzantine_fault_tolerance"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"byzantine_fault_tolerance"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quorum_threshold: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"quorum_threshold"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quorum_threshold"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            view: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"view"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"view"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            members: serde_json::from_value::<Vec<ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceMembersItem>>(
+                object
+                    .remove(r#"members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            votes: serde_json::from_value::<Vec<ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceVotesItem>>(
+                object
+                    .remove(r#"votes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"votes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceSchemaVersion {
+    #[serde(rename = r#"ioi.bft-consensus-evidence.v1"#)]
+    IoiBftConsensusEvidenceV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceFaultModel {
+    #[serde(rename = r#"byzantine"#)]
+    Byzantine,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceMembersItem {
+    pub member_ref: String,
+    pub public_key: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceMembersItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"public_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceVotesItem {
+    pub member_ref: String,
+    pub signature: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ReceiptProofBundleV2PreviousCheckpointFinalityCertificateConsensusEvidenceVotesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/receipt-proof-bundle/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signature: serde_json::from_value::<String>(
+                object
+                    .remove(r#"signature"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signature"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -115561,12 +116444,12 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/retention-class/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/retention-class/v1","title":"RetentionClass","description":"Source-neutral versioned payload retention obligation; it does not evidence fulfillment.","x-ioi-schema-version":"ioi.retention-class.v1","type":"object","additionalProperties":false,"required":["schema_version","retention_class","retain_until","minimum_copies","independent_failure_domains","deletion_or_archive_policy_ref"],"properties":{"schema_version":{"const":"ioi.retention-class.v1"},"retention_class":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"retain_until":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"minimum_copies":{"type":"integer","minimum":1,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":1,"maximum":1024},"deletion_or_archive_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"retention_class":{"const":"bounded_retention"}},"required":["retention_class"]},"then":{"properties":{"retain_until":{"type":"integer","minimum":1,"maximum":9007199254740991}}}},{"if":{"properties":{"retention_class":{"const":"durable_replicated"}},"required":["retention_class"]},"then":{"properties":{"minimum_copies":{"type":"integer","minimum":2,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":2,"maximum":1024}}}}]}"#),
     ("schema://ioi/foundations/verifier-contract/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/verifier-contract/v1","title":"VerifierContract","description":"Source-neutral fail-closed verifier contract separating portable verification axes and supported profile/certificate semantics.","x-ioi-schema-version":"ioi.verifier-contract.v1","type":"object","additionalProperties":false,"required":["schema_version","verifier_contract_id","verifier_contract_hash","supported_checkpoint_versions","supported_profile_members","supported_certificate_variants","axes","unknown_behavior","downgrade_behavior"],"properties":{"schema_version":{"const":"ioi.verifier-contract.v1"},"verifier_contract_id":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"supported_checkpoint_versions":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["ioi.foundations.receipt-checkpoint.v2"]}},"supported_profile_members":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/profile"}},"supported_certificate_variants":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/certificateVariant"}},"axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["axis","required_input_contract_ids","failure_behavior"],"properties":{"axis":{"$ref":"#/$defs/axis"},"required_input_contract_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"}},"failure_behavior":{"const":"fail_closed"}}}},"unknown_behavior":{"const":"refuse"},"downgrade_behavior":{"const":"refuse_cross_version_substitution"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"certificateVariant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]}}}"##),
     ("schema://ioi/foundations/availability-manifest/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/availability-manifest/v1","title":"AvailabilityManifest","description":"Source-neutral availability and retention obligations for every payload required by a recognized effect.","x-ioi-schema-version":"ioi.availability-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","manifest_id","manifest_hash","claim_status","retention","payloads","availability_verifier_contract_ref","availability_verifier_contract_hash","failure_behavior"],"properties":{"schema_version":{"const":"ioi.availability-manifest.v1"},"manifest_id":{"type":"string","pattern":"^availability-manifest://[^\\s]{1,248}$"},"manifest_hash":{"$ref":"#/$defs/hash"},"claim_status":{"enum":["declared","verified"]},"retention":{"$ref":"#/$defs/retention"},"payloads":{"type":"array","items":{"$ref":"#/$defs/payload"},"maxItems":4096},"availability_verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"availability_verifier_contract_hash":{"$ref":"#/$defs/hash"},"failure_behavior":{"const":"fail_closed"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"retention":{"type":"object","additionalProperties":false,"required":["schema_version","retention_class","retain_until","minimum_copies","independent_failure_domains","deletion_or_archive_policy_ref"],"properties":{"schema_version":{"const":"ioi.retention-class.v1"},"retention_class":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"retain_until":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"minimum_copies":{"type":"integer","minimum":1,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":1,"maximum":1024},"deletion_or_archive_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"retention_class":{"const":"bounded_retention"}},"required":["retention_class"]},"then":{"properties":{"retain_until":{"type":"integer","minimum":1,"maximum":9007199254740991}}}},{"if":{"properties":{"retention_class":{"const":"durable_replicated"}},"required":["retention_class"]},"then":{"properties":{"minimum_copies":{"type":"integer","minimum":2,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":2,"maximum":1024}}}}]},"payload":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_hash","byte_length","location_refs","failure_domain_refs","retrieval_evidence_refs"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_hash":{"$ref":"#/$defs/hash"},"byte_length":{"type":"integer","minimum":0,"maximum":9007199254740991},"location_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^location://[^\\s]{1,248}$"}},"failure_domain_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^failure-domain://[^\\s]{1,248}$"}},"retrieval_evidence_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"}}}}}}"##),
-    ("schema://ioi/foundations/finality-certificate/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/finality-certificate/v1","title":"FinalityCertificate","description":"Source-neutral certificate binding one checkpoint to one versioned ordering/finality claim and named verifier contract.","x-ioi-schema-version":"ioi.finality-certificate.v1","type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"single_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"single_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"replicated_single_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"replicated_single_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"threshold_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"threshold_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"bft_consensus"}}}},{"if":{"properties":{"certificate_variant":{"const":"external_chain_finality_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"external_chain_finality"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]}}}"##),
+    ("schema://ioi/foundations/finality-certificate/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/finality-certificate/v1","title":"FinalityCertificate","description":"Source-neutral certificate binding one checkpoint to one versioned ordering/finality claim and named verifier contract.","x-ioi-schema-version":"ioi.finality-certificate.v1","type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}},{"if":{"properties":{"certificate_variant":{"const":"single_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"single_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"replicated_single_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"replicated_single_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"threshold_authority_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"threshold_authority"}}}},{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"bft_consensus"}}}},{"if":{"properties":{"certificate_variant":{"const":"external_chain_finality_v1"}},"required":["certificate_variant"]},"then":{"properties":{"profile":{"const":"external_chain_finality"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"consensusEvidence":{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/foundations/receipt-checkpoint/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v1","title":"ReceiptCheckpoint","description":"Signed checkpoint over one versioned append-only receipt hash-chain accumulator.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v1","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","signature_domain","schema_hash","checkpoint_id","receipt_log_id","accumulator_algorithm","receipt_body_hash_profile","receipt_contract_id","receipt_schema_hash","accumulator_size","accumulator_root","previous_checkpoint_ref","previous_checkpoint_hash","previous_accumulator_size","previous_accumulator_root","issuer_id","issuer_key_set_ref","issuer_key_set_version","issuer_key_id","issued_at","build_identity_ref","policy_posture_ref","body_hash","signature_suite","signature_key_id","signature"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v1"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"signature_domain":{"const":"ioi.receipt-checkpoint.v1"},"schema_hash":{"$ref":"#/$defs/sha256Hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"receipt_log_id":{"$ref":"#/$defs/logRef"},"accumulator_algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"accumulator_size":{"type":"integer","minimum":1,"maximum":9007199254740991},"accumulator_root":{"$ref":"#/$defs/sha256Hash"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"previous_accumulator_size":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"previous_accumulator_root":{"anyOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"issuer_id":{"$ref":"#/$defs/issuerRef"},"issuer_key_set_ref":{"$ref":"#/$defs/keySetRef"},"issuer_key_set_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"issuer_key_id":{"$ref":"#/$defs/keyRef"},"issued_at":{"type":"integer","minimum":0,"maximum":9007199254740991},"build_identity_ref":{"$ref":"#/$defs/buildRef"},"policy_posture_ref":{"$ref":"#/$defs/policyRef"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"signature_suite":{"const":"ed25519"},"signature_key_id":{"$ref":"#/$defs/keyRef"},"signature":{"$ref":"#/$defs/ed25519Signature"}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]+$"},"logRef":{"type":"string","pattern":"^receipt-log://[^\\s]+$"},"issuerRef":{"type":"string","pattern":"^(?:system|wallet|org|policy)://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"buildRef":{"type":"string","pattern":"^build://[^\\s]+$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"##),
-    ("schema://ioi/foundations/receipt-checkpoint/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v2","title":"ReceiptCheckpoint","description":"Distinct v2 recognized-effect checkpoint binding exact state, receipt, authority, availability, profile, verifier, and certificate claims without changing ReceiptCheckpoint v1.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v2","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","checkpoint_domain","schema_hash","checkpoint_id","body_hash","domain_id","authority_epoch","authority_revocation_epoch","operation_range","receipt_range","previous_checkpoint_ref","previous_checkpoint_hash","previous_canonical_head","resulting_canonical_head","previous_state_commitment","resulting_state_commitment","operation_root","receipt_root","conflict_authority_binding","conflict_authority_binding_hash","constitution_root","admission_kernel_root","policy_root","profile_contract_version","profile","recognition","availability_manifest","availability_manifest_hash","retention_class","verifier_contract","verifier_contract_hash","durability_class","finality_certificate"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v2"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"checkpoint_domain":{"const":"ioi.receipt-checkpoint.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"body_hash":{"$ref":"#/$defs/hash"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"previous_canonical_head":{"$ref":"#/$defs/hash"},"resulting_canonical_head":{"$ref":"#/$defs/hash"},"previous_state_commitment":{"$ref":"#/$defs/stateCommitment"},"resulting_state_commitment":{"$ref":"#/$defs/stateCommitment"},"operation_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"conflict_authority_binding":{"$ref":"#/$defs/conflictBinding"},"conflict_authority_binding_hash":{"$ref":"#/$defs/hash"},"constitution_root":{"$ref":"#/$defs/hash"},"admission_kernel_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"recognition":{"$ref":"#/$defs/recognition"},"availability_manifest":{"$ref":"#/$defs/availability"},"availability_manifest_hash":{"$ref":"#/$defs/hash"},"retention_class":{"$ref":"#/$defs/retentionClass"},"verifier_contract":{"$ref":"#/$defs/verifier"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"durability_class":{"enum":["buffered","device_flush","replicated_same_host","quorum_replicated"]},"finality_certificate":{"$ref":"#/$defs/certificate"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},"domainRef":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"stateCommitment":{"type":"object","additionalProperties":false,"required":["algorithm","version","root"],"properties":{"algorithm":{"const":"ioi.sorted-state-jcs-sha256.v1"},"version":{"type":"integer","minimum":0,"maximum":9007199254740991},"root":{"$ref":"#/$defs/hash"}}},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"retentionClass":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"recognition":{"type":"object","additionalProperties":false,"required":["schema_version","effect_hash","recognition_class","derivation_status","invariant_domain_refs","conflict_keys_enumerated","canonical_effect","ordinary_admission_permitted","binding_hash"],"properties":{"schema_version":{"const":"ioi.recognition-class.v1"},"effect_hash":{"$ref":"#/$defs/hash"},"recognition_class":{"enum":["K1","K2","K3","K4","K5","K6","K7"]},"derivation_status":{"enum":["resolved","unknown_invariant_domain","unenumerable_conflict_keys","ambiguous_rules"]},"invariant_domain_refs":{"type":"array","items":{"type":"string","pattern":"^invariant://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"conflict_keys_enumerated":{"type":"boolean"},"canonical_effect":{"type":"boolean"},"ordinary_admission_permitted":{"type":"boolean"},"binding_hash":{"$ref":"#/$defs/hash"}}},"conflictBinding":{"type":"object","additionalProperties":false,"required":["schema_version","effect_hash","invariant_domain_refs","touched_objects","conflict_keys","consumed_authority","joint_conflict_key","binding_hash"],"properties":{"schema_version":{"const":"ioi.conflict-authority-binding.v1"},"effect_hash":{"$ref":"#/$defs/hash"},"invariant_domain_refs":{"type":"array","items":{"type":"string","pattern":"^invariant://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"touched_objects":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["object_ref","previous_version","resulting_version","previous_head","resulting_head"],"properties":{"object_ref":{"type":"string","pattern":"^object://[^\\s]{1,248}$"},"previous_version":{"type":"integer","minimum":0,"maximum":9007199254740991},"resulting_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"previous_head":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_head":{"$ref":"#/$defs/hash"}}}},"conflict_keys":{"type":"array","maxItems":4096,"uniqueItems":true,"items":{"type":"string","pattern":"^conflict-key://[^\\s]{1,248}$"}},"consumed_authority":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["authority_ref","authority_head","nullifier_commitment","revocation_epoch","remaining_allowance_commitment"],"properties":{"authority_ref":{"type":"string","pattern":"^(?:grant|lease|capability|authority)://[^\\s]{1,248}$"},"authority_head":{"$ref":"#/$defs/hash"},"nullifier_commitment":{"$ref":"#/$defs/hash"},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"remaining_allowance_commitment":{"$ref":"#/$defs/hash"}}}},"joint_conflict_key":{"anyOf":[{"type":"string","pattern":"^conflict-key://[^\\s]{1,248}$"},{"type":"null"}]},"binding_hash":{"$ref":"#/$defs/hash"}}},"retention":{"type":"object","additionalProperties":false,"required":["schema_version","retention_class","retain_until","minimum_copies","independent_failure_domains","deletion_or_archive_policy_ref"],"properties":{"schema_version":{"const":"ioi.retention-class.v1"},"retention_class":{"$ref":"#/$defs/retentionClass"},"retain_until":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"minimum_copies":{"type":"integer","minimum":1,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":1,"maximum":1024},"deletion_or_archive_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"retention_class":{"const":"bounded_retention"}},"required":["retention_class"]},"then":{"properties":{"retain_until":{"type":"integer","minimum":1,"maximum":9007199254740991}}}},{"if":{"properties":{"retention_class":{"const":"durable_replicated"}},"required":["retention_class"]},"then":{"properties":{"minimum_copies":{"type":"integer","minimum":2,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":2,"maximum":1024}}}}]},"availability":{"type":"object","additionalProperties":false,"required":["schema_version","manifest_id","manifest_hash","claim_status","retention","payloads","availability_verifier_contract_ref","availability_verifier_contract_hash","failure_behavior"],"properties":{"schema_version":{"const":"ioi.availability-manifest.v1"},"manifest_id":{"type":"string","pattern":"^availability-manifest://[^\\s]{1,248}$"},"manifest_hash":{"$ref":"#/$defs/hash"},"claim_status":{"enum":["declared","verified"]},"retention":{"$ref":"#/$defs/retention"},"payloads":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_hash","byte_length","location_refs","failure_domain_refs","retrieval_evidence_refs"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_hash":{"$ref":"#/$defs/hash"},"byte_length":{"type":"integer","minimum":0,"maximum":9007199254740991},"location_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^location://[^\\s]{1,248}$"}},"failure_domain_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^failure-domain://[^\\s]{1,248}$"}},"retrieval_evidence_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"}}}}},"availability_verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"availability_verifier_contract_hash":{"$ref":"#/$defs/hash"},"failure_behavior":{"const":"fail_closed"}}},"verifier":{"type":"object","additionalProperties":false,"required":["schema_version","verifier_contract_id","verifier_contract_hash","supported_checkpoint_versions","supported_profile_members","supported_certificate_variants","axes","unknown_behavior","downgrade_behavior"],"properties":{"schema_version":{"const":"ioi.verifier-contract.v1"},"verifier_contract_id":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"supported_checkpoint_versions":{"type":"array","minItems":1,"uniqueItems":true,"items":{"const":"ioi.foundations.receipt-checkpoint.v2"}},"supported_profile_members":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/profile"}},"supported_certificate_variants":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/variant"}},"axes":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["axis","required_input_contract_ids","failure_behavior"],"properties":{"axis":{"$ref":"#/$defs/axis"},"required_input_contract_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"}},"failure_behavior":{"const":"fail_closed"}}}},"unknown_behavior":{"const":"refuse"},"downgrade_behavior":{"const":"refuse_cross_version_substitution"}}},"certificate":{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}}}"##),
+    ("schema://ioi/foundations/receipt-checkpoint/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-checkpoint/v2","title":"ReceiptCheckpoint","description":"Distinct v2 recognized-effect checkpoint binding exact state, receipt, authority, availability, profile, verifier, and certificate claims without changing ReceiptCheckpoint v1.","x-ioi-schema-version":"ioi.foundations.receipt-checkpoint.v2","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","checkpoint_domain","schema_hash","checkpoint_id","body_hash","domain_id","authority_epoch","authority_revocation_epoch","operation_range","receipt_range","previous_checkpoint_ref","previous_checkpoint_hash","previous_canonical_head","resulting_canonical_head","previous_state_commitment","resulting_state_commitment","operation_root","receipt_root","conflict_authority_binding","conflict_authority_binding_hash","constitution_root","admission_kernel_root","policy_root","profile_contract_version","profile","recognition","availability_manifest","availability_manifest_hash","retention_class","verifier_contract","verifier_contract_hash","durability_class","finality_certificate"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v2"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"checkpoint_domain":{"const":"ioi.receipt-checkpoint.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"checkpoint_id":{"$ref":"#/$defs/checkpointRef"},"body_hash":{"$ref":"#/$defs/hash"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"previous_checkpoint_ref":{"anyOf":[{"$ref":"#/$defs/checkpointRef"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"previous_canonical_head":{"$ref":"#/$defs/hash"},"resulting_canonical_head":{"$ref":"#/$defs/hash"},"previous_state_commitment":{"$ref":"#/$defs/stateCommitment"},"resulting_state_commitment":{"$ref":"#/$defs/stateCommitment"},"operation_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"conflict_authority_binding":{"$ref":"#/$defs/conflictBinding"},"conflict_authority_binding_hash":{"$ref":"#/$defs/hash"},"constitution_root":{"$ref":"#/$defs/hash"},"admission_kernel_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"recognition":{"$ref":"#/$defs/recognition"},"availability_manifest":{"$ref":"#/$defs/availability"},"availability_manifest_hash":{"$ref":"#/$defs/hash"},"retention_class":{"$ref":"#/$defs/retentionClass"},"verifier_contract":{"$ref":"#/$defs/verifier"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"durability_class":{"enum":["buffered","device_flush","replicated_same_host","quorum_replicated"]},"finality_certificate":{"$ref":"#/$defs/certificate"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"checkpointRef":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},"domainRef":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"stateCommitment":{"type":"object","additionalProperties":false,"required":["algorithm","version","root"],"properties":{"algorithm":{"const":"ioi.sorted-state-jcs-sha256.v1"},"version":{"type":"integer","minimum":0,"maximum":9007199254740991},"root":{"$ref":"#/$defs/hash"}}},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"retentionClass":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"consensusEvidence":{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}},"recognition":{"type":"object","additionalProperties":false,"required":["schema_version","effect_hash","recognition_class","derivation_status","invariant_domain_refs","conflict_keys_enumerated","canonical_effect","ordinary_admission_permitted","binding_hash"],"properties":{"schema_version":{"const":"ioi.recognition-class.v1"},"effect_hash":{"$ref":"#/$defs/hash"},"recognition_class":{"enum":["K1","K2","K3","K4","K5","K6","K7"]},"derivation_status":{"enum":["resolved","unknown_invariant_domain","unenumerable_conflict_keys","ambiguous_rules"]},"invariant_domain_refs":{"type":"array","items":{"type":"string","pattern":"^invariant://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"conflict_keys_enumerated":{"type":"boolean"},"canonical_effect":{"type":"boolean"},"ordinary_admission_permitted":{"type":"boolean"},"binding_hash":{"$ref":"#/$defs/hash"}}},"conflictBinding":{"type":"object","additionalProperties":false,"required":["schema_version","effect_hash","invariant_domain_refs","touched_objects","conflict_keys","consumed_authority","joint_conflict_key","binding_hash"],"properties":{"schema_version":{"const":"ioi.conflict-authority-binding.v1"},"effect_hash":{"$ref":"#/$defs/hash"},"invariant_domain_refs":{"type":"array","items":{"type":"string","pattern":"^invariant://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"touched_objects":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["object_ref","previous_version","resulting_version","previous_head","resulting_head"],"properties":{"object_ref":{"type":"string","pattern":"^object://[^\\s]{1,248}$"},"previous_version":{"type":"integer","minimum":0,"maximum":9007199254740991},"resulting_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"previous_head":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_head":{"$ref":"#/$defs/hash"}}}},"conflict_keys":{"type":"array","maxItems":4096,"uniqueItems":true,"items":{"type":"string","pattern":"^conflict-key://[^\\s]{1,248}$"}},"consumed_authority":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["authority_ref","authority_head","nullifier_commitment","revocation_epoch","remaining_allowance_commitment"],"properties":{"authority_ref":{"type":"string","pattern":"^(?:grant|lease|capability|authority)://[^\\s]{1,248}$"},"authority_head":{"$ref":"#/$defs/hash"},"nullifier_commitment":{"$ref":"#/$defs/hash"},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"remaining_allowance_commitment":{"$ref":"#/$defs/hash"}}}},"joint_conflict_key":{"anyOf":[{"type":"string","pattern":"^conflict-key://[^\\s]{1,248}$"},{"type":"null"}]},"binding_hash":{"$ref":"#/$defs/hash"}}},"retention":{"type":"object","additionalProperties":false,"required":["schema_version","retention_class","retain_until","minimum_copies","independent_failure_domains","deletion_or_archive_policy_ref"],"properties":{"schema_version":{"const":"ioi.retention-class.v1"},"retention_class":{"$ref":"#/$defs/retentionClass"},"retain_until":{"anyOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}]},"minimum_copies":{"type":"integer","minimum":1,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":1,"maximum":1024},"deletion_or_archive_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"retention_class":{"const":"bounded_retention"}},"required":["retention_class"]},"then":{"properties":{"retain_until":{"type":"integer","minimum":1,"maximum":9007199254740991}}}},{"if":{"properties":{"retention_class":{"const":"durable_replicated"}},"required":["retention_class"]},"then":{"properties":{"minimum_copies":{"type":"integer","minimum":2,"maximum":1024},"independent_failure_domains":{"type":"integer","minimum":2,"maximum":1024}}}}]},"availability":{"type":"object","additionalProperties":false,"required":["schema_version","manifest_id","manifest_hash","claim_status","retention","payloads","availability_verifier_contract_ref","availability_verifier_contract_hash","failure_behavior"],"properties":{"schema_version":{"const":"ioi.availability-manifest.v1"},"manifest_id":{"type":"string","pattern":"^availability-manifest://[^\\s]{1,248}$"},"manifest_hash":{"$ref":"#/$defs/hash"},"claim_status":{"enum":["declared","verified"]},"retention":{"$ref":"#/$defs/retention"},"payloads":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_hash","byte_length","location_refs","failure_domain_refs","retrieval_evidence_refs"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_hash":{"$ref":"#/$defs/hash"},"byte_length":{"type":"integer","minimum":0,"maximum":9007199254740991},"location_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^location://[^\\s]{1,248}$"}},"failure_domain_refs":{"type":"array","minItems":1,"maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^failure-domain://[^\\s]{1,248}$"}},"retrieval_evidence_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"}}}}},"availability_verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"availability_verifier_contract_hash":{"$ref":"#/$defs/hash"},"failure_behavior":{"const":"fail_closed"}}},"verifier":{"type":"object","additionalProperties":false,"required":["schema_version","verifier_contract_id","verifier_contract_hash","supported_checkpoint_versions","supported_profile_members","supported_certificate_variants","axes","unknown_behavior","downgrade_behavior"],"properties":{"schema_version":{"const":"ioi.verifier-contract.v1"},"verifier_contract_id":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"supported_checkpoint_versions":{"type":"array","minItems":1,"uniqueItems":true,"items":{"const":"ioi.foundations.receipt-checkpoint.v2"}},"supported_profile_members":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/profile"}},"supported_certificate_variants":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/variant"}},"axes":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["axis","required_input_contract_ids","failure_behavior"],"properties":{"axis":{"$ref":"#/$defs/axis"},"required_input_contract_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"}},"failure_behavior":{"const":"fail_closed"}}}},"unknown_behavior":{"const":"refuse"},"downgrade_behavior":{"const":"refuse_cross_version_substitution"}}},"certificate":{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"$ref":"#/$defs/variant"},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"$ref":"#/$defs/domainRef"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"$ref":"#/$defs/profile"},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}}]}}}"##),
     ("schema://ioi/foundations/receipt-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-envelope/v1","title":"ReceiptEnvelope","description":"Portable base envelope shared by registered IOI receipt profiles.","x-ioi-schema-version":"ioi.foundations.receipt-envelope.v1","type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"},"receipt_profile_ref":{"$ref":"#/$defs/schemaRef"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"uniqueItems":true},"claim_scope_ref":{"anyOf":[{"$ref":"#/$defs/schemaOrPolicyRef"},{"type":"null"}]},"run_id":{"anyOf":[{"$ref":"#/$defs/runRef"},{"type":"null"}]},"task_id":{"anyOf":[{"$ref":"#/$defs/taskRef"},{"type":"null"}]},"actor_id":{"$ref":"#/$defs/protocolPrincipalOrRuntimeRef"},"input_hash":{"$ref":"#/$defs/hash"},"output_hash":{"$ref":"#/$defs/hash"},"policy_hash":{"$ref":"#/$defs/hash"},"authority_grant_id":{"anyOf":[{"$ref":"#/$defs/grantRef"},{"type":"null"}]},"primitive_capabilities":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"uniqueItems":true},"authority_scopes":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"uniqueItems":true},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"uniqueItems":true},"verification_ref":{"anyOf":[{"$ref":"#/$defs/verificationRef"},{"type":"null"}]},"acceptance_ref":{"anyOf":[{"$ref":"#/$defs/acceptanceRef"},{"type":"null"}]},"adjudication_ref":{"anyOf":[{"$ref":"#/$defs/adjudicationRef"},{"type":"null"}]},"settlement_ref":{"anyOf":[{"$ref":"#/$defs/settlementRef"},{"type":"null"}]},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"description":"Legacy opaque signature string. Cut 2 owns a future portable signing envelope.","anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"$ref":"#/$defs/publicCommitmentRef"},{"type":"null"}]}},"$defs":{"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]+$"},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]+$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]+$"},"runRef":{"type":"string","pattern":"^run://[^\\s]+$"},"taskRef":{"type":"string","pattern":"^task://[^\\s]+$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]+$"},"protocolPrincipalOrRuntimeRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]+$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]+$"},"verificationRef":{"type":"string","pattern":"^(?:verifier-path|verification|receipt)://[^\\s]+$"},"acceptanceRef":{"type":"string","pattern":"^acceptance://[^\\s]+$"},"adjudicationRef":{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]+$"},"settlementRef":{"type":"string","pattern":"^settlement://[^\\s]+$"},"publicCommitmentRef":{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]+$"},"hash":{"type":"string","minLength":1}}}"##),
     ("schema://ioi/foundations/receipt-proof-bundle/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-proof-bundle/v1","title":"ReceiptProofBundle","description":"Offline export of one exact receipt, its hash-chain inclusion witness, and signed checkpoint consistency material.","x-ioi-schema-version":"ioi.foundations.receipt-proof-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_type","manifest_domain","bundle_schema_hash","manifest_hash","manifest_signature_suite","manifest_signature_key_id","manifest_signature","bundle_id","receipt_contract_id","receipt_schema_hash","receipt_body_hash_profile","receipt","receipt_body_hash","leaf","inclusion_proof","checkpoint","previous_checkpoint","consistency_proof","trusted_input_refs","verification_instructions"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-proof-bundle.v1"},"bundle_type":{"const":"ioi.receipt-proof-bundle"},"manifest_domain":{"const":"ioi.receipt-proof-bundle-manifest.v1"},"bundle_schema_hash":{"$ref":"#/$defs/sha256Hash"},"manifest_hash":{"$ref":"#/$defs/sha256Hash"},"manifest_signature_suite":{"const":"ed25519"},"manifest_signature_key_id":{"$ref":"#/$defs/keyRef"},"manifest_signature":{"$ref":"#/$defs/ed25519Signature"},"bundle_id":{"$ref":"#/$defs/proofRef"},"receipt_contract_id":{"const":"schema://ioi/foundations/receipt-envelope/v1"},"receipt_schema_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_body_hash_profile":{"const":"ioi.receipt-envelope-jcs-sha256.v1"},"receipt":{"type":"object"},"receipt_body_hash":{"$ref":"#/$defs/sha256Hash"},"leaf":{"type":"object","additionalProperties":false,"required":["algorithm","domain","leaf_index","leaf_hash"],"properties":{"algorithm":{"const":"ioi.receipt-hash-chain-jcs-sha256.v1"},"domain":{"const":"ioi.receipt-accumulator-leaf.v1"},"leaf_index":{"type":"integer","minimum":0,"maximum":9007199254740991},"leaf_hash":{"$ref":"#/$defs/sha256Hash"}}},"inclusion_proof":{"type":"object","additionalProperties":false,"required":["profile","leaf_index","prefix_root","suffix_leaf_hashes"],"properties":{"profile":{"const":"ioi.receipt-hash-chain-inclusion.v1"},"leaf_index":{"type":"integer","minimum":0,"maximum":9007199254740991},"prefix_root":{"$ref":"#/$defs/sha256Hash"},"suffix_leaf_hashes":{"type":"array","items":{"$ref":"#/$defs/sha256Hash"}}}},"checkpoint":{"type":"object"},"previous_checkpoint":{"anyOf":[{"type":"object"},{"type":"null"}]},"consistency_proof":{"type":"object","additionalProperties":false,"required":["profile","from_size","from_root","extension_leaf_hashes"],"properties":{"profile":{"const":"ioi.receipt-hash-chain-consistency.v1"},"from_size":{"type":"integer","minimum":0,"maximum":9007199254740991},"from_root":{"$ref":"#/$defs/sha256Hash"},"extension_leaf_hashes":{"type":"array","items":{"$ref":"#/$defs/sha256Hash"}}}},"trusted_input_refs":{"type":"object","additionalProperties":false,"required":["key_set_ref","key_set_version","revocation_snapshot_ref","revocation_epoch"],"properties":{"key_set_ref":{"$ref":"#/$defs/keySetRef"},"key_set_version":{"type":"integer","minimum":1,"maximum":9007199254740991},"revocation_snapshot_ref":{"$ref":"#/$defs/snapshotRef"},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"verification_instructions":{"type":"object","additionalProperties":false,"required":["profile","steps","offline_required_inputs"],"properties":{"profile":{"const":"ioi.receipt-proof-verification.v1"},"steps":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"offline_required_inputs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["trusted_key_set","signed_revocation_snapshot","trusted_time"]}}}}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"proofRef":{"type":"string","pattern":"^proof://[^\\s]+$"},"keySetRef":{"type":"string","pattern":"^keyset://[^\\s]+$"},"snapshotRef":{"type":"string","pattern":"^snapshot://[^\\s]+$"},"keyRef":{"type":"string","pattern":"^key://[^\\s]+$"},"ed25519Signature":{"type":"string","pattern":"^[A-Za-z0-9_-]{86}$"}}}"##),
-    ("schema://ioi/foundations/receipt-proof-bundle/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-proof-bundle/v2","title":"ReceiptProofBundle","description":"Distinct v2 offline proof bundle carrying every input required to recompute and verify a ReceiptCheckpoint v2 claim; it never reinterprets v1.","x-ioi-schema-version":"ioi.foundations.receipt-proof-bundle.v2","type":"object","additionalProperties":false,"required":["schema_version","bundle_type","bundle_domain","schema_hash","bundle_id","bundle_hash","checkpoint","previous_checkpoint","operations","receipts","previous_state_entries","resulting_state_entries","availability_payloads","trusted_issuer","requested_axes","compatibility_behavior"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-proof-bundle.v2"},"bundle_type":{"const":"ioi.receipt-proof-bundle"},"bundle_domain":{"const":"ioi.receipt-proof-bundle.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"bundle_id":{"type":"string","pattern":"^proof://[^\\s]{1,248}$"},"bundle_hash":{"$ref":"#/$defs/hash"},"checkpoint":{"$ref":"#/$defs/checkpoint"},"previous_checkpoint":{"anyOf":[{"$ref":"#/$defs/checkpoint"},{"type":"null"}]},"operations":{"type":"array","minItems":1,"maxItems":65536,"items":{"$ref":"#/$defs/material"}},"receipts":{"type":"array","minItems":1,"maxItems":65536,"items":{"$ref":"#/$defs/material"}},"previous_state_entries":{"type":"array","maxItems":65536,"items":{"$ref":"#/$defs/stateEntry"}},"resulting_state_entries":{"type":"array","maxItems":65536,"items":{"$ref":"#/$defs/stateEntry"}},"availability_payloads":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_base64"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_base64":{"type":"string","pattern":"^[A-Za-z0-9+/]*={0,2}$"}}}},"trusted_issuer":{"type":"object","additionalProperties":false,"required":["issuer_key_id","issuer_public_key","domain_id","authority_epoch","revocation_epoch"],"properties":{"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"requested_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"compatibility_behavior":{"const":"v1_and_unknown_versions_refused"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"material":{"type":"object","additionalProperties":false,"required":["sequence","body","body_hash"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"body":{"type":"object"},"body_hash":{"$ref":"#/$defs/hash"}}},"stateEntry":{"type":"object","additionalProperties":false,"required":["key","value_hash"],"properties":{"key":{"type":"string","minLength":1,"maxLength":1024},"value_hash":{"$ref":"#/$defs/hash"}}},"checkpoint":{"type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","checkpoint_domain","schema_hash","checkpoint_id","body_hash","domain_id","authority_epoch","authority_revocation_epoch","operation_range","receipt_range","previous_checkpoint_ref","previous_checkpoint_hash","previous_canonical_head","resulting_canonical_head","previous_state_commitment","resulting_state_commitment","operation_root","receipt_root","conflict_authority_binding","conflict_authority_binding_hash","constitution_root","admission_kernel_root","policy_root","profile_contract_version","profile","recognition","availability_manifest","availability_manifest_hash","retention_class","verifier_contract","verifier_contract_hash","durability_class","finality_certificate"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v2"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"checkpoint_domain":{"const":"ioi.receipt-checkpoint.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"checkpoint_id":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},"body_hash":{"$ref":"#/$defs/hash"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"previous_checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"previous_canonical_head":{"$ref":"#/$defs/hash"},"resulting_canonical_head":{"$ref":"#/$defs/hash"},"previous_state_commitment":{"$ref":"#/$defs/stateCommitment"},"resulting_state_commitment":{"$ref":"#/$defs/stateCommitment"},"operation_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"conflict_authority_binding":{"type":"object"},"conflict_authority_binding_hash":{"$ref":"#/$defs/hash"},"constitution_root":{"$ref":"#/$defs/hash"},"admission_kernel_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"recognition":{"type":"object"},"availability_manifest":{"type":"object"},"availability_manifest_hash":{"$ref":"#/$defs/hash"},"retention_class":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"verifier_contract":{"type":"object"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"durability_class":{"enum":["buffered","device_flush","replicated_same_host","quorum_replicated"]},"finality_certificate":{"$ref":"#/$defs/certificate"}}},"certificate":{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"stateCommitment":{"type":"object","additionalProperties":false,"required":["algorithm","version","root"],"properties":{"algorithm":{"const":"ioi.sorted-state-jcs-sha256.v1"},"version":{"type":"integer","minimum":0,"maximum":9007199254740991},"root":{"$ref":"#/$defs/hash"}}}}}"##),
+    ("schema://ioi/foundations/receipt-proof-bundle/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/receipt-proof-bundle/v2","title":"ReceiptProofBundle","description":"Distinct v2 offline proof bundle carrying every input required to recompute and verify a ReceiptCheckpoint v2 claim; it never reinterprets v1.","x-ioi-schema-version":"ioi.foundations.receipt-proof-bundle.v2","type":"object","additionalProperties":false,"required":["schema_version","bundle_type","bundle_domain","schema_hash","bundle_id","bundle_hash","checkpoint","previous_checkpoint","operations","receipts","previous_state_entries","resulting_state_entries","availability_payloads","trusted_issuer","requested_axes","compatibility_behavior"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-proof-bundle.v2"},"bundle_type":{"const":"ioi.receipt-proof-bundle"},"bundle_domain":{"const":"ioi.receipt-proof-bundle.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"bundle_id":{"type":"string","pattern":"^proof://[^\\s]{1,248}$"},"bundle_hash":{"$ref":"#/$defs/hash"},"checkpoint":{"$ref":"#/$defs/checkpoint"},"previous_checkpoint":{"anyOf":[{"$ref":"#/$defs/checkpoint"},{"type":"null"}]},"operations":{"type":"array","minItems":1,"maxItems":65536,"items":{"$ref":"#/$defs/material"}},"receipts":{"type":"array","minItems":1,"maxItems":65536,"items":{"$ref":"#/$defs/material"}},"previous_state_entries":{"type":"array","maxItems":65536,"items":{"$ref":"#/$defs/stateEntry"}},"resulting_state_entries":{"type":"array","maxItems":65536,"items":{"$ref":"#/$defs/stateEntry"}},"availability_payloads":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["payload_ref","payload_base64"],"properties":{"payload_ref":{"type":"string","pattern":"^(?:artifact|payload)://[^\\s]{1,248}$"},"payload_base64":{"type":"string","pattern":"^[A-Za-z0-9+/]*={0,2}$"}}}},"trusted_issuer":{"type":"object","additionalProperties":false,"required":["issuer_key_id","issuer_public_key","domain_id","authority_epoch","revocation_epoch"],"properties":{"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"requested_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"compatibility_behavior":{"const":"v1_and_unknown_versions_refused"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"axis":{"enum":["integrity","valid_as_of","currentness","availability","non_equivocation","authority_admission","economic_recognition"]},"consensusEvidence":{"description":"Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.","type":"object","additionalProperties":false,"required":["schema_version","consensus_protocol_ref","membership_ref","membership_epoch","fault_model","total_voting_members","byzantine_fault_tolerance","quorum_threshold","view","members","votes","membership_hash"],"properties":{"schema_version":{"const":"ioi.bft-consensus-evidence.v1"},"consensus_protocol_ref":{"type":"string","pattern":"^protocol://[^\\s]{1,248}$"},"membership_ref":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"fault_model":{"const":"byzantine"},"total_voting_members":{"type":"integer","minimum":4,"maximum":1024},"byzantine_fault_tolerance":{"type":"integer","minimum":1,"maximum":341},"quorum_threshold":{"type":"integer","minimum":3,"maximum":1024},"view":{"type":"integer","minimum":0,"maximum":9007199254740991},"members":{"type":"array","minItems":4,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","public_key"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"}}}},"votes":{"type":"array","minItems":3,"maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["member_ref","signature"],"properties":{"member_ref":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"}}}},"membership_hash":{"$ref":"#/$defs/hash"}}},"material":{"type":"object","additionalProperties":false,"required":["sequence","body","body_hash"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"body":{"type":"object"},"body_hash":{"$ref":"#/$defs/hash"}}},"stateEntry":{"type":"object","additionalProperties":false,"required":["key","value_hash"],"properties":{"key":{"type":"string","minLength":1,"maxLength":1024},"value_hash":{"$ref":"#/$defs/hash"}}},"checkpoint":{"type":"object","additionalProperties":false,"required":["schema_version","checkpoint_type","checkpoint_domain","schema_hash","checkpoint_id","body_hash","domain_id","authority_epoch","authority_revocation_epoch","operation_range","receipt_range","previous_checkpoint_ref","previous_checkpoint_hash","previous_canonical_head","resulting_canonical_head","previous_state_commitment","resulting_state_commitment","operation_root","receipt_root","conflict_authority_binding","conflict_authority_binding_hash","constitution_root","admission_kernel_root","policy_root","profile_contract_version","profile","recognition","availability_manifest","availability_manifest_hash","retention_class","verifier_contract","verifier_contract_hash","durability_class","finality_certificate"],"properties":{"schema_version":{"const":"ioi.foundations.receipt-checkpoint.v2"},"checkpoint_type":{"const":"ioi.receipt-checkpoint"},"checkpoint_domain":{"const":"ioi.receipt-checkpoint.v2"},"schema_hash":{"$ref":"#/$defs/hash"},"checkpoint_id":{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},"body_hash":{"$ref":"#/$defs/hash"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"previous_checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^receipt-checkpoint://[^\\s]{1,248}$"},{"type":"null"}]},"previous_checkpoint_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"previous_canonical_head":{"$ref":"#/$defs/hash"},"resulting_canonical_head":{"$ref":"#/$defs/hash"},"previous_state_commitment":{"$ref":"#/$defs/stateCommitment"},"resulting_state_commitment":{"$ref":"#/$defs/stateCommitment"},"operation_root":{"$ref":"#/$defs/hash"},"receipt_root":{"$ref":"#/$defs/hash"},"conflict_authority_binding":{"type":"object"},"conflict_authority_binding_hash":{"$ref":"#/$defs/hash"},"constitution_root":{"$ref":"#/$defs/hash"},"admission_kernel_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"recognition":{"type":"object"},"availability_manifest":{"type":"object"},"availability_manifest_hash":{"$ref":"#/$defs/hash"},"retention_class":{"enum":["ephemeral_until_ack","bounded_retention","durable_local","durable_replicated","archival"]},"verifier_contract":{"type":"object"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"durability_class":{"enum":["buffered","device_flush","replicated_same_host","quorum_replicated"]},"finality_certificate":{"$ref":"#/$defs/certificate"}}},"certificate":{"type":"object","additionalProperties":false,"required":["schema_version","certificate_domain","certificate_variant","certificate_id","domain_id","authority_epoch","authority_revocation_epoch","checkpoint_hash","operation_range","receipt_range","profile_contract_version","profile","claimed_axes","verifier_contract_ref","verifier_contract_hash","issuer_key_id","issuer_public_key","body_hash","signature_suite","signature"],"properties":{"schema_version":{"const":"ioi.finality-certificate.v1"},"certificate_domain":{"const":"ioi.finality-certificate.v1"},"certificate_variant":{"enum":["single_authority_v1","replicated_single_authority_v1","threshold_authority_v1","bft_consensus_aft_v1","external_chain_finality_v1"]},"certificate_id":{"type":"string","pattern":"^finality-certificate://[^\\s]{1,248}$"},"domain_id":{"type":"string","pattern":"^(?:system|domain)://[^\\s]{1,248}$"},"authority_epoch":{"type":"integer","minimum":1,"maximum":9007199254740991},"authority_revocation_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"checkpoint_hash":{"$ref":"#/$defs/hash"},"operation_range":{"$ref":"#/$defs/range"},"receipt_range":{"$ref":"#/$defs/range"},"profile_contract_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"claimed_axes":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/axis"}},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[^\\s]{1,248}$"},"verifier_contract_hash":{"$ref":"#/$defs/hash"},"issuer_key_id":{"type":"string","pattern":"^key://[^\\s]{1,248}$"},"issuer_public_key":{"type":"string","pattern":"^[0-9a-f]{64}$"},"body_hash":{"$ref":"#/$defs/hash"},"signature_suite":{"const":"ed25519"},"signature":{"type":"string","pattern":"^[0-9a-f]{128}$"},"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"allOf":[{"if":{"properties":{"certificate_variant":{"const":"bft_consensus_aft_v1"}},"required":["certificate_variant"]},"then":{"properties":{"consensus_evidence":{"$ref":"#/$defs/consensusEvidence"}},"required":["consensus_evidence"]}}]},"range":{"type":"object","additionalProperties":false,"required":["first","last"],"properties":{"first":{"type":"integer","minimum":0,"maximum":9007199254740991},"last":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"stateCommitment":{"type":"object","additionalProperties":false,"required":["algorithm","version","root"],"properties":{"algorithm":{"const":"ioi.sorted-state-jcs-sha256.v1"},"version":{"type":"integer","minimum":0,"maximum":9007199254740991},"root":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/foundations/skill-entry/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-entry/v1","title":"SkillEntry","x-ioi-schema-version":"ioi.skill-entry.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_entry_id","binding_revision_ref","predecessor_binding_revision_ref","binding_hash","skill_revision_ref","skill_manifest_content_hash","owner_scope_ref","memory_space_ref","compatibility_decision_ref","configuration_ref","allowed_goal_run_profile_revision_refs","policy_refs","admitted_by_ref","admission_receipt_ref","revocation_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-entry.v1"},"skill_entry_id":{"type":"string","pattern":"^skill-entry://[^\\s/?#\\\\]{1,160}$"},"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"predecessor_binding_revision_ref":{"anyOf":[{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"skill_revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_scope_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"memory_space_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"compatibility_decision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"configuration_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"allowed_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"admitted_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"admission_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"revocation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["proposed","active","suspended","archived","revoked"]}}}"#),
     ("schema://ioi/foundations/skill-manifest/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/skill-manifest/v1","title":"SkillManifest","x-ioi-schema-version":"ioi.skill-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","skill_id","revision_ref","version","predecessor_revision_ref","content_hash","owner_ref","display_name","description","instruction_entrypoint_ref","procedure_and_reference_refs","example_refs","support_asset_refs","dependency_skill_revision_refs","runtime_tool_contract_requirement_refs","capability_requirement_refs","input_and_output_contract_refs","context_requirement_profile_refs","compatible_goal_run_profile_revision_refs","compatible_harness_profile_revision_refs","compatible_runtime_and_kernel_refs","provenance_refs","source_rights_and_license_refs","evaluation_and_benchmark_refs","promotion_policy_ref","revocation_and_recall_policy_ref","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"const":"ioi.skill-manifest.v1"},"skill_id":{"type":"string","pattern":"^skill://[^\\s/?#\\\\]{1,160}$"},"revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"version":{"type":"string"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project|system|user|ioi)://[^\\s]{1,500}$"},"display_name":{"type":"string","minLength":1},"description":{"type":"string"},"instruction_entrypoint_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,500}$"},"procedure_and_reference_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"}},"example_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"support_asset_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"dependency_skill_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"runtime_tool_contract_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"capability_requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"input_and_output_contract_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_requirement_profile_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_harness_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"compatible_runtime_and_kernel_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"source_rights_and_license_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"evaluation_and_benchmark_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"promotion_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"revocation_and_recall_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_lifecycle_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"registry_status":{"enum":["draft","evaluable","released","deprecated","revoked"]}}}"#),
     ("schema://ioi/foundations/system-scoped-object-binding/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/system-scoped-object-binding/v1","title":"SystemScopedObjectBinding","x-ioi-schema-version":"ioi.foundations.system-scoped-object-binding.v1","type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#),
@@ -118032,6 +118915,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^proposal://[^\s]{1,248}$"#,
         r#"^proposal://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^protocol://[^\s]{1,248}$"#,
+        r#"^protocol://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^provenance://[^\s]{1,248}$"#,
@@ -123117,7 +124004,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 729,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 730,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }
