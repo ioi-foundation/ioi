@@ -21,6 +21,7 @@ use agentgres::recognized_effect::{
 use anyhow::{anyhow, Context, Result};
 use ioi_api::chain::{
     block_execution_receipt_journal_key, BlockExecutionReceipt, BlockExecutionReceiptJournal,
+    StateRef, ViewResolver,
 };
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, NativeAftFinalizedEvidence};
@@ -210,9 +211,6 @@ where
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let workload = context.view_resolver.workload_client();
-    if workload.get_status().await?.height < candidate.header.height {
-        return Ok(false);
-    }
     let Some(local_block) = workload
         .get_block_by_height(candidate.header.height)
         .await?
@@ -223,22 +221,8 @@ where
         return Ok(false);
     }
 
-    let journal_bytes = workload
-        .query_raw_state(&block_execution_receipt_journal_key(
-            candidate.header.height,
-        ))
-        .await?
-        .ok_or_else(|| {
-            anyhow!(
-                "execution-equivalent block {} is missing its rooted execution-receipt journal",
-                candidate.header.height
-            )
-        })?;
-    let journal: BlockExecutionReceiptJournal =
-        from_bytes_canonical(&journal_bytes).map_err(anyhow::Error::msg)?;
-    journal
-        .validate_against(&candidate)
-        .map_err(|error| anyhow!(error.to_string()))?;
+    let journal =
+        verify_rooted_execution_journal(context.view_resolver.as_ref(), &candidate, None).await?;
     stage_runtime_block(context, candidate, journal.receipts).await?;
     Ok(true)
 }
@@ -421,25 +405,29 @@ where
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let qc = &evidence.quorum_certificate;
-    let staged_block = {
+    let staged = {
         let coordinator = context.runtime_finality.lock().await;
         if coordinator.has_staged_block(&qc.block_hash) {
-            Some(coordinator.read_staged(&qc.block_hash)?.block)
+            Some(coordinator.read_staged(&qc.block_hash)?)
         } else {
             None
         }
     };
 
     let workload = context.view_resolver.workload_client().clone();
-    if workload.get_status().await?.height < qc.height {
-        return Ok(NativeStageReadiness::Deferred);
-    }
     let Some(mut local_block) = workload.get_block_by_height(qc.height).await? else {
         return Ok(NativeStageReadiness::Deferred);
     };
     let local_hash = block_hash(&local_block)?;
-    if let Some(staged_block) = staged_block {
+    if let Some(staged) = staged {
+        let staged_block = staged.block;
         if local_hash == qc.block_hash {
+            verify_rooted_execution_journal(
+                context.view_resolver.as_ref(),
+                &staged_block,
+                Some(&staged.receipts),
+            )
+            .await?;
             return Ok(NativeStageReadiness::Ready);
         }
         if !block_execution_surface_matches(&local_block, &staged_block) {
@@ -463,8 +451,14 @@ where
             .map(|block| block.header.height)
             == Some(qc.height)
         {
-            context.last_executed_block = Some(staged_block);
+            context.last_executed_block = Some(staged_block.clone());
         }
+        verify_rooted_execution_journal(
+            context.view_resolver.as_ref(),
+            &staged_block,
+            Some(&staged.receipts),
+        )
+        .await?;
         return Ok(NativeStageReadiness::Ready);
     }
     if local_hash != qc.block_hash {
@@ -513,22 +507,53 @@ where
         }
     }
 
-    let journal_bytes = workload
-        .query_raw_state(&block_execution_receipt_journal_key(qc.height))
+    let journal =
+        verify_rooted_execution_journal(context.view_resolver.as_ref(), &local_block, None).await?;
+    stage_runtime_block(context, local_block, journal.receipts).await?;
+    Ok(NativeStageReadiness::Ready)
+}
+
+/// Re-resolves the execution journal at the exact state root authenticated by
+/// the finalized block. Public AFT status is deliberately collapse-backed and
+/// therefore cannot be used as a prerequisite for the Agentgres admission
+/// that advances that status. The staged envelope remains inert: readiness
+/// additionally requires a workload block at the height and a verified,
+/// state-rooted journal whose receipts exactly match any durable staged copy.
+async fn verify_rooted_execution_journal<V>(
+    resolver: &dyn ViewResolver<Verifier = V>,
+    block: &Block<ChainTransaction>,
+    staged_receipts: Option<&[BlockExecutionReceipt]>,
+) -> Result<BlockExecutionReceiptJournal>
+where
+    V: Verifier + Clone + Send + Sync + 'static,
+{
+    let state_ref = StateRef {
+        height: block.header.height,
+        state_root: block.header.state_root.0.clone(),
+        block_hash: block_hash(block)?,
+    };
+    let view = resolver.resolve_anchored(&state_ref).await?;
+    let journal_bytes = view
+        .get(&block_execution_receipt_journal_key(block.header.height))
         .await?
         .ok_or_else(|| {
             anyhow!(
                 "finalized AFT block {} is missing its rooted execution-receipt journal",
-                qc.height
+                block.header.height
             )
         })?;
     let journal: BlockExecutionReceiptJournal =
         from_bytes_canonical(&journal_bytes).map_err(anyhow::Error::msg)?;
     journal
-        .validate_against(&local_block)
+        .validate_against(block)
         .map_err(|error| anyhow!(error.to_string()))?;
-    stage_runtime_block(context, local_block, journal.receipts).await?;
-    Ok(NativeStageReadiness::Ready)
+    if staged_receipts.is_some_and(|receipts| receipts != journal.receipts) {
+        return Err(anyhow!(
+            "finalized AFT block {} staged/rooted receipt substitution",
+            block.header.height
+        ));
+    }
+    Ok(journal)
 }
 
 fn header_execution_surface_matches(

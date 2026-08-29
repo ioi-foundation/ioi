@@ -332,6 +332,24 @@ fn workload_tip_requires_hydration(
         || (workload_tip_height == local_tip_height && workload_tip_hash != local_tip_hash)
 }
 
+fn required_aft_bootstrap_peer_count(validator_count: usize) -> usize {
+    if validator_count <= 1 {
+        return 0;
+    }
+    // GuardianMajority uses the classic >2/3 count threshold for the
+    // peer-bearing runtime profile. The local validator supplies one vote;
+    // wait until enough remote validators are actually connected for the
+    // first proposal to be able to form a QC. Later proposals may traverse
+    // the established gossip mesh, so this direct-connect gate is bootstrap
+    // specific.
+    validator_count
+        .saturating_mul(2)
+        .checked_div(3)
+        .unwrap_or(0)
+        .saturating_add(1)
+        .saturating_sub(1)
+}
+
 fn nonce_scope(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     match tx {
         ChainTransaction::System(tx) => Some((tx.header.account_id, tx.header.nonce)),
@@ -1109,6 +1127,21 @@ where
             );
         }
         return Ok(());
+    }
+
+    if matches!(cons_ty, ioi_types::config::ConsensusType::Aft) && producing_h == 1 {
+        let required_peers = required_aft_bootstrap_peer_count(validator_count_hint);
+        if known_peer_count < required_peers {
+            tracing::info!(
+                target: "consensus",
+                height = producing_h,
+                validator_count = validator_count_hint,
+                known_peer_count,
+                required_peers,
+                "Waiting for a QC-capable peer set before the first AFT proposal."
+            );
+            return Ok(());
+        }
     }
 
     if producing_h > 1 && validator_count_hint > 1 && known_peer_count == 0 {

@@ -1,7 +1,7 @@
 use super::{
-    format_proposal_wait_line, parse_failed_tx_index, resolve_ordering_cadence,
-    retain_nonce_heads_for_canonical_order, workload_tip_requires_hydration,
-    BENCH_PROPOSAL_WAIT_TAG,
+    format_proposal_wait_line, parse_failed_tx_index, required_aft_bootstrap_peer_count,
+    resolve_ordering_cadence, retain_nonce_heads_for_canonical_order,
+    workload_tip_requires_hydration, BENCH_PROPOSAL_WAIT_TAG,
 };
 use ioi_types::app::{
     AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
@@ -105,6 +105,15 @@ fn cold_workload_tip_requires_hydration() {
 fn unhashable_local_tip_fails_toward_hydration() {
     let hash = [0x11; 32];
     assert!(workload_tip_requires_hydration(184, Some(&hash), 184, None,));
+}
+
+#[test]
+fn aft_bootstrap_waits_for_enough_remote_votes_to_form_a_qc() {
+    assert_eq!(required_aft_bootstrap_peer_count(1), 0);
+    assert_eq!(required_aft_bootstrap_peer_count(2), 1);
+    assert_eq!(required_aft_bootstrap_peer_count(3), 2);
+    assert_eq!(required_aft_bootstrap_peer_count(4), 2);
+    assert_eq!(required_aft_bootstrap_peer_count(7), 4);
 }
 
 // ---------------------------------------------------------------------------
