@@ -6,7 +6,7 @@ Supersedes: older generic capability-grant wording when it conflicts with `scope
 Superseded by: none.
 Last alignment pass: 2026-08-29.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action issuance/verification/admission plus embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, MPC vault, WalletReceipt v2, wallet interoperability, and the unified economic-intent/rail-adapter family remain planned)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action issuance/verification/admission plus embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, MPC vault, WalletReceipt v2, wallet interoperability, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -69,24 +69,34 @@ it received, under which policy, for what purpose, for how long, against which
 resources, and with which receipts. It does not mean the worker holds raw
 secrets or can widen its own scope.
 
-## One Authority API, Typed Effect Contracts
+## One Integration, One Authority Plane, Typed Effect Contracts
 
-wallet.network presents one stable authority contract across payment rails,
-provider credentials, connectors, exchanges, deployments, declassification,
-and other consequential effects. "One API" means that every client uses the
-same intent, review, grant or lease, final-invoker, receipt, and revocation
-grammar. It does not mean that unlike effects collapse into an untyped
-`execute`, that every provider shares one lifecycle, or that wallet.network
-becomes the source of external truth.
+wallet.network presents one integration and one stable authority plane across
+payment rails, provider credentials, connectors, exchanges, deployments,
+declassification, and other consequential effects. Every client reuses the
+same identity, review, grant or lease, final-invoker, receipt, and revocation
+grammar. This does not require one universal endpoint, resource, intent object,
+or lifecycle.
 
-Economic actions are a first-class specialization of that common authority
-contract. A source-neutral economic-intent family normalizes the facts a caller
-must declare, the route capabilities and economics it must review, the exact
-execution plan it may authorize, and the receipts it may later reconcile. It
-preserves typed payment, transfer, purchase, escrow, payout, refund, exchange,
-subscription, value-retirement, and settlement semantics. Trade, prediction,
-leveraged exposure, and other position-bearing actions retain their stronger
-specialized contracts even when they reuse the common envelope.
+Economic actions are first-class typed contract families over a shared,
+non-instantiable economic-operation envelope. `PaymentIntent`,
+`TransferIntent`, typed escrow-action intents, `PayoutIntent`, `RefundIntent`,
+`ExchangeIntent`, `PaymentMandate`, `ValueRetirementIntent`, and
+`SettlementAuthorizationIntent` own their respective required fields and state
+machines. A payment may reference a marketplace-owned purchase order; Wallet
+does not redefine or own that order. An escrow action may reference an
+escrow-owner agreement; Wallet does not become the escrow ledger. The shared
+envelope factors only the identity, authority binding, idempotency, lineage, and
+receipt mechanics that are genuinely common, with value, route, cost, finality,
+and dispute components composed only where the typed family requires them.
+Trade, prediction, leveraged exposure, and other position-bearing actions
+retain their stronger specialized contracts.
+
+A natural-language, MCP, or SDK convenience request may begin generically, but
+it is planning input and grants no authority. It must resolve to exactly one
+typed contract before simulation, review, approval, execution, or receipt
+claims. An unknown or ambiguous family fails closed rather than reaching a
+generic `execute` escape hatch.
 
 Canonical invariant:
 

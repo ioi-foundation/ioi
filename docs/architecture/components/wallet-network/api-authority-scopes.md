@@ -3,13 +3,13 @@
 Status: canonical low-level reference.
 Canonical owner: this file for wallet.network account, auth factor, guardian,
 key-shard, provider credential binding, authority scope, grant, approval, secret
-brokerage, economic-intent, rail-adapter, payment, exchange, exposure,
+brokerage, economic-contract-kernel, rail-adapter, payment, exchange, exposure,
 protection, receipt, wallet authority client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
 Last alignment pass: 2026-08-29.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant issuance, portable verification, admission-receipt emission, temporal evaluation, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, WalletReceipt v2, and unified economic-intent/rail-adapter surfaces remain planned)
+Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant issuance, portable verification, admission-receipt emission, temporal evaluation, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, WalletReceipt v2, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs`
 Last implementation audit: 2026-07-19
@@ -1563,73 +1563,114 @@ raw-sign arbitrary payloads, raise limits, disable step-up, enroll guardians, or
 turn authentication into authority without policy, grant issuance, revocation
 semantics, and receipts.
 
-## Unified Economic Intent and Rail-Adapter Contract
+## Economic Contract Kernel and Typed API Families
 
-wallet.network exposes one economic authority family across source-neutral
-payment and value-movement intents. The common family is a product and protocol
-contract over existing authority owners; it is not a second wallet, commercial
-ledger, final invoker, execution database, or settlement spine.
+wallet.network exposes one integration and authority plane across
+source-neutral payment and value-movement contracts. The common layer is an
+abstract protocol kernel over existing owners; it is not a public universal
+intent resource, a second wallet, commercial ledger, final invoker, execution
+database, or settlement spine.
 
-The closed initial intent-kind vocabulary is:
+`EconomicOperationEnvelope` is a non-instantiable schema component. It factors
+only common fields and cannot be submitted, approved, executed, receipted, or
+stored as an authoritative operation by itself. The initial typed families are:
 
 ```text
-payment
-transfer
-purchase
-escrow
-payout
-refund
-exchange
-subscription
-value_retirement
-settlement
+PaymentIntent
+TransferIntent
+EscrowFundingIntent
+EscrowReleaseIntent
+EscrowDisputeIntent
+PayoutIntent
+RefundIntent
+ExchangeIntent
+PaymentMandate
+ValueRetirementIntent
+SettlementAuthorizationIntent
 ```
 
-Position-bearing trade, prediction, margin, leverage, and ongoing exposure are
-not ordinary members of this lifecycle. Their specialized intent contracts may
-reuse the common authority and evidence envelope, but they retain separate
-eligibility, risk, lifecycle, and close-out semantics.
+Each family owns a separate versioned schema, required-field set, legal state
+machine, terminal conditions, refusal vocabulary, receipt profile, and
+compatibility rules. Position-bearing trade, prediction, margin, leverage, and
+ongoing exposure remain outside these ordinary families and retain their
+stronger eligibility, risk, lifecycle, liquidation, and close-out contracts.
 
-A product may offer one SDK, MCP tool family, or `/v1/economic-intents` entry
-surface while retaining resource-oriented HTTP endpoints. Every entry compiles
-to the same versioned objects and the existing wallet.network authority path:
+The product contract is one SDK and trust relationship with typed resources:
 
 ```text
-EconomicIntent
-  -> EconomicRouteQuote candidates
-  -> reviewed EconomicExecutionPlan
+wallet.payments.*       -> PaymentIntent
+wallet.transfers.*      -> TransferIntent
+wallet.escrows.*        -> typed escrow-action intent
+wallet.payouts.*        -> PayoutIntent
+wallet.refunds.*        -> RefundIntent
+wallet.exchange.*       -> ExchangeIntent
+wallet.mandates.*       -> PaymentMandate
+wallet.value.*          -> ValueRetirementIntent
+wallet.settlement.*     -> SettlementAuthorizationIntent
+```
+
+A marketplace, merchant, service, or domain owner retains its `PurchaseOrder`,
+invoice, service order, commercial entitlement, and fulfillment truth. A
+`PaymentIntent` references that obligation; it does not recreate it. Likewise,
+the selected escrow or settlement owner retains the escrow agreement, balance,
+release/dispute state, and settlement envelope. Wallet owns authorization and
+its receipts for the requested action, not the counterparty ledger.
+
+Resource-oriented HTTP endpoints and typed MCP tools are canonical. An optional
+natural-language, SDK, or MCP planner may accept a generic economic request for
+convenience, but that request is untrusted proposal syntax. It grants no
+authority and must compile into exactly one registered typed family before
+simulation, review, approval, execution, or receipt emission. Ambiguous,
+unknown, or unsupported classification fails closed; there is no generic
+`/v1/economic-intents/{id}/execute` escape hatch.
+
+Every typed family reuses the same kernel path:
+
+```text
+typed economic proposal
+  -> family-valid route/quote candidates where applicable
+  -> reviewed family-specific execution plan
   -> AuthorityScopeRequest / ActionRequestEnvelope
   -> approval, denial, AuthorityGrant or CapabilityLease
   -> existing final invoker
   -> rail-native outcome and readback
-  -> EconomicReceipt and reconciliation projection
+  -> family-specific receipt plus reconciliation projection
 ```
 
-`EconomicIntent` binds at minimum:
+`EconomicOperationEnvelope` contributes only genuinely common bindings:
 
 ```text
-schema and intent profile versions
-intent id, kind, idempotency identity and predecessor
-principal, acting subject, beneficiary and applicable counterparty
-purpose plus order, service, invoice or obligation refs
-exact value legs with asset/currency, integer quantity and role
-maximum total debit and separately bounded fee/FX/slippage exposure
-funding-source and destination refs without raw credentials
-allowed and prohibited rail, custody, route and provider constraints
-required finality, reversibility, refund, dispute and time bounds
-rights, eligibility, jurisdiction and policy refs
+schema/profile version and typed family discriminator
+operation identity, idempotency identity and predecessor
+principal, acting subject and purpose/obligation refs
+authority, rights, eligibility, jurisdiction and policy refs
 authority-request and exact-effect bindings when derived
 expiry, revocation posture and receipt obligations
 ```
+
+Typed families compose registered reusable components only when applicable:
+
+```text
+EconomicPartySet
+EconomicValueLegSet
+EconomicCostCeiling
+EconomicFundingDestination
+EconomicRouteConstraints
+EconomicFinalityRequirement
+EconomicReversibilityAndDisputeProfile
+```
+
+No component's absence is interpreted as an unconstrained default. The family
+schema either requires it, prohibits it, or declares the exact safe default.
 
 Amounts use registered assets, currencies, integer quantities, and declared
 precision. A decimal display string, provider float, exchange-rate estimate, or
 currency symbol is never authoritative arithmetic.
 
-An `EconomicRouteQuote` declares rather than hides:
+Typed quote and execution-plan components declare rather than hide:
 
 ```text
-adapter and capability-declaration versions
+family, adapter and capability-declaration versions
 provider, processor, venue, chain or escrow identity
 funding and delivery rail
 quoted debit, credit, fee, FX, slippage and reserve components
@@ -1640,39 +1681,27 @@ required authentication, eligibility, compliance and counterparty evidence
 provider idempotency/readback coordinates and typed failure modes
 ```
 
-The selected quote compiles into one immutable `EconomicExecutionPlan`. Any
-change to amount, beneficiary, asset, route, provider, fees, expiry, risk,
+The selected quote compiles into the typed family's immutable execution plan.
+Any change to amount, beneficiary, asset, route, provider, fees, expiry, risk,
 finality, reversibility, rights, policy, or authority posture requires a new
 plan and, where policy requires it, a new review and approval. A quote is never
-authority, and an approval of one plan cannot authorize fallback to another.
+authority, and approval of one family or plan cannot authorize fallback to
+another.
 
-The common lifecycle projection may report:
+There is no universal economic state machine. A product may project coarse
+cross-family categories such as `action_required`, `pending`,
+`reconciliation_required`, `terminal_success`, `terminal_failure`, or
+`disputed` for navigation and queues, but the category is not an authoritative
+operation status. Each typed contract defines what authorization, processing,
+capture, funding, release, settlement, refund, reversal, cancellation, expiry,
+or dispute means for that family.
 
-```text
-proposed
-quoted
-review_required
-authorized
-execution_pending
-externally_pending
-reconciliation_required
-partially_settled
-settled
-refunded
-reversed
-disputed
-refused
-expired
-cancelled
-```
-
-These are projection classes, not assertions that rails share semantics.
-`settled` is legal only under the intent's declared settlement/finality profile
-and required provider-native or chain-native evidence. Delayed, reversible,
-chargeback-bearing, probabilistic-finality, and irreversible outcomes remain
-distinguishable. Unknown or ambiguous execution becomes
-`reconciliation_required`; it is never retried, refunded, paid out, entitled,
-or reported as settled by inference.
+A success or settlement claim is legal only under that family's declared
+finality and evidence rules. Delayed, reversible, chargeback-bearing,
+probabilistic-finality, and irreversible outcomes remain distinguishable.
+Unknown or ambiguous execution becomes the typed family's
+`reconciliation_required` state; it is never retried, refunded, paid out,
+entitled, or reported as settled by inference.
 
 Every rail adapter publishes a versioned capability declaration and implements
 quote, exact-plan execution, observation/readback, reconciliation, and receipt
@@ -1689,7 +1718,10 @@ before authority or effect with a typed reason. Adapters cannot:
 - make an external provider, chain, webhook, or indexer the Wallet or Agentgres
   truth owner.
 
-The conformance suite must use at least two adapters with materially different
+The conformance suite must prove the kernel cannot be instantiated directly,
+that every public operation validates against exactly one typed family, and
+that cross-family field, state, receipt, downgrade, and execution substitutions
+refuse. It must also use at least two adapters with materially different
 settlement behavior and mutation-test adapter substitution, unsupported
 capabilities, amount/precision, quote expiry, beneficiary, route, fee, finality,
 reversibility, idempotency, duplicate/reordered events, ambiguous execution,
@@ -1709,8 +1741,8 @@ POST /v1/escrows/{escrow_id}/dispute
 ```
 
 wallet.network abstracts whether the user pays in IOI, stablecoin, fiat, or credits.
-These endpoints are typed conveniences over the common economic-intent family;
-they do not define a separate authorization, execution, or receipt path.
+These are typed resources over the common economic contract kernel; they do not
+define a separate authorization, execution, or receipt path.
 
 ## Exchange and Route Authority API
 
