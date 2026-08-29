@@ -20,7 +20,14 @@ impl WorkloadClientApi for TestWorkloadClient {
     async fn process_block(
         &self,
         _block: Block<ChainTransaction>,
-    ) -> std::result::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+    ) -> std::result::Result<
+        (
+            Block<ChainTransaction>,
+            Vec<Vec<u8>>,
+            Vec<ioi_api::chain::BlockExecutionReceipt>,
+        ),
+        ChainError,
+    > {
         Err(ChainError::ExecutionClient(
             "unused in finalize unit tests".to_string(),
         ))
@@ -133,7 +140,14 @@ impl WorkloadClientApi for StaticStateWorkloadClient {
     async fn process_block(
         &self,
         _block: Block<ChainTransaction>,
-    ) -> std::result::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+    ) -> std::result::Result<
+        (
+            Block<ChainTransaction>,
+            Vec<Vec<u8>>,
+            Vec<ioi_api::chain::BlockExecutionReceipt>,
+        ),
+        ChainError,
+    > {
         Err(ChainError::ExecutionClient(
             "unused in finalize unit tests".to_string(),
         ))
@@ -809,8 +823,9 @@ fn assert_coded_recovery_family_subset_conformance_case(
     recovery_threshold: u16,
 ) {
     let (header, transactions) = sample_block_header_with_ordered_transactions(transaction_seed);
-    let certificate = build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
-        .expect("canonical order certificate");
+    let certificate =
+        build_single_member_committed_surface_canonical_order_certificate(&header, &transactions)
+            .expect("canonical order certificate");
     let witness_seed = sample_guardian_witness_seed();
     let witness_set =
         sample_guardian_witness_set(sample_manifest_hashes(manifest_seed, share_count));
@@ -988,4 +1003,3 @@ fn assert_coded_recovery_family_commitment_determinism_case(
     assert_ne!(commitments_a, commitments_membership);
     assert_eq!(bytes_a, bytes_membership);
 }
-

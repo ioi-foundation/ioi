@@ -668,7 +668,14 @@ impl WorkloadClientApi for WorkloadClient {
     async fn process_block(
         &self,
         block: Block<ChainTransaction>,
-    ) -> ioi_types::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+    ) -> ioi_types::Result<
+        (
+            Block<ChainTransaction>,
+            Vec<Vec<u8>>,
+            Vec<ioi_api::chain::BlockExecutionReceipt>,
+        ),
+        ChainError,
+    > {
         // Serialize the shmem write with the outbound RPC so a concurrent process_block()
         // call cannot overwrite the fixed shmem slot before the workload reads it.
         let mut client = self.chain.lock().await;
@@ -719,8 +726,19 @@ impl WorkloadClientApi for WorkloadClient {
         let processed = codec::from_bytes_canonical(&resp.block_bytes).map_err(|e| {
             ChainError::Transaction(format!("Failed to decode processed block: {}", e))
         })?;
+        let execution_receipts = resp
+            .execution_receipts
+            .iter()
+            .map(|bytes| {
+                codec::from_bytes_canonical(bytes).map_err(|error| {
+                    ChainError::Transaction(format!(
+                        "Failed to decode block execution receipt: {error}"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
-        Ok((processed, resp.events))
+        Ok((processed, resp.events, execution_receipts))
     }
 
     async fn get_blocks_range(

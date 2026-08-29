@@ -442,6 +442,7 @@ pub(super) fn leader_accounts_for_upcoming_heights(
 pub async fn finalize_and_broadcast_block<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     mut final_block: Block<ChainTransaction>,
+    execution_receipts: Vec<ioi_api::chain::BlockExecutionReceipt>,
     deferred_transactions: Vec<ChainTransaction>,
     signer: Arc<dyn GuardianSigner>,
     swarm_commander: &mpsc::Sender<SwarmCommand>,
@@ -476,6 +477,28 @@ where
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let block_height = final_block.header.height;
+    if execution_receipts.len() != final_block.transactions.len() {
+        return Err(anyhow!(
+            "workload returned {} execution receipts for {} block transactions",
+            execution_receipts.len(),
+            final_block.transactions.len()
+        ));
+    }
+    for (index, (receipt, transaction)) in execution_receipts
+        .iter()
+        .zip(final_block.transactions.iter())
+        .enumerate()
+    {
+        let transaction_hash = transaction.hash()?;
+        if receipt.block_height != block_height
+            || receipt.transaction_index != index as u64
+            || receipt.transaction_hash != transaction_hash
+        {
+            return Err(anyhow!(
+                "workload execution receipt {index} does not bind the finalized block transaction"
+            ));
+        }
+    }
     let (aft_mode, consensus_type) = {
         let ctx = context_arc.lock().await;
         (ctx.config.aft_safety_mode, ctx.config.consensus_type)

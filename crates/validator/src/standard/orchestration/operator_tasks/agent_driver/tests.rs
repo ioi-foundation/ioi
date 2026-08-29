@@ -20,7 +20,14 @@ impl WorkloadClientApi for StaticStateWorkloadClient {
     async fn process_block(
         &self,
         _block: Block<ChainTransaction>,
-    ) -> std::result::Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError> {
+    ) -> std::result::Result<
+        (
+            Block<ChainTransaction>,
+            Vec<Vec<u8>>,
+            Vec<ioi_api::chain::BlockExecutionReceipt>,
+        ),
+        ChainError,
+    > {
         Err(ChainError::ExecutionClient("unused in tests".into()))
     }
 

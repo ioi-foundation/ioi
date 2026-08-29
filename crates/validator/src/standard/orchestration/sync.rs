@@ -673,7 +673,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         }
 
         let processed_block = match workload_client.process_block(block.clone()).await {
-            Ok((processed_block, _)) => processed_block,
+            Ok((processed_block, _, _execution_receipts)) => processed_block,
             Err(error) => {
                 tracing::warn!(
                     target: "sync",

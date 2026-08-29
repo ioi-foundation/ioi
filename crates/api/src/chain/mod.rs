@@ -52,11 +52,19 @@ pub struct QueryStateResponse {
 /// This abstracts the IPC client to prevent circular dependencies and runtime downcasting panics.
 #[async_trait]
 pub trait WorkloadClientApi: Send + Sync + Debug {
-    /// Processes a block, updating the state and returning the processed block + events.
+    /// Processes a block, updating the state and returning the processed block,
+    /// events, and one deterministic receipt per included transaction.
     async fn process_block(
         &self,
         block: Block<ChainTransaction>,
-    ) -> Result<(Block<ChainTransaction>, Vec<Vec<u8>>), ChainError>;
+    ) -> Result<
+        (
+            Block<ChainTransaction>,
+            Vec<Vec<u8>>,
+            Vec<BlockExecutionReceipt>,
+        ),
+        ChainError,
+    >;
 
     /// Fetches a range of blocks.
     async fn get_blocks_range(

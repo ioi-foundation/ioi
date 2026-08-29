@@ -505,7 +505,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         .process_block(block)
         .await
     {
-        Ok((processed_block, _)) => {
+        Ok((processed_block, _, _execution_receipts)) => {
             tracing::debug!(target: "gossip", "Workload processed block #{}", processed_block.header.height);
             context.last_committed_block = Some(processed_block.clone());
 

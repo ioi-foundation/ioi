@@ -119,6 +119,12 @@ where
                 .map_err(|e| Status::internal(e.to_string()))?
         };
 
+        let execution_receipts = prepared_block
+            .execution_receipts
+            .iter()
+            .map(codec::to_bytes_canonical)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Status::internal)?;
         let (processed_block, events) = {
             let mut machine = self.ctx.machine.lock().await;
             machine
@@ -133,6 +139,7 @@ where
         Ok(Response::new(ProcessBlockResponse {
             block_bytes,
             events,
+            execution_receipts,
         }))
     }
 

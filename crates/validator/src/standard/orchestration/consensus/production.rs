@@ -2071,7 +2071,7 @@ where
                 .process_block(new_block_template)
                 .await
             {
-                Ok((final_block, _)) => {
+                Ok((final_block, _, execution_receipts)) => {
                     let process_elapsed = process_started.elapsed();
                     if benchmark_trace_enabled() {
                         eprintln!(
@@ -2129,6 +2129,7 @@ where
                     crate::standard::orchestration::finalize::finalize_and_broadcast_block(
                         context_arc,
                         final_block,
+                        execution_receipts,
                         deferred_transactions,
                         signer,
                         &swarm_commander,

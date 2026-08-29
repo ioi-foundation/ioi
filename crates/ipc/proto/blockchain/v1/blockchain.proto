@@ -124,6 +124,9 @@ message ProcessBlockRequest {
 message ProcessBlockResponse {
   bytes block_bytes = 1; // SCALE-encoded Block<ChainTransaction> (processed)
   repeated bytes events = 2;
+  // Canonical SCALE-encoded BlockExecutionReceipt values, exactly one per
+  // included transaction and in block order.
+  repeated bytes execution_receipts = 3;
 }
 
 message GetBlocksRangeRequest {
