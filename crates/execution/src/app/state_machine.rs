@@ -12,7 +12,10 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 // REMOVED: use ibc_primitives::Timestamp;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
-use ioi_api::chain::{AnchoredStateView, ChainStateMachine, ChainView, PreparedBlock, StateRef};
+use ioi_api::chain::{
+    validate_block_execution_receipts, AnchoredStateView, BlockExecutionReceipt, ChainStateMachine,
+    ChainView, PreparedBlock, StateRef,
+};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::PenaltyMechanism;
 use ioi_api::services::access::ServiceDirectory;
@@ -213,6 +216,57 @@ fn replay_gate_label(
     } else {
         "parallel"
     }
+}
+
+/// One transaction's own execution result, captured in block order.
+///
+/// Sequential, parallel, and fallback-sequential preparation all funnel through
+/// this single shape, so a block's proofs, its gas total, and its individual
+/// receipts are three views of the same per-transaction material instead of
+/// three independently recomputed answers that could disagree by path.
+#[derive(Clone, Debug)]
+struct ExecutedTransaction {
+    proof_bytes: Vec<u8>,
+    gas_used: u64,
+}
+
+/// Emits exactly one receipt per successfully executed transaction, in block order.
+///
+/// Each receipt is derived from that transaction's own execution result. Nothing
+/// here is derived from a block-level aggregate, and no per-transaction state
+/// delta is claimed: the executor folds every transaction into one ordered
+/// overlay batch and cannot attribute an individual write back to an individual
+/// transaction.
+fn build_block_execution_receipts(
+    transactions: &[ChainTransaction],
+    executed: &[ExecutedTransaction],
+    block_height: u64,
+) -> Result<Vec<BlockExecutionReceipt>, ChainError> {
+    if executed.len() != transactions.len() {
+        return Err(ChainError::Transaction(format!(
+            "Block {block_height} produced {} execution results for {} transactions",
+            executed.len(),
+            transactions.len(),
+        )));
+    }
+
+    transactions
+        .iter()
+        .zip(executed)
+        .enumerate()
+        .map(|(index, (tx, result))| {
+            let transaction_hash = tx
+                .hash()
+                .map_err(|error| ChainError::Transaction(error.to_string()))?;
+            Ok(BlockExecutionReceipt::for_success(
+                block_height,
+                index as u64,
+                transaction_hash,
+                result.gas_used,
+                &result.proof_bytes,
+            ))
+        })
+        .collect()
 }
 
 #[derive(Debug, Default)]
@@ -608,8 +662,7 @@ where
 
         let (
             state_changes,
-            proofs_out,
-            block_gas_used,
+            executed,
             parallel_exec_elapsed,
             fallback_exec_elapsed,
             overlay_elapsed,
@@ -619,7 +672,6 @@ where
             (
                 (Vec::<(Vec<u8>, Vec<u8>)>::new(), Vec::<Vec<u8>>::new()),
                 Vec::new(),
-                0,
                 Duration::ZERO,
                 Duration::ZERO,
                 Duration::ZERO,
@@ -627,7 +679,7 @@ where
                 ParallelReplayStatsSnapshot::default(),
             )
         } else if replay_sequentially {
-            let (state_changes, proofs_out, block_gas_used, sequential_exec_elapsed) = self
+            let (state_changes, executed, sequential_exec_elapsed) = self
                 .replay_block_sequentially(
                     &block.transactions,
                     snapshot_arc
@@ -652,8 +704,7 @@ where
 
             (
                 state_changes,
-                proofs_out,
-                block_gas_used,
+                executed,
                 sequential_exec_elapsed,
                 Duration::ZERO,
                 Duration::ZERO,
@@ -838,7 +889,7 @@ where
             let replay_stats = replay_stats.snapshot();
 
             if let Some(fallback_gate) = replay_stats.fallback_gate() {
-                let (state_changes, proofs_out, block_gas_used, fallback_exec_elapsed) = self
+                let (state_changes, executed, fallback_exec_elapsed) = self
                     .replay_block_sequentially(
                         &block.transactions,
                         &*snapshot_arc,
@@ -867,8 +918,7 @@ where
 
                 (
                     state_changes,
-                    proofs_out,
-                    block_gas_used,
+                    executed,
                     parallel_exec_elapsed,
                     fallback_exec_elapsed,
                     Duration::ZERO,
@@ -885,28 +935,29 @@ where
                 let overlay_elapsed = overlay_started.elapsed();
 
                 let collect_results_started = Instant::now();
-                let mut proofs_out = Vec::with_capacity(num_txs);
-                let mut block_gas_used = 0;
+                let mut executed = Vec::with_capacity(num_txs);
 
                 for i in 0..num_txs {
-                    if let Some((_, (p, gas))) = results.remove(&i) {
-                        proofs_out.push(p);
-                        block_gas_used += gas;
-                    } else {
-                        tracing::warn!(
-                            target: "execution",
-                            tx_index = i,
-                            "Missing execution result, using empty."
-                        );
-                        proofs_out.push(vec![]);
-                    }
+                    // Fail closed. A missing result means the executor cannot say
+                    // what this transaction did, so substituting an empty proof
+                    // would understate the block's gas and would mint a receipt
+                    // asserting a success nobody observed.
+                    let (proof_bytes, gas_used) =
+                        results.remove(&i).map(|(_, result)| result).ok_or_else(|| {
+                            ChainError::Transaction(format!(
+                                "Parallel replay recorded no execution result for tx_index={i} at height {block_header_height}"
+                            ))
+                        })?;
+                    executed.push(ExecutedTransaction {
+                        proof_bytes,
+                        gas_used,
+                    });
                 }
                 let collect_results_elapsed = collect_results_started.elapsed();
 
                 (
                     state_changes,
-                    proofs_out,
-                    block_gas_used,
+                    executed,
                     parallel_exec_elapsed,
                     Duration::ZERO,
                     overlay_elapsed,
@@ -916,6 +967,17 @@ where
             }
         };
         let replay_debt = replay_stats.replay_debt();
+
+        // 6. Derive the block aggregate AND the individual receipts from the one
+        // set of per-transaction results, so no preparation path can produce a
+        // receipt set that disagrees with the proofs or the gas total it ships with.
+        let block_gas_used: u64 = executed.iter().map(|result| result.gas_used).sum();
+        let execution_receipts =
+            build_block_execution_receipts(&block.transactions, &executed, block_header_height)?;
+        let proofs_out: Vec<Vec<u8>> = executed
+            .into_iter()
+            .map(|result| result.proof_bytes)
+            .collect();
 
         // 7. Compute Roots
         let roots_started = Instant::now();
@@ -979,6 +1041,7 @@ where
             validator_set_hash,
             tx_proofs: proofs_out,
             gas_used: block_gas_used,
+            execution_receipts,
         })
     }
 
@@ -1011,6 +1074,17 @@ where
                 "Stale preparation: Parent state root has changed since block was prepared".into(),
             ));
         }
+        // A non-empty block may not reach persistence with a receipt set that is
+        // short, reordered, duplicated, or unbound from the transactions and
+        // proofs it claims to describe. `prepared.block` has already been moved
+        // into `block`, so this checks the same fields through the free function.
+        validate_block_execution_receipts(
+            &prepared.execution_receipts,
+            &block.transactions,
+            &prepared.tx_proofs,
+            block.header.height,
+            prepared.gas_used,
+        )?;
 
         // --- VERIFY PROOFS ---
         let backend = {
@@ -1853,8 +1927,7 @@ where
     ) -> Result<
         (
             (Vec<(Vec<u8>, Vec<u8>)>, Vec<Vec<u8>>),
-            Vec<Vec<u8>>,
-            u64,
+            Vec<ExecutedTransaction>,
             Duration,
         ),
         ChainError,
@@ -1862,10 +1935,10 @@ where
         let sequential_exec_started = Instant::now();
         let mut final_overlay = StateOverlay::new(snapshot);
         let mut proofs_out = Vec::with_capacity(transactions.len());
-        let mut block_gas_used = 0;
+        let mut gas_per_tx = Vec::with_capacity(transactions.len());
 
         for (idx, tx) in transactions.iter().enumerate() {
-            block_gas_used += self
+            let gas_used = self
                 .process_transaction(
                     tx,
                     &mut final_overlay,
@@ -1880,12 +1953,32 @@ where
                     }
                     other => other,
                 })?;
+
+            // Pair each transaction with its OWN proof rather than assuming the
+            // append order lined up. A receipt bound to the wrong proof is worse
+            // than a refused block.
+            if proofs_out.len() != idx + 1 {
+                return Err(ChainError::Transaction(format!(
+                    "tx_index={idx}: execution emitted {} proofs across {} completed transactions",
+                    proofs_out.len(),
+                    idx + 1,
+                )));
+            }
+            gas_per_tx.push(gas_used);
         }
+
+        let executed = proofs_out
+            .into_iter()
+            .zip(gas_per_tx)
+            .map(|(proof_bytes, gas_used)| ExecutedTransaction {
+                proof_bytes,
+                gas_used,
+            })
+            .collect();
 
         Ok((
             final_overlay.into_ordered_batch(),
-            proofs_out,
-            block_gas_used,
+            executed,
             sequential_exec_started.elapsed(),
         ))
     }
