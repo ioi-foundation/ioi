@@ -98,14 +98,14 @@ pub struct ExecutionMachineState<CS: CommitmentScheme + Clone> {
     pub genesis_state: GenesisState,
 }
 
-/// One-height rollback material for the AFT workload projection.
+/// One-height rollback material for the bounded AFT workload projection suffix.
 ///
 /// AFT executes a proposal before its descendant certificate makes the
 /// proposal an Agentgres-recognized effect.  A higher-view proposal at the
 /// same height may therefore legitimately replace the local projection.  The
-/// snapshot is deliberately in-memory and one height deep: it grants no
-/// authority, and callers must separately prove that Agentgres has not
-/// admitted the projected tip before asking the workload to use it.
+/// Each snapshot is deliberately in-memory and grants no authority. The
+/// machine retains only the two projections required by the AFT two-chain
+/// pipeline, and callers must separately bind the Agentgres admission floor.
 pub(crate) struct AftTipRollbackSnapshot<ST: StateManager> {
     pub projected_height: u64,
     pub projected_parent_state_root: Vec<u8>,
@@ -122,6 +122,47 @@ pub(crate) struct AftTipRollbackSnapshot<ST: StateManager> {
     pub service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
 }
 
+const MAX_AFT_SPECULATIVE_PROJECTIONS: u64 = 2;
+
+fn aft_branch_rollback_count(
+    live_height: u64,
+    target_height: u64,
+    recognized_height: u64,
+    available_snapshots: usize,
+) -> Result<usize, ChainError> {
+    if target_height <= recognized_height {
+        return Err(ChainError::Transaction(format!(
+            "AFT branch replacement target {} is at or below Agentgres-recognized height {}",
+            target_height, recognized_height
+        )));
+    }
+    if live_height < target_height {
+        return Err(ChainError::Transaction(format!(
+            "stale AFT branch replacement height: target {}, live {}",
+            target_height, live_height
+        )));
+    }
+    let count = live_height
+        .checked_sub(target_height)
+        .and_then(|distance| distance.checked_add(1))
+        .ok_or_else(|| ChainError::Transaction("AFT rollback depth overflow".into()))?;
+    if count > MAX_AFT_SPECULATIVE_PROJECTIONS {
+        return Err(ChainError::Transaction(format!(
+            "AFT branch replacement depth {} exceeds the two-chain projection bound",
+            count
+        )));
+    }
+    let count = usize::try_from(count)
+        .map_err(|_| ChainError::Transaction("AFT rollback depth is not representable".into()))?;
+    if available_snapshots < count {
+        return Err(ChainError::Transaction(
+            "AFT branch replacement snapshots are unavailable; freeze/restart recovery required"
+                .into(),
+        ));
+    }
+    Ok(count)
+}
+
 pub struct ExecutionMachine<CS: CommitmentScheme + Clone, ST: StateManager> {
     pub state: ExecutionMachineState<CS>,
     pub services: ServiceDirectory,
@@ -130,8 +171,10 @@ pub struct ExecutionMachine<CS: CommitmentScheme + Clone, ST: StateManager> {
     workload_container: Arc<WorkloadContainer<ST>>,
     /// In-memory cache for fast access to on-chain service metadata.
     pub service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
-    /// Reversible, non-authoritative AFT projection at exactly one height.
-    pub(crate) aft_tip_rollback: Option<AftTipRollbackSnapshot<ST>>,
+    /// Reversible, non-authoritative AFT projections for the bounded two-chain
+    /// pipeline. Entries are ordered from oldest to newest and never authorize
+    /// a rollback at or below the Agentgres-recognized height.
+    pub(crate) aft_tip_rollbacks: Vec<AftTipRollbackSnapshot<ST>>,
     /// Holds the configuration-driven policies for services
     pub service_policies: BTreeMap<String, ServicePolicy>,
     // [FIX] Added os_driver field for policy enforcement context
@@ -460,26 +503,27 @@ where
             consensus_engine,
             workload_container,
             service_meta_cache: HashMap::new(),
-            aft_tip_rollback: None,
+            aft_tip_rollbacks: Vec::new(),
             service_policies,
             os_driver,
         })
     }
 
-    /// Restores the exact parent snapshot of the current AFT workload tip.
+    /// Restores the exact parent snapshot of a bounded AFT workload branch.
     ///
-    /// This method is intentionally narrower than a general chain reorg: only
-    /// the one in-memory projection produced by the immediately preceding AFT
-    /// commit is eligible, and the caller must bind every execution field that
-    /// could distinguish a same-height candidate.  Agentgres admission is
-    /// checked by the validator before this workload-local operation; this
-    /// snapshot is never itself evidence of finality or authority.
-    pub async fn rollback_aft_tip_projection(
+    /// This method is intentionally narrower than a general chain reorg. It
+    /// can retire at most the two in-memory projections permitted by the AFT
+    /// two-chain pipeline, every retired projection is changed-byte fenced,
+    /// and the target must remain strictly above the Agentgres-recognized
+    /// height supplied by the runtime. The snapshots are never themselves
+    /// evidence of finality or authority.
+    pub async fn rollback_aft_branch_projection(
         &mut self,
         expected_height: u64,
         expected_parent_state_root: &[u8],
         expected_state_root: &[u8],
         expected_transactions_root: &[u8],
+        recognized_height: u64,
     ) -> Result<(), ChainError>
     where
         ST: Clone,
@@ -489,85 +533,128 @@ where
                 "tip replacement is available only to the canonical AFT profile".into(),
             ));
         }
-        if self.state.status.height != expected_height {
-            return Err(ChainError::Transaction(format!(
-                "stale AFT tip replacement height: expected {}, live {}",
-                expected_height, self.state.status.height
-            )));
+        let live_height = self.state.status.height;
+        let rollback_count = aft_branch_rollback_count(
+            live_height,
+            expected_height,
+            recognized_height,
+            self.aft_tip_rollbacks.len(),
+        )?;
+
+        let target_tip = self
+            .state
+            .recent_blocks
+            .iter()
+            .rev()
+            .find(|block| block.header.height == expected_height)
+            .ok_or_else(|| {
+                ChainError::Transaction(format!(
+                    "AFT branch replacement target {} is unavailable",
+                    expected_height
+                ))
+            })?;
+        if target_tip.header.parent_state_root.0 != expected_parent_state_root
+            || target_tip.header.state_root.0 != expected_state_root
+            || target_tip.header.transactions_root != expected_transactions_root
+        {
+            return Err(ChainError::Transaction(
+                "changed-byte or stale AFT branch replacement target fence".into(),
+            ));
         }
+
+        let snapshot_start = self.aft_tip_rollbacks.len() - rollback_count;
+        for (offset, snapshot) in self.aft_tip_rollbacks[snapshot_start..].iter().enumerate() {
+            let projected_height = expected_height + offset as u64;
+            let projected = self
+                .state
+                .recent_blocks
+                .iter()
+                .rev()
+                .find(|block| block.header.height == projected_height)
+                .ok_or_else(|| {
+                    ChainError::Transaction(format!(
+                        "AFT projected block {} is unavailable for branch fencing",
+                        projected_height
+                    ))
+                })?;
+            if snapshot.projected_height != projected_height
+                || snapshot.projected_parent_state_root != projected.header.parent_state_root.0
+                || snapshot.projected_state_root != projected.header.state_root.0
+                || snapshot.projected_transactions_root != projected.header.transactions_root
+                || snapshot.status.height.saturating_add(1) != projected_height
+            {
+                return Err(ChainError::Transaction(format!(
+                    "AFT rollback snapshot does not bind projected height {}",
+                    projected_height
+                )));
+            }
+        }
+
         let live_tip = self.state.recent_blocks.last().ok_or_else(|| {
-            ChainError::Transaction("AFT tip replacement has no live tip block".into())
+            ChainError::Transaction("AFT branch replacement has no live tip block".into())
         })?;
-        if live_tip.header.height != expected_height
-            || live_tip.header.parent_state_root.0 != expected_parent_state_root
-            || live_tip.header.state_root.0 != expected_state_root
-            || live_tip.header.transactions_root != expected_transactions_root
-        {
-            return Err(ChainError::Transaction(
-                "changed-byte or stale AFT tip replacement fence".into(),
-            ));
-        }
-
-        let snapshot = self.aft_tip_rollback.as_ref().ok_or_else(|| {
-            ChainError::Transaction(
-                "AFT tip replacement snapshot is unavailable; freeze/restart recovery required"
-                    .into(),
-            )
-        })?;
-        if snapshot.projected_height != expected_height
-            || snapshot.projected_parent_state_root != expected_parent_state_root
-            || snapshot.projected_state_root != expected_state_root
-            || snapshot.projected_transactions_root != expected_transactions_root
-            || snapshot.status.height.saturating_add(1) != expected_height
-        {
-            return Err(ChainError::Transaction(
-                "AFT tip rollback snapshot does not bind the fenced projection".into(),
-            ));
-        }
-
-        let live_root = {
+        let mut live_root = {
             let state = self.workload_container.state_tree().read_owned().await;
             state.root_commitment().as_ref().to_vec()
         };
-        if live_root != expected_state_root {
+        if live_tip.header.height != live_height || live_root != live_tip.header.state_root.0 {
             return Err(ChainError::Transaction(format!(
-                "AFT tip replacement live-root fence mismatch: expected {}, live {}",
-                hex::encode(expected_state_root),
+                "AFT branch replacement live-tip fence mismatch at height {}: block {}, live {}",
+                live_height,
+                hex::encode(&live_tip.header.state_root.0),
                 hex::encode(live_root)
             )));
         }
 
-        let snapshot = self.aft_tip_rollback.take().ok_or_else(|| {
-            ChainError::Transaction("AFT tip rollback snapshot disappeared".into())
-        })?;
-        {
-            let state_tree = self.workload_container.state_tree();
-            let mut state = state_tree.write().await;
-            *state = snapshot.state_tree;
-            let restored_root = state.root_commitment().as_ref().to_vec();
-            if restored_root != snapshot.last_state_root {
+        for projected_height in (expected_height..=live_height).rev() {
+            let snapshot = self.aft_tip_rollbacks.pop().ok_or_else(|| {
+                ChainError::Transaction("AFT branch rollback snapshot disappeared".into())
+            })?;
+            if snapshot.projected_height != projected_height {
                 return Err(ChainError::Transaction(format!(
-                    "AFT tip rollback restored root {} instead of parent {}",
-                    hex::encode(restored_root),
-                    hex::encode(&snapshot.last_state_root)
+                    "AFT branch rollback order changed: expected {}, found {}",
+                    projected_height, snapshot.projected_height
                 )));
             }
+            {
+                let state_tree = self.workload_container.state_tree();
+                let mut state = state_tree.write().await;
+                *state = snapshot.state_tree;
+                live_root = state.root_commitment().as_ref().to_vec();
+                if live_root != snapshot.last_state_root {
+                    return Err(ChainError::Transaction(format!(
+                        "AFT branch rollback restored root {} instead of parent {}",
+                        hex::encode(&live_root),
+                        hex::encode(&snapshot.last_state_root)
+                    )));
+                }
+            }
+            self.state.status = snapshot.status;
+            self.state.recent_blocks = snapshot.recent_blocks;
+            self.state.recent_aft_recovered_state = snapshot.recent_aft_recovered_state;
+            self.state.last_state_root = snapshot.last_state_root;
+            self.state.genesis_state = snapshot.genesis_state;
+            self.services = snapshot.services;
+            self.service_manager = snapshot.service_manager;
+            self.service_meta_cache = snapshot.service_meta_cache;
         }
-        self.state.status = snapshot.status;
-        self.state.recent_blocks = snapshot.recent_blocks;
-        self.state.recent_aft_recovered_state = snapshot.recent_aft_recovered_state;
-        self.state.last_state_root = snapshot.last_state_root;
-        self.state.genesis_state = snapshot.genesis_state;
-        self.services = snapshot.services;
-        self.service_manager = snapshot.service_manager;
-        self.service_meta_cache = snapshot.service_meta_cache;
+
+        if self.state.status.height.saturating_add(1) != expected_height
+            || live_root != expected_parent_state_root
+        {
+            return Err(ChainError::Transaction(format!(
+                "AFT branch rollback did not reach the fenced parent of height {}",
+                expected_height
+            )));
+        }
 
         tracing::warn!(
             target: "execution",
-            replaced_height = expected_height,
+            replacement_target_height = expected_height,
+            retired_live_height = live_height,
             restored_height = self.state.status.height,
             restored_root = %hex::encode(&self.state.last_state_root),
-            "Rolled back one unrecognized AFT workload projection under an exact tip fence"
+            "Rolled back a bounded unrecognized AFT workload branch under exact projection fences"
         );
         Ok(())
     }

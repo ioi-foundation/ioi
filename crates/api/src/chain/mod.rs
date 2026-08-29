@@ -66,7 +66,7 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         ChainError,
     >;
 
-    /// Atomically replaces the current one-height AFT workload projection.
+    /// Atomically replaces a bounded AFT workload projection branch.
     ///
     /// The validator may call this only after proving that Agentgres has not
     /// admitted `expected_tip`. Implementations must revalidate the complete
@@ -75,6 +75,7 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
         &self,
         _expected_tip: Block<ChainTransaction>,
         _replacement: Block<ChainTransaction>,
+        _recognized_height: u64,
     ) -> Result<
         (
             Block<ChainTransaction>,

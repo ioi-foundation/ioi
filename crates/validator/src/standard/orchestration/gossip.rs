@@ -46,6 +46,16 @@ fn replacement_advances_aft_view(current_view: u64, candidate_view: u64) -> bool
     candidate_view > current_view
 }
 
+fn within_aft_branch_replacement_window(
+    consensus_type: ConsensusType,
+    local_height: u64,
+    candidate_height: u64,
+) -> bool {
+    consensus_type == ConsensusType::Aft
+        && candidate_height <= local_height
+        && local_height.saturating_sub(candidate_height) < 2
+}
+
 #[derive(Debug)]
 struct WorkloadChainView<V> {
     client_api: Arc<dyn WorkloadClientApi>,
@@ -463,7 +473,13 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         .last_executed_block
         .as_ref()
         .map_or(0, |b| b.header.height);
-    if block.header.height < our_height {
+    if block.header.height < our_height
+        && !within_aft_branch_replacement_window(
+            context.config.consensus_type,
+            our_height,
+            block.header.height,
+        )
+    {
         if let Err(error) = maybe_apply_block_enrichment(context, &block, false).await {
             tracing::warn!(
                 target: "gossip",
@@ -522,7 +538,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         return;
     }
 
-    if block.header.height == our_height {
+    if block.header.height <= our_height {
         if let Err(error) = maybe_apply_block_enrichment(context, &block, true).await {
             tracing::warn!(
                 target: "gossip",
@@ -559,13 +575,12 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 }
             }
             Ok(false) => {
-                let replaceable = match super::runtime_finality::tip_is_unrecognized(
+                let admitted_height = match super::runtime_finality::agentgres_admitted_height(
                     context,
-                    block.header.height,
                 )
                 .await
                 {
-                    Ok(replaceable) => replaceable,
+                    Ok(height) => height,
                     Err(error) => {
                         context
                             .is_quarantined
@@ -575,17 +590,17 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                             height = block.header.height,
                             view = block.header.view,
                             error = %error,
-                            "Could not establish Agentgres admission floor before same-height replacement; node frozen"
+                            "Could not establish Agentgres admission floor before AFT branch replacement; node frozen"
                         );
                         return;
                     }
                 };
-                if !replaceable {
+                if block.header.height <= admitted_height {
                     tracing::warn!(
                         target: "consensus",
                         height = block.header.height,
                         view = block.header.view,
-                        "Refusing same-height replacement at or below the Agentgres-admitted head"
+                        "Refusing AFT branch replacement at or below the Agentgres-admitted head"
                     );
                     return;
                 }
@@ -602,7 +617,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                             height = block.header.height,
                             view = block.header.view,
                             error = %error,
-                            "Refusing same-height replacement because the fenced workload tip is unavailable"
+                            "Refusing AFT branch replacement because the fenced workload target is unavailable"
                         );
                         return;
                     }
@@ -611,7 +626,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                         target: "consensus",
                         height = block.header.height,
                         view = block.header.view,
-                        "Refusing same-height replacement because the workload returned no fenced tip"
+                        "Refusing AFT branch replacement because the workload returned no fenced target"
                     );
                     return;
                 };
@@ -622,13 +637,13 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                         height = block.header.height,
                         current_view = expected_tip.header.view,
                         candidate_view = block.header.view,
-                        "Refusing non-advancing same-height AFT replacement"
+                        "Refusing non-advancing AFT branch replacement"
                     );
                     return;
                 }
 
                 let (processed_block, execution_receipts) = match workload
-                    .replace_unfinalized_tip(expected_tip.clone(), block.clone())
+                    .replace_unfinalized_tip(expected_tip.clone(), block.clone(), admitted_height)
                     .await
                 {
                     Ok((processed, _, receipts)) => (processed, receipts),
@@ -959,7 +974,8 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 
 #[cfg(test)]
 mod same_height_replacement_tests {
-    use super::replacement_advances_aft_view;
+    use super::{replacement_advances_aft_view, within_aft_branch_replacement_window};
+    use ioi_types::config::ConsensusType;
 
     #[test]
     fn only_a_strictly_later_aft_view_can_replace_a_durable_tip() {
@@ -967,6 +983,30 @@ mod same_height_replacement_tests {
         assert!(replacement_advances_aft_view(7, 8));
         assert!(!replacement_advances_aft_view(7, 7));
         assert!(!replacement_advances_aft_view(7, 6));
+    }
+
+    #[test]
+    fn aft_branch_window_accepts_only_tip_and_one_descendant() {
+        assert!(within_aft_branch_replacement_window(
+            ConsensusType::Aft,
+            10,
+            10
+        ));
+        assert!(within_aft_branch_replacement_window(
+            ConsensusType::Aft,
+            10,
+            9
+        ));
+        assert!(!within_aft_branch_replacement_window(
+            ConsensusType::Aft,
+            10,
+            8
+        ));
+        assert!(!within_aft_branch_replacement_window(
+            ConsensusType::Solo,
+            10,
+            9
+        ));
     }
 }
 

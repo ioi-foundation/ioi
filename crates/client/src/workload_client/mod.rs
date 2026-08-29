@@ -746,6 +746,7 @@ impl WorkloadClientApi for WorkloadClient {
         &self,
         expected_tip: Block<ChainTransaction>,
         replacement: Block<ChainTransaction>,
+        recognized_height: u64,
     ) -> ioi_types::Result<
         (
             Block<ChainTransaction>,
@@ -761,6 +762,7 @@ impl WorkloadClientApi for WorkloadClient {
             expected_parent_state_root: expected_tip.header.parent_state_root.0,
             expected_state_root: expected_tip.header.state_root.0,
             expected_transactions_root: expected_tip.header.transactions_root,
+            recognized_height,
         };
         let mut client = self.chain.lock().await;
         let response = client

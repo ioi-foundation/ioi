@@ -158,16 +158,17 @@ where
             ));
         }
 
-        // Rollback, deterministic replay, and replacement commit share one
-        // machine guard. No normal ProcessBlock call can advance the parent or
-        // consume the one-height snapshot between those boundaries.
+        // Bounded branch rollback, deterministic replay, and replacement
+        // commit share one machine guard. No normal ProcessBlock call can
+        // advance the branch or consume a snapshot between those boundaries.
         let mut machine = self.ctx.machine.lock().await;
         machine
-            .rollback_aft_tip_projection(
+            .rollback_aft_branch_projection(
                 request.expected_tip_height,
                 &request.expected_parent_state_root,
                 &request.expected_state_root,
                 &request.expected_transactions_root,
+                request.recognized_height,
             )
             .await
             .map_err(|error| Status::failed_precondition(error.to_string()))?;

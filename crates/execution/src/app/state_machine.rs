@@ -3,7 +3,7 @@
 use super::{
     derive_canonical_collapse_for_block, derive_canonical_collapse_for_height, end_block,
     resolve_execution_anchor_from_recent_blocks_or_replay_prefix, resolve_execution_parent_anchor,
-    AftTipRollbackSnapshot, ExecutionMachine,
+    AftTipRollbackSnapshot, ExecutionMachine, MAX_AFT_SPECULATIVE_PROJECTIONS,
 };
 use crate::app::parallel_state::ParallelStateAccess;
 use crate::mv_memory::MVMemory;
@@ -1749,15 +1749,13 @@ where
         }
         self.state.recent_blocks.push(block.clone());
 
-        // The AFT workload may be one proposal ahead of the Agentgres
-        // recognized-effect head. Preserve exactly one reversible projection
-        // so a consensus-valid higher-view proposal can replace that tip. The
-        // workload never decides whether replacement is authorized; the
-        // validator must first prove the height is still unrecognized and the
-        // rollback method below revalidates the exact projected execution
-        // surface before restoring these bytes.
-        self.aft_tip_rollback = if retain_aft_tip_snapshot {
-            Some(AftTipRollbackSnapshot {
+        // The AFT workload may hold the two projections required by its
+        // two-chain rule above the Agentgres recognized-effect head. Preserve
+        // only that bounded reversible suffix so a consensus-valid higher-view
+        // proposal can retire its losing branch. The validator supplies the
+        // Agentgres floor and the rollback path revalidates every projection.
+        if retain_aft_tip_snapshot {
+            self.aft_tip_rollbacks.push(AftTipRollbackSnapshot {
                 projected_height: block.header.height,
                 projected_parent_state_root: block.header.parent_state_root.0.clone(),
                 projected_state_root: block.header.state_root.0.clone(),
@@ -1779,10 +1777,13 @@ where
                 service_meta_cache: service_meta_cache_snapshot.take().ok_or_else(|| {
                     ChainError::Transaction("AFT metadata rollback snapshot missing".into())
                 })?,
-            })
+            });
+            if self.aft_tip_rollbacks.len() > MAX_AFT_SPECULATIVE_PROJECTIONS as usize {
+                self.aft_tip_rollbacks.remove(0);
+            }
         } else {
-            None
-        };
+            self.aft_tip_rollbacks.clear();
+        }
 
         let events = vec![];
         Ok((block, events))

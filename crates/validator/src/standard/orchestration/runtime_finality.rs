@@ -243,16 +243,10 @@ where
     Ok(true)
 }
 
-/// Returns whether `height` is still only a workload projection.
-///
-/// Agentgres is the sole authority for this decision. A workload tip at or
-/// below the admitted height is immutable; a strictly later tip may be
-/// replaced by a consensus-valid same-height proposal under the workload's
-/// exact execution-surface fence.
-pub(crate) async fn tip_is_unrecognized<CS, ST, CE, V>(
+/// Returns the current canonical Agentgres-admitted block height.
+pub(crate) async fn agentgres_admitted_height<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
-    height: u64,
-) -> Result<bool>
+) -> Result<u64>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -279,14 +273,13 @@ where
         + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    let admitted_height = context
+    Ok(context
         .runtime_finality
         .lock()
         .await
         .last_admitted_block()?
         .map(|block| block.header.height)
-        .unwrap_or(0);
-    Ok(height > admitted_height)
+        .unwrap_or(0))
 }
 
 pub(crate) async fn admit_available<CS, ST, CE, V>(

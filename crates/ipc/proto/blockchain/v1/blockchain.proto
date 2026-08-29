@@ -141,6 +141,9 @@ message ReplaceUnfinalizedTipRequest {
   bytes expected_parent_state_root = 3;
   bytes expected_state_root = 4;
   bytes expected_transactions_root = 5;
+  // Current canonical Agentgres admission floor. The workload refuses to
+  // retire this height or anything below it.
+  uint64 recognized_height = 6;
 }
 
 message GetBlocksRangeRequest {
