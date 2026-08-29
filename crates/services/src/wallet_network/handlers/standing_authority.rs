@@ -1,8 +1,7 @@
 use crate::wallet_network::handlers::principal_authority::validate_expected_principal_authority_binding;
 use crate::wallet_network::keys::{
     standing_approval_consumption_receipt_key, standing_approval_context_consumption_key,
-    standing_approval_grant_state_key,
-    standing_approval_settlement_receipt_key,
+    standing_approval_grant_state_key, standing_approval_settlement_receipt_key,
 };
 use crate::wallet_network::support::{
     append_audit_event_with_records, base_audit_metadata, block_timestamp_ms,
@@ -12,9 +11,9 @@ use crate::wallet_network::validation::load_registered_approval_authority;
 use crate::wallet_network::{
     ConsumeStandingApprovalGrantForEffectParams, RecordStandingApprovalGrantParams,
     RevokeStandingApprovalGrantParams, SettleStandingApprovalGrantConsumptionParams,
-    StandingApprovalContextConsumption,
-    StandingApprovalGrantConsumptionReceipt, StandingApprovalGrantSettlementReceipt,
-    StandingApprovalGrantState, StandingApprovalGrantStatus, StandingApprovalMode,
+    StandingApprovalContextConsumption, StandingApprovalGrantConsumptionReceipt,
+    StandingApprovalGrantSettlementReceipt, StandingApprovalGrantState,
+    StandingApprovalGrantStatus, StandingApprovalMode,
 };
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, VerifyingKey};

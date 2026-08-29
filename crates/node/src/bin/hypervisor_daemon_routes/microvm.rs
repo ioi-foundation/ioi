@@ -1734,7 +1734,11 @@ mod tests {
             .expect("observe monitor process")
             .is_some();
 
-        assert_eq!(root.output.trim(), "0", "probe must actually have guest root");
+        assert_eq!(
+            root.output.trim(),
+            "0",
+            "probe must actually have guest root"
+        );
         for probe in ["broker_gateway", "broker_loopback", "broker_tcp"] {
             assert!(
                 !reach.output.contains(&format!("{probe}=0")),
@@ -1766,7 +1770,8 @@ mod tests {
             scan.output
         );
         assert!(
-            scan.output.contains("control_found=/tmp/ioi-t3-scan-control"),
+            scan.output
+                .contains("control_found=/tmp/ioi-t3-scan-control"),
             "the guest-side scan never found its own control token, so its silence \
              about the broker canary is not evidence of absence: {}",
             scan.output
@@ -1776,7 +1781,10 @@ mod tests {
             "a broker-domain canary was readable inside the guest: {}",
             scan.output
         );
-        assert!(terminal, "the monitor must be observably terminal after teardown");
+        assert!(
+            terminal,
+            "the monitor must be observably terminal after teardown"
+        );
 
         eprintln!(
             "{}",

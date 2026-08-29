@@ -1583,40 +1583,41 @@ fn validate_required_identity(
         let encoded = record_id
             .strip_prefix(required_prefix)
             .expect("required prefix was validated");
-        let (head_field, receipt_prefix, material) =
-            if record_dir == "autonomous-system-oracle-admission-receipts" {
-                (
-                    "resulting_admission_head_hash",
-                    "receipt://oracle-evidence-admission/",
-                    json!({
-                        "domain":"ioi.oracle-evidence-admission-head-jcs-sha256.v1",
-                        "system_id":record["system_id"],
-                        "assertion_commitment":record["assertion_commitment"],
-                        "profile_body_hash":record["oracle_evidence_profile_body_hash"],
-                        "evidence_root":record["evidence_root"],
-                        "decision":record["decision"],
-                        "applicability_scope_ref":record["applicability_scope_ref"],
-                        "permitted_consequence_scope_refs":record["permitted_consequence_scope_refs"],
-                        "valid_until":record["valid_until"],
-                        "predecessor_head":record["expected_predecessor_admission_head_hash"],
-                    }),
-                )
-            } else {
-                (
-                    "resulting_assertion_head_hash",
-                    "receipt://ontology-assertion-admission/",
-                    json!({
-                        "domain":"ioi.ontology-assertion-admission-head-jcs-sha256.v1",
-                        "system_id":record["system_id"],
-                        "assertion_commitment":record["assertion_commitment"],
-                        "oracle_receipt_ref":record["oracle_evidence_admission_receipt_ref"],
-                        "decision":record["decision"],
-                        "applicability_scope_ref":record["applicability_scope_ref"],
-                        "permitted_consequence_scope_refs":record["permitted_consequence_scope_refs"],
-                        "predecessor_head":record["expected_predecessor_assertion_head_hash"],
-                    }),
-                )
-            };
+        let (head_field, receipt_prefix, material) = if record_dir
+            == "autonomous-system-oracle-admission-receipts"
+        {
+            (
+                "resulting_admission_head_hash",
+                "receipt://oracle-evidence-admission/",
+                json!({
+                    "domain":"ioi.oracle-evidence-admission-head-jcs-sha256.v1",
+                    "system_id":record["system_id"],
+                    "assertion_commitment":record["assertion_commitment"],
+                    "profile_body_hash":record["oracle_evidence_profile_body_hash"],
+                    "evidence_root":record["evidence_root"],
+                    "decision":record["decision"],
+                    "applicability_scope_ref":record["applicability_scope_ref"],
+                    "permitted_consequence_scope_refs":record["permitted_consequence_scope_refs"],
+                    "valid_until":record["valid_until"],
+                    "predecessor_head":record["expected_predecessor_admission_head_hash"],
+                }),
+            )
+        } else {
+            (
+                "resulting_assertion_head_hash",
+                "receipt://ontology-assertion-admission/",
+                json!({
+                    "domain":"ioi.ontology-assertion-admission-head-jcs-sha256.v1",
+                    "system_id":record["system_id"],
+                    "assertion_commitment":record["assertion_commitment"],
+                    "oracle_receipt_ref":record["oracle_evidence_admission_receipt_ref"],
+                    "decision":record["decision"],
+                    "applicability_scope_ref":record["applicability_scope_ref"],
+                    "permitted_consequence_scope_refs":record["permitted_consequence_scope_refs"],
+                    "predecessor_head":record["expected_predecessor_assertion_head_hash"],
+                }),
+            )
+        };
         let expected_hash = format!("sha256:{encoded}");
         if record.get(head_field).and_then(Value::as_str) != Some(expected_hash.as_str())
             || record
@@ -3625,11 +3626,9 @@ mod tests {
         );
 
         // Delegation: the resolver really does see both memberships.
-        let current = super::super::lifecycle_routes::resolve_principal_tenant_refs(
-            data_dir,
-            &principal_ref,
-        )
-        .expect("canonical membership resolution");
+        let current =
+            super::super::lifecycle_routes::resolve_principal_tenant_refs(data_dir, &principal_ref)
+                .expect("canonical membership resolution");
         assert!(current.contains(SCOPED_TENANT) && current.contains(SIBLING_TENANT));
 
         // Narrowing: the reconstructed identity carries exactly the one owner

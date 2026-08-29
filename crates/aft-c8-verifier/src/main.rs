@@ -1480,14 +1480,19 @@ fn validate_authority_and_trajectory(
             .get("admitted_events")
             .and_then(Value::as_array)
             .is_some_and(|events| events.is_empty())
-        || ["active_resource_refs", "provider_refs", "destination_refs", "data_class_refs"]
-            .iter()
-            .any(|field| {
-                !before
-                    .get(*field)
-                    .and_then(Value::as_array)
-                    .is_some_and(|entries| entries.is_empty())
-            })
+        || [
+            "active_resource_refs",
+            "provider_refs",
+            "destination_refs",
+            "data_class_refs",
+        ]
+        .iter()
+        .any(|field| {
+            !before
+                .get(*field)
+                .and_then(Value::as_array)
+                .is_some_and(|entries| entries.is_empty())
+        })
     {
         bail!("trajectory_predecessor_not_anchored")
     }
