@@ -356,6 +356,15 @@ pub struct ProfileCutoverRecord {
     pub to_fence_token: u64,
     pub expected_canonical_head: String,
     pub agentgres_expected_head: Option<String>,
+    /// Exact canonical authorization operation and the already-admitted effect
+    /// that carried it. This is present for strengthening and weakening alike;
+    /// `governance` below is the additional INV-42 burden for a weakening.
+    pub authorization_operation_ref: String,
+    pub authorization_effect_ref: String,
+    pub authorization_effect_agentgres_head: String,
+    pub authorization_refs: Vec<String>,
+    pub activation_not_before_ms: u64,
+    pub activation_checkpoint_height: u64,
     /// The authority in force when this cutover was prepared. Revalidated
     /// against the live owner at commit, exactly as an effect commit is.
     pub authority: AuthoritySnapshot,
@@ -396,6 +405,12 @@ pub struct ProfileCutoverRequest {
     pub to_profile_contract_version: String,
     pub to_writer_identity: String,
     pub to_fence_token: u64,
+    pub authorization_operation_ref: String,
+    pub authorization_effect_ref: String,
+    pub authorization_effect_agentgres_head: String,
+    pub authorization_refs: Vec<String>,
+    pub activation_not_before_ms: u64,
+    pub activation_checkpoint_height: u64,
     /// Authority snapshot the caller believes is in force. Revalidated
     /// against the live owner before anything is admitted.
     pub authority: AuthoritySnapshot,
@@ -481,6 +496,32 @@ pub(crate) fn validate_cutover_record(
     validate_token("from_writer_identity", &record.from_writer_identity)?;
     validate_token("to_writer_identity", &record.to_writer_identity)?;
     validate_hash("expected_canonical_head", &record.expected_canonical_head)?;
+    if let Some(head) = record.agentgres_expected_head.as_deref() {
+        validate_hash("agentgres_expected_head", head)?;
+    }
+    validate_hash(
+        "authorization_operation_ref",
+        &record.authorization_operation_ref,
+    )?;
+    validate_token("authorization_effect_ref", &record.authorization_effect_ref)?;
+    validate_hash(
+        "authorization_effect_agentgres_head",
+        &record.authorization_effect_agentgres_head,
+    )?;
+    let mut authorization_refs = BTreeSet::new();
+    for reference in &record.authorization_refs {
+        validate_token("authorization_ref", reference)?;
+        if !authorization_refs.insert(reference) {
+            return Err(RecognizedEffectError::Invalid(
+                "profile cutover carries duplicate authorization refs".into(),
+            ));
+        }
+    }
+    if record.authorization_refs.is_empty() || record.activation_checkpoint_height == 0 {
+        return Err(RecognizedEffectError::Invalid(
+            "profile cutover lacks authorization refs or activation checkpoint".into(),
+        ));
+    }
     validate_token("authority.domain_id", &record.authority.domain_id)?;
     validate_token("authority.issuer_key_id", &record.authority.issuer_key_id)?;
     record.from.validate()?;
@@ -551,6 +592,12 @@ pub(crate) fn validate_cutover_record(
         }
         (GuaranteeDirection::Weakening, Some(governance)) => {
             governance.validate_shape(&record.guarantee_delta)?;
+            if governance.effective_after_ms != record.activation_not_before_ms {
+                return Err(ProfileRefusal::GovernanceEvidenceRejected {
+                    detail: "governance delay differs from the cutover activation delay".into(),
+                }
+                .into_error());
+            }
             record
                 .rollback
                 .validate_independence(&record.from, &record.to_writer_identity)?;

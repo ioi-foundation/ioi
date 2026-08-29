@@ -25,6 +25,10 @@ use tempfile::TempDir;
 
 const INITIAL_HEAD: &str =
     "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+
+fn hash_label(byte: u8) -> String {
+    format!("sha256:{}", format!("{byte:02x}").repeat(32))
+}
 const ISSUER_KEY_ID: &str = "key://acme/finality/1";
 const WRITER_A: &str = "writer://acme/a";
 const WRITER_B: &str = "writer://acme/b";
@@ -639,6 +643,12 @@ fn strengthening_request() -> ProfileCutoverRequest {
         to_profile_contract_version: contract_version(),
         to_writer_identity: WRITER_B.into(),
         to_fence_token: 2,
+        authorization_operation_ref: hash_label(0xa1),
+        authorization_effect_ref: "effect://acme/cutover/1".into(),
+        authorization_effect_agentgres_head: hash_label(0xa2),
+        authorization_refs: vec!["authorization://acme/governance/board".into()],
+        activation_not_before_ms: 0,
+        activation_checkpoint_height: 1,
         authority: authority(),
         bindings: bindings_digest(),
         guarantee_delta: delta(GuaranteeDirection::Strengthening),
@@ -669,6 +679,15 @@ fn weakening_request(
         to_profile_contract_version: contract_version(),
         to_writer_identity: to_writer.into(),
         to_fence_token,
+        authorization_operation_ref: hash_label(0xb1),
+        authorization_effect_ref: format!("effect://acme/{cutover_id}"),
+        authorization_effect_agentgres_head: hash_label(0xb2),
+        authorization_refs: vec![
+            "authorization://acme/governance/board".into(),
+            "authorization://acme/governance/security".into(),
+        ],
+        activation_not_before_ms: 1_000,
+        activation_checkpoint_height: 1,
         authority: authority(),
         bindings: bindings_digest(),
         guarantee_delta,
@@ -2221,6 +2240,12 @@ fn rollback_after_next_profile_effects_is_a_successor_cutover() {
         to_profile_contract_version: contract_version(),
         to_writer_identity: WRITER_C.into(),
         to_fence_token: 3,
+        authorization_operation_ref: hash_label(0xc1),
+        authorization_effect_ref: "effect://acme/cutover/rollback".into(),
+        authorization_effect_agentgres_head: hash_label(0xc2),
+        authorization_refs: vec!["authorization://acme/governance/board".into()],
+        activation_not_before_ms: 7_000,
+        activation_checkpoint_height: 2,
         authority: authority(),
         bindings: bindings_digest(),
         guarantee_delta: delta(GuaranteeDirection::Strengthening),
@@ -2246,6 +2271,12 @@ fn rollback_after_next_profile_effects_is_a_successor_cutover() {
         to_profile_contract_version: contract_version(),
         to_writer_identity: WRITER_A.into(),
         to_fence_token: 1,
+        authorization_operation_ref: hash_label(0xd1),
+        authorization_effect_ref: "effect://acme/cutover/revive".into(),
+        authorization_effect_agentgres_head: hash_label(0xd2),
+        authorization_refs: vec!["authorization://acme/governance/board".into()],
+        activation_not_before_ms: 8_000,
+        activation_checkpoint_height: 3,
         authority: authority(),
         bindings: bindings_digest(),
         guarantee_delta: delta(GuaranteeDirection::Weakening),

@@ -154,7 +154,7 @@ pub(super) fn approval_consumption_key(request_hash: &[u8; 32]) -> Vec<u8> {
     [APPROVAL_CONSUMPTION_PREFIX, request_hash.as_slice()].concat()
 }
 
-pub(super) fn approval_effect_consumption_receipt_key(consumption_id: &[u8; 32]) -> Vec<u8> {
+pub(crate) fn approval_effect_consumption_receipt_key(consumption_id: &[u8; 32]) -> Vec<u8> {
     [
         APPROVAL_EFFECT_CONSUMPTION_RECEIPT_PREFIX,
         consumption_id.as_slice(),

@@ -6,14 +6,21 @@
 //! makes the transition canonical. Every externally visible consequence is
 //! then redriven from the committed outbox in its registered order.
 
-use agentgres::cutover::{SpineGenesis, WriterClaim};
-use agentgres::profile::{FinalityProfile, ProfileBindingsDigest, ProfileIdentity};
+use agentgres::cutover::{
+    GovernanceEvidence, GovernanceValidator, GovernanceVerdict, ProfileCutoverRequest,
+    RollbackKind, RollbackPlan, SpineGenesis, WeakeningReview, WriterClaim,
+};
+use agentgres::profile::{
+    FinalityProfile, GuaranteeDelta, GuaranteeDirection, ProfileBindingsDigest, ProfileIdentity,
+};
 use agentgres::recognized_effect::{
     AuthorityRevalidator, AuthoritySnapshot, CommitDisposition, CommitResult, OutboxIntent,
     RecognizedEffectStore,
 };
 use anyhow::{anyhow, Context, Result};
-use ioi_api::chain::BlockExecutionReceipt;
+use ioi_api::chain::{
+    block_execution_receipt_journal_key, BlockExecutionReceipt, BlockExecutionReceiptJournal,
+};
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{ConsensusEngine, NativeAftFinalizedEvidence};
 use ioi_api::crypto::SerializableKey;
@@ -24,7 +31,11 @@ use ioi_finality::{
     RUNTIME_PROFILE_CONTRACT_V1,
 };
 use ioi_ipc::public::TxStatus;
-use ioi_types::app::{Block, ChainTransaction, KernelEvent, SignatureSuite};
+use ioi_services::wallet_network::{
+    AuthorizeFinalityProfileCutoverParamsV1, GovernedFinalityProfileCutoverV1,
+    GovernedRollbackKindV1, AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
+};
+use ioi_types::app::{Block, ChainTransaction, KernelEvent, SignatureSuite, SystemPayload};
 use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
 use ioi_types::config::RuntimeFinalityProfile;
 use parity_scale_codec::{Decode, Encode};
@@ -66,9 +77,35 @@ impl AuthorityRevalidator for ExactAuthority {
     }
 }
 
+struct ExactGovernance {
+    evidence_digest: String,
+    approvals: u32,
+}
+
+impl GovernanceValidator for ExactGovernance {
+    fn validate_weakening(
+        &self,
+        review: &WeakeningReview<'_>,
+    ) -> Result<GovernanceVerdict, String> {
+        if review.governance.evidence_digest != self.evidence_digest
+            || review.governance.approvals() != self.approvals
+            || self.approvals < review.governance.approval_threshold
+        {
+            return Err("wallet governance evidence/threshold substitution".into());
+        }
+        Ok(GovernanceVerdict {
+            approved: true,
+            approvals: self.approvals,
+            evidence_digest: self.evidence_digest.clone(),
+            detail: "exact Agentgres-admitted wallet authorization".into(),
+        })
+    }
+}
+
 pub(crate) struct RuntimeFinalityCoordinator {
     root: PathBuf,
     domain_id: String,
+    local_writer_root: String,
     writer_identity: String,
     issuer_key_id: String,
     signing_key: Ed25519PrivateKey,
@@ -180,6 +217,17 @@ where
         admitted.push(admission.effect_id.clone());
         deliver_runtime_admission(context, admission).await?;
     }
+    let cutovers = coordinator_ref
+        .lock()
+        .await
+        .apply_due_governed_cutovers(recorded_at_ms)?;
+    for cutover_id in cutovers {
+        tracing::info!(
+            target: "consensus",
+            cutover_id = %cutover_id,
+            "Wallet-authorized Agentgres profile cutover activated"
+        );
+    }
     Ok(admitted)
 }
 
@@ -221,7 +269,98 @@ where
         let admission = coordinator_ref.lock().await.recover_admission(effect_id)?;
         deliver_runtime_admission(context, admission).await?;
     }
+    coordinator_ref
+        .lock()
+        .await
+        .apply_due_governed_cutovers(runtime_wall_clock_ms())?;
     Ok(effect_ids)
+}
+
+/// Reconstruct staging for workload blocks whose atomic execution commit won
+/// the crash race but whose receipts never reached the validator process.
+/// Receipt bytes are accepted only from the state-rooted per-height journal;
+/// an RPC retry or a re-execution is never used to invent the lost result.
+pub(crate) async fn recover_workload_gap<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+) -> Result<Vec<u64>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let admitted_height = context
+        .last_committed_block
+        .as_ref()
+        .map(|block| block.header.height)
+        .unwrap_or(0);
+    let workload = context.view_resolver.workload_client().clone();
+    let workload_height = workload.get_status().await?.height;
+    if workload_height < admitted_height {
+        return Err(anyhow!(
+            "workload height {workload_height} is behind Agentgres-admitted height {admitted_height}"
+        ));
+    }
+    let mut recovered = Vec::new();
+    for height in admitted_height.saturating_add(1)..=workload_height {
+        let block = workload
+            .get_block_by_height(height)
+            .await?
+            .ok_or_else(|| anyhow!("workload receipt recovery is missing block {height}"))?;
+        let journal_bytes = workload
+            .query_raw_state(&block_execution_receipt_journal_key(height))
+            .await?
+            .ok_or_else(|| {
+                anyhow!("workload receipt recovery is missing rooted journal {height}")
+            })?;
+        let journal: BlockExecutionReceiptJournal =
+            from_bytes_canonical(&journal_bytes).map_err(anyhow::Error::msg)?;
+        journal
+            .validate_against(&block)
+            .map_err(|error| anyhow!(error.to_string()))?;
+        stage_runtime_block(context, block.clone(), journal.receipts).await?;
+        context.last_executed_block = Some(block.clone());
+
+        if context.runtime_finality.lock().await.active_profile()?
+            == RuntimeFinalityProfile::BftConsensusAftV1
+        {
+            let observed = super::aft_collapse::observe_live_committed_chain_through_block(
+                &context.consensus_engine_ref,
+                context.config.consensus_type,
+                workload.as_ref(),
+                &block,
+            )
+            .await?;
+            if !observed {
+                return Err(anyhow!(
+                    "consensus refused recovered committed block {height}"
+                ));
+            }
+        }
+        admit_available(context, Some(&block)).await?;
+        recovered.push(height);
+    }
+    Ok(recovered)
 }
 
 async fn deliver_runtime_admission<CS, ST, CE, V>(
@@ -457,7 +596,8 @@ impl RuntimeFinalityCoordinator {
             issuer_key_id: issuer_key_id.clone(),
             admission_permitted: true,
         };
-        let mut store = match RecognizedEffectStore::open_existing(&root, domain_id.clone())? {
+        let existing = RecognizedEffectStore::open_existing(&root, domain_id.clone())?;
+        let mut store = match existing {
             Some(store) => store,
             None => RecognizedEffectStore::open(
                 &root,
@@ -476,17 +616,9 @@ impl RuntimeFinalityCoordinator {
             .spine_state()
             .active()
             .map_err(|error| anyhow!(error.to_string()))?;
-        if active.identity.profile != agentgres_profile(configured_profile) {
+        if !local_writer_matches(&writer_identity, &active.writer_identity) {
             return Err(anyhow!(
-                "configured runtime profile {} does not match Agentgres-active profile {} at epoch {}",
-                configured_profile.certificate_variant(),
-                active.identity.certificate_variant,
-                active.profile_epoch
-            ));
-        }
-        if active.writer_identity != writer_identity {
-            return Err(anyhow!(
-                "local runtime writer {} is fenced; Agentgres authorizes {}",
+                "local runtime writer root {} does not own Agentgres-active writer {}",
                 writer_identity,
                 active.writer_identity
             ));
@@ -498,14 +630,13 @@ impl RuntimeFinalityCoordinator {
                 active.authority.issuer_key_id
             ));
         }
-        store.bind_writer(WriterClaim::new(
-            writer_identity.clone(),
-            active.fence_token,
-        ))?;
+        let active_writer = active.writer_identity.clone();
+        store.bind_writer(WriterClaim::new(active_writer.clone(), active.fence_token))?;
         let coordinator = Self {
             root,
             domain_id,
-            writer_identity,
+            local_writer_root: writer_identity,
+            writer_identity: active_writer,
             issuer_key_id,
             signing_key,
             store,
@@ -642,6 +773,236 @@ impl RuntimeFinalityCoordinator {
                 effect: committed,
             },
         })
+    }
+
+    /// Admit every due wallet-authorized cutover whose authorization
+    /// transaction is already a rooted recognized effect. Early authorization
+    /// remains inert and is deterministically rediscovered from Agentgres on
+    /// every later admission/restart; no side file grants authority.
+    pub(crate) fn apply_due_governed_cutovers(
+        &mut self,
+        recorded_at_ms: u64,
+    ) -> Result<Vec<String>> {
+        let committed_effects = self
+            .store
+            .committed_effects_in_order()
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        let current_height = self
+            .last_admitted_block()?
+            .map(|block| block.header.height)
+            .unwrap_or(0);
+        let mut applied = Vec::new();
+        for effect in committed_effects {
+            let head = effect
+                .record
+                .bundle
+                .pointer("/checkpoint/resulting_canonical_head")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("committed runtime effect lost resulting head"))?;
+            let hash = parse_hash_label(head)?;
+            let staged = self.read_staged(&hash)?;
+            for (index, transaction) in staged.block.transactions.iter().enumerate() {
+                let Some(operation) = governed_cutover_operation(transaction)? else {
+                    continue;
+                };
+                if let Some(existing) = self.store.committed_cutover(&operation.cutover_id) {
+                    let operation_ref = format!("sha256:{}", hex::encode(operation.operation_hash));
+                    if existing.record.authorization_operation_ref != operation_ref
+                        || existing.record.authorization_effect_ref != effect.record.effect_id
+                        || existing.record.authorization_effect_agentgres_head
+                            != effect.agentgres_head
+                    {
+                        return Err(anyhow!(
+                            "duplicate cutover id is bound to different authorization bytes"
+                        ));
+                    }
+                    continue;
+                }
+                operation
+                    .verify_shape()
+                    .map_err(|error| anyhow!(error.to_string()))?;
+                if staged.receipts.get(index).is_none() {
+                    return Err(anyhow!(
+                        "governed cutover authorization lacks its individual execution receipt"
+                    ));
+                }
+                if recorded_at_ms < operation.activation_not_before_ms
+                    || current_height < operation.activation_checkpoint_height
+                {
+                    continue;
+                }
+                self.apply_governed_cutover(&effect, &staged.block, &operation, recorded_at_ms)?;
+                applied.push(operation.cutover_id);
+            }
+        }
+        Ok(applied)
+    }
+
+    fn apply_governed_cutover(
+        &mut self,
+        authorization_effect: &agentgres::recognized_effect::CommittedRecognizedEffect,
+        authorization_block: &Block<ChainTransaction>,
+        operation: &GovernedFinalityProfileCutoverV1,
+        recorded_at_ms: u64,
+    ) -> Result<()> {
+        let active = self
+            .store
+            .spine_state()
+            .active()
+            .map_err(|error| anyhow!(error.to_string()))?
+            .clone();
+        let authorization_prior_head = format!(
+            "sha256:{}",
+            hex::encode(authorization_block.header.parent_hash)
+        );
+        let bindings = [
+            ("domain", operation.domain_id == self.domain_id),
+            (
+                "from_profile",
+                operation.expected_from_profile == active.identity.profile.profile(),
+            ),
+            (
+                "profile_contract_version",
+                operation.expected_from_profile_contract_version
+                    == active.identity.profile_contract_version,
+            ),
+            (
+                "from_writer",
+                operation.expected_from_writer_identity == active.writer_identity,
+            ),
+            (
+                "profile_epoch",
+                operation.expected_from_profile_epoch == active.profile_epoch,
+            ),
+            (
+                "fence_token",
+                operation.expected_from_fence_token == active.fence_token,
+            ),
+            (
+                "prior_canonical_head",
+                operation.expected_prior_canonical_head == authorization_prior_head,
+            ),
+            (
+                "authority_epoch",
+                operation.authority_epoch == active.authority.authority_epoch,
+            ),
+            (
+                "revocation_epoch",
+                operation.revocation_epoch == active.authority.revocation_epoch,
+            ),
+            (
+                "authorization_effect_profile",
+                authorization_effect.record.profile == operation.expected_from_profile,
+            ),
+            (
+                "authorization_effect_profile_epoch",
+                authorization_effect.record.profile_epoch == operation.expected_from_profile_epoch,
+            ),
+            (
+                "authorization_effect_writer",
+                authorization_effect.record.writer_identity
+                    == operation.expected_from_writer_identity,
+            ),
+            (
+                "authorization_effect_fence",
+                authorization_effect.record.fence_token == operation.expected_from_fence_token,
+            ),
+        ];
+        if let Some((coordinate, _)) = bindings.into_iter().find(|(_, valid)| !valid) {
+            return Err(anyhow!(
+                "wallet cutover authorization does not bind active Agentgres coordinate {coordinate}"
+            ));
+        }
+        if !local_writer_matches(&self.local_writer_root, &operation.to_writer_identity) {
+            return Err(anyhow!(
+                "wallet cutover targets a writer this runtime process cannot own"
+            ));
+        }
+        if operation.to_profile_contract_version != RUNTIME_PROFILE_CONTRACT_V1 {
+            return Err(anyhow!(
+                "wallet cutover names an unsupported profile contract"
+            ));
+        }
+        let target = FinalityProfile::resolve_label(&operation.to_profile)?;
+        let direction = active
+            .identity
+            .profile
+            .direction_to(target)
+            .ok_or_else(|| anyhow!("wallet cutover is a no-op"))?;
+        let guarantee_delta = runtime_guarantee_delta(direction);
+        let authority_refs = governed_authority_refs(authorization_block, operation)?;
+        let evidence_digest = hash_json(&json!({
+            "schema_version": "ioi.agentgres-wallet-cutover-evidence.v1",
+            "operation_hash": hex::encode(operation.operation_hash),
+            "authorization_effect_id": authorization_effect.record.effect_id,
+            "authorization_agentgres_head": authorization_effect.agentgres_head,
+            "authorization_agentgres_batch_sequence": authorization_effect.agentgres_batch_sequence,
+            "authorization_block_hash": hex::encode(block_hash(authorization_block)?),
+            "authority_refs": authority_refs,
+        }))?;
+        let (anchor_batch_seq, anchor_root) = self.store.governance_anchor();
+        let guarantee_delta_digest = agentgres::cutover::guarantee_delta_digest(&guarantee_delta)
+            .map_err(|error| anyhow!(error.to_string()))?;
+        let governance = (direction == GuaranteeDirection::Weakening).then(|| GovernanceEvidence {
+            governance_id: format!(
+                "wallet-governance://{}",
+                hex::encode(operation.operation_hash)
+            ),
+            evidence_digest: evidence_digest.clone(),
+            approval_threshold: operation.approval_threshold,
+            authorization_refs: authority_refs.clone(),
+            effective_after_ms: operation.activation_not_before_ms,
+            anchor_batch_seq,
+            anchor_root,
+            guarantee_delta_digest,
+        });
+        let rollback = runtime_rollback_plan(operation)?;
+        let authority_owner = ExactAuthority(active.authority.clone());
+        let governance_owner = ExactGovernance {
+            evidence_digest,
+            approvals: u32::try_from(authority_refs.len()).unwrap_or(u32::MAX),
+        };
+        let request = ProfileCutoverRequest {
+            cutover_id: operation.cutover_id.clone(),
+            to_profile: operation.to_profile.clone(),
+            to_profile_contract_version: operation.to_profile_contract_version.clone(),
+            to_writer_identity: operation.to_writer_identity.clone(),
+            to_fence_token: operation.to_fence_token,
+            authorization_operation_ref: format!(
+                "sha256:{}",
+                hex::encode(operation.operation_hash)
+            ),
+            authorization_effect_ref: authorization_effect.record.effect_id.clone(),
+            authorization_effect_agentgres_head: authorization_effect.agentgres_head.clone(),
+            authorization_refs: authority_refs,
+            activation_not_before_ms: operation.activation_not_before_ms,
+            activation_checkpoint_height: operation.activation_checkpoint_height,
+            authority: active.authority,
+            bindings: production_bindings()?,
+            guarantee_delta,
+            governance,
+            rollback,
+        };
+        let prepared = self.store.prepare_cutover(
+            request,
+            &authority_owner,
+            &governance_owner,
+            recorded_at_ms,
+        )?;
+        let committed = self.store.commit_cutover(
+            prepared,
+            &authority_owner,
+            &governance_owner,
+            recorded_at_ms,
+        )?;
+        self.store.bind_writer(WriterClaim::new(
+            committed.record.to_writer_identity.clone(),
+            committed.record.to_fence_token,
+        ))?;
+        self.writer_identity = committed.record.to_writer_identity;
+        Ok(())
     }
 
     pub(crate) fn materialize_projection(&mut self, effect_id: &str) -> Result<()> {
@@ -825,6 +1186,153 @@ fn production_bindings() -> Result<ProfileBindingsDigest> {
         availability_policy_digest: hash_label(b"ioi.agentgres.local-device-availability.v1")?,
         retention_policy_digest: hash_label(b"ioi.agentgres.runtime-block-retention.v1")?,
         governance_policy_digest: hash_label(b"ioi.profile-cutover.inv42-governance.v1")?,
+    })
+}
+
+fn local_writer_matches(root: &str, candidate: &str) -> bool {
+    candidate == root
+        || candidate
+            .strip_prefix(root)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
+fn parse_hash_label(value: &str) -> Result<[u8; 32]> {
+    let encoded = value
+        .strip_prefix("sha256:")
+        .ok_or_else(|| anyhow!("hash is not sha256-prefixed"))?;
+    let bytes = hex::decode(encoded).context("hash is not hexadecimal")?;
+    bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow!("hash is not 32 bytes"))
+}
+
+fn hash_json(value: &Value) -> Result<String> {
+    let bytes = serde_jcs::to_vec(value)?;
+    Ok(format!(
+        "sha256:{}",
+        hex::encode(ioi_crypto::algorithms::hash::sha256(&bytes)?)
+    ))
+}
+
+fn governed_cutover_operation(
+    transaction: &ChainTransaction,
+) -> Result<Option<GovernedFinalityProfileCutoverV1>> {
+    let ChainTransaction::System(system) = transaction else {
+        return Ok(None);
+    };
+    let SystemPayload::CallService {
+        service_id,
+        method,
+        params,
+    } = &system.payload;
+    if service_id != "wallet_network" || method != AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD {
+        return Ok(None);
+    }
+    let request: AuthorizeFinalityProfileCutoverParamsV1 =
+        from_bytes_canonical(params).map_err(anyhow::Error::msg)?;
+    Ok(Some(request.operation))
+}
+
+fn governed_authority_refs(
+    block: &Block<ChainTransaction>,
+    operation: &GovernedFinalityProfileCutoverV1,
+) -> Result<Vec<String>> {
+    for transaction in &block.transactions {
+        let ChainTransaction::System(system) = transaction else {
+            continue;
+        };
+        let SystemPayload::CallService {
+            service_id,
+            method,
+            params,
+        } = &system.payload;
+        if service_id != "wallet_network" || method != AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD {
+            continue;
+        }
+        let request: AuthorizeFinalityProfileCutoverParamsV1 =
+            from_bytes_canonical(params).map_err(anyhow::Error::msg)?;
+        if request.operation.operation_hash != operation.operation_hash {
+            continue;
+        }
+        let refs = request
+            .approvals
+            .iter()
+            .map(|approval| {
+                format!(
+                    "wallet-approval-authority://{}",
+                    hex::encode(
+                        approval
+                            .expected_principal_authority
+                            .approval_authority
+                            .authority_id
+                    )
+                )
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        if refs.len() < operation.approval_threshold as usize {
+            return Err(anyhow!(
+                "wallet cutover distinct-authority threshold is unmet"
+            ));
+        }
+        return Ok(refs);
+    }
+    Err(anyhow!(
+        "wallet cutover authorization transaction disappeared"
+    ))
+}
+
+fn runtime_guarantee_delta(direction: GuaranteeDirection) -> GuaranteeDelta {
+    let quorum_guarantees = vec![
+        "authenticated_peer_quorum_ordering".into(),
+        "one_byzantine_fault_tolerance_under_partial_synchrony".into(),
+    ];
+    let retained = vec![
+        "agentgres_atomic_recognized_effect".into(),
+        "durable_individual_receipts".into(),
+        "availability_and_offline_verifier_binding".into(),
+    ];
+    match direction {
+        GuaranteeDirection::Weakening => GuaranteeDelta {
+            direction,
+            lost_guarantees: quorum_guarantees,
+            retained_guarantees: retained,
+            gained_guarantees: Vec::new(),
+        },
+        GuaranteeDirection::Strengthening => GuaranteeDelta {
+            direction,
+            lost_guarantees: Vec::new(),
+            retained_guarantees: retained,
+            gained_guarantees: quorum_guarantees,
+        },
+    }
+}
+
+fn runtime_rollback_plan(operation: &GovernedFinalityProfileCutoverV1) -> Result<RollbackPlan> {
+    let (kind, target) = match operation.rollback_kind {
+        GovernedRollbackKindV1::SuccessorCutover => {
+            let label = operation
+                .rollback_target_profile
+                .as_deref()
+                .ok_or_else(|| anyhow!("successor rollback has no target profile"))?;
+            (
+                RollbackKind::SuccessorCutover,
+                Some(ProfileIdentity::new(
+                    FinalityProfile::resolve_label(label)?,
+                    RUNTIME_PROFILE_CONTRACT_V1,
+                )?),
+            )
+        }
+        GovernedRollbackKindV1::Freeze => (RollbackKind::Freeze, None),
+    };
+    Ok(RollbackPlan {
+        kind,
+        executor_writer_identity: operation.rollback_executor_writer_identity.clone(),
+        executor_authorization_refs: operation.rollback_authorization_refs.clone(),
+        target,
+        independent_of_new_authority: true,
     })
 }
 
@@ -1100,10 +1608,29 @@ fn build_outbox(
 mod tests {
     use super::*;
     use ioi_api::chain::BlockExecutionReceipt;
-    use ioi_types::app::{AccountId, BlockHeader, QuorumCertificate, StateRoot};
+    use ioi_api::consensus::{NativeAftMembershipMember, NativeAftQuorumSigner};
+    use ioi_api::crypto::SigningKey;
+    use ioi_services::wallet_network::{
+        ConsumeApprovalGrantForEffectV2Params, ExpectedPrincipalAuthorityBinding,
+        FINALITY_PROFILE_CUTOVER_SCOPE,
+    };
+    use ioi_types::app::action::ApprovalAuthority;
+    use ioi_types::app::wallet_network::PrincipalAuthorityBindingCoordinates;
+    use ioi_types::app::{
+        account_id_from_key_material, AccountId, BlockHeader, QuorumCertificate, SignHeader,
+        SignatureProof, StateRoot, SystemTransaction,
+    };
     use tempfile::tempdir;
 
     fn empty_block(parent: [u8; 32], height: u64) -> Block<ChainTransaction> {
+        block_with_transactions(parent, height, Vec::new())
+    }
+
+    fn block_with_transactions(
+        parent: [u8; 32],
+        height: u64,
+        transactions: Vec<ChainTransaction>,
+    ) -> Block<ChainTransaction> {
         Block {
             header: BlockHeader {
                 height,
@@ -1111,7 +1638,8 @@ mod tests {
                 parent_hash: parent,
                 parent_state_root: StateRoot(vec![2; 32]),
                 state_root: StateRoot(vec![3; 32]),
-                transactions_root: ioi_types::app::canonical_transactions_root(&[]).unwrap(),
+                transactions_root: ioi_types::app::canonical_transactions_root(&transactions)
+                    .unwrap(),
                 timestamp: 1_700_000_000 + height,
                 timestamp_ms: 1_700_000_000_000 + height,
                 gas_used: 0,
@@ -1132,7 +1660,160 @@ mod tests {
                 publication_frontier: None,
                 signature: Vec::new(),
             },
-            transactions: Vec::new(),
+            transactions,
+        }
+    }
+
+    fn governed_cutover_transaction(
+        mut operation: GovernedFinalityProfileCutoverV1,
+        authority_ids: &[[u8; 32]],
+    ) -> ChainTransaction {
+        operation.operation_hash = operation.compute_operation_hash().unwrap();
+        let approvals = authority_ids
+            .iter()
+            .enumerate()
+            .map(
+                |(index, authority_id)| ConsumeApprovalGrantForEffectV2Params {
+                    request_hash: operation.operation_hash,
+                    grant_hash: [40 + index as u8; 32],
+                    consumption_id: [60 + index as u8; 32],
+                    expected_principal_authority: ExpectedPrincipalAuthorityBinding {
+                        principal_ref: format!("principal://test/{index}"),
+                        required_scope: FINALITY_PROFILE_CUTOVER_SCOPE.into(),
+                        coordinates: PrincipalAuthorityBindingCoordinates {
+                            binding_ref: format!("principal-authority-binding://test/{index}"),
+                            binding_version: operation.authority_epoch,
+                            binding_hash: [80 + index as u8; 32],
+                        },
+                        approval_authority: ApprovalAuthority {
+                            schema_version: 1,
+                            authority_id: *authority_id,
+                            public_key: vec![100 + index as u8; 32],
+                            signature_suite: SignatureSuite::ED25519,
+                            expires_at: u64::MAX,
+                            revoked: false,
+                            scope_allowlist: vec![FINALITY_PROFILE_CUTOVER_SCOPE.into()],
+                        },
+                        approval_authority_snapshot_hash: [120 + index as u8; 32],
+                    },
+                    expected_target_label: FINALITY_PROFILE_CUTOVER_SCOPE.into(),
+                    expected_max_usages: 1,
+                },
+            )
+            .collect();
+        let request = AuthorizeFinalityProfileCutoverParamsV1 {
+            operation,
+            approvals,
+        };
+        ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader::default(),
+            payload: SystemPayload::CallService {
+                service_id: "wallet_network".into(),
+                method: AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD.into(),
+                params: to_bytes_canonical(&request).unwrap(),
+            },
+            signature_proof: SignatureProof::default(),
+        }))
+    }
+
+    fn cutover_operation(
+        cutover_id: &str,
+        domain_id: &str,
+        from: RuntimeFinalityProfile,
+        from_writer: &str,
+        from_epoch: u64,
+        from_fence: u64,
+        prior_head: [u8; 32],
+        to: RuntimeFinalityProfile,
+        to_writer: &str,
+        to_fence: u64,
+        activation_ms: u64,
+        checkpoint_height: u64,
+    ) -> GovernedFinalityProfileCutoverV1 {
+        GovernedFinalityProfileCutoverV1 {
+            schema_version: 1,
+            operation_hash: [0; 32],
+            cutover_id: cutover_id.into(),
+            domain_id: domain_id.into(),
+            expected_from_profile: profile_identity(from).unwrap().profile.profile().into(),
+            expected_from_profile_contract_version: RUNTIME_PROFILE_CONTRACT_V1.into(),
+            expected_from_writer_identity: from_writer.into(),
+            expected_from_profile_epoch: from_epoch,
+            expected_from_fence_token: from_fence,
+            expected_prior_canonical_head: format!("sha256:{}", hex::encode(prior_head)),
+            to_profile: profile_identity(to).unwrap().profile.profile().into(),
+            to_profile_contract_version: RUNTIME_PROFILE_CONTRACT_V1.into(),
+            to_writer_identity: to_writer.into(),
+            to_fence_token: to_fence,
+            authority_epoch: 1,
+            revocation_epoch: 0,
+            approval_threshold: 2,
+            activation_not_before_ms: activation_ms,
+            activation_checkpoint_height: checkpoint_height,
+            rollback_kind: GovernedRollbackKindV1::Freeze,
+            rollback_executor_writer_identity: format!("{from_writer}/rollback"),
+            rollback_authorization_refs: vec!["wallet-governance://test/rollback".into()],
+            rollback_target_profile: None,
+        }
+    }
+
+    fn native_aft_evidence(block: &mut Block<ChainTransaction>) -> NativeAftFinalizedEvidence {
+        let keys = (0_u8..4)
+            .map(|index| Ed25519PrivateKey::from_bytes(&[150 + index; 32]).unwrap())
+            .collect::<Vec<_>>();
+        let members = keys
+            .iter()
+            .map(|key| {
+                let public_key = key.public_key().unwrap().as_bytes().to_vec();
+                let account_id = AccountId(
+                    account_id_from_key_material(SignatureSuite::ED25519, &public_key).unwrap(),
+                );
+                NativeAftMembershipMember {
+                    account_id,
+                    suite: SignatureSuite::ED25519,
+                    public_key,
+                }
+            })
+            .collect::<Vec<_>>();
+        block.header.validator_set = members
+            .iter()
+            .map(|member| member.account_id.0.to_vec())
+            .collect();
+        let hash = block_hash(block).unwrap();
+        let message =
+            ioi_finality::native_aft_vote_message(block.header.height, block.header.view, &hash)
+                .unwrap();
+        let signers = keys
+            .iter()
+            .zip(members.iter())
+            .take(3)
+            .map(|(key, member)| NativeAftQuorumSigner {
+                account_id: member.account_id,
+                suite: SignatureSuite::ED25519,
+                public_key: member.public_key.clone(),
+                signature: key.sign(&message).unwrap().to_bytes().to_vec(),
+            })
+            .collect::<Vec<_>>();
+        NativeAftFinalizedEvidence {
+            quorum_certificate: QuorumCertificate {
+                height: block.header.height,
+                view: block.header.view,
+                block_hash: hash,
+                signatures: signers
+                    .iter()
+                    .map(|signer| (signer.account_id, signer.signature.clone()))
+                    .collect(),
+                aggregated_signature: Vec::new(),
+                signers_bitfield: Vec::new(),
+            },
+            signers,
+            members,
+            membership_effective_from_height: 1,
+            total_voting_members: 4,
+            byzantine_fault_tolerance: 1,
+            quorum_threshold: 3,
+            distinct_member_signatures_verified: 3,
+            bft_consensus_aft_v1_qualified: true,
         }
     }
 
@@ -1232,5 +1913,192 @@ mod tests {
             reopened.recovered_pending_effects().unwrap(),
             vec![admission.effect_id]
         );
+    }
+
+    #[test]
+    fn rooted_single_to_aft_cutover_delays_fences_and_survives_config_downgrade() {
+        let dir = tempdir().unwrap();
+        let seed = [11_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let domain = "chain://test/cutover";
+        let writer = "writer://test/cutover";
+        let next_writer = "writer://test/cutover/profile/aft/epoch/2";
+        let parent = [1; 32];
+        let operation = cutover_operation(
+            "profile-cutover://test/single-to-aft/1",
+            domain,
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            writer,
+            0,
+            1,
+            parent,
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            next_writer,
+            2,
+            20,
+            1,
+        );
+        let transaction = governed_cutover_transaction(operation, &[[31; 32], [32; 32]]);
+        let block = block_with_transactions(parent, 1, vec![transaction.clone()]);
+        let receipt = BlockExecutionReceipt::for_success(1, 0, transaction.hash().unwrap(), 0, &[]);
+        let initial = format!("sha256:{}", hex::encode(parent));
+        let mut coordinator = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            domain.into(),
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            writer.into(),
+            initial,
+            issuer.clone(),
+            &seed,
+        )
+        .unwrap();
+        let hash = block_hash(&block).unwrap();
+        coordinator
+            .stage_block(block.clone(), vec![receipt])
+            .unwrap();
+        coordinator.admit_single_authority(hash, 10).unwrap();
+        assert!(coordinator
+            .apply_due_governed_cutovers(19)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            coordinator.active_profile().unwrap(),
+            RuntimeFinalityProfile::SingleAuthorityV1
+        );
+        assert_eq!(
+            coordinator.apply_due_governed_cutovers(20).unwrap(),
+            vec!["profile-cutover://test/single-to-aft/1"]
+        );
+        assert_eq!(
+            coordinator.active_profile().unwrap(),
+            RuntimeFinalityProfile::BftConsensusAftV1
+        );
+
+        let successor = empty_block(hash, 2);
+        let successor_hash = block_hash(&successor).unwrap();
+        coordinator.stage_block(successor, Vec::new()).unwrap();
+        assert!(coordinator
+            .admit_single_authority(successor_hash, 21)
+            .unwrap_err()
+            .to_string()
+            .contains("different active profile"));
+        drop(coordinator);
+
+        let reopened = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            domain.into(),
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            writer.into(),
+            "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff".into(),
+            issuer,
+            &seed,
+        )
+        .unwrap();
+        assert_eq!(
+            reopened.active_profile().unwrap(),
+            RuntimeFinalityProfile::BftConsensusAftV1
+        );
+        assert_eq!(reopened.writer_identity, next_writer);
+    }
+
+    #[test]
+    fn governed_aft_to_single_weakening_requires_delay_checkpoint_and_rollback() {
+        let dir = tempdir().unwrap();
+        let seed = [12_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let domain = "chain://test/inv42";
+        let writer = "writer://test/inv42";
+        let next_writer = "writer://test/inv42/profile/single/epoch/2";
+        let parent = [2; 32];
+        let mut operation = cutover_operation(
+            "profile-cutover://test/aft-to-single/1",
+            domain,
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            writer,
+            0,
+            1,
+            parent,
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            next_writer,
+            2,
+            30,
+            1,
+        );
+        operation.rollback_kind = GovernedRollbackKindV1::SuccessorCutover;
+        operation.rollback_target_profile = Some("bft_consensus".into());
+        let transaction = governed_cutover_transaction(operation, &[[41; 32], [42; 32]]);
+        let mut block = block_with_transactions(parent, 1, vec![transaction.clone()]);
+        let evidence = native_aft_evidence(&mut block);
+        let receipt = BlockExecutionReceipt::for_success(1, 0, transaction.hash().unwrap(), 0, &[]);
+        let mut coordinator = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            domain.into(),
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            writer.into(),
+            format!("sha256:{}", hex::encode(parent)),
+            issuer.clone(),
+            &seed,
+        )
+        .unwrap();
+        coordinator
+            .stage_block(block.clone(), vec![receipt])
+            .unwrap();
+        coordinator.admit_native_aft(evidence, 10).unwrap();
+        assert!(coordinator
+            .apply_due_governed_cutovers(29)
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            coordinator.active_profile().unwrap(),
+            RuntimeFinalityProfile::BftConsensusAftV1
+        );
+        assert_eq!(
+            coordinator.apply_due_governed_cutovers(30).unwrap(),
+            vec!["profile-cutover://test/aft-to-single/1"]
+        );
+        assert_eq!(
+            coordinator.active_profile().unwrap(),
+            RuntimeFinalityProfile::SingleAuthorityV1
+        );
+        let committed = coordinator
+            .store
+            .committed_cutover("profile-cutover://test/aft-to-single/1")
+            .unwrap();
+        let governance = committed.record.governance.as_ref().unwrap();
+        assert_eq!(governance.approval_threshold, 2);
+        assert_eq!(governance.effective_after_ms, 30);
+        assert_eq!(
+            committed.record.rollback.kind,
+            RollbackKind::SuccessorCutover
+        );
+        assert_eq!(
+            committed.record.rollback.target.as_ref().unwrap().profile,
+            FinalityProfile::BftConsensus
+        );
+        drop(coordinator);
+
+        let reopened = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            domain.into(),
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            writer.into(),
+            format!("sha256:{}", hex::encode(parent)),
+            issuer,
+            &seed,
+        )
+        .unwrap();
+        assert_eq!(
+            reopened.active_profile().unwrap(),
+            RuntimeFinalityProfile::SingleAuthorityV1
+        );
+        assert_eq!(reopened.writer_identity, next_writer);
     }
 }

@@ -198,6 +198,11 @@ pub const BLOCK_EXECUTION_RECEIPT_SCHEMA: &str = "ioi.block-execution-receipt";
 pub const BLOCK_EXECUTION_RECEIPT_VERSION: u32 = 1;
 /// Hash-domain separator bound into every block execution receipt.
 pub const BLOCK_EXECUTION_RECEIPT_DOMAIN: &str = "ioi.block-execution-receipt.v1";
+/// Versioned state-journal schema used to recover committed receipt bytes after
+/// the workload process has acknowledged its atomic state/block commit.
+pub const BLOCK_EXECUTION_RECEIPT_JOURNAL_SCHEMA: &str = "ioi.block-execution-receipt-journal.v1";
+pub const BLOCK_EXECUTION_RECEIPT_JOURNAL_VERSION: u16 = 1;
+const BLOCK_EXECUTION_RECEIPT_JOURNAL_PREFIX: &[u8] = b"execution::block_receipts::v1::";
 
 /// The largest integer a JCS (RFC 8785) encoder renders without loss.
 ///
@@ -332,6 +337,109 @@ impl BlockExecutionReceipt {
             "body_hash": body_hash,
         }))
     }
+}
+
+/// State-rooted recovery envelope for the exact receipt vector committed with
+/// one workload block.
+///
+/// This journal deliberately does not add a per-transaction state-delta claim.
+/// The receipt vector was fully checked against transaction proof bytes before
+/// commit; recovery can re-check its transaction order, hashes, and aggregate
+/// gas against the durable block while the state root protects the original
+/// committed bytes.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct BlockExecutionReceiptJournal {
+    pub schema: String,
+    pub version: u16,
+    pub block_height: u64,
+    pub transactions_root: Vec<u8>,
+    pub receipts: Vec<BlockExecutionReceipt>,
+    pub journal_hash: [u8; 32],
+}
+
+impl BlockExecutionReceiptJournal {
+    pub fn new(
+        block_height: u64,
+        transactions_root: Vec<u8>,
+        receipts: Vec<BlockExecutionReceipt>,
+    ) -> Self {
+        let mut journal = Self {
+            schema: BLOCK_EXECUTION_RECEIPT_JOURNAL_SCHEMA.into(),
+            version: BLOCK_EXECUTION_RECEIPT_JOURNAL_VERSION,
+            block_height,
+            transactions_root,
+            receipts,
+            journal_hash: [0; 32],
+        };
+        journal.journal_hash = journal.compute_hash();
+        journal
+    }
+
+    pub fn compute_hash(&self) -> [u8; 32] {
+        let mut preimage = self.clone();
+        preimage.journal_hash = [0; 32];
+        sha256(&preimage.encode())
+    }
+
+    pub fn validate_against(&self, block: &Block<ChainTransaction>) -> Result<(), ChainError> {
+        if self.schema != BLOCK_EXECUTION_RECEIPT_JOURNAL_SCHEMA
+            || self.version != BLOCK_EXECUTION_RECEIPT_JOURNAL_VERSION
+            || self.block_height != block.header.height
+            || self.transactions_root
+                != ioi_types::app::canonical_transactions_root(&block.transactions)
+                    .map_err(ChainError::Transaction)?
+            || self.journal_hash != self.compute_hash()
+        {
+            return Err(ChainError::Transaction(format!(
+                "Block {} execution receipt journal envelope mismatch",
+                block.header.height
+            )));
+        }
+        if self.receipts.len() != block.transactions.len() {
+            return Err(ChainError::Transaction(format!(
+                "Block {} execution receipt journal count mismatch",
+                block.header.height
+            )));
+        }
+        let mut gas = 0_u64;
+        for (index, (receipt, transaction)) in
+            self.receipts.iter().zip(&block.transactions).enumerate()
+        {
+            if receipt.schema != BLOCK_EXECUTION_RECEIPT_SCHEMA
+                || receipt.version != BLOCK_EXECUTION_RECEIPT_VERSION
+                || receipt.domain != BLOCK_EXECUTION_RECEIPT_DOMAIN
+                || receipt.block_height != block.header.height
+                || receipt.transaction_index != index as u64
+                || receipt.transaction_hash
+                    != transaction
+                        .hash()
+                        .map_err(|error| ChainError::Transaction(error.to_string()))?
+            {
+                return Err(ChainError::Transaction(format!(
+                    "Block {} execution receipt journal transaction {index} mismatch",
+                    block.header.height
+                )));
+            }
+            gas = gas.checked_add(receipt.gas_used).ok_or_else(|| {
+                ChainError::Transaction("Execution receipt journal gas overflow".into())
+            })?;
+        }
+        if gas != block.header.gas_used {
+            return Err(ChainError::Transaction(format!(
+                "Block {} execution receipt journal gas mismatch",
+                block.header.height
+            )));
+        }
+        Ok(())
+    }
+}
+
+pub fn block_execution_receipt_journal_key(height: u64) -> Vec<u8> {
+    [
+        BLOCK_EXECUTION_RECEIPT_JOURNAL_PREFIX,
+        height.to_be_bytes().as_slice(),
+    ]
+    .concat()
 }
 
 fn sha256(bytes: &[u8]) -> [u8; 32] {

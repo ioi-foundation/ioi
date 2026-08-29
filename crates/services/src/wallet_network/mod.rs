@@ -31,6 +31,7 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::BTreeSet;
 
+mod finality_control;
 mod handlers;
 mod keys;
 pub(crate) mod mail_ontology;
@@ -39,6 +40,12 @@ pub mod portable_authority;
 mod support;
 mod validation;
 
+pub use finality_control::{
+    AuthorizeFinalityProfileCutoverParamsV1, FinalityProfileCutoverAuthorizationReceiptV1,
+    GovernedFinalityProfileCutoverV1, GovernedRollbackKindV1,
+    AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD, FINALITY_PROFILE_CUTOVER_SCOPE,
+    GOVERNED_FINALITY_PROFILE_CUTOVER_SCHEMA_VERSION,
+};
 pub use validation::verify_wallet_signature_proof;
 
 #[cfg(test)]
@@ -777,6 +784,11 @@ impl BlockchainService for WalletNetworkService {
                 let consume: ConsumeApprovalGrantForEffectV2Params =
                     codec::from_bytes_canonical(params)?;
                 handlers::approval::consume_approval_grant_for_effect_v2(state, ctx, consume)
+            }
+            AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD => {
+                let request: AuthorizeFinalityProfileCutoverParamsV1 =
+                    codec::from_bytes_canonical(params)?;
+                finality_control::authorize_finality_profile_cutover(state, ctx, request)
             }
             "record_portable_authority_grant_v3@v1" => {
                 let request: RecordPortableAuthorityGrantV3Params =

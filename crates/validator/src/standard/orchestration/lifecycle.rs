@@ -850,6 +850,13 @@ where
                     "runtime finality committed-outbox recovery refusal: {error}"
                 ))
             })?;
+        super::runtime_finality::recover_workload_gap(&mut context)
+            .await
+            .map_err(|error| {
+                ValidatorError::Other(format!(
+                    "runtime finality committed-workload recovery refusal: {error}"
+                ))
+            })?;
 
         let mut receiver_opt = self.network_event_receiver.lock().await;
         let receiver = receiver_opt.take().ok_or(ValidatorError::Other(

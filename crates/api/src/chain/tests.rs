@@ -3,7 +3,8 @@
 
 use super::*;
 use ioi_types::app::{
-    AccountId, ChainId, SignHeader, SignatureProof, SystemPayload, SystemTransaction,
+    canonical_transactions_root, AccountId, BlockHeader, ChainId, QuorumCertificate, SignHeader,
+    SignatureProof, StateRoot, SystemPayload, SystemTransaction,
 };
 
 const HEIGHT: u64 = 42;
@@ -57,6 +58,57 @@ fn well_formed(
     }
 
     (receipts, proofs, gas_used)
+}
+
+fn journal_block(transactions: Vec<ChainTransaction>, gas_used: u64) -> Block<ChainTransaction> {
+    Block {
+        header: BlockHeader {
+            height: HEIGHT,
+            view: 7,
+            parent_hash: [1; 32],
+            parent_state_root: StateRoot(vec![2; 32]),
+            state_root: StateRoot(vec![3; 32]),
+            transactions_root: canonical_transactions_root(&transactions).unwrap(),
+            timestamp: 1_700_000_000,
+            timestamp_ms: 1_700_000_000_000,
+            gas_used,
+            validator_set: vec![vec![4; 32]],
+            producer_account_id: AccountId([5; 32]),
+            producer_key_suite: ioi_types::app::SignatureSuite::ED25519,
+            producer_pubkey_hash: [6; 32],
+            producer_pubkey: vec![7; 32],
+            oracle_counter: 0,
+            oracle_trace_hash: [0; 32],
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            signature: Vec::new(),
+        },
+        transactions,
+    }
+}
+
+#[test]
+fn state_rooted_receipt_journal_round_trips_and_refuses_changed_bytes() {
+    let transactions = vec![transaction(1), transaction(2)];
+    let (receipts, _, gas_used) = well_formed(&transactions);
+    let block = journal_block(transactions, gas_used);
+    let journal =
+        BlockExecutionReceiptJournal::new(HEIGHT, block.header.transactions_root.clone(), receipts);
+    journal.validate_against(&block).unwrap();
+
+    let mut changed = journal.clone();
+    changed.receipts[0].gas_used += 1;
+    assert!(changed.validate_against(&block).is_err());
+    assert_ne!(
+        block_execution_receipt_journal_key(HEIGHT),
+        block_execution_receipt_journal_key(HEIGHT + 1)
+    );
 }
 
 #[test]
@@ -331,14 +383,9 @@ fn receipt_gas_accounting_refuses_u64_overflow() {
     receipts[0].gas_used = u64::MAX;
     receipts[1].gas_used = 1;
 
-    let error = validate_block_execution_receipts(
-        &receipts,
-        &transactions,
-        &proofs,
-        HEIGHT,
-        u64::MAX,
-    )
-    .expect_err("gas overflow must refuse");
+    let error =
+        validate_block_execution_receipts(&receipts, &transactions, &proofs, HEIGHT, u64::MAX)
+            .expect_err("gas overflow must refuse");
     assert!(error.to_string().contains("overflows u64"));
 }
 

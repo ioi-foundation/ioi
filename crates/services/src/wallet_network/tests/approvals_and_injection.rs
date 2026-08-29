@@ -20,6 +20,74 @@ struct EffectBindingFixture {
     expected: ExpectedPrincipalAuthorityBinding,
 }
 
+#[test]
+fn governed_finality_weakening_preflights_inv42_before_consuming_wallet_grants() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let mut operation = GovernedFinalityProfileCutoverV1 {
+        schema_version: GOVERNED_FINALITY_PROFILE_CUTOVER_SCHEMA_VERSION,
+        operation_hash: [0; 32],
+        cutover_id: "profile-cutover://test/inv42/preflight".into(),
+        domain_id: "chain://test/inv42".into(),
+        expected_from_profile: "bft_consensus".into(),
+        expected_from_profile_contract_version: "ioi.runtime-finality-profile.v1".into(),
+        expected_from_writer_identity: "writer://test/aft".into(),
+        expected_from_profile_epoch: 3,
+        expected_from_fence_token: 7,
+        expected_prior_canonical_head: format!("sha256:{}", "a".repeat(64)),
+        to_profile: "single_authority".into(),
+        to_profile_contract_version: "ioi.runtime-finality-profile.v1".into(),
+        to_writer_identity: "writer://test/single".into(),
+        to_fence_token: 8,
+        authority_epoch: 1,
+        revocation_epoch: 0,
+        approval_threshold: 1,
+        activation_not_before_ms: EFFECT_NOW_MS + 10_000,
+        activation_checkpoint_height: 43,
+        rollback_kind: GovernedRollbackKindV1::Freeze,
+        rollback_executor_writer_identity: "writer://test/rollback".into(),
+        rollback_authorization_refs: vec!["wallet-governance://test/rollback".into()],
+        rollback_target_profile: None,
+    };
+    operation.operation_hash = operation.compute_operation_hash().unwrap();
+
+    let call = |state: &mut MockState,
+                operation: &GovernedFinalityProfileCutoverV1|
+     -> Result<(), ioi_types::error::TransactionError> {
+        let params = AuthorizeFinalityProfileCutoverParamsV1 {
+            operation: operation.clone(),
+            approvals: Vec::new(),
+        };
+        let mut result = None;
+        with_ctx(|ctx| {
+            result = Some(run_async(service.handle_service_call(
+                state,
+                AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
+                &codec::to_bytes_canonical(&params).unwrap(),
+                ctx,
+            )));
+        });
+        result.unwrap()
+    };
+
+    let error = call(&mut state, &operation).expect_err("one wallet is not an INV-42 threshold");
+    assert!(error.to_string().contains("INV-42"));
+    assert!(state.data.is_empty());
+
+    operation.approval_threshold = 2;
+    operation.activation_not_before_ms = EFFECT_NOW_MS;
+    operation.operation_hash = operation.compute_operation_hash().unwrap();
+    let error = call(&mut state, &operation).expect_err("same-block activation must refuse");
+    assert!(error.to_string().contains("INV-42"));
+    assert!(state.data.is_empty());
+
+    operation.activation_not_before_ms = EFFECT_NOW_MS + 10_000;
+    operation.operation_hash = operation.compute_operation_hash().unwrap();
+    let error = call(&mut state, &operation).expect_err("missing approvals must refuse");
+    assert!(error.to_string().contains("threshold is unmet"));
+    assert!(state.data.is_empty());
+}
+
 fn effect_binding_proof(
     root_keypair: &Ed25519KeyPair,
     root: &WalletControlPlaneRootRecord,
@@ -669,10 +737,26 @@ fn one_single_use_ceremony_authorises_exactly_one_standing_recording() {
     // grant nonce and counter differ, so these are two distinct grants asking
     // one consent event to authorise both.
     let first = signed_standing_approval_grant(
-        &approver, policy_hash, [7; 32], [0xa3; 32], 1, 2, 600, 100, 0xa1,
+        &approver,
+        policy_hash,
+        [7; 32],
+        [0xa3; 32],
+        1,
+        2,
+        600,
+        100,
+        0xa1,
     );
     let second = signed_standing_approval_grant(
-        &approver, policy_hash, [7; 32], [0xa4; 32], 2, 2, 600, 100, 0xa1,
+        &approver,
+        policy_hash,
+        [7; 32],
+        [0xa4; 32],
+        2,
+        2,
+        600,
+        100,
+        0xa1,
     );
     assert_eq!(
         first.approval_ceremony_context_json, second.approval_ceremony_context_json,

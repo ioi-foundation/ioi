@@ -718,6 +718,12 @@ impl RecognizedEffectStore {
         effects
     }
 
+    /// Terminal Agentgres coordinates a separately authorized governance
+    /// checkpoint must pin at the cutover linearization point.
+    pub fn governance_anchor(&self) -> (u64, String) {
+        self.current_anchor()
+    }
+
     /// Prove eligibility: exact writer identity AND exact active fence token.
     ///
     /// Exactness in both directions is the point. A retired writer presents a
@@ -1539,6 +1545,14 @@ impl RecognizedEffectStore {
                     to_fence_token: request.to_fence_token,
                     expected_canonical_head: store.canonical_head.clone(),
                     agentgres_expected_head: store.spine_head(),
+                    authorization_operation_ref: request.authorization_operation_ref.clone(),
+                    authorization_effect_ref: request.authorization_effect_ref.clone(),
+                    authorization_effect_agentgres_head: request
+                        .authorization_effect_agentgres_head
+                        .clone(),
+                    authorization_refs: request.authorization_refs.clone(),
+                    activation_not_before_ms: request.activation_not_before_ms,
+                    activation_checkpoint_height: request.activation_checkpoint_height,
                     authority: request.authority.clone(),
                     bindings: request.bindings.clone(),
                     guarantee_delta: request.guarantee_delta.clone(),
@@ -1554,6 +1568,13 @@ impl RecognizedEffectStore {
             })?;
 
         self.around(Phase::GovernanceValidation, |store| {
+            if direction == GuaranteeDirection::Strengthening
+                && recorded_at_ms < request.activation_not_before_ms
+            {
+                return Err(RecognizedEffectError::Invalid(
+                    "profile cutover activation delay has not elapsed".into(),
+                ));
+            }
             store.validate_governance(&record, direction, governance, recorded_at_ms)
         })?;
 
@@ -1612,6 +1633,13 @@ impl RecognizedEffectStore {
             .map_err(RecognizedEffectError::Authority)?;
         if current != record.authority || !current.admission_permitted {
             return Err(RecognizedEffectError::StaleAuthority);
+        }
+        if direction == GuaranteeDirection::Strengthening
+            && recorded_at_ms < record.activation_not_before_ms
+        {
+            return Err(RecognizedEffectError::Invalid(
+                "profile cutover activation delay has not elapsed".into(),
+            ));
         }
         if record.expected_canonical_head != self.canonical_head {
             return Err(RecognizedEffectError::StaleHead {

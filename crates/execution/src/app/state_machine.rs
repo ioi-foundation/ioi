@@ -13,8 +13,9 @@ use dashmap::DashMap;
 // REMOVED: use ibc_primitives::Timestamp;
 use ioi_api::app::{Block, BlockHeader, ChainStatus, ChainTransaction};
 use ioi_api::chain::{
-    validate_block_execution_receipts, AnchoredStateView, BlockExecutionReceipt, ChainStateMachine,
-    ChainView, PreparedBlock, StateRef,
+    block_execution_receipt_journal_key, validate_block_execution_receipts, AnchoredStateView,
+    BlockExecutionReceipt, BlockExecutionReceiptJournal, ChainStateMachine, ChainView,
+    PreparedBlock, StateRef,
 };
 use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::PenaltyMechanism;
@@ -1375,6 +1376,22 @@ where
                 codec::to_bytes_canonical(&next_status).map_err(ChainError::Transaction)?;
             state.insert(STATUS_KEY, &status_bytes)?;
             log_stage("after_status", &stage_root(&*state));
+
+            // Recovery bytes share the block's state root and combined durable
+            // commit. A successful workload ACK can therefore never outrun the
+            // exact receipt vector required by runtime finality after restart.
+            let receipt_journal = BlockExecutionReceiptJournal::new(
+                block.header.height,
+                prepared.transactions_root.clone(),
+                prepared.execution_receipts.clone(),
+            );
+            let receipt_journal_bytes = codec::to_bytes_canonical(&receipt_journal)
+                .map_err(ChainError::Transaction)?;
+            state.insert(
+                &block_execution_receipt_journal_key(block.header.height),
+                &receipt_journal_bytes,
+            )?;
+            log_stage("after_execution_receipt_journal", &stage_root(&*state));
 
             let final_root_bytes = state.root_commitment().as_ref().to_vec();
             if externally_finalized_header {
