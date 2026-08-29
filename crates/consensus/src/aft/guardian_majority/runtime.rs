@@ -949,6 +949,19 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
         let threshold = self.quorum_count_threshold_for_height(vote.height);
         let height_map = self.vote_pool.entry(vote.height).or_default();
+        if height_map.iter().any(|(block_hash, pooled)| {
+            *block_hash != vote.block_hash
+                && pooled
+                    .iter()
+                    .any(|prior| prior.voter == vote.voter && prior.view == vote.view)
+        }) {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "Validator {} equivocated at H={} V={}",
+                hex::encode(vote.voter),
+                vote.height,
+                vote.view
+            )));
+        }
         let votes = height_map.entry(vote.block_hash).or_default();
 
         if votes.iter().any(|v| v.voter == vote.voter) {

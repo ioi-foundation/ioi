@@ -474,7 +474,9 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             blocks = sequential_blocks;
         } else {
             for block in &blocks {
-                if let Err(error) = gossip::maybe_apply_block_enrichment(context, block).await {
+                if let Err(error) =
+                    gossip::maybe_apply_block_enrichment(context, block, false).await
+                {
                     tracing::warn!(
                         target: "sync",
                         %peer,
@@ -545,7 +547,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         .count();
     if already_applied_prefix > 0 {
         for block in &blocks[..already_applied_prefix] {
-            if let Err(error) = gossip::maybe_apply_block_enrichment(context, block).await {
+            if let Err(error) = gossip::maybe_apply_block_enrichment(context, block, false).await {
                 tracing::warn!(
                     target: "sync",
                     %peer,

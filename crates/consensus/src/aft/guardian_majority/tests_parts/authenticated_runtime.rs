@@ -122,6 +122,27 @@ async fn genuine_vote_is_admitted_to_the_pool() {
 }
 
 #[tokio::test]
+async fn same_validator_cannot_vote_for_two_hashes_in_one_height_and_view() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine(&validators, &[5]);
+    let first = validators.signed_vote(0, 5, 1, [7u8; 32]);
+    let conflicting = validators.signed_vote(0, 5, 1, [8u8; 32]);
+
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_vote(&mut engine, first)
+        .await
+        .unwrap();
+    let error = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_vote(
+        &mut engine,
+        conflicting,
+    )
+    .await
+    .unwrap_err();
+
+    assert!(matches!(error, ConsensusError::BlockVerificationFailed(_)));
+    assert!(!engine.vote_pool[&5].contains_key(&[8u8; 32]));
+}
+
+#[tokio::test]
 async fn forged_vote_signature_never_reaches_the_pool() {
     let validators = AuthenticatedValidators::new(BFT_MEMBERS);
     let mut engine = classic_engine(&validators, &[5]);

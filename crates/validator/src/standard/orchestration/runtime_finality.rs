@@ -171,6 +171,78 @@ where
         .stage_block(block, receipts)
 }
 
+/// Stage an exact consensus envelope whose effects are already rooted in the
+/// workload under an execution-equivalent same-height envelope.
+///
+/// This is the only safe recovery path for a proposal/application race.  It
+/// does not make the candidate canonical and it does not rewrite the workload
+/// tip: it merely proves that voting for the candidate cannot authorize bytes
+/// the validator has not durably executed.  A later authenticated QC selects
+/// the envelope and `ensure_native_aft_stage` performs branch reconciliation.
+pub(crate) async fn stage_execution_equivalent_candidate<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
+    candidate: Block<ChainTransaction>,
+) -> Result<bool>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let workload = context.view_resolver.workload_client();
+    if workload.get_status().await?.height < candidate.header.height {
+        return Ok(false);
+    }
+    let Some(local_block) = workload
+        .get_block_by_height(candidate.header.height)
+        .await?
+    else {
+        return Ok(false);
+    };
+    if !block_execution_surface_matches(&local_block, &candidate) {
+        return Ok(false);
+    }
+
+    let journal_bytes = workload
+        .query_raw_state(&block_execution_receipt_journal_key(
+            candidate.header.height,
+        ))
+        .await?
+        .ok_or_else(|| {
+            anyhow!(
+                "execution-equivalent block {} is missing its rooted execution-receipt journal",
+                candidate.header.height
+            )
+        })?;
+    let journal: BlockExecutionReceiptJournal =
+        from_bytes_canonical(&journal_bytes).map_err(anyhow::Error::msg)?;
+    journal
+        .validate_against(&candidate)
+        .map_err(|error| anyhow!(error.to_string()))?;
+    stage_runtime_block(context, candidate, journal.receipts).await?;
+    Ok(true)
+}
+
 pub(crate) async fn admit_available<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     single_authority_block: Option<&Block<ChainTransaction>>,
@@ -400,6 +472,14 @@ fn header_execution_surface_matches(
         && left.transactions_root == right.transactions_root
         && left.timestamp_ms_or_legacy() == right.timestamp_ms_or_legacy()
         && left.gas_used == right.gas_used
+}
+
+fn block_execution_surface_matches(
+    left: &Block<ChainTransaction>,
+    right: &Block<ChainTransaction>,
+) -> bool {
+    left.transactions == right.transactions
+        && header_execution_surface_matches(&left.header, &right.header)
 }
 
 fn sort_native_aft_evidence(evidence: &mut [NativeAftFinalizedEvidence]) {
@@ -2385,6 +2465,36 @@ mod tests {
 
         certified.state_root = StateRoot(vec![99; 32]);
         assert!(!header_execution_surface_matches(&block.header, &certified));
+    }
+
+    #[test]
+    fn post_apply_vote_recovery_accepts_only_the_same_execution_and_transactions() {
+        let transaction = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader::default(),
+            payload: SystemPayload::CallService {
+                service_id: "test".into(),
+                method: "durable@v1".into(),
+                params: vec![1, 2, 3],
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let local = block_with_transactions([9; 32], 7, vec![transaction]);
+        let mut alternate_view = local.clone();
+        alternate_view.header.view += 1;
+        alternate_view.header.parent_hash = [10; 32];
+        alternate_view.header.signature = vec![4; 64];
+        assert!(block_execution_surface_matches(&local, &alternate_view));
+
+        let mut substituted_transaction = alternate_view.clone();
+        substituted_transaction.transactions.clear();
+        assert!(!block_execution_surface_matches(
+            &local,
+            &substituted_transaction
+        ));
+
+        let mut substituted_state = alternate_view;
+        substituted_state.header.state_root = StateRoot(vec![99; 32]);
+        assert!(!block_execution_surface_matches(&local, &substituted_state));
     }
 
     #[test]

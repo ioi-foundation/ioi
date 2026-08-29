@@ -340,6 +340,91 @@ async fn relay_remaining_mempool_to_upcoming_leaders(
     }
 }
 
+/// Emit this validator's vote only after the caller has established that the
+/// exact proposal is backed by durable workload execution and runtime staging.
+async fn emit_durable_proposal_vote<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
+    block: &Block<ChainTransaction>,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    if block.header.height == 0 {
+        return Ok(());
+    }
+
+    let vote_height = block.header.height;
+    let vote_view = block.header.view;
+    let vote_hash_vec = block.header.hash().map_err(anyhow::Error::msg)?;
+    let vote_hash =
+        to_root_hash(&vote_hash_vec).map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let our_pk = context.local_keypair.public().encode_protobuf();
+    let our_id = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &our_pk)
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?,
+    );
+    let vote_payload = (vote_height, vote_view, vote_hash);
+    let vote_bytes = codec::to_bytes_canonical(&vote_payload).map_err(anyhow::Error::msg)?;
+    let vote = ConsensusVote {
+        height: vote_height,
+        view: vote_view,
+        block_hash: vote_hash,
+        voter: our_id,
+        signature: context
+            .local_keypair
+            .sign(&vote_bytes)
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?,
+    };
+
+    // Do not put a locally rejected vote on the network.  The engine's safety
+    // and authentication checks precede both dissemination and QC extraction.
+    let pending_qcs = {
+        let mut engine = context.consensus_engine_ref.lock().await;
+        engine
+            .handle_vote(vote.clone())
+            .await
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        engine.take_pending_quorum_certificates()
+    };
+
+    let vote_blob = codec::to_bytes_canonical(&vote).map_err(anyhow::Error::msg)?;
+    let _ = context
+        .swarm_commander
+        .send(SwarmCommand::BroadcastVote(vote_blob))
+        .await;
+    for qc in pending_qcs {
+        let qc_blob = codec::to_bytes_canonical(&qc).map_err(anyhow::Error::msg)?;
+        let _ = context
+            .swarm_commander
+            .send(SwarmCommand::BroadcastQuorumCertificate(qc_blob))
+            .await;
+    }
+    tracing::debug!(
+        target: "consensus",
+        "Post-apply vote for block {} (H={} V={})",
+        hex::encode(&vote_hash[..4]),
+        vote_height,
+        vote_view
+    );
+    Ok(())
+}
+
 /// Handles an incoming gossiped block.
 pub async fn handle_gossip_block<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
@@ -369,8 +454,8 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         .last_executed_block
         .as_ref()
         .map_or(0, |b| b.header.height);
-    if block.header.height <= our_height {
-        if let Err(error) = maybe_apply_block_enrichment(context, &block).await {
+    if block.header.height < our_height {
+        if let Err(error) = maybe_apply_block_enrichment(context, &block, false).await {
             tracing::warn!(
                 target: "gossip",
                 event = "block_enrichment_rejected",
@@ -391,11 +476,6 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             "Detected a gossiped block height gap; switching into catch-up sync."
         );
         sync_handlers::start_catchup_to_peer(context, source_peer, block.header.height).await;
-        return;
-    }
-
-    let node_state = { context.node_state.lock().await.clone() };
-    if node_state == NodeState::Syncing && block.header.height != our_height + 1 {
         return;
     }
 
@@ -433,6 +513,59 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         return;
     }
 
+    if block.header.height == our_height {
+        if let Err(error) = maybe_apply_block_enrichment(context, &block, true).await {
+            tracing::warn!(
+                target: "gossip",
+                event = "block_enrichment_rejected",
+                height = block.header.height,
+                view = block.header.view,
+                error = %error
+            );
+        }
+        match super::runtime_finality::stage_execution_equivalent_candidate(context, block.clone())
+            .await
+        {
+            Ok(true) => {
+                if let Err(error) = emit_durable_proposal_vote(context, &block).await {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = block.header.height,
+                        view = block.header.view,
+                        error = %error,
+                        "Refused same-height vote after durable-equivalence recovery"
+                    );
+                    return;
+                }
+                if let Err(error) = super::runtime_finality::admit_available(context, None).await {
+                    context
+                        .is_quarantined
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    tracing::error!(
+                        target: "consensus",
+                        height = block.header.height,
+                        error = %error,
+                        "Terminal runtime finality admission refusal; node frozen"
+                    );
+                }
+            }
+            Ok(false) => tracing::warn!(
+                target: "consensus",
+                height = block.header.height,
+                view = block.header.view,
+                "Refusing same-height proposal vote because durable execution is not equivalent"
+            ),
+            Err(error) => tracing::warn!(
+                target: "consensus",
+                height = block.header.height,
+                view = block.header.view,
+                error = %error,
+                "Refusing same-height proposal vote because durable-equivalence proof failed"
+            ),
+        }
+        return;
+    }
+
     tracing::debug!(
         target: "gossip",
         "Gossiped block is consensus-valid; applying it before voting."
@@ -442,7 +575,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
     match context
         .view_resolver
         .workload_client()
-        .process_block(block)
+        .process_block(block.clone())
         .await
     {
         Ok((processed_block, _, execution_receipts)) => {
@@ -475,64 +608,14 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             // ACK would then count a vote for bytes this validator never
             // applied. Runtime finality staging is also fail-closed, so a
             // staging refusal freezes the node without leaking a vote.
-            if processed_block.header.height > 0 {
-                let vote_height = processed_block.header.height;
-                let vote_view = processed_block.header.view;
-                let vote_hash_vec = processed_block.header.hash().unwrap_or(vec![0u8; 32]);
-                let vote_hash = to_root_hash(&vote_hash_vec).unwrap_or([0u8; 32]);
-
-                let our_pk = context.local_keypair.public().encode_protobuf();
-                let our_id = AccountId(
-                    account_id_from_key_material(SignatureSuite::ED25519, &our_pk)
-                        .unwrap_or([0u8; 32]),
+            if let Err(error) = emit_durable_proposal_vote(context, &processed_block).await {
+                tracing::warn!(
+                    target: "consensus",
+                    height = processed_block.header.height,
+                    view = processed_block.header.view,
+                    error = %error,
+                    "Failed to emit follower vote after durable local apply"
                 );
-
-                let vote_payload = (vote_height, vote_view, vote_hash);
-                if let Ok(vote_bytes) = codec::to_bytes_canonical(&vote_payload) {
-                    if let Ok(sig) = context.local_keypair.sign(&vote_bytes) {
-                        let vote = ConsensusVote {
-                            height: vote_height,
-                            view: vote_view,
-                            block_hash: vote_hash,
-                            voter: our_id,
-                            signature: sig,
-                        };
-
-                        if let Ok(vote_blob) = codec::to_bytes_canonical(&vote) {
-                            let _ = context
-                                .swarm_commander
-                                .send(SwarmCommand::BroadcastVote(vote_blob))
-                                .await;
-
-                            let mut engine = engine_ref.lock().await;
-                            if let Err(error) = engine.handle_vote(vote).await {
-                                tracing::warn!(
-                                    target: "consensus",
-                                    "Failed to handle follower vote after durable local apply: {}",
-                                    error
-                                );
-                            } else {
-                                let pending_qcs = engine.take_pending_quorum_certificates();
-                                drop(engine);
-                                for qc in pending_qcs {
-                                    if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
-                                        let _ = context
-                                            .swarm_commander
-                                            .send(SwarmCommand::BroadcastQuorumCertificate(qc_blob))
-                                            .await;
-                                    }
-                                }
-                                tracing::debug!(
-                                    target: "consensus",
-                                    "Post-apply vote for block {} (H={} V={})",
-                                    hex::encode(&vote_hash[..4]),
-                                    vote_height,
-                                    vote_view
-                                );
-                            }
-                        }
-                    }
-                }
             }
 
             {
@@ -668,6 +751,52 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 error = %e,
                 "Workload failed to process gossiped block."
             );
+            match super::runtime_finality::stage_execution_equivalent_candidate(
+                context,
+                block.clone(),
+            )
+            .await
+            {
+                Ok(true) => {
+                    tracing::info!(
+                        target: "consensus",
+                        height = block.header.height,
+                        view = block.header.view,
+                        "Recovered proposal/application race from rooted execution-equivalent bytes"
+                    );
+                    if let Err(error) = emit_durable_proposal_vote(context, &block).await {
+                        tracing::warn!(
+                            target: "consensus",
+                            height = block.header.height,
+                            view = block.header.view,
+                            error = %error,
+                            "Failed to emit recovered post-apply vote"
+                        );
+                        return;
+                    }
+                    if let Err(error) =
+                        super::runtime_finality::admit_available(context, None).await
+                    {
+                        context
+                            .is_quarantined
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::error!(
+                            target: "consensus",
+                            height = block.header.height,
+                            error = %error,
+                            "Terminal runtime finality admission refusal; node frozen"
+                        );
+                    }
+                }
+                Ok(false) => {}
+                Err(error) => tracing::warn!(
+                    target: "consensus",
+                    height = block.header.height,
+                    view = block.header.view,
+                    error = %error,
+                    "Proposal/application race was not recoverable from durable execution"
+                ),
+            }
         }
     }
 }
@@ -675,6 +804,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 pub(super) async fn maybe_apply_block_enrichment<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     block: &Block<ChainTransaction>,
+    proposal_already_validated: bool,
 ) -> Result<()>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -744,12 +874,14 @@ where
         )
     };
 
-    engine_ref
-        .lock()
-        .await
-        .handle_block_proposal::<CS, ST>(block.clone(), &&cv)
-        .await
-        .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    if !proposal_already_validated {
+        engine_ref
+            .lock()
+            .await
+            .handle_block_proposal::<CS, ST>(block.clone(), &&cv)
+            .await
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+    }
 
     workload_client
         .update_block_header(block.clone())
