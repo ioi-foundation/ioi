@@ -92,6 +92,12 @@ fn exact_completion_event_required() -> bool {
     std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
 }
 
+fn trace_submission_phase(phase: &str) {
+    if exact_completion_event_required() {
+        eprintln!("[BENCH-SUBMISSION-PHASE] phase={phase}");
+    }
+}
+
 /// Client wall-clock milliseconds since the UNIX epoch.
 fn client_wall_clock_ms() -> u64 {
     SystemTime::now()
@@ -462,13 +468,18 @@ pub async fn submit_transaction_profiled(
     // milliseconds of admission, so opening the stream after the submit RPC
     // would lose exactly the fast completions this measurement is about.
     let mut event_watch = if exact_completion_event_required() {
-        Some(watch_transaction_committed_events(rpc_addr).await?)
+        trace_submission_phase("completion_subscription_start");
+        let watch = watch_transaction_committed_events(rpc_addr).await?;
+        trace_submission_phase("completion_subscription_ready");
+        Some(watch)
     } else {
         None
     };
 
     let admission_started = Instant::now();
+    trace_submission_phase("submit_rpc_start");
     let tx_hash = submit_transaction_no_wait(rpc_addr, tx).await?;
+    trace_submission_phase("submit_rpc_complete");
     let admission_ms = admission_started.elapsed().as_millis();
     let mut commit_poll_count = 0u64;
     // Resolved once per submission so every poll in this wait, and the

@@ -345,6 +345,15 @@ fn benchmark_trace_enabled() -> bool {
     std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
 }
 
+fn trace_approval_phase(request_hash: &[u8; 32], phase: &str) {
+    if benchmark_trace_enabled() {
+        eprintln!(
+            "[BENCH-APPROVAL-PHASE] request_hash={} phase={phase}",
+            hex::encode(request_hash)
+        );
+    }
+}
+
 /// Whether this fixture must seed height zero near the host clock.
 ///
 /// Standing-authority journeys need it for RFC3339 freshness. Ordering-parity
@@ -962,6 +971,7 @@ async fn submit_record_approval(
     }
 
     let approval_key = wallet_approval_key(&request_hash);
+    trace_approval_phase(&request_hash, "existing_approval_query_start");
     if let Some(existing_bytes) = query_state_key(rpc_addr, &approval_key).await? {
         let existing: WalletApprovalDecision =
             decode_state_value(&existing_bytes, "approval decision")?;
@@ -979,6 +989,7 @@ async fn submit_record_approval(
             "request_hash already names a different wallet approval decision"
         ));
     }
+    trace_approval_phase(&request_hash, "existing_approval_query_complete");
 
     let decided_at_ms = now_ms();
     if grant.expires_at <= decided_at_ms {
@@ -999,7 +1010,10 @@ async fn submit_record_approval(
         surface: VaultSurface::Desktop,
         decided_at_ms,
     };
+    trace_approval_phase(&request_hash, "account_nonce_query_start");
     let nonce = account_nonce(rpc_addr, &capability_account_id).await?;
+    trace_approval_phase(&request_hash, "account_nonce_query_complete");
+    trace_approval_phase(&request_hash, "submission_start");
     let submission = submit_profiled(
         rpc_addr,
         capability,
@@ -1009,6 +1023,7 @@ async fn submit_record_approval(
         &approval,
     )
     .await;
+    trace_approval_phase(&request_hash, "submission_complete");
     let submission = match submission {
         Ok(submission) => submission,
         Err(error) => {
@@ -1447,8 +1462,18 @@ async fn process_fixture_commands(
                         // The daemon and fixture command processor transact
                         // from the same capability account. Serialize nonce
                         // query + submission across both processes.
+                        let request_hash = command
+                            .request_hash
+                            .as_deref()
+                            .and_then(|value| exact_hash32(value, "request_hash").ok());
+                        if let Some(request_hash) = request_hash.as_ref() {
+                            trace_approval_phase(request_hash, "transaction_lock_wait_start");
+                        }
                         let _transaction_lock =
                             acquire_fixture_transaction_lock(transaction_lock_path).await?;
+                        if let Some(request_hash) = request_hash.as_ref() {
+                            trace_approval_phase(request_hash, "transaction_lock_acquired");
+                        }
                         submit_record_approval(
                             rpc_addr,
                             chain_id,
