@@ -52,7 +52,7 @@ use ioi_types::app::{
     SystemPayload, SystemTransaction,
 };
 use ioi_types::codec;
-use ioi_types::config::ServicePolicy;
+use ioi_types::config::{AftSafetyMode, ServicePolicy};
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
 use ioi_types::service_configs::MethodPermission;
 use ioi_validator::common::GuardianContainer;
@@ -2001,6 +2001,13 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
     let mut cluster_builder = TestCluster::builder()
         .with_validators(1)
         .with_consensus_type(ordering_profile.consensus_type())
+        // The canonical bft_consensus runtime profile is backed by the
+        // authenticated classic-BFT certificate contract. GuardianMajority is
+        // a different experimental safety mode and must never be presented as
+        // peer-BFT evidence. Keep this fixed for both matched profiles (it is
+        // inert under Solo) so ordering_profile remains the sole varied
+        // dimension.
+        .with_aft_safety_mode(AftSafetyMode::ClassicBft)
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_policy());
     if wall_clock_fixture {
