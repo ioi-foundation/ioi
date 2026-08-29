@@ -463,6 +463,7 @@ pub(super) async fn maybe_replay_tip_vote<CS, ST, CE, V>(
     consensus_engine_ref: &Arc<Mutex<CE>>,
     local_keypair: &libp2p::identity::Keypair,
     tip_block: &Block<ChainTransaction>,
+    rebroadcast_proposal: bool,
 ) -> Result<()>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -559,6 +560,20 @@ where
         }
     }
 
+    // A proposal is deliberately replayed only while the exact executed tip is
+    // ahead of the Agentgres-admitted head.  These are the same bytes already
+    // staged and broadcast by the producer; replay creates no authority and is
+    // never exposed through admitted-history sync.  Publishing before the vote
+    // lets a peer that joined the gossip mesh late validate the proposal before
+    // observing this node's periodically replayed vote.
+    if rebroadcast_proposal {
+        let proposal_blob = codec::to_bytes_canonical(tip_block)
+            .map_err(|e| anyhow!("failed to encode pending AFT proposal for replay: {e}"))?;
+        let _ = swarm_commander
+            .send(SwarmCommand::PublishBlock(proposal_blob))
+            .await;
+    }
+
     let _ = swarm_commander
         .send(SwarmCommand::BroadcastVote(vote_blob))
         .await;
@@ -567,6 +582,7 @@ where
         height = tip_block.header.height,
         view = tip_block.header.view,
         block = %hex::encode(&vote_hash[..4]),
+        proposal_rebroadcast = rebroadcast_proposal,
         "Broadcast replayed tip vote for the local tip."
     );
 
@@ -689,6 +705,7 @@ where
         configured_bootstrap_peers,
         signer,
         batch_verifier,
+        runtime_finality_ref,
     ) = {
         let ctx = context_arc.lock().await;
         (
@@ -705,6 +722,7 @@ where
             ctx.configured_bootstrap_peers,
             ctx.signer.clone(),
             ctx.batch_verifier.clone(),
+            ctx.runtime_finality.clone(),
         )
     };
 
@@ -1129,21 +1147,6 @@ where
         return Ok(());
     }
 
-    if matches!(cons_ty, ioi_types::config::ConsensusType::Aft) && producing_h == 1 {
-        let required_peers = required_aft_bootstrap_peer_count(validator_count_hint);
-        if known_peer_count < required_peers {
-            tracing::info!(
-                target: "consensus",
-                height = producing_h,
-                validator_count = validator_count_hint,
-                known_peer_count,
-                required_peers,
-                "Waiting for a QC-capable peer set before the first AFT proposal."
-            );
-            return Ok(());
-        }
-    }
-
     if producing_h > 1 && validator_count_hint > 1 && known_peer_count == 0 {
         tracing::warn!(
             target: "consensus",
@@ -1155,11 +1158,24 @@ where
     }
 
     if let Some(tip_block) = last_executed_block_opt.as_ref() {
+        let rebroadcast_proposal = if matches!(cons_ty, ioi_types::config::ConsensusType::Aft) {
+            let coordinator = runtime_finality_ref.lock().await;
+            let admitted_height = coordinator
+                .last_admitted_block()?
+                .map(|block| block.header.height)
+                .unwrap_or(0);
+            coordinator.active_profile()?
+                == ioi_types::config::RuntimeFinalityProfile::BftConsensusAftV1
+                && tip_block.header.height > admitted_height
+        } else {
+            false
+        };
         if let Err(error) = maybe_replay_tip_vote(
             context_arc,
             &consensus_engine_ref,
             &local_keypair,
             tip_block,
+            rebroadcast_proposal,
         )
         .await
         {
@@ -1893,7 +1909,23 @@ where
                 .map(|v| v.account_id.0.to_vec())
                 .collect();
 
-            if producing_h == 1 && validator_count_hint > 1 {
+            if producing_h == 1 && matches!(cons_ty, ioi_types::config::ConsensusType::Aft) {
+                let validator_count = effective_vs.validators.len();
+                let required_peers = required_aft_bootstrap_peer_count(validator_count);
+                if known_peer_count < required_peers {
+                    tracing::info!(
+                        target: "consensus",
+                        height = producing_h,
+                        validator_count,
+                        known_peer_count,
+                        required_peers,
+                        "Waiting for a rooted-set QC-capable peer set before the first AFT proposal."
+                    );
+                    return Ok(());
+                }
+            }
+
+            if producing_h == 1 && effective_vs.validators.len() > 1 {
                 let bootstrap_leader = effective_vs.validators.first().map(|v| v.account_id);
                 eprintln!(
                     "[BOOTSTRAP-GATE] local={} leader={} configured_bootstrap_peers={} known_peer_count={} validator_count_hint={} validator_set_len={}",
