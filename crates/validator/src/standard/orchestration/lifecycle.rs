@@ -879,6 +879,25 @@ where
                 ))
             })?
             .or_else(|| initial_block.clone());
+        if matches!(
+            self.config.consensus_type,
+            ioi_types::config::ConsensusType::Aft
+        ) {
+            let admitted_height = last_admitted_block
+                .as_ref()
+                .map(|block| block.header.height)
+                .unwrap_or(0);
+            if !self
+                .consensus_engine
+                .lock()
+                .await
+                .observe_admitted_finality_height(admitted_height)
+            {
+                return Err(ValidatorError::Other(format!(
+                    "AFT engine refused Agentgres-admitted finality floor {admitted_height}"
+                )));
+            }
+        }
         let runtime_finality = Arc::new(Mutex::new(runtime_finality));
 
         let mut context = MainLoopContext::<CS, ST, CE, V> {

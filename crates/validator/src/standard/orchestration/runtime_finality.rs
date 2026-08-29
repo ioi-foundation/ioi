@@ -231,6 +231,16 @@ where
     let mut admitted = Vec::with_capacity(admissions.len());
     for admission in admissions {
         admitted.push(admission.effect_id.clone());
+        // The Agentgres commit, not workload execution or a prepared
+        // certificate, advances the restart/profile-transition floor exposed
+        // to the consensus safety gadget. This prevents old evidence from
+        // being re-emitted after restart while still forcing contiguous new
+        // finality.
+        context
+            .consensus_engine_ref
+            .lock()
+            .await
+            .observe_admitted_finality_height(admission.block.header.height);
         deliver_runtime_admission_with_terminal_policy(context, admission).await?;
     }
     let cutovers = coordinator_ref

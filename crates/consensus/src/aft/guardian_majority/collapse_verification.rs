@@ -757,7 +757,15 @@ impl GuardianMajorityEngine {
         }
 
         self.remember_qc(&qc);
+        let reconciled_classic_commit = self.reconcile_classic_safety_qc(&qc);
         if qc.height <= self.highest_qc.height {
+            if reconciled_classic_commit {
+                info!(
+                    target: "consensus",
+                    height = qc.height.saturating_sub(1),
+                    "Safety Gadget: Reconciled reordered Classic-BFT commit"
+                );
+            }
             return Ok(());
         }
 
@@ -798,7 +806,10 @@ impl GuardianMajorityEngine {
         }
 
         if let Some(header) = header {
-            if self.safety.update(&qc, &header.parent_qc) {
+            if reconciled_classic_commit
+                || (!matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+                    && self.safety.update(&qc, &header.parent_qc))
+            {
                 info!(
                     target: "consensus",
                     "Safety Gadget: Queued commit for height {}",

@@ -253,6 +253,14 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         Vec::new()
     }
 
+    /// Offers the height already admitted by the canonical runtime-finality
+    /// spine. Engines with a chained commit rule use this only as a restart and
+    /// profile-transition floor: it neither manufactures a quorum certificate
+    /// nor authorizes a block. Returns whether the engine recorded the floor.
+    fn observe_admitted_finality_height(&mut self, _height: u64) -> bool {
+        false
+    }
+
     /// Offers the engine a protobuf-encoded public key the node has already
     /// authenticated, so signature checks can bind a raw key to a validator
     /// record that stores only a key hash.

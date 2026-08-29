@@ -808,7 +808,12 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     "Parent QC hash mismatch".into(),
                 ));
             }
-            if let Err(e) = self.verify_qc(parent_qc, &sets) {
+            let parent_verification = if matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+                self.authenticated_quorum(parent_qc).map(|_| ())
+            } else {
+                self.verify_qc(parent_qc, &sets)
+            };
+            if let Err(e) = parent_verification {
                 error!(
                     target: "consensus",
                     "QC Verification Failed for block {}: {}",
@@ -828,6 +833,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 )));
             }
             self.remember_qc(parent_qc);
+            self.reconcile_classic_safety_qc(parent_qc);
             if parent_qc.height > self.highest_qc.height {
                 self.highest_qc = parent_qc.clone();
             }
@@ -903,6 +909,18 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         {
             let mut pacemaker = self.pacemaker.lock().await;
             pacemaker.observe_progress(header.view);
+        }
+
+        // A directly propagated QC may have arrived before this proposal. Now
+        // that the exact signed header is verified, reconcile that early QC
+        // into the same ordered commit queue.
+        if let Some(qc) = self
+            .qc_pool
+            .get(&header.height)
+            .and_then(|qcs| qcs.get(&block_hash))
+            .cloned()
+        {
+            self.reconcile_classic_safety_qc(&qc);
         }
 
         debug!(target: "consensus", "Aft deterministic: Block {} verified. Initiating ECHO phase.", header.height);
@@ -1059,6 +1077,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .into_iter()
             .map(Into::into)
             .collect()
+    }
+
+    fn observe_admitted_finality_height(&mut self, height: u64) -> bool {
+        self.safety.observe_admitted_finality_height(height)
     }
 
     fn observe_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {

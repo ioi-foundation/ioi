@@ -35,6 +35,11 @@ pub struct SafetyGadget {
     /// Queue of blocks waiting for the Commit Guard timer.
     pending_commits: VecDeque<PendingCommit>,
 
+    /// Highest finality height already admitted by the canonical Agentgres
+    /// runtime spine. After restart this floor is known before the native
+    /// certificate that originally established it has been reconstructed.
+    admitted_finality_height: u64,
+
     /// The guard duration ($d \cdot \Delta$).
     /// Corresponds to Corollary 3.2 in the paper.
     guard_duration: Duration,
@@ -46,6 +51,7 @@ impl Default for SafetyGadget {
             committed_qc: None,
             locked_qc: None,
             pending_commits: VecDeque::new(),
+            admitted_finality_height: 0,
             // Default 500ms guard (Typical network latency bounds)
             guard_duration: Duration::from_millis(500),
         }
@@ -95,19 +101,37 @@ impl SafetyGadget {
         if qc_high.height == qc_parent.height.saturating_add(1) {
             let commit_height = qc_parent.height;
 
-            // Check against currently committed to avoid re-queuing
-            let already_committed = self.committed_qc.as_ref().map_or(0, |qc| qc.height);
-            let pending_max = self.pending_commits.back().map_or(0, |p| p.qc.height);
-            let max_seen = std::cmp::max(already_committed, pending_max);
-
-            if commit_height > max_seen {
-                // Queue the commit. This enforces the "No-Panic Window".
-                self.pending_commits.push_back(PendingCommit {
-                    qc: qc_parent.clone(),
-                    can_commit_at: Instant::now() + self.guard_duration,
+            // Certificates and proposals are delivered independently. A
+            // follower can therefore learn H+2 before H+1. Keep every
+            // authenticated candidate above the Agentgres-admitted floor and
+            // order the queue by height; a later predecessor must not be
+            // discarded merely because a higher candidate arrived first.
+            let already_committed = self
+                .committed_qc
+                .as_ref()
+                .map_or(self.admitted_finality_height, |qc| {
+                    qc.height.max(self.admitted_finality_height)
                 });
-                return true;
+            if commit_height <= already_committed
+                || self
+                    .pending_commits
+                    .iter()
+                    .any(|pending| pending.qc.height == commit_height)
+            {
+                return false;
             }
+
+            let pending = PendingCommit {
+                qc: qc_parent.clone(),
+                can_commit_at: Instant::now() + self.guard_duration,
+            };
+            let insert_at = self
+                .pending_commits
+                .iter()
+                .position(|existing| existing.qc.height > commit_height)
+                .unwrap_or(self.pending_commits.len());
+            self.pending_commits.insert(insert_at, pending);
+            return true;
         }
 
         false
@@ -119,9 +143,16 @@ impl SafetyGadget {
     /// conditions, such as the presence of a canonical collapse object.
     pub fn next_ready_commit(&self) -> Option<QuorumCertificate> {
         let now = Instant::now();
-        self.pending_commits
-            .front()
-            .and_then(|pending| (now >= pending.can_commit_at).then(|| pending.qc.clone()))
+        let admitted_height = self
+            .committed_qc
+            .as_ref()
+            .map_or(self.admitted_finality_height, |qc| {
+                qc.height.max(self.admitted_finality_height)
+            });
+        self.pending_commits.front().and_then(|pending| {
+            (pending.qc.height == admitted_height.saturating_add(1) && now >= pending.can_commit_at)
+                .then(|| pending.qc.clone())
+        })
     }
 
     /// Consumes the next ready commit and records it as committed.
@@ -133,13 +164,33 @@ impl SafetyGadget {
         let Some(pending) = self.pending_commits.front() else {
             return None;
         };
-        if now < pending.can_commit_at {
+        let admitted_height = self
+            .committed_qc
+            .as_ref()
+            .map_or(self.admitted_finality_height, |qc| {
+                qc.height.max(self.admitted_finality_height)
+            });
+        if pending.qc.height != admitted_height.saturating_add(1) || now < pending.can_commit_at {
             return None;
         }
 
         let committed = self.pending_commits.pop_front()?.qc;
+        self.admitted_finality_height = committed.height;
         self.committed_qc = Some(committed.clone());
         Some(committed)
+    }
+
+    /// Advances the floor from the canonical Agentgres-admitted runtime head.
+    /// Pending certificates at or below the floor are stale evidence and can
+    /// never be emitted again after restart or a profile transition.
+    pub fn observe_admitted_finality_height(&mut self, height: u64) -> bool {
+        if height < self.admitted_finality_height {
+            return false;
+        }
+        self.admitted_finality_height = height;
+        self.pending_commits
+            .retain(|pending| pending.qc.height > height);
+        true
     }
 
     /// Checks if it is safe to vote for a proposal.
@@ -157,5 +208,48 @@ impl SafetyGadget {
         } else {
             true
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn qc(height: u64, byte: u8) -> QuorumCertificate {
+        QuorumCertificate {
+            height,
+            view: 0,
+            block_hash: [byte; 32],
+            signatures: Vec::new(),
+            aggregated_signature: Vec::new(),
+            signers_bitfield: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn reordered_candidates_wait_for_and_emit_the_missing_predecessor() {
+        let mut gadget = SafetyGadget::new().with_guard_duration(Duration::ZERO);
+        let one = qc(1, 1);
+        let two = qc(2, 2);
+        let three = qc(3, 3);
+
+        assert!(gadget.update(&three, &two));
+        assert!(gadget.next_ready_commit().is_none());
+        assert!(gadget.update(&two, &one));
+        assert_eq!(gadget.accept_next_ready_commit(), Some(one));
+        assert_eq!(gadget.accept_next_ready_commit(), Some(two));
+    }
+
+    #[test]
+    fn agentgres_floor_prevents_restart_reemission() {
+        let mut gadget = SafetyGadget::new().with_guard_duration(Duration::ZERO);
+        assert!(gadget.observe_admitted_finality_height(100));
+        let hundred = qc(100, 100);
+        let hundred_one = qc(101, 101);
+        let hundred_two = qc(102, 102);
+
+        assert!(!gadget.update(&hundred_one, &hundred));
+        assert!(gadget.update(&hundred_two, &hundred_one));
+        assert_eq!(gadget.accept_next_ready_commit(), Some(hundred_one));
     }
 }

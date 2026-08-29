@@ -273,6 +273,25 @@ impl GuardianMajorityEngine {
             .entry((header.height, header.view))
             .or_default()
             .insert(block_hash, header.clone());
+
+        // Sync and committed-block ingestion can bypass proposal handling.
+        // Re-authenticate the embedded parent before it contributes to the
+        // Classic-BFT safety chain, then reconcile any current-height QC that
+        // arrived before these header bytes.
+        if matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+            if header.parent_qc.height > 0 && self.authenticated_quorum(&header.parent_qc).is_ok() {
+                self.remember_qc(&header.parent_qc);
+                self.reconcile_classic_safety_qc(&header.parent_qc);
+            }
+            if let Some(qc) = self
+                .qc_pool
+                .get(&header.height)
+                .and_then(|qcs| qcs.get(&block_hash))
+                .cloned()
+            {
+                self.reconcile_classic_safety_qc(&qc);
+            }
+        }
         if Self::benchmark_trace_enabled() && header.height <= 2 {
             eprintln!(
                 "[BENCH-AFT-COMMIT-HINT] height={} view={} hash={} collapse={}",

@@ -284,6 +284,13 @@ where
         )
     }
 
+    fn observe_admitted_finality_height(&mut self, height: u64) -> bool {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::observe_admitted_finality_height(
+            &mut self.core,
+            height,
+        )
+    }
+
     fn observe_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {
         <GuardianMajorityEngine as ConsensusEngine<T>>::observe_validator_public_key(
             &mut self.core,

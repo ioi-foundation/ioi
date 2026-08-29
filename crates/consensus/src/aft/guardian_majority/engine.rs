@@ -330,6 +330,21 @@ impl GuardianMajorityEngine {
         }
     }
 
+    /// Reconciles an authenticated Classic-BFT certificate after its exact
+    /// header becomes locally known. QC and block gossip are independent, so
+    /// either may arrive first; the safety queue must eventually see the pair
+    /// in both orders. The safety gadget itself holds Agentgres height
+    /// continuity and therefore will not emit a successor across a gap.
+    pub(super) fn reconcile_classic_safety_qc(&mut self, qc: &QuorumCertificate) -> bool {
+        if !matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+            return false;
+        }
+        let Some(header) = self.local_header_for_qc(qc) else {
+            return false;
+        };
+        self.safety.update(qc, &header.parent_qc)
+    }
+
     /// Drains finalized-block evidence accumulated since the last call.
     pub(super) fn take_finalized_quorum_events(&mut self) -> Vec<AftFinalizedQuorumEvent> {
         self.finalized_quorum_events.drain(..).collect()
