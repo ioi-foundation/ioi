@@ -120,6 +120,17 @@ pub(crate) struct RuntimeFinalityCoordinator {
     /// is rebuilt from device-flushed staged bytes on restart and therefore is
     /// an exclusion fence, not a second source of canonical truth.
     staged_transaction_hashes: BTreeSet<[u8; 32]>,
+    /// Authenticated chained-finality evidence can arrive before the exact
+    /// block's staging ACK (QC and block gossip are independent streams). Keep
+    /// it pending until the exact durable bytes are locally reconstructible;
+    /// draining and then treating message reordering as terminal would freeze
+    /// an honest validator and permanently discard finality evidence.
+    pending_native_aft: Vec<NativeAftFinalizedEvidence>,
+}
+
+enum NativeStageReadiness {
+    Ready,
+    Deferred,
 }
 
 pub(crate) async fn stage_runtime_block<CS, ST, CE, V>(
@@ -205,25 +216,36 @@ where
                 .admit_single_authority(hash, recorded_at_ms)?]
         }
         RuntimeFinalityProfile::BftConsensusAftV1 => {
-            let mut evidence = context
+            let evidence = context
                 .consensus_engine_ref
                 .lock()
                 .await
                 .drain_finalized_native_quorums();
-            // The Agentgres head is a linear chain. Consensus callbacks can
-            // enqueue more than one newly ready commit in one tick, so impose
-            // canonical height/view/hash order before crossing the atomic
-            // recognized-effect boundary. A missing predecessor still refuses;
-            // sorting never manufactures evidence or skips a gap.
-            sort_native_aft_evidence(&mut evidence);
-            let mut admissions = Vec::with_capacity(evidence.len());
-            for proof in evidence {
-                admissions.push(
-                    coordinator_ref
-                        .lock()
-                        .await
-                        .admit_native_aft(proof, recorded_at_ms)?,
-                );
+            coordinator_ref
+                .lock()
+                .await
+                .queue_native_aft_evidence(evidence)?;
+
+            let mut admissions = Vec::new();
+            loop {
+                let Some(proof) = coordinator_ref.lock().await.next_pending_native_aft() else {
+                    break;
+                };
+                if matches!(
+                    ensure_native_aft_stage(context, &proof).await?,
+                    NativeStageReadiness::Deferred
+                ) {
+                    break;
+                }
+                let admission = coordinator_ref
+                    .lock()
+                    .await
+                    .admit_native_aft(proof.clone(), recorded_at_ms)?;
+                coordinator_ref
+                    .lock()
+                    .await
+                    .remove_pending_native_aft(&proof);
+                admissions.push(admission);
             }
             admissions
         }
@@ -257,6 +279,129 @@ where
     Ok(admitted)
 }
 
+async fn ensure_native_aft_stage<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+    evidence: &NativeAftFinalizedEvidence,
+) -> Result<NativeStageReadiness>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let qc = &evidence.quorum_certificate;
+    if context
+        .runtime_finality
+        .lock()
+        .await
+        .has_staged_block(&qc.block_hash)
+    {
+        return Ok(NativeStageReadiness::Ready);
+    }
+
+    let workload = context.view_resolver.workload_client().clone();
+    if workload.get_status().await?.height < qc.height {
+        return Ok(NativeStageReadiness::Deferred);
+    }
+    let Some(mut local_block) = workload.get_block_by_height(qc.height).await? else {
+        return Ok(NativeStageReadiness::Deferred);
+    };
+    let local_hash = block_hash(&local_block)?;
+    if local_hash != qc.block_hash {
+        let local_parent_hash = local_block.header.parent_hash;
+        let certified_header = context
+            .consensus_engine_ref
+            .lock()
+            .await
+            .header_for_quorum_certificate(qc)
+            .ok_or_else(|| {
+                anyhow!(
+                    "finalized AFT block {} is unstaged and its authenticated header is unavailable",
+                    qc.height
+                )
+            })?;
+        if !header_execution_surface_matches(&local_block.header, &certified_header) {
+            return Err(anyhow!(
+                "finalized AFT block {} conflicts with the locally executed state branch",
+                qc.height
+            ));
+        }
+        local_block.header = certified_header;
+        if block_hash(&local_block)? != qc.block_hash {
+            return Err(anyhow!(
+                "reconstructed finalized AFT block {} does not match its authenticated quorum hash",
+                qc.height
+            ));
+        }
+        // The generic enrichment RPC deliberately refuses to rewrite
+        // `parent_hash`. A view-change winner can be execution-equivalent yet
+        // name the already authenticated canonical parent rather than the
+        // locally staged proposal header. Agentgres admission below checks
+        // that parent against its exact head; stage the certified bytes here,
+        // but use the generic projection update only when its stricter
+        // same-parent precondition is satisfied.
+        if local_block.header.parent_hash == local_parent_hash {
+            workload.update_block_header(local_block.clone()).await?;
+        }
+        if context
+            .last_executed_block
+            .as_ref()
+            .map(|block| block.header.height)
+            == Some(qc.height)
+        {
+            context.last_executed_block = Some(local_block.clone());
+        }
+    }
+
+    let journal_bytes = workload
+        .query_raw_state(&block_execution_receipt_journal_key(qc.height))
+        .await?
+        .ok_or_else(|| {
+            anyhow!(
+                "finalized AFT block {} is missing its rooted execution-receipt journal",
+                qc.height
+            )
+        })?;
+    let journal: BlockExecutionReceiptJournal =
+        from_bytes_canonical(&journal_bytes).map_err(anyhow::Error::msg)?;
+    journal
+        .validate_against(&local_block)
+        .map_err(|error| anyhow!(error.to_string()))?;
+    stage_runtime_block(context, local_block, journal.receipts).await?;
+    Ok(NativeStageReadiness::Ready)
+}
+
+fn header_execution_surface_matches(
+    left: &ioi_types::app::BlockHeader,
+    right: &ioi_types::app::BlockHeader,
+) -> bool {
+    left.parent_state_root == right.parent_state_root
+        && left.state_root == right.state_root
+        && left.transactions_root == right.transactions_root
+        && left.timestamp_ms_or_legacy() == right.timestamp_ms_or_legacy()
+        && left.gas_used == right.gas_used
+}
+
 fn sort_native_aft_evidence(evidence: &mut [NativeAftFinalizedEvidence]) {
     evidence.sort_by(|left, right| {
         left.quorum_certificate
@@ -273,6 +418,13 @@ fn sort_native_aft_evidence(evidence: &mut [NativeAftFinalizedEvidence]) {
                     .cmp(&right.quorum_certificate.block_hash)
             })
     });
+}
+
+fn native_evidence_key(evidence: &NativeAftFinalizedEvidence) -> (u64, [u8; 32]) {
+    (
+        evidence.quorum_certificate.height,
+        evidence.quorum_certificate.block_hash,
+    )
 }
 
 /// Redrive committed consequences after restart. Prepared/staged material is
@@ -751,6 +903,7 @@ impl RuntimeFinalityCoordinator {
             signing_key,
             store,
             staged_transaction_hashes: BTreeSet::new(),
+            pending_native_aft: Vec::new(),
         };
         coordinator.staged_transaction_hashes = coordinator.verify_all_staged()?;
         Ok(coordinator)
@@ -815,6 +968,40 @@ impl RuntimeFinalityCoordinator {
     /// byte identities and must never be executed twice.
     pub(crate) fn staged_transaction_hashes(&self) -> BTreeSet<[u8; 32]> {
         self.staged_transaction_hashes.clone()
+    }
+
+    fn has_staged_block(&self, hash: &[u8; 32]) -> bool {
+        self.staged_path(hash).exists()
+    }
+
+    fn queue_native_aft_evidence(
+        &mut self,
+        evidence: Vec<NativeAftFinalizedEvidence>,
+    ) -> Result<()> {
+        for proof in evidence {
+            validate_native_evidence(&proof)?;
+            let key = native_evidence_key(&proof);
+            if self
+                .pending_native_aft
+                .iter()
+                .any(|pending| native_evidence_key(pending) == key)
+            {
+                continue;
+            }
+            self.pending_native_aft.push(proof);
+        }
+        sort_native_aft_evidence(&mut self.pending_native_aft);
+        Ok(())
+    }
+
+    fn next_pending_native_aft(&self) -> Option<NativeAftFinalizedEvidence> {
+        self.pending_native_aft.first().cloned()
+    }
+
+    fn remove_pending_native_aft(&mut self, evidence: &NativeAftFinalizedEvidence) {
+        let key = native_evidence_key(evidence);
+        self.pending_native_aft
+            .retain(|pending| native_evidence_key(pending) != key);
     }
 
     pub(crate) fn admit_single_authority(
@@ -2133,6 +2320,71 @@ mod tests {
 
         assert_eq!(drained[0].quorum_certificate.height, 1);
         assert_eq!(drained[1].quorum_certificate.height, 2);
+    }
+
+    #[test]
+    fn native_finality_waits_in_order_for_exact_staged_bytes() {
+        let dir = tempdir().unwrap();
+        let seed = [31_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let mut first = empty_block([0; 32], 1);
+        let first_evidence = native_aft_evidence(&mut first);
+        let mut second = empty_block(block_hash(&first).unwrap(), 2);
+        let second_evidence = native_aft_evidence(&mut second);
+        let mut coordinator = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/pending-native".into(),
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            "writer://test/pending-native".into(),
+            format!("sha256:{}", hex::encode([0_u8; 32])),
+            issuer,
+            &seed,
+        )
+        .unwrap();
+
+        coordinator
+            .queue_native_aft_evidence(vec![
+                second_evidence.clone(),
+                first_evidence.clone(),
+                first_evidence.clone(),
+            ])
+            .unwrap();
+        assert_eq!(
+            coordinator
+                .next_pending_native_aft()
+                .unwrap()
+                .quorum_certificate
+                .height,
+            1
+        );
+        coordinator.remove_pending_native_aft(&first_evidence);
+        assert_eq!(
+            coordinator
+                .next_pending_native_aft()
+                .unwrap()
+                .quorum_certificate
+                .height,
+            2
+        );
+        coordinator.remove_pending_native_aft(&second_evidence);
+        assert!(coordinator.next_pending_native_aft().is_none());
+    }
+
+    #[test]
+    fn native_stage_reconstruction_requires_an_identical_execution_surface() {
+        let block = empty_block([9; 32], 7);
+        let mut certified = block.header.clone();
+        certified.view = certified.view.saturating_add(1);
+        certified.parent_hash = [10; 32];
+        certified.signature = vec![4; 64];
+        assert!(header_execution_surface_matches(&block.header, &certified));
+
+        certified.state_root = StateRoot(vec![99; 32]);
+        assert!(!header_execution_surface_matches(&block.header, &certified));
     }
 
     #[test]
