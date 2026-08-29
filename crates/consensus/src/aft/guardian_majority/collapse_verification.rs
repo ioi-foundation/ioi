@@ -758,7 +758,37 @@ impl GuardianMajorityEngine {
 
         self.remember_qc(&qc);
         let reconciled_classic_commit = self.reconcile_classic_safety_qc(&qc);
-        if qc.height <= self.highest_qc.height {
+
+        // Classic-BFT views are ordered within a height.  A timeout can make a
+        // later-view proposal quorum-certified after an earlier-view proposal
+        // at the same height was certified.  This is not a height regression:
+        // the later certificate is the high-QC for that height and is the only
+        // certificate that can justify extending the later-view committed tip.
+        //
+        // Treating every equal-height QC as stale leaves `highest_qc` pinned to
+        // the earlier view.  If the durable, still-unadmitted workload tip has
+        // meanwhile moved to the later view, every future leader then waits
+        // forever for a certificate matching bytes the engine deliberately
+        // refused to adopt.  Order Classic-BFT QCs lexicographically by
+        // (height, view), while retaining the existing height-only behavior for
+        // the other safety modes whose same-height header enrichment is handled
+        // by their explicit committed-collapse reset path.
+        let same_height_classic_successor = matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+            && qc.height == self.highest_qc.height
+            && qc.view > self.highest_qc.view;
+        if matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+            && qc.height == self.highest_qc.height
+            && qc.view == self.highest_qc.view
+            && qc.block_hash != self.highest_qc.block_hash
+        {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "Conflicting authenticated quorum certificates at H={} V={}",
+                qc.height, qc.view
+            )));
+        }
+        if qc.height < self.highest_qc.height
+            || (qc.height == self.highest_qc.height && !same_height_classic_successor)
+        {
             if reconciled_classic_commit {
                 info!(
                     target: "consensus",
@@ -797,6 +827,7 @@ impl GuardianMajorityEngine {
             height = qc.height,
             view = qc.view,
             block = %hex::encode(&qc.block_hash[..4]),
+            same_height_successor = same_height_classic_successor,
             "Accepted quorum certificate and advanced highest_qc"
         );
         self.highest_qc = qc.clone();

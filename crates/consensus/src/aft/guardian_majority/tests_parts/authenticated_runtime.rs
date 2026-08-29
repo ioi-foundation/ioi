@@ -425,6 +425,77 @@ async fn locally_assembled_certificate_from_pooled_votes_advances_highest_qc() {
 }
 
 #[tokio::test]
+async fn later_view_certificate_at_same_height_replaces_classic_high_qc() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine(&validators, &[1, 2]);
+    let parent_qc = validators.signed_qc(&[0, 1, 2], 1, 0, [0x11u8; 32]);
+
+    let mut view_zero = build_progress_parent_header(2, 0);
+    view_zero.parent_qc = parent_qc.clone();
+    let view_zero_hash = to_root_hash(&view_zero.hash().unwrap()).unwrap();
+    engine
+        .seen_headers
+        .entry((2, 0))
+        .or_default()
+        .insert(view_zero_hash, view_zero);
+
+    let mut view_one = build_progress_parent_header(2, 1);
+    view_one.parent_qc = parent_qc;
+    let view_one_hash = to_root_hash(&view_one.hash().unwrap()).unwrap();
+    engine
+        .seen_headers
+        .entry((2, 1))
+        .or_default()
+        .insert(view_one_hash, view_one);
+
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
+        &mut engine,
+        validators.signed_qc(&[0, 1, 2], 2, 0, view_zero_hash),
+    )
+    .await
+    .unwrap();
+    assert_eq!(engine.highest_qc.view, 0);
+    assert_eq!(engine.highest_qc.block_hash, view_zero_hash);
+
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
+        &mut engine,
+        validators.signed_qc(&[0, 1, 2], 2, 1, view_one_hash),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(engine.highest_qc.height, 2);
+    assert_eq!(engine.highest_qc.view, 1);
+    assert_eq!(engine.highest_qc.block_hash, view_one_hash);
+}
+
+#[tokio::test]
+async fn conflicting_authenticated_certificates_in_one_classic_slot_are_refused() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine(&validators, &[1, 2]);
+    engine.highest_qc = validators.signed_qc(&[0, 1, 2], 1, 0, [0x31u8; 32]);
+    let first_hash = [0x41u8; 32];
+    let conflicting_hash = [0x42u8; 32];
+
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
+        &mut engine,
+        validators.signed_qc(&[0, 1, 2], 2, 1, first_hash),
+    )
+    .await
+    .unwrap();
+
+    let result =
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_quorum_certificate(
+            &mut engine,
+            validators.signed_qc(&[0, 1, 2], 2, 1, conflicting_hash),
+        )
+        .await;
+
+    assert!(result.is_err());
+    assert_eq!(engine.highest_qc.block_hash, first_hash);
+}
+
+#[tokio::test]
 async fn classic_bft_child_proposal_waits_for_exact_authenticated_parent_quorum() {
     let validators = AuthenticatedValidators::new(BFT_MEMBERS);
     let active_validators = validators
