@@ -1748,6 +1748,7 @@ impl RecognizedEffectStore {
             profile_epoch: active.profile_epoch,
             fence_token: active.fence_token,
             retired_writer_identity: active.writer_identity.clone(),
+            authority: record.authority.clone(),
         });
         self.bound_writer = None;
         Ok(record)
@@ -1953,6 +1954,7 @@ impl RecognizedEffectStore {
                         profile_epoch: record.from_profile_epoch,
                         fence_token: record.from_fence_token,
                         retired_writer_identity: record.from_writer_identity.clone(),
+                        authority: record.authority.clone(),
                     });
                 }
                 OP_KIND_RECOGNIZED_EFFECT => {

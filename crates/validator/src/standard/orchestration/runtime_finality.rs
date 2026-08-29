@@ -8,7 +8,8 @@
 
 use agentgres::cutover::{
     GovernanceEvidence, GovernanceValidator, GovernanceVerdict, ProfileCutoverRequest,
-    RollbackKind, RollbackPlan, SpineGenesis, WeakeningReview, WriterClaim,
+    ProfileFreezeRequest, RollbackKind, RollbackPlan, SpineGenesis, SpineState, WeakeningReview,
+    WriterClaim,
 };
 use agentgres::profile::{
     FinalityProfile, GuaranteeDelta, GuaranteeDirection, ProfileBindingsDigest, ProfileIdentity,
@@ -613,31 +614,43 @@ impl RuntimeFinalityCoordinator {
                 },
             )?,
         };
-        let active = store
-            .spine_state()
-            .active()
-            .map_err(|error| anyhow!(error.to_string()))?;
-        if !local_writer_matches(&writer_identity, &active.writer_identity) {
+        let (runtime_writer, rooted_issuer, writer_claim) = match store.spine_state() {
+            SpineState::Active(active) => (
+                active.writer_identity.clone(),
+                active.authority.issuer_key_id.clone(),
+                Some(WriterClaim::new(
+                    active.writer_identity.clone(),
+                    active.fence_token,
+                )),
+            ),
+            SpineState::Frozen(frozen) => (
+                frozen.retired_writer_identity.clone(),
+                frozen.authority.issuer_key_id.clone(),
+                None,
+            ),
+        };
+        if !local_writer_matches(&writer_identity, &runtime_writer) {
             return Err(anyhow!(
-                "local runtime writer root {} does not own Agentgres-active writer {}",
+                "local runtime writer root {} does not own Agentgres-rooted writer namespace {}",
                 writer_identity,
-                active.writer_identity
+                runtime_writer
             ));
         }
-        if active.authority.issuer_key_id != issuer_key_id {
+        if rooted_issuer != issuer_key_id {
             return Err(anyhow!(
                 "local finality issuer {} does not match rooted authority {}",
                 issuer_key_id,
-                active.authority.issuer_key_id
+                rooted_issuer
             ));
         }
-        let active_writer = active.writer_identity.clone();
-        store.bind_writer(WriterClaim::new(active_writer.clone(), active.fence_token))?;
+        if let Some(claim) = writer_claim {
+            store.bind_writer(claim)?;
+        }
         let coordinator = Self {
             root,
             domain_id,
             local_writer_root: writer_identity,
-            writer_identity: active_writer,
+            writer_identity: runtime_writer,
             issuer_key_id,
             signing_key,
             store,
@@ -1003,6 +1016,65 @@ impl RuntimeFinalityCoordinator {
             committed.record.to_fence_token,
         ))?;
         self.writer_identity = committed.record.to_writer_identity;
+        Ok(())
+    }
+
+    /// Execute the freeze rollback pre-authorized by a committed cutover.
+    ///
+    /// This is deliberately not caller-shaped: the executor identity and
+    /// authorization references come only from the rooted cutover record, and
+    /// it is available only while that exact cutover still owns the active
+    /// epoch. Effects already admitted by the new profile remain in history.
+    pub(crate) fn freeze_active_from_declared_rollback(
+        &mut self,
+        cutover_id: &str,
+        reason: &str,
+        recorded_at_ms: u64,
+    ) -> Result<()> {
+        let committed = self
+            .store
+            .committed_cutover(cutover_id)
+            .ok_or_else(|| anyhow!("unknown committed cutover rollback declaration"))?
+            .clone();
+        if committed.record.rollback.kind != RollbackKind::Freeze {
+            return Err(anyhow!(
+                "committed cutover declares successor rollback, not freeze"
+            ));
+        }
+        let active = self
+            .store
+            .spine_state()
+            .active()
+            .map_err(|error| anyhow!(error.to_string()))?
+            .clone();
+        if active.installed_by.as_deref() != Some(cutover_id)
+            || active.writer_identity != committed.record.to_writer_identity
+            || active.profile_epoch != committed.record.to_profile_epoch
+            || active.fence_token != committed.record.to_fence_token
+        {
+            return Err(anyhow!(
+                "declared freeze cannot target a successor or substituted active epoch"
+            ));
+        }
+        if !local_writer_matches(
+            &self.local_writer_root,
+            &committed.record.rollback.executor_writer_identity,
+        ) {
+            return Err(anyhow!(
+                "declared freeze executor is outside this runtime writer namespace"
+            ));
+        }
+        let authority_owner = ExactAuthority(active.authority.clone());
+        self.store.freeze(
+            ProfileFreezeRequest {
+                freeze_id: format!("{cutover_id}/declared-freeze"),
+                authority: active.authority,
+                reason: reason.to_owned(),
+                authorization_refs: committed.record.rollback.executor_authorization_refs,
+            },
+            &authority_owner,
+            recorded_at_ms,
+        )?;
         Ok(())
     }
 
@@ -1945,8 +2017,8 @@ mod tests {
             RuntimeFinalityProfile::BftConsensusAftV1,
             next_writer,
             2,
-            20,
-            1,
+            1_700_000_000_100,
+            2,
         );
         let transaction = governed_cutover_transaction(operation, &[[31; 32], [32; 32]]);
         let block = block_with_transactions(parent, 1, vec![transaction.clone()]);
@@ -1968,15 +2040,37 @@ mod tests {
             .unwrap();
         coordinator.admit_single_authority(hash, 10).unwrap();
         assert!(coordinator
-            .apply_due_governed_cutovers(19)
+            .apply_due_governed_cutovers(1_700_000_000_099)
             .unwrap()
             .is_empty());
         assert_eq!(
             coordinator.active_profile().unwrap(),
             RuntimeFinalityProfile::SingleAuthorityV1
         );
+        let checkpoint = empty_block(hash, 2);
+        let checkpoint_hash = block_hash(&checkpoint).unwrap();
+        coordinator.stage_block(checkpoint, Vec::new()).unwrap();
+        coordinator
+            .admit_single_authority(checkpoint_hash, 11)
+            .unwrap();
+        let mut stale_processes = (0..3)
+            .map(|_| {
+                RuntimeFinalityCoordinator::open(
+                    dir.path().to_path_buf(),
+                    domain.into(),
+                    RuntimeFinalityProfile::SingleAuthorityV1,
+                    writer.into(),
+                    format!("sha256:{}", hex::encode(parent)),
+                    issuer.clone(),
+                    &seed,
+                )
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
         assert_eq!(
-            coordinator.apply_due_governed_cutovers(20).unwrap(),
+            coordinator
+                .apply_due_governed_cutovers(1_700_000_000_100)
+                .unwrap(),
             vec!["profile-cutover://test/single-to-aft/1"]
         );
         assert_eq!(
@@ -1984,14 +2078,43 @@ mod tests {
             RuntimeFinalityProfile::BftConsensusAftV1
         );
 
-        let successor = empty_block(hash, 2);
+        let mut successor = empty_block(checkpoint_hash, 3);
+        let evidence = native_aft_evidence(&mut successor);
         let successor_hash = block_hash(&successor).unwrap();
-        coordinator.stage_block(successor, Vec::new()).unwrap();
+        coordinator
+            .stage_block(successor.clone(), Vec::new())
+            .unwrap();
+        for (index, stale) in stale_processes.iter_mut().enumerate() {
+            let error = stale
+                .admit_single_authority(successor_hash, 21 + index as u64)
+                .expect_err("a live pre-cutover process must be fenced");
+            assert!(
+                error.to_string().contains("writer")
+                    || error.to_string().contains("profile")
+                    || error.to_string().contains("fence"),
+                "unexpected stale-process refusal: {error}"
+            );
+        }
         assert!(coordinator
             .admit_single_authority(successor_hash, 21)
             .unwrap_err()
             .to_string()
             .contains("different active profile"));
+        coordinator.admit_native_aft(evidence, 22).unwrap();
+        coordinator
+            .freeze_active_from_declared_rollback(
+                "profile-cutover://test/single-to-aft/1",
+                "terminal-qualification-failure",
+                23,
+            )
+            .unwrap();
+        let frozen = coordinator.active_profile().unwrap_err();
+        assert!(frozen.to_string().contains("frozen"));
+        assert!(coordinator
+            .admit_native_aft(native_aft_evidence(&mut empty_block(successor_hash, 4)), 24)
+            .unwrap_err()
+            .to_string()
+            .contains("frozen"));
         drop(coordinator);
 
         let reopened = RuntimeFinalityCoordinator::open(
@@ -2004,11 +2127,9 @@ mod tests {
             &seed,
         )
         .unwrap();
-        assert_eq!(
-            reopened.active_profile().unwrap(),
-            RuntimeFinalityProfile::BftConsensusAftV1
-        );
-        assert_eq!(reopened.writer_identity, next_writer);
+        let frozen = reopened.active_profile().unwrap_err();
+        assert!(frozen.to_string().contains("frozen"));
+        assert_eq!(reopened.last_admitted_block().unwrap(), Some(successor));
     }
 
     #[test]
@@ -2035,8 +2156,8 @@ mod tests {
             RuntimeFinalityProfile::SingleAuthorityV1,
             next_writer,
             2,
-            30,
-            1,
+            1_700_000_000_200,
+            2,
         );
         operation.rollback_kind = GovernedRollbackKindV1::SuccessorCutover;
         operation.rollback_target_profile = Some("bft_consensus".into());
@@ -2059,15 +2180,24 @@ mod tests {
             .unwrap();
         coordinator.admit_native_aft(evidence, 10).unwrap();
         assert!(coordinator
-            .apply_due_governed_cutovers(29)
+            .apply_due_governed_cutovers(1_700_000_000_199)
             .unwrap()
             .is_empty());
         assert_eq!(
             coordinator.active_profile().unwrap(),
             RuntimeFinalityProfile::BftConsensusAftV1
         );
+        let mut checkpoint = empty_block(block_hash(&block).unwrap(), 2);
+        let checkpoint_evidence = native_aft_evidence(&mut checkpoint);
+        let checkpoint_hash = block_hash(&checkpoint).unwrap();
+        coordinator.stage_block(checkpoint, Vec::new()).unwrap();
+        coordinator
+            .admit_native_aft(checkpoint_evidence, 11)
+            .unwrap();
         assert_eq!(
-            coordinator.apply_due_governed_cutovers(30).unwrap(),
+            coordinator
+                .apply_due_governed_cutovers(1_700_000_000_200)
+                .unwrap(),
             vec!["profile-cutover://test/aft-to-single/1"]
         );
         assert_eq!(
@@ -2080,7 +2210,7 @@ mod tests {
             .unwrap();
         let governance = committed.record.governance.as_ref().unwrap();
         assert_eq!(governance.approval_threshold, 2);
-        assert_eq!(governance.effective_after_ms, 30);
+        assert_eq!(governance.effective_after_ms, 1_700_000_000_200);
         assert_eq!(
             committed.record.rollback.kind,
             RollbackKind::SuccessorCutover
@@ -2089,12 +2219,77 @@ mod tests {
             committed.record.rollback.target.as_ref().unwrap().profile,
             FinalityProfile::BftConsensus
         );
+
+        let next_effect = empty_block(checkpoint_hash, 3);
+        let next_effect_hash = block_hash(&next_effect).unwrap();
+        coordinator
+            .stage_block(next_effect.clone(), Vec::new())
+            .unwrap();
+        coordinator
+            .admit_single_authority(next_effect_hash, 12)
+            .unwrap();
+        let rollback_writer = "writer://test/inv42/profile/aft/epoch/3";
+        let rollback_operation = cutover_operation(
+            "profile-cutover://test/aft-to-single/rollback/2",
+            domain,
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            next_writer,
+            1,
+            2,
+            next_effect_hash,
+            RuntimeFinalityProfile::BftConsensusAftV1,
+            rollback_writer,
+            3,
+            1_700_000_000_300,
+            4,
+        );
+        let rollback_tx = governed_cutover_transaction(rollback_operation, &[[51; 32], [52; 32]]);
+        let rollback_block =
+            block_with_transactions(next_effect_hash, 4, vec![rollback_tx.clone()]);
+        let rollback_hash = block_hash(&rollback_block).unwrap();
+        coordinator
+            .stage_block(
+                rollback_block,
+                vec![BlockExecutionReceipt::for_success(
+                    4,
+                    0,
+                    rollback_tx.hash().unwrap(),
+                    0,
+                    &[],
+                )],
+            )
+            .unwrap();
+        coordinator
+            .admit_single_authority(rollback_hash, 13)
+            .unwrap();
+        assert_eq!(
+            coordinator
+                .apply_due_governed_cutovers(1_700_000_000_300)
+                .unwrap(),
+            vec!["profile-cutover://test/aft-to-single/rollback/2"]
+        );
+        assert_eq!(
+            coordinator.active_profile().unwrap(),
+            RuntimeFinalityProfile::BftConsensusAftV1
+        );
+        assert!(coordinator
+            .store
+            .committed_cutover("profile-cutover://test/aft-to-single/1")
+            .is_some());
+        assert!(coordinator
+            .store
+            .committed_cutover("profile-cutover://test/aft-to-single/rollback/2")
+            .is_some());
+        assert!(coordinator
+            .store
+            .committed(&format!("runtime-effect-{}", hex::encode(next_effect_hash)))
+            .is_some());
         drop(coordinator);
 
         let reopened = RuntimeFinalityCoordinator::open(
             dir.path().to_path_buf(),
             domain.into(),
-            RuntimeFinalityProfile::BftConsensusAftV1,
+            RuntimeFinalityProfile::SingleAuthorityV1,
             writer.into(),
             format!("sha256:{}", hex::encode(parent)),
             issuer,
@@ -2103,8 +2298,8 @@ mod tests {
         .unwrap();
         assert_eq!(
             reopened.active_profile().unwrap(),
-            RuntimeFinalityProfile::SingleAuthorityV1
+            RuntimeFinalityProfile::BftConsensusAftV1
         );
-        assert_eq!(reopened.writer_identity, next_writer);
+        assert_eq!(reopened.writer_identity, rollback_writer);
     }
 }

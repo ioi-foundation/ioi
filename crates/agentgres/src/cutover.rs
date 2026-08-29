@@ -799,6 +799,9 @@ pub struct FrozenProfile {
     pub profile_epoch: u64,
     pub fence_token: u64,
     pub retired_writer_identity: String,
+    /// The exact authority snapshot that admitted the freeze. Retained so a
+    /// restart can validate its local issuer while binding no writer.
+    pub authority: AuthoritySnapshot,
 }
 
 impl SpineState {
