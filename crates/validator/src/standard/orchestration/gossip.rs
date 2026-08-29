@@ -37,6 +37,15 @@ use ioi_types::codec;
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 const AFT_ENRICHMENT_SYNC_MAX_BYTES: u32 = 32 * 1024 * 1024;
 
+/// A durable same-height AFT projection may move only into a later certified
+/// view.  Replacing it with an older (or conflicting equal) view can strand a
+/// transaction-bearing later-view winner on one node while the other replicas
+/// extend it, forcing the lagging node to cross a different parent at the next
+/// height.  Exact same-block/enrichment replay is handled before this gate.
+fn replacement_advances_aft_view(current_view: u64, candidate_view: u64) -> bool {
+    candidate_view > current_view
+}
+
 #[derive(Debug)]
 struct WorkloadChainView<V> {
     client_api: Arc<dyn WorkloadClientApi>,
@@ -607,6 +616,17 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                     return;
                 };
 
+                if !replacement_advances_aft_view(expected_tip.header.view, block.header.view) {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = block.header.height,
+                        current_view = expected_tip.header.view,
+                        candidate_view = block.header.view,
+                        "Refusing non-advancing same-height AFT replacement"
+                    );
+                    return;
+                }
+
                 let (processed_block, execution_receipts) = match workload
                     .replace_unfinalized_tip(expected_tip.clone(), block.clone())
                     .await
@@ -934,6 +954,19 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 ),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod same_height_replacement_tests {
+    use super::replacement_advances_aft_view;
+
+    #[test]
+    fn only_a_strictly_later_aft_view_can_replace_a_durable_tip() {
+        assert!(replacement_advances_aft_view(0, 1));
+        assert!(replacement_advances_aft_view(7, 8));
+        assert!(!replacement_advances_aft_view(7, 7));
+        assert!(!replacement_advances_aft_view(7, 6));
     }
 }
 
