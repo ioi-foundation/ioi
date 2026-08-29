@@ -433,68 +433,9 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         return;
     }
 
-    if block.header.height > 0 {
-        let vote_height = block.header.height;
-        let vote_view = block.header.view;
-        let vote_hash_vec = block.header.hash().unwrap_or(vec![0u8; 32]);
-        let vote_hash = to_root_hash(&vote_hash_vec).unwrap_or([0u8; 32]);
-
-        let our_pk = context.local_keypair.public().encode_protobuf();
-        let our_id = AccountId(
-            account_id_from_key_material(SignatureSuite::ED25519, &our_pk).unwrap_or([0u8; 32]),
-        );
-
-        let vote_payload = (vote_height, vote_view, vote_hash);
-        if let Ok(vote_bytes) = codec::to_bytes_canonical(&vote_payload) {
-            if let Ok(sig) = context.local_keypair.sign(&vote_bytes) {
-                let vote = ConsensusVote {
-                    height: vote_height,
-                    view: vote_view,
-                    block_hash: vote_hash,
-                    voter: our_id,
-                    signature: sig,
-                };
-
-                if let Ok(vote_blob) = codec::to_bytes_canonical(&vote) {
-                    let _ = context
-                        .swarm_commander
-                        .send(SwarmCommand::BroadcastVote(vote_blob))
-                        .await;
-
-                    let mut engine = engine_ref.lock().await;
-                    if let Err(error) = engine.handle_vote(vote).await {
-                        tracing::warn!(
-                            target: "consensus",
-                            "Failed to handle follower vote before local apply: {}",
-                            error
-                        );
-                    } else {
-                        let pending_qcs = engine.take_pending_quorum_certificates();
-                        drop(engine);
-                        for qc in pending_qcs {
-                            if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
-                                let _ = context
-                                    .swarm_commander
-                                    .send(SwarmCommand::BroadcastQuorumCertificate(qc_blob))
-                                    .await;
-                            }
-                        }
-                        tracing::debug!(
-                            target: "consensus",
-                            "Pre-applied vote for block {} (H={} V={})",
-                            hex::encode(&vote_hash[..4]),
-                            vote_height,
-                            vote_view
-                        );
-                    }
-                }
-            }
-        }
-    }
-
     tracing::debug!(
         target: "gossip",
-        "Gossiped block is valid, forwarding to workload after voting."
+        "Gossiped block is consensus-valid; applying it before voting."
     );
 
     let applying_height = block.header.height;
@@ -525,6 +466,74 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 return;
             }
             context.last_executed_block = Some(processed_block.clone());
+
+            // A consensus-valid header is not sufficient authority to vote.
+            // The exact proposal must first pass deterministic execution and
+            // reach the workload's durable commit boundary. In particular, a
+            // concurrent same-height local proposal can win the workload
+            // race after the `our_height` snapshot above; emitting before the
+            // ACK would then count a vote for bytes this validator never
+            // applied. Runtime finality staging is also fail-closed, so a
+            // staging refusal freezes the node without leaking a vote.
+            if processed_block.header.height > 0 {
+                let vote_height = processed_block.header.height;
+                let vote_view = processed_block.header.view;
+                let vote_hash_vec = processed_block.header.hash().unwrap_or(vec![0u8; 32]);
+                let vote_hash = to_root_hash(&vote_hash_vec).unwrap_or([0u8; 32]);
+
+                let our_pk = context.local_keypair.public().encode_protobuf();
+                let our_id = AccountId(
+                    account_id_from_key_material(SignatureSuite::ED25519, &our_pk)
+                        .unwrap_or([0u8; 32]),
+                );
+
+                let vote_payload = (vote_height, vote_view, vote_hash);
+                if let Ok(vote_bytes) = codec::to_bytes_canonical(&vote_payload) {
+                    if let Ok(sig) = context.local_keypair.sign(&vote_bytes) {
+                        let vote = ConsensusVote {
+                            height: vote_height,
+                            view: vote_view,
+                            block_hash: vote_hash,
+                            voter: our_id,
+                            signature: sig,
+                        };
+
+                        if let Ok(vote_blob) = codec::to_bytes_canonical(&vote) {
+                            let _ = context
+                                .swarm_commander
+                                .send(SwarmCommand::BroadcastVote(vote_blob))
+                                .await;
+
+                            let mut engine = engine_ref.lock().await;
+                            if let Err(error) = engine.handle_vote(vote).await {
+                                tracing::warn!(
+                                    target: "consensus",
+                                    "Failed to handle follower vote after durable local apply: {}",
+                                    error
+                                );
+                            } else {
+                                let pending_qcs = engine.take_pending_quorum_certificates();
+                                drop(engine);
+                                for qc in pending_qcs {
+                                    if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
+                                        let _ = context
+                                            .swarm_commander
+                                            .send(SwarmCommand::BroadcastQuorumCertificate(qc_blob))
+                                            .await;
+                                    }
+                                }
+                                tracing::debug!(
+                                    target: "consensus",
+                                    "Post-apply vote for block {} (H={} V={})",
+                                    hex::encode(&vote_hash[..4]),
+                                    vote_height,
+                                    vote_view
+                                );
+                            }
+                        }
+                    }
+                }
+            }
 
             {
                 let accepted = match observe_live_committed_chain_through_block(
