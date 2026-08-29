@@ -9,7 +9,7 @@ Supersedes: product prose that treats multi-model goal pursuit as a separate
 Hypervisor product, room UI, fixed swarm, public leaderboard, or benchmark-only
 workflow.
 Superseded by: none.
-Last alignment pass: 2026-07-31.
+Last alignment pass: 2026-08-29.
 Doctrine status: canonical
 Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
 Implementation refs:
@@ -22,7 +22,8 @@ frontier/claim, offer, Attempt/Finding, and VerifierChallenge lifecycles remain
 on hold. Collaboration-terms negotiation,
 federated and cross-domain admission, local-agent pairing,
 acceptance/verdict/settlement, product-level attempt comparison, and the
-complete visible ioi.ai Goal Space client remain planned.)
+complete visible ioi.ai Goal Space client, Collective mode, and persistent
+artifact-ecology projection remain planned.)
 Last implementation audit: 2026-07-30
 
 ## Canonical Definition
@@ -173,6 +174,91 @@ The lower-level orchestration contracts remain `OrchestrationPolicy`,
 explains, verifies, and later improves a plan. They do not execute work, own
 authority, or become a hidden swarm.
 
+## Collective Mode Is A Product Posture, Not A New Plane
+
+ioi.ai may expose **Collective** as an explicit Goal Space mode for launching,
+observing, steering, pausing, comparing, and synthesizing a pursuit whose
+coordination machinery is useful. `Swarm` may appear as explanatory or search
+copy, but it is not a canonical runtime, object family, scheduler, authority
+plane, or assurance claim.
+
+The reusable configuration is initially a package/profile composition over
+existing owner-qualified contracts:
+
+```text
+OutcomeRoom package release + constitution and active profiles
+  + GoalRunProfile revision set
+  + orchestration, communication/visibility and topology policies
+  + participant, claim, context, resource, budget and authority lease policies
+  + artifact reuse/fork/install/retire policy
+  + verifier, acceptance, stop, recovery and evaluation requirements
+    -> daemon-derived collective-resolution receipt
+    -> one OutcomeRoom System and explicit GoalRuns, leases and runtime refs
+```
+
+A product may label that composition a collective-pursuit or stigmergic profile.
+The label does not create a new canonical envelope. A separately registered
+profile family is justified only if implementation evidence demonstrates a
+stable contract that existing package/profile/policy refs cannot represent. Any
+such successor remains immutable configuration, grants no authority, owns no
+live state, and must resolve into exact existing owner objects with a complete
+dependency commitment.
+
+The product responsibilities remain split:
+
+| Surface | Responsibility |
+| --- | --- |
+| ioi.ai Goal Space | Collective-mode launch, progress, steering, comparison and final synthesis |
+| Hypervisor Work / Rooms | Operator projection of participants, claims, artifacts, installations/controllers, health, dependencies, leases, budget, authority and interventions |
+| Hypervisor daemon and owner applications | Admission, execution, environments, Automations, runtime assignments, policy and effect recovery |
+| Agentgres owner domains | Canonical room, work, artifact-ref, installation/runtime lineage, observations, effects and receipts |
+| Foundry / Evaluations | Candidate construction and independent qualification of the declared collective configuration |
+
+No surface in this table may repair or advance another row's truth.
+
+## Persistent Artifact Ecology
+
+Collective pursuit may produce executable packages, workflows, controllers,
+tools, environments, datasets, models and other artifacts that remain useful
+after their producing participant or Session disappears. Persistence does not
+turn artifact bytes into a running principal:
+
+```text
+ArtifactRef                       immutable/passive identity, bytes commitment and lineage
+AutomationSpec / package / controller definition
+                                  reusable behavior
+installation or System binding    where that behavior is enabled
+AutomationRun / ManagedWorkerInstance / RuntimeAssignment / typed controller runtime
+                                  live execution and health
+current authority, context, resource and budget leases
+                                  what that execution may observe or affect
+```
+
+Execution may continue after its creator's Session ends only when a durable
+System, installation, worker, automation, service, or controller runtime is the
+accountable subject and every required lease remains current. Session
+termination is neither automatic retirement nor transferable authority. An
+artifact never derives authority from having been produced, observed, reused,
+forked, installed, or marked `active`.
+
+Every persistent executable lineage must support observation, reuse, fork,
+installation, runtime assignment, health, dependent and caretaker inspection,
+stop, revocation, quarantine, repair, replacement and retirement through the
+existing owners. It binds exact source and successor artifact refs, installation
+and runtime identities, accountable owner, caretaker and stop-policy coverage,
+authority/resource/context/budget leases, environment and dependency topology,
+effects and receipts. An orphaned condition is typed: required accountable
+ownership, caretaker coverage, runtime health, dependency, availability or
+authority is absent or stale. Policy either stops or quarantines the runtime,
+or admits an exact governed successor; it never silently transfers ownership or
+extends a lease.
+
+The useful Collective view is therefore an **artifact ecology**, not a wall of
+agent chat bubbles. It shows what persistent systems exist, what is running,
+their ancestry and dependents, who can maintain or stop them, their current
+authority and budget, and what remains operational when participants and
+Sessions are removed.
+
 ## Owns
 
 ioi.ai owns the user-facing coordination of:
@@ -193,6 +279,9 @@ ioi.ai owns the user-facing coordination of:
 - materializing an OutcomeRoom only when persistent collective pursuit is
   useful, then projecting its participant leases, work frontier, claims,
   attempts, findings, challenges, spend, authority blockers, and replay;
+- exposing Collective mode as a projection over the same Goal Space and
+  OutcomeRoom owners, including artifact ancestry, installed/running posture,
+  caretaker/stop coverage, dependencies, health, leases and effect receipts;
 - presenting room-scoped **Connect local agent** intake, pairing progress,
   proposal-only preflight, admission status, revoke controls, and the choice to
   keep that participant room-only, save it privately, or explicitly promote it;
@@ -234,6 +323,8 @@ ioi.ai does not own:
   eligibility, or supplier-cost reconciliation;
 - the operational truth of an OutcomeRoom participant's home domain or an
   implicitly global Agentgres graph;
+- artifact bytes, installation/runtime/controller truth, or continuing
+  authority merely because it renders their refs and health;
 - physical-action safety semantics;
 - IOI L1 settlement by default.
 

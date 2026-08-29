@@ -10,7 +10,7 @@ Supersedes: product prose that treats evaluation as a benchmark tab inside
 Foundry, an optimizer-owned reward function, a receipt-presence check, or an
 automatic release decision.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-08-29.
 Doctrine status: canonical
 Implementation status: planned owner-application contract. Existing eval,
 feedback, Foundry scorecard, verifier, simulation, canary, and receipt slices
@@ -236,6 +236,42 @@ verification, or domain-specific acceptance. Canon requires declared,
 versioned, reproducible policy and cumulative risk accounting where adaptive
 trials occur; it does not mandate one research algorithm.
 
+## Collective And Persistent-Controller Qualification
+
+A collective configuration is not qualified merely because many participants
+completed a run. Its frozen epoch compares the exact collective composition
+against the cheapest adequate simpler baseline—normally a direct path or one
+GoalRun—under matched task distribution, authority, context, tools, environment,
+budget, time and verifier posture. A Collective product claim requires evidence
+that the additional machinery produces positive cooperation surplus for its
+declared objective or a separately declared resilience/independence property.
+
+The evaluation portfolio declares and exercises, as applicable:
+
+- participant and role knockout;
+- communication-edge restriction or removal, including environment/artifact-
+  only coordination;
+- artifact, controller, verifier and caretaker removal;
+- stale or substituted artifact ancestry, fork or installation bindings;
+- dependency unavailability and recovery;
+- creator-Session and participant removal while a persistent runtime remains;
+- authority, context, resource and budget expiry or revocation;
+- stop, quarantine, repair, replacement and retirement;
+- crash/restart with exact runtime, health and effect-receipt reconstruction;
+- cost, latency, disclosure and verification overhead relative to the matched
+  simpler baseline.
+
+The epoch must distinguish robustness of the collective result from continuity
+of a persistent controller. A result may remain valid after participant removal
+while its runtime must stop; conversely, a healthy runtime says nothing about
+the quality of its collective result. An artifact marked active is not evidence
+that any runtime existed or that its authority remained current.
+
+Knockout and ablation results are judgment evidence only. They do not rewrite
+the live topology, revoke a participant, activate a controller, install an
+artifact, or promote a profile. Those remain ordinary governed operations of
+their target owners.
+
 ## Sealed Holdout And Exposure Contract
 
 Sealed evaluation is a custody and information-flow boundary, not a hidden file
@@ -437,6 +473,12 @@ rollback restores the world.
 - Evaluation of embodied or irreversible effects must include the applicable
   transfer, local-safety, monitorability, containment, compensation, and harm-
   accounting requirements.
+- A collective claim must bind a matched simpler baseline, declared cooperation-
+  surplus or resilience estimand, and required participant, communication,
+  artifact/controller, caretaker, authority and restart knockout matrix.
+- Persistent-controller qualification must prove creator-Session independence
+  through a durable accountable runtime subject and current leases; an active
+  artifact ref or surviving process is insufficient.
 
 ## Anti-Patterns
 

@@ -5,7 +5,7 @@ Canonical owner: this file for Agentgres-governed artifact refs, payload refs, e
 Supersedes: product prose that lets storage backends appear to own artifact
 meaning, authority, lifecycle, or restore validity.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-08-29.
 Doctrine status: canonical
 Implementation status: partial (archive/restore refs, state-root restore truth, and repair receipts are built on the storage plane. The narrow M4 room-result slice maps one canonical opaque `artifact://` result identity through a registered `StorageBackendWriteAdmission` to immutable exact output bytes and re-resolves the admission, hash, size, receipt, bundle, and file bytes before dependent admission or projection. That slice does not implement the full ArtifactRef producer, lifecycle, portable resolver, export, deletion, or migration plane.)
 Implementation refs:
@@ -100,6 +100,47 @@ The Agentgres artifact-ref plane does not own:
 
 Those belong to storage backends, wallet.network, IOI L1, model backends, and
 the Hypervisor Daemon respectively.
+
+## Passive Artifact, Active Installation, And Live Runtime
+
+`ArtifactRef.lifecycle.status = active` means the admitted artifact reference
+is current and eligible under its artifact policy. It does **not** mean bytes
+are executing, a controller is armed, a service is healthy, or authority is
+current. Artifact lifecycle and execution lifecycle remain separate.
+
+Persistent executable behavior composes existing owner objects:
+
+```text
+ArtifactRef
+  -> immutable AutomationSpec, package, workflow, model, tool or controller definition
+  -> exact installation or System binding
+  -> AutomationRun, ManagedWorkerInstance, RuntimeAssignment or typed controller runtime
+  -> current authority + context + resource + budget leases
+  -> runtime health, effects, receipts, stop/quarantine/retirement
+```
+
+The artifact-ref plane owns content identity, predecessor/successor and
+derivation lineage, availability, policy and references to those objects. The
+definition owner owns reusable behavior. Installation/System owners decide
+where it is enabled. Daemon and runtime owners own live execution and health.
+wallet.network or the applicable authority provider owns grants and
+revocation. Agentgres records each admitted owner's lineage without merging the
+owners into one artifact state machine.
+
+An executable artifact may outlive the Session or participant that created it;
+execution may not. Continued execution requires a durable accountable subject,
+an exact installation/runtime binding, current policy and leases, and a
+receipted stop path. Missing owner, caretaker, dependency, availability, health,
+or authority is a typed orphan/degraded condition handled by the applicable
+runtime policy through stop, quarantine, repair, replacement or governed
+successor admission. It never causes authority inheritance, lease extension,
+silent owner transfer, or reconstruction from mutable `latest` bytes.
+
+Observation, reuse, fork and installation are separate admitted transitions.
+A fork names exact parent artifacts and transformation receipts; installation
+names the exact selected artifact hash; runtime assignment names the exact
+installation and environment. Reuse or visibility alone creates none of the
+later transitions.
 
 ## Minimal Implementation Objects
 
