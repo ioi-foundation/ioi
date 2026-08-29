@@ -300,6 +300,29 @@ fn prepare(
         .expect("effect prepares")
 }
 
+fn deliver_predecessors(store: &mut RecognizedEffectStore, effect_id: &str, target: Phase) {
+    let outbox = store
+        .committed(effect_id)
+        .expect("effect committed")
+        .record
+        .outbox
+        .clone();
+    for intent in outbox {
+        let phase = phase_for_outbox_kind(&intent.kind).expect("known outbox phase");
+        if phase == target {
+            break;
+        }
+        if phase == Phase::ProjectionMaterialization {
+            store
+                .materialize_projection(effect_id)
+                .expect("projection predecessor materializes");
+        }
+        store
+            .record_delivery(effect_id, &intent.consequence_id, &intent.payload)
+            .expect("predecessor delivery records");
+    }
+}
+
 fn delta(direction: GuaranteeDirection) -> GuaranteeDelta {
     match direction {
         GuaranteeDirection::Weakening => GuaranteeDelta {
@@ -578,6 +601,51 @@ fn uncommitted_effect_cannot_publish_project_or_ack() {
 }
 
 #[test]
+fn outbox_order_is_canonical_and_ack_cannot_leapfrog_predecessors() {
+    let temp = TempDir::new().expect("tempdir");
+    let mut store = open(&temp);
+    let owner = StaticAuthority(authority());
+    let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
+
+    let mut reordered = outbox("effect-reordered");
+    reordered.swap(0, 1);
+    assert!(matches!(
+        store.prepare(
+            "effect-reordered",
+            template(),
+            authority(),
+            &owner,
+            ISSUER_KEY_ID,
+            &signing_key,
+            reordered,
+        ),
+        Err(RecognizedEffectError::Invalid(message)) if message.contains("out of order")
+    ));
+
+    let prepared = prepare(&mut store, "effect-ordered", template());
+    store
+        .commit(prepared, &owner, 100)
+        .expect("canonical effect commits");
+    let ack = store
+        .committed("effect-ordered")
+        .expect("committed effect")
+        .record
+        .outbox[4]
+        .clone();
+    assert!(matches!(
+        store.record_delivery("effect-ordered", &ack.consequence_id, &ack.payload),
+        Err(RecognizedEffectError::Invalid(message)) if message.contains("before predecessor")
+    ));
+    assert_eq!(
+        store
+            .pending_outbox("effect-ordered")
+            .expect("ordered pending outbox")
+            .len(),
+        REQUIRED_OUTBOX_KINDS.len()
+    );
+}
+
+#[test]
 fn torn_rooted_batch_recovers_to_no_effect_and_clean_retry() {
     let temp = TempDir::new().expect("tempdir");
     let mut store = open(&temp);
@@ -718,6 +786,7 @@ fn every_declared_crash_point_is_reachable_and_recovers_atomically() {
                 .unwrap()
                 .canonical_bytes
                 .clone();
+            deliver_predecessors(&mut store, "effect-crash", phase);
             store.arm_crash(point);
             let mut consequence = None;
             let result = if phase == Phase::ProjectionMaterialization {

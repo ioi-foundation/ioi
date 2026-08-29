@@ -954,11 +954,19 @@ impl RecognizedEffectStore {
             RecognizedEffectError::Invalid(format!("effect {effect_id} is not committed"))
         })?;
         let mut pending = Vec::new();
+        let mut predecessor_missing = false;
         for intent in &effect.record.outbox {
             let path = self.delivery_path(&intent.consequence_id);
             if !path.exists() {
+                predecessor_missing = true;
                 pending.push(intent.clone());
                 continue;
+            }
+            if predecessor_missing {
+                return Err(RecognizedEffectError::Invalid(format!(
+                    "outbox delivery order is torn: {} is recorded before a predecessor",
+                    intent.consequence_id
+                )));
             }
             let marker: DeliveryMarker = serde_json::from_slice(&fs::read(&path)?)?;
             validate_delivery_marker(&marker, effect, intent)?;
@@ -978,16 +986,29 @@ impl RecognizedEffectStore {
         let effect = self.effects.get(effect_id).cloned().ok_or_else(|| {
             RecognizedEffectError::Invalid(format!("effect {effect_id} is not committed"))
         })?;
-        let intent = effect
+        let intent_index = effect
             .record
             .outbox
             .iter()
-            .find(|intent| intent.consequence_id == consequence_id)
+            .position(|intent| intent.consequence_id == consequence_id)
             .ok_or_else(|| {
                 RecognizedEffectError::Invalid(format!(
                     "consequence {consequence_id} is not in committed outbox"
                 ))
             })?;
+        let intent = &effect.record.outbox[intent_index];
+        for predecessor in &effect.record.outbox[..intent_index] {
+            let predecessor_path = self.delivery_path(&predecessor.consequence_id);
+            if !predecessor_path.exists() {
+                return Err(RecognizedEffectError::Invalid(format!(
+                    "consequence {consequence_id} cannot be recorded before predecessor {}",
+                    predecessor.consequence_id
+                )));
+            }
+            let marker: DeliveryMarker =
+                serde_json::from_slice(&fs::read(&predecessor_path)?)?;
+            validate_delivery_marker(&marker, &effect, predecessor)?;
+        }
         if hash_value(delivered_payload)? != intent.payload_hash
             || delivered_payload != &intent.payload
         {
@@ -1857,7 +1878,7 @@ fn validate_bundle_authority(
 fn validate_outbox(outbox: &[OutboxIntent]) -> Result<(), RecognizedEffectError> {
     let mut ids = BTreeSet::new();
     let mut kinds = BTreeSet::new();
-    for intent in outbox {
+    for (index, intent) in outbox.iter().enumerate() {
         validate_token("consequence_id", &intent.consequence_id)?;
         if !REQUIRED_OUTBOX_KINDS.contains(&intent.kind.as_str()) {
             return Err(RecognizedEffectError::Invalid(format!(
@@ -1874,6 +1895,12 @@ fn validate_outbox(outbox: &[OutboxIntent]) -> Result<(), RecognizedEffectError>
             return Err(RecognizedEffectError::Invalid(format!(
                 "outbox payload hash mismatch for {}",
                 intent.consequence_id
+            )));
+        }
+        if REQUIRED_OUTBOX_KINDS.get(index).copied() != Some(intent.kind.as_str()) {
+            return Err(RecognizedEffectError::Invalid(format!(
+                "outbox consequence {} is out of order at index {index}",
+                intent.kind
             )));
         }
     }
