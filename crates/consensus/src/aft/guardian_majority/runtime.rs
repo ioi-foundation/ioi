@@ -714,6 +714,14 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             };
 
         let vs = effective_set_for_height(&sets, header.height);
+        // Proposal processing is the first anchored-state edge every follower
+        // must cross before accepting a block. Hydrate here as well as in
+        // `decide`: a follower can receive votes or a QC before it ever runs a
+        // local decision tick, especially during bootstrap or catch-up. The
+        // accepted proposal then guarantees that any later commit event can
+        // re-verify the exact certificate from canonical membership and keys.
+        self.hydrate_effective_validator_keys(parent_view.as_ref(), vs)
+            .await?;
         let active_validators: Vec<AccountId> = vs
             .validators
             .iter()

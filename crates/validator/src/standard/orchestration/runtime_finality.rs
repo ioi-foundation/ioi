@@ -205,11 +205,17 @@ where
                 .admit_single_authority(hash, recorded_at_ms)?]
         }
         RuntimeFinalityProfile::BftConsensusAftV1 => {
-            let evidence = context
+            let mut evidence = context
                 .consensus_engine_ref
                 .lock()
                 .await
                 .drain_finalized_native_quorums();
+            // The Agentgres head is a linear chain. Consensus callbacks can
+            // enqueue more than one newly ready commit in one tick, so impose
+            // canonical height/view/hash order before crossing the atomic
+            // recognized-effect boundary. A missing predecessor still refuses;
+            // sorting never manufactures evidence or skips a gap.
+            sort_native_aft_evidence(&mut evidence);
             let mut admissions = Vec::with_capacity(evidence.len());
             for proof in evidence {
                 admissions.push(
@@ -239,6 +245,24 @@ where
         );
     }
     Ok(admitted)
+}
+
+fn sort_native_aft_evidence(evidence: &mut [NativeAftFinalizedEvidence]) {
+    evidence.sort_by(|left, right| {
+        left.quorum_certificate
+            .height
+            .cmp(&right.quorum_certificate.height)
+            .then_with(|| {
+                left.quorum_certificate
+                    .view
+                    .cmp(&right.quorum_certificate.view)
+            })
+            .then_with(|| {
+                left.quorum_certificate
+                    .block_hash
+                    .cmp(&right.quorum_certificate.block_hash)
+            })
+    });
 }
 
 /// Redrive committed consequences after restart. Prepared/staged material is
@@ -2085,6 +2109,20 @@ mod tests {
             runtime_finality_initial_head(Some(&block)).unwrap(),
             canonical_block_head(&block).unwrap()
         );
+    }
+
+    #[test]
+    fn drained_native_finality_is_ordered_before_agentgres_admission() {
+        let mut first = empty_block([0; 32], 1);
+        let first_evidence = native_aft_evidence(&mut first);
+        let mut second = empty_block(block_hash(&first).unwrap(), 2);
+        let second_evidence = native_aft_evidence(&mut second);
+        let mut drained = vec![second_evidence, first_evidence];
+
+        sort_native_aft_evidence(&mut drained);
+
+        assert_eq!(drained[0].quorum_certificate.height, 1);
+        assert_eq!(drained[1].quorum_certificate.height, 2);
     }
 
     #[test]
