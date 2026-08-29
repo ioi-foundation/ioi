@@ -33,9 +33,8 @@ use ioi_finality::{
 };
 use ioi_ipc::public::TxStatus;
 use ioi_services::wallet_network::{
-    governed_cutover_approval_request_hash, AuthorizeFinalityProfileCutoverParamsV1,
-    GovernedFinalityProfileCutoverV1, GovernedRollbackKindV1,
-    AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
+    AuthorizeFinalityProfileCutoverParamsV1, GovernedFinalityProfileCutoverV1,
+    GovernedRollbackKindV1, AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
 };
 use ioi_types::app::{Block, ChainTransaction, KernelEvent, SignatureSuite, SystemPayload};
 use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
@@ -217,7 +216,7 @@ where
     let mut admitted = Vec::with_capacity(admissions.len());
     for admission in admissions {
         admitted.push(admission.effect_id.clone());
-        deliver_runtime_admission(context, admission).await?;
+        deliver_runtime_admission_with_terminal_policy(context, admission).await?;
     }
     let cutovers = coordinator_ref
         .lock()
@@ -269,7 +268,7 @@ where
     let effect_ids = coordinator_ref.lock().await.recovered_pending_effects()?;
     for effect_id in &effect_ids {
         let admission = coordinator_ref.lock().await.recover_admission(effect_id)?;
-        deliver_runtime_admission(context, admission).await?;
+        deliver_runtime_admission_with_terminal_policy(context, admission).await?;
     }
     coordinator_ref
         .lock()
@@ -462,6 +461,60 @@ where
         disposition = ?admission.commit.disposition,
         "Agentgres-admitted runtime finality effect published"
     );
+    Ok(())
+}
+
+/// A committed effect whose ordered consequences cannot be recovered is a
+/// terminal runtime failure, not permission to keep accepting new effects.
+/// Execute an exact cutover's pre-authorized freeze policy when one exists;
+/// successor-only rollback plans remain active for an explicit governed
+/// transition and the original delivery error is still returned.
+async fn deliver_runtime_admission_with_terminal_policy<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+    admission: RuntimeAdmission,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let coordinator_ref = Arc::clone(&context.runtime_finality);
+    if let Err(delivery_error) = deliver_runtime_admission(context, admission).await {
+        let freeze = coordinator_ref
+            .lock()
+            .await
+            .freeze_active_if_declared("runtime-outbox-terminal-failure", runtime_wall_clock_ms());
+        return match freeze {
+            Ok(true) => Err(delivery_error.context(
+                "runtime finality outbox failed terminally; declared rollback froze admission",
+            )),
+            Ok(false) => Err(delivery_error),
+            Err(freeze_error) => Err(anyhow!(
+                "runtime finality outbox failed: {delivery_error:#}; declared freeze also failed: {freeze_error:#}"
+            )),
+        };
+    }
     Ok(())
 }
 
@@ -666,10 +719,6 @@ impl RuntimeFinalityCoordinator {
             .active()
             .map_err(|error| anyhow!(error.to_string()))?;
         runtime_profile(active.identity.profile)
-    }
-
-    pub(crate) fn canonical_head(&self) -> &str {
-        self.store.canonical_head()
     }
 
     /// Recovers the last Agentgres-admitted block from the exact staged bytes
@@ -1076,6 +1125,28 @@ impl RuntimeFinalityCoordinator {
             recorded_at_ms,
         )?;
         Ok(())
+    }
+
+    fn freeze_active_if_declared(&mut self, reason: &str, recorded_at_ms: u64) -> Result<bool> {
+        let cutover_id = match self.store.spine_state() {
+            SpineState::Frozen(_) => return Ok(false),
+            SpineState::Active(active) => match &active.installed_by {
+                Some(cutover_id) => cutover_id.clone(),
+                None => return Ok(false),
+            },
+        };
+        let rollback_kind = self
+            .store
+            .committed_cutover(&cutover_id)
+            .ok_or_else(|| anyhow!("active profile names an unknown installing cutover"))?
+            .record
+            .rollback
+            .kind;
+        if rollback_kind != RollbackKind::Freeze {
+            return Ok(false);
+        }
+        self.freeze_active_from_declared_rollback(&cutover_id, reason, recorded_at_ms)?;
+        Ok(true)
     }
 
     pub(crate) fn materialize_projection(&mut self, effect_id: &str) -> Result<()> {
@@ -1683,6 +1754,7 @@ mod tests {
     use ioi_api::chain::BlockExecutionReceipt;
     use ioi_api::consensus::{NativeAftMembershipMember, NativeAftQuorumSigner};
     use ioi_api::crypto::SigningKey;
+    use ioi_services::wallet_network::governed_cutover_approval_request_hash;
     use ioi_services::wallet_network::{
         ConsumeApprovalGrantForEffectV2Params, ExpectedPrincipalAuthorityBinding,
         FINALITY_PROFILE_CUTOVER_SCOPE,
