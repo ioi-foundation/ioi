@@ -1558,13 +1558,32 @@ fn freeze_recovers_as_an_explicit_frozen_state_and_admits_nothing() {
         .commit(prepared, &owner, 100)
         .expect("effect commits before freeze");
 
+    let mut revoked = authority();
+    revoked.revocation_epoch += 1;
+    assert!(matches!(
+        store.freeze(
+            ProfileFreezeRequest {
+                freeze_id: "freeze://acme/stale".into(),
+                authority: authority(),
+                reason: "stale-authority-must-not-freeze".into(),
+                authorization_refs: vec!["authorization://acme/governance/board".into()],
+            },
+            &StaticAuthority(revoked),
+            199,
+        ),
+        Err(RecognizedEffectError::StaleAuthority)
+    ));
+    assert!(!store.spine_state().is_frozen());
+
     store
         .freeze(
             ProfileFreezeRequest {
                 freeze_id: "freeze://acme/1".into(),
+                authority: authority(),
                 reason: "suspected-equivocation".into(),
                 authorization_refs: vec!["authorization://acme/governance/board".into()],
             },
+            &owner,
             200,
         )
         .expect("freeze commits");

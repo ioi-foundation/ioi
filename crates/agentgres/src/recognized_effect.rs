@@ -1294,6 +1294,7 @@ impl RecognizedEffectStore {
     pub fn freeze(
         &mut self,
         request: ProfileFreezeRequest,
+        authority_owner: &dyn AuthorityRevalidator,
         recorded_at_ms: u64,
     ) -> Result<ProfileFreezeRecord, RecognizedEffectError> {
         let active = self.require_bound_writer()?.clone();
@@ -1303,6 +1304,12 @@ impl RecognizedEffectStore {
             }
             .into_error());
         }
+        let current = authority_owner
+            .current_snapshot(&request.authority)
+            .map_err(RecognizedEffectError::Authority)?;
+        if current != request.authority || !current.admission_permitted {
+            return Err(RecognizedEffectError::StaleAuthority);
+        }
         let mut record = ProfileFreezeRecord {
             schema_version: PROFILE_FREEZE_SCHEMA.into(),
             freeze_id: request.freeze_id,
@@ -1311,6 +1318,7 @@ impl RecognizedEffectStore {
             from_profile_epoch: active.profile_epoch,
             from_fence_token: active.fence_token,
             from_writer_identity: active.writer_identity.clone(),
+            authority: request.authority,
             reason: request.reason,
             authorization_refs: request.authorization_refs,
             expected_canonical_head: self.canonical_head.clone(),

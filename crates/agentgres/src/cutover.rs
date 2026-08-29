@@ -58,7 +58,10 @@ use std::collections::BTreeSet;
 
 pub const PROFILE_GENESIS_SCHEMA: &str = "ioi.agentgres-profile-genesis.v1";
 pub const PROFILE_CUTOVER_SCHEMA: &str = "ioi.agentgres-profile-cutover.v1";
-pub const PROFILE_FREEZE_SCHEMA: &str = "ioi.agentgres-profile-freeze.v1";
+/// v2 adds the live authority/revocation snapshot. v1 carried only opaque
+/// authorization references and is never reinterpreted as satisfying this
+/// stronger admission contract.
+pub const PROFILE_FREEZE_SCHEMA: &str = "ioi.agentgres-profile-freeze.v2";
 
 pub const OP_KIND_GENESIS: &str = "profile.genesis";
 pub const OP_KIND_CUTOVER: &str = "profile.cutover";
@@ -368,6 +371,10 @@ pub struct ProfileFreezeRecord {
     pub from_profile_epoch: u64,
     pub from_fence_token: u64,
     pub from_writer_identity: String,
+    /// The authority and revocation epochs in force at the freeze
+    /// linearization point. Recovery verifies the rooted bytes; live admission
+    /// additionally revalidates this exact snapshot with the domain owner.
+    pub authority: AuthoritySnapshot,
     pub reason: String,
     pub authorization_refs: Vec<String>,
     pub expected_canonical_head: String,
@@ -398,6 +405,7 @@ pub struct ProfileCutoverRequest {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProfileFreezeRequest {
     pub freeze_id: String,
+    pub authority: AuthoritySnapshot,
     pub reason: String,
     pub authorization_refs: Vec<String>,
 }
@@ -614,6 +622,15 @@ pub(crate) fn validate_freeze_record(
     validate_token("from_writer_identity", &record.from_writer_identity)?;
     validate_hash("expected_canonical_head", &record.expected_canonical_head)?;
     record.frozen_identity.validate()?;
+    if record.authority.domain_id != record.domain_id
+        || record.authority.authority_epoch == 0
+        || !record.authority.admission_permitted
+    {
+        return Err(RecognizedEffectError::Invalid(
+            "freeze authority snapshot is not admissible for the frozen domain".into(),
+        ));
+    }
+    validate_token("freeze issuer_key_id", &record.authority.issuer_key_id)?;
     let mut distinct = BTreeSet::new();
     for reference in &record.authorization_refs {
         validate_token("authorization_ref", reference)?;
