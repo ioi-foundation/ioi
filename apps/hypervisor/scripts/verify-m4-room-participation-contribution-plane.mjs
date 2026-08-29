@@ -48,6 +48,22 @@ const requireValue = (value, message) => {
   if (!value) throw new Error(message);
   return value;
 };
+const invocationFailureSummary = (response) => (response.body?.invocations ?? []).map(
+  (candidate) => ({
+    role_key: candidate.role_key ?? null,
+    status: candidate.status ?? null,
+    blocker: candidate.blocker ?? null,
+    execution_receipt: candidate.execution_receipt == null ? null : {
+      exit_status: candidate.execution_receipt.exit_status ?? null,
+      timed_out: candidate.execution_receipt.timed_out ?? null,
+      spawn_error: candidate.execution_receipt.spawn_error ?? null,
+    },
+    implementation_result_candidate: candidate.implementation_result_candidate == null ? null : {
+      execution_succeeded: candidate.implementation_result_candidate.execution_succeeded ?? null,
+      summary: candidate.implementation_result_candidate.summary ?? null,
+    },
+  }),
+);
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const waitForOwnerProjection = async (call, path, timeoutMs = 30_000) => {
   const deadline = Date.now() + timeoutMs;
@@ -347,7 +363,7 @@ async function establishRoom(call, resolver, profile) {
       (candidate) => candidate.status === "waiting_on_conductor" &&
         candidate.implementation_result_candidate?.execution_succeeded === true,
     ),
-    `GoalRun produced no successful waiting invocation (${started.response.status})`,
+    `GoalRun produced no successful waiting invocation (${started.response.status}): ${JSON.stringify(invocationFailureSummary(started.response))}`,
   );
   const currentGoalResponse = await call(
     "GET", `/v1/goal-orchestration/goal-runs/${goal.goal_run_id}`, undefined,

@@ -9908,6 +9908,12 @@ pub(crate) fn resolve_adapter_driver(
             format!("driver shim absent: {shim_rel}"),
         ));
     }
+    let shim_dir = shim.parent().ok_or_else(|| {
+        (
+            "adapter_driver_missing",
+            format!("driver shim has no containing directory: {shim_rel}"),
+        )
+    })?;
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     // Adapter state dirs must exist before bwrap binds them read-write.
     for sub in [".local/share/opencode", ".deepseek", ".cache"] {
@@ -9924,6 +9930,13 @@ pub(crate) fn resolve_adapter_driver(
         "/proc".into(),
         "--tmpfs".into(),
         "/tmp".into(),
+        // The daemon may itself run from a worktree under /tmp. The private /tmp mount above
+        // deliberately hides the host's temporary tree, so re-expose only the shipped driver
+        // directory read-only. Binding only the entry script is insufficient because both
+        // adapters import their sibling harness-adapter-driver-lib.mjs module.
+        "--ro-bind".into(),
+        shim_dir.to_string_lossy().into_owned(),
+        shim_dir.to_string_lossy().into_owned(),
         "--bind".into(),
         workspace_root.into(),
         workspace_root.into(),
@@ -10101,13 +10114,32 @@ pub(crate) async fn run_host_spawn_lane(
         .and_then(|value| value.get("error"))
         .and_then(Value::as_str)
         .map(str::to_string);
+    let mut stderr_tail = transcript
+        .iter()
+        .rev()
+        .filter(|(stream, line)| stream == "stderr" && !line.trim().is_empty())
+        .take(4)
+        .map(|(_, line)| line.trim().to_string())
+        .collect::<Vec<_>>();
+    stderr_tail.reverse();
+    let stderr_detail = stderr_tail
+        .join(" | ")
+        .chars()
+        .take(800)
+        .collect::<String>();
     let ok = result_ok && !timed_out;
     let error = if ok {
         None
     } else if timed_out {
         Some("harness_timed_out".to_string())
     } else {
-        Some(result_error.unwrap_or_else(|| "harness_lane_incomplete".to_string()))
+        Some(result_error.unwrap_or_else(|| {
+            if stderr_detail.is_empty() {
+                "harness_lane_incomplete".to_string()
+            } else {
+                format!("harness_lane_incomplete: {stderr_detail}")
+            }
+        }))
     };
 
     let implementation_result = result_json
