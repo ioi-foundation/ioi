@@ -224,9 +224,11 @@ name = "agentgres"
 version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
+ "fs2",
  "ioi-api",
  "ioi-crypto",
  "ioi-finality",
+ "ioi-types",
  "serde",
  "serde_jcs",
  "serde_json",

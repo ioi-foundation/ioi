@@ -4,7 +4,19 @@ use crate::cutover::{
     RollbackKind, RollbackPlan,
 };
 use crate::profile::{GuaranteeDelta, ProfileFinalityBinding};
-use ioi_api::crypto::SerializableKey;
+use ioi_api::chain::BlockExecutionReceipt;
+use ioi_api::crypto::{SerializableKey, SigningKey};
+use ioi_finality::{
+    emit_runtime_bundle_v3, native_aft_vote_message, NativeAftFinalizedBlock, NativeAftMember,
+    RuntimeBundleV3Input,
+};
+use ioi_types::app::{
+    account_id_from_key_material, canonical_transactions_root, AccountId, ApplicationTransaction,
+    Block, BlockHeader, ChainTransaction, QuorumCertificate, SignHeader, SignatureProof,
+    SignatureSuite, StateRoot,
+};
+use ioi_types::codec::to_bytes_canonical;
+use ioi_types::config::RuntimeFinalityProfile;
 use serde_json::json;
 use std::fs;
 use std::fs::OpenOptions;
@@ -252,7 +264,243 @@ fn outbox(effect_id: &str) -> Vec<OutboxIntent> {
         .collect()
 }
 
-fn open_at(temp: &TempDir, genesis: SpineGenesis, bindings: ProfileBindings) -> RecognizedEffectStore {
+fn single_runtime_bundle(
+    profile_epoch: u64,
+    writer_identity: &str,
+    fence_token: u64,
+    parent_hash: [u8; 32],
+    authority_epoch: u64,
+    revocation_epoch: u64,
+    bundle_bindings: ProfileBindingsDigest,
+) -> Value {
+    let transaction = ChainTransaction::Application(ApplicationTransaction::DeployContract {
+        header: SignHeader::default(),
+        code: vec![7],
+        signature_proof: SignatureProof::default(),
+    });
+    let transactions = vec![transaction];
+    let block = Block {
+        header: BlockHeader {
+            height: 1,
+            view: 0,
+            parent_hash,
+            parent_state_root: StateRoot(vec![2; 32]),
+            state_root: StateRoot(vec![3; 32]),
+            transactions_root: canonical_transactions_root(&transactions)
+                .expect("transaction root"),
+            timestamp: 1_700_000_000,
+            timestamp_ms: 1_700_000_000_000,
+            gas_used: 0,
+            validator_set: Vec::new(),
+            producer_account_id: AccountId([0; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [0; 32],
+            producer_pubkey: Vec::new(),
+            oracle_counter: 0,
+            oracle_trace_hash: [0; 32],
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            signature: Vec::new(),
+        },
+        transactions,
+    };
+    let receipt = BlockExecutionReceipt::for_success(
+        block.header.height,
+        0,
+        block.transactions[0].hash().expect("transaction hash"),
+        0,
+        &[],
+    );
+    emit_runtime_bundle_v3(
+        RuntimeBundleV3Input {
+            bundle_id: "proof://acme/runtime/1",
+            checkpoint_id: "receipt-checkpoint://acme/runtime/1",
+            certificate_id: "finality-certificate://acme/runtime/1",
+            availability_manifest_id: "availability-manifest://acme/runtime/1",
+            block_payload_ref: "payload://acme/runtime/block/1",
+            domain_id: "system://acme",
+            authority_epoch,
+            authority_revocation_epoch: revocation_epoch,
+            profile: RuntimeFinalityProfile::SingleAuthorityV1,
+            profile_epoch,
+            writer_identity,
+            fence_token,
+            operation_sequence_first: 0,
+            receipt_sequence_first: 0,
+            previous_checkpoint_ref: None,
+            previous_checkpoint_hash: None,
+            authority_policy_root: &bundle_bindings.policy_digest,
+            governance_policy_root: &bundle_bindings.governance_policy_digest,
+            availability_policy_root: &bundle_bindings.availability_policy_digest,
+            retention_policy_root: &bundle_bindings.retention_policy_digest,
+            location_ref: "agentgres://acme/runtime/block/1",
+            failure_domain_ref: "failure-domain://acme/local-device",
+            verifier_contract_hash: &bundle_bindings.verifier_contract_digest,
+            issuer_key_id: ISSUER_KEY_ID,
+            block: &block,
+            receipts: &[receipt],
+            native_aft: None,
+        },
+        &Ed25519PrivateKey::from_bytes(&[7; 32]).expect("issuer key"),
+    )
+    .expect("single-authority runtime bundle")
+}
+
+fn aft_runtime_bundle() -> Value {
+    let keys: Vec<_> = [21_u8, 22, 23, 24]
+        .into_iter()
+        .map(|seed| Ed25519PrivateKey::from_bytes(&[seed; 32]).expect("member key"))
+        .collect();
+    let members: Vec<_> = keys
+        .iter()
+        .enumerate()
+        .map(|(index, key)| NativeAftMember {
+            member_ref: format!("node://acme/aft/{index}"),
+            public_key: key
+                .public_key()
+                .expect("member public key")
+                .to_bytes()
+                .as_slice()
+                .try_into()
+                .expect("32-byte public key"),
+        })
+        .collect();
+    let accounts: Vec<_> = members
+        .iter()
+        .map(|member| {
+            AccountId(
+                account_id_from_key_material(SignatureSuite::ED25519, &member.public_key)
+                    .expect("member account"),
+            )
+        })
+        .collect();
+    let transaction = ChainTransaction::Application(ApplicationTransaction::DeployContract {
+        header: SignHeader::default(),
+        code: vec![8],
+        signature_proof: SignatureProof::default(),
+    });
+    let transactions = vec![transaction];
+    let block = Block {
+        header: BlockHeader {
+            height: 1,
+            view: 0,
+            parent_hash: [0; 32],
+            parent_state_root: StateRoot(vec![2; 32]),
+            state_root: StateRoot(vec![3; 32]),
+            transactions_root: canonical_transactions_root(&transactions)
+                .expect("transaction root"),
+            timestamp: 1_700_000_000,
+            timestamp_ms: 1_700_000_000_000,
+            gas_used: 0,
+            validator_set: accounts.iter().map(|account| account.0.to_vec()).collect(),
+            producer_account_id: accounts[0],
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [0; 32],
+            producer_pubkey: members[0].public_key.to_vec(),
+            oracle_counter: 0,
+            oracle_trace_hash: [0; 32],
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            signature: Vec::new(),
+        },
+        transactions,
+    };
+    let block_hash: [u8; 32] = block
+        .header
+        .hash()
+        .expect("header hash")
+        .as_slice()
+        .try_into()
+        .expect("32-byte block hash");
+    let message = native_aft_vote_message(1, 0, &block_hash).expect("native vote message");
+    let signatures = (0..3)
+        .map(|index| {
+            (
+                accounts[index],
+                keys[index]
+                    .sign(&message)
+                    .expect("member vote")
+                    .to_bytes()
+                    .to_vec(),
+            )
+        })
+        .collect();
+    let finalized = NativeAftFinalizedBlock {
+        block_header_bytes: to_bytes_canonical(&block.header).expect("header bytes"),
+        quorum_certificate: QuorumCertificate {
+            height: 1,
+            view: 0,
+            block_hash,
+            signatures,
+            aggregated_signature: Vec::new(),
+            signers_bitfield: Vec::new(),
+        },
+        members,
+        membership_ref: "node-membership://acme/aft/1".into(),
+        membership_epoch: 1,
+        consensus_protocol_ref: "protocol://ioi/aft/v1".into(),
+        byzantine_fault_tolerance: 1,
+    };
+    let receipt = BlockExecutionReceipt::for_success(
+        block.header.height,
+        0,
+        block.transactions[0].hash().expect("transaction hash"),
+        0,
+        &[],
+    );
+    let bundle_bindings = bindings_digest();
+    emit_runtime_bundle_v3(
+        RuntimeBundleV3Input {
+            bundle_id: "proof://acme/runtime/aft/1",
+            checkpoint_id: "receipt-checkpoint://acme/runtime/aft/1",
+            certificate_id: "finality-certificate://acme/runtime/aft/1",
+            availability_manifest_id: "availability-manifest://acme/runtime/aft/1",
+            block_payload_ref: "payload://acme/runtime/aft/block/1",
+            domain_id: "system://acme",
+            authority_epoch: 1,
+            authority_revocation_epoch: 0,
+            profile: RuntimeFinalityProfile::BftConsensusAftV1,
+            profile_epoch: 0,
+            writer_identity: WRITER_A,
+            fence_token: 1,
+            operation_sequence_first: 0,
+            receipt_sequence_first: 0,
+            previous_checkpoint_ref: None,
+            previous_checkpoint_hash: None,
+            authority_policy_root: &bundle_bindings.policy_digest,
+            governance_policy_root: &bundle_bindings.governance_policy_digest,
+            availability_policy_root: &bundle_bindings.availability_policy_digest,
+            retention_policy_root: &bundle_bindings.retention_policy_digest,
+            location_ref: "agentgres://acme/runtime/aft/block/1",
+            failure_domain_ref: "failure-domain://acme/local-device",
+            verifier_contract_hash: &bundle_bindings.verifier_contract_digest,
+            issuer_key_id: ISSUER_KEY_ID,
+            block: &block,
+            receipts: &[receipt],
+            native_aft: Some(&finalized),
+        },
+        &Ed25519PrivateKey::from_bytes(&[7; 32]).expect("issuer key"),
+    )
+    .expect("AFT runtime bundle")
+}
+
+fn open_at(
+    temp: &TempDir,
+    genesis: SpineGenesis,
+    bindings: ProfileBindings,
+) -> RecognizedEffectStore {
     let writer = WriterClaim::new(genesis.writer_identity.clone(), genesis.fence_token);
     let mut store =
         RecognizedEffectStore::open_with_bindings(temp.path(), "system://acme", genesis, bindings)
@@ -298,6 +546,19 @@ fn prepare(
             outbox(effect_id),
         )
         .expect("effect prepares")
+}
+
+fn prepare_runtime(store: &mut RecognizedEffectStore, effect_id: &str) -> PreparedRecognizedEffect {
+    let owner = StaticAuthority(authority());
+    store
+        .prepare_runtime_bundle(
+            effect_id,
+            single_runtime_bundle(0, WRITER_A, 1, [0; 32], 1, 0, bindings_digest()),
+            authority(),
+            &owner,
+            outbox(effect_id),
+        )
+        .expect("runtime effect prepares")
 }
 
 fn deliver_predecessors(store: &mut RecognizedEffectStore, effect_id: &str, target: Phase) {
@@ -439,6 +700,317 @@ fn commit_cutover(
 // ---------------------------------------------------------------------------
 // Effect plane — preserved behavior
 // ---------------------------------------------------------------------------
+
+#[test]
+fn runtime_v3_effect_linearizes_recovers_and_replays_on_the_agentgres_spine() {
+    let temp = TempDir::new().expect("tempdir");
+    let mut store = open(&temp);
+    let owner = StaticAuthority(authority());
+    let bundle = single_runtime_bundle(0, WRITER_A, 1, [0; 32], 1, 0, bindings_digest());
+    let prepared = store
+        .prepare_runtime_bundle(
+            "runtime-effect-1",
+            bundle,
+            authority(),
+            &owner,
+            outbox("runtime-effect-1"),
+        )
+        .expect("runtime effect prepares");
+    let retry = prepared.clone();
+    let canonical_bytes = prepared.canonical_bytes().to_vec();
+    let committed = store
+        .commit(prepared, &owner, 100)
+        .expect("runtime effect commits");
+    assert_eq!(committed.disposition, CommitDisposition::Committed);
+    let claim = ioi_finality::verify_runtime_bundle_v3(&committed.effect.record.bundle)
+        .expect("committed runtime proof verifies offline");
+    assert_eq!(claim.profile_epoch, 0);
+    assert_eq!(claim.writer_identity, WRITER_A);
+    assert_eq!(claim.fence_token, 1);
+    assert_eq!(store.canonical_head(), claim.resulting_canonical_head);
+    assert_eq!(
+        store
+            .commit(retry, &owner, 101)
+            .expect("exact retry")
+            .disposition,
+        CommitDisposition::Replayed
+    );
+    drop(store);
+
+    let reopened = open(&temp);
+    let recovered = reopened
+        .committed("runtime-effect-1")
+        .expect("runtime effect recovers");
+    assert_eq!(recovered.canonical_bytes, canonical_bytes);
+    assert_eq!(
+        reopened.canonical_head(),
+        ioi_finality::verify_runtime_bundle_v3(&recovered.record.bundle)
+            .expect("recovered proof verifies")
+            .resulting_canonical_head
+    );
+}
+
+#[test]
+fn runtime_v3_native_aft_uses_the_production_profile_adapter() {
+    let temp = TempDir::new().expect("tempdir");
+    let mut store = open_at(
+        &temp,
+        genesis(FinalityProfile::BftConsensus, WRITER_A, 1),
+        ProfileBindings::production(),
+    );
+    let owner = StaticAuthority(authority());
+    let prepared = store
+        .prepare_runtime_bundle(
+            "runtime-aft-effect-1",
+            aft_runtime_bundle(),
+            authority(),
+            &owner,
+            outbox("runtime-aft-effect-1"),
+        )
+        .expect("native AFT runtime effect prepares through production adapter");
+    let committed = store
+        .commit(prepared, &owner, 100)
+        .expect("native AFT runtime effect commits");
+    let claim = ioi_finality::verify_runtime_bundle_v3(&committed.effect.record.bundle)
+        .expect("committed AFT bundle verifies");
+    assert!(claim.native_quorum_verified);
+    assert!(claim.effect_committed_in_block);
+    assert!(!claim.receipts_committed_in_block);
+    assert_eq!(claim.profile, FinalityProfile::BftConsensus.profile());
+}
+
+#[test]
+fn runtime_v3_preparation_refuses_every_active_writer_and_policy_substitution() {
+    let temp = TempDir::new().expect("tempdir");
+    let mut store = open(&temp);
+    let owner = StaticAuthority(authority());
+
+    let stale_epoch = single_runtime_bundle(1, WRITER_A, 1, [0; 32], 1, 0, bindings_digest());
+    assert!(matches!(
+        store.prepare_runtime_bundle(
+            "runtime-stale-epoch",
+            stale_epoch,
+            authority(),
+            &owner,
+            outbox("runtime-stale-epoch"),
+        ),
+        Err(RecognizedEffectError::Profile(
+            ProfileRefusal::ProfileEpochMismatch { .. }
+        ))
+    ));
+
+    let stale_writer = single_runtime_bundle(0, WRITER_B, 1, [0; 32], 1, 0, bindings_digest());
+    assert!(matches!(
+        store.prepare_runtime_bundle(
+            "runtime-stale-writer",
+            stale_writer,
+            authority(),
+            &owner,
+            outbox("runtime-stale-writer"),
+        ),
+        Err(RecognizedEffectError::Profile(
+            ProfileRefusal::WriterIdentityMismatch { .. }
+        ))
+    ));
+
+    let stale_fence = single_runtime_bundle(0, WRITER_A, 2, [0; 32], 1, 0, bindings_digest());
+    assert!(matches!(
+        store.prepare_runtime_bundle(
+            "runtime-stale-fence",
+            stale_fence,
+            authority(),
+            &owner,
+            outbox("runtime-stale-fence"),
+        ),
+        Err(RecognizedEffectError::Profile(
+            ProfileRefusal::FenceTokenMismatch { .. }
+        ))
+    ));
+
+    let mut substituted_bindings = bindings_digest();
+    substituted_bindings.availability_policy_digest = digest("other availability policy");
+    let substituted_policy =
+        single_runtime_bundle(0, WRITER_A, 1, [0; 32], 1, 0, substituted_bindings);
+    assert!(matches!(
+        store.prepare_runtime_bundle(
+            "runtime-policy-substitution",
+            substituted_policy,
+            authority(),
+            &owner,
+            outbox("runtime-policy-substitution"),
+        ),
+        Err(RecognizedEffectError::Profile(
+            ProfileRefusal::BindingsDigestMismatch { .. }
+        ))
+    ));
+
+    let stale_authority = single_runtime_bundle(0, WRITER_A, 1, [0; 32], 2, 0, bindings_digest());
+    assert!(matches!(
+        store.prepare_runtime_bundle(
+            "runtime-stale-authority",
+            stale_authority,
+            authority(),
+            &owner,
+            outbox("runtime-stale-authority"),
+        ),
+        Err(RecognizedEffectError::StaleAuthority)
+    ));
+
+    let stale_head = single_runtime_bundle(0, WRITER_A, 1, [9; 32], 1, 0, bindings_digest());
+    assert!(matches!(
+        store.prepare_runtime_bundle(
+            "runtime-stale-head",
+            stale_head,
+            authority(),
+            &owner,
+            outbox("runtime-stale-head"),
+        ),
+        Err(RecognizedEffectError::StaleHead { .. })
+    ));
+
+    let mut changed_bytes = single_runtime_bundle(0, WRITER_A, 1, [0; 32], 1, 0, bindings_digest());
+    changed_bytes["operations"][0]["body"]["transaction_base64"] = json!("AA==");
+    assert!(matches!(
+        store.prepare_runtime_bundle(
+            "runtime-changed-bytes",
+            changed_bytes,
+            authority(),
+            &owner,
+            outbox("runtime-changed-bytes"),
+        ),
+        Err(RecognizedEffectError::Finality(_))
+    ));
+}
+
+#[test]
+fn runtime_v3_crash_edges_recover_before_or_after_the_one_linearization_point() {
+    for phase in Phase::EFFECT_PREPARATION {
+        for point in [CrashPoint::before(phase), CrashPoint::after(phase)] {
+            let temp = TempDir::new().expect("tempdir");
+            let mut store = open(&temp);
+            store.arm_crash(point);
+            let result = store.prepare_runtime_bundle(
+                "runtime-crash",
+                single_runtime_bundle(0, WRITER_A, 1, [0; 32], 1, 0, bindings_digest()),
+                authority(),
+                &StaticAuthority(authority()),
+                outbox("runtime-crash"),
+            );
+            assert!(
+                result.is_err(),
+                "runtime preparation point was unreachable: {point}"
+            );
+            drop(store);
+
+            let mut reopened = open(&temp);
+            assert!(reopened.committed("runtime-crash").is_none(), "{point}");
+            let retry = prepare_runtime(&mut reopened, "runtime-crash");
+            assert_eq!(
+                reopened
+                    .commit(retry, &StaticAuthority(authority()), 101)
+                    .expect("clean runtime retry")
+                    .disposition,
+                CommitDisposition::Committed,
+                "{point}"
+            );
+        }
+    }
+
+    for phase in Phase::LINEARIZATION {
+        for point in [CrashPoint::before(phase), CrashPoint::after(phase)] {
+            let temp = TempDir::new().expect("tempdir");
+            let mut store = open(&temp);
+            let prepared = prepare_runtime(&mut store, "runtime-crash");
+            let retry = prepared.clone();
+            store.arm_crash(point);
+            assert!(
+                store
+                    .commit(prepared, &StaticAuthority(authority()), 100)
+                    .is_err(),
+                "runtime linearization point was unreachable: {point}"
+            );
+            drop(store);
+
+            let mut reopened = open(&temp);
+            let linearized = reopened.committed("runtime-crash").is_some();
+            let expected_linearized = !matches!(
+                point,
+                CrashPoint {
+                    phase: Phase::FrameConstruction | Phase::CanonicalWrite,
+                    boundary: Boundary::Before,
+                } | CrashPoint {
+                    phase: Phase::FrameConstruction,
+                    boundary: Boundary::After,
+                }
+            );
+            assert_eq!(linearized, expected_linearized, "{point}");
+            assert_eq!(
+                reopened
+                    .commit(retry, &StaticAuthority(authority()), 101)
+                    .expect("runtime retry resolves exactly once")
+                    .disposition,
+                if expected_linearized {
+                    CommitDisposition::Replayed
+                } else {
+                    CommitDisposition::Committed
+                },
+                "{point}"
+            );
+        }
+    }
+}
+
+#[test]
+fn multiple_live_pre_cutover_processes_refresh_and_refuse_the_retired_writer() {
+    let temp = TempDir::new().expect("tempdir");
+    let mut integrator = open(&temp);
+    let mut stale_processes: Vec<_> = (0..3).map(|_| open(&temp)).collect();
+    let prepared: Vec<_> = stale_processes
+        .iter_mut()
+        .enumerate()
+        .map(|(index, store)| prepare_runtime(store, &format!("runtime-in-flight-{index}")))
+        .collect();
+
+    commit_cutover(
+        &mut integrator,
+        strengthening_request(),
+        &RefuseAllWeakening,
+        10,
+    )
+    .expect("cutover linearizes");
+
+    for (index, (store, effect)) in stale_processes
+        .iter_mut()
+        .zip(prepared.into_iter())
+        .enumerate()
+    {
+        assert!(
+            matches!(
+                store.commit(effect, &StaticAuthority(authority()), 11),
+                Err(RecognizedEffectError::Profile(
+                    ProfileRefusal::WriterIdentityMismatch { .. }
+                        | ProfileRefusal::ActiveProfileMismatch { .. }
+                ))
+            ),
+            "stale live process {index} crossed the cutover fence"
+        );
+        assert!(store
+            .committed(&format!("runtime-in-flight-{index}"))
+            .is_none());
+    }
+
+    let mut recovered = reopen(
+        &temp,
+        single_authority_genesis(),
+        ProfileBindings::production(),
+    );
+    assert!(recovered
+        .bind_writer(WriterClaim::new(WRITER_A, 1))
+        .is_err());
+    recovered
+        .bind_writer(WriterClaim::new(WRITER_B, 2))
+        .expect("only successor writer remains eligible");
+}
 
 #[test]
 fn commit_recovery_replay_and_outbox_are_byte_identical() {
@@ -873,20 +1445,21 @@ fn control_plane_crash_points_recover_to_exactly_one_writer() {
 
             // Exactly one writer is eligible after recovery — never both,
             // never neither.
-            let eligible = [
-                WriterClaim::new(WRITER_A, 1),
-                WriterClaim::new(WRITER_B, 2),
-            ]
-            .into_iter()
-            .filter(|claim| reopened.bind_writer(claim.clone()).is_ok())
-            .count();
+            let eligible = [WriterClaim::new(WRITER_A, 1), WriterClaim::new(WRITER_B, 2)]
+                .into_iter()
+                .filter(|claim| reopened.bind_writer(claim.clone()).is_ok())
+                .count();
             assert_eq!(eligible, 1, "{point}");
 
             if !linearized {
                 // A clean retry installs the successor exactly once.
-                let retried =
-                    commit_cutover(&mut reopened, strengthening_request(), &RefuseAllWeakening, 11)
-                        .expect("clean retry commits");
+                let retried = commit_cutover(
+                    &mut reopened,
+                    strengthening_request(),
+                    &RefuseAllWeakening,
+                    11,
+                )
+                .expect("clean retry commits");
                 assert_eq!(retried.record.to_writer_identity, WRITER_B, "{point}");
                 assert_eq!(retried.record.to_profile_epoch, 1, "{point}");
             }
@@ -1030,7 +1603,9 @@ fn writer_binding_requires_exact_identity_and_fence_token() {
             &signing_key,
             outbox("effect-unbound"),
         ),
-        Err(RecognizedEffectError::Profile(ProfileRefusal::NoWriterBound))
+        Err(RecognizedEffectError::Profile(
+            ProfileRefusal::NoWriterBound
+        ))
     ));
 
     assert!(matches!(
@@ -1062,13 +1637,8 @@ fn writer_binding_requires_exact_identity_and_fence_token() {
 fn strengthening_cutover_needs_no_governance_and_refuses_stray_evidence() {
     let temp = TempDir::new().expect("tempdir");
     let mut store = open(&temp);
-    let committed = commit_cutover(
-        &mut store,
-        strengthening_request(),
-        &RefuseAllWeakening,
-        10,
-    )
-    .expect("strengthening commits without governance");
+    let committed = commit_cutover(&mut store, strengthening_request(), &RefuseAllWeakening, 10)
+        .expect("strengthening commits without governance");
     assert_eq!(committed.record.to.profile, FinalityProfile::BftConsensus);
     assert_eq!(committed.record.to_profile_epoch, 1);
     assert_eq!(committed.record.to_fence_token, 2);
@@ -1266,12 +1836,7 @@ fn no_dual_authority_interval_across_a_cutover() {
     // authority, so B is still ineligible while it sits unsubmitted.
     let owner = StaticAuthority(authority());
     let prepared = store
-        .prepare_cutover(
-            strengthening_request(),
-            &owner,
-            &RefuseAllWeakening,
-            10,
-        )
+        .prepare_cutover(strengthening_request(), &owner, &RefuseAllWeakening, 10)
         .expect("prepares");
     assert!(store.bind_writer(WriterClaim::new(WRITER_B, 2)).is_err());
     assert!(store.bind_writer(WriterClaim::new(WRITER_A, 1)).is_ok());
@@ -1339,12 +1904,7 @@ fn cutover_downgrade_reordering_and_duplicates_are_refused() {
     // Two prepared cutovers, one committed: the second is stale material
     // chaining off a head that has moved.
     let first = store
-        .prepare_cutover(
-            strengthening_request(),
-            &owner,
-            &RefuseAllWeakening,
-            10,
-        )
+        .prepare_cutover(strengthening_request(), &owner, &RefuseAllWeakening, 10)
         .expect("first prepares");
     let mut second_request = strengthening_request();
     second_request.cutover_id = "cutover://acme/2".into();
@@ -1409,7 +1969,9 @@ fn effects_refuse_substituted_profile_writer_epoch_fence_and_bindings() {
     }
 
     let cases = vec![
-        substitute(&baseline, "profile_epoch", |record| record.profile_epoch += 1),
+        substitute(&baseline, "profile_epoch", |record| {
+            record.profile_epoch += 1
+        }),
         substitute(&baseline, "writer_identity", |record| {
             record.writer_identity = WRITER_B.into()
         }),
@@ -1540,12 +2102,10 @@ fn the_spine_carries_effects_under_both_profiles() {
 
     // Without the AFT adapter, the committed AFT effect cannot be verified,
     // so recovery refuses rather than asserting a check it did not run.
-    assert!(RecognizedEffectStore::open(
-        temp.path(),
-        "system://acme",
-        single_authority_genesis()
-    )
-    .is_err());
+    assert!(
+        RecognizedEffectStore::open(temp.path(), "system://acme", single_authority_genesis())
+            .is_err()
+    );
 }
 
 #[test]
@@ -1590,13 +2150,12 @@ fn freeze_recovers_as_an_explicit_frozen_state_and_admits_nothing() {
 
     assert!(store.spine_state().is_frozen());
     // No writer is eligible, including the one that froze it.
-    for claim in [
-        WriterClaim::new(WRITER_A, 1),
-        WriterClaim::new(WRITER_B, 2),
-    ] {
+    for claim in [WriterClaim::new(WRITER_A, 1), WriterClaim::new(WRITER_B, 2)] {
         assert!(matches!(
             store.bind_writer(claim),
-            Err(RecognizedEffectError::Profile(ProfileRefusal::SpineFrozen { .. }))
+            Err(RecognizedEffectError::Profile(
+                ProfileRefusal::SpineFrozen { .. }
+            ))
         ));
     }
 
@@ -1713,7 +2272,9 @@ fn rollback_after_next_profile_effects_is_a_successor_cutover() {
         aft_bindings(),
     );
     assert!(reopened.committed("effect-after-weakening").is_some());
-    assert!(reopened.committed_cutover(&cutover.record.cutover_id).is_some());
+    assert!(reopened
+        .committed_cutover(&cutover.record.cutover_id)
+        .is_some());
     assert!(reopened
         .committed_cutover("cutover://acme/rollback")
         .is_some());
@@ -1726,13 +2287,8 @@ fn rollback_after_next_profile_effects_is_a_successor_cutover() {
 fn restart_recovers_exactly_one_eligible_writer() {
     let temp = TempDir::new().expect("tempdir");
     let mut store = open(&temp);
-    commit_cutover(
-        &mut store,
-        strengthening_request(),
-        &RefuseAllWeakening,
-        10,
-    )
-    .expect("cutover commits");
+    commit_cutover(&mut store, strengthening_request(), &RefuseAllWeakening, 10)
+        .expect("cutover commits");
     drop(store);
 
     let mut reopened =

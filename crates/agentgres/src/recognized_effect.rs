@@ -14,25 +14,27 @@
 //! the committed record.  A prepared cutover is inert on exactly the same
 //! terms: it grants no authority until it linearizes.
 
-#[cfg(test)]
-use crate::mux::MuxCommitTestPoint;
-use crate::mux::{ExactProjection, MuxEngine};
 use crate::cutover::{
     cutover_record_hash, freeze_record_hash, genesis_record_hash, validate_cutover_record,
     validate_freeze_record, validate_genesis_record, ActiveProfile, CommittedProfileCutover,
-    FrozenProfile, GovernanceValidator, ProfileCutoverRecord, ProfileCutoverRequest,
-    ProfileFreezeRecord, ProfileFreezeRequest, ProfileGenesisRecord, PreparedProfileCutover,
+    FrozenProfile, GovernanceValidator, PreparedProfileCutover, ProfileCutoverRecord,
+    ProfileCutoverRequest, ProfileFreezeRecord, ProfileFreezeRequest, ProfileGenesisRecord,
     SpineGenesis, SpineState, WeakeningReview, WriterClaim, OP_KIND_CUTOVER, OP_KIND_FREEZE,
     OP_KIND_GENESIS, OP_KIND_RECOGNIZED_EFFECT, PROFILE_CUTOVER_SCHEMA, PROFILE_FREEZE_SCHEMA,
     PROFILE_GENESIS_SCHEMA,
 };
+#[cfg(test)]
+use crate::mux::MuxCommitTestPoint;
+use crate::mux::{ExactProjection, MuxEngine};
 use crate::profile::{
-    FinalityProfile, GuaranteeDirection, ProfileBindings, ProfileBindingsDigest, ProfileIdentity,
+    verified_runtime_coordinates, FinalityProfile, GuaranteeDirection, ProfileBindings,
+    ProfileBindingsDigest, ProfileIdentity,
 };
 use crate::refs::profile_spine_object_ref;
 use crate::{Durability, Operation, Refusal, GENESIS_ROOT};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
+use fs2::FileExt;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_finality::VerificationError;
 use serde::{Deserialize, Serialize};
@@ -65,6 +67,7 @@ pub enum RecognizedEffectError {
     Invalid(String),
     Authority(String),
     StaleAuthority,
+    AdmissionBusy,
     StaleHead {
         expected: String,
         actual: String,
@@ -90,7 +93,9 @@ pub enum RecognizedEffectError {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProfileRefusal {
     /// The label resolves to nothing in the owner's compatibility map.
-    UnknownProfileAlias { value: String },
+    UnknownProfileAlias {
+        value: String,
+    },
     /// The label resolves cleanly, to a canonical member this spine does not
     /// admit.
     ProfileOutsideSpineScope {
@@ -98,42 +103,99 @@ pub enum ProfileRefusal {
         canonical_member: String,
     },
     /// The owner records this label as resolving to no single member.
-    AmbiguousProfileLabel { value: String },
+    AmbiguousProfileLabel {
+        value: String,
+    },
     /// Admitted bytes carried a non-canonical spelling.
-    NonCanonicalProfileBytes { field: String, value: String },
-    VariantMismatch { profile: String, variant: String },
+    NonCanonicalProfileBytes {
+        field: String,
+        value: String,
+    },
+    VariantMismatch {
+        profile: String,
+        variant: String,
+    },
     /// The profile's emit/verify adapter is not wired in this build.
-    ProfileNotWired { profile: String },
-    SpineFrozen { freeze_id: String },
+    ProfileNotWired {
+        profile: String,
+    },
+    SpineFrozen {
+        freeze_id: String,
+    },
     NoWriterBound,
-    WriterIdentityMismatch { expected: String, actual: String },
-    FenceTokenMismatch { expected: u64, actual: u64 },
-    FenceTokenNotMonotonic { active: u64, requested: u64 },
-    ProfileEpochMismatch { expected: u64, actual: u64 },
-    ProfileEpochNotSuccessor { active: u64, requested: u64 },
-    ActiveProfileMismatch { expected: String, actual: String },
-    ProfileContractVersionMismatch { expected: String, actual: String },
+    WriterIdentityMismatch {
+        expected: String,
+        actual: String,
+    },
+    FenceTokenMismatch {
+        expected: u64,
+        actual: u64,
+    },
+    FenceTokenNotMonotonic {
+        active: u64,
+        requested: u64,
+    },
+    ProfileEpochMismatch {
+        expected: u64,
+        actual: u64,
+    },
+    ProfileEpochNotSuccessor {
+        active: u64,
+        requested: u64,
+    },
+    ActiveProfileMismatch {
+        expected: String,
+        actual: String,
+    },
+    ProfileContractVersionMismatch {
+        expected: String,
+        actual: String,
+    },
     BindingsDigestMismatch {
         field: String,
         expected: String,
         actual: String,
     },
-    GenesisMismatch { field: String },
-    NoOpCutover { profile: String },
-    GuaranteeDeltaMismatch { declared: String, computed: String },
-    GuaranteeDeltaIncomplete { detail: String },
+    GenesisMismatch {
+        field: String,
+    },
+    NoOpCutover {
+        profile: String,
+    },
+    GuaranteeDeltaMismatch {
+        declared: String,
+        computed: String,
+    },
+    GuaranteeDeltaIncomplete {
+        detail: String,
+    },
     GovernanceEvidenceRequired,
-    GovernanceEvidenceRejected { detail: String },
-    GovernanceThresholdUnmet { approvals: u32, threshold: u32 },
+    GovernanceEvidenceRejected {
+        detail: String,
+    },
+    GovernanceThresholdUnmet {
+        approvals: u32,
+        threshold: u32,
+    },
     GovernanceDelayUnmet {
         effective_after_ms: u64,
         recorded_at_ms: u64,
     },
-    GovernanceAnchorUnmet { detail: String },
-    RollbackNotIndependent { detail: String },
-    RollbackPlanInvalid { detail: String },
-    DuplicateControlOperation { identity: String },
-    StalePreparedMaterial { detail: String },
+    GovernanceAnchorUnmet {
+        detail: String,
+    },
+    RollbackNotIndependent {
+        detail: String,
+    },
+    RollbackPlanInvalid {
+        detail: String,
+    },
+    DuplicateControlOperation {
+        identity: String,
+    },
+    StalePreparedMaterial {
+        detail: String,
+    },
 }
 
 impl ProfileRefusal {
@@ -269,6 +331,10 @@ impl std::fmt::Display for RecognizedEffectError {
             Self::Invalid(detail) => write!(f, "recognized-effect invalid: {detail}"),
             Self::Authority(detail) => write!(f, "recognized-effect authority failed: {detail}"),
             Self::StaleAuthority => write!(f, "recognized-effect authority snapshot is stale"),
+            Self::AdmissionBusy => write!(
+                f,
+                "recognized-effect Agentgres admission is owned by another process"
+            ),
             Self::StaleHead { expected, actual } => write!(
                 f,
                 "recognized-effect canonical head is stale: expected={expected} actual={actual}"
@@ -487,6 +553,7 @@ impl RecognizedEffectStore {
         fs::create_dir_all(root.join("availability"))?;
         fs::create_dir_all(root.join("deliveries"))?;
         fs::create_dir_all(root.join("projections"))?;
+        let _spine_lock = acquire_spine_lock(root)?;
         let mux_dir = root.join("canonical");
         let mux = MuxEngine::open(&mux_dir, true)?;
         let object_ref = profile_spine_object_ref(&domain_id);
@@ -621,12 +688,66 @@ impl RecognizedEffectStore {
         )
     }
 
+    /// Re-read the complete rooted spine while holding the cross-process
+    /// admission lock. A process may remain alive across another process's
+    /// cutover, so its in-memory profile state is never sufficient evidence
+    /// at the final write boundary.
+    fn refresh_from_committed_truth(&mut self) -> Result<(), RecognizedEffectError> {
+        let sealed = self.genesis.clone().ok_or_else(|| {
+            RecognizedEffectError::Invalid("profile spine has no sealed genesis".into())
+        })?;
+        self.mux = MuxEngine::open(&self.root.join("canonical"), true)?;
+        self.initial_canonical_head = sealed.initial_canonical_head.clone();
+        self.canonical_head = sealed.initial_canonical_head.clone();
+        self.genesis = None;
+        self.state = SpineState::Active(ActiveProfile {
+            identity: sealed.identity.clone(),
+            profile_epoch: sealed.profile_epoch,
+            writer_identity: sealed.writer_identity.clone(),
+            fence_token: sealed.fence_token,
+            bindings: sealed.bindings.clone(),
+            installed_by: None,
+        });
+        self.effects.clear();
+        self.cutovers.clear();
+        self.freezes.clear();
+        self.last_batch_seq = 0;
+        self.recover()?;
+        if self.genesis.as_ref() != Some(&sealed) {
+            return Err(ProfileRefusal::GenesisMismatch {
+                field: "recovered_genesis".into(),
+            }
+            .into_error());
+        }
+        Ok(())
+    }
+
+    fn lock_and_refresh(&mut self) -> Result<File, RecognizedEffectError> {
+        if self.mux.admission_stopped() {
+            return Err(RecognizedEffectError::Durability(
+                "admission stopped after durability uncertainty; explicit reopen required".into(),
+            ));
+        }
+        let lock = acquire_spine_lock(&self.root)?;
+        self.refresh_from_committed_truth()?;
+        #[cfg(test)]
+        if let Some(point) = self.armed_crash {
+            self.arm_crash(point);
+        }
+        Ok(lock)
+    }
+
     fn require_matching_genesis(
         &self,
         sealed: ProfileGenesisRecord,
         presented: &SpineGenesis,
     ) -> Result<(), RecognizedEffectError> {
-        let mismatch = |field: &str| ProfileRefusal::GenesisMismatch { field: field.into() }.into_error();
+        let mismatch = |field: &str| {
+            ProfileRefusal::GenesisMismatch {
+                field: field.into(),
+            }
+            .into_error()
+        };
         if sealed.identity.profile != presented.identity.profile {
             return Err(mismatch("profile"));
         }
@@ -846,23 +967,151 @@ impl RecognizedEffectStore {
         })
     }
 
+    /// Prepare an already-issued explicit runtime-v3 bundle for the one
+    /// Agentgres linearization point.
+    ///
+    /// Unlike [`Self::prepare`], this path does not reinterpret native state
+    /// roots as the predecessor map contract and does not mint a second AFT
+    /// round. The validator supplies the exact block, execution receipts, and
+    /// (for AFT) the quorum it already formed; the profile adapter verifies
+    /// that successor before any authority can be derived from it.
+    pub fn prepare_runtime_bundle(
+        &mut self,
+        effect_id: impl Into<String>,
+        bundle: Value,
+        authority: AuthoritySnapshot,
+        authority_owner: &dyn AuthorityRevalidator,
+        outbox: Vec<OutboxIntent>,
+    ) -> Result<PreparedRecognizedEffect, RecognizedEffectError> {
+        let effect_id = effect_id.into();
+        let active = self.require_bound_writer()?.clone();
+        self.around(Phase::AdmissionValidation, |_store| {
+            validate_outbox(&outbox)?;
+            validate_token("effect_id", &effect_id)
+        })?;
+
+        let profile = self.around(Phase::ProfileResolution, |_store| {
+            let profile = FinalityProfile::from_exact(
+                pointer_text(&bundle, "/checkpoint/profile")?,
+                pointer_text(
+                    &bundle,
+                    "/checkpoint/finality_certificate/certificate_variant",
+                )?,
+            )?;
+            if profile != active.identity.profile {
+                return Err(ProfileRefusal::ActiveProfileMismatch {
+                    expected: active.identity.profile.profile().into(),
+                    actual: profile.profile().into(),
+                }
+                .into_error());
+            }
+            let version = pointer_text(&bundle, "/checkpoint/profile_contract_version")?;
+            if version != active.identity.profile_contract_version {
+                return Err(ProfileRefusal::ProfileContractVersionMismatch {
+                    expected: active.identity.profile_contract_version.clone(),
+                    actual: version.to_owned(),
+                }
+                .into_error());
+            }
+            Ok(profile)
+        })?;
+
+        self.around(Phase::AuthorityRevalidation, |_store| {
+            let current = authority_owner
+                .current_snapshot(&authority)
+                .map_err(RecognizedEffectError::Authority)?;
+            if current != authority || !current.admission_permitted {
+                return Err(RecognizedEffectError::StaleAuthority);
+            }
+            Ok(())
+        })?;
+
+        self.around(Phase::StateTransitionConstruction, |_store| {
+            for pointer in [
+                "/checkpoint/previous_state_commitment",
+                "/checkpoint/resulting_state_commitment",
+            ] {
+                bundle
+                    .pointer(pointer)
+                    .and_then(Value::as_object)
+                    .ok_or_else(|| {
+                        RecognizedEffectError::Invalid(format!(
+                            "runtime state commitment absent at {pointer}"
+                        ))
+                    })?;
+            }
+            require_nonempty_array(&bundle, "/operations")
+        })?;
+        self.around(Phase::IndividualReceiptCreation, |_store| {
+            require_nonempty_array(&bundle, "/receipts")
+        })?;
+        self.around(Phase::CheckpointConstruction, |_store| {
+            bundle
+                .pointer("/checkpoint")
+                .and_then(Value::as_object)
+                .ok_or_else(|| RecognizedEffectError::Invalid("checkpoint is absent".into()))?;
+            Ok(())
+        })?;
+        self.around(Phase::CertificateConstructionSigning, |store| {
+            store.bindings.binding(profile).verify(&bundle)
+        })?;
+        let coordinates = verified_runtime_coordinates(&bundle)?.ok_or_else(|| {
+            RecognizedEffectError::Invalid(
+                "runtime admission requires the explicit runtime-v3 successor".into(),
+            )
+        })?;
+        validate_bundle_authority(&bundle, &authority)?;
+        if coordinates.previous_canonical_head != self.canonical_head {
+            return Err(RecognizedEffectError::StaleHead {
+                expected: coordinates.previous_canonical_head,
+                actual: self.canonical_head.clone(),
+            });
+        }
+
+        self.around(Phase::AvailabilityBytePersistence, |store| {
+            store.persist_availability(&bundle)
+        })?;
+        self.around(Phase::AvailabilityManifestValidation, |store| {
+            store.verify_availability(&bundle)
+        })?;
+
+        let mut record = RecognizedEffectRecord {
+            schema_version: RECOGNIZED_EFFECT_SCHEMA.into(),
+            effect_id,
+            domain_id: self.domain_id.clone(),
+            profile: profile.profile().into(),
+            certificate_variant: profile.certificate_variant().into(),
+            profile_contract_version: active.identity.profile_contract_version.clone(),
+            profile_epoch: active.profile_epoch,
+            writer_identity: active.writer_identity.clone(),
+            fence_token: active.fence_token,
+            bindings: active.bindings.clone(),
+            canonical_expected_head: self.canonical_head.clone(),
+            agentgres_expected_head: self.spine_head(),
+            authority,
+            bundle,
+            outbox,
+            record_hash: String::new(),
+        };
+        record.record_hash = record_hash(&record)?;
+        let canonical_bytes = serde_jcs::to_vec(&record)
+            .map_err(|error| RecognizedEffectError::Invalid(error.to_string()))?;
+        // Re-run the exact recovered-record validator now. This makes a
+        // prepared value byte-identical to what restart will accept.
+        validate_record(&record, &canonical_bytes, &self.bindings)?;
+        Ok(PreparedRecognizedEffect {
+            record,
+            canonical_bytes,
+        })
+    }
+
     pub fn commit(
         &mut self,
         prepared: PreparedRecognizedEffect,
         authority_owner: &dyn AuthorityRevalidator,
         recorded_at_ms: u64,
     ) -> Result<CommitResult, RecognizedEffectError> {
-        if let Some(existing) = self.effects.get(&prepared.record.effect_id) {
-            if existing.canonical_bytes == prepared.canonical_bytes {
-                return Ok(CommitResult {
-                    disposition: CommitDisposition::Replayed,
-                    effect: existing.clone(),
-                });
-            }
-            return Err(RecognizedEffectError::ReplayConflict {
-                identity: prepared.record.effect_id,
-            });
-        }
+        let _spine_lock = self.lock_and_refresh()?;
         validate_record(&prepared.record, &prepared.canonical_bytes, &self.bindings)?;
         self.verify_availability(&prepared.record.bundle)?;
 
@@ -875,6 +1124,21 @@ impl RecognizedEffectStore {
             .map_err(RecognizedEffectError::Authority)?;
         if current != prepared.record.authority || !current.admission_permitted {
             return Err(RecognizedEffectError::StaleAuthority);
+        }
+        // Resolve idempotency only after proving this process is still the
+        // eligible writer. Otherwise a process retired by cutover could keep
+        // receiving successful commit responses from a stale token merely by
+        // replaying an identity that linearized before its retirement.
+        if let Some(existing) = self.effects.get(&prepared.record.effect_id) {
+            if existing.canonical_bytes == prepared.canonical_bytes {
+                return Ok(CommitResult {
+                    disposition: CommitDisposition::Replayed,
+                    effect: existing.clone(),
+                });
+            }
+            return Err(RecognizedEffectError::ReplayConflict {
+                identity: prepared.record.effect_id,
+            });
         }
         let previous_head = pointer_text(
             &prepared.record.bundle,
@@ -1005,8 +1269,7 @@ impl RecognizedEffectStore {
                     predecessor.consequence_id
                 )));
             }
-            let marker: DeliveryMarker =
-                serde_json::from_slice(&fs::read(&predecessor_path)?)?;
+            let marker: DeliveryMarker = serde_json::from_slice(&fs::read(&predecessor_path)?)?;
             validate_delivery_marker(&marker, &effect, predecessor)?;
         }
         if hash_value(delivered_payload)? != intent.payload_hash
@@ -1187,7 +1450,11 @@ impl RecognizedEffectStore {
             store.validate_governance(&record, direction, governance, recorded_at_ms)
         })?;
 
-        Ok(PreparedProfileCutover::new(record, canonical_bytes, direction))
+        Ok(PreparedProfileCutover::new(
+            record,
+            canonical_bytes,
+            direction,
+        ))
     }
 
     /// Linearize a cutover through the same head and device-flushed rooted
@@ -1203,6 +1470,7 @@ impl RecognizedEffectStore {
         governance: &dyn GovernanceValidator,
         recorded_at_ms: u64,
     ) -> Result<CommittedProfileCutover, RecognizedEffectError> {
+        let _spine_lock = self.lock_and_refresh()?;
         if let Some(existing) = self.cutovers.get(&prepared.record().cutover_id) {
             // A byte-identical retry of an already-linearized cutover is the
             // same fact, not a second one. Anything else is a duplicate.
@@ -1297,6 +1565,7 @@ impl RecognizedEffectStore {
         authority_owner: &dyn AuthorityRevalidator,
         recorded_at_ms: u64,
     ) -> Result<ProfileFreezeRecord, RecognizedEffectError> {
+        let _spine_lock = self.lock_and_refresh()?;
         let active = self.require_bound_writer()?.clone();
         if self.freezes.contains(&request.freeze_id) {
             return Err(ProfileRefusal::DuplicateControlOperation {
@@ -1751,6 +2020,7 @@ impl RecognizedEffectStore {
 
     #[cfg(test)]
     fn arm_crash(&mut self, point: CrashPoint) {
+        self.armed_crash = Some(point);
         let mux_point = match point {
             CrashPoint {
                 phase: Phase::CanonicalWrite,
@@ -1776,8 +2046,6 @@ impl RecognizedEffectStore {
         };
         if let Some(point) = mux_point {
             self.mux.arm_commit_test_point(point);
-        } else {
-            self.armed_crash = Some(point);
         }
     }
 }
@@ -1849,6 +2117,56 @@ fn validate_record(
         });
     }
     bindings.binding(profile).verify(&record.bundle)?;
+    if let Some(runtime) = verified_runtime_coordinates(&record.bundle)? {
+        if runtime.profile != profile {
+            return Err(ProfileRefusal::ActiveProfileMismatch {
+                expected: profile.profile().into(),
+                actual: runtime.profile.profile().into(),
+            }
+            .into_error());
+        }
+        if runtime.profile_contract_version != record.profile_contract_version {
+            return Err(ProfileRefusal::ProfileContractVersionMismatch {
+                expected: record.profile_contract_version.clone(),
+                actual: runtime.profile_contract_version,
+            }
+            .into_error());
+        }
+        if runtime.profile_epoch != record.profile_epoch {
+            return Err(ProfileRefusal::ProfileEpochMismatch {
+                expected: record.profile_epoch,
+                actual: runtime.profile_epoch,
+            }
+            .into_error());
+        }
+        if runtime.writer_identity != record.writer_identity {
+            return Err(ProfileRefusal::WriterIdentityMismatch {
+                expected: record.writer_identity.clone(),
+                actual: runtime.writer_identity,
+            }
+            .into_error());
+        }
+        if runtime.fence_token != record.fence_token {
+            return Err(ProfileRefusal::FenceTokenMismatch {
+                expected: record.fence_token,
+                actual: runtime.fence_token,
+            }
+            .into_error());
+        }
+        if runtime.previous_canonical_head != record.canonical_expected_head {
+            return Err(RecognizedEffectError::StaleHead {
+                expected: record.canonical_expected_head.clone(),
+                actual: runtime.previous_canonical_head,
+            });
+        }
+        if runtime.authority_epoch != record.authority.authority_epoch
+            || runtime.revocation_epoch != record.authority.revocation_epoch
+            || runtime.issuer_key_id != record.authority.issuer_key_id
+        {
+            return Err(RecognizedEffectError::StaleAuthority);
+        }
+        runtime.bindings.require_exact(&record.bindings)?;
+    }
     validate_bundle_authority(&record.bundle, &record.authority)?;
     validate_outbox(&record.outbox)?;
     let expected_hash = record_hash(record)?;
@@ -1954,7 +2272,9 @@ fn validate_delivery_marker(
     Ok(())
 }
 
-pub(crate) fn record_hash(record: &RecognizedEffectRecord) -> Result<String, RecognizedEffectError> {
+pub(crate) fn record_hash(
+    record: &RecognizedEffectRecord,
+) -> Result<String, RecognizedEffectError> {
     let mut preimage = record.clone();
     preimage.record_hash.clear();
     hash_value(&serde_json::to_value(preimage)?)
@@ -2121,6 +2441,22 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), RecognizedEffectError> 
     fs::rename(&temporary, path)?;
     File::open(parent)?.sync_all()?;
     Ok(())
+}
+
+fn acquire_spine_lock(root: &Path) -> Result<File, RecognizedEffectError> {
+    let lock = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(root.join("profile-spine.lock"))?;
+    FileExt::try_lock_exclusive(&lock).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::WouldBlock {
+            RecognizedEffectError::AdmissionBusy
+        } else {
+            RecognizedEffectError::Io(error)
+        }
+    })?;
+    Ok(lock)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

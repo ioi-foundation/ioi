@@ -34,8 +34,8 @@
 use crate::recognized_effect::{ProfileRefusal, RecognizedEffectError};
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_finality::{
-    emit_native_aft_consensus, emit_single_authority, verify_bundle, NativeAftFinalizedBlock,
-    VerificationError, NATIVE_AFT_VOTE_BINDING,
+    emit_native_aft_consensus, emit_single_authority, verify_bundle, verify_runtime_bundle_v3,
+    NativeAftFinalizedBlock, VerificationError, NATIVE_AFT_VOTE_BINDING, RUNTIME_BUNDLE_V3,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -327,13 +327,11 @@ impl ProfileBindingsDigest {
 //
 // Both canonical members are now bound to real contracts. `bft_consensus` is
 // bound to the native AFT bridge: it imports the `QuorumCertificate` the live
-// consensus path already produced and never mints a second peer round. What it
-// still needs from the runtime is a way to *reach* that certificate, which is
-// the one genuinely unfinished piece — see `NativeAftQuorumSource`. A
-// `NativeAftBinding` with no source refuses to emit, because the alternative is
-// to fabricate a quorum; but it verifies fully, and its verification is the
-// fence that keeps a checkpoint-round quorum from being admitted as native AFT
-// evidence.
+// consensus path already produced and never mints a second peer round. The
+// explicit runtime-v3 successor carries that quorum with the exact full block,
+// transactions, state roots, and receipts, so verification needs no callback.
+// The older template emitter still requires `NativeAftQuorumSource` and still
+// refuses when unwired; predecessor semantics are not widened by the new path.
 // ---------------------------------------------------------------------------
 
 /// Per-profile emit/verify adapter. Implementations must be exact: `verify`
@@ -352,6 +350,71 @@ pub trait ProfileFinalityBinding {
 
     /// Offline-verify a complete bundle under this profile's contract.
     fn verify(&self, bundle: &Value) -> Result<(), RecognizedEffectError>;
+}
+
+/// Runtime-v3 coordinates recovered only after the complete bundle verifies.
+/// Keeping this adapter here preserves the spine's source-neutral boundary:
+/// `recognized_effect` compares canonical facts without knowing an
+/// `ioi-finality` type or interpreting an older bundle as the successor.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct VerifiedRuntimeCoordinates {
+    pub profile: FinalityProfile,
+    pub profile_contract_version: String,
+    pub profile_epoch: u64,
+    pub writer_identity: String,
+    pub fence_token: u64,
+    pub previous_canonical_head: String,
+    pub resulting_canonical_head: String,
+    pub authority_epoch: u64,
+    pub revocation_epoch: u64,
+    pub issuer_key_id: String,
+    pub bindings: ProfileBindingsDigest,
+    pub native_quorum_verified: bool,
+    pub effect_committed_in_block: bool,
+}
+
+pub(crate) fn verified_runtime_coordinates(
+    bundle: &Value,
+) -> Result<Option<VerifiedRuntimeCoordinates>, RecognizedEffectError> {
+    if bundle.get("schema_version").and_then(Value::as_str) != Some(RUNTIME_BUNDLE_V3) {
+        return Ok(None);
+    }
+    let claim = verify_runtime_bundle_v3(bundle).map_err(RecognizedEffectError::Finality)?;
+    let profile = FinalityProfile::from_exact(&claim.profile, &claim.certificate_variant)?;
+    let text = |pointer: &str| {
+        bundle
+            .pointer(pointer)
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| {
+                RecognizedEffectError::Invalid(format!(
+                    "verified runtime bundle lost required text at {pointer}"
+                ))
+            })
+    };
+    Ok(Some(VerifiedRuntimeCoordinates {
+        profile,
+        profile_contract_version: text("/checkpoint/profile_contract_version")?,
+        profile_epoch: claim.profile_epoch,
+        writer_identity: claim.writer_identity,
+        fence_token: claim.fence_token,
+        previous_canonical_head: claim.previous_canonical_head,
+        resulting_canonical_head: claim.resulting_canonical_head,
+        authority_epoch: claim.authority_epoch,
+        revocation_epoch: claim.authority_revocation_epoch,
+        issuer_key_id: text("/checkpoint/finality_certificate/issuer_key_id")?,
+        bindings: ProfileBindingsDigest {
+            policy_digest: text("/checkpoint/authority_policy_root")?,
+            verifier_contract_digest: text("/checkpoint/verifier_contract_hash")?,
+            availability_policy_digest: text("/checkpoint/availability_policy_root")?,
+            retention_policy_digest: text(
+                "/checkpoint/availability_manifest/retention_policy_root",
+            )?,
+            governance_policy_digest: text("/checkpoint/governance_policy_root")?,
+        },
+        native_quorum_verified: claim.native_quorum_verified,
+        effect_committed_in_block: claim.effect_committed_in_block,
+    }))
 }
 
 /// `single_authority_v1`, bound to the live `ioi-finality` contract.
@@ -373,6 +436,19 @@ impl ProfileFinalityBinding for SingleAuthorityBinding {
     }
 
     fn verify(&self, bundle: &Value) -> Result<(), RecognizedEffectError> {
+        if let Some(runtime) = verified_runtime_coordinates(bundle)? {
+            if runtime.profile != FinalityProfile::SingleAuthority
+                || runtime.native_quorum_verified
+                || !runtime.effect_committed_in_block
+            {
+                return Err(RecognizedEffectError::Finality(
+                    VerificationError::ConsensusEvidence(
+                        "single-authority runtime evidence contradicts its profile".into(),
+                    ),
+                ));
+            }
+            return Ok(());
+        }
         verify_bundle(bundle)
             .map(|_| ())
             .map_err(RecognizedEffectError::Finality)
@@ -401,10 +477,10 @@ pub trait NativeAftQuorumSource: Send + Sync {
 /// Verification is always live and always strict: a bundle is admitted only if
 /// its quorum verified under [`NATIVE_AFT_VOTE_BINDING`] *and* the verifier
 /// established that the certified block commits to this recognized effect.
-/// The source-neutral bridge currently reports that association as unproven,
-/// so production admission remains fail-closed until the runtime supplies an
-/// explicit, verifiable successor commitment mode. A real block quorum may not
-/// be stapled onto an unrelated effect merely because both artifacts verify.
+/// Runtime-v3 establishes that association from the complete durable block.
+/// Predecessor bundles still report it as unproven and remain refused: a real
+/// block quorum may not be stapled onto an unrelated effect merely because
+/// both artifacts verify independently.
 pub struct NativeAftBinding {
     source: Option<Arc<dyn NativeAftQuorumSource>>,
 }
@@ -458,6 +534,19 @@ impl ProfileFinalityBinding for NativeAftBinding {
     }
 
     fn verify(&self, bundle: &Value) -> Result<(), RecognizedEffectError> {
+        if let Some(runtime) = verified_runtime_coordinates(bundle)? {
+            if runtime.profile != FinalityProfile::BftConsensus
+                || !runtime.native_quorum_verified
+                || !runtime.effect_committed_in_block
+            {
+                return Err(RecognizedEffectError::Finality(
+                    VerificationError::ConsensusEvidence(
+                        "native AFT runtime evidence lacks its quorum/effect binding".into(),
+                    ),
+                ));
+            }
+            return Ok(());
+        }
         let claim = verify_bundle(bundle).map_err(RecognizedEffectError::Finality)?;
         // `verify_bundle` proves the quorum is real. It does not decide which
         // quorums this spine may run on, and that is the distinction the
@@ -502,11 +591,9 @@ pub struct ProfileBindings {
 impl ProfileBindings {
     /// Production registry. Both members are bound to real contracts:
     /// `single_authority` to the single-authority emitter, `bft_consensus` to
-    /// the native AFT bridge. The AFT binding starts without a quorum source,
-    /// and even a sourced block quorum is refused for recognized-effect
-    /// admission until the runtime supplies a verifiable effect-commitment
-    /// successor. This keeps a real quorum from being stapled onto an unrelated
-    /// effect while the runtime boundary is still being integrated.
+    /// the native AFT bridge. Runtime-v3 bundles verify directly and bind the
+    /// full block effect. The predecessor template emitter starts without a
+    /// quorum source, and predecessor block-only evidence remains refused.
     pub fn production() -> Self {
         Self {
             bft_consensus: Box::new(NativeAftBinding::unwired()),

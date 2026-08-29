@@ -6,6 +6,7 @@ description = "Agentgres substrate contract v0: deterministic single-writer admi
 
 [dependencies]
 base64 = { workspace = true }
+fs2 = { workspace = true }
 ioi-crypto = { path = "../crypto" }
 ioi-finality = { path = "../ioi-finality" }
 serde = { version = "1", features = ["derive"] }
@@ -15,6 +16,7 @@ sha2 = "0.10"
 
 [dev-dependencies]
 ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
 tempfile = { workspace = true }
 
 [[bin]]

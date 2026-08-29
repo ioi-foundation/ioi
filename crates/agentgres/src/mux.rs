@@ -852,6 +852,10 @@ impl MuxEngine {
         self.admission_stopped = true;
     }
 
+    pub(crate) fn admission_stopped(&self) -> bool {
+        self.admission_stopped
+    }
+
     pub fn current_epoch(&self) -> u64 {
         self.current_epoch
     }
