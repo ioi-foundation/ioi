@@ -49,8 +49,12 @@ fn replacement_advances_aft_view(current_view: u64, candidate_view: u64) -> bool
     candidate_view > current_view
 }
 
-fn within_exact_aft_replacement_window(live_height: u64, target_height: u64) -> bool {
-    live_height >= target_height && live_height.saturating_sub(target_height) <= 1
+fn bounded_aft_live_tip_height(
+    target_height: u64,
+    descendant_present: bool,
+    beyond_window_present: bool,
+) -> Option<u64> {
+    (!beyond_window_present).then(|| target_height.saturating_add(u64::from(descendant_present)))
 }
 
 fn aft_replacement_candidate_key(block: &Block<ChainTransaction>) -> Option<(u64, u64, [u8; 32])> {
@@ -692,51 +696,57 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                     return;
                 }
 
-                let live_status = match workload.get_status().await {
-                    Ok(status) => status,
+                // `get_status` is intentionally collapse/Agentgres-backed for
+                // AFT and may lag the raw execution projection by many blocks.
+                // Using it here makes replacement depend on the admission that
+                // replacement is needed to unlock. Resolve only the two raw
+                // blocks the bounded replacement contract permits instead.
+                // The workload RPC revalidates these complete bytes and the
+                // actual live tip under its single machine lock, so a
+                // concurrent producer can only make this attempt fail closed.
+                let descendant_height = block.header.height.saturating_add(1);
+                let beyond_window_height = block.header.height.saturating_add(2);
+                let beyond_window = match workload.get_block_by_height(beyond_window_height).await {
+                    Ok(block) => block,
                     Err(error) => {
                         tracing::warn!(
                             target: "consensus",
                             height = block.header.height,
+                            beyond_window_height,
                             error = %error,
-                            "Refusing AFT branch replacement because the workload head is unavailable"
+                            "Refusing AFT branch replacement because the raw execution window is unavailable"
                         );
                         return;
                     }
                 };
-                if !within_exact_aft_replacement_window(live_status.height, block.header.height) {
-                    tracing::warn!(
-                        target: "consensus",
-                        height = block.header.height,
-                        workload_height = live_status.height,
-                        "Refusing AFT branch replacement outside the exact two-projection window"
-                    );
-                    return;
-                }
-                let Some(expected_live_tip) = (match workload
-                    .get_block_by_height(live_status.height)
-                    .await
-                {
-                    Ok(tip) => tip,
+                let descendant = match workload.get_block_by_height(descendant_height).await {
+                    Ok(descendant) => descendant,
                     Err(error) => {
                         tracing::warn!(
                             target: "consensus",
                             height = block.header.height,
-                            workload_height = live_status.height,
+                            descendant_height,
                             error = %error,
                             "Refusing AFT branch replacement because the exact workload head is unavailable"
                         );
                         return;
                     }
-                }) else {
+                };
+                let Some(live_tip_height) = bounded_aft_live_tip_height(
+                    block.header.height,
+                    descendant.is_some(),
+                    beyond_window.is_some(),
+                ) else {
                     tracing::warn!(
                         target: "consensus",
                         height = block.header.height,
-                        workload_height = live_status.height,
-                        "Refusing AFT branch replacement because the workload returned no exact head"
+                        beyond_window_height,
+                        "Refusing AFT branch replacement outside the exact two-projection window"
                     );
                     return;
                 };
+                let expected_live_tip = descendant.unwrap_or_else(|| expected_target.clone());
+                debug_assert_eq!(expected_live_tip.header.height, live_tip_height);
 
                 let (processed_block, execution_receipts) = match workload
                     .replace_unfinalized_tip(
@@ -1091,8 +1101,8 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 #[cfg(test)]
 mod same_height_replacement_tests {
     use super::{
-        aft_replacement_should_replay, remember_rejected_aft_replacement,
-        replacement_advances_aft_view, within_exact_aft_replacement_window,
+        aft_replacement_should_replay, bounded_aft_live_tip_height,
+        remember_rejected_aft_replacement, replacement_advances_aft_view,
     };
     use lru::LruCache;
     use std::num::NonZeroUsize;
@@ -1106,11 +1116,11 @@ mod same_height_replacement_tests {
     }
 
     #[test]
-    fn live_replacement_window_is_exactly_target_or_one_descendant() {
-        assert!(within_exact_aft_replacement_window(9, 9));
-        assert!(within_exact_aft_replacement_window(10, 9));
-        assert!(!within_exact_aft_replacement_window(8, 9));
-        assert!(!within_exact_aft_replacement_window(11, 9));
+    fn raw_live_replacement_window_is_exactly_target_or_one_descendant() {
+        assert_eq!(bounded_aft_live_tip_height(9, false, false), Some(9));
+        assert_eq!(bounded_aft_live_tip_height(9, true, false), Some(10));
+        assert_eq!(bounded_aft_live_tip_height(9, false, true), None);
+        assert_eq!(bounded_aft_live_tip_height(9, true, true), None);
     }
 
     #[test]
