@@ -46,8 +46,9 @@ use std::path::{Path, PathBuf};
 pub const RECOGNIZED_EFFECT_SCHEMA: &str = "ioi.agentgres-recognized-effect.v1";
 
 /// The single spine domain. Profile-neutral by construction: a domain named
-/// after one profile could not host the cutover that leaves it.
-pub const AGENTGRES_PROFILE_SPINE_DOMAIN: &str = "ioi.agentgres-profile-spine.v1";
+/// after one profile could not host the cutover that leaves it. The mux owns
+/// the reserved-domain fence; this re-export preserves the public contract.
+pub use crate::mux::AGENTGRES_PROFILE_SPINE_DOMAIN;
 pub const REQUIRED_OUTBOX_KINDS: [&str; 5] = [
     "projection_materialization",
     "root_publication",
@@ -702,7 +703,7 @@ impl RecognizedEffectStore {
         self.hit(CrashPoint::before(Phase::CanonicalWrite))?;
         let results = self
             .mux
-            .admit_batch(vec![operation])
+            .admit_profile_spine_batch(vec![operation])
             .map_err(|error| RecognizedEffectError::Durability(error.to_string()))?;
         let ack = results
             .into_iter()
@@ -908,7 +909,7 @@ impl RecognizedEffectStore {
         self.hit(CrashPoint::before(Phase::CanonicalWrite))?;
         let results = self
             .mux
-            .admit_batch(vec![operation])
+            .admit_profile_spine_batch(vec![operation])
             .map_err(|error| RecognizedEffectError::Durability(error.to_string()))?;
         let ack = results
             .into_iter()

@@ -27,6 +27,12 @@ use std::sync::mpsc;
 const MAX_STRICT_FRAME_BYTES: usize = MAX_FRAME_BYTES;
 const MAX_STRICT_PENDING_RECORDS: usize = 1_000_000;
 
+/// The profile-control and recognized-effect history has a stricter admission
+/// contract than ordinary mux domains. Public raw mux calls are fenced from
+/// this exact domain; only the crate-private `RecognizedEffectStore` path may
+/// cross it after revalidating profile, writer, fence, head, and authority.
+pub const AGENTGRES_PROFILE_SPINE_DOMAIN: &str = "ioi.agentgres-profile-spine.v1";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "frame")]
 pub enum MuxLogFrame {
@@ -978,13 +984,35 @@ impl MuxEngine {
         &mut self,
         ops: Vec<Operation>,
     ) -> std::io::Result<(Vec<Result<AdmitAck, Refusal>>, Vec<u8>)> {
-        self.admit_batch_full_for_writer(ops)
+        self.admit_batch_full_for_writer(ops, false)
+            .map_err(MuxBatchError::into_io_error)
+    }
+
+    /// Privileged entry for the single profile-spine owner. Keeping this
+    /// crate-private prevents a caller that merely has a `MuxEngine` from
+    /// bypassing `RecognizedEffectStore` writer and cutover fencing.
+    pub(crate) fn admit_profile_spine_batch(
+        &mut self,
+        ops: Vec<Operation>,
+    ) -> std::io::Result<Vec<Result<AdmitAck, Refusal>>> {
+        if ops
+            .iter()
+            .any(|operation| operation.domain != AGENTGRES_PROFILE_SPINE_DOMAIN)
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "profile-spine admission received a non-profile-spine operation",
+            ));
+        }
+        self.admit_batch_full_for_writer(ops, true)
+            .map(|(results, _bytes)| results)
             .map_err(MuxBatchError::into_io_error)
     }
 
     fn admit_batch_full_for_writer(
         &mut self,
         ops: Vec<Operation>,
+        allow_profile_spine: bool,
     ) -> Result<(Vec<Result<AdmitAck, Refusal>>, Vec<u8>), MuxBatchError> {
         if self.admission_stopped {
             return Err(MuxBatchError::Preparation(std::io::Error::other(
@@ -1003,6 +1031,10 @@ impl MuxEngine {
         let mut buf: Vec<u8> = Vec::with_capacity(ops.len() * 256);
         let mut recs: Vec<Option<AdmittedRecord>> = vec![None; ops.len()];
         for (i, op) in ops.into_iter().enumerate() {
+            if op.domain == AGENTGRES_PROFILE_SPINE_DOMAIN && !allow_profile_spine {
+                results[i] = Some(Err(Refusal::ReservedDomain { domain: op.domain }));
+                continue;
+            }
             if op.object_ref.is_empty() {
                 results[i] = Some(Err(Refusal::EmptyObjectRef));
                 continue;
@@ -1777,7 +1809,7 @@ pub fn spawn_mux_writer_cfg(
                         Err(_) => break,
                     }
                 }
-                let (mut results, bytes) = match engine.admit_batch_full_for_writer(ops) {
+                let (mut results, bytes) = match engine.admit_batch_full_for_writer(ops, false) {
                     Ok(batch) => batch,
                     Err(MuxBatchError::DurabilityUncertain(uncertainty)) => {
                         for ack in acks {
@@ -1958,6 +1990,34 @@ mod tests {
         operation.domain = "d".repeat(target_bytes - base_bytes);
         assert_eq!(admitted_body(&operation, seq, "").len(), target_bytes);
         operation
+    }
+
+    #[test]
+    fn raw_mux_admission_cannot_bypass_the_profile_spine_owner() {
+        let mut engine = MuxEngine::open(&tmp("reserved-profile-spine"), true).unwrap();
+        let object_ref = "agentgres://profile-spine/domain-a";
+        let reserved = op(AGENTGRES_PROFILE_SPINE_DOMAIN, object_ref, 1);
+        let ordinary = op("ordinary-domain", "object://ordinary", 2);
+
+        let results = engine
+            .admit_batch(vec![reserved.clone(), ordinary])
+            .unwrap();
+        assert!(matches!(
+            &results[0],
+            Err(Refusal::ReservedDomain { domain })
+                if domain == AGENTGRES_PROFILE_SPINE_DOMAIN
+        ));
+        assert!(results[1].is_ok());
+        assert!(engine
+            .domain_head(AGENTGRES_PROFILE_SPINE_DOMAIN, object_ref)
+            .is_none());
+        assert!(engine.domain_root(AGENTGRES_PROFILE_SPINE_DOMAIN).is_none());
+
+        let privileged = engine.admit_profile_spine_batch(vec![reserved]).unwrap();
+        assert!(privileged[0].is_ok());
+        assert!(engine
+            .domain_head(AGENTGRES_PROFILE_SPINE_DOMAIN, object_ref)
+            .is_some());
     }
 
     #[test]

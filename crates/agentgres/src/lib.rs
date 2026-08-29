@@ -119,6 +119,12 @@ pub enum Refusal {
         encoded_bytes: usize,
         max_bytes: usize,
     },
+    /// The profile spine is admitted only through `RecognizedEffectStore`,
+    /// which revalidates the active profile, writer, fence, heads, and epochs.
+    /// Raw mux callers may not manufacture records in that reserved domain.
+    ReservedDomain {
+        domain: String,
+    },
     EmptyObjectRef,
 }
 
@@ -148,6 +154,9 @@ impl std::fmt::Display for Refusal {
                 f,
                 "frame_too_large object={object_ref} encoded_bytes={encoded_bytes} max_bytes={max_bytes}"
             ),
+            Refusal::ReservedDomain { domain } => {
+                write!(f, "reserved_domain_requires_profile_spine_admission domain={domain}")
+            }
             Refusal::EmptyObjectRef => write!(f, "empty_object_ref"),
         }
     }
