@@ -421,14 +421,14 @@ where
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
     let qc = &evidence.quorum_certificate;
-    if context
-        .runtime_finality
-        .lock()
-        .await
-        .has_staged_block(&qc.block_hash)
-    {
-        return Ok(NativeStageReadiness::Ready);
-    }
+    let staged_block = {
+        let coordinator = context.runtime_finality.lock().await;
+        if coordinator.has_staged_block(&qc.block_hash) {
+            Some(coordinator.read_staged(&qc.block_hash)?.block)
+        } else {
+            None
+        }
+    };
 
     let workload = context.view_resolver.workload_client().clone();
     if workload.get_status().await?.height < qc.height {
@@ -438,6 +438,35 @@ where
         return Ok(NativeStageReadiness::Deferred);
     };
     let local_hash = block_hash(&local_block)?;
+    if let Some(staged_block) = staged_block {
+        if local_hash == qc.block_hash {
+            return Ok(NativeStageReadiness::Ready);
+        }
+        if !block_execution_surface_matches(&local_block, &staged_block) {
+            return Err(anyhow!(
+                "previously staged finalized AFT block {} conflicts with the live workload projection",
+                qc.height
+            ));
+        }
+
+        // A same-execution view-change winner can safely reconcile metadata,
+        // but staged bytes alone never override a different live state branch.
+        // This revalidation is required on every admission attempt because a
+        // bounded sync replacement can leave losing staged evidence durable.
+        let local_parent_hash = local_block.header.parent_hash;
+        if staged_block.header.parent_hash == local_parent_hash {
+            workload.update_block_header(staged_block.clone()).await?;
+        }
+        if context
+            .last_executed_block
+            .as_ref()
+            .map(|block| block.header.height)
+            == Some(qc.height)
+        {
+            context.last_executed_block = Some(staged_block);
+        }
+        return Ok(NativeStageReadiness::Ready);
+    }
     if local_hash != qc.block_hash {
         let local_parent_hash = local_block.header.parent_hash;
         let certified_header = context

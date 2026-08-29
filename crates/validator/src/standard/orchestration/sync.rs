@@ -15,6 +15,8 @@ use ioi_api::{
 use ioi_networking::libp2p::{SwarmCommand, SyncResponse};
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{Block, ChainTransaction};
+use ioi_types::config::RuntimeFinalityProfile;
+use ioi_types::error::ChainError;
 use libp2p::{request_response::ResponseChannel, PeerId};
 use serde::Serialize;
 use std::fmt::Debug;
@@ -59,6 +61,62 @@ fn sync_response_entry_is_committed(
             && candidate_hash == committed_hash)
 }
 
+/// Sync follows canonical truth, not the workload's speculative execution tip.
+///
+/// A native-AFT workload can be one or two projections ahead of Agentgres while
+/// it waits for descendant-QC finality. Starting a catch-up request from that
+/// unadmitted height omits the canonical competing block and makes the next
+/// peer block impossible to execute against the local parent state.
+async fn agentgres_sync_floor<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
+) -> Option<u64>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> serde::Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    match super::runtime_finality::agentgres_admitted_height(context).await {
+        Ok(height) => Some(height),
+        Err(error) => {
+            context
+                .is_quarantined
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            tracing::error!(
+                target: "sync",
+                error = %error,
+                "Cannot establish the Agentgres sync floor; node frozen"
+            );
+            None
+        }
+    }
+}
+
+fn within_aft_sync_replacement_window(live_height: u64, target_height: u64) -> bool {
+    live_height >= target_height && live_height.saturating_sub(target_height) <= 1
+}
+
+fn sync_cursor_when_peer_is_ahead(
+    executed_height: u64,
+    admitted_height: u64,
+    peer_height: u64,
+) -> Option<u64> {
+    (peer_height > executed_height).then_some(admitted_height)
+}
+
 pub async fn start_catchup_to_peer<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     peer: PeerId,
@@ -82,22 +140,28 @@ pub async fn start_catchup_to_peer<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    let local_height = context
+    let executed_height = context
         .last_executed_block
         .as_ref()
-        .map(|b| b.header.height)
+        .map(|block| block.header.height)
         .unwrap_or(0);
 
-    if peer_height <= local_height {
+    let Some(canonical_height) = agentgres_sync_floor(context).await else {
         return;
-    }
+    };
+    let Some(sync_cursor) =
+        sync_cursor_when_peer_is_ahead(executed_height, canonical_height, peer_height)
+    else {
+        return;
+    };
 
     if let Some(progress) = context.sync_progress.as_mut() {
         if peer_height > progress.tip {
             tracing::info!(
                 target: "sync",
                 %peer,
-                local_height,
+                executed_height,
+                canonical_height,
                 previous_tip = progress.tip,
                 peer_height,
                 current_target = ?progress.target,
@@ -119,7 +183,8 @@ pub async fn start_catchup_to_peer<CS, ST, CE, V>(
     tracing::info!(
         target: "sync",
         %peer,
-        local_height,
+        executed_height,
+        canonical_height,
         peer_height,
         "Starting catch-up sync from a gossiped height gap."
     );
@@ -128,7 +193,7 @@ pub async fn start_catchup_to_peer<CS, ST, CE, V>(
     context.sync_progress = Some(SyncProgress {
         target: Some(peer),
         tip: peer_height,
-        next: local_height,
+        next: sync_cursor,
         inflight: false,
         req_id: 0,
         requested_at: Instant::now(),
@@ -309,8 +374,12 @@ pub async fn handle_status_response<CS, ST, CE, V>(
     let our_height = context
         .last_executed_block
         .as_ref()
-        .map(|b| b.header.height)
+        .map(|block| block.header.height)
         .unwrap_or(0);
+    let Some(canonical_height) = agentgres_sync_floor(context).await else {
+        return;
+    };
+    let sync_cursor = sync_cursor_when_peer_is_ahead(our_height, canonical_height, peer_height);
 
     tracing::info!(
         target: "sync",
@@ -323,7 +392,7 @@ pub async fn handle_status_response<CS, ST, CE, V>(
         "Received status response."
     );
 
-    if peer_height > our_height {
+    if let Some(sync_cursor) = sync_cursor {
         let our_chain_id = context.chain_id;
         let our_genesis_root = match context.view_resolver.genesis_root().await {
             Ok(root) => root,
@@ -362,14 +431,16 @@ pub async fn handle_status_response<CS, ST, CE, V>(
         } else {
             tracing::info!(
                 target: "orchestration",
-                "Initiating sync: target={}",
-                peer
+                %peer,
+                our_height,
+                canonical_height,
+                "Initiating sync from the Agentgres-admitted cursor."
             );
             *context.node_state.lock().await = NodeState::Syncing;
             context.sync_progress = Some(SyncProgress {
                 target: Some(peer),
                 tip: peer_height,
-                next: our_height,
+                next: sync_cursor,
                 inflight: false,
                 req_id: 0,
                 requested_at: Instant::now(),
@@ -424,21 +495,9 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     let mut blocks = blocks;
     let workload_client = context.view_resolver.workload_client().clone();
     if context.sync_progress.is_none() {
-        let mut local_height = context
-            .last_executed_block
-            .as_ref()
-            .map(|block| block.header.height)
-            .unwrap_or(0);
-        if let Ok(status) = workload_client.get_status().await {
-            if status.height > local_height {
-                if let Ok(Some(workload_tip)) =
-                    workload_client.get_block_by_height(status.height).await
-                {
-                    local_height = workload_tip.header.height;
-                    context.last_executed_block = Some(workload_tip);
-                }
-            }
-        }
+        let Some(local_height) = agentgres_sync_floor(context).await else {
+            return;
+        };
         let first_new_index = blocks
             .iter()
             .position(|block| block.header.height > local_height);
@@ -491,20 +550,9 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         }
     }
 
-    let mut local_height = context
-        .last_executed_block
-        .as_ref()
-        .map(|block| block.header.height)
-        .unwrap_or(0);
-    if let Ok(status) = workload_client.get_status().await {
-        if status.height > local_height {
-            if let Ok(Some(workload_tip)) = workload_client.get_block_by_height(status.height).await
-            {
-                local_height = workload_tip.header.height;
-                context.last_executed_block = Some(workload_tip);
-            }
-        }
-    }
+    let Some(canonical_height) = agentgres_sync_floor(context).await else {
+        return;
+    };
     {
         let Some(progress) = context.sync_progress.as_mut() else {
             return;
@@ -513,16 +561,16 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             return;
         }
         progress.inflight = false;
-        if local_height > progress.next {
+        if canonical_height > progress.next {
             tracing::debug!(
                 target: "sync",
                 %peer,
-                local_height,
+                canonical_height,
                 previous_next = progress.next,
                 tip = progress.tip,
-                "Advancing sync cursor to local committed height before applying batch."
+                "Advancing sync cursor to the Agentgres-admitted height before applying batch."
             );
-            progress.next = local_height;
+            progress.next = canonical_height;
         }
     }
 
@@ -617,105 +665,278 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                     .unwrap_or(0)
             });
 
-        if workload_height >= applying_height {
-            if workload_height == applying_height {
-                match workload_client.update_block_header(block.clone()).await {
-                    Ok(()) => {
-                        if let Ok(Some(reconciled_block)) =
-                            workload_client.get_block_by_height(applying_height).await
-                        {
-                            context.last_executed_block = Some(reconciled_block);
-                        } else {
-                            context.last_executed_block = Some(block.clone());
-                        }
-                        if let Some(progress) = context.sync_progress.as_mut() {
-                            progress.next = progress.next.max(applying_height);
-                        }
-                        tracing::info!(
-                            target: "sync",
-                            %peer,
-                            applying_height,
-                            workload_height,
-                            "Skipping synced block execution because the local workload already committed this height; reconciled header metadata instead."
-                        );
-                        continue;
-                    }
-                    Err(error) => {
+        let processed_block = if workload_height >= applying_height {
+            match super::runtime_finality::stage_execution_equivalent_candidate(
+                context,
+                block.clone(),
+            )
+            .await
+            {
+                Ok(true) => {
+                    if let Err(error) = workload_client.update_block_header(block.clone()).await {
                         tracing::warn!(
                             target: "sync",
                             %peer,
                             applying_height,
                             workload_height,
                             error = %error,
-                            "Local workload is already at this height, but synced block header reconciliation failed."
+                            "Execution-equivalent synced block could not reconcile its exact header."
                         );
+                        retry_sync_from_peer_set(context, Some(peer)).await;
+                        return;
                     }
+                    tracing::info!(
+                        target: "sync",
+                        %peer,
+                        applying_height,
+                        workload_height,
+                        "Reconciled an execution-equivalent synced block against the speculative workload projection."
+                    );
+                    block.clone()
                 }
-            } else {
-                if let Ok(Some(workload_tip)) =
-                    workload_client.get_block_by_height(workload_height).await
-                {
-                    context.last_executed_block = Some(workload_tip);
+                Ok(false) => {
+                    let active_profile = match context
+                        .runtime_finality
+                        .lock()
+                        .await
+                        .active_profile()
+                    {
+                        Ok(profile) => profile,
+                        Err(error) => {
+                            context
+                                .is_quarantined
+                                .store(true, std::sync::atomic::Ordering::SeqCst);
+                            tracing::error!(
+                                target: "sync",
+                                applying_height,
+                                error = %error,
+                                "Cannot establish the active profile for sync reconciliation; node frozen"
+                            );
+                            return;
+                        }
+                    };
+                    if active_profile != RuntimeFinalityProfile::BftConsensusAftV1 {
+                        context
+                            .is_quarantined
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::error!(
+                            target: "sync",
+                            applying_height,
+                            workload_height,
+                            "Single-authority workload disagrees with committed sync history; node frozen"
+                        );
+                        return;
+                    }
+                    let Some(admitted_height) = agentgres_sync_floor(context).await else {
+                        return;
+                    };
+                    if applying_height <= admitted_height
+                        || !within_aft_sync_replacement_window(workload_height, applying_height)
+                    {
+                        context
+                            .is_quarantined
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::error!(
+                            target: "sync",
+                            applying_height,
+                            workload_height,
+                            admitted_height,
+                            "Committed sync history disagrees outside the bounded unadmitted AFT projection window; node frozen"
+                        );
+                        return;
+                    }
+                    let expected_target = match workload_client
+                        .get_block_by_height(applying_height)
+                        .await
+                    {
+                        Ok(Some(target)) => target,
+                        Ok(None) => {
+                            tracing::warn!(
+                                target: "sync",
+                                %peer,
+                                applying_height,
+                                "Cannot reconcile synced AFT history without the exact local target block."
+                            );
+                            retry_sync_from_peer_set(context, Some(peer)).await;
+                            return;
+                        }
+                        Err(error) => {
+                            tracing::warn!(
+                                target: "sync",
+                                %peer,
+                                applying_height,
+                                error = %error,
+                                "Cannot read the exact local AFT replacement target."
+                            );
+                            retry_sync_from_peer_set(context, Some(peer)).await;
+                            return;
+                        }
+                    };
+                    let expected_live_tip = match workload_client
+                        .get_block_by_height(workload_height)
+                        .await
+                    {
+                        Ok(Some(target)) => target,
+                        Ok(None) => {
+                            tracing::warn!(
+                                target: "sync",
+                                %peer,
+                                applying_height,
+                                workload_height,
+                                "Cannot reconcile synced AFT history without the exact local live tip."
+                            );
+                            retry_sync_from_peer_set(context, Some(peer)).await;
+                            return;
+                        }
+                        Err(error) => {
+                            tracing::warn!(
+                                target: "sync",
+                                %peer,
+                                applying_height,
+                                workload_height,
+                                error = %error,
+                                "Cannot read the exact local AFT live tip for replacement."
+                            );
+                            retry_sync_from_peer_set(context, Some(peer)).await;
+                            return;
+                        }
+                    };
+                    let (processed_block, execution_receipts) = match workload_client
+                        .replace_unfinalized_tip(
+                            expected_target,
+                            expected_live_tip,
+                            block.clone(),
+                            admitted_height,
+                        )
+                        .await
+                    {
+                        Ok((processed, _, receipts)) => (processed, receipts),
+                        Err(ChainError::Transaction(error)) => {
+                            tracing::warn!(
+                                target: "sync",
+                                %peer,
+                                applying_height,
+                                workload_height,
+                                admitted_height,
+                                error = %error,
+                                "Peer AFT branch was refused before mutation or the original projection was restored."
+                            );
+                            retry_sync_from_peer_set(context, Some(peer)).await;
+                            return;
+                        }
+                        Err(error) => {
+                            context
+                                .is_quarantined
+                                .store(true, std::sync::atomic::Ordering::SeqCst);
+                            tracing::error!(
+                                target: "sync",
+                                applying_height,
+                                workload_height,
+                                admitted_height,
+                                error = %error,
+                                "Atomic AFT sync replacement failed with uncertain durability; node frozen"
+                            );
+                            return;
+                        }
+                    };
+                    if let Err(error) = super::runtime_finality::stage_runtime_block(
+                        context,
+                        processed_block.clone(),
+                        execution_receipts,
+                    )
+                    .await
+                    {
+                        context
+                            .is_quarantined
+                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                        tracing::error!(
+                            target: "sync",
+                            applying_height,
+                            error = %error,
+                            "Terminal runtime finality staging refusal after AFT sync replacement; node frozen"
+                        );
+                        return;
+                    }
+                    tracing::info!(
+                        target: "sync",
+                        %peer,
+                        applying_height,
+                        workload_height,
+                        admitted_height,
+                        "Atomically replaced an unadmitted AFT workload projection from committed sync history."
+                    );
+                    processed_block
                 }
-                if let Some(progress) = context.sync_progress.as_mut() {
-                    progress.next = progress.next.max(workload_height);
+                Err(error) => {
+                    context
+                        .is_quarantined
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    tracing::error!(
+                        target: "sync",
+                        applying_height,
+                        workload_height,
+                        error = %error,
+                        "Could not prove or replace the existing synced projection; node frozen"
+                    );
+                    return;
                 }
-                tracing::info!(
-                    target: "sync",
-                    %peer,
-                    applying_height,
-                    workload_height,
-                    "Skipping synced block execution because the local workload is already ahead."
-                );
-                continue;
             }
-        }
-
-        let (processed_block, execution_receipts) = match workload_client
-            .process_block(block.clone())
+        } else {
+            let (processed_block, execution_receipts) =
+                match workload_client.process_block(block.clone()).await {
+                    Ok((processed_block, _, execution_receipts)) => {
+                        (processed_block, execution_receipts)
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "sync",
+                            %peer,
+                            expected_next = context
+                                .sync_progress
+                                .as_ref()
+                                .map(|progress| progress.next + 1)
+                                .unwrap_or(applying_height),
+                            applying_height,
+                            tip,
+                            error = %error,
+                            "Dropping sync progress because applying a synced block failed."
+                        );
+                        retry_sync_from_peer_set(context, Some(peer)).await;
+                        return;
+                    }
+                };
+            if let Err(error) = super::runtime_finality::stage_runtime_block(
+                context,
+                processed_block.clone(),
+                execution_receipts,
+            )
             .await
-        {
-            Ok((processed_block, _, execution_receipts)) => (processed_block, execution_receipts),
-            Err(error) => {
-                tracing::warn!(
-                    target: "sync",
-                    %peer,
-                    expected_next = context
-                        .sync_progress
-                        .as_ref()
-                        .map(|progress| progress.next + 1)
-                        .unwrap_or(applying_height),
-                    applying_height,
-                    tip,
+            {
+                context
+                    .is_quarantined
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                tracing::error!(
+                    target: "consensus",
+                    height = processed_block.header.height,
                     error = %error,
-                    "Dropping sync progress because applying a synced block failed."
+                    "Terminal runtime finality staging refusal during sync; node frozen"
                 );
-                retry_sync_from_peer_set(context, Some(peer)).await;
                 return;
             }
+            processed_block
         };
         if let Some(progress) = context.sync_progress.as_mut() {
             progress.next = processed_block.header.height;
         }
-        if let Err(error) = super::runtime_finality::stage_runtime_block(
-            context,
-            processed_block.clone(),
-            execution_receipts,
-        )
-        .await
-        {
-            context
-                .is_quarantined
-                .store(true, std::sync::atomic::Ordering::SeqCst);
-            tracing::error!(
-                target: "consensus",
-                height = processed_block.header.height,
-                error = %error,
-                "Terminal runtime finality staging refusal during sync; node frozen"
-            );
-            return;
-        }
-        context.last_executed_block = Some(processed_block.clone());
+        context.last_executed_block = match workload_client.get_status().await {
+            Ok(status) => workload_client
+                .get_block_by_height(status.height)
+                .await
+                .ok()
+                .flatten()
+                .or_else(|| Some(processed_block.clone())),
+            Err(_) => Some(processed_block.clone()),
+        };
         match observe_live_committed_chain_through_block(
             &context.consensus_engine_ref,
             context.config.consensus_type,
@@ -1047,7 +1268,10 @@ async fn trigger_catchup_vote<CS, ST, CE, V>(
 
 #[cfg(test)]
 mod tests {
-    use super::sync_response_entry_is_committed;
+    use super::{
+        sync_cursor_when_peer_is_ahead, sync_response_entry_is_committed,
+        within_aft_sync_replacement_window,
+    };
 
     #[test]
     fn sync_response_never_exposes_a_workload_height_above_the_committed_tip() {
@@ -1084,5 +1308,20 @@ mod tests {
     #[test]
     fn sync_response_keeps_committed_history_below_the_tip() {
         assert!(sync_response_entry_is_committed(6, None, 7, None));
+    }
+
+    #[test]
+    fn aft_sync_replacement_is_bounded_to_target_and_one_descendant() {
+        assert!(within_aft_sync_replacement_window(10, 10));
+        assert!(within_aft_sync_replacement_window(11, 10));
+        assert!(!within_aft_sync_replacement_window(9, 10));
+        assert!(!within_aft_sync_replacement_window(12, 10));
+    }
+
+    #[test]
+    fn peer_comparison_uses_executed_height_but_fetch_starts_at_admitted_height() {
+        assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 13), Some(10));
+        assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 12), None);
+        assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 11), None);
     }
 }
