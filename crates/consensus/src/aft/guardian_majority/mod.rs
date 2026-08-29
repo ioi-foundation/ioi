@@ -109,6 +109,25 @@ struct MirrorStats {
     reliability_b: u32,
 }
 
+/// One authenticated guardian-counter binding at an ordered consensus slot.
+///
+/// Network delivery is not ordered, so a scalar "last received" counter is
+/// not a sound replay boundary.  The tracker below orders observations by the
+/// signed consensus coordinates and requires counters to be strictly
+/// increasing between adjacent observed slots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct GuardianCounterBinding {
+    counter: u64,
+    trace_hash: [u8; 32],
+    block_hash: [u8; 32],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct GuardianCounterFloor {
+    slot: (u64, u64),
+    binding: GuardianCounterBinding,
+}
+
 impl MirrorStats {
     #[allow(dead_code)]
     fn record_arrival(&mut self, mirror_id: u8, elapsed_micros: f64) {
@@ -183,8 +202,11 @@ fn verify_sealed_finality_proof_signature(
 pub struct GuardianMajorityEngine {
     safety_mode: AftSafetyMode,
     continuity_verifier: SharedContinuityVerifier,
-    /// Tracks the last observed Oracle counter for each validator.
-    last_seen_counters: HashMap<AccountId, u64>,
+    /// Authenticated counter bindings retained in consensus-slot order.
+    guardian_counter_history: HashMap<AccountId, BTreeMap<(u64, u64), GuardianCounterBinding>>,
+    /// Latest binding pruned below the active height, retained as the lower
+    /// bound for every subsequent proposal from that producer.
+    guardian_counter_floors: HashMap<AccountId, GuardianCounterFloor>,
 
     /// Tracks view change votes received.
     view_votes: HashMap<u64, HashMap<u64, HashMap<AccountId, ViewChangeVote>>>,

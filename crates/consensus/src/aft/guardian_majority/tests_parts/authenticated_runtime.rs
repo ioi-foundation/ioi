@@ -10,6 +10,93 @@
 /// `n >= 3f + 1` tolerance is 1.
 const BFT_MEMBERS: usize = 4;
 
+fn counter_binding(counter: u64, seed: u8) -> GuardianCounterBinding {
+    GuardianCounterBinding {
+        counter,
+        trace_hash: [seed; 32],
+        block_hash: [seed.wrapping_add(1); 32],
+    }
+}
+
+#[test]
+fn guardian_counter_tracker_accepts_authenticated_out_of_order_views() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    let producer = AccountId([0x41; 32]);
+
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (17, 3), counter_binding(103, 3))
+        .unwrap());
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (17, 1), counter_binding(101, 1))
+        .unwrap());
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (17, 2), counter_binding(102, 2))
+        .unwrap());
+
+    assert_eq!(engine.guardian_counter_history[&producer].len(), 3);
+}
+
+#[test]
+fn guardian_counter_tracker_is_idempotent_only_for_the_exact_binding() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    let producer = AccountId([0x42; 32]);
+    let binding = counter_binding(8, 8);
+
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (8, 0), binding)
+        .unwrap());
+    assert!(!engine
+        .admit_guardian_counter_binding(producer, (8, 0), binding)
+        .unwrap());
+
+    let mut substituted = binding;
+    substituted.block_hash[0] ^= 0xff;
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (8, 0), substituted)
+        .is_err());
+}
+
+#[test]
+fn guardian_counter_tracker_rejects_counter_reuse_and_slot_order_rollback() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    let producer = AccountId([0x43; 32]);
+
+    engine
+        .admit_guardian_counter_binding(producer, (20, 1), counter_binding(50, 1))
+        .unwrap();
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (20, 2), counter_binding(50, 2))
+        .is_err());
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (20, 2), counter_binding(49, 3))
+        .is_err());
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (20, 0), counter_binding(51, 4))
+        .is_err());
+}
+
+#[test]
+fn guardian_counter_floor_survives_history_pruning() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    let producer = AccountId([0x44; 32]);
+
+    engine
+        .admit_guardian_counter_binding(producer, (30, 0), counter_binding(70, 1))
+        .unwrap();
+    engine
+        .admit_guardian_counter_binding(producer, (31, 0), counter_binding(71, 2))
+        .unwrap();
+    engine.prune_guardian_counter_history(31);
+
+    assert_eq!(engine.guardian_counter_floors[&producer].slot, (30, 0));
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (30, 1), counter_binding(72, 3))
+        .is_err());
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (32, 0), counter_binding(72, 4))
+        .unwrap());
+}
+
 fn classic_engine(validators: &AuthenticatedValidators, heights: &[u64]) -> GuardianMajorityEngine {
     let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
     for height in heights {

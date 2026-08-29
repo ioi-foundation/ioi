@@ -23,7 +23,8 @@ impl GuardianMajorityEngine {
         Self {
             safety_mode,
             continuity_verifier: SharedContinuityVerifier::default(),
-            last_seen_counters: HashMap::new(),
+            guardian_counter_history: HashMap::new(),
+            guardian_counter_floors: HashMap::new(),
             view_votes: HashMap::new(),
             tc_formed: HashSet::new(),
             timeout_votes_sent: HashSet::new(),

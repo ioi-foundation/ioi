@@ -64,6 +64,103 @@ impl PenaltyEngine for GuardianMajorityEngine {
     }
 }
 
+impl GuardianMajorityEngine {
+    /// Records one fully authenticated guardian counter against consensus
+    /// coordinates rather than network arrival order.
+    ///
+    /// Returns `true` for a new binding and `false` for exact idempotent
+    /// redelivery.  A different binding at the same slot, or a counter that is
+    /// not strictly between its adjacent observed slots, is equivocation or a
+    /// rollback and is refused.
+    pub(super) fn admit_guardian_counter_binding(
+        &mut self,
+        producer: AccountId,
+        slot: (u64, u64),
+        binding: GuardianCounterBinding,
+    ) -> Result<bool, ConsensusError> {
+        let invalid = |reason: &str| {
+            ConsensusError::BlockVerificationFailed(format!(
+                "Guardian counter {reason} for producer {} at H={} V={}",
+                hex::encode(producer),
+                slot.0,
+                slot.1
+            ))
+        };
+
+        let floor = self.guardian_counter_floors.get(&producer).copied();
+        if let Some(floor) = floor {
+            if slot < floor.slot {
+                return Err(invalid("precedes the retained history floor"));
+            }
+            if slot == floor.slot {
+                return if binding == floor.binding {
+                    Ok(false)
+                } else {
+                    Err(invalid("conflicts with the retained history floor"))
+                };
+            }
+        }
+
+        let history = self.guardian_counter_history.entry(producer).or_default();
+        if let Some(existing) = history.get(&slot) {
+            return if *existing == binding {
+                Ok(false)
+            } else {
+                Err(invalid("was rebound at an already observed slot"))
+            };
+        }
+
+        let predecessor = history
+            .range(..slot)
+            .next_back()
+            .map(|(_, binding)| *binding)
+            .or_else(|| floor.map(|floor| floor.binding));
+        if predecessor.is_some_and(|prior| binding.counter <= prior.counter) {
+            return Err(invalid("did not advance after its predecessor slot"));
+        }
+
+        if history
+            .range(slot..)
+            .next()
+            .is_some_and(|(_, next)| binding.counter >= next.counter)
+        {
+            return Err(invalid("did not precede its successor slot"));
+        }
+
+        history.insert(slot, binding);
+        Ok(true)
+    }
+
+    /// Bounds live counter history while retaining the newest pruned binding
+    /// per producer as an immutable lower fence.
+    pub(super) fn prune_guardian_counter_history(&mut self, active_height: u64) {
+        let cutoff = (active_height, 0);
+        let mut advanced_floors = Vec::new();
+        for (producer, history) in &mut self.guardian_counter_history {
+            if let Some((&slot, &binding)) = history.range(..cutoff).next_back() {
+                advanced_floors.push((*producer, GuardianCounterFloor { slot, binding }));
+            }
+            history.retain(|slot, _| *slot >= cutoff);
+        }
+        self.guardian_counter_history
+            .retain(|_, history| !history.is_empty());
+
+        for (producer, floor) in advanced_floors {
+            match self.guardian_counter_floors.entry(producer) {
+                std::collections::hash_map::Entry::Occupied(mut existing)
+                    if floor.slot > existing.get().slot =>
+                {
+                    existing.insert(floor);
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    entry.insert(floor);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     for GuardianMajorityEngine
@@ -905,15 +1002,19 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             }
         }
 
-        if let Some(&last_ctr) = self.last_seen_counters.get(&header.producer_account_id) {
-            if header.oracle_counter <= last_ctr {
-                return Err(ConsensusError::BlockVerificationFailed(
-                    "Guardian counter rollback".into(),
-                ));
-            }
+        if !self.admit_guardian_counter_binding(
+            header.producer_account_id,
+            (header.height, header.view),
+            GuardianCounterBinding {
+                counter: header.oracle_counter,
+                trace_hash: header.oracle_trace_hash,
+                block_hash,
+            },
+        )? {
+            // Exact authenticated redelivery is idempotent.  It must not emit
+            // another echo or perturb the pacemaker.
+            return Ok(());
         }
-        self.last_seen_counters
-            .insert(header.producer_account_id, header.oracle_counter);
 
         {
             let mut pacemaker = self.pacemaker.lock().await;
