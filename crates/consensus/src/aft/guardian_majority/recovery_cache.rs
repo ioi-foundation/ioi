@@ -3,6 +3,7 @@ use super::*;
 impl GuardianMajorityEngine {
     pub(super) fn reset_cache_for_height(&mut self, height: u64) {
         self.maybe_promote_committed_height_qc(height);
+        self.prune_guardian_counter_history(height);
         self.view_votes.retain(|h, _| *h >= height);
         self.tc_formed.retain(|(h, _)| *h >= height);
         self.timeout_votes_sent.retain(|(h, _)| *h >= height);
