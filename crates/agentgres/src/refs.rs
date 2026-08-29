@@ -53,6 +53,13 @@ pub fn outcome_room_system_object_ref(room_tail: &str) -> String {
     format!("agentgres://outcome-room-system-operations/{room_tail}")
 }
 
+/// Storage object ref for one domain's profile spine — the single object
+/// identity that both profile-control operations and recognized effects are
+/// admitted under, so they share one totally ordered head.
+pub fn profile_spine_object_ref(domain_id: &str) -> String {
+    format!("agentgres://profile-spine/{domain_id}")
+}
+
 // --- generic owner-namespaced event streams ---------------------------------
 //
 // These constructors are deliberately namespace-GENERIC: they take the owner's
