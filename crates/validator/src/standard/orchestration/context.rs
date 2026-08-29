@@ -141,6 +141,11 @@ where
     /// The most recent local production attempt for a specific (height, view, parent QC),
     /// rate-limited to avoid re-building the same proposal repeatedly under bursty wakeups.
     pub last_production_attempt: Option<(u64, u64, [u8; 32], std::time::Instant)>,
+    /// Bounded process-local memory of consensus-valid AFT replacements whose
+    /// deterministic workload replay was rejected. This cache grants no
+    /// authority and is discarded on restart; it only prevents a peer from
+    /// repeatedly charging the same invalid block to the execution path.
+    pub(crate) rejected_aft_replacements: LruCache<(u64, u64, [u8; 32]), ()>,
     /// Channel to wake up the consensus loop.
     pub consensus_kick_tx: mpsc::UnboundedSender<()>,
     /// Shared debounce flag for consensus wakeups triggered outside the ingestion worker.

@@ -229,7 +229,8 @@ where
         // Bounded branch rollback, deterministic replay, and replacement
         // commit share one machine guard. No normal ProcessBlock call can
         // advance the branch or consume a snapshot between those boundaries.
-        let expected_target_bytes = request.expected_target_block_bytes.clone();
+        let expected_target_bytes =
+            codec::to_bytes_canonical(&expected_target).map_err(Status::invalid_argument)?;
         let mut machine = self.ctx.machine.lock().await;
         let rollback = machine
             .rollback_aft_branch_projection(
@@ -257,6 +258,9 @@ where
             Ok(receipts) => receipts,
             Err(error) => {
                 machine.restore_aft_branch_projection(rollback).await;
+                // Receipt encoding is a local invariant breach, not a peer
+                // refusal. Restore the coherent live projection for forensic
+                // inspection, but keep `Internal` so the caller freezes.
                 return Err(Status::internal(error));
             }
         };

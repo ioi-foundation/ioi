@@ -922,6 +922,9 @@ where
             last_executed_block: initial_block,
             last_tip_vote_replay: None,
             last_production_attempt: None,
+            rejected_aft_replacements: LruCache::new(
+                std::num::NonZeroUsize::new(1024).expect("non-zero AFT rejection cache"),
+            ),
             consensus_kick_tx: self.consensus_kick_tx.clone(),
             consensus_kick_scheduled: Arc::new(AtomicBool::new(false)),
             next_due_wakeup_at_ms: Arc::new(std::sync::atomic::AtomicU64::new(0)),

@@ -122,6 +122,25 @@ pub(crate) struct AftTipRollbackSnapshot<ST: StateManager> {
     pub service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
 }
 
+/// Exact live projection retained only while one AFT replacement is in flight.
+///
+/// Unlike `AftTipRollbackSnapshot`, this value is not a pre-projection stack
+/// entry and deliberately carries no projected-height metadata. Keeping the
+/// types distinct prevents the live state from ever being mistaken for a
+/// rollback entry whose `status.height + 1 == projected_height` invariant is
+/// load-bearing at admission.
+struct AftLiveProjectionSnapshot<ST: StateManager> {
+    state_tree: ST,
+    status: ChainStatus,
+    recent_blocks: Vec<Block<ChainTransaction>>,
+    recent_aft_recovered_state: AftRecoveredStateSurface,
+    last_state_root: Vec<u8>,
+    genesis_state: GenesisState,
+    services: ServiceDirectory,
+    service_manager: ServiceUpgradeManager,
+    service_meta_cache: HashMap<String, Arc<ActiveServiceMeta>>,
+}
+
 /// Opaque rollback material held across one speculative AFT replacement.
 ///
 /// The token grants no ordering authority. It exists only so a replacement
@@ -129,7 +148,7 @@ pub(crate) struct AftTipRollbackSnapshot<ST: StateManager> {
 /// projection and its bounded rollback suffix instead of freezing an honest
 /// node on peer-controlled invalid content.
 pub struct AftBranchRollbackTransaction<ST: StateManager> {
-    live_snapshot: AftTipRollbackSnapshot<ST>,
+    live_snapshot: AftLiveProjectionSnapshot<ST>,
     retired_snapshots: Vec<AftTipRollbackSnapshot<ST>>,
 }
 
@@ -681,11 +700,7 @@ where
         // publishes replacement bytes at the target height; any retired higher
         // projection remains physically present but is hidden by the canonical
         // committed-height read boundary.
-        let live_snapshot = AftTipRollbackSnapshot {
-            projected_height: live_tip.header.height,
-            projected_parent_state_root: live_tip.header.parent_state_root.0.clone(),
-            projected_state_root: live_tip.header.state_root.0.clone(),
-            projected_transactions_root: live_tip.header.transactions_root.clone(),
+        let live_snapshot = AftLiveProjectionSnapshot {
             state_tree: {
                 let state = self.workload_container.state_tree().read_owned().await;
                 state.clone()
@@ -737,6 +752,22 @@ where
         self.service_meta_cache = snapshot.service_meta_cache.clone();
     }
 
+    async fn restore_aft_live_projection(&mut self, snapshot: AftLiveProjectionSnapshot<ST>) {
+        {
+            let state_tree = self.workload_container.state_tree();
+            let mut state = state_tree.write().await;
+            *state = snapshot.state_tree;
+        }
+        self.state.status = snapshot.status;
+        self.state.recent_blocks = snapshot.recent_blocks;
+        self.state.recent_aft_recovered_state = snapshot.recent_aft_recovered_state;
+        self.state.last_state_root = snapshot.last_state_root;
+        self.state.genesis_state = snapshot.genesis_state;
+        self.services = snapshot.services;
+        self.service_manager = snapshot.service_manager;
+        self.service_meta_cache = snapshot.service_meta_cache;
+    }
+
     /// Restore the exact pre-replacement live projection after a rejection
     /// proven to have left the durable target block and state root unchanged.
     pub async fn restore_aft_branch_projection(
@@ -745,7 +776,7 @@ where
     ) where
         ST: Clone,
     {
-        self.apply_aft_projection_snapshot(&transaction.live_snapshot)
+        self.restore_aft_live_projection(transaction.live_snapshot)
             .await;
         self.aft_tip_rollbacks.extend(transaction.retired_snapshots);
         debug_assert!(

@@ -53,6 +53,29 @@ fn within_exact_aft_replacement_window(live_height: u64, target_height: u64) -> 
     live_height >= target_height && live_height.saturating_sub(target_height) <= 1
 }
 
+fn aft_replacement_candidate_key(block: &Block<ChainTransaction>) -> Option<(u64, u64, [u8; 32])> {
+    let block_hash = block.header.hash().ok()?;
+    Some((
+        block.header.height,
+        block.header.view,
+        to_root_hash(&block_hash).ok()?,
+    ))
+}
+
+fn aft_replacement_should_replay(
+    rejected: &LruCache<(u64, u64, [u8; 32]), ()>,
+    candidate: &(u64, u64, [u8; 32]),
+) -> bool {
+    !rejected.contains(candidate)
+}
+
+fn remember_rejected_aft_replacement(
+    rejected: &mut LruCache<(u64, u64, [u8; 32]), ()>,
+    candidate: (u64, u64, [u8; 32]),
+) {
+    rejected.put(candidate, ());
+}
+
 #[derive(Debug)]
 struct WorkloadChainView<V> {
     client_api: Arc<dyn WorkloadClientApi>,
@@ -609,6 +632,29 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                     return;
                 }
 
+                let Some(candidate_key) = aft_replacement_candidate_key(&block) else {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = block.header.height,
+                        view = block.header.view,
+                        "Refusing AFT branch replacement with an unhashable candidate identity"
+                    );
+                    return;
+                };
+                if !aft_replacement_should_replay(
+                    &context.rejected_aft_replacements,
+                    &candidate_key,
+                ) {
+                    tracing::warn!(
+                        target: "consensus",
+                        height = block.header.height,
+                        view = block.header.view,
+                        block = %hex::encode(&candidate_key.2[..4]),
+                        "Refusing a previously rejected AFT branch replacement without replaying execution"
+                    );
+                    return;
+                }
+
                 let workload = context.view_resolver.workload_client().clone();
                 let Some(expected_target) = (match workload
                     .get_block_by_height(block.header.height)
@@ -703,6 +749,10 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 {
                     Ok((processed, _, receipts)) => (processed, receipts),
                     Err(ChainError::Transaction(error)) => {
+                        remember_rejected_aft_replacement(
+                            &mut context.rejected_aft_replacements,
+                            candidate_key,
+                        );
                         tracing::warn!(
                             target: "consensus",
                             height = block.header.height,
@@ -1040,7 +1090,12 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 
 #[cfg(test)]
 mod same_height_replacement_tests {
-    use super::{replacement_advances_aft_view, within_exact_aft_replacement_window};
+    use super::{
+        aft_replacement_should_replay, remember_rejected_aft_replacement,
+        replacement_advances_aft_view, within_exact_aft_replacement_window,
+    };
+    use lru::LruCache;
+    use std::num::NonZeroUsize;
 
     #[test]
     fn only_a_strictly_later_aft_view_can_replace_a_durable_tip() {
@@ -1056,6 +1111,19 @@ mod same_height_replacement_tests {
         assert!(within_exact_aft_replacement_window(10, 9));
         assert!(!within_exact_aft_replacement_window(8, 9));
         assert!(!within_exact_aft_replacement_window(11, 9));
+    }
+
+    #[test]
+    fn a_deterministically_rejected_candidate_is_not_replayed_in_the_live_process() {
+        let mut rejected = LruCache::new(NonZeroUsize::new(2).unwrap());
+        let candidate = (9, 3, [0x44; 32]);
+        assert!(aft_replacement_should_replay(&rejected, &candidate));
+        remember_rejected_aft_replacement(&mut rejected, candidate);
+        assert!(!aft_replacement_should_replay(&rejected, &candidate));
+        assert!(aft_replacement_should_replay(
+            &rejected,
+            &(9, 4, [0x55; 32])
+        ));
     }
 }
 
