@@ -27,8 +27,8 @@ impl GuardianMajorityEngine {
         self.voted_slots.retain(|(h, _)| *h >= height);
 
         if let Ok(mut pm) = self.pacemaker.try_lock() {
-            pm.current_view = 0;
-            pm.view_start_time = std::time::Instant::now();
+            pm.start_height();
+            self.pacemaker_height = height.saturating_add(1);
         }
     }
 

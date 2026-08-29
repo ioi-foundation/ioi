@@ -854,6 +854,7 @@ impl GuardianMajorityEngine {
                     "Timeout certificate contains duplicate voters".into(),
                 ));
             }
+            authenticated_quorum::verify_view_change_vote(vote, active_set, &self.key_registry)?;
             let weight = weights.get(&vote.voter).ok_or_else(|| {
                 ConsensusError::BlockVerificationFailed(
                     "Timeout certificate contains non-validator voter".into(),

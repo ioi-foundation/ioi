@@ -223,6 +223,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         // state view, can still authenticate against real membership.
         self.remember_validator_sets(height, &sets);
 
+        if self.pacemaker_height != height {
+            self.pacemaker.lock().await.start_height();
+            self.pacemaker_height = height;
+        }
         let mut current_view = { self.pacemaker.lock().await.current_view };
         let bootstrap_first_commit_pending =
             height == 1 && self.highest_qc.height == 0 && !self.committed_headers.contains_key(&1);
@@ -839,15 +843,6 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             }
         }
 
-        {
-            let mut pacemaker = self.pacemaker.lock().await;
-            if header.view > pacemaker.current_view {
-                pacemaker.advance_view(header.view);
-            } else {
-                pacemaker.view_start_time = Instant::now();
-            }
-        }
-
         let preimage = header
             .to_preimage_for_signing()
             .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
@@ -865,6 +860,20 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 .await?;
             self.verify_published_canonical_collapse_object(header, &*parent_view)
                 .await?;
+        }
+
+        // Only a fully verified proposal may move the pacemaker. Views are
+        // scoped to one height, so a proposal for a newer height first resets
+        // the view sequence instead of inheriting the prior height's view.
+        {
+            let mut pacemaker = self.pacemaker.lock().await;
+            if header.height > self.pacemaker_height {
+                pacemaker.start_height();
+                self.pacemaker_height = header.height;
+            }
+            if header.height == self.pacemaker_height {
+                pacemaker.observe_progress(header.view);
+            }
         }
 
         if let Some(existing_header) = self
@@ -991,6 +1000,11 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             ioi_types::codec::from_bytes_canonical(proof_bytes).map_err(|e| {
                 ConsensusError::BlockVerificationFailed(format!("Invalid view vote: {}", e))
             })?;
+
+        // A timeout vote changes who may produce the next block. It therefore
+        // receives the same membership, key-epoch and signature binding as a
+        // block vote before it can contribute to a timeout certificate.
+        self.authenticated_view_change_vote(&vote)?;
 
         info!(target: "consensus", "ViewChange vote H={} V={} from {}", vote.height, vote.view, from);
         let height_map = self.view_votes.entry(vote.height).or_default();

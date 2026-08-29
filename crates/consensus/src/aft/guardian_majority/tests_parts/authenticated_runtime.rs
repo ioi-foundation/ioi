@@ -42,6 +42,64 @@ fn seed_two_chain(
 // --- Loose vote ingress ---------------------------------------------------
 
 #[tokio::test]
+async fn genuine_view_change_vote_is_admitted_to_the_timeout_pool() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine(&validators, &[5]);
+    let vote = validators.signed_view_change(0, 5, 1);
+    let source = validators.keypairs[0].public().to_peer_id();
+
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_view_change(
+        &mut engine,
+        source,
+        &codec::to_bytes_canonical(&vote).unwrap(),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(engine.view_votes[&5][&1].len(), 1);
+}
+
+#[tokio::test]
+async fn forged_view_change_vote_never_reaches_the_timeout_pool() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = classic_engine(&validators, &[5]);
+    let mut vote = validators.signed_view_change(0, 5, 1);
+    vote.signature = vec![0xAA; 64];
+    let source = validators.keypairs[0].public().to_peer_id();
+
+    let result = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_view_change(
+        &mut engine,
+        source,
+        &codec::to_bytes_canonical(&vote).unwrap(),
+    )
+    .await;
+
+    assert!(result.is_err());
+    assert!(engine.view_votes.is_empty());
+}
+
+#[test]
+fn timeout_certificate_rejects_one_substituted_signature() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let engine = classic_engine(&validators, &[5]);
+    let mut certificate = TimeoutCertificate {
+        height: 5,
+        view: 1,
+        votes: (0..3)
+            .map(|index| validators.signed_view_change(index, 5, 1))
+            .collect(),
+    };
+    engine
+        .verify_timeout_certificate(&certificate, &validators.sets)
+        .unwrap();
+
+    certificate.votes[1].signature = vec![0xBB; 64];
+    assert!(engine
+        .verify_timeout_certificate(&certificate, &validators.sets)
+        .is_err());
+}
+
+#[tokio::test]
 async fn genuine_vote_is_admitted_to_the_pool() {
     let validators = AuthenticatedValidators::new(BFT_MEMBERS);
     let mut engine = classic_engine(&validators, &[5]);

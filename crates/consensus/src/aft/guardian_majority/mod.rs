@@ -196,6 +196,13 @@ pub struct GuardianMajorityEngine {
     /// A local timeout should request a new view once, then wait for a TC.
     timeout_votes_sent: HashSet<(u64, u64)>,
 
+    /// Height whose view the pacemaker currently tracks.
+    ///
+    /// AFT views restart at zero for every height. Keeping this coordinate
+    /// beside the otherwise height-agnostic pacemaker prevents a successful
+    /// non-zero view at H from being mistaken for the starting view at H+1.
+    pacemaker_height: u64,
+
     /// Tracks block headers received per (height, view) for divergence detection.
     /// (Height, View) -> BlockHash -> Header
     seen_headers: HashMap<(u64, u64), HashMap<[u8; 32], BlockHeader>>,

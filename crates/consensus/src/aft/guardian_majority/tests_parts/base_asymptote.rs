@@ -54,6 +54,31 @@ async fn local_timeout_does_not_enter_new_view_without_timeout_certificate() {
 }
 
 #[tokio::test]
+async fn nonzero_view_never_leaks_into_the_next_height() {
+    let validators = vec![
+        AccountId([1u8; 32]),
+        AccountId([2u8; 32]),
+        AccountId([3u8; 32]),
+    ];
+    let parent_view = build_decide_parent_view(validators.clone());
+    let known_peers = HashSet::from([PeerId::random()]);
+    let mut engine = GuardianMajorityEngine::with_view_timeout(
+        AftSafetyMode::GuardianMajority,
+        Duration::from_secs(30),
+    );
+    engine.pacemaker_height = 153;
+    engine.pacemaker.lock().await.advance_view(1);
+
+    let _: ConsensusDecision<ChainTransaction> = engine
+        .decide(&validators[0], 154, 0, &parent_view, &known_peers)
+        .await;
+
+    assert_eq!(engine.pacemaker_height, 154);
+    assert_eq!(engine.pacemaker.lock().await.current_view, 0);
+    assert!(!engine.tc_formed.contains(&(154, 1)));
+}
+
+#[tokio::test]
 async fn bootstrap_grace_pins_view_zero_without_blocking_leader_production() {
     let validators = vec![
         AccountId([1u8; 32]),

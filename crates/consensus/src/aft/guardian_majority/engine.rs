@@ -27,6 +27,7 @@ impl GuardianMajorityEngine {
             view_votes: HashMap::new(),
             tc_formed: HashSet::new(),
             timeout_votes_sent: HashSet::new(),
+            pacemaker_height: 0,
             seen_headers: HashMap::new(),
             vote_pool: HashMap::new(),
             validator_count_by_height: HashMap::new(),
@@ -287,6 +288,22 @@ impl GuardianMajorityEngine {
                 ))
             })?;
         authenticated_quorum::verify_consensus_vote(vote, &set, &self.key_registry)
+    }
+
+    /// Verifies one timeout/view-change vote before it may enter the TC pool.
+    pub(super) fn authenticated_view_change_vote(
+        &self,
+        vote: &ViewChangeVote,
+    ) -> Result<authenticated_quorum::VerifiedSigner, ConsensusError> {
+        let set = self
+            .effective_validator_set_for(vote.height)
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "no observed validator set to authenticate a view-change vote for height {}",
+                    vote.height
+                ))
+            })?;
+        authenticated_quorum::verify_view_change_vote(vote, &set, &self.key_registry)
     }
 
     /// Queues finalized-block evidence, exactly once per finalized block.

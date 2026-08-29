@@ -14,29 +14,30 @@ use ioi_types::app::ActiveKeyRecord;
 use ioi_types::app::{
     aft_bulletin_availability_certificate_key, aft_bulletin_commitment_key,
     aft_canonical_bulletin_close_key, aft_canonical_collapse_object_key,
-    aft_canonical_order_abort_key, aft_publication_frontier_key,
-    derive_bulletin_availability_binding, build_canonical_bulletin_close,
+    aft_canonical_order_abort_key, aft_publication_frontier_key, build_canonical_bulletin_close,
     build_publication_frontier, build_reference_canonical_order_certificate,
     build_reference_canonical_order_proof_bytes, canonical_asymptote_observer_assignments_hash,
     canonical_asymptote_observer_challenges_hash, canonical_asymptote_observer_transcripts_hash,
     canonical_collapse_commitment, canonical_collapse_commitment_hash_from_object,
-    canonical_collapse_continuity_public_inputs, canonical_collapse_recursive_proof_hash,
-    canonical_order_public_inputs,
+    canonical_collapse_continuity_public_inputs,
+    canonical_collapse_eq_ignoring_archived_recovered_history_anchor,
+    canonical_collapse_recursive_proof_hash, canonical_order_public_inputs,
     canonical_order_public_inputs_hash, canonical_sealed_finality_proof_signing_bytes,
-    derive_asymptote_observer_assignments, derive_canonical_collapse_object,
-    derive_canonical_collapse_object_with_previous, derive_guardian_witness_assignments,
-    derive_reference_ordering_randomness_beacon, guardian_registry_asymptote_policy_key,
-    guardian_registry_checkpoint_key, guardian_registry_committee_account_key,
-    guardian_registry_committee_key, guardian_registry_log_key,
-    guardian_registry_observer_canonical_abort_key, guardian_registry_observer_canonical_close_key,
+    derive_asymptote_observer_assignments, derive_bulletin_availability_binding,
+    derive_canonical_collapse_object, derive_canonical_collapse_object_with_previous,
+    derive_guardian_witness_assignments, derive_reference_ordering_randomness_beacon,
+    guardian_registry_asymptote_policy_key, guardian_registry_checkpoint_key,
+    guardian_registry_committee_account_key, guardian_registry_committee_key,
+    guardian_registry_log_key, guardian_registry_observer_canonical_abort_key,
+    guardian_registry_observer_canonical_close_key,
     guardian_registry_observer_challenge_commitment_key,
     guardian_registry_observer_transcript_commitment_key, guardian_registry_witness_key,
     guardian_registry_witness_seed_key, guardian_registry_witness_set_key,
     recovered_restart_block_header_entry, set_canonical_collapse_archived_recovered_history_anchor,
-    canonical_collapse_eq_ignoring_archived_recovered_history_anchor, write_validator_sets,
-    AftRecoveredStateSurface, AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose,
-    AsymptoteObserverCertificate, AsymptoteObserverChallenge, AsymptoteObserverChallengeCommitment,
-    AsymptoteObserverCloseCertificate, AsymptoteObserverCorrelationBudget, AsymptoteObserverTranscript,
+    write_validator_sets, AftRecoveredStateSurface, AsymptoteObserverCanonicalAbort,
+    AsymptoteObserverCanonicalClose, AsymptoteObserverCertificate, AsymptoteObserverChallenge,
+    AsymptoteObserverChallengeCommitment, AsymptoteObserverCloseCertificate,
+    AsymptoteObserverCorrelationBudget, AsymptoteObserverTranscript,
     AsymptoteObserverTranscriptCommitment, AsymptoteObserverVerdict, AsymptotePolicy,
     AsymptoteVetoKind, AsymptoteVetoProof, BulletinAvailabilityCertificate, BulletinCommitment,
     CanonicalCollapseContinuityProofSystem, CanonicalOrderAbort, CanonicalOrderAbortReason,
@@ -802,14 +803,28 @@ impl AuthenticatedValidators {
         view: u64,
         block_hash: [u8; 32],
     ) -> ConsensusVote {
-        let preimage = authenticated_quorum::consensus_vote_signing_bytes(height, view, &block_hash)
-            .expect("vote preimage");
+        let preimage =
+            authenticated_quorum::consensus_vote_signing_bytes(height, view, &block_hash)
+                .expect("vote preimage");
         ConsensusVote {
             height,
             view,
             block_hash,
             voter: self.account_id(index),
             signature: self.keypairs[index].sign(&preimage).expect("sign vote"),
+        }
+    }
+
+    fn signed_view_change(&self, index: usize, height: u64, view: u64) -> ViewChangeVote {
+        let preimage = authenticated_quorum::view_change_vote_signing_bytes(height, view)
+            .expect("view-change preimage");
+        ViewChangeVote {
+            height,
+            view,
+            voter: self.account_id(index),
+            signature: self.keypairs[index]
+                .sign(&preimage)
+                .expect("sign view-change vote"),
         }
     }
 
@@ -1012,10 +1027,7 @@ fn seed_committed_collapse_chain(
     }
 }
 
-fn insert_published_collapse_chain(
-    view: &mut MockAnchoredView,
-    chain: &[CanonicalCollapseObject],
-) {
+fn insert_published_collapse_chain(view: &mut MockAnchoredView, chain: &[CanonicalCollapseObject]) {
     for collapse in chain {
         view.state.insert(
             aft_canonical_collapse_object_key(collapse.height),

@@ -103,6 +103,17 @@ impl Pacemaker {
         self.view_start_time = Instant::now();
     }
 
+    /// Starts the independent view sequence for a new block height.
+    ///
+    /// Views are scoped to a height; carrying a non-zero view into the next
+    /// height can split honest validators before any timeout certificate for
+    /// that height exists.
+    pub fn start_height(&mut self) {
+        self.current_view = 0;
+        self.consecutive_timeouts = 0;
+        self.view_start_time = Instant::now();
+    }
+
     /// The consecutive-failure exponent currently applied to the backoff
     /// (AFT-CB RES-R10 D1). Exposed for observability and tests.
     pub fn consecutive_timeouts(&self) -> u32 {

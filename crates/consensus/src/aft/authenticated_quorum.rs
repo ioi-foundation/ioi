@@ -39,7 +39,7 @@ use ioi_api::consensus::{
 };
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ConsensusVote, QuorumCertificate, SignatureSuite,
-    ValidatorSetV1, ValidatorV1,
+    ValidatorSetV1, ValidatorV1, ViewChangeVote,
 };
 use ioi_types::codec;
 use ioi_types::config::AftSafetyMode;
@@ -64,6 +64,18 @@ pub fn consensus_vote_signing_bytes(
     codec::to_bytes_canonical(&(height, view, *block_hash)).map_err(|error| {
         ConsensusError::BlockVerificationFailed(format!(
             "failed to encode consensus vote preimage: {error}"
+        ))
+    })
+}
+
+/// The exact byte string the validator runtime signs for a view-change vote.
+///
+/// Like [`consensus_vote_signing_bytes`], this preserves the existing wire
+/// preimage rather than inventing a new domain separator after deployment.
+pub fn view_change_vote_signing_bytes(height: u64, view: u64) -> Result<Vec<u8>, ConsensusError> {
+    codec::to_bytes_canonical(&(height, view)).map_err(|error| {
+        ConsensusError::BlockVerificationFailed(format!(
+            "failed to encode view-change vote preimage: {error}"
         ))
     })
 }
@@ -343,6 +355,32 @@ fn verify_member_signature(
     set: &ValidatorSetV1,
     registry: &ValidatorKeyRegistry,
 ) -> Result<VerifiedSigner, ConsensusError> {
+    let preimage = consensus_vote_signing_bytes(height, view, block_hash)?;
+    verify_member_signature_over_preimage(
+        account,
+        height,
+        signature,
+        set,
+        registry,
+        &preimage,
+        &format!(
+            "H={} V={} block={}",
+            height,
+            view,
+            hex::encode(block_hash.get(..4).unwrap_or_default())
+        ),
+    )
+}
+
+fn verify_member_signature_over_preimage(
+    account: &AccountId,
+    height: u64,
+    signature: &[u8],
+    set: &ValidatorSetV1,
+    registry: &ValidatorKeyRegistry,
+    preimage: &[u8],
+    coordinates: &str,
+) -> Result<VerifiedSigner, ConsensusError> {
     let validator = member_of(set, account)?;
     let record = &validator.consensus_key;
 
@@ -398,14 +436,11 @@ fn verify_member_signature(
         )));
     }
 
-    let preimage = consensus_vote_signing_bytes(height, view, block_hash)?;
-    if !key.verify(&preimage, signature) {
+    if !key.verify(preimage, signature) {
         return Err(ConsensusError::BlockVerificationFailed(format!(
-            "signature from {} does not verify over H={} V={} block={}",
+            "signature from {} does not verify over {}",
             hex::encode(account.as_ref()),
-            height,
-            view,
-            hex::encode(block_hash.get(..4).unwrap_or_default())
+            coordinates,
         )));
     }
 
@@ -487,6 +522,24 @@ pub fn verify_consensus_vote(
         &vote.signature,
         set,
         registry,
+    )
+}
+
+/// Verifies a view-change vote before it may influence a timeout quorum.
+pub fn verify_view_change_vote(
+    vote: &ViewChangeVote,
+    set: &ValidatorSetV1,
+    registry: &ValidatorKeyRegistry,
+) -> Result<VerifiedSigner, ConsensusError> {
+    let preimage = view_change_vote_signing_bytes(vote.height, vote.view)?;
+    verify_member_signature_over_preimage(
+        &vote.voter,
+        vote.height,
+        &vote.signature,
+        set,
+        registry,
+        &preimage,
+        &format!("view-change H={} V={}", vote.height, vote.view),
     )
 }
 
