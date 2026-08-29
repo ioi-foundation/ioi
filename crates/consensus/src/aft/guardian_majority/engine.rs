@@ -178,6 +178,72 @@ impl GuardianMajorityEngine {
         }
     }
 
+    /// Completes the raw-key registry from the same anchored state view that
+    /// supplied the effective validator set.
+    ///
+    /// A star or relayed topology does not give every validator a direct
+    /// transport identity for every other member. The canonical identity map
+    /// does: each validator account indexes the exact raw key whose hash is
+    /// bound by `ValidatorV1::consensus_key`. Existing transport-learned keys
+    /// remain usable, but every missing member is resolved from rooted state
+    /// and rebound before any relayed vote or certificate can count.
+    pub(super) async fn hydrate_effective_validator_keys(
+        &mut self,
+        view: &dyn AnchoredStateView,
+        set: &ValidatorSetV1,
+    ) -> Result<bool, ConsensusError> {
+        let mut complete = true;
+        for validator in &set.validators {
+            if self
+                .key_registry
+                .get(&validator.consensus_key.public_key_hash)
+                .is_some()
+            {
+                continue;
+            }
+            if validator.consensus_key.suite != ioi_types::app::SignatureSuite::ED25519 {
+                return Err(ConsensusError::BlockVerificationFailed(format!(
+                    "native AFT validator {} declares unsupported consensus suite {:?}",
+                    hex::encode(validator.account_id.as_ref()),
+                    validator.consensus_key.suite
+                )));
+            }
+            let key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, validator.account_id.as_ref()].concat();
+            let Some(encoded) = view
+                .get(&key)
+                .await
+                .map_err(|error| {
+                    ConsensusError::BlockVerificationFailed(format!(
+                        "failed to read canonical consensus key for validator {}: {error}",
+                        hex::encode(validator.account_id.as_ref())
+                    ))
+                })?
+            else {
+                // Key unavailability is a liveness condition, not authority.
+                // Continue the state machine, but any vote/QC naming this
+                // member remains unverifiable and therefore cannot count.
+                complete = false;
+                continue;
+            };
+            let public_key = PublicKey::try_decode_protobuf(&encoded).map_err(|_| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "canonical consensus key is malformed for validator {}",
+                    hex::encode(validator.account_id.as_ref())
+                ))
+            })?;
+            let observed_hash = self.key_registry.learn_public_key(&public_key)?;
+            if observed_hash != validator.consensus_key.public_key_hash {
+                return Err(ConsensusError::BlockVerificationFailed(format!(
+                    "canonical consensus key substitution for validator {}: expected={} actual={}",
+                    hex::encode(validator.account_id.as_ref()),
+                    hex::encode(validator.consensus_key.public_key_hash),
+                    hex::encode(observed_hash)
+                )));
+            }
+        }
+        Ok(complete)
+    }
+
     /// Records a protobuf-encoded public key the node has authenticated.
     pub(super) fn record_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {
         let Ok(key) = PublicKey::try_decode_protobuf(protobuf_public_key) else {

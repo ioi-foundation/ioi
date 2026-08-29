@@ -750,19 +750,6 @@ where
             .config
             .resolved_finality_profile()
             .map_err(ValidatorError::Config)?;
-        let anchor_block = match initial_block.as_ref() {
-            Some(block) => block.clone(),
-            None => workload_client
-                .get_block_by_height(0)
-                .await
-                .map_err(|error| ValidatorError::Other(error.to_string()))?
-                .ok_or_else(|| {
-                    ValidatorError::Other(
-                        "runtime finality cannot initialize without the canonical genesis block"
-                            .into(),
-                    )
-                })?,
-        };
         let ed25519 = self.local_keypair.clone().try_into_ed25519().map_err(|_| {
             ValidatorError::Config("runtime finality requires an Ed25519 node identity".into())
         })?;
@@ -783,7 +770,7 @@ where
             format!("chain://ioi/{}", self.config.chain_id.0),
             configured_profile,
             format!("writer://ioi/validator/{}", hex::encode(local_account_id.0)),
-            super::runtime_finality::canonical_block_head(&anchor_block)
+            super::runtime_finality::runtime_finality_initial_head(initial_block.as_ref())
                 .map_err(|error| ValidatorError::Other(error.to_string()))?,
             issuer_key_id,
             secret.as_ref(),

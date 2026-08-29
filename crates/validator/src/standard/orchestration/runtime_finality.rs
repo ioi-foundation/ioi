@@ -1523,6 +1523,22 @@ pub(crate) fn canonical_block_head(block: &Block<ChainTransaction>) -> Result<St
     Ok(format!("sha256:{}", hex::encode(block_hash(block)?)))
 }
 
+/// Selects the Agentgres canonical head from which runtime admission begins.
+///
+/// On a fresh chain, height one names the all-zero protocol parent rather than
+/// the separately stored genesis-state container. On recovery without an
+/// existing Agentgres spine, the durable chain tip is the next effect's exact
+/// parent. `RecognizedEffectStore::open_existing` remains authoritative when a
+/// spine already exists; this value can only seed a new one.
+pub(crate) fn runtime_finality_initial_head(
+    durable_tip: Option<&Block<ChainTransaction>>,
+) -> Result<String> {
+    match durable_tip {
+        Some(block) => canonical_block_head(block),
+        None => Ok(format!("sha256:{}", hex::encode([0_u8; 32]))),
+    }
+}
+
 fn validate_receipts(
     block: &Block<ChainTransaction>,
     receipts: &[BlockExecutionReceipt],
@@ -2033,6 +2049,42 @@ mod tests {
             .read_staged(&block_hash(&block).unwrap())
             .unwrap();
         assert_eq!(recovered.block, block);
+    }
+
+    #[test]
+    fn fresh_runtime_spine_starts_at_the_first_blocks_protocol_parent() {
+        let dir = tempdir().unwrap();
+        let seed = [29_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let block = empty_block([0; 32], 1);
+        let initial = runtime_finality_initial_head(None).unwrap();
+        assert_eq!(initial, format!("sha256:{}", hex::encode([0_u8; 32])));
+        let mut coordinator = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/fresh".into(),
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            "writer://test/fresh".into(),
+            initial,
+            issuer,
+            &seed,
+        )
+        .unwrap();
+        let hash = block_hash(&block).unwrap();
+        coordinator.stage_block(block, Vec::new()).unwrap();
+        coordinator.admit_single_authority(hash, 1).unwrap();
+    }
+
+    #[test]
+    fn missing_spine_on_nonempty_chain_seeds_the_exact_durable_tip() {
+        let block = empty_block([3; 32], 7);
+        assert_eq!(
+            runtime_finality_initial_head(Some(&block)).unwrap(),
+            canonical_block_head(&block).unwrap()
+        );
     }
 
     #[test]

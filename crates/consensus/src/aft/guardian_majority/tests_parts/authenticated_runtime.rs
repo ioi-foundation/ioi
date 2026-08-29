@@ -678,3 +678,85 @@ async fn peer_keys_are_learned_from_the_authenticated_peer_set() {
 
     assert!(engine.authenticated_vote(&vote).is_ok());
 }
+
+#[tokio::test]
+async fn relayed_vote_and_quorum_use_canonical_keys_without_direct_peer_adjacency() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    validators.install_without_keys(&mut engine, 5);
+
+    let mut view = build_decide_parent_view(
+        (0..BFT_MEMBERS)
+            .map(|index| validators.account_id(index))
+            .collect(),
+    );
+    for keypair in &validators.keypairs {
+        let account_id = AccountId(
+            ioi_types::app::account_id_from_key_material(
+                SignatureSuite::ED25519,
+                &keypair.public().encode_protobuf(),
+            )
+            .unwrap(),
+        );
+        view.state.insert(
+            [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat(),
+            keypair.public().encode_protobuf(),
+        );
+    }
+
+    // Empty known_peers deliberately models an indirect leaf in a star: all
+    // raw keys must come from the same anchored state as membership.
+    let _ = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::decide(
+        &mut engine,
+        &validators.account_id(0),
+        5,
+        0,
+        &view,
+        &HashSet::new(),
+    )
+    .await;
+
+    let vote = validators.signed_vote(3, 5, 0, [7u8; 32]);
+    assert!(engine.authenticated_vote(&vote).is_ok());
+    let qc = validators.signed_qc(&[0, 1, 3], 5, 0, [7u8; 32]);
+    assert!(engine.authenticated_quorum(&qc).is_ok());
+}
+
+#[tokio::test]
+async fn canonical_key_substitution_stalls_and_cannot_authenticate_the_member() {
+    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    validators.install_without_keys(&mut engine, 5);
+    let mut view = build_decide_parent_view(
+        (0..BFT_MEMBERS)
+            .map(|index| validators.account_id(index))
+            .collect(),
+    );
+    let substituted = Keypair::generate_ed25519();
+    for (index, keypair) in validators.keypairs.iter().enumerate() {
+        let account_id = validators.account_id(index);
+        let encoded = if index == 3 {
+            substituted.public().encode_protobuf()
+        } else {
+            keypair.public().encode_protobuf()
+        };
+        view.state.insert(
+            [ACCOUNT_ID_TO_PUBKEY_PREFIX, account_id.as_ref()].concat(),
+            encoded,
+        );
+    }
+
+    let decision = <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::decide(
+        &mut engine,
+        &validators.account_id(0),
+        5,
+        0,
+        &view,
+        &HashSet::new(),
+    )
+    .await;
+    assert!(matches!(decision, ConsensusDecision::Stall));
+    assert!(engine
+        .authenticated_vote(&validators.signed_vote(3, 5, 0, [7u8; 32]))
+        .is_err());
+}

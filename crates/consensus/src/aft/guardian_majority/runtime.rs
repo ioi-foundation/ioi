@@ -178,6 +178,29 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             };
 
         let vs = effective_set_for_height(&sets, height);
+        match self.hydrate_effective_validator_keys(parent_view, vs).await {
+            Ok(true) => {}
+            Ok(false) => warn!(
+                target: "consensus",
+                height,
+                "Some effective validator keys are unavailable; their votes and certificates remain ineligible"
+            ),
+            Err(error) => {
+                error!(
+                    target: "consensus",
+                    height,
+                    %error,
+                    "Refusing AFT progress after canonical validator-key substitution or read failure"
+                );
+                if Self::benchmark_trace_enabled() {
+                    eprintln!(
+                        "[BENCH-AFT-DECIDE] height={} decision=stall reason=validator_key_hydration error={}",
+                        height, error
+                    );
+                }
+                return ConsensusDecision::Stall;
+            }
+        }
         let active_validators: Vec<AccountId> = vs
             .validators
             .iter()
