@@ -34,6 +34,23 @@ use std::mem;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
+fn replacement_parent_fence_matches(
+    replacement_height: u64,
+    replacement_parent_hash: &[u8; 32],
+    replacement_parent_state_root: &[u8],
+    target_height: u64,
+    target_parent_hash: &[u8; 32],
+    target_parent_state_root: &[u8],
+) -> bool {
+    replacement_height == target_height
+        && replacement_parent_hash == target_parent_hash
+        && replacement_parent_state_root == target_parent_state_root
+}
+
+fn terminal_replacement_error(error: impl std::fmt::Display) -> Status {
+    Status::aborted(error.to_string())
+}
+
 // -----------------------------------------------------------------------------
 // ChainControl Service
 // -----------------------------------------------------------------------------
@@ -171,6 +188,18 @@ where
                 "replacement block height does not match the fenced AFT tip",
             ));
         }
+        if !replacement_parent_fence_matches(
+            replacement.header.height,
+            &replacement.header.parent_hash,
+            &replacement.header.parent_state_root.0,
+            expected_target.header.height,
+            &expected_target.header.parent_hash,
+            &expected_target.header.parent_state_root.0,
+        ) {
+            return Err(Status::invalid_argument(
+                "replacement block does not preserve the fenced AFT target parent",
+            ));
+        }
         if expected_target.header.height != request.expected_tip_height
             || expected_target.header.parent_state_root.0 != request.expected_parent_state_root
             || expected_target.header.state_root.0 != request.expected_state_root
@@ -196,7 +225,11 @@ where
         let prepared = machine
             .prepare_block(replacement)
             .await
-            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+            // The projection has already been rewound. Any failure from this
+            // point is terminal for the live process and must reach the
+            // caller's quarantine arm rather than masquerading as a harmless
+            // pre-mutation fence refusal.
+            .map_err(terminal_replacement_error)?;
         let execution_receipts = prepared
             .execution_receipts
             .iter()
@@ -421,6 +454,57 @@ where
             total_transactions: durable_status.total_transactions,
             is_running: durable_status.is_running,
         }))
+    }
+}
+
+#[cfg(test)]
+mod aft_replacement_tests {
+    use super::{replacement_parent_fence_matches, terminal_replacement_error};
+    use tonic::Code;
+
+    #[test]
+    fn replacement_parent_fence_binds_height_hash_and_state_root() {
+        let parent_hash = [0x11; 32];
+        let parent_root = [0x22; 32];
+        assert!(replacement_parent_fence_matches(
+            9,
+            &parent_hash,
+            &parent_root,
+            9,
+            &parent_hash,
+            &parent_root,
+        ));
+        assert!(!replacement_parent_fence_matches(
+            9,
+            &[0x33; 32],
+            &parent_root,
+            9,
+            &parent_hash,
+            &parent_root,
+        ));
+        assert!(!replacement_parent_fence_matches(
+            9,
+            &parent_hash,
+            &[0x44; 32],
+            9,
+            &parent_hash,
+            &parent_root,
+        ));
+        assert!(!replacement_parent_fence_matches(
+            10,
+            &parent_hash,
+            &parent_root,
+            9,
+            &parent_hash,
+            &parent_root,
+        ));
+    }
+
+    #[test]
+    fn every_post_rollback_failure_is_terminal_for_the_live_process() {
+        let status = terminal_replacement_error("planted prepare failure");
+        assert_eq!(status.code(), Code::Aborted);
+        assert_eq!(status.message(), "planted prepare failure");
     }
 }
 

@@ -49,6 +49,10 @@ fn replacement_advances_aft_view(current_view: u64, candidate_view: u64) -> bool
     candidate_view > current_view
 }
 
+fn within_exact_aft_replacement_window(live_height: u64, target_height: u64) -> bool {
+    live_height >= target_height && live_height.saturating_sub(target_height) <= 1
+}
+
 #[derive(Debug)]
 struct WorkloadChainView<V> {
     client_api: Arc<dyn WorkloadClientApi>,
@@ -654,9 +658,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                         return;
                     }
                 };
-                if live_status.height < block.header.height
-                    || live_status.height.saturating_sub(block.header.height) > 1
-                {
+                if !within_exact_aft_replacement_window(live_status.height, block.header.height) {
                     tracing::warn!(
                         target: "consensus",
                         height = block.header.height,
@@ -1038,7 +1040,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
 
 #[cfg(test)]
 mod same_height_replacement_tests {
-    use super::replacement_advances_aft_view;
+    use super::{replacement_advances_aft_view, within_exact_aft_replacement_window};
 
     #[test]
     fn only_a_strictly_later_aft_view_can_replace_a_durable_tip() {
@@ -1046,6 +1048,14 @@ mod same_height_replacement_tests {
         assert!(replacement_advances_aft_view(7, 8));
         assert!(!replacement_advances_aft_view(7, 7));
         assert!(!replacement_advances_aft_view(7, 6));
+    }
+
+    #[test]
+    fn live_replacement_window_is_exactly_target_or_one_descendant() {
+        assert!(within_exact_aft_replacement_window(9, 9));
+        assert!(within_exact_aft_replacement_window(10, 9));
+        assert!(!within_exact_aft_replacement_window(8, 9));
+        assert!(!within_exact_aft_replacement_window(11, 9));
     }
 }
 

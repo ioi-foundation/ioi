@@ -666,8 +666,10 @@ where
 
         // Every fallible fence is complete before split_off mutates the
         // snapshot stack. A crash before the later durable replacement commit
-        // leaves the pre-call durable projection in place; a completed commit
-        // publishes the replacement bytes.
+        // leaves the pre-call durable projection in place. A completed commit
+        // publishes replacement bytes at the target height; any retired higher
+        // projection remains physically present but is hidden by the canonical
+        // committed-height read boundary.
         let retired_snapshots = self.aft_tip_rollbacks.split_off(snapshot_start);
         for snapshot in retired_snapshots.into_iter().rev() {
             {
