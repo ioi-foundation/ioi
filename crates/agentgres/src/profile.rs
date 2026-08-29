@@ -33,9 +33,13 @@
 
 use crate::recognized_effect::{ProfileRefusal, RecognizedEffectError};
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
-use ioi_finality::{emit_single_authority, verify_bundle};
+use ioi_finality::{
+    emit_native_aft_consensus, emit_single_authority, verify_bundle, NativeAftFinalizedBlock,
+    VerificationError, NATIVE_AFT_VOTE_BINDING,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::Arc;
 
 /// The closed set of profile members this spine recognizes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -128,7 +132,10 @@ impl FinalityProfile {
     /// label lands on an admitted member, it lands on a canonical member this
     /// spine does not admit, or it does not resolve at all.
     pub fn resolve_label(value: &str) -> Result<Self, RecognizedEffectError> {
-        if let Some((_, member)) = PROFILE_LABELS.into_iter().find(|(label, _)| *label == value) {
+        if let Some((_, member)) = PROFILE_LABELS
+            .into_iter()
+            .find(|(label, _)| *label == value)
+        {
             return Ok(member);
         }
         if let Some((_, member)) = OUT_OF_SCOPE_LABELS
@@ -315,19 +322,18 @@ impl ProfileBindingsDigest {
 // ---------------------------------------------------------------------------
 // Localized finality adapter seam.
 //
-// This is the ONLY place the spine reaches into `ioi-finality`. A sibling
-// branch is adding a generic two-profile emitter/verifier API there; when it
-// lands, the reconciliation is confined to the impls below — no spine, store,
-// cutover, or test code names an `ioi-finality` symbol.
+// This is the ONLY place the spine reaches into `ioi-finality`. No spine,
+// store, cutover, or test code names an `ioi-finality` symbol.
 //
-// Today `ioi_finality::verify_bundle` refuses every profile except
-// `single_authority`/`single_authority_v1` (it returns
-// `VerificationError::UnsupportedProfile`). There is therefore no honest way
-// to emit or verify a `bft_consensus_aft_v1` bundle from this crate, and this
-// crate does not have write ownership of `crates/ioi-finality`. The AFT
-// binding is consequently fail-closed by default: it refuses with
-// `ProfileRefusal::ProfileNotWired` rather than fabricating a certificate or
-// asserting a verification it did not perform.
+// Both canonical members are now bound to real contracts. `bft_consensus` is
+// bound to the native AFT bridge: it imports the `QuorumCertificate` the live
+// consensus path already produced and never mints a second peer round. What it
+// still needs from the runtime is a way to *reach* that certificate, which is
+// the one genuinely unfinished piece — see `NativeAftQuorumSource`. A
+// `NativeAftBinding` with no source refuses to emit, because the alternative is
+// to fabricate a quorum; but it verifies fully, and its verification is the
+// fence that keeps a checkpoint-round quorum from being admitted as native AFT
+// evidence.
 // ---------------------------------------------------------------------------
 
 /// Per-profile emit/verify adapter. Implementations must be exact: `verify`
@@ -373,34 +379,116 @@ impl ProfileFinalityBinding for SingleAuthorityBinding {
     }
 }
 
-/// `bft_consensus_aft_v1`, awaiting the sibling `ioi-finality` two-profile
-/// API. Fail-closed: it refuses both emission and verification. Profile
-/// identity, epochs, cutover, and fencing for AFT are fully live — only
-/// certificate emission/verification is unwired, and it refuses loudly.
-pub struct PendingAftBinding;
+/// Supplies the already-finalized native AFT block a checkpoint binds to.
+///
+/// This is the integration seam, and it is deliberately narrow. The runtime
+/// owns block storage and consensus; this crate owns neither and must not guess
+/// at either. An implementation is expected to return the committed block's
+/// SCALE-encoded header together with the `QuorumCertificate` that certified
+/// it, and to fail rather than synthesize when the pair is unavailable — a
+/// post-restart synthetic certificate carries no signatures and is not
+/// evidence.
+pub trait NativeAftQuorumSource: Send + Sync {
+    /// The finalized block at `block_height`, with its certificate.
+    fn finalized_block(
+        &self,
+        block_height: u64,
+    ) -> Result<NativeAftFinalizedBlock, RecognizedEffectError>;
+}
 
-impl ProfileFinalityBinding for PendingAftBinding {
+/// `bft_consensus_aft_v1`, bound to the native AFT bridge in `ioi-finality`.
+///
+/// Verification is always live and always strict: a bundle is admitted only if
+/// its quorum verified under [`NATIVE_AFT_VOTE_BINDING`] *and* the verifier
+/// established that the certified block commits to this recognized effect.
+/// The source-neutral bridge currently reports that association as unproven,
+/// so production admission remains fail-closed until the runtime supplies an
+/// explicit, verifiable successor commitment mode. A real block quorum may not
+/// be stapled onto an unrelated effect merely because both artifacts verify.
+pub struct NativeAftBinding {
+    source: Option<Arc<dyn NativeAftQuorumSource>>,
+}
+
+impl NativeAftBinding {
+    /// The production default: verification live, emission fail-closed until a
+    /// quorum source is wired.
+    pub fn unwired() -> Self {
+        Self { source: None }
+    }
+
+    /// Bind a runtime quorum source, enabling emission.
+    pub fn with_source(source: Arc<dyn NativeAftQuorumSource>) -> Self {
+        Self {
+            source: Some(source),
+        }
+    }
+}
+
+impl ProfileFinalityBinding for NativeAftBinding {
     fn profile(&self) -> FinalityProfile {
         FinalityProfile::BftConsensus
     }
 
     fn emit(
         &self,
-        _template: Value,
-        _issuer_key_id: &str,
-        _signing_key: &Ed25519PrivateKey,
+        template: Value,
+        issuer_key_id: &str,
+        signing_key: &Ed25519PrivateKey,
     ) -> Result<Value, RecognizedEffectError> {
-        Err(ProfileRefusal::ProfileNotWired {
-            profile: FinalityProfile::BftConsensus.profile().into(),
-        }
-        .into_error())
+        let Some(source) = self.source.as_ref() else {
+            return Err(ProfileRefusal::ProfileNotWired {
+                profile: FinalityProfile::BftConsensus.profile().into(),
+            }
+            .into_error());
+        };
+        let block_height = template
+            .pointer(
+                "/checkpoint/finality_certificate/consensus_evidence/certified_block/block_height",
+            )
+            .and_then(Value::as_u64)
+            .ok_or_else(|| {
+                RecognizedEffectError::Finality(VerificationError::ConsensusEvidence(
+                    "template declares no certified block height to bind a native AFT quorum to"
+                        .into(),
+                ))
+            })?;
+        let finalized = source.finalized_block(block_height)?;
+        emit_native_aft_consensus(template, &finalized, issuer_key_id, signing_key)
+            .map_err(RecognizedEffectError::Finality)
     }
 
-    fn verify(&self, _bundle: &Value) -> Result<(), RecognizedEffectError> {
-        Err(ProfileRefusal::ProfileNotWired {
-            profile: FinalityProfile::BftConsensus.profile().into(),
+    fn verify(&self, bundle: &Value) -> Result<(), RecognizedEffectError> {
+        let claim = verify_bundle(bundle).map_err(RecognizedEffectError::Finality)?;
+        // `verify_bundle` proves the quorum is real. It does not decide which
+        // quorums this spine may run on, and that is the distinction the
+        // production profile has to enforce: a checkpoint-round quorum is an
+        // honest artifact and still not native consensus evidence.
+        let binding = claim
+            .quorum
+            .as_ref()
+            .map(|quorum| quorum.vote_binding.as_str());
+        if binding != Some(NATIVE_AFT_VOTE_BINDING) {
+            return Err(RecognizedEffectError::Finality(
+                VerificationError::ConsensusEvidence(format!(
+                    "the bft_consensus profile admits only {NATIVE_AFT_VOTE_BINDING} evidence, not {}",
+                    binding.unwrap_or("an absent quorum")
+                )),
+            ));
         }
-        .into_error())
+        let effect_committed = claim
+            .quorum
+            .as_ref()
+            .and_then(|quorum| quorum.certified_block.as_ref())
+            .is_some_and(|block| block.effect_committed_in_block);
+        if !effect_committed {
+            return Err(RecognizedEffectError::Finality(
+                VerificationError::ConsensusEvidence(
+                    "the native AFT quorum certifies a block, but the verifier did not establish that the block commits to this recognized effect"
+                        .into(),
+                ),
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -412,17 +500,28 @@ pub struct ProfileBindings {
 }
 
 impl ProfileBindings {
-    /// Production registry: `single_authority` live, `bft_consensus`
-    /// fail-closed until the sibling emitter API is reconciled.
+    /// Production registry. Both members are bound to real contracts:
+    /// `single_authority` to the single-authority emitter, `bft_consensus` to
+    /// the native AFT bridge. The AFT binding starts without a quorum source,
+    /// and even a sourced block quorum is refused for recognized-effect
+    /// admission until the runtime supplies a verifiable effect-commitment
+    /// successor. This keeps a real quorum from being stapled onto an unrelated
+    /// effect while the runtime boundary is still being integrated.
     pub fn production() -> Self {
         Self {
-            bft_consensus: Box::new(PendingAftBinding),
+            bft_consensus: Box::new(NativeAftBinding::unwired()),
             single_authority: Box::new(SingleAuthorityBinding),
         }
     }
 
-    /// Replace one member's adapter. This is the reconciliation point for the
-    /// sibling `ioi-finality` two-profile API.
+    /// Wire the runtime's native AFT quorum source. This enables construction
+    /// and offline verification of native evidence; recognized-effect
+    /// admission additionally requires a proven block/effect commitment.
+    pub fn with_native_aft_source(self, source: Arc<dyn NativeAftQuorumSource>) -> Self {
+        self.with_binding(Box::new(NativeAftBinding::with_source(source)))
+    }
+
+    /// Replace one member's adapter.
     pub fn with_binding(mut self, binding: Box<dyn ProfileFinalityBinding>) -> Self {
         match binding.profile() {
             FinalityProfile::BftConsensus => self.bft_consensus = binding,
@@ -550,8 +649,7 @@ mod tests {
     #[test]
     fn certificate_variants_bind_their_profile() {
         assert_eq!(
-            FinalityProfile::from_certificate_variant("bft_consensus_aft_v1")
-                .expect("aft variant"),
+            FinalityProfile::from_certificate_variant("bft_consensus_aft_v1").expect("aft variant"),
             FinalityProfile::BftConsensus
         );
         assert_eq!(
@@ -595,19 +693,16 @@ mod tests {
         assert_eq!(SingleAuthority.direction_to(SingleAuthority), None);
     }
 
-    // The AFT certificate seam is unwired, and it must refuse rather than
-    // return a bundle nobody verified.
+    // Production wires the real native AFT adapter. Emission is fail-closed
+    // only because no runtime quorum source exists yet — and it refuses by
+    // naming that, rather than returning a bundle nobody verified.
     #[test]
-    fn aft_binding_is_fail_closed_until_the_sibling_api_lands() {
+    fn production_wires_the_native_aft_binding_and_refuses_to_invent_a_quorum() {
         let bindings = ProfileBindings::production();
         let aft = bindings.binding(FinalityProfile::BftConsensus);
         assert_eq!(aft.profile(), FinalityProfile::BftConsensus);
-        assert!(matches!(
-            aft.verify(&serde_json::json!({})),
-            Err(RecognizedEffectError::Profile(
-                ProfileRefusal::ProfileNotWired { .. }
-            ))
-        ));
+
+        // Emission without a source refuses; it never fabricates a certificate.
         let key = Ed25519PrivateKey::from_bytes(&[3_u8; 32]).expect("test key");
         assert!(matches!(
             aft.emit(serde_json::json!({}), "key://test", &key),
@@ -615,9 +710,31 @@ mod tests {
                 ProfileRefusal::ProfileNotWired { .. }
             ))
         ));
+
+        // Verification is live, so a malformed bundle now fails as a finality
+        // refusal rather than as "not wired". Reading the old `ProfileNotWired`
+        // here would mean the binding still asserts nothing.
+        assert!(matches!(
+            aft.verify(&serde_json::json!({})),
+            Err(RecognizedEffectError::Finality(_))
+        ));
         assert_eq!(
             bindings.binding(FinalityProfile::SingleAuthority).profile(),
             FinalityProfile::SingleAuthority
         );
+    }
+
+    // The production profile must refuse the non-runtime checkpoint round even
+    // though it is a structurally valid `bft_consensus_aft_v1` artifact. This is
+    // the fence that keeps a quorum this crate could mint for itself from being
+    // admitted as imported consensus evidence.
+    #[test]
+    fn production_aft_refuses_a_checkpoint_round_quorum() {
+        let refusal = NativeAftBinding::unwired()
+            .verify(&serde_json::json!({}))
+            .expect_err("an empty bundle cannot verify");
+        // Distinguish the two refusal families explicitly: an unwired binding
+        // must not answer verification with `ProfileNotWired`.
+        assert!(matches!(refusal, RecognizedEffectError::Finality(_)));
     }
 }

@@ -385,7 +385,9 @@ fn a_verified_quorum_does_not_establish_non_equivocation() {
     promoted["requested_axes"] = json!(["non_equivocation"]);
     assert_eq!(
         verify_bundle(&promoted),
-        Err(VerificationError::UnsupportedAxis("non_equivocation".into()))
+        Err(VerificationError::UnsupportedAxis(
+            "non_equivocation".into()
+        ))
     );
 }
 
@@ -507,7 +509,10 @@ fn votes_do_not_transfer_between_checkpoints_or_views() {
     let mut other_batch = bft_template();
     other_batch["operations"][0]["body"] = json!({ "op": "set", "key": "other" });
     let second = prepare_checkpoint(other_batch, "bft_consensus").expect("prepares");
-    assert_ne!(second.vote_message().expect("vote message"), stale.as_slice());
+    assert_ne!(
+        second.vote_message().expect("vote message"),
+        stale.as_slice()
+    );
     let votes = (0..3_usize)
         .map(|index| BftVote {
             member_ref: format!("node://acme/aft/{index}"),
@@ -668,7 +673,8 @@ fn membership_may_not_move_inside_one_authority_epoch() {
         next["resulting_state_entries"][0]["value_hash"] =
             Value::String(format!("sha256:{}", "22".repeat(32)));
         next["previous_checkpoint"] = first["checkpoint"].clone();
-        next["checkpoint"]["previous_checkpoint_ref"] = first["checkpoint"]["checkpoint_id"].clone();
+        next["checkpoint"]["previous_checkpoint_ref"] =
+            first["checkpoint"]["checkpoint_id"].clone();
         next["checkpoint"]["previous_checkpoint_hash"] = first["checkpoint"]["body_hash"].clone();
         next["checkpoint"]["previous_canonical_head"] =
             first["checkpoint"]["resulting_canonical_head"].clone();
@@ -715,4 +721,544 @@ fn checkpoint_state_version_must_advance_exactly_once() {
     template["checkpoint"]["resulting_state_commitment"]["version"] = json!(2);
     let signing_key = Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("test key");
     assert!(emit_single_authority(template, "key://acme/finality/1", &signing_key).is_err());
+}
+
+// ---------------------------------------------------------------------------
+// Native AFT bridge: imported QuorumCertificate evidence
+// ---------------------------------------------------------------------------
+
+use ioi_types::app::{AccountId, StateRoot};
+
+const NATIVE_TEMPLATE: &str = "tests/fixtures/template-offline-native-aft.json";
+const NATIVE_HEIGHT: u64 = 7;
+const NATIVE_VIEW: u64 = 0;
+
+fn native_key_bytes(key: &Ed25519PrivateKey) -> [u8; 32] {
+    key.public_key()
+        .expect("member public key")
+        .to_bytes()
+        .as_slice()
+        .try_into()
+        .expect("ed25519 public keys are 32 bytes")
+}
+
+fn native_members() -> Vec<NativeAftMember> {
+    bft_member_keys()
+        .iter()
+        .enumerate()
+        .map(|(index, key)| NativeAftMember {
+            member_ref: format!("node://acme/aft/{index}"),
+            public_key: native_key_bytes(key),
+        })
+        .collect()
+}
+
+fn native_account(member: &NativeAftMember) -> AccountId {
+    AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &member.public_key)
+            .expect("account id derives"),
+    )
+}
+
+/// A block header shaped like one the live path produces. Only the fields the
+/// bridge actually reads carry meaning: height, view, and the committed
+/// `validator_set` that the declared membership has to derive onto.
+fn native_header(members: &[NativeAftMember], height: u64, view: u64) -> BlockHeader {
+    BlockHeader {
+        height,
+        view,
+        parent_hash: [1_u8; 32],
+        parent_state_root: StateRoot(vec![2_u8; 32]),
+        state_root: StateRoot(vec![3_u8; 32]),
+        transactions_root: vec![4_u8; 32],
+        timestamp: 1_700_000_000,
+        timestamp_ms: 1_700_000_000_000,
+        gas_used: 0,
+        validator_set: members
+            .iter()
+            .map(|member| native_account(member).0.to_vec())
+            .collect(),
+        producer_account_id: native_account(&members[0]),
+        producer_key_suite: SignatureSuite::ED25519,
+        producer_pubkey_hash: [10_u8; 32],
+        producer_pubkey: members[0].public_key.to_vec(),
+        oracle_counter: 0,
+        oracle_trace_hash: [0_u8; 32],
+        guardian_certificate: None,
+        sealed_finality_proof: None,
+        canonical_order_certificate: None,
+        timeout_certificate: None,
+        parent_qc: QuorumCertificate::default(),
+        previous_canonical_collapse_commitment_hash: [0_u8; 32],
+        canonical_collapse_extension_certificate: None,
+        publication_frontier: None,
+        signature: Vec::new(),
+    }
+}
+
+struct NativeFixture {
+    finalized: NativeAftFinalizedBlock,
+    header_bytes: Vec<u8>,
+    block_hash: [u8; 32],
+}
+
+/// Build a finalized block plus the certificate the live path would have formed
+/// over it. `voters` names which members signed; every signature is a real
+/// Ed25519 signature over the real native preimage.
+fn native_fixture(voters: &[usize], height: u64, view: u64) -> NativeFixture {
+    let keys = bft_member_keys();
+    let members = native_members();
+    let header = native_header(&members, height, view);
+    let header_bytes = to_bytes_canonical(&header).expect("header encodes");
+    let block_hash: [u8; 32] = header
+        .hash()
+        .expect("header hashes")
+        .as_slice()
+        .try_into()
+        .expect("32-byte digest");
+    let message = native_aft_vote_message(height, view, &block_hash).expect("vote message");
+    let signatures = voters
+        .iter()
+        .map(|index| {
+            (
+                native_account(&members[*index]),
+                keys[*index]
+                    .sign(&message)
+                    .expect("member signs")
+                    .to_bytes()
+                    .to_vec(),
+            )
+        })
+        .collect();
+    NativeFixture {
+        finalized: NativeAftFinalizedBlock {
+            block_header_bytes: header_bytes.clone(),
+            quorum_certificate: QuorumCertificate {
+                height,
+                view,
+                block_hash,
+                signatures,
+                aggregated_signature: Vec::new(),
+                signers_bitfield: Vec::new(),
+            },
+            members,
+            membership_ref: "node-membership://acme/aft/1".into(),
+            membership_epoch: 1,
+            consensus_protocol_ref: "protocol://ioi/aft/v1".into(),
+            byzantine_fault_tolerance: 1,
+        },
+        header_bytes,
+        block_hash,
+    }
+}
+
+/// The template with its availability declaration filled in from the real
+/// header bytes, the way a runtime would publish the block before certifying.
+fn native_template(header_bytes: &[u8]) -> Value {
+    let mut template = fixture(NATIVE_TEMPLATE);
+    template["checkpoint"]["availability_manifest"]["payloads"][0]["payload_hash"] =
+        Value::String(hash_bytes(header_bytes));
+    template["checkpoint"]["availability_manifest"]["payloads"][0]["byte_length"] =
+        json!(header_bytes.len());
+    template["availability_payloads"][0]["payload_base64"] =
+        Value::String(BASE64.encode(header_bytes));
+    template
+}
+
+fn native_issuer() -> Ed25519PrivateKey {
+    Ed25519PrivateKey::from_bytes(&[7_u8; 32]).expect("issuer key")
+}
+
+fn native_bundle_from(fixture: &NativeFixture) -> Result<Value, VerificationError> {
+    emit_native_aft_consensus(
+        native_template(&fixture.header_bytes),
+        &fixture.finalized,
+        "key://acme/finality/1",
+        &native_issuer(),
+    )
+}
+
+fn signed_native_bundle() -> Value {
+    native_bundle_from(&native_fixture(&[0, 1, 2], NATIVE_HEIGHT, NATIVE_VIEW))
+        .expect("native fixture emits and self-verifies")
+}
+
+/// Mutate the certificate and then **re-issue it with the real issuer key**, so
+/// the outer signature is valid again. A refusal therefore proves the quorum
+/// rule held on its own, rather than the issuer signature catching the edit.
+/// This is the threat model that matters: the issuer is not the safety source.
+fn native_reissued(mutate: impl FnOnce(&mut Value)) -> Value {
+    let mut bundle = signed_native_bundle();
+    mutate(&mut bundle);
+    let issuer = native_issuer();
+    let certificate = bundle
+        .pointer_mut("/checkpoint/finality_certificate")
+        .expect("certificate");
+    let body = hash_value(&without(certificate, &["body_hash", "signature"]).expect("preimage"))
+        .expect("body hash");
+    set_text(certificate, "body_hash", body.clone()).expect("rewrite body hash");
+    let message = format!("ioi.finality-certificate.v1\0{body}");
+    let signature = issuer.sign(message.as_bytes()).expect("issuer re-signs");
+    set_text(certificate, "signature", hex::encode(signature.to_bytes()))
+        .expect("rewrite signature");
+    let outer =
+        hash_value(&without(&bundle, &["bundle_hash"]).expect("outer preimage")).expect("outer");
+    set_text(&mut bundle, "bundle_hash", outer).expect("rewrite bundle hash");
+    bundle
+}
+
+#[test]
+fn native_aft_quorum_verifies_offline_and_reports_its_binding() {
+    let bundle = signed_native_bundle();
+    let claim = verify_bundle(&bundle).expect("native bundle verifies");
+    assert_eq!(claim.profile, "bft_consensus");
+    assert_eq!(claim.certificate_variant, "bft_consensus_aft_v1");
+    let quorum = claim.quorum.expect("native evidence claims a quorum");
+    assert_eq!(quorum.vote_binding, NATIVE_AFT_VOTE_BINDING);
+    assert_eq!(quorum.total_voting_members, 4);
+    assert_eq!(quorum.quorum_threshold, 3);
+    assert_eq!(quorum.distinct_member_signatures_verified, 3);
+
+    let block = quorum
+        .certified_block
+        .expect("native evidence names a block");
+    assert_eq!(block.block_height, NATIVE_HEIGHT);
+    assert_eq!(block.block_view, NATIVE_VIEW);
+    assert!(
+        block.block_bytes_reverified,
+        "the supplied header bytes must be re-hashed, not trusted"
+    );
+    // The load-bearing nonclaim: a verified quorum certifies the block, never
+    // this checkpoint's effect.
+    assert!(!block.effect_committed_in_block);
+}
+
+#[test]
+fn the_checkpoint_round_and_the_native_binding_are_never_interchangeable() {
+    // The non-runtime round still works, and still reports itself as such.
+    let round = verify_bundle(&signed_bft_bundle()).expect("checkpoint round verifies");
+    assert_eq!(
+        round.quorum.expect("quorum").vote_binding,
+        CHECKPOINT_VOTE_BINDING
+    );
+
+    // A native-bound template may not be finalized through the fresh-round API,
+    // which would install signatures over the wrong message entirely.
+    let fixture = native_fixture(&[0, 1, 2], NATIVE_HEIGHT, NATIVE_VIEW);
+    let mut template = native_template(&fixture.header_bytes);
+    template["checkpoint"]["finality_certificate"]["consensus_evidence"]["votes"] = json!([]);
+    let prepared = prepare_checkpoint(template, "bft_consensus").expect("prepares");
+    assert!(
+        prepared.vote_message().is_none(),
+        "a native template must offer no message for a second signature round"
+    );
+    assert_eq!(prepared.vote_binding(), Some(NATIVE_AFT_VOTE_BINDING));
+    assert!(matches!(
+        finalize_bft_consensus(prepared, &[], "key://acme/finality/1", &native_issuer()),
+        Err(VerificationError::ConsensusEvidence(_))
+    ));
+}
+
+#[test]
+fn native_votes_are_verified_against_the_exact_native_preimage() {
+    // The signed bytes are SCALE over `(height, view, block_hash)` — reproduced
+    // here independently of the emitter to pin the wire format itself.
+    let fixture = native_fixture(&[0, 1, 2], NATIVE_HEIGHT, NATIVE_VIEW);
+    let message =
+        native_aft_vote_message(NATIVE_HEIGHT, NATIVE_VIEW, &fixture.block_hash).expect("message");
+    let mut expected = Vec::new();
+    expected.extend_from_slice(&NATIVE_HEIGHT.to_le_bytes());
+    expected.extend_from_slice(&NATIVE_VIEW.to_le_bytes());
+    expected.extend_from_slice(&fixture.block_hash);
+    assert_eq!(
+        message, expected,
+        "native preimage must be 8+8+32 SCALE bytes"
+    );
+
+    // A signature over anything else — here the same tuple at another view —
+    // must not verify, which is what stops a vote being re-aimed at a decision
+    // its signer never made.
+    let other = native_aft_vote_message(NATIVE_HEIGHT, NATIVE_VIEW + 1, &fixture.block_hash)
+        .expect("message");
+    assert_ne!(message, other);
+}
+
+/// Height, view, and block-hash substitutions all break the preimage the votes
+/// signed, so each must refuse even though the issuer re-signs the edit.
+#[test]
+fn certified_block_identity_substitutions_fail_closed() {
+    for (label, pointer, replacement) in [
+        (
+            "height",
+            "/checkpoint/finality_certificate/consensus_evidence/certified_block/block_height",
+            json!(NATIVE_HEIGHT + 1),
+        ),
+        (
+            "view",
+            "/checkpoint/finality_certificate/consensus_evidence/view",
+            json!(NATIVE_VIEW + 1),
+        ),
+        (
+            "block hash",
+            "/checkpoint/finality_certificate/consensus_evidence/certified_block/block_hash",
+            Value::String(format!("sha256:{}", "ab".repeat(32))),
+        ),
+    ] {
+        let bundle = native_reissued(|bundle| {
+            *bundle.pointer_mut(pointer).expect("pointer exists") = replacement;
+        });
+        assert!(
+            verify_bundle(&bundle).is_err(),
+            "{label} substitution unexpectedly verified"
+        );
+    }
+}
+
+#[test]
+fn substituted_vote_bytes_and_members_fail_closed() {
+    // A tampered signature.
+    let forged = native_reissued(|bundle| {
+        bundle["checkpoint"]["finality_certificate"]["consensus_evidence"]["votes"][0]
+            ["signature"] = Value::String("00".repeat(64));
+    });
+    assert!(matches!(
+        verify_bundle(&forged),
+        Err(VerificationError::ConsensusEvidence(_) | VerificationError::Crypto(_))
+    ));
+
+    // A vote reassigned to a member who did not cast it: the signature no
+    // longer verifies under that member's key.
+    let reassigned = native_reissued(|bundle| {
+        bundle["checkpoint"]["finality_certificate"]["consensus_evidence"]["votes"][0]
+            ["member_ref"] = Value::String("node://acme/aft/3".into());
+    });
+    assert!(matches!(
+        verify_bundle(&reassigned),
+        Err(VerificationError::ConsensusEvidence(_))
+    ));
+
+    // A member key swapped for one that was never in the block's committed
+    // validator set.
+    let outsider = Ed25519PrivateKey::from_bytes(&[99_u8; 32]).expect("outsider");
+    let swapped = native_reissued(|bundle| {
+        bundle["checkpoint"]["finality_certificate"]["consensus_evidence"]["members"][3]
+            ["public_key"] = Value::String(hex::encode(native_key_bytes(&outsider)));
+    });
+    assert!(
+        verify_bundle(&swapped).is_err(),
+        "a key outside the certified block's validator set must refuse"
+    );
+}
+
+#[test]
+fn a_quorum_certificate_from_outside_the_committed_validator_set_is_refused() {
+    // The engine forms a QC without checking membership at all, so this is the
+    // exact class of certificate the bridge has to catch on its own.
+    let mut fixture = native_fixture(&[0, 1, 2], NATIVE_HEIGHT, NATIVE_VIEW);
+    let outsider = Ed25519PrivateKey::from_bytes(&[123_u8; 32]).expect("outsider");
+    let message =
+        native_aft_vote_message(NATIVE_HEIGHT, NATIVE_VIEW, &fixture.block_hash).expect("message");
+    let account = AccountId(
+        account_id_from_key_material(SignatureSuite::ED25519, &native_key_bytes(&outsider))
+            .expect("account"),
+    );
+    fixture.finalized.quorum_certificate.signatures[2] = (
+        account,
+        outsider.sign(&message).expect("sign").to_bytes().to_vec(),
+    );
+    let refusal = native_bundle_from(&fixture).expect_err("undeclared signer must refuse");
+    assert!(matches!(refusal, VerificationError::ConsensusEvidence(_)));
+}
+
+#[test]
+fn weight_quorum_and_fault_model_substitutions_fail_closed() {
+    // Below the threshold: two of four is not a quorum.
+    let short = native_fixture(&[0, 1], NATIVE_HEIGHT, NATIVE_VIEW);
+    assert!(
+        native_bundle_from(&short).is_err(),
+        "two of four members is not a byzantine quorum"
+    );
+
+    // A relabelled fault model.
+    let unfaulted = native_reissued(|bundle| {
+        bundle["checkpoint"]["finality_certificate"]["consensus_evidence"]["fault_model"] =
+            Value::String("crash".into());
+    });
+    assert!(verify_bundle(&unfaulted).is_err());
+
+    // A dropped synchrony declaration.
+    let asynchronous = native_reissued(|bundle| {
+        bundle["checkpoint"]["finality_certificate"]["consensus_evidence"]["synchrony_model"] =
+            Value::String("asynchronous".into());
+    });
+    assert!(verify_bundle(&asynchronous).is_err());
+
+    // A threshold lowered to a simple majority is a guardian-majority quorum
+    // wearing a byzantine label, and must refuse even with the votes present.
+    let majority = native_reissued(|bundle| {
+        bundle["checkpoint"]["finality_certificate"]["consensus_evidence"]["quorum_threshold"] =
+            json!(2);
+    });
+    assert!(verify_bundle(&majority).is_err());
+
+    // `2f + 1` is not sufficient when `n > 3f + 1`: five members tolerating one
+    // fault need four, because two three-member quorums can meet only at the
+    // faulty one.
+    let understated = native_reissued(|bundle| {
+        let evidence = &mut bundle["checkpoint"]["finality_certificate"]["consensus_evidence"];
+        evidence["total_voting_members"] = json!(5);
+        evidence["quorum_threshold"] = json!(3);
+    });
+    assert!(matches!(
+        verify_bundle(&understated),
+        Err(VerificationError::ConsensusEvidence(_))
+    ));
+}
+
+#[test]
+fn profile_and_variant_substitutions_fail_closed() {
+    let mut relabelled = signed_native_bundle();
+    relabelled["checkpoint"]["profile"] = Value::String("single_authority".into());
+    relabelled["checkpoint"]["finality_certificate"]["profile"] =
+        Value::String("single_authority".into());
+    assert!(matches!(
+        verify_bundle(&relabelled),
+        Err(VerificationError::UnsupportedProfile { .. })
+    ));
+
+    let mut variant = signed_native_bundle();
+    variant["checkpoint"]["finality_certificate"]["certificate_variant"] =
+        Value::String("single_authority_v1".into());
+    // A non-BFT variant carrying consensus evidence refuses on the negation
+    // rule the schema dialect cannot express.
+    assert!(matches!(
+        verify_bundle(&variant),
+        Err(VerificationError::UnsupportedProfile { .. } | VerificationError::ConsensusEvidence(_))
+    ));
+
+    // A native binding may not shed its certified block, and a checkpoint round
+    // may not acquire one.
+    let unbound = native_reissued(|bundle| {
+        let evidence = bundle["checkpoint"]["finality_certificate"]["consensus_evidence"]
+            .as_object_mut()
+            .expect("evidence object");
+        evidence.remove("certified_block");
+    });
+    assert!(verify_bundle(&unbound).is_err());
+
+    let mislabelled = native_reissued(|bundle| {
+        bundle["checkpoint"]["finality_certificate"]["consensus_evidence"]["vote_binding"] =
+            Value::String(CHECKPOINT_VOTE_BINDING.into());
+    });
+    assert!(matches!(
+        verify_bundle(&mislabelled),
+        Err(VerificationError::ConsensusEvidence(_))
+    ));
+}
+
+#[test]
+fn substituted_availability_block_bytes_fail_closed() {
+    // Swapping the published header for another real header must refuse: the
+    // block a verifier can retrieve has to be the block that was certified.
+    let other = native_fixture(&[0, 1, 2], NATIVE_HEIGHT + 1, NATIVE_VIEW);
+    let mut bundle = signed_native_bundle();
+    bundle["availability_payloads"][0]["payload_base64"] =
+        Value::String(BASE64.encode(&other.header_bytes));
+    let outer =
+        hash_value(&without(&bundle, &["bundle_hash"]).expect("outer preimage")).expect("outer");
+    set_text(&mut bundle, "bundle_hash", outer).expect("rewrite bundle hash");
+    assert!(verify_bundle(&bundle).is_err());
+
+    // And a header the manifest never declared cannot be smuggled in by
+    // rewriting the manifest hash alongside it.
+    let mut swapped = native_reissued(|_| {});
+    swapped["availability_payloads"][0]["payload_base64"] = Value::String(BASE64.encode([1_u8; 8]));
+    let outer =
+        hash_value(&without(&swapped, &["bundle_hash"]).expect("outer preimage")).expect("outer");
+    set_text(&mut swapped, "bundle_hash", outer).expect("rewrite bundle hash");
+    assert!(verify_bundle(&swapped).is_err());
+}
+
+#[test]
+fn an_aggregated_bls_certificate_is_refused_rather_than_partially_counted() {
+    // The aggregate fields are dead in the engine today. If one is ever
+    // populated this bridge cannot check it, so it must refuse rather than
+    // silently verify only the explicit list and report a full quorum.
+    let mut fixture = native_fixture(&[0, 1, 2], NATIVE_HEIGHT, NATIVE_VIEW);
+    fixture.finalized.quorum_certificate.aggregated_signature = vec![9_u8; 96];
+    assert!(matches!(
+        native_bundle_from(&fixture),
+        Err(VerificationError::ConsensusEvidence(_))
+    ));
+}
+
+#[test]
+fn a_header_that_does_not_hash_to_the_certified_block_is_refused() {
+    let mut fixture = native_fixture(&[0, 1, 2], NATIVE_HEIGHT, NATIVE_VIEW);
+    // Keep the certificate, swap the header for a different real one.
+    let other = native_fixture(&[0, 1, 2], NATIVE_HEIGHT, NATIVE_VIEW + 5);
+    fixture.finalized.block_header_bytes = other.header_bytes.clone();
+    assert!(matches!(
+        emit_native_aft_consensus(
+            native_template(&other.header_bytes),
+            &fixture.finalized,
+            "key://acme/finality/1",
+            &native_issuer(),
+        ),
+        Err(VerificationError::ConsensusEvidence(_))
+    ));
+}
+
+#[test]
+fn a_block_committing_no_validator_set_binds_no_membership() {
+    let members = native_members();
+    let mut header = native_header(&members, NATIVE_HEIGHT, NATIVE_VIEW);
+    header.validator_set = Vec::new();
+    let header_bytes = to_bytes_canonical(&header).expect("encodes");
+    let block_hash: [u8; 32] = header
+        .hash()
+        .expect("hashes")
+        .as_slice()
+        .try_into()
+        .expect("32 bytes");
+    let message =
+        native_aft_vote_message(NATIVE_HEIGHT, NATIVE_VIEW, &block_hash).expect("message");
+    let keys = bft_member_keys();
+    let signatures = [0_usize, 1, 2]
+        .iter()
+        .map(|index| {
+            (
+                native_account(&members[*index]),
+                keys[*index]
+                    .sign(&message)
+                    .expect("sign")
+                    .to_bytes()
+                    .to_vec(),
+            )
+        })
+        .collect();
+    let finalized = NativeAftFinalizedBlock {
+        block_header_bytes: header_bytes.clone(),
+        quorum_certificate: QuorumCertificate {
+            height: NATIVE_HEIGHT,
+            view: NATIVE_VIEW,
+            block_hash,
+            signatures,
+            aggregated_signature: Vec::new(),
+            signers_bitfield: Vec::new(),
+        },
+        members,
+        membership_ref: "node-membership://acme/aft/1".into(),
+        membership_epoch: 1,
+        consensus_protocol_ref: "protocol://ioi/aft/v1".into(),
+        byzantine_fault_tolerance: 1,
+    };
+    let refusal = emit_native_aft_consensus(
+        native_template(&header_bytes),
+        &finalized,
+        "key://acme/finality/1",
+        &native_issuer(),
+    )
+    .expect_err("an empty committed validator set pins nothing");
+    assert!(matches!(refusal, VerificationError::ConsensusEvidence(_)));
 }

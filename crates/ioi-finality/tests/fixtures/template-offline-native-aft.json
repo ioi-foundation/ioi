@@ -3,14 +3,14 @@
   "bundle_type": "ioi.receipt-proof-bundle",
   "bundle_domain": "ioi.receipt-proof-bundle.v2",
   "schema_hash": "sha256:0404040404040404040404040404040404040404040404040404040404040404",
-  "bundle_id": "proof://acme/bft/1",
+  "bundle_id": "proof://acme/native-aft/1",
   "bundle_hash": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
   "checkpoint": {
     "schema_version": "ioi.foundations.receipt-checkpoint.v2",
     "checkpoint_type": "ioi.receipt-checkpoint",
     "checkpoint_domain": "ioi.receipt-checkpoint.v2",
     "schema_hash": "sha256:0303030303030303030303030303030303030303030303030303030303030303",
-    "checkpoint_id": "receipt-checkpoint://acme/bft/1",
+    "checkpoint_id": "receipt-checkpoint://acme/native-aft/1",
     "body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
     "domain_id": "system://acme",
     "authority_epoch": 1,
@@ -70,7 +70,7 @@
     },
     "availability_manifest": {
       "schema_version": "ioi.availability-manifest.v1",
-      "manifest_id": "availability-manifest://acme/bft/1",
+      "manifest_id": "availability-manifest://acme/native-aft/1",
       "manifest_hash": "sha256:abababababababababababababababababababababababababababababababab",
       "claim_status": "verified",
       "retention": {
@@ -81,7 +81,22 @@
         "independent_failure_domains": 2,
         "deletion_or_archive_policy_ref": "policy://acme/retention/replicated"
       },
-      "payloads": [],
+      "payloads": [
+        {
+          "payload_ref": "artifact://acme/aft/block-header/7",
+          "payload_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "byte_length": 0,
+          "location_refs": [
+            "location://acme/block-store/primary",
+            "location://acme/block-store/replica"
+          ],
+          "failure_domain_refs": [
+            "failure-domain://acme/rack-a",
+            "failure-domain://acme/rack-b"
+          ],
+          "retrieval_evidence_refs": ["evidence://acme/aft/block-header/7/retrieved"]
+        }
+      ],
       "availability_verifier_contract_ref": "verifier-contract://ioi/receipt-proof-v2/bft-consensus",
       "availability_verifier_contract_hash": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
       "failure_behavior": "fail_closed"
@@ -92,9 +107,7 @@
       "schema_version": "ioi.verifier-contract.v1",
       "verifier_contract_id": "verifier-contract://ioi/receipt-proof-v2/bft-consensus",
       "verifier_contract_hash": "sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc",
-      "supported_checkpoint_versions": [
-        "ioi.foundations.receipt-checkpoint.v2"
-      ],
+      "supported_checkpoint_versions": ["ioi.foundations.receipt-checkpoint.v2"],
       "supported_profile_members": ["bft_consensus"],
       "supported_certificate_variants": ["bft_consensus_aft_v1"],
       "axes": [
@@ -115,7 +128,7 @@
       "schema_version": "ioi.finality-certificate.v1",
       "certificate_domain": "ioi.finality-certificate.v1",
       "certificate_variant": "bft_consensus_aft_v1",
-      "certificate_id": "finality-certificate://acme/bft/1",
+      "certificate_id": "finality-certificate://acme/native-aft/1",
       "domain_id": "system://acme",
       "authority_epoch": 1,
       "authority_revocation_epoch": 0,
@@ -135,7 +148,7 @@
       "consensus_evidence": {
         "schema_version": "ioi.bft-consensus-evidence.v1",
         "consensus_protocol_ref": "protocol://ioi/aft/v1",
-        "vote_binding": "checkpoint_quorum_v1",
+        "vote_binding": "native_aft_quorum_certificate_v1",
         "membership_ref": "node-membership://acme/aft/1",
         "membership_epoch": 1,
         "fault_model": "byzantine",
@@ -163,7 +176,14 @@
           }
         ],
         "votes": [],
-        "membership_hash": "sha256:dededededededededededededededededededededededededededededededede"
+        "membership_hash": "sha256:dededededededededededededededededededededededededededededededede",
+        "certified_block": {
+          "block_height": 7,
+          "block_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "block_payload_ref": "artifact://acme/aft/block-header/7",
+          "vote_message_domain": "ioi.aft-consensus-vote.scale-height-view-block-hash.v1",
+          "effect_commitment": "declared_association_v1"
+        }
       }
     }
   },
@@ -189,7 +209,12 @@
       "value_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
     }
   ],
-  "availability_payloads": [],
+  "availability_payloads": [
+    {
+      "payload_ref": "artifact://acme/aft/block-header/7",
+      "payload_base64": ""
+    }
+  ],
   "trusted_issuer": {
     "issuer_key_id": "key://acme/finality/1",
     "issuer_public_key": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",

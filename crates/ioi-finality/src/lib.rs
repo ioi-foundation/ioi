@@ -27,9 +27,52 @@
 //! A `bft_consensus` label and a single issuer signature are not peer safety.
 //! [`verify_bundle`] therefore refuses a `bft_consensus_aft_v1` certificate
 //! unless a declared membership of distinct members with distinct keys produced
-//! at least a `2f + 1` quorum of distinct verified signatures over the exact
-//! checkpoint, under a membership that tolerates at least one Byzantine fault
-//! and satisfies `n >= 3f + 1`.
+//! a quorum of distinct verified signatures over the exact message the evidence
+//! names, under a membership that tolerates at least one Byzantine fault,
+//! satisfies `n >= 3f + 1`, and meets `2q > n + f`. That last bound, not the
+//! familiar `2f + 1`, is the one that actually holds for every `n`: at
+//! `n = 5, f = 1` two `2f + 1` quorums can intersect in exactly the Byzantine
+//! member, so `2f + 1` alone would admit conflicting "honest" quorums.
+//!
+//! ## Two vote bindings, and why they must never be confused
+//!
+//! `bft_consensus_aft_v1` evidence declares a `vote_binding` naming which bytes
+//! the members signed. The distinction is load-bearing:
+//!
+//! * [`NATIVE_AFT_VOTE_BINDING`] imports the `QuorumCertificate` the live AFT
+//!   path already produced. The members signed the native SCALE
+//!   `(height, view, block_hash)` payload, reproduced here through the same
+//!   `ioi_types` codec the validator uses, so this bridge cannot drift from the
+//!   algorithm it imports and adds no peer round to it. Membership is not taken
+//!   on the issuer's word: each declared key is put through the chain's own
+//!   `AccountId` derivation and the resulting set must equal the certified
+//!   block header's committed `validator_set` exactly — a field inside the
+//!   header's signing preimage, and therefore covered by the very hash the
+//!   votes signed. This is the only binding a runtime may present as native AFT
+//!   evidence. See [`emit_native_aft_consensus`].
+//! * [`CHECKPOINT_VOTE_BINDING`] is this crate's own round over a prepared
+//!   checkpoint. It is an honest quorum over an honest message, but it is *not*
+//!   native AFT evidence: the AFT algorithm never signed a checkpoint. It is
+//!   retained as a non-runtime surface only, and the Agentgres production
+//!   adapter refuses it.
+//!
+//! The verifier reports the binding on [`VerifiedQuorum::vote_binding`]. A
+//! relying party that needs native consensus safety must read that field: the
+//! `bft_consensus_aft_v1` variant alone does not distinguish the two.
+//!
+//! ## What the native binding does not establish
+//!
+//! The imported quorum certifies **a block**. Nothing in it commits to this
+//! checkpoint's recognized effect, so the checkpoint's association with that
+//! block is declared by the issuer and recomputed by nobody; see
+//! [`VerifiedNativeAftBlock::effect_committed_in_block`]. Separately, the live
+//! engine does not itself verify these signatures — it forms a quorum on a vote
+//! count and discards the signature bytes — so a claim here is never "consensus
+//! accepted it" but only "these bytes verify offline", which is strictly
+//! stronger. Finally, the native preimage carries no domain separator and no
+//! chain identifier. That is a property of the AFT algorithm, preserved rather
+//! than patched; the block hash covers the parent, state roots, and validator
+//! set, so a cross-chain replay would have to be the same block.
 //!
 //! ## Certificate compatibility
 //!
@@ -58,6 +101,8 @@ use ioi_crypto::sign::eddsa::{Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signat
 use ioi_types::app::generated::architecture_contracts::{
     architecture_contract_schema_hash, validate_architecture_contract,
 };
+use ioi_types::app::{account_id_from_key_material, BlockHeader, SignatureSuite};
+use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
@@ -74,6 +119,43 @@ const CERTIFICATE_V1: &str = "schema://ioi/foundations/finality-certificate/v1";
 const CONSENSUS_EVIDENCE_V1: &str = "ioi.bft-consensus-evidence.v1";
 const CONSENSUS_MEMBERSHIP_DOMAIN: &str = "ioi.bft-consensus-membership.v1";
 const CONSENSUS_VOTE_DOMAIN: &str = "ioi.bft-consensus-vote.v1";
+
+/// `vote_binding` for evidence imported from the live AFT consensus path. The
+/// members signed the native `(height, view, block_hash)` payload; this crate
+/// re-verifies those exact bytes and never asks for a second round.
+pub const NATIVE_AFT_VOTE_BINDING: &str = "native_aft_quorum_certificate_v1";
+
+/// `vote_binding` for the fresh, non-runtime round this crate can also collect
+/// over a prepared checkpoint. It is a real quorum over a real message, but it
+/// is **not** native AFT evidence and no runtime path may present it as such.
+pub const CHECKPOINT_VOTE_BINDING: &str = "checkpoint_quorum_v1";
+
+/// Names the exact preimage native AFT voters sign, so the artifact states the
+/// signed bytes instead of leaving a relying party to assume them.
+const NATIVE_AFT_VOTE_DOMAIN: &str = "ioi.aft-consensus-vote.scale-height-view-block-hash.v1";
+
+/// The only implemented checkpoint/block association. See
+/// [`VerifiedNativeAftBlock::effect_committed_in_block`].
+const DECLARED_ASSOCIATION: &str = "declared_association_v1";
+
+/// The exact native AFT vote preimage: SCALE over `(height, view, block_hash)`,
+/// which is byte-for-byte what `codec::to_bytes_canonical(&vote_payload)`
+/// produces at every validator vote site. It is reproduced through the same
+/// `ioi_types` codec rather than re-implemented, so this bridge cannot drift
+/// from the algorithm it imports.
+///
+/// Note what these bytes do **not** carry: no domain separator and no chain
+/// identifier. That is a property of the AFT algorithm, which this bridge
+/// preserves rather than "fixes" — adding a separator here would verify bytes
+/// no validator ever signed. See the replay nonclaim on [`VerifiedQuorum`].
+pub fn native_aft_vote_message(
+    height: u64,
+    view: u64,
+    block_hash: &[u8; 32],
+) -> Result<Vec<u8>, VerificationError> {
+    to_bytes_canonical(&(height, view, *block_hash))
+        .map_err(|error| VerificationError::Field(format!("native AFT vote payload: {error}")))
+}
 
 /// Canonical `ioi.ordering-admission-finality-profile.v1` member set, owned by
 /// `docs/architecture/foundations/canonical-enums.md`. A wire `profile` value
@@ -152,9 +234,41 @@ pub struct VerifiedQuorum {
     pub total_voting_members: u64,
     pub byzantine_fault_tolerance: u64,
     pub quorum_threshold: u64,
-    /// Distinct declared members whose signature over this exact checkpoint
-    /// verified. Never a count of signature bytes present.
+    /// Distinct declared members whose signature over the exact message named by
+    /// `vote_binding` verified. Never a count of signature bytes present.
     pub distinct_member_signatures_verified: u64,
+    /// Which bytes the members actually signed: [`NATIVE_AFT_VOTE_BINDING`] for
+    /// evidence imported from the live consensus path, or
+    /// [`CHECKPOINT_VOTE_BINDING`] for this crate's own non-runtime round.
+    /// A relying party that needs native AFT safety must read this field —
+    /// the `bft_consensus_aft_v1` variant alone does not distinguish them.
+    pub vote_binding: String,
+    /// Present only under [`NATIVE_AFT_VOTE_BINDING`]. `None` says no native
+    /// block was claimed or checked, never that one was assumed.
+    pub certified_block: Option<VerifiedNativeAftBlock>,
+}
+
+/// The native AFT block facts recomputed from durable header bytes. Every field
+/// here was derived, not read off the certificate.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifiedNativeAftBlock {
+    pub block_height: u64,
+    pub block_view: u64,
+    pub block_hash: String,
+    pub block_payload_ref: String,
+    /// True when the durable header bytes were supplied and re-hashed to
+    /// `block_hash`, and the declared membership derived exactly onto the
+    /// header's own committed `validator_set`. False only on the predecessor
+    /// path, where the bundle carries no payloads for a prior checkpoint; the
+    /// predecessor's membership is still pinned by the `membership_hash`
+    /// equality that `INV-42` enforces against this checkpoint.
+    pub block_bytes_reverified: bool,
+    /// Always `false` today, and deliberately so. The native quorum certifies
+    /// **the block**; nothing in it commits to this checkpoint's recognized
+    /// effect. Establishing that needs the execution seam that puts the effect
+    /// into the block, plus a new named `effect_commitment` mode. A relying
+    /// party must not read a verified quorum as peer agreement on the effect.
+    pub effect_committed_in_block: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -474,7 +588,13 @@ fn verify_material_range(
     }
 }
 
-fn verify_availability(checkpoint: &Value, bundle: &Value) -> Result<(), VerificationError> {
+/// Returns the supplied payload bytes, keyed by `payload_ref`, so a later step
+/// can read a payload this function already hash-checked instead of decoding
+/// and trusting it a second time.
+fn verify_availability(
+    checkpoint: &Value,
+    bundle: &Value,
+) -> Result<BTreeMap<String, Vec<u8>>, VerificationError> {
     let manifest = field(checkpoint, "availability_manifest")?;
     validate(AVAILABILITY_V1, manifest)?;
     validate(RETENTION_V1, field(manifest, "retention")?)?;
@@ -556,7 +676,7 @@ fn verify_availability(checkpoint: &Value, bundle: &Value) -> Result<(), Verific
             ));
         }
     }
-    Ok(())
+    Ok(supplied_by_ref)
 }
 
 fn refuse_evidence(detail: impl Into<String>) -> VerificationError {
@@ -564,16 +684,22 @@ fn refuse_evidence(detail: impl Into<String>) -> VerificationError {
 }
 
 /// JCS hash over exactly the membership-defining surface: every evidence field
-/// except the recorded hash, the votes cast under it, and the view. Binding it
-/// means a membership, threshold, or fault-model swap cannot hide behind a
-/// quorum that verified against a different set. The view is excluded on
-/// purpose — it identifies one decision, not the membership, and successive
-/// checkpoints inside one authority epoch advance the view while the membership
-/// must not move. The vote message binds the view separately.
+/// except the recorded hash, the votes cast under it, the view, and the
+/// certified block. Binding it means a membership, threshold, fault-model, or
+/// vote-binding swap cannot hide behind a quorum that verified against a
+/// different set. The view and the certified block are excluded on purpose —
+/// each identifies one decision, not the membership, and successive checkpoints
+/// inside one authority epoch advance both while the membership must not move.
+/// The vote message binds the view and the block identity separately, and
+/// `INV-42` compares this hash across adjacent checkpoints, so including either
+/// would make that comparison always fail rather than catch a real swap.
 fn consensus_membership_hash(evidence: &Value) -> Result<String, VerificationError> {
     hash_value(&json!({
         "domain": CONSENSUS_MEMBERSHIP_DOMAIN,
-        "membership": without(evidence, &["membership_hash", "votes", "view"])?,
+        "membership": without(
+            evidence,
+            &["membership_hash", "votes", "view", "certified_block"],
+        )?,
     }))
 }
 
@@ -617,6 +743,141 @@ fn verify_variant_evidence_presence(
     }
 }
 
+/// `certified_block` is required under the native binding and forbidden under
+/// the checkpoint-round binding. The schema states the required direction only,
+/// so — exactly as with `consensus_evidence` itself — the forbidden direction is
+/// this verifier's obligation. Both the emitter and the verifier call this, so
+/// no artifact this crate produces or accepts staples a native block onto a
+/// quorum that never signed one.
+fn verify_binding_block_presence(
+    evidence: &Value,
+    vote_binding: &str,
+) -> Result<(), VerificationError> {
+    let present = object(evidence)?.contains_key("certified_block");
+    match (vote_binding, present) {
+        (NATIVE_AFT_VOTE_BINDING, true) => Ok(()),
+        (NATIVE_AFT_VOTE_BINDING, false) => Err(refuse_evidence(
+            "native AFT evidence carries no certified block",
+        )),
+        (CHECKPOINT_VOTE_BINDING, false) => Ok(()),
+        (CHECKPOINT_VOTE_BINDING, true) => Err(refuse_evidence(
+            "a checkpoint-round quorum must not carry a certified block: its members signed the checkpoint, not a block",
+        )),
+        (other, _) => Err(refuse_evidence(format!("unknown vote binding {other}"))),
+    }
+}
+
+/// Recompute the native AFT block facts from the durable header bytes and pin
+/// the declared membership to the block's own committed voter set.
+///
+/// This is the step that makes an imported quorum mean something. The header
+/// bytes are re-hashed to the certified `block_hash`; the height and view are
+/// read out of the decoded header rather than trusted from the certificate; and
+/// every declared member's public key is put through the exact `AccountId`
+/// derivation the chain uses, with the resulting set required to equal the
+/// header's `validator_set` exactly. Because `validator_set` sits inside the
+/// header's signing preimage, it is covered by the very hash the votes signed —
+/// so the eligible-voter list is imported from consensus, not asserted here.
+fn verify_certified_block(
+    evidence: &Value,
+    view: u64,
+    member_account_ids: &BTreeSet<[u8; 32]>,
+    payloads: Option<&BTreeMap<String, Vec<u8>>>,
+) -> Result<([u8; 32], u64, VerifiedNativeAftBlock), VerificationError> {
+    let block = field(evidence, "certified_block")?;
+    check_eq(
+        text(block, "vote_message_domain")?,
+        NATIVE_AFT_VOTE_DOMAIN,
+        "native AFT vote message domain",
+    )?;
+    let commitment = text(block, "effect_commitment")?;
+    if commitment != DECLARED_ASSOCIATION {
+        return Err(refuse_evidence(format!(
+            "unimplemented effect commitment {commitment}: this verifier establishes no association it cannot recompute"
+        )));
+    }
+    let block_height = number(block, "block_height")?;
+    let declared_hash = text(block, "block_hash")?;
+    let block_payload_ref = text(block, "block_payload_ref")?;
+    let raw_hash: [u8; 32] = hex::decode(
+        declared_hash
+            .strip_prefix("sha256:")
+            .ok_or_else(|| refuse_evidence("certified block hash is not a sha256: digest"))?,
+    )
+    .map_err(|error| VerificationError::Crypto(error.to_string()))?
+    .try_into()
+    .map_err(|_| refuse_evidence("certified block hash is not 32 bytes"))?;
+
+    let mut verified = VerifiedNativeAftBlock {
+        block_height,
+        block_view: view,
+        block_hash: declared_hash,
+        block_payload_ref: block_payload_ref.clone(),
+        block_bytes_reverified: false,
+        effect_committed_in_block: false,
+    };
+
+    // The predecessor path supplies no payloads. Say so in the claim rather
+    // than silently reporting the same confidence as a re-derived block.
+    let Some(payloads) = payloads else {
+        return Ok((raw_hash, block_height, verified));
+    };
+    let bytes = payloads.get(&block_payload_ref).ok_or_else(|| {
+        refuse_evidence(format!(
+            "certified block payload {block_payload_ref} is not carried by the availability manifest"
+        ))
+    })?;
+    let header: BlockHeader = from_bytes_canonical(bytes).map_err(|error| {
+        refuse_evidence(format!("certified block header does not decode: {error}"))
+    })?;
+    let recomputed = header.hash().map_err(|error| {
+        refuse_evidence(format!("certified block header does not hash: {error}"))
+    })?;
+    if recomputed.as_slice() != raw_hash.as_slice() {
+        return Err(refuse_evidence(
+            "supplied block header does not hash to the certified block hash",
+        ));
+    }
+    if header.height != block_height {
+        return Err(refuse_evidence(format!(
+            "certified block declares height {block_height} but the header carries {}",
+            header.height
+        )));
+    }
+    if header.view != view {
+        return Err(refuse_evidence(format!(
+            "consensus evidence declares view {view} but the certified header carries {}",
+            header.view
+        )));
+    }
+    // The header's committed voter set is the only membership statement that
+    // consensus itself signed. An empty one cannot pin anything, so it refuses
+    // rather than vacuously matching.
+    if header.validator_set.is_empty() {
+        return Err(refuse_evidence(
+            "certified block header commits no validator set, so no declared membership can be bound to it",
+        ));
+    }
+    let mut committed = BTreeSet::new();
+    for entry in &header.validator_set {
+        let account: [u8; 32] = entry.as_slice().try_into().map_err(|_| {
+            refuse_evidence("certified block header carries a malformed validator account id")
+        })?;
+        if !committed.insert(account) {
+            return Err(refuse_evidence(
+                "certified block header repeats a validator account id",
+            ));
+        }
+    }
+    if &committed != member_account_ids {
+        return Err(refuse_evidence(
+            "declared membership does not derive onto the certified block's committed validator set",
+        ));
+    }
+    verified.block_bytes_reverified = true;
+    Ok((raw_hash, block_height, verified))
+}
+
 /// Recompute the whole peer-quorum claim offline. Every branch refuses; none
 /// treats the `bft_consensus` label, the issuer signature, or the presence of
 /// signature bytes as evidence that peers agreed.
@@ -624,6 +885,7 @@ fn verify_consensus_evidence(
     checkpoint: &Value,
     certificate: &Value,
     checkpoint_hash: &str,
+    payloads: Option<&BTreeMap<String, Vec<u8>>>,
 ) -> Result<VerifiedQuorum, VerificationError> {
     let evidence = field(certificate, "consensus_evidence")?;
     check_eq(
@@ -636,6 +898,13 @@ fn verify_consensus_evidence(
             "bft_consensus requires a declared byzantine fault model",
         ));
     }
+    if text(evidence, "synchrony_model")? != "partial_synchrony" {
+        return Err(refuse_evidence(
+            "bft_consensus requires a declared partial-synchrony model: AFT reaches a decision through views and timeouts, which asserts nothing under full asynchrony",
+        ));
+    }
+    let vote_binding = text(evidence, "vote_binding")?;
+    verify_binding_block_presence(evidence, &vote_binding)?;
 
     let declared_members = number(evidence, "total_voting_members")?;
     let tolerated = number(evidence, "byzantine_fault_tolerance")?;
@@ -663,10 +932,41 @@ fn verify_consensus_evidence(
             "quorum threshold {threshold} is below the {minimum_threshold} required to tolerate {tolerated} byzantine faults"
         )));
     }
+    // `2f + 1` is only the right floor when `n == 3f + 1`. For any larger
+    // membership it is too weak: two quorums of `2f + 1` out of `n = 5, f = 1`
+    // can intersect in exactly the one Byzantine member, so both could be
+    // "honest" quorums for conflicting decisions. The intersection condition
+    // that actually holds for every `n` is `2q > n + f`.
+    let safety_threshold = declared_members
+        .checked_add(tolerated)
+        .map(|total| total / 2 + 1)
+        .ok_or_else(|| refuse_evidence("declared membership overflows"))?;
+    if threshold < safety_threshold {
+        return Err(refuse_evidence(format!(
+            "quorum threshold {threshold} cannot guarantee that two quorums intersect in an honest member: {declared_members} members tolerating {tolerated} byzantine faults need {safety_threshold}"
+        )));
+    }
     if threshold > declared_members {
         return Err(refuse_evidence(
             "quorum threshold exceeds the declared membership",
         ));
+    }
+    if vote_binding == NATIVE_AFT_VOTE_BINDING {
+        // The native engine forms a QC at `((n * 2) / 3) + 1` in its
+        // `ClassicBft` safety mode. Its guardian modes fire at `(n / 2) + 1`,
+        // which is a simple majority and tolerates no Byzantine fault at all.
+        // A certificate declaring `fault_model: byzantine` may therefore not be
+        // backed by a guardian-majority quorum, so the imported threshold must
+        // meet the classic rule rather than merely the engine's configured one.
+        let native_threshold = declared_members
+            .checked_mul(2)
+            .map(|scaled| scaled / 3 + 1)
+            .ok_or_else(|| refuse_evidence("declared membership overflows"))?;
+        if threshold < native_threshold {
+            return Err(refuse_evidence(format!(
+                "quorum threshold {threshold} is below the native classic-BFT rule ((2n/3)+1 = {native_threshold}) for {declared_members} members: a simple-majority guardian quorum is not byzantine evidence"
+            )));
+        }
     }
 
     let members = array(evidence, "members")?;
@@ -677,12 +977,31 @@ fn verify_consensus_evidence(
     }
     let mut member_keys = BTreeMap::new();
     let mut distinct_keys = BTreeSet::new();
+    let mut member_account_ids = BTreeSet::new();
     for member in members {
         let member_ref = text(member, "member_ref")?;
         let public_key = text(member, "public_key")?;
         if !distinct_keys.insert(public_key.clone()) {
             return Err(refuse_evidence(format!(
                 "duplicate member public key at {member_ref}: one key holding several seats is one signer, not a quorum"
+            )));
+        }
+        // The chain names validators by `AccountId`, never by public key, so a
+        // declared key only becomes a membership claim once it is put through
+        // the chain's own derivation. Doing it here — with the same function
+        // the validator uses — is what lets the certified block's committed
+        // voter set be compared against declared keys at all.
+        let key_bytes = hex::decode(&public_key)
+            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+        let account_id = account_id_from_key_material(SignatureSuite::ED25519, &key_bytes)
+            .map_err(|error| {
+                refuse_evidence(format!(
+                    "member {member_ref} account id derivation: {error}"
+                ))
+            })?;
+        if !member_account_ids.insert(account_id) {
+            return Err(refuse_evidence(format!(
+                "duplicate member account id at {member_ref}"
             )));
         }
         if member_keys.insert(member_ref.clone(), public_key).is_some() {
@@ -698,13 +1017,31 @@ fn verify_consensus_evidence(
     )?;
 
     let view = number(evidence, "view")?;
-    let message = consensus_vote_message(
-        &text(checkpoint, "domain_id")?,
-        number(checkpoint, "authority_epoch")?,
-        &membership_hash,
-        view,
-        checkpoint_hash,
-    );
+    // The two bindings verify different bytes, and that difference is the whole
+    // point: the native binding re-derives the message the live consensus path
+    // already signed, while the checkpoint binding re-derives a message this
+    // crate defined. Neither is allowed to stand in for the other.
+    let (message, certified_block) = match vote_binding.as_str() {
+        NATIVE_AFT_VOTE_BINDING => {
+            let (block_hash, block_height, verified_block) =
+                verify_certified_block(evidence, view, &member_account_ids, payloads)?;
+            (
+                native_aft_vote_message(block_height, view, &block_hash)?,
+                Some(verified_block),
+            )
+        }
+        CHECKPOINT_VOTE_BINDING => (
+            consensus_vote_message(
+                &text(checkpoint, "domain_id")?,
+                number(checkpoint, "authority_epoch")?,
+                &membership_hash,
+                view,
+                checkpoint_hash,
+            ),
+            None,
+        ),
+        other => return Err(refuse_evidence(format!("unknown vote binding {other}"))),
+    };
     let mut voted = BTreeSet::new();
     for vote in array(evidence, "votes")? {
         let member_ref = text(vote, "member_ref")?;
@@ -714,8 +1051,8 @@ fn verify_consensus_evidence(
         if !voted.insert(member_ref.clone()) {
             return Err(refuse_evidence(format!("duplicate vote from {member_ref}")));
         }
-        let key_bytes =
-            hex::decode(public_key).map_err(|error| VerificationError::Crypto(error.to_string()))?;
+        let key_bytes = hex::decode(public_key)
+            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
         let signature_bytes = hex::decode(text(vote, "signature")?)
             .map_err(|error| VerificationError::Crypto(error.to_string()))?;
         let public = Ed25519PublicKey::from_bytes(&key_bytes)
@@ -724,7 +1061,7 @@ fn verify_consensus_evidence(
             .map_err(|error| VerificationError::Crypto(error.to_string()))?;
         public.verify(&message, &signature).map_err(|_| {
             refuse_evidence(format!(
-                "member {member_ref} did not sign this checkpoint under this membership and view"
+                "member {member_ref} did not sign the {vote_binding} message for this membership and view"
             ))
         })?;
     }
@@ -735,16 +1072,25 @@ fn verify_consensus_evidence(
         )));
     }
 
-    let issuer_public_key = text(certificate, "issuer_public_key")?;
-    let issuer_member = member_keys
-        .iter()
-        .find(|(_, key)| **key == issuer_public_key)
-        .map(|(member_ref, _)| member_ref.clone())
-        .ok_or_else(|| refuse_evidence("certificate issuer is not a declared voting member"))?;
-    if !voted.contains(&issuer_member) {
-        return Err(refuse_evidence(format!(
-            "certificate issuer {issuer_member} aggregated a quorum it did not vote in"
-        )));
+    if vote_binding == CHECKPOINT_VOTE_BINDING {
+        // This crate's own round is aggregated by one of the voters, so the
+        // issuer must be in the set it is reporting on. The native binding is
+        // deliberately the opposite: the portable finality issuer is not an AFT
+        // validator and must not be required to be one. Issuer authority there
+        // comes from `trusted_issuer`; peer safety comes only from the votes
+        // verified above. Conflating the two is exactly the failure this whole
+        // bridge exists to avoid.
+        let issuer_public_key = text(certificate, "issuer_public_key")?;
+        let issuer_member = member_keys
+            .iter()
+            .find(|(_, key)| **key == issuer_public_key)
+            .map(|(member_ref, _)| member_ref.clone())
+            .ok_or_else(|| refuse_evidence("certificate issuer is not a declared voting member"))?;
+        if !voted.contains(&issuer_member) {
+            return Err(refuse_evidence(format!(
+                "certificate issuer {issuer_member} aggregated a quorum it did not vote in"
+            )));
+        }
     }
 
     Ok(VerifiedQuorum {
@@ -756,6 +1102,8 @@ fn verify_consensus_evidence(
         byzantine_fault_tolerance: tolerated,
         quorum_threshold: threshold,
         distinct_member_signatures_verified: verified,
+        vote_binding,
+        certified_block,
     })
 }
 
@@ -922,7 +1270,15 @@ fn verify_checkpoint_envelope(checkpoint: &Value) -> Result<(), VerificationErro
     }
     verify_certificate_signature(certificate)?;
     if variant == "bft_consensus_aft_v1" {
-        verify_consensus_evidence(checkpoint, certificate, &checkpoint_hash)?;
+        // A predecessor is verified from the checkpoint alone: the bundle
+        // carries availability payloads for its own checkpoint, not for a prior
+        // one. Native block bytes are therefore unavailable here, which
+        // `VerifiedNativeAftBlock::block_bytes_reverified` reports honestly
+        // rather than papering over. The predecessor's membership is still
+        // pinned, because `verify_bundle` requires its `membership_hash` to
+        // equal this checkpoint's, and this checkpoint's membership was bound
+        // to its own certified block.
+        verify_consensus_evidence(checkpoint, certificate, &checkpoint_hash, None)?;
     }
     Ok(())
 }
@@ -1309,7 +1665,7 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
         text(checkpoint, "resulting_canonical_head")?,
         "resulting canonical head",
     )?;
-    verify_availability(checkpoint, bundle)?;
+    let payloads = verify_availability(checkpoint, bundle)?;
 
     let checkpoint_hash = hash_value(&without(
         checkpoint,
@@ -1362,6 +1718,7 @@ pub fn verify_bundle(bundle: &Value) -> Result<VerifiedClaim, VerificationError>
             checkpoint,
             certificate,
             &checkpoint_hash,
+            Some(&payloads),
         )?)
     } else {
         None
@@ -1396,6 +1753,7 @@ pub struct PreparedCheckpoint {
     certificate_variant: &'static str,
     checkpoint_hash: String,
     vote_message: Option<Vec<u8>>,
+    vote_binding: Option<String>,
 }
 
 impl PreparedCheckpoint {
@@ -1415,10 +1773,18 @@ impl PreparedCheckpoint {
     }
 
     /// The exact bytes each declared voting member signs. `None` for a profile
-    /// whose admission does not take peer votes — never an empty message that
-    /// would let a caller collect signatures over nothing.
+    /// whose admission does not take peer votes, and also `None` under
+    /// [`NATIVE_AFT_VOTE_BINDING`], where the quorum was already cast over a
+    /// decided block — never an empty message that would let a caller collect
+    /// signatures over nothing.
     pub fn vote_message(&self) -> Option<&[u8]> {
         self.vote_message.as_deref()
+    }
+
+    /// Which bytes this checkpoint's quorum is expected to have signed, or
+    /// `None` for a non-BFT variant.
+    pub fn vote_binding(&self) -> Option<&str> {
+        self.vote_binding.as_deref()
     }
 }
 
@@ -1570,23 +1936,35 @@ pub fn prepare_checkpoint(
     let authority_epoch = number(checkpoint, "authority_epoch")?;
     let certificate = field_mut(checkpoint, "finality_certificate")?;
     verify_variant_evidence_presence(certificate, variant)?;
+    let mut vote_binding = None;
     let vote_message = if variant == "bft_consensus_aft_v1" {
         let evidence = field_mut(certificate, "consensus_evidence")?;
         if !array(evidence, "votes")?.is_empty() {
             return Err(refuse_evidence(
-                "a prepared template carries no votes: members sign the prepared vote message, then the quorum is supplied to finalize_bft_consensus",
+                "a prepared template carries no votes: for a checkpoint round the members sign the prepared vote message, and for native AFT the quorum already exists and is supplied to finalize_native_aft_consensus",
             ));
         }
+        let binding = text(evidence, "vote_binding")?;
+        verify_binding_block_presence(evidence, &binding)?;
         let membership_hash = consensus_membership_hash(evidence)?;
         set_text(evidence, "membership_hash", membership_hash.clone())?;
         let view = number(evidence, "view")?;
-        Some(consensus_vote_message(
-            &domain_id,
-            authority_epoch,
-            &membership_hash,
-            view,
-            &checkpoint_hash,
-        ))
+        vote_binding = Some(binding.clone());
+        match binding.as_str() {
+            // Native AFT votes were cast over an already-decided block before
+            // this checkpoint existed. There is no message for a caller to sign
+            // here, and offering one would invite exactly the second signature
+            // round this bridge exists to avoid.
+            NATIVE_AFT_VOTE_BINDING => None,
+            CHECKPOINT_VOTE_BINDING => Some(consensus_vote_message(
+                &domain_id,
+                authority_epoch,
+                &membership_hash,
+                view,
+                &checkpoint_hash,
+            )),
+            other => return Err(refuse_evidence(format!("unknown vote binding {other}"))),
+        }
     } else {
         None
     };
@@ -1597,6 +1975,7 @@ pub fn prepare_checkpoint(
         certificate_variant: variant,
         checkpoint_hash,
         vote_message,
+        vote_binding,
     })
 }
 
@@ -1722,7 +2101,247 @@ pub fn finalize_bft_consensus(
             variant: prepared.certificate_variant.to_owned(),
         });
     }
+    // This entry point collects a fresh round. Pointing it at a native-bound
+    // template would install checkpoint-round signatures under a binding that
+    // claims imported consensus evidence, which is the precise substitution the
+    // native path exists to prevent.
+    if prepared.vote_binding.as_deref() != Some(CHECKPOINT_VOTE_BINDING) {
+        return Err(refuse_evidence(
+            "finalize_bft_consensus collects a fresh checkpoint round; a native_aft_quorum_certificate_v1 template must go through finalize_native_aft_consensus",
+        ));
+    }
     finalize(prepared, votes, issuer_key_id, signing_key)
+}
+
+// -- Native AFT bridge -------------------------------------------------------
+
+/// The runtime input type. Re-exported so Agentgres and other runtime callers
+/// hand over the *actual* consensus type rather than a parallel copy that could
+/// drift from it.
+pub use ioi_types::app::QuorumCertificate;
+
+/// One declared voting member of the native AFT membership.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeAftMember {
+    /// Stable `node://` reference for the seat.
+    pub member_ref: String,
+    /// The member's raw 32-byte Ed25519 public key. The chain stores only a
+    /// hash of this key on `ValidatorV1`, so the key itself has to be supplied
+    /// here; it is checked by deriving the `AccountId` and requiring it to
+    /// appear in the certified block's own committed validator set.
+    pub public_key: [u8; 32],
+}
+
+/// A block the native AFT path already finalized, with the certificate that
+/// finalized it. This is the exact seam between live consensus and portable
+/// finality: nothing in it is minted by this crate, and every field is
+/// re-derived before it is believed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeAftFinalizedBlock {
+    /// SCALE-encoded `BlockHeader` of the committed block, exactly as the block
+    /// store holds it. Re-hashed here to the certified block hash.
+    pub block_header_bytes: Vec<u8>,
+    /// The certificate produced by the live consensus path.
+    pub quorum_certificate: QuorumCertificate,
+    /// The membership the certificate was formed under.
+    pub members: Vec<NativeAftMember>,
+    /// Stable `node-membership://` reference for that membership.
+    pub membership_ref: String,
+    /// The membership epoch this set belongs to.
+    pub membership_epoch: u64,
+    /// `protocol://` reference for the consensus protocol that produced it.
+    pub consensus_protocol_ref: String,
+    /// Byzantine faults the membership is declared to tolerate.
+    pub byzantine_fault_tolerance: u64,
+}
+
+/// Translate a native `QuorumCertificate` into `consensus_evidence`, checking
+/// every step rather than transcribing it.
+///
+/// The certificate arrives from an engine that does **not** itself verify these
+/// signatures — it forms a quorum on a vote count and discards the signature
+/// bytes. So this function treats the QC strictly as a *claim*: it re-derives
+/// the signed preimage, resolves each signer's `AccountId` against the declared
+/// keys, and hands the result to the ordinary verifier, which checks the
+/// signatures cryptographically. Nothing is believed because consensus accepted
+/// it.
+fn native_evidence_from_certificate(
+    finalized: &NativeAftFinalizedBlock,
+    block_payload_ref: &str,
+) -> Result<(Value, Vec<BftVote>), VerificationError> {
+    let certificate = &finalized.quorum_certificate;
+    // The aggregate fields are dead in the current engine (always empty, never
+    // read). If one is ever populated, this bridge has no BLS verification and
+    // must refuse rather than silently ignore evidence it did not check.
+    if !certificate.aggregated_signature.is_empty() || !certificate.signers_bitfield.is_empty() {
+        return Err(refuse_evidence(
+            "quorum certificate carries an aggregated BLS signature, which this bridge does not verify: it refuses rather than counting only the explicit signature list",
+        ));
+    }
+    if certificate.height == 0 {
+        return Err(refuse_evidence(
+            "genesis carries no quorum: the engine short-circuits height 0 without checking anything",
+        ));
+    }
+
+    let header: BlockHeader = from_bytes_canonical(&finalized.block_header_bytes)
+        .map_err(|error| refuse_evidence(format!("block header does not decode: {error}")))?;
+    let recomputed = header
+        .hash()
+        .map_err(|error| refuse_evidence(format!("block header does not hash: {error}")))?;
+    if recomputed.as_slice() != certificate.block_hash.as_slice() {
+        return Err(refuse_evidence(
+            "supplied block header does not hash to the block the quorum certificate names",
+        ));
+    }
+    if header.height != certificate.height || header.view != certificate.view {
+        return Err(refuse_evidence(
+            "quorum certificate height/view does not match the certified block header",
+        ));
+    }
+
+    let mut by_account = BTreeMap::new();
+    let mut members = Vec::with_capacity(finalized.members.len());
+    for member in &finalized.members {
+        let account_id = account_id_from_key_material(SignatureSuite::ED25519, &member.public_key)
+            .map_err(|error| {
+                refuse_evidence(format!(
+                    "member {} account id derivation: {error}",
+                    member.member_ref
+                ))
+            })?;
+        if by_account
+            .insert(account_id, member.member_ref.clone())
+            .is_some()
+        {
+            return Err(refuse_evidence(format!(
+                "duplicate member account id at {}",
+                member.member_ref
+            )));
+        }
+        members.push(json!({
+            "member_ref": member.member_ref,
+            "public_key": hex::encode(member.public_key),
+        }));
+    }
+    members.sort_by(|left, right| {
+        left["member_ref"]
+            .as_str()
+            .unwrap_or_default()
+            .cmp(right["member_ref"].as_str().unwrap_or_default())
+    });
+
+    let mut votes = Vec::with_capacity(certificate.signatures.len());
+    let mut seen = BTreeSet::new();
+    for (voter, signature) in &certificate.signatures {
+        let member_ref = by_account.get(&voter.0).ok_or_else(|| {
+            refuse_evidence(
+                "quorum certificate carries a signature from an account outside the declared membership",
+            )
+        })?;
+        if !seen.insert(member_ref.clone()) {
+            return Err(refuse_evidence(format!(
+                "quorum certificate repeats a signature from {member_ref}: the engine's own weight check does not deduplicate voters, so this bridge must"
+            )));
+        }
+        votes.push(BftVote {
+            member_ref: member_ref.clone(),
+            signature: hex::encode(signature),
+        });
+    }
+
+    let evidence = json!({
+        "schema_version": CONSENSUS_EVIDENCE_V1,
+        "consensus_protocol_ref": finalized.consensus_protocol_ref,
+        "vote_binding": NATIVE_AFT_VOTE_BINDING,
+        "membership_ref": finalized.membership_ref,
+        "membership_epoch": finalized.membership_epoch,
+        "fault_model": "byzantine",
+        "synchrony_model": "partial_synchrony",
+        "total_voting_members": members.len() as u64,
+        "byzantine_fault_tolerance": finalized.byzantine_fault_tolerance,
+        "quorum_threshold": (members.len() as u64) * 2 / 3 + 1,
+        "view": certificate.view,
+        "members": Value::Array(members),
+        "votes": Value::Array(Vec::new()),
+        "membership_hash": format!("sha256:{}", "0".repeat(64)),
+        "certified_block": {
+            "block_height": certificate.height,
+            "block_hash": hash_prefixed(&certificate.block_hash),
+            "block_payload_ref": block_payload_ref,
+            "vote_message_domain": NATIVE_AFT_VOTE_DOMAIN,
+            "effect_commitment": DECLARED_ASSOCIATION,
+        },
+    });
+    Ok((evidence, votes))
+}
+
+fn hash_prefixed(bytes: &[u8; 32]) -> String {
+    format!("sha256:{}", hex::encode(bytes))
+}
+
+/// Emit a `bft_consensus_aft_v1` bundle from a block the native AFT path
+/// already finalized. This is the runtime entry point.
+///
+/// The caller supplies a v2 template whose availability manifest already
+/// declares the block-header payload (and whose `availability_payloads` already
+/// carry its bytes), because retention, locations, and failure domains are
+/// deployment facts this crate must not invent. Everything about the quorum is
+/// derived here from `finalized` and then re-verified end to end by
+/// [`verify_bundle`] before the bundle is returned, so an insufficient,
+/// duplicated, undeclared, or unrelated quorum refuses at emission rather than
+/// shipping a certificate whose label outruns its evidence.
+///
+/// ## What a returned bundle establishes, and what it does not
+///
+/// It establishes that a quorum of members — each holding a distinct key that
+/// derives into the certified block's own committed validator set — produced
+/// verified Ed25519 signatures over the exact native AFT preimage for that
+/// block, at a threshold meeting the classic-BFT rule. It establishes nothing
+/// about non-equivocation, and in particular it does **not** establish that the
+/// block commits to this checkpoint's recognized effect; see
+/// [`VerifiedNativeAftBlock::effect_committed_in_block`].
+pub fn emit_native_aft_consensus(
+    mut bundle: Value,
+    finalized: &NativeAftFinalizedBlock,
+    issuer_key_id: &str,
+    signing_key: &Ed25519PrivateKey,
+) -> Result<Value, VerificationError> {
+    let certificate = field(field(&bundle, "checkpoint")?, "finality_certificate")?;
+    let block_payload_ref = text(
+        field(field(certificate, "consensus_evidence")?, "certified_block")?,
+        "block_payload_ref",
+    )?;
+    let (evidence, votes) = native_evidence_from_certificate(finalized, &block_payload_ref)?;
+
+    // The header bytes must be the ones the manifest already publishes, or the
+    // block a verifier can retrieve would not be the block that was certified.
+    let declared = array(
+        field(field(&bundle, "checkpoint")?, "availability_manifest")?,
+        "payloads",
+    )?
+    .iter()
+    .any(|payload| {
+        text(payload, "payload_ref").ok().as_deref() == Some(block_payload_ref.as_str())
+            && text(payload, "payload_hash").ok() == Some(hash_bytes(&finalized.block_header_bytes))
+    });
+    if !declared {
+        return Err(refuse_evidence(format!(
+            "availability manifest does not declare {block_payload_ref} with the supplied block header bytes"
+        )));
+    }
+
+    let checkpoint = field_mut(&mut bundle, "checkpoint")?;
+    let certificate = field_mut(checkpoint, "finality_certificate")?;
+    object_mut(certificate)?.insert("consensus_evidence".into(), evidence);
+
+    let prepared = prepare_checkpoint(bundle, "bft_consensus")?;
+    if prepared.vote_binding.as_deref() != Some(NATIVE_AFT_VOTE_BINDING) {
+        return Err(refuse_evidence(
+            "native AFT emission prepared a template that is not native-bound",
+        ));
+    }
+    finalize(prepared, &votes, issuer_key_id, signing_key)
 }
 
 /// Finalize and sign one caller-supplied `single_authority` v2 template. Every

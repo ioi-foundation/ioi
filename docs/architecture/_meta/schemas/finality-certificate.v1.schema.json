@@ -45,23 +45,42 @@
     "variant": { "enum": ["single_authority_v1", "replicated_single_authority_v1", "threshold_authority_v1", "bft_consensus_aft_v1", "external_chain_finality_v1"] },
     "axis": { "enum": ["integrity", "valid_as_of", "currentness", "availability", "non_equivocation", "authority_admission", "economic_recognition"] },
     "consensusEvidence": {
-      "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer.",
+      "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer. `vote_binding` names which bytes the members actually signed, because that is the whole difference between imported consensus safety and a signature round this crate invented: `native_aft_quorum_certificate_v1` means the votes are the live AFT QuorumCertificate over the canonical SCALE `(height, view, block_hash)` payload, and `certified_block` is then required; `checkpoint_quorum_v1` means a fresh non-runtime round over this checkpoint, and `certified_block` must then be absent. Refusing `certified_block` under `checkpoint_quorum_v1` is likewise a verifier obligation.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "consensus_protocol_ref", "membership_ref", "membership_epoch", "fault_model", "total_voting_members", "byzantine_fault_tolerance", "quorum_threshold", "view", "members", "votes", "membership_hash"],
+      "required": ["schema_version", "consensus_protocol_ref", "vote_binding", "membership_ref", "membership_epoch", "fault_model", "synchrony_model", "total_voting_members", "byzantine_fault_tolerance", "quorum_threshold", "view", "members", "votes", "membership_hash"],
       "properties": {
         "schema_version": { "const": "ioi.bft-consensus-evidence.v1" },
         "consensus_protocol_ref": { "type": "string", "pattern": "^protocol://[^\\s]{1,248}$" },
+        "vote_binding": { "enum": ["native_aft_quorum_certificate_v1", "checkpoint_quorum_v1"] },
         "membership_ref": { "type": "string", "pattern": "^node-membership://[^\\s]{1,248}$" },
         "membership_epoch": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "fault_model": { "const": "byzantine" },
+        "synchrony_model": { "const": "partial_synchrony" },
         "total_voting_members": { "type": "integer", "minimum": 4, "maximum": 1024 },
         "byzantine_fault_tolerance": { "type": "integer", "minimum": 1, "maximum": 341 },
         "quorum_threshold": { "type": "integer", "minimum": 3, "maximum": 1024 },
         "view": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "members": { "type": "array", "minItems": 4, "maxItems": 1024, "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["member_ref", "public_key"], "properties": { "member_ref": { "type": "string", "pattern": "^node://[^\\s]{1,248}$" }, "public_key": { "type": "string", "pattern": "^[0-9a-f]{64}$" } } } },
         "votes": { "type": "array", "minItems": 3, "maxItems": 1024, "uniqueItems": true, "items": { "type": "object", "additionalProperties": false, "required": ["member_ref", "signature"], "properties": { "member_ref": { "type": "string", "pattern": "^node://[^\\s]{1,248}$" }, "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" } } } },
-        "membership_hash": { "$ref": "#/$defs/hash" }
+        "membership_hash": { "$ref": "#/$defs/hash" },
+        "certified_block": { "$ref": "#/$defs/certifiedBlock" }
+      },
+      "allOf": [
+        { "if": { "properties": { "vote_binding": { "const": "native_aft_quorum_certificate_v1" } }, "required": ["vote_binding"] }, "then": { "properties": { "certified_block": { "$ref": "#/$defs/certifiedBlock" } }, "required": ["certified_block"] } }
+      ]
+    },
+    "certifiedBlock": {
+      "description": "The already-finalized native AFT block whose QuorumCertificate was imported. `block_hash` is the block-header hash the live consensus path certified, and `vote_message_domain` names the exact preimage the members signed, so a relying party reads the signed bytes off the artifact instead of assuming them. `block_payload_ref` must name a payload that the availability manifest declares and the bundle supplies, so `block_hash`, `block_height`, the evidence `view`, and the eligible-voter set are all recomputed from durable header bytes rather than asserted: the header's own `validator_set` is the committed AccountId list, and every declared member key must derive into it. `effect_commitment` is deliberately a single implemented value. `declared_association_v1` states that the quorum certifies THE BLOCK ONLY, and that this checkpoint's association with that block is declared by the issuer and is NOT established by the peer votes. A mode in which the block cryptographically commits to the recognized effect needs the execution seam that puts the effect into the block, and must be added here as a new named value rather than read into this one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["block_height", "block_hash", "block_payload_ref", "vote_message_domain", "effect_commitment"],
+      "properties": {
+        "block_height": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "block_hash": { "$ref": "#/$defs/hash" },
+        "block_payload_ref": { "type": "string", "pattern": "^(?:artifact|payload)://[^\\s]{1,248}$" },
+        "vote_message_domain": { "const": "ioi.aft-consensus-vote.scale-height-view-block-hash.v1" },
+        "effect_commitment": { "const": "declared_association_v1" }
       }
     }
   }

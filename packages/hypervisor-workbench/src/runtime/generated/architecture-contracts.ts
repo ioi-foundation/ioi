@@ -7193,9 +7193,11 @@ export type FinalityCertificateV1 = {
   consensus_evidence?: {
       schema_version: "ioi.bft-consensus-evidence.v1";
       consensus_protocol_ref: string;
+      vote_binding: "native_aft_quorum_certificate_v1" | "checkpoint_quorum_v1";
       membership_ref: string;
       membership_epoch: number;
       fault_model: "byzantine";
+      synchrony_model: "partial_synchrony";
       total_voting_members: number;
       byzantine_fault_tolerance: number;
       quorum_threshold: number;
@@ -7209,6 +7211,13 @@ export type FinalityCertificateV1 = {
               signature: string;
             }>;
       membership_hash: string;
+      certified_block?: {
+            block_height: number;
+            block_hash: string;
+            block_payload_ref: string;
+            vote_message_domain: "ioi.aft-consensus-vote.scale-height-view-block-hash.v1";
+            effect_commitment: "declared_association_v1";
+          };
     };
 };
 
@@ -7389,9 +7398,11 @@ export type ReceiptCheckpointV2 = {
       consensus_evidence?: {
             schema_version: "ioi.bft-consensus-evidence.v1";
             consensus_protocol_ref: string;
+            vote_binding: "native_aft_quorum_certificate_v1" | "checkpoint_quorum_v1";
             membership_ref: string;
             membership_epoch: number;
             fault_model: "byzantine";
+            synchrony_model: "partial_synchrony";
             total_voting_members: number;
             byzantine_fault_tolerance: number;
             quorum_threshold: number;
@@ -7405,6 +7416,13 @@ export type ReceiptCheckpointV2 = {
                       signature: string;
                     }>;
             membership_hash: string;
+            certified_block?: {
+                    block_height: number;
+                    block_hash: string;
+                    block_payload_ref: string;
+                    vote_message_domain: "ioi.aft-consensus-vote.scale-height-view-block-hash.v1";
+                    effect_commitment: "declared_association_v1";
+                  };
           };
     };
 };
@@ -7568,9 +7586,11 @@ export type ReceiptProofBundleV2 = {
             consensus_evidence?: {
                     schema_version: "ioi.bft-consensus-evidence.v1";
                     consensus_protocol_ref: string;
+                    vote_binding: "native_aft_quorum_certificate_v1" | "checkpoint_quorum_v1";
                     membership_ref: string;
                     membership_epoch: number;
                     fault_model: "byzantine";
+                    synchrony_model: "partial_synchrony";
                     total_voting_members: number;
                     byzantine_fault_tolerance: number;
                     quorum_threshold: number;
@@ -7584,6 +7604,13 @@ export type ReceiptProofBundleV2 = {
                                 signature: string;
                               }>;
                     membership_hash: string;
+                    certified_block?: {
+                              block_height: number;
+                              block_hash: string;
+                              block_payload_ref: string;
+                              vote_message_domain: "ioi.aft-consensus-vote.scale-height-view-block-hash.v1";
+                              effect_commitment: "declared_association_v1";
+                            };
                   };
           };
     };
@@ -7665,9 +7692,11 @@ export type ReceiptProofBundleV2 = {
             consensus_evidence?: {
                     schema_version: "ioi.bft-consensus-evidence.v1";
                     consensus_protocol_ref: string;
+                    vote_binding: "native_aft_quorum_certificate_v1" | "checkpoint_quorum_v1";
                     membership_ref: string;
                     membership_epoch: number;
                     fault_model: "byzantine";
+                    synchrony_model: "partial_synchrony";
                     total_voting_members: number;
                     byzantine_fault_tolerance: number;
                     quorum_threshold: number;
@@ -7681,6 +7710,13 @@ export type ReceiptProofBundleV2 = {
                                 signature: string;
                               }>;
                     membership_hash: string;
+                    certified_block?: {
+                              block_height: number;
+                              block_hash: string;
+                              block_payload_ref: string;
+                              vote_message_domain: "ioi.aft-consensus-vote.scale-height-view-block-hash.v1";
+                              effect_commitment: "declared_association_v1";
+                            };
                   };
           };
     } | null;
@@ -24770,12 +24806,12 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/retention-class/v1": "sha256:133b48b7b6f98e554637bcf1b42076275e7cf62f9f8917baeab87034566e28a1",
   "schema://ioi/foundations/verifier-contract/v1": "sha256:f8401df3847ff46880da465cad115766c4e08045f9c6d7ac859e2bf9102f125f",
   "schema://ioi/foundations/availability-manifest/v1": "sha256:9b0105cc8513d94c5321f319197ab5b7d55d257ab4046ad656c087c37bd9f50b",
-  "schema://ioi/foundations/finality-certificate/v1": "sha256:0589c7292c5b9aba0cb38da1f117fe562d6f8b0e7042f54e643ae7ac73e47e02",
+  "schema://ioi/foundations/finality-certificate/v1": "sha256:bdac55e75b03eb3704482c82eabafbce8691e53352907acfa50f0a1f78623f1b",
   "schema://ioi/foundations/receipt-checkpoint/v1": "sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b",
-  "schema://ioi/foundations/receipt-checkpoint/v2": "sha256:44f8c3bbb2c8740ce922616e89960c7ff1ace77f9d0cd4b765686788c3f8faaf",
+  "schema://ioi/foundations/receipt-checkpoint/v2": "sha256:03a1b3509bef4d50f638926346929a2707d71d35079691a508ce759bc1f7bc50",
   "schema://ioi/foundations/receipt-envelope/v1": "sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc",
   "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034",
-  "schema://ioi/foundations/receipt-proof-bundle/v2": "sha256:e885627a693cbd88a924844354238640874e1f6e358c0b5c0086a4031fd4d262",
+  "schema://ioi/foundations/receipt-proof-bundle/v2": "sha256:e342077c0ff89b18e00ae07948ac86e6eed7bac1c103152ea834bee294a902c2",
   "schema://ioi/foundations/skill-entry/v1": "sha256:f594cb06220a1c4b30d72b234c2847bf6a067772191bef0d23ffc775c63ff699",
   "schema://ioi/foundations/skill-manifest/v1": "sha256:ef38326ea2082a928b2ff7c86f8a27c5b4e885c81eaf58615d8446c1a46df403",
   "schema://ioi/foundations/system-scoped-object-binding/v1": "sha256:6f2a54cb99566951e3bcec4bd99f864fe0ea61c28621a6a4f68c734c45361917",
@@ -80565,15 +80601,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       },
       "consensusEvidence": {
-        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer.",
+        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other. Absent from a single_authority_v1 certificate, its preimage, body hash, and signature are byte-identical to those issued before this field existed. This schema states the required direction; refusing the field on a non-BFT variant is a verifier obligation, because the repository schema dialect deliberately implements no negation keyword. The floors below (four voting members, one tolerated Byzantine fault, three votes) exist so that a certificate cannot claim BFT admission on a label or on one signer. `vote_binding` names which bytes the members actually signed, because that is the whole difference between imported consensus safety and a signature round this crate invented: `native_aft_quorum_certificate_v1` means the votes are the live AFT QuorumCertificate over the canonical SCALE `(height, view, block_hash)` payload, and `certified_block` is then required; `checkpoint_quorum_v1` means a fresh non-runtime round over this checkpoint, and `certified_block` must then be absent. Refusing `certified_block` under `checkpoint_quorum_v1` is likewise a verifier obligation.",
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
           "consensus_protocol_ref",
+          "vote_binding",
           "membership_ref",
           "membership_epoch",
           "fault_model",
+          "synchrony_model",
           "total_voting_members",
           "byzantine_fault_tolerance",
           "quorum_threshold",
@@ -80590,6 +80628,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "string",
             "pattern": "^protocol://[^\\s]{1,248}$"
           },
+          "vote_binding": {
+            "enum": [
+              "native_aft_quorum_certificate_v1",
+              "checkpoint_quorum_v1"
+            ]
+          },
           "membership_ref": {
             "type": "string",
             "pattern": "^node-membership://[^\\s]{1,248}$"
@@ -80601,6 +80645,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "fault_model": {
             "const": "byzantine"
+          },
+          "synchrony_model": {
+            "const": "partial_synchrony"
           },
           "total_voting_members": {
             "type": "integer",
@@ -80672,6 +80719,65 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "membership_hash": {
             "$ref": "#/$defs/hash"
+          },
+          "certified_block": {
+            "$ref": "#/$defs/certifiedBlock"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "vote_binding": {
+                  "const": "native_aft_quorum_certificate_v1"
+                }
+              },
+              "required": [
+                "vote_binding"
+              ]
+            },
+            "then": {
+              "properties": {
+                "certified_block": {
+                  "$ref": "#/$defs/certifiedBlock"
+                }
+              },
+              "required": [
+                "certified_block"
+              ]
+            }
+          }
+        ]
+      },
+      "certifiedBlock": {
+        "description": "The already-finalized native AFT block whose QuorumCertificate was imported. `block_hash` is the block-header hash the live consensus path certified, and `vote_message_domain` names the exact preimage the members signed, so a relying party reads the signed bytes off the artifact instead of assuming them. `block_payload_ref` must name a payload that the availability manifest declares and the bundle supplies, so `block_hash`, `block_height`, the evidence `view`, and the eligible-voter set are all recomputed from durable header bytes rather than asserted: the header's own `validator_set` is the committed AccountId list, and every declared member key must derive into it. `effect_commitment` is deliberately a single implemented value. `declared_association_v1` states that the quorum certifies THE BLOCK ONLY, and that this checkpoint's association with that block is declared by the issuer and is NOT established by the peer votes. A mode in which the block cryptographically commits to the recognized effect needs the execution seam that puts the effect into the block, and must be added here as a new named value rather than read into this one.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "block_height",
+          "block_hash",
+          "block_payload_ref",
+          "vote_message_domain",
+          "effect_commitment"
+        ],
+        "properties": {
+          "block_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "block_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "block_payload_ref": {
+            "type": "string",
+            "pattern": "^(?:artifact|payload)://[^\\s]{1,248}$"
+          },
+          "vote_message_domain": {
+            "const": "ioi.aft-consensus-vote.scale-height-view-block-hash.v1"
+          },
+          "effect_commitment": {
+            "const": "declared_association_v1"
           }
         }
       }
@@ -81137,15 +81243,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       },
       "consensusEvidence": {
-        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.",
+        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword. `vote_binding` names which bytes the members actually signed: `native_aft_quorum_certificate_v1` imports the live AFT QuorumCertificate over the canonical SCALE (height, view, block_hash) payload and then requires `certified_block`; `checkpoint_quorum_v1` is a fresh non-runtime round over this checkpoint and must then omit `certified_block`, which is again a verifier obligation.",
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
           "consensus_protocol_ref",
+          "vote_binding",
           "membership_ref",
           "membership_epoch",
           "fault_model",
+          "synchrony_model",
           "total_voting_members",
           "byzantine_fault_tolerance",
           "quorum_threshold",
@@ -81162,6 +81270,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "string",
             "pattern": "^protocol://[^\\s]{1,248}$"
           },
+          "vote_binding": {
+            "enum": [
+              "native_aft_quorum_certificate_v1",
+              "checkpoint_quorum_v1"
+            ]
+          },
           "membership_ref": {
             "type": "string",
             "pattern": "^node-membership://[^\\s]{1,248}$"
@@ -81173,6 +81287,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "fault_model": {
             "const": "byzantine"
+          },
+          "synchrony_model": {
+            "const": "partial_synchrony"
           },
           "total_voting_members": {
             "type": "integer",
@@ -81244,6 +81361,65 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "membership_hash": {
             "$ref": "#/$defs/hash"
+          },
+          "certified_block": {
+            "$ref": "#/$defs/certifiedBlock"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "vote_binding": {
+                  "const": "native_aft_quorum_certificate_v1"
+                }
+              },
+              "required": [
+                "vote_binding"
+              ]
+            },
+            "then": {
+              "properties": {
+                "certified_block": {
+                  "$ref": "#/$defs/certifiedBlock"
+                }
+              },
+              "required": [
+                "certified_block"
+              ]
+            }
+          }
+        ]
+      },
+      "certifiedBlock": {
+        "description": "The already-finalized native AFT block whose QuorumCertificate was imported. `block_payload_ref` must name a payload the availability manifest declares and the bundle supplies, so `block_hash`, `block_height`, the evidence `view`, and the eligible-voter set are recomputed from durable header bytes rather than asserted: the header's own `validator_set` is the committed AccountId list, and every declared member key must derive into it. `effect_commitment` has exactly one implemented value: `declared_association_v1` states the quorum certifies THE BLOCK ONLY, and this checkpoint's association with that block is declared by the issuer, NOT established by the peer votes.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "block_height",
+          "block_hash",
+          "block_payload_ref",
+          "vote_message_domain",
+          "effect_commitment"
+        ],
+        "properties": {
+          "block_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "block_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "block_payload_ref": {
+            "type": "string",
+            "pattern": "^(?:artifact|payload)://[^\\s]{1,248}$"
+          },
+          "vote_message_domain": {
+            "const": "ioi.aft-consensus-vote.scale-height-view-block-hash.v1"
+          },
+          "effect_commitment": {
+            "const": "declared_association_v1"
           }
         }
       },
@@ -82571,15 +82747,17 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       },
       "consensusEvidence": {
-        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword.",
+        "description": "Peer-quorum evidence required for the bft_consensus_aft_v1 variant and carried by no other, so single_authority_v1 preimages are unchanged. Refusing it on a non-BFT variant is a verifier obligation: this schema dialect implements no negation keyword. `vote_binding` names which bytes the members actually signed: `native_aft_quorum_certificate_v1` imports the live AFT QuorumCertificate over the canonical SCALE (height, view, block_hash) payload and then requires `certified_block`; `checkpoint_quorum_v1` is a fresh non-runtime round over this checkpoint and must then omit `certified_block`, which is again a verifier obligation.",
         "type": "object",
         "additionalProperties": false,
         "required": [
           "schema_version",
           "consensus_protocol_ref",
+          "vote_binding",
           "membership_ref",
           "membership_epoch",
           "fault_model",
+          "synchrony_model",
           "total_voting_members",
           "byzantine_fault_tolerance",
           "quorum_threshold",
@@ -82596,6 +82774,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "string",
             "pattern": "^protocol://[^\\s]{1,248}$"
           },
+          "vote_binding": {
+            "enum": [
+              "native_aft_quorum_certificate_v1",
+              "checkpoint_quorum_v1"
+            ]
+          },
           "membership_ref": {
             "type": "string",
             "pattern": "^node-membership://[^\\s]{1,248}$"
@@ -82607,6 +82791,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "fault_model": {
             "const": "byzantine"
+          },
+          "synchrony_model": {
+            "const": "partial_synchrony"
           },
           "total_voting_members": {
             "type": "integer",
@@ -82678,6 +82865,65 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "membership_hash": {
             "$ref": "#/$defs/hash"
+          },
+          "certified_block": {
+            "$ref": "#/$defs/certifiedBlock"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "vote_binding": {
+                  "const": "native_aft_quorum_certificate_v1"
+                }
+              },
+              "required": [
+                "vote_binding"
+              ]
+            },
+            "then": {
+              "properties": {
+                "certified_block": {
+                  "$ref": "#/$defs/certifiedBlock"
+                }
+              },
+              "required": [
+                "certified_block"
+              ]
+            }
+          }
+        ]
+      },
+      "certifiedBlock": {
+        "description": "The already-finalized native AFT block whose QuorumCertificate was imported. `block_payload_ref` must name a payload the availability manifest declares and the bundle supplies, so `block_hash`, `block_height`, the evidence `view`, and the eligible-voter set are recomputed from durable header bytes rather than asserted: the header's own `validator_set` is the committed AccountId list, and every declared member key must derive into it. `effect_commitment` has exactly one implemented value: `declared_association_v1` states the quorum certifies THE BLOCK ONLY, and this checkpoint's association with that block is declared by the issuer, NOT established by the peer votes.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "block_height",
+          "block_hash",
+          "block_payload_ref",
+          "vote_message_domain",
+          "effect_commitment"
+        ],
+        "properties": {
+          "block_height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "block_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "block_payload_ref": {
+            "type": "string",
+            "pattern": "^(?:artifact|payload)://[^\\s]{1,248}$"
+          },
+          "vote_message_domain": {
+            "const": "ioi.aft-consensus-vote.scale-height-view-block-hash.v1"
+          },
+          "effect_commitment": {
+            "const": "declared_association_v1"
           }
         }
       },
