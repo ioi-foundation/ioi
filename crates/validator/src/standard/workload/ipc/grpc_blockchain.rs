@@ -30,7 +30,6 @@ use ioi_types::{
     error::StateError,
     keys::STATUS_KEY,
 };
-use std::mem;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -67,6 +66,62 @@ fn canonical_durable_target_matches(
         && observed_root.as_slice() == expected_root
 }
 
+fn reconcile_committed_header_update(
+    current: &Block<ChainTransaction>,
+    incoming: Block<ChainTransaction>,
+    consensus_type: ConsensusType,
+) -> Result<Block<ChainTransaction>, String> {
+    if current.transactions != incoming.transactions
+        || current.header.parent_state_root != incoming.header.parent_state_root
+        || current.header.state_root != incoming.header.state_root
+        || current.header.transactions_root != incoming.header.transactions_root
+        || current.header.timestamp_ms_or_legacy() != incoming.header.timestamp_ms_or_legacy()
+        || current.header.gas_used != incoming.header.gas_used
+    {
+        return Err(format!(
+            "refusing to enrich block {} because execution fields diverged from the local committed state",
+            incoming.header.height
+        ));
+    }
+
+    let current_identity = current.header.hash().map_err(|error| error.to_string())?;
+    let incoming_identity = incoming.header.hash().map_err(|error| error.to_string())?;
+    if current_identity != incoming_identity {
+        if consensus_type != ConsensusType::Aft {
+            return Err(format!(
+                "refusing to rewrite consensus identity for non-AFT block {}",
+                incoming.header.height
+            ));
+        }
+        if current.header.parent_hash != incoming.header.parent_hash {
+            return Err(format!(
+                "refusing parent-changing AFT envelope rewrite for block {}; use atomic branch replacement",
+                incoming.header.height
+            ));
+        }
+
+        // A view-change winner can be execution-equivalent to the speculative
+        // proposal already committed by the workload while having a distinct
+        // signed consensus identity. Persist the complete authenticated
+        // envelope so the next proposal's parent hash and recursive-collapse
+        // predecessor resolve to the same bytes. Parent-changing recovery is
+        // deliberately excluded and remains owned by ReplaceUnfinalizedTip.
+        return Ok(incoming);
+    }
+
+    // Post-signing/finality enrichment must not replace fields that determine
+    // the already persisted consensus identity. Copy only the extensions
+    // excluded from BlockHeader::hash().
+    let mut merged = current.clone();
+    merged.header.signature = incoming.header.signature;
+    merged.header.oracle_counter = incoming.header.oracle_counter;
+    merged.header.oracle_trace_hash = incoming.header.oracle_trace_hash;
+    merged.header.guardian_certificate = incoming.header.guardian_certificate;
+    merged.header.sealed_finality_proof = incoming.header.sealed_finality_proof;
+    merged.header.canonical_order_certificate = incoming.header.canonical_order_certificate;
+    Ok(merged)
+}
+
 // -----------------------------------------------------------------------------
 // ChainControl Service
 // -----------------------------------------------------------------------------
@@ -79,24 +134,6 @@ where
 {
     /// Shared RPC context containing the machine state and workload handle.
     pub ctx: Arc<RpcContext<CS, ST>>,
-}
-
-impl<CS, ST> ChainControlImpl<CS, ST>
-where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
-{
-    fn header_execution_surface_matches(
-        left: &ioi_types::app::BlockHeader,
-        right: &ioi_types::app::BlockHeader,
-    ) -> bool {
-        left.parent_hash == right.parent_hash
-            && left.parent_state_root == right.parent_state_root
-            && left.state_root == right.state_root
-            && left.transactions_root == right.transactions_root
-            && left.timestamp_ms_or_legacy() == right.timestamp_ms_or_legacy()
-            && left.gas_used == right.gas_used
-    }
 }
 
 #[tonic::async_trait]
@@ -357,26 +394,12 @@ where
 
         if let Some(last) = machine.state.recent_blocks.last() {
             if last.header.height == block.header.height {
-                if !Self::header_execution_surface_matches(&last.header, &block.header) {
-                    return Err(Status::failed_precondition(format!(
-                        "refusing to enrich block {} because execution fields diverged from the local committed state",
-                        block.header.height
-                    )));
-                }
-
-                let mut merged = last.clone();
-                merged.header.signature = mem::take(&mut block.header.signature);
-                merged.header.oracle_counter = block.header.oracle_counter;
-                merged.header.oracle_trace_hash = block.header.oracle_trace_hash;
-                merged.header.guardian_certificate = block.header.guardian_certificate.take();
-                merged.header.sealed_finality_proof = block.header.sealed_finality_proof.take();
-                merged.header.canonical_order_certificate =
-                    block.header.canonical_order_certificate.take();
-                merged.header.publication_frontier = block.header.publication_frontier.take();
-                merged.header.timeout_certificate = block.header.timeout_certificate.take();
-                merged.header.canonical_collapse_extension_certificate =
-                    block.header.canonical_collapse_extension_certificate.take();
-                block = merged;
+                block = reconcile_committed_header_update(
+                    last,
+                    block,
+                    machine.consensus_engine.consensus_type(),
+                )
+                .map_err(Status::failed_precondition)?;
             }
         }
 
@@ -517,13 +540,15 @@ where
 mod aft_replacement_tests {
     use super::{
         canonical_block_bytes_match, canonical_durable_target_matches,
-        replacement_parent_fence_matches, terminal_replacement_error,
+        reconcile_committed_header_update, replacement_parent_fence_matches,
+        terminal_replacement_error,
     };
     use ioi_types::app::{
         AccountId, Block, BlockHeader, ChainTransaction, QuorumCertificate, SignatureSuite,
         StateRoot,
     };
     use ioi_types::codec;
+    use ioi_types::config::ConsensusType;
     use tonic::Code;
 
     #[test]
@@ -630,6 +655,68 @@ mod aft_replacement_tests {
             &expected_bytes,
             &expected.header.state_root.0,
         ));
+    }
+
+    #[test]
+    fn same_parent_aft_view_change_reconciles_the_complete_signed_envelope() {
+        let current = block(9, 0);
+        let mut winner = current.clone();
+        winner.header.view = 1;
+        winner.header.signature = vec![0x55; 64];
+        winner.header.previous_canonical_collapse_commitment_hash = [0x66; 32];
+
+        let reconciled =
+            reconcile_committed_header_update(&current, winner.clone(), ConsensusType::Aft)
+                .unwrap();
+        assert_eq!(reconciled, winner);
+        assert_ne!(
+            reconciled.header.hash().unwrap(),
+            current.header.hash().unwrap()
+        );
+    }
+
+    #[test]
+    fn parent_changing_aft_envelope_requires_atomic_branch_replacement() {
+        let current = block(9, 0);
+        let mut candidate = current.clone();
+        candidate.header.view = 1;
+        candidate.header.parent_hash = [0x77; 32];
+
+        let error =
+            reconcile_committed_header_update(&current, candidate, ConsensusType::Aft).unwrap_err();
+        assert!(error.contains("use atomic branch replacement"));
+    }
+
+    #[test]
+    fn same_identity_update_changes_only_post_signing_extensions() {
+        let current = block(9, 0);
+        let mut enriched = current.clone();
+        enriched.header.signature = vec![0x88; 64];
+        enriched.header.oracle_counter = 12;
+        enriched.header.oracle_trace_hash = [0x99; 32];
+
+        let reconciled =
+            reconcile_committed_header_update(&current, enriched.clone(), ConsensusType::Aft)
+                .unwrap();
+        assert_eq!(
+            reconciled.header.hash().unwrap(),
+            current.header.hash().unwrap()
+        );
+        assert_eq!(reconciled.header.signature, enriched.header.signature);
+        assert_eq!(reconciled.header.oracle_counter, 12);
+        assert_eq!(reconciled.header.oracle_trace_hash, [0x99; 32]);
+    }
+
+    #[test]
+    fn non_aft_consensus_identity_rewrite_is_refused() {
+        let current = block(9, 0);
+        let mut candidate = current.clone();
+        candidate.header.view = 1;
+
+        let error =
+            reconcile_committed_header_update(&current, candidate, ConsensusType::ProofOfStake)
+                .unwrap_err();
+        assert!(error.contains("non-AFT"));
     }
 }
 
