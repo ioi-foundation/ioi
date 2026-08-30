@@ -13,8 +13,9 @@
 //! 1. THE SUBJECT IS RESOLVED, NEVER ASSERTED. `subject_ref` is handed to the subject family's own
 //!    current owner, and `subject_content_hash` is that owner's committed hash carried verbatim. A
 //!    URI whose prefix merely LOOKS like a family is not proof the subject exists: the ontology
-//!    revision family goes through `ontology_version_routes::resolve_admitted_revision` and the
-//!    mapping-revision family through `semantic_mapping_routes::resolve_admitted_mapping_revision` —
+//!    revision family goes through `ontology_version_routes::resolve_admitted_revision`, the
+//!    mapping-revision family through `semantic_mapping_routes::resolve_admitted_mapping_revision`
+//!    and the assertion family through `provenance_assertion_routes::resolve_admitted_assertion` —
 //!    each the one reader its owner already publishes — and every other family is refused BY NAME.
 //!    That refusal is the whole point: a ladder that admits unresolvable subjects has moved nothing.
 //!
@@ -55,6 +56,7 @@ use super::mutation_event_foundation::{
     scope_refusal_reply, stream_tail, ScopedMutation, WriteCaller,
 };
 use super::ontology_version_routes::resolve_admitted_revision;
+use super::provenance_assertion_routes::resolve_admitted_assertion;
 use super::semantic_mapping_routes::resolve_admitted_mapping_revision;
 use super::substrate_store::{
     authorize_request_resource_scope, authorized_request_resource_refs,
@@ -226,7 +228,8 @@ struct ResolvedSubject {
 ///
 /// THE ONE PLACE A SUBJECT BECOMES REAL. The v1 wire was subject-general from birth so that later
 /// units could add their resolvers behind this seam WITHOUT a wire change; M05.2 has now done exactly
-/// that, and the crosswalk/decision family resolves through its owner's published reader. Every
+/// that for the crosswalk/decision family and M05.3 for the assertion family, each through its
+/// owner's published reader. Every
 /// family still without a landed owner reader remains well-formed on the wire and REFUSED BY NAME
 /// here, because a build that cannot resolve a family must never admit a transition over it on the
 /// strength of a URI prefix.
@@ -280,6 +283,23 @@ fn resolve_subject(
                 family,
                 content_hash: mapping.content_hash,
                 resolved_by: "semantic_mapping_routes::resolve_admitted_mapping_revision".to_string(),
+            })
+        }
+        // THE THIRD REAL ONE, LANDED BY M05.3. Same discipline again: the assertion owner's OWN
+        // published reader, under the caller's own scope, with the hash carried verbatim.
+        SubjectFamily::OntologyAssertion => {
+            let assertion = resolve_admitted_assertion(data_dir, identity, subject_ref)?;
+            if !is_sha256(&assertion.content_hash) {
+                return Err(bad(
+                    StatusCode::BAD_GATEWAY,
+                    "assurance_transition_subject_hash_not_canonical",
+                    "the subject owner resolved this subject to a content hash that is not a canonical sha256; a transition is not sealed over a malformed binding",
+                ));
+            }
+            Ok(ResolvedSubject {
+                family,
+                content_hash: assertion.content_hash,
+                resolved_by: "provenance_assertion_routes::resolve_admitted_assertion".to_string(),
             })
         }
         // FAIL CLOSED, BY NAME. Not "unsupported subject" — the exact family and the exact unit that

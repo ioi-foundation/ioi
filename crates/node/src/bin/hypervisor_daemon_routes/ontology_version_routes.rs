@@ -929,8 +929,6 @@ pub(crate) struct ResolvedOntologyRevision {
 ///
 /// GRANTS NOTHING. It returns coordinates and a hash. It resolves no mapping, reads no capability,
 /// and its result is not permission to act on the meaning it names.
-#[allow(dead_code)] // The M05.2/M05.3 consumption seam, landed with its owner ahead of its first
-                    // caller so that neither later unit has a reason to mint a duplicate reader.
 pub(crate) fn resolve_admitted_revision(
     data_dir: &str,
     identity: &RequestIdentity,
@@ -1011,6 +1009,85 @@ fn resolve_admitted_revision_projection(
         ));
     }
     Ok((resolved, document.clone()))
+}
+
+/// One admitted TERM of an exact revision, and which set declares it.
+///
+/// M05.3's consumption seam, and deliberately not `resolve_admitted_action_type` generalised: a
+/// compiled action needs its risk-bearing action term specifically, while a provenance assertion
+/// needs to know that its predicate is SOMETHING this revision declares, whichever set it lives in.
+/// Collapsing the two would let an action contract bind an entity type.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ResolvedOntologyTerm {
+    pub(crate) ontology_id: String,
+    pub(crate) ontology_family_ref: String,
+    pub(crate) content_hash: String,
+    pub(crate) term_id: String,
+    pub(crate) term_set: &'static str,
+    pub(crate) status: String,
+}
+
+/// Resolve one EXACT admitted term against the EXACT admitted revision that declares it.
+///
+/// THE DEFECT THIS EXISTS TO CATCH cannot be caught from bytes. A well-formed, correctly-namespaced,
+/// canonical term the revision never declared passes every shape check and every portable invariant;
+/// only this family's own chain knows whether the revision declares it. Membership is therefore read
+/// out of the contract-validated PROJECTION — the same bytes the committed `content_hash` covers — so
+/// a rebuilt or tampered index cannot make an unadmitted term resolve.
+///
+/// SAME AUTHORIZATION, SAME TRUTH, SAME PROJECTION as its two siblings: it shares
+/// `resolve_admitted_revision_projection`, adds no storage reader, consults no index, and never
+/// widens the caller's scope. It returns an identity and a hash, and it grants nothing.
+pub(crate) fn resolve_admitted_term(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    ontology_id: &str,
+    term_ref: &str,
+) -> Result<ResolvedOntologyTerm, Reply> {
+    let (revision, document) =
+        resolve_admitted_revision_projection(data_dir, identity, ontology_id)?;
+    let term_prefix = format!("{}/term/", revision.ontology_family_ref);
+    let Some(term_slug) = term_ref.strip_prefix(&term_prefix) else {
+        return Err(refuse(
+            "ontology_version_term_foreign_family",
+            format!(
+                "'{term_ref}' is not a term of '{}' — a version never declares, and never resolves, a term in another domain's namespace",
+                revision.ontology_family_ref
+            ),
+        ));
+    };
+    if !canonical_token(term_slug, 63) {
+        return Err(refuse(
+            "ontology_version_term_id_not_canonical",
+            format!("'{term_ref}' is not a canonical term identity"),
+        ));
+    }
+    let Some(term_set) = TERM_SETS.iter().copied().find(|set| {
+        document
+            .get(*set)
+            .and_then(Value::as_array)
+            .is_some_and(|terms| {
+                terms
+                    .iter()
+                    .any(|term| term.get("term_id").and_then(Value::as_str) == Some(term_ref))
+            })
+    }) else {
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            "ontology_version_term_absent",
+            format!(
+                "revision '{ontology_id}' declares no term '{term_ref}' — a well-formed term of the right family is still not an admitted term, and an absent term is a typed absence rather than an empty success"
+            ),
+        ));
+    };
+    Ok(ResolvedOntologyTerm {
+        ontology_id: revision.ontology_id,
+        ontology_family_ref: revision.ontology_family_ref,
+        content_hash: revision.content_hash,
+        term_id: term_ref.to_owned(),
+        term_set,
+        status: revision.status,
+    })
 }
 
 /// One admitted ACTION TYPE, and the exact revision that defines it.

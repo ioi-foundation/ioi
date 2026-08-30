@@ -160,6 +160,8 @@ mod placement_failover_routes;
 mod policy_bound_data_view_routes;
 #[path = "hypervisor_daemon_routes/portal_session_exchange_routes.rs"]
 mod portal_session_exchange_routes;
+#[path = "hypervisor_daemon_routes/provenance_assertion_routes.rs"]
+mod provenance_assertion_routes;
 #[path = "hypervisor_daemon_routes/provider_routes.rs"]
 mod provider_routes;
 #[path = "hypervisor_daemon_routes/provider_transport.rs"]
@@ -826,6 +828,21 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/semantic-mapping-decisions/challenges",
             post(semantic_mapping_routes::handle_semantic_mapping_decision_challenge),
+        )
+        // M05.3 — ProvenanceAssertion as the queryable plane: an explicit versioned successor to
+        // the bounded exact-single-source v1 slice, which keeps its own contract, route and store.
+        // Polarity, structured uncertainty, retained contradiction, supersession and challenge
+        // standing are all first-class; the predicate is resolved as a term the bound revision
+        // actually declares. No route mints, widens or consults authority, and admission records
+        // operational truth rather than universal truth.
+        .route(
+            "/v1/hypervisor/provenance-assertions",
+            post(provenance_assertion_routes::handle_provenance_assertion_admit)
+                .get(provenance_assertion_routes::handle_provenance_assertion_query),
+        )
+        .route(
+            "/v1/hypervisor/provenance-assertions/challenges",
+            post(provenance_assertion_routes::handle_provenance_assertion_challenge),
         )
         // M06 prerequisite — one step of the assurance ladder as an exact-head object over a subject
         // its own owner resolved. One producer, one query consumer; the receipt is evidence, never a
