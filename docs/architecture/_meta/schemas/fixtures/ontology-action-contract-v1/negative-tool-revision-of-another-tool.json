@@ -1,0 +1,128 @@
+{
+  "schema_version": "ioi.ontology-action-contract.v1",
+  "ontology_action_id": "ontology-action://acme-clinic/patient-intake/schedule-followup/revision/1",
+  "action_family_ref": "ontology-action://acme-clinic/patient-intake/schedule-followup",
+  "action_record_profile": "ontology_action_contract",
+  "namespace": "acme-clinic",
+  "name": "patient-intake",
+  "action_slug": "schedule-followup",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/intake",
+  "admission_domain_ref": "agentgres://domain/event-stream-operations.hypervisor-ontology-action-contracts.ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7",
+  "version": "v1",
+  "revision_ordinal": 1,
+  "predecessor_revision_ref": null,
+  "predecessor_content_hash": null,
+  "content_hash": "sha256:3d55cba555a1de20a26d28572769337a41572dfa24a40b540d7f3d2ca196e655",
+  "ontology_family_ref": "ontology://acme-clinic/patient-intake",
+  "ontology_revision_ref": "ontology://acme-clinic/patient-intake/revision/3",
+  "ontology_content_hash": "sha256:75ce6c2a141e45240b61a55e9c6aac193f5937b71c66ee0168bb879db1c5f401",
+  "ontology_resolved_by": "ontology_version_routes::resolve_admitted_action_type",
+  "action_type_ref": "ontology://acme-clinic/patient-intake/term/schedule-followup",
+  "runtime_tool_contract_revision_ref": "tool://ioi/runtime/other.tool/revision/0123456789abcdef",
+  "runtime_tool_contract_content_hash": "sha256:147cfc6e456d27baa7efc8734006ba92a0e7c580002c25e742cefcf63812dd16",
+  "runtime_tool_resolved_by": "runtime_tool_contract_registry::resolve_exact",
+  "bound_tool_id": "tool://ioi/runtime/mail.send",
+  "bound_tool_risk_class": "external_effect",
+  "bound_tool_effect_class": "external_effect",
+  "bound_tool_class_vocabulary": "runtime_tool_declared_verbatim",
+  "bound_tool_input_schema_hash": "sha256:120d104a5e0326ce909f3ae7f703764384d6704bc6b0751e19dcbe70af6d8e61",
+  "bound_tool_output_schema_hash": "sha256:96722fa00dbf6e293ae18b78ae99115d33874560be354360cf2f6d23c802ed70",
+  "bound_tool_primitive_capabilities_required": [
+    "prim:net.request"
+  ],
+  "bound_tool_authority_scopes_required": [
+    "scope:mail.send"
+  ],
+  "typed_input_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/input/v1",
+  "typed_output_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/output/v1",
+  "target_object_model_refs": [
+    "object-model://acme-clinic/patient-intake/appointment"
+  ],
+  "precondition_refs": [
+    "state://acme-clinic/patient-intake/appointment/unscheduled"
+  ],
+  "postcondition_and_invariant_refs": [
+    "invariant://acme-clinic/patient-intake/one-open-followup-per-patient"
+  ],
+  "expected_state_transition_ref": "transition://acme-clinic/patient-intake/appointment/unscheduled-to-scheduled",
+  "risk_class": "external_message",
+  "effect_recovery_class": "reconciliation_required",
+  "idempotency_and_retry_profile_ref": "policy://acme-clinic/intake/idempotency/v1",
+  "ambiguous_effect_and_reconciliation_profile_ref": "policy://acme-clinic/intake/reconciliation/v1",
+  "compensation_profile_ref": "policy://acme-clinic/intake/compensation/v1",
+  "preview_and_dry_run_profile_ref": null,
+  "approval_and_revocation_refs": [
+    "approval-policy://acme-clinic/intake/outbound-message"
+  ],
+  "local_policy_and_authority_scope_refs": [
+    "policy://acme-clinic/intake/outbound",
+    "scope:mail.send"
+  ],
+  "verifier_and_evidence_refs": [
+    "verifier-path://acme-clinic/intake/followup-scheduled",
+    "evidence://acme-clinic/intake/provider-response"
+  ],
+  "physical_safety_profile_ref": null,
+  "receipt_obligations": [
+    "receipt://acme-clinic/intake/action-admission",
+    "receipt://acme-clinic/intake/effect-execution"
+  ],
+  "required_gates": [
+    "capability",
+    "policy",
+    "authority",
+    "daemon_admission",
+    "evidence",
+    "verification"
+  ],
+  "required_gate_count": 6,
+  "policy_hash": "sha256:4f26ae0ab860426c146caecd873c0c7678c6a0cfa129e9d43df71cd21295ea62",
+  "does_not_assert": [
+    "authority",
+    "capability_grant",
+    "lease",
+    "policy_decision",
+    "effect_admission",
+    "invocation"
+  ],
+  "constants": {
+    "authority_nonclaim_token": "authority",
+    "capability_gate": "capability",
+    "policy_gate": "policy",
+    "authority_gate": "authority",
+    "daemon_admission_gate": "daemon_admission",
+    "evidence_gate": "evidence",
+    "verification_gate": "verification"
+  },
+  "authority_nonclaim": "ontology_action_contract_grants_no_authority",
+  "invocation_nonclaim": "ontology_action_contract_does_not_invoke_or_dispatch",
+  "valid_time": {
+    "starts_at": "2026-01-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-08-30T12:00:00Z",
+    "superseded_at": "2026-08-30T13:00:00Z"
+  },
+  "migration": {
+    "from_revision_ref": null,
+    "from_content_hash": null,
+    "from_revision_ordinal": 0,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false
+  },
+  "admission": {
+    "ontology_action_id": "ontology-action://acme-clinic/patient-intake/schedule-followup/revision/1",
+    "content_hash": "sha256:3d55cba555a1de20a26d28572769337a41572dfa24a40b540d7f3d2ca196e655",
+    "owner_namespace": "hypervisor-ontology-action-contracts",
+    "stream_tail": "ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7",
+    "agentgres_operation_ref": "agentgres://operation/event-stream/hypervisor-ontology-action-contracts/ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7/sequence/1/head/sha256:7247e8d0a3e90f3a4e6e2899480fc38080f761a91553124384ff4232e05d416f",
+    "agentgres_receipt_ref": "receipt://agentgres/event-stream/hypervisor-ontology-action-contracts/ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7/batch/1/ca66427486d9198fb2e6a6f4ee2c74c8546d960ae940a6229d24f4b9c05f40f4",
+    "admission_seq": 1,
+    "admission_head": "sha256:7247e8d0a3e90f3a4e6e2899480fc38080f761a91553124384ff4232e05d416f",
+    "admission_root": "sha256:ca66427486d9198fb2e6a6f4ee2c74c8546d960ae940a6229d24f4b9c05f40f4",
+    "expected_predecessor_head": null
+  },
+  "status": "deprecated"
+}

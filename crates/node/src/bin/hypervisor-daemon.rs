@@ -134,6 +134,8 @@ mod model_routes;
 mod mutation_event_foundation;
 #[path = "hypervisor_daemon_routes/odk_routes.rs"]
 mod odk_routes;
+#[path = "hypervisor_daemon_routes/ontology_action_contract_routes.rs"]
+mod ontology_action_contract_routes;
 #[path = "hypervisor_daemon_routes/ontology_projection_routes.rs"]
 mod ontology_projection_routes;
 #[path = "hypervisor_daemon_routes/ontology_version_routes.rs"]
@@ -782,6 +784,15 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/ontology-versions",
             post(ontology_version_routes::handle_ontology_version_admit)
                 .get(ontology_version_routes::handle_ontology_version_query),
+        )
+        // M05.4 — the binding that compiles meaning and grants nothing. One producer, one lineage
+        // query consumer. Both bindings are resolved by their owners (M05.1's published revision
+        // reader and the RuntimeToolContract registry's exact revision+hash resolver); neither route
+        // mints, widens, consults or redeems authority, and neither invokes or dispatches an effect.
+        .route(
+            "/v1/hypervisor/ontology-action-contracts",
+            post(ontology_action_contract_routes::handle_ontology_action_contract_admit)
+                .get(ontology_action_contract_routes::handle_ontology_action_contract_query),
         )
         // M06 prerequisite — one step of the assurance ladder as an exact-head object over a subject
         // its own owner resolved. One producer, one query consumer; the receipt is evidence, never a

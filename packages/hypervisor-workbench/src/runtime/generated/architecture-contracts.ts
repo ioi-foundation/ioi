@@ -9336,6 +9336,100 @@ export type VerifierChallengeEnvelopeV2 = {
   status: "proposed" | "admitted" | "investigating" | "upheld" | "rejected" | "rule_changed" | "reverifying" | "resolved" | "withdrawn";
 };
 
+export type OntologyActionContractV1 = {
+  schema_version: "ioi.ontology-action-contract.v1";
+  ontology_action_id: string;
+  action_family_ref: string;
+  action_record_profile: "ontology_action_contract";
+  namespace: string;
+  name: string;
+  action_slug: string;
+  owner_id: string;
+  governing_scope_ref: string;
+  admission_domain_ref: string;
+  version: string;
+  revision_ordinal: number;
+  predecessor_revision_ref: string | null;
+  predecessor_content_hash: string | null;
+  content_hash: string;
+  ontology_family_ref: string;
+  ontology_revision_ref: string;
+  ontology_content_hash: string;
+  ontology_resolved_by: "ontology_version_routes::resolve_admitted_action_type";
+  action_type_ref: string;
+  runtime_tool_contract_revision_ref: string;
+  runtime_tool_contract_content_hash: string;
+  runtime_tool_resolved_by: "runtime_tool_contract_registry::resolve_exact";
+  bound_tool_id: string;
+  bound_tool_risk_class: string;
+  bound_tool_effect_class: string;
+  bound_tool_class_vocabulary: "runtime_tool_declared_verbatim";
+  bound_tool_input_schema_hash: string;
+  bound_tool_output_schema_hash: string;
+  bound_tool_primitive_capabilities_required: Array<string>;
+  bound_tool_authority_scopes_required: Array<string>;
+  typed_input_schema_ref: string;
+  typed_output_schema_ref: string;
+  target_object_model_refs: Array<string>;
+  precondition_refs: Array<string>;
+  postcondition_and_invariant_refs: Array<string>;
+  expected_state_transition_ref: string;
+  risk_class: "read" | "draft" | "local_write" | "write_reversible" | "external_message" | "commerce" | "funds" | "credential_access" | "policy_widening" | "secret_export" | "identity_change" | "system_destructive" | "physical_action";
+  effect_recovery_class: "replayable" | "checkpointable" | "compensatable" | "reconciliation_required" | "non_retryable";
+  idempotency_and_retry_profile_ref: string;
+  ambiguous_effect_and_reconciliation_profile_ref: string;
+  compensation_profile_ref: string | null;
+  preview_and_dry_run_profile_ref: string | null;
+  approval_and_revocation_refs: Array<string>;
+  local_policy_and_authority_scope_refs: Array<string>;
+  verifier_and_evidence_refs: Array<string>;
+  physical_safety_profile_ref: string | null;
+  receipt_obligations: Array<string>;
+  required_gates: Array<"capability" | "policy" | "authority" | "daemon_admission" | "evidence" | "verification">;
+  required_gate_count: number;
+  policy_hash: string;
+  does_not_assert: Array<"authority" | "capability_grant" | "lease" | "policy_decision" | "effect_admission" | "invocation" | "connection_is_authority" | "credential_is_authority" | "domain_correctness" | "physical_safety_clearance">;
+  constants: {
+      authority_nonclaim_token: "authority";
+      capability_gate: "capability";
+      policy_gate: "policy";
+      authority_gate: "authority";
+      daemon_admission_gate: "daemon_admission";
+      evidence_gate: "evidence";
+      verification_gate: "verification";
+    };
+  authority_nonclaim: "ontology_action_contract_grants_no_authority";
+  invocation_nonclaim: "ontology_action_contract_does_not_invoke_or_dispatch";
+  valid_time: {
+      starts_at: string;
+      ends_at: string | null;
+    };
+  transaction_time: {
+      recorded_at: string;
+      superseded_at: string | null;
+    };
+  migration: {
+      from_revision_ref: string | null;
+      from_content_hash: string | null;
+      from_revision_ordinal: number;
+      compatibility: "initial" | "additive" | "breaking";
+      reinterprets_predecessor: false;
+    };
+  admission: null | {
+      ontology_action_id: string;
+      content_hash: string;
+      owner_namespace: "hypervisor-ontology-action-contracts";
+      stream_tail: string;
+      agentgres_operation_ref: string;
+      agentgres_receipt_ref: string;
+      admission_seq: number;
+      admission_head: string;
+      admission_root: string;
+      expected_predecessor_head: string | null;
+    };
+  status: "active" | "deprecated";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -15689,6 +15783,94 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_action_contract.content_hash.commits_both_bindings_effect_semantics_and_valid_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_action_contract.action_term.is_of_the_bound_ontology_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_action_contract.tool_binding.revision_is_owned_by_the_bound_tool"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_action_contract.physical_action.binds_a_safety_profile"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_action_contract.bindings.are_two_distinct_owner_commitments"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_action_contract.migration.source_is_the_exact_predecessor_revision"
   }
 ] as const;
 
@@ -23826,6 +24008,83 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -24721,6 +24980,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:agent|worker)://[^\\s]{1,248}$",
   "^(?:ai|package|capability)://[^\\s]{1,500}$",
   "^(?:allocation|receipt)://[^\\s]{1,500}$",
+  "^(?:approval-policy|revocation)://[^\\s]{1,240}$",
   "^(?:artifact|cid)://[^\\s]{1,248}$",
   "^(?:artifact|cid)://[^\\s]{1,500}$",
   "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$",
@@ -24829,12 +25089,14 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:participation-request|proposal)://[^\\s]{1,500}$",
+  "^(?:policy://|grant://|scope:)[^\\s]{1,240}$",
   "^(?:policy|auth_factor)://[^\\s]{1,500}$",
   "^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$",
   "^(?:policy|budget)://[^\\s]{1,500}$",
   "^(?:policy|event)://[^\\s]{1,500}$",
   "^(?:policy|finding|ontology)://[^\\s]{1,500}$",
   "^(?:policy|gate|state)://[^\\s]{1,500}$",
+  "^(?:policy|invariant|state)://[^\\s]{1,240}$",
   "^(?:policy|license)://[^\\s]{1,500}$",
   "^(?:policy|license|revocation)://[^\\s]{1,500}$",
   "^(?:policy|profile)://[^\\s]{1,248}$",
@@ -24881,6 +25143,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$",
   "^(?:schedule|change-plan|event)://[^\\s]{1,240}$",
   "^(?:schedule|policy|artifact)://[^\\s]{1,500}$",
+  "^(?:schema|artifact)://[^\\s]{1,240}$",
   "^(?:schema|policy)://[^\\s]+$",
   "^(?:schema|policy)://[^\\s]{1,500}$",
   "^(?:schema|profile)://[^\\s]{1,500}$",
@@ -24915,10 +25178,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:test|gate|receipt|branch-checkpoint)://[^\\s]+$",
   "^(?:tokenizer|artifact)://[^\\s]{1,500}$",
   "^(?:transition|decision)://[^\\s]{1,248}$",
+  "^(?:transition|state-delta)://[^\\s]{1,240}$",
   "^(?:user|org)://[^\\s]{1,500}$",
   "^(?:user|wallet)://\\S*$",
   "^(?:user|wallet)://\\S+$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
+  "^(?:verifier-path|evidence|schema)://[^\\s]{1,240}$",
   "^(?:verifier-path|rubric|gate)://[^\\s]{1,500}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
   "^(?:verifier-path|verifier-challenge)://[^\\s]{1,500}$",
@@ -25021,6 +25286,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://domain/[^\\s]{1,240}$",
   "^agentgres://domain/[^\\s]{1,460}$",
   "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$",
+  "^agentgres://domain/event-stream-operations[.][^\\s]{1,224}$",
   "^agentgres://object-set/[^\\s]{1,248}$",
   "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$",
   "^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -25028,6 +25294,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://operation/[^\\s]{1,240}$",
   "^agentgres://operation/[^\\s]{1,248}$",
   "^agentgres://operation/\\S+$",
+  "^agentgres://operation/event-stream/[^\\s]{1,460}$",
   "^agentgres://state-root/[^\\s]{1,240}$",
   "^agentgres://state-root/\\S*$",
   "^agentgres://state-root/\\S+$",
@@ -25230,8 +25497,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^node-enforcement://[^\\s]{1,248}$",
   "^node-membership://[^\\s]{1,248}$",
   "^node://[^\\s]{1,248}$",
+  "^object-model://[^\\s]{1,240}$",
   "^object://[^\\s]{1,248}$",
   "^observation://\\S*$",
+  "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
+  "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
   "^ontology-assertion://[^\\s]{1,248}$",
   "^ontology://[^\\s]{1,248}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
@@ -25270,6 +25540,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^policy://[^\\s]{1,248}$",
   "^policy://[^\\s]{1,500}$",
   "^preference://hypervisor/\\S+$",
+  "^prim:[^\\s]{1,120}$",
   "^prim:[a-z0-9._-]+$",
   "^prim:[a-z][a-z0-9._-]*$",
   "^prim:[a-z][a-z0-9._-]{0,127}$",
@@ -25304,6 +25575,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[^\\s]{1,400}$",
   "^receipt://[^\\s]{1,460}$",
   "^receipt://[^\\s]{1,500}$",
+  "^receipt://agentgres/event-stream/[^\\s]{1,460}$",
   "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
   "^receipt://automation-run-resolution/[0-9a-f]{64}$",
@@ -25329,6 +25601,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^runtime://[^\\s]{1,500}$",
   "^runtime://\\S*$",
   "^safety://[^\\s]+$",
+  "^safety://[^\\s]{1,240}$",
   "^sao_[0-9a-f]+$",
   "^schedule://[^\\s]{1,500}$",
   "^schema://[^\\s]+$",
@@ -25342,6 +25615,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^scm-publication-prepared://[^\\s]{1,248}$",
   "^scm-ref://[^\\s]{1,248}$",
   "^scm-revision:[0-9a-f]{40,64}$",
+  "^scope:[^\\s]{1,120}$",
   "^scope:[^\\s]{1,200}$",
   "^scope:[a-z0-9._-]+$",
   "^scope:[a-z0-9._:-]{1,180}$",
@@ -25409,6 +25683,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$",
   "^terms://[^\\s]{1,248}$",
   "^terms://[^\\s]{1,500}$",
+  "^tool://[A-Za-z0-9._~/-]{1,200}$",
+  "^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$",
   "^tool://[A-Za-z0-9._~:/-]+$",
   "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$",
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -25674,7 +25950,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": "sha256:de7a97b715688c7510c6c1bb2935c24ee24bf99db285742412631246568f6c94",
   "schema://ioi/components/hypervisor/foundry-artifact-intent/v1": "sha256:90a68419c1347290914c48a0565e575777b0e940e09beaef621a9956aafaf883",
   "schema://ioi/foundations/assurance-transition-receipt/v1": "sha256:62d284c67dd29fe5d9ae2148229b995c99c75ab6b29c03194bf4f4bc05e89733",
-  "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27"
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27",
+  "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:9ac1369a66dac61ced9c9d478e61444e2306fd9833198dadc844cd96e6612e2c"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -95176,6 +95453,701 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     }
+  },
+  "schema://ioi/foundations/objects/ontology-action-contract/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+    "title": "OntologyActionContract",
+    "description": "One immutable, owner-qualified revision of an executable semantic action contract. It binds an exact admitted OntologyVersion revision and its committed hash, the exact action term that revision defines, an exact released RuntimeToolContract revision and its committed hash, the typed input/output contract, and the declared effect, risk, recovery, compensation, verification, evidence, receipt and physical-safety obligations. It COMPILES MEANING INTO A REQUEST AND GRANTS NOTHING: the same action still passes the capability, policy, authority, daemon-admission, evidence and verification gates named in `required_gates`, and this record neither invokes an effect nor mints a lease, grant, connection or credential.",
+    "x-ioi-schema-version": "ioi.ontology-action-contract.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "ontology_action_id",
+      "action_family_ref",
+      "action_record_profile",
+      "namespace",
+      "name",
+      "action_slug",
+      "owner_id",
+      "governing_scope_ref",
+      "admission_domain_ref",
+      "version",
+      "revision_ordinal",
+      "predecessor_revision_ref",
+      "predecessor_content_hash",
+      "content_hash",
+      "ontology_family_ref",
+      "ontology_revision_ref",
+      "ontology_content_hash",
+      "ontology_resolved_by",
+      "action_type_ref",
+      "runtime_tool_contract_revision_ref",
+      "runtime_tool_contract_content_hash",
+      "runtime_tool_resolved_by",
+      "bound_tool_id",
+      "bound_tool_risk_class",
+      "bound_tool_effect_class",
+      "bound_tool_class_vocabulary",
+      "bound_tool_input_schema_hash",
+      "bound_tool_output_schema_hash",
+      "bound_tool_primitive_capabilities_required",
+      "bound_tool_authority_scopes_required",
+      "typed_input_schema_ref",
+      "typed_output_schema_ref",
+      "target_object_model_refs",
+      "precondition_refs",
+      "postcondition_and_invariant_refs",
+      "expected_state_transition_ref",
+      "risk_class",
+      "effect_recovery_class",
+      "idempotency_and_retry_profile_ref",
+      "ambiguous_effect_and_reconciliation_profile_ref",
+      "compensation_profile_ref",
+      "preview_and_dry_run_profile_ref",
+      "approval_and_revocation_refs",
+      "local_policy_and_authority_scope_refs",
+      "verifier_and_evidence_refs",
+      "physical_safety_profile_ref",
+      "receipt_obligations",
+      "required_gates",
+      "required_gate_count",
+      "policy_hash",
+      "does_not_assert",
+      "constants",
+      "authority_nonclaim",
+      "invocation_nonclaim",
+      "valid_time",
+      "transaction_time",
+      "migration",
+      "admission",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ontology-action-contract.v1"
+      },
+      "ontology_action_id": {
+        "$ref": "#/$defs/actionRevisionRef"
+      },
+      "action_family_ref": {
+        "$ref": "#/$defs/actionFamilyRef"
+      },
+      "action_record_profile": {
+        "const": "ontology_action_contract"
+      },
+      "namespace": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "name": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "action_slug": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "owner_id": {
+        "type": "string",
+        "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+      },
+      "governing_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+      },
+      "admission_domain_ref": {
+        "description": "`agentgres://domain/` plus exactly what `agentgres::refs::event_stream_domain` emits for this family's owner namespace and stream tail.",
+        "type": "string",
+        "pattern": "^agentgres://domain/event-stream-operations[.][^\\s]{1,224}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^v[1-9][0-9]{0,8}$"
+      },
+      "revision_ordinal": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 999999999
+      },
+      "predecessor_revision_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/actionRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_content_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "ontology_family_ref": {
+        "$ref": "#/$defs/ontologyFamilyRef",
+        "description": "THE OFFLINE JOIN KEY, and the only reason this derived field exists. `ontology_revision_ref` and `action_type_ref` are both owner-qualified under one family, but a portable invariant can only relate two paths through a third that both share as a prefix. Without this member, 'the compiled term and the bound revision belong to the same family' would be a runtime refusal with no offline counterpart, and a record that bound namespace A's revision to namespace B's term would satisfy every shape check for a relying party holding only the bytes. It is derived by the admitting owner, never accepted from a caller, and it is inside the content commitment."
+      },
+      "ontology_revision_ref": {
+        "$ref": "#/$defs/ontologyRevisionRef",
+        "description": "EXACT, never a family head. A contract that named `ontology://ns/name` would silently re-mean itself whenever the family advanced, which is the reinterpretation an immutable version exists to refuse."
+      },
+      "ontology_content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "The ontology owner's committed hash for that exact revision, carried verbatim. It is what makes the membership the admitting owner already checked RE-CHECKABLE: any relying party holding the revision bytes can confirm `action_type_ref` in that revision's `action_types` without trusting this record."
+      },
+      "ontology_resolved_by": {
+        "const": "ontology_version_routes::resolve_admitted_action_type",
+        "description": "The exact owner seam that produced this binding. It resolves the revision AND the action against one projection of the ontology family's own chain, so an unknown same-family term is refused rather than admitted; pinning the seam here is what stops a later build substituting a weaker reader while keeping the field."
+      },
+      "action_type_ref": {
+        "$ref": "#/$defs/termRef",
+        "description": "The exact admitted action type this contract compiles. Membership in the bound revision's `action_types` is CHECKED by the ontology owner before admission — a well-formed, correctly-namespaced term the revision never declared is refused, not accepted with a caveat."
+      },
+      "runtime_tool_contract_revision_ref": {
+        "$ref": "#/$defs/toolRevisionRef",
+        "description": "EXACT released revision, never a mutable tool family id. Admission and package pins use `revision_ref` plus `content_hash` by the connector/tool contract owner's own rule."
+      },
+      "runtime_tool_contract_content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "runtime_tool_resolved_by": {
+        "const": "runtime_tool_contract_registry::resolve_exact"
+      },
+      "bound_tool_id": {
+        "$ref": "#/$defs/toolFamilyRef"
+      },
+      "bound_tool_risk_class": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "bound_tool_effect_class": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "bound_tool_class_vocabulary": {
+        "const": "runtime_tool_declared_verbatim",
+        "description": "The bound tool's risk/effect strings are RETAINED AS THE TOOL OWNER DECLARES THEM and are not members of the canonical ladder. `canonical-enums.md` records that several runtime surfaces still carry pre-consolidation strings; mapping one onto the canonical ladder here would invent an equivalence this contract has no authority to assert. This record's own canonical assessment is `risk_class`."
+      },
+      "bound_tool_input_schema_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "bound_tool_output_schema_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "bound_tool_primitive_capabilities_required": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^prim:[^\\s]{1,120}$"
+        }
+      },
+      "bound_tool_authority_scopes_required": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[^\\s]{1,120}$"
+        }
+      },
+      "typed_input_schema_ref": {
+        "$ref": "#/$defs/typedSchemaRef"
+      },
+      "typed_output_schema_ref": {
+        "$ref": "#/$defs/typedSchemaRef"
+      },
+      "target_object_model_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^object-model://[^\\s]{1,240}$"
+        }
+      },
+      "precondition_refs": {
+        "$ref": "#/$defs/conditionRefSet"
+      },
+      "postcondition_and_invariant_refs": {
+        "$ref": "#/$defs/conditionRefSet"
+      },
+      "expected_state_transition_ref": {
+        "type": "string",
+        "pattern": "^(?:transition|state-delta)://[^\\s]{1,240}$"
+      },
+      "risk_class": {
+        "enum": [
+          "read",
+          "draft",
+          "local_write",
+          "write_reversible",
+          "external_message",
+          "commerce",
+          "funds",
+          "credential_access",
+          "policy_widening",
+          "secret_export",
+          "identity_change",
+          "system_destructive",
+          "physical_action"
+        ],
+        "description": "The canonical ladder owned by `canonical-enums.md`, plus the peer top-tier `physical_action`. This contract registers the member; it does not define the set."
+      },
+      "effect_recovery_class": {
+        "enum": [
+          "replayable",
+          "checkpointable",
+          "compensatable",
+          "reconciliation_required",
+          "non_retryable"
+        ]
+      },
+      "idempotency_and_retry_profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "ambiguous_effect_and_reconciliation_profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "compensation_profile_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "preview_and_dry_run_profile_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "approval_and_revocation_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:approval-policy|revocation)://[^\\s]{1,240}$"
+        }
+      },
+      "local_policy_and_authority_scope_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:policy://|grant://|scope:)[^\\s]{1,240}$"
+        },
+        "description": "REQUIREMENTS, never holdings. A `grant://` member names the grant class an invoker must present; it is not a grant this record possesses, issues or consumes."
+      },
+      "verifier_and_evidence_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:verifier-path|evidence|schema)://[^\\s]{1,240}$"
+        }
+      },
+      "physical_safety_profile_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^safety://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "receipt_obligations": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      },
+      "required_gates": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 6,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "capability",
+            "policy",
+            "authority",
+            "daemon_admission",
+            "evidence",
+            "verification"
+          ]
+        },
+        "description": "ACC-6 clause 5 AS A FIELD. The exact ladder this compiled action still has to pass. Six UNIQUE members drawn from a six-member enum is set equality stated in the keywords the registered-contract compiler supports: dropping a gate fails `minItems`, substituting one fails the enum, and duplicating one to make up the count fails `uniqueItems`. A relying party with only these bytes and no daemon catches all three."
+      },
+      "required_gate_count": {
+        "type": "integer",
+        "minimum": 6,
+        "maximum": 6,
+        "description": "Pinned to exactly six by this schema and compared against the array's own length by a registered invariant, so gate removal fails twice and independently: once as a shape error and once as arithmetic over the ladder the record actually carries."
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "The exact local policy snapshot in force when this revision was compiled. It is a commitment to WHICH policy applied, never a record that policy decided anything: `policy` remains a member of `required_gates` and `policy_decision` a mandatory member of `does_not_assert`."
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 10,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "capability_grant",
+            "lease",
+            "policy_decision",
+            "effect_admission",
+            "invocation",
+            "connection_is_authority",
+            "credential_is_authority",
+            "domain_correctness",
+            "physical_safety_clearance"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            }
+          },
+          {
+            "contains": {
+              "const": "capability_grant"
+            }
+          },
+          {
+            "contains": {
+              "const": "lease"
+            }
+          },
+          {
+            "contains": {
+              "const": "policy_decision"
+            }
+          },
+          {
+            "contains": {
+              "const": "effect_admission"
+            }
+          },
+          {
+            "contains": {
+              "const": "invocation"
+            }
+          }
+        ],
+        "description": "NN 9 AND NN 20 AS A CLOSED FIELD RATHER THAN A PARAGRAPH. Six members are mandatory, and each names a thing a reader might otherwise take a compiled action to confer: authority, a capability grant, a lease, a policy decision, an effect admission, or the invocation itself. `action_term_membership` is DELIBERATELY ABSENT FROM THE VOCABULARY. It belonged here only while the ontology owner published no way to check that the compiled term was one the bound revision actually declares; that seam now exists and admission uses it, so a record disclaiming membership would understate a binding this contract really carries. A nonclaim that understates the object is as much a misstatement as one that overstates it."
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_nonclaim_token",
+          "capability_gate",
+          "policy_gate",
+          "authority_gate",
+          "daemon_admission_gate",
+          "evidence_gate",
+          "verification_gate"
+        ],
+        "description": "TOKENS THE INVARIANT LANGUAGE HAS NO LITERALS FOR. The portable invariant DSL compares paths, never string constants, so a rule that wants to say \"this array contains exactly these six names\" needs the six names to exist somewhere in the document. Pinning them here as `const` gives the invariant layer a place to point at while keeping the schema the authority on their values. The result is two independent fences over one claim: the schema fixes the vocabulary and cardinality, the invariant fixes exact coverage, and an implementation that weakened the gate ladder would have to defeat both.",
+        "properties": {
+          "authority_nonclaim_token": {
+            "const": "authority"
+          },
+          "capability_gate": {
+            "const": "capability"
+          },
+          "policy_gate": {
+            "const": "policy"
+          },
+          "authority_gate": {
+            "const": "authority"
+          },
+          "daemon_admission_gate": {
+            "const": "daemon_admission"
+          },
+          "evidence_gate": {
+            "const": "evidence"
+          },
+          "verification_gate": {
+            "const": "verification"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "ontology_action_contract_grants_no_authority"
+      },
+      "invocation_nonclaim": {
+        "const": "ontology_action_contract_does_not_invoke_or_dispatch"
+      },
+      "valid_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "starts_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "ends_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "transaction_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recorded_at",
+          "superseded_at"
+        ],
+        "properties": {
+          "recorded_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "superseded_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_revision_ref",
+          "from_content_hash",
+          "from_revision_ordinal",
+          "compatibility",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "from_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/actionRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_revision_ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "additive",
+              "breaking"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          }
+        }
+      },
+      "admission": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ontology_action_id",
+              "content_hash",
+              "owner_namespace",
+              "stream_tail",
+              "agentgres_operation_ref",
+              "agentgres_receipt_ref",
+              "admission_seq",
+              "admission_head",
+              "admission_root",
+              "expected_predecessor_head"
+            ],
+            "properties": {
+              "ontology_action_id": {
+                "$ref": "#/$defs/actionRevisionRef"
+              },
+              "content_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "owner_namespace": {
+                "const": "hypervisor-ontology-action-contracts"
+              },
+              "stream_tail": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+              },
+              "agentgres_operation_ref": {
+                "description": "Exactly what `agentgres::refs::event_stream_operation_ref` emits. The bound is 460 rather than 240 because the real ref carries the owner namespace, a 96-character stream tail, the sequence and a full sha256 head; a schema that guessed a shorter ceiling would make every real admission unprojectable.",
+                "type": "string",
+                "pattern": "^agentgres://operation/event-stream/[^\\s]{1,460}$"
+              },
+              "agentgres_receipt_ref": {
+                "description": "Exactly what `agentgres::refs::event_stream_receipt_ref` emits. It is a `receipt://` ref rather than an `agentgres://` one, and its trailing root is sha-prefix-stripped, because that is what the substrate's own ref builder does; guessing either would make every real admission unprojectable.",
+                "type": "string",
+                "pattern": "^receipt://agentgres/event-stream/[^\\s]{1,460}$"
+              },
+              "admission_seq": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "admission_head": {
+                "$ref": "#/$defs/sha256"
+              },
+              "admission_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "expected_predecessor_head": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "active",
+          "deprecated"
+        ],
+        "description": "One admitted revision is `active` while it is the family head and `deprecated` once a successor closes its transaction interval. Its bytes and content hash never move; only the interval does."
+      }
+    },
+    "$defs": {
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nameToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "actionFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "actionRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ontologyFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "ontologyRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "termRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "toolFamilyRef": {
+        "type": "string",
+        "pattern": "^tool://[A-Za-z0-9._~/-]{1,200}$"
+      },
+      "toolRevisionRef": {
+        "type": "string",
+        "pattern": "^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$"
+      },
+      "typedSchemaRef": {
+        "type": "string",
+        "pattern": "^(?:schema|artifact)://[^\\s]{1,240}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,240}$"
+      },
+      "conditionRefSet": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:policy|invariant|state)://[^\\s]{1,240}$"
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -105087,7 +106059,381 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": []
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": [],
+  "schema://ioi/foundations/objects/ontology-action-contract/v1": [
+    {
+      "rule_id": "ontology_action_contract.content_hash.commits_both_bindings_effect_semantics_and_valid_time",
+      "description": "The content hash commits the compiled action's identity, BOTH exact bindings (the ontology revision with its owner-resolved hash and the action term it defines; the RuntimeToolContract revision with its owner-resolved hash and the exact JCS hashes of its declared input and output schemas), the typed effect contract, the declared risk and recovery semantics, the whole gate ladder, the nonclaim set, the predecessor link, and VALID time. Transaction time and the admission block are deliberately excluded: when a compiled meaning is held true is content, when it was recorded is admission, which is what lets a predecessor's transaction interval close while its bytes and hash stay frozen.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.ontology-action-contract-content-commitment-jcs-sha256.v1"
+          },
+          "ontology_action_id": {
+            "path": "$.ontology_action_id"
+          },
+          "action_family_ref": {
+            "path": "$.action_family_ref"
+          },
+          "action_record_profile": {
+            "path": "$.action_record_profile"
+          },
+          "namespace": {
+            "path": "$.namespace"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "action_slug": {
+            "path": "$.action_slug"
+          },
+          "owner_id": {
+            "path": "$.owner_id"
+          },
+          "governing_scope_ref": {
+            "path": "$.governing_scope_ref"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "revision_ordinal": {
+            "path": "$.revision_ordinal"
+          },
+          "predecessor_revision_ref": {
+            "path": "$.predecessor_revision_ref"
+          },
+          "predecessor_content_hash": {
+            "path": "$.predecessor_content_hash"
+          },
+          "ontology_family_ref": {
+            "path": "$.ontology_family_ref"
+          },
+          "ontology_revision_ref": {
+            "path": "$.ontology_revision_ref"
+          },
+          "ontology_content_hash": {
+            "path": "$.ontology_content_hash"
+          },
+          "ontology_resolved_by": {
+            "path": "$.ontology_resolved_by"
+          },
+          "action_type_ref": {
+            "path": "$.action_type_ref"
+          },
+          "runtime_tool_contract_revision_ref": {
+            "path": "$.runtime_tool_contract_revision_ref"
+          },
+          "runtime_tool_contract_content_hash": {
+            "path": "$.runtime_tool_contract_content_hash"
+          },
+          "runtime_tool_resolved_by": {
+            "path": "$.runtime_tool_resolved_by"
+          },
+          "bound_tool_id": {
+            "path": "$.bound_tool_id"
+          },
+          "bound_tool_risk_class": {
+            "path": "$.bound_tool_risk_class"
+          },
+          "bound_tool_effect_class": {
+            "path": "$.bound_tool_effect_class"
+          },
+          "bound_tool_class_vocabulary": {
+            "path": "$.bound_tool_class_vocabulary"
+          },
+          "bound_tool_input_schema_hash": {
+            "path": "$.bound_tool_input_schema_hash"
+          },
+          "bound_tool_output_schema_hash": {
+            "path": "$.bound_tool_output_schema_hash"
+          },
+          "bound_tool_primitive_capabilities_required": {
+            "path": "$.bound_tool_primitive_capabilities_required"
+          },
+          "bound_tool_authority_scopes_required": {
+            "path": "$.bound_tool_authority_scopes_required"
+          },
+          "typed_input_schema_ref": {
+            "path": "$.typed_input_schema_ref"
+          },
+          "typed_output_schema_ref": {
+            "path": "$.typed_output_schema_ref"
+          },
+          "target_object_model_refs": {
+            "path": "$.target_object_model_refs"
+          },
+          "precondition_refs": {
+            "path": "$.precondition_refs"
+          },
+          "postcondition_and_invariant_refs": {
+            "path": "$.postcondition_and_invariant_refs"
+          },
+          "expected_state_transition_ref": {
+            "path": "$.expected_state_transition_ref"
+          },
+          "risk_class": {
+            "path": "$.risk_class"
+          },
+          "effect_recovery_class": {
+            "path": "$.effect_recovery_class"
+          },
+          "idempotency_and_retry_profile_ref": {
+            "path": "$.idempotency_and_retry_profile_ref"
+          },
+          "ambiguous_effect_and_reconciliation_profile_ref": {
+            "path": "$.ambiguous_effect_and_reconciliation_profile_ref"
+          },
+          "compensation_profile_ref": {
+            "path": "$.compensation_profile_ref"
+          },
+          "preview_and_dry_run_profile_ref": {
+            "path": "$.preview_and_dry_run_profile_ref"
+          },
+          "approval_and_revocation_refs": {
+            "path": "$.approval_and_revocation_refs"
+          },
+          "local_policy_and_authority_scope_refs": {
+            "path": "$.local_policy_and_authority_scope_refs"
+          },
+          "verifier_and_evidence_refs": {
+            "path": "$.verifier_and_evidence_refs"
+          },
+          "physical_safety_profile_ref": {
+            "path": "$.physical_safety_profile_ref"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "required_gates": {
+            "path": "$.required_gates"
+          },
+          "required_gate_count": {
+            "path": "$.required_gate_count"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "invocation_nonclaim": {
+            "path": "$.invocation_nonclaim"
+          },
+          "valid_time": {
+            "path": "$.valid_time"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.identity.binds_its_own_family",
+      "description": "A revision identity is its family plus an ordinal. A record whose identity does not extend the family it names has been lifted onto another action's lineage while keeping its bytes.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_action_id",
+        "prefix": "ontology-action://",
+        "expected_path": "$.action_family_ref",
+        "strip_prefix": "ontology-action://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.identity.family_ends_with_its_action_slug",
+      "description": "The action family is owner-qualified and ends in the action it compiles, so the slug in the identity and the slug in the record cannot drift apart.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.action_family_ref",
+        "expected_path": "$.action_slug"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.bound_revision.is_of_the_bound_ontology_family",
+      "description": "The EXACT ontology revision this contract compiles is a revision of the family it names. Without this, an implementation could bind one family's ref and another family's revision and satisfy every shape check.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_revision_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_family_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.action_term.is_of_the_bound_ontology_family",
+      "description": "THE SEMANTIC BINDING, PORTABLY. The compiled action term belongs to the SAME family as the exact bound revision, so a contract cannot claim to compile one domain's action while binding another domain's meaning. This is the half decidable from these bytes ALONE. The other half — that the revision actually declares this action among its `action_types` — is checked before admission by the ontology owner's own `resolve_admitted_action_type` seam, and `ontology_content_hash` commits the bytes that let any relying party re-check it. Two fences, one claim: a term that is well formed and correctly namespaced but never declared is refused at admission, and the evidence to catch it offline is carried here.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.action_type_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_family_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/term/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.tool_binding.revision_is_owned_by_the_bound_tool",
+      "description": "The bound RuntimeToolContract revision is a revision OF the bound tool id. A revision ref belonging to another tool would bind a different effect surface than the one this contract names.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.runtime_tool_contract_revision_ref",
+        "prefix": "tool://",
+        "expected_path": "$.bound_tool_id",
+        "strip_prefix": "tool://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.gates.cover_the_canonical_ladder_exactly",
+      "description": "ACC-6 CLAUSE 5, PORTABLY AND INDEPENDENTLY OF THE SCHEMA. `required_gates` is exactly the capability, policy, authority, daemon-admission, evidence and verification gates — no omission, no substitution, no extra. The six tokens are `const`-pinned in `constants` because this language compares paths rather than literals, so this rule and the schema's enum/cardinality keywords are two fences a weakening implementation would have to defeat together. A mutation that removes any one gate fails here with no daemon present.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.required_gates",
+        "required_paths": [
+          "$.constants.capability_gate",
+          "$.constants.policy_gate",
+          "$.constants.authority_gate",
+          "$.constants.daemon_admission_gate",
+          "$.constants.evidence_gate",
+          "$.constants.verification_gate"
+        ],
+        "required_array_paths": []
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.gates.count_matches_the_declared_ladder",
+      "description": "The second, independent fence on ACC-6 clause 5. The gate ladder is pinned as an exact ordered six by the schema; this requires the declared count to equal the array's real length, so a build that dropped a gate would have to defeat both the ordered const list and this arithmetic to pass.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.required_gates",
+        "count_path": "$.required_gate_count"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.nonclaims.does_not_assert_is_non_empty",
+      "description": "NN 9 as a checkable field. A contract that disclaims nothing has collapsed 'compiles meaning into a request' into 'confers permission to act on it', which is the exact reading this object exists to refuse.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.does_not_assert"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.nonclaims.authority_is_always_disclaimed",
+      "description": "Of the closed nonclaim vocabulary, `authority` is the one member that may never be absent: a compiled action that does not say it confers no authority is read as conferring it by silence. The token itself is pinned by the schema in `constants`, so this rule and the schema's own `contains` clause are two independent fences over one claim — an implementation that dropped the authority nonclaim would have to defeat both.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.authority_nonclaim_token"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.ontology_hash.is_not_this_records_own_hash",
+      "description": "The ontology revision's committed hash is the ONTOLOGY OWNER's, carried verbatim. An implementation that echoed this record's own content hash into that slot would satisfy every shape check while binding nothing.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.ontology_content_hash",
+          "$.content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.tool_hash.is_not_this_records_own_hash",
+      "description": "The same fence on the tool side, for the same reason.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.runtime_tool_contract_content_hash",
+          "$.content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.bindings.are_two_distinct_owner_commitments",
+      "description": "The ontology and tool commitments are two different owners' hashes. An implementation that resolved one and copied it into both slots would read as bound twice and be bound once.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.ontology_content_hash",
+          "$.runtime_tool_contract_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.predecessor.is_not_this_record",
+      "description": "A successor whose predecessor hash equals its own content hash is a self-linked record, not a revision; the lineage would close into a loop that reads as history.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.content_hash",
+          "$.predecessor_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.migration.source_is_the_exact_predecessor_revision",
+      "description": "A migration declares where it came from, and that is the immediate predecessor rather than any earlier revision a successor might prefer to claim.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.migration.from_revision_ref",
+          "$.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.migration.source_hash_is_the_exact_predecessor_hash",
+      "description": "And it came from those exact bytes, so a migration cannot reinterpret a predecessor by naming it while binding a different commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.migration.from_content_hash",
+          "$.predecessor_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.physical_action.binds_a_safety_profile",
+      "description": "An action contract that can affect the physical world binds the Physical Action Safety profile before any actuator command is eligible. `physical_action` with a null safety profile is the exact combination canon forbids, and it is refused here without a daemon present.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.physical_safety_profile_ref",
+        "when_path": "$.risk_class",
+        "values": [
+          "physical_action"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.admission.binds_this_action_revision",
+      "description": "Admission evidence names this exact revision; a borrowed admission cannot make another record durable.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "ontology_action_id",
+        "expected_path": "$.ontology_action_id"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ]
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -107288,4 +108634,10 @@ export function validateVerifierChallengeEnvelopeV2(
   value: unknown,
 ): value is VerifierChallengeEnvelopeV2 {
   return validateArchitectureContract("schema://ioi/foundations/objects/verifier-challenge-envelope/v2", value).ok;
+}
+
+export function validateOntologyActionContractV1(
+  value: unknown,
+): value is OntologyActionContractV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/ontology-action-contract/v1", value).ok;
 }

@@ -268,6 +268,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-artifact-intent/v1", "sha256:90a68419c1347290914c48a0565e575777b0e940e09beaef621a9956aafaf883"),
     ("schema://ioi/foundations/assurance-transition-receipt/v1", "sha256:62d284c67dd29fe5d9ae2148229b995c99c75ab6b29c03194bf4f4bc05e89733"),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v2", "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27"),
+    ("schema://ioi/foundations/objects/ontology-action-contract/v1", "sha256:9ac1369a66dac61ced9c9d478e61444e2306fd9833198dadc844cd96e6612e2c"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -100979,6 +100980,1060 @@ pub enum VerifierChallengeEnvelopeV2Status {
     Withdrawn,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyActionContractV1 {
+    pub schema_version: OntologyActionContractV1SchemaVersion,
+    pub ontology_action_id: String,
+    pub action_family_ref: String,
+    pub action_record_profile: OntologyActionContractV1ActionRecordProfile,
+    pub namespace: String,
+    pub name: String,
+    pub action_slug: String,
+    pub owner_id: String,
+    pub governing_scope_ref: String,
+    pub admission_domain_ref: String,
+    pub version: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub predecessor_revision_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub content_hash: String,
+    pub ontology_family_ref: String,
+    pub ontology_revision_ref: String,
+    pub ontology_content_hash: String,
+    pub ontology_resolved_by: OntologyActionContractV1OntologyResolvedBy,
+    pub action_type_ref: String,
+    pub runtime_tool_contract_revision_ref: String,
+    pub runtime_tool_contract_content_hash: String,
+    pub runtime_tool_resolved_by: OntologyActionContractV1RuntimeToolResolvedBy,
+    pub bound_tool_id: String,
+    pub bound_tool_risk_class: String,
+    pub bound_tool_effect_class: String,
+    pub bound_tool_class_vocabulary: OntologyActionContractV1BoundToolClassVocabulary,
+    pub bound_tool_input_schema_hash: String,
+    pub bound_tool_output_schema_hash: String,
+    pub bound_tool_primitive_capabilities_required: Vec<String>,
+    pub bound_tool_authority_scopes_required: Vec<String>,
+    pub typed_input_schema_ref: String,
+    pub typed_output_schema_ref: String,
+    pub target_object_model_refs: Vec<String>,
+    pub precondition_refs: Vec<String>,
+    pub postcondition_and_invariant_refs: Vec<String>,
+    pub expected_state_transition_ref: String,
+    pub risk_class: OntologyActionContractV1RiskClass,
+    pub effect_recovery_class: OntologyActionContractV1EffectRecoveryClass,
+    pub idempotency_and_retry_profile_ref: String,
+    pub ambiguous_effect_and_reconciliation_profile_ref: String,
+    pub compensation_profile_ref: Option<String>,
+    pub preview_and_dry_run_profile_ref: Option<String>,
+    pub approval_and_revocation_refs: Vec<String>,
+    pub local_policy_and_authority_scope_refs: Vec<String>,
+    pub verifier_and_evidence_refs: Vec<String>,
+    pub physical_safety_profile_ref: Option<String>,
+    pub receipt_obligations: Vec<String>,
+    pub required_gates: Vec<OntologyActionContractV1RequiredGatesItem>,
+    pub required_gate_count: ArchitectureContractInteger,
+    pub policy_hash: String,
+    pub does_not_assert: Vec<OntologyActionContractV1DoesNotAssertItem>,
+    pub constants: OntologyActionContractV1Constants,
+    pub authority_nonclaim: OntologyActionContractV1AuthorityNonclaim,
+    pub invocation_nonclaim: OntologyActionContractV1InvocationNonclaim,
+    pub valid_time: OntologyActionContractV1ValidTime,
+    pub transaction_time: OntologyActionContractV1TransactionTime,
+    pub migration: OntologyActionContractV1Migration,
+    pub admission: Option<OntologyActionContractV1Admission>,
+    pub status: OntologyActionContractV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyActionContractV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-action-contract/v1","title":"OntologyActionContract","description":"One immutable, owner-qualified revision of an executable semantic action contract. It binds an exact admitted OntologyVersion revision and its committed hash, the exact action term that revision defines, an exact released RuntimeToolContract revision and its committed hash, the typed input/output contract, and the declared effect, risk, recovery, compensation, verification, evidence, receipt and physical-safety obligations. It COMPILES MEANING INTO A REQUEST AND GRANTS NOTHING: the same action still passes the capability, policy, authority, daemon-admission, evidence and verification gates named in `required_gates`, and this record neither invokes an effect nor mints a lease, grant, connection or credential.","x-ioi-schema-version":"ioi.ontology-action-contract.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_action_id","action_family_ref","action_record_profile","namespace","name","action_slug","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_revision_ref","predecessor_content_hash","content_hash","ontology_family_ref","ontology_revision_ref","ontology_content_hash","ontology_resolved_by","action_type_ref","runtime_tool_contract_revision_ref","runtime_tool_contract_content_hash","runtime_tool_resolved_by","bound_tool_id","bound_tool_risk_class","bound_tool_effect_class","bound_tool_class_vocabulary","bound_tool_input_schema_hash","bound_tool_output_schema_hash","bound_tool_primitive_capabilities_required","bound_tool_authority_scopes_required","typed_input_schema_ref","typed_output_schema_ref","target_object_model_refs","precondition_refs","postcondition_and_invariant_refs","expected_state_transition_ref","risk_class","effect_recovery_class","idempotency_and_retry_profile_ref","ambiguous_effect_and_reconciliation_profile_ref","compensation_profile_ref","preview_and_dry_run_profile_ref","approval_and_revocation_refs","local_policy_and_authority_scope_refs","verifier_and_evidence_refs","physical_safety_profile_ref","receipt_obligations","required_gates","required_gate_count","policy_hash","does_not_assert","constants","authority_nonclaim","invocation_nonclaim","valid_time","transaction_time","migration","admission","status"],"properties":{"schema_version":{"const":"ioi.ontology-action-contract.v1"},"ontology_action_id":{"$ref":"#/$defs/actionRevisionRef"},"action_family_ref":{"$ref":"#/$defs/actionFamilyRef"},"action_record_profile":{"const":"ontology_action_contract"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"action_slug":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"description":"`agentgres://domain/` plus exactly what `agentgres::refs::event_stream_domain` emits for this family's owner namespace and stream tail.","type":"string","pattern":"^agentgres://domain/event-stream-operations[.][^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/actionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"ontology_family_ref":{"$ref":"#/$defs/ontologyFamilyRef","description":"THE OFFLINE JOIN KEY, and the only reason this derived field exists. `ontology_revision_ref` and `action_type_ref` are both owner-qualified under one family, but a portable invariant can only relate two paths through a third that both share as a prefix. Without this member, 'the compiled term and the bound revision belong to the same family' would be a runtime refusal with no offline counterpart, and a record that bound namespace A's revision to namespace B's term would satisfy every shape check for a relying party holding only the bytes. It is derived by the admitting owner, never accepted from a caller, and it is inside the content commitment."},"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef","description":"EXACT, never a family head. A contract that named `ontology://ns/name` would silently re-mean itself whenever the family advanced, which is the reinterpretation an immutable version exists to refuse."},"ontology_content_hash":{"$ref":"#/$defs/sha256","description":"The ontology owner's committed hash for that exact revision, carried verbatim. It is what makes the membership the admitting owner already checked RE-CHECKABLE: any relying party holding the revision bytes can confirm `action_type_ref` in that revision's `action_types` without trusting this record."},"ontology_resolved_by":{"const":"ontology_version_routes::resolve_admitted_action_type","description":"The exact owner seam that produced this binding. It resolves the revision AND the action against one projection of the ontology family's own chain, so an unknown same-family term is refused rather than admitted; pinning the seam here is what stops a later build substituting a weaker reader while keeping the field."},"action_type_ref":{"$ref":"#/$defs/termRef","description":"The exact admitted action type this contract compiles. Membership in the bound revision's `action_types` is CHECKED by the ontology owner before admission — a well-formed, correctly-namespaced term the revision never declared is refused, not accepted with a caveat."},"runtime_tool_contract_revision_ref":{"$ref":"#/$defs/toolRevisionRef","description":"EXACT released revision, never a mutable tool family id. Admission and package pins use `revision_ref` plus `content_hash` by the connector/tool contract owner's own rule."},"runtime_tool_contract_content_hash":{"$ref":"#/$defs/sha256"},"runtime_tool_resolved_by":{"const":"runtime_tool_contract_registry::resolve_exact"},"bound_tool_id":{"$ref":"#/$defs/toolFamilyRef"},"bound_tool_risk_class":{"type":"string","minLength":1,"maxLength":64},"bound_tool_effect_class":{"type":"string","minLength":1,"maxLength":64},"bound_tool_class_vocabulary":{"const":"runtime_tool_declared_verbatim","description":"The bound tool's risk/effect strings are RETAINED AS THE TOOL OWNER DECLARES THEM and are not members of the canonical ladder. `canonical-enums.md` records that several runtime surfaces still carry pre-consolidation strings; mapping one onto the canonical ladder here would invent an equivalence this contract has no authority to assert. This record's own canonical assessment is `risk_class`."},"bound_tool_input_schema_hash":{"$ref":"#/$defs/sha256"},"bound_tool_output_schema_hash":{"$ref":"#/$defs/sha256"},"bound_tool_primitive_capabilities_required":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^prim:[^\\s]{1,120}$"}},"bound_tool_authority_scopes_required":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^scope:[^\\s]{1,120}$"}},"typed_input_schema_ref":{"$ref":"#/$defs/typedSchemaRef"},"typed_output_schema_ref":{"$ref":"#/$defs/typedSchemaRef"},"target_object_model_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^object-model://[^\\s]{1,240}$"}},"precondition_refs":{"$ref":"#/$defs/conditionRefSet"},"postcondition_and_invariant_refs":{"$ref":"#/$defs/conditionRefSet"},"expected_state_transition_ref":{"type":"string","pattern":"^(?:transition|state-delta)://[^\\s]{1,240}$"},"risk_class":{"enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"],"description":"The canonical ladder owned by `canonical-enums.md`, plus the peer top-tier `physical_action`. This contract registers the member; it does not define the set."},"effect_recovery_class":{"enum":["replayable","checkpointable","compensatable","reconciliation_required","non_retryable"]},"idempotency_and_retry_profile_ref":{"$ref":"#/$defs/policyRef"},"ambiguous_effect_and_reconciliation_profile_ref":{"$ref":"#/$defs/policyRef"},"compensation_profile_ref":{"oneOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"preview_and_dry_run_profile_ref":{"oneOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"approval_and_revocation_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:approval-policy|revocation)://[^\\s]{1,240}$"}},"local_policy_and_authority_scope_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy://|grant://|scope:)[^\\s]{1,240}$"},"description":"REQUIREMENTS, never holdings. A `grant://` member names the grant class an invoker must present; it is not a grant this record possesses, issues or consumes."},"verifier_and_evidence_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|evidence|schema)://[^\\s]{1,240}$"}},"physical_safety_profile_ref":{"oneOf":[{"type":"string","pattern":"^safety://[^\\s]{1,240}$"},{"type":"null"}]},"receipt_obligations":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"required_gates":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["capability","policy","authority","daemon_admission","evidence","verification"]},"description":"ACC-6 clause 5 AS A FIELD. The exact ladder this compiled action still has to pass. Six UNIQUE members drawn from a six-member enum is set equality stated in the keywords the registered-contract compiler supports: dropping a gate fails `minItems`, substituting one fails the enum, and duplicating one to make up the count fails `uniqueItems`. A relying party with only these bytes and no daemon catches all three."},"required_gate_count":{"type":"integer","minimum":6,"maximum":6,"description":"Pinned to exactly six by this schema and compared against the array's own length by a registered invariant, so gate removal fails twice and independently: once as a shape error and once as arithmetic over the ladder the record actually carries."},"policy_hash":{"$ref":"#/$defs/sha256","description":"The exact local policy snapshot in force when this revision was compiled. It is a commitment to WHICH policy applied, never a record that policy decided anything: `policy` remains a member of `required_gates` and `policy_decision` a mandatory member of `does_not_assert`."},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","capability_grant","lease","policy_decision","effect_admission","invocation","connection_is_authority","credential_is_authority","domain_correctness","physical_safety_clearance"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_grant"}},{"contains":{"const":"lease"}},{"contains":{"const":"policy_decision"}},{"contains":{"const":"effect_admission"}},{"contains":{"const":"invocation"}}],"description":"NN 9 AND NN 20 AS A CLOSED FIELD RATHER THAN A PARAGRAPH. Six members are mandatory, and each names a thing a reader might otherwise take a compiled action to confer: authority, a capability grant, a lease, a policy decision, an effect admission, or the invocation itself. `action_term_membership` is DELIBERATELY ABSENT FROM THE VOCABULARY. It belonged here only while the ontology owner published no way to check that the compiled term was one the bound revision actually declares; that seam now exists and admission uses it, so a record disclaiming membership would understate a binding this contract really carries. A nonclaim that understates the object is as much a misstatement as one that overstates it."},"constants":{"type":"object","additionalProperties":false,"required":["authority_nonclaim_token","capability_gate","policy_gate","authority_gate","daemon_admission_gate","evidence_gate","verification_gate"],"description":"TOKENS THE INVARIANT LANGUAGE HAS NO LITERALS FOR. The portable invariant DSL compares paths, never string constants, so a rule that wants to say \"this array contains exactly these six names\" needs the six names to exist somewhere in the document. Pinning them here as `const` gives the invariant layer a place to point at while keeping the schema the authority on their values. The result is two independent fences over one claim: the schema fixes the vocabulary and cardinality, the invariant fixes exact coverage, and an implementation that weakened the gate ladder would have to defeat both.","properties":{"authority_nonclaim_token":{"const":"authority"},"capability_gate":{"const":"capability"},"policy_gate":{"const":"policy"},"authority_gate":{"const":"authority"},"daemon_admission_gate":{"const":"daemon_admission"},"evidence_gate":{"const":"evidence"},"verification_gate":{"const":"verification"}}},"authority_nonclaim":{"const":"ontology_action_contract_grants_no_authority"},"invocation_nonclaim":{"const":"ontology_action_contract_does_not_invoke_or_dispatch"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_revision_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_revision_ref":{"oneOf":[{"$ref":"#/$defs/actionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_action_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_action_id":{"$ref":"#/$defs/actionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-action-contracts"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"description":"Exactly what `agentgres::refs::event_stream_operation_ref` emits. The bound is 460 rather than 240 because the real ref carries the owner namespace, a 96-character stream tail, the sequence and a full sha256 head; a schema that guessed a shorter ceiling would make every real admission unprojectable.","type":"string","pattern":"^agentgres://operation/event-stream/[^\\s]{1,460}$"},"agentgres_receipt_ref":{"description":"Exactly what `agentgres::refs::event_stream_receipt_ref` emits. It is a `receipt://` ref rather than an `agentgres://` one, and its trailing root is sha-prefix-stripped, because that is what the substrate's own ref builder does; guessing either would make every real admission unprojectable.","type":"string","pattern":"^receipt://agentgres/event-stream/[^\\s]{1,460}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"status":{"enum":["active","deprecated"],"description":"One admitted revision is `active` while it is the family head and `deprecated` once a successor closes its transaction interval. Its bytes and content hash never move; only the interval does."}},"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"actionFamilyRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"actionRevisionRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"toolFamilyRef":{"type":"string","pattern":"^tool://[A-Za-z0-9._~/-]{1,200}$"},"toolRevisionRef":{"type":"string","pattern":"^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$"},"typedSchemaRef":{"type":"string","pattern":"^(?:schema|artifact)://[^\\s]{1,240}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"conditionRefSet":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|invariant|state)://[^\\s]{1,240}$"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OntologyActionContractV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_action_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_action_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_action_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_record_profile: serde_json::from_value::<
+                OntologyActionContractV1ActionRecordProfile,
+            >(
+                object
+                    .remove(r#"action_record_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_record_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_slug: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_slug"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_slug"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_resolved_by: serde_json::from_value::<
+                OntologyActionContractV1OntologyResolvedBy,
+            >(
+                object
+                    .remove(r#"ontology_resolved_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_resolved_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_type_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_type_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_type_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_tool_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"runtime_tool_contract_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"runtime_tool_contract_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_tool_contract_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"runtime_tool_contract_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"runtime_tool_contract_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_tool_resolved_by: serde_json::from_value::<
+                OntologyActionContractV1RuntimeToolResolvedBy,
+            >(
+                object
+                    .remove(r#"runtime_tool_resolved_by"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"runtime_tool_resolved_by"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_tool_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bound_tool_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bound_tool_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_tool_risk_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bound_tool_risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bound_tool_risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_tool_effect_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bound_tool_effect_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bound_tool_effect_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_tool_class_vocabulary: serde_json::from_value::<
+                OntologyActionContractV1BoundToolClassVocabulary,
+            >(
+                object
+                    .remove(r#"bound_tool_class_vocabulary"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"bound_tool_class_vocabulary"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_tool_input_schema_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bound_tool_input_schema_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"bound_tool_input_schema_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_tool_output_schema_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"bound_tool_output_schema_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"bound_tool_output_schema_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_tool_primitive_capabilities_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"bound_tool_primitive_capabilities_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"bound_tool_primitive_capabilities_required"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_tool_authority_scopes_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"bound_tool_authority_scopes_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"bound_tool_authority_scopes_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            typed_input_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"typed_input_schema_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"typed_input_schema_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            typed_output_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"typed_output_schema_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"typed_output_schema_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_object_model_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"target_object_model_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"target_object_model_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            precondition_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"precondition_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"precondition_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            postcondition_and_invariant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"postcondition_and_invariant_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"postcondition_and_invariant_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_state_transition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expected_state_transition_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_state_transition_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_class: serde_json::from_value::<OntologyActionContractV1RiskClass>(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_recovery_class: serde_json::from_value::<
+                OntologyActionContractV1EffectRecoveryClass,
+            >(
+                object
+                    .remove(r#"effect_recovery_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_recovery_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_and_retry_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_and_retry_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"idempotency_and_retry_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ambiguous_effect_and_reconciliation_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ambiguous_effect_and_reconciliation_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"ambiguous_effect_and_reconciliation_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compensation_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"compensation_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compensation_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            preview_and_dry_run_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"preview_and_dry_run_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"preview_and_dry_run_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_and_revocation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"approval_and_revocation_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_and_revocation_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            local_policy_and_authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"local_policy_and_authority_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"local_policy_and_authority_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_and_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"verifier_and_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"verifier_and_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            physical_safety_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"physical_safety_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"physical_safety_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_gates:
+                serde_json::from_value::<Vec<OntologyActionContractV1RequiredGatesItem>>(
+                    object
+                        .remove(r#"required_gates"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"required_gates"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            required_gate_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"required_gate_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_gate_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert:
+                serde_json::from_value::<Vec<OntologyActionContractV1DoesNotAssertItem>>(
+                    object
+                        .remove(r#"does_not_assert"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<OntologyActionContractV1Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim:
+                serde_json::from_value::<OntologyActionContractV1AuthorityNonclaim>(
+                    object
+                        .remove(r#"authority_nonclaim"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            invocation_nonclaim:
+                serde_json::from_value::<OntologyActionContractV1InvocationNonclaim>(
+                    object
+                        .remove(r#"invocation_nonclaim"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"invocation_nonclaim"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            valid_time: serde_json::from_value::<OntologyActionContractV1ValidTime>(
+                object
+                    .remove(r#"valid_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transaction_time: serde_json::from_value::<OntologyActionContractV1TransactionTime>(
+                object
+                    .remove(r#"transaction_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transaction_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<OntologyActionContractV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<Option<OntologyActionContractV1Admission>>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OntologyActionContractV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1SchemaVersion {
+    #[serde(rename = r#"ioi.ontology-action-contract.v1"#)]
+    IoiOntologyActionContractV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1ActionRecordProfile {
+    #[serde(rename = r#"ontology_action_contract"#)]
+    OntologyActionContract,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1OntologyResolvedBy {
+    #[serde(rename = r#"ontology_version_routes::resolve_admitted_action_type"#)]
+    OntologyVersionRoutesResolveAdmittedActionType,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1RuntimeToolResolvedBy {
+    #[serde(rename = r#"runtime_tool_contract_registry::resolve_exact"#)]
+    RuntimeToolContractRegistryResolveExact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1BoundToolClassVocabulary {
+    #[serde(rename = r#"runtime_tool_declared_verbatim"#)]
+    RuntimeToolDeclaredVerbatim,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1RiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1EffectRecoveryClass {
+    #[serde(rename = r#"replayable"#)]
+    Replayable,
+    #[serde(rename = r#"checkpointable"#)]
+    Checkpointable,
+    #[serde(rename = r#"compensatable"#)]
+    Compensatable,
+    #[serde(rename = r#"reconciliation_required"#)]
+    ReconciliationRequired,
+    #[serde(rename = r#"non_retryable"#)]
+    NonRetryable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1RequiredGatesItem {
+    #[serde(rename = r#"capability"#)]
+    Capability,
+    #[serde(rename = r#"policy"#)]
+    Policy,
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"daemon_admission"#)]
+    DaemonAdmission,
+    #[serde(rename = r#"evidence"#)]
+    Evidence,
+    #[serde(rename = r#"verification"#)]
+    Verification,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"capability_grant"#)]
+    CapabilityGrant,
+    #[serde(rename = r#"lease"#)]
+    Lease,
+    #[serde(rename = r#"policy_decision"#)]
+    PolicyDecision,
+    #[serde(rename = r#"effect_admission"#)]
+    EffectAdmission,
+    #[serde(rename = r#"invocation"#)]
+    Invocation,
+    #[serde(rename = r#"connection_is_authority"#)]
+    ConnectionIsAuthority,
+    #[serde(rename = r#"credential_is_authority"#)]
+    CredentialIsAuthority,
+    #[serde(rename = r#"domain_correctness"#)]
+    DomainCorrectness,
+    #[serde(rename = r#"physical_safety_clearance"#)]
+    PhysicalSafetyClearance,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyActionContractV1Constants {
+    pub authority_nonclaim_token: OntologyActionContractV1ConstantsAuthorityNonclaimToken,
+    pub capability_gate: OntologyActionContractV1ConstantsCapabilityGate,
+    pub policy_gate: OntologyActionContractV1ConstantsPolicyGate,
+    pub authority_gate: OntologyActionContractV1ConstantsAuthorityGate,
+    pub daemon_admission_gate: OntologyActionContractV1ConstantsDaemonAdmissionGate,
+    pub evidence_gate: OntologyActionContractV1ConstantsEvidenceGate,
+    pub verification_gate: OntologyActionContractV1ConstantsVerificationGate,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyActionContractV1Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["authority_nonclaim_token","capability_gate","policy_gate","authority_gate","daemon_admission_gate","evidence_gate","verification_gate"],"description":"TOKENS THE INVARIANT LANGUAGE HAS NO LITERALS FOR. The portable invariant DSL compares paths, never string constants, so a rule that wants to say \"this array contains exactly these six names\" needs the six names to exist somewhere in the document. Pinning them here as `const` gives the invariant layer a place to point at while keeping the schema the authority on their values. The result is two independent fences over one claim: the schema fixes the vocabulary and cardinality, the invariant fixes exact coverage, and an implementation that weakened the gate ladder would have to defeat both.","properties":{"authority_nonclaim_token":{"const":"authority"},"capability_gate":{"const":"capability"},"policy_gate":{"const":"policy"},"authority_gate":{"const":"authority"},"daemon_admission_gate":{"const":"daemon_admission"},"evidence_gate":{"const":"evidence"},"verification_gate":{"const":"verification"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority_nonclaim_token: serde_json::from_value::<
+                OntologyActionContractV1ConstantsAuthorityNonclaimToken,
+            >(
+                object
+                    .remove(r#"authority_nonclaim_token"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_nonclaim_token"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_gate: serde_json::from_value::<
+                OntologyActionContractV1ConstantsCapabilityGate,
+            >(
+                object
+                    .remove(r#"capability_gate"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_gate"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_gate: serde_json::from_value::<OntologyActionContractV1ConstantsPolicyGate>(
+                object
+                    .remove(r#"policy_gate"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_gate"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_gate:
+                serde_json::from_value::<OntologyActionContractV1ConstantsAuthorityGate>(
+                    object
+                        .remove(r#"authority_gate"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"authority_gate"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            daemon_admission_gate: serde_json::from_value::<
+                OntologyActionContractV1ConstantsDaemonAdmissionGate,
+            >(
+                object
+                    .remove(r#"daemon_admission_gate"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"daemon_admission_gate"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_gate: serde_json::from_value::<OntologyActionContractV1ConstantsEvidenceGate>(
+                object
+                    .remove(r#"evidence_gate"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_gate"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification_gate: serde_json::from_value::<
+                OntologyActionContractV1ConstantsVerificationGate,
+            >(
+                object
+                    .remove(r#"verification_gate"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verification_gate"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1ConstantsAuthorityNonclaimToken {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1ConstantsCapabilityGate {
+    #[serde(rename = r#"capability"#)]
+    Capability,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1ConstantsPolicyGate {
+    #[serde(rename = r#"policy"#)]
+    Policy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1ConstantsAuthorityGate {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1ConstantsDaemonAdmissionGate {
+    #[serde(rename = r#"daemon_admission"#)]
+    DaemonAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1ConstantsEvidenceGate {
+    #[serde(rename = r#"evidence"#)]
+    Evidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1ConstantsVerificationGate {
+    #[serde(rename = r#"verification"#)]
+    Verification,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1AuthorityNonclaim {
+    #[serde(rename = r#"ontology_action_contract_grants_no_authority"#)]
+    OntologyActionContractGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1InvocationNonclaim {
+    #[serde(rename = r#"ontology_action_contract_does_not_invoke_or_dispatch"#)]
+    OntologyActionContractDoesNotInvokeOrDispatch,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyActionContractV1ValidTime {
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyActionContractV1ValidTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            starts_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"starts_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"starts_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ends_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ends_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ends_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyActionContractV1TransactionTime {
+    pub recorded_at: String,
+    pub superseded_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyActionContractV1TransactionTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recorded_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recorded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            superseded_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"superseded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"superseded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyActionContractV1Migration {
+    pub from_revision_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub from_revision_ordinal: ArchitectureContractInteger,
+    pub compatibility: OntologyActionContractV1MigrationCompatibility,
+    pub reinterprets_predecessor: OntologyActionContractV1MigrationReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyActionContractV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from_revision_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_revision_ref":{"oneOf":[{"$ref":"#/$defs/actionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"from_revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility:
+                serde_json::from_value::<OntologyActionContractV1MigrationCompatibility>(
+                    object
+                        .remove(r#"compatibility"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                OntologyActionContractV1MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"additive"#)]
+    Additive,
+    #[serde(rename = r#"breaking"#)]
+    Breaking,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OntologyActionContractV1MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for OntologyActionContractV1MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyActionContractV1MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyActionContractV1Admission {
+    pub ontology_action_id: String,
+    pub content_hash: String,
+    pub owner_namespace: OntologyActionContractV1AdmissionOwnerNamespace,
+    pub stream_tail: String,
+    pub agentgres_operation_ref: String,
+    pub agentgres_receipt_ref: String,
+    pub admission_seq: ArchitectureContractInteger,
+    pub admission_head: String,
+    pub admission_root: String,
+    pub expected_predecessor_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyActionContractV1Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_action_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_action_id":{"$ref":"#/$defs/actionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-action-contracts"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"description":"Exactly what `agentgres::refs::event_stream_operation_ref` emits. The bound is 460 rather than 240 because the real ref carries the owner namespace, a 96-character stream tail, the sequence and a full sha256 head; a schema that guessed a shorter ceiling would make every real admission unprojectable.","type":"string","pattern":"^agentgres://operation/event-stream/[^\\s]{1,460}$"},"agentgres_receipt_ref":{"description":"Exactly what `agentgres::refs::event_stream_receipt_ref` emits. It is a `receipt://` ref rather than an `agentgres://` one, and its trailing root is sha-prefix-stripped, because that is what the substrate's own ref builder does; guessing either would make every real admission unprojectable.","type":"string","pattern":"^receipt://agentgres/event-stream/[^\\s]{1,460}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_action_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_action_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_action_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_namespace: serde_json::from_value::<
+                OntologyActionContractV1AdmissionOwnerNamespace,
+            >(
+                object
+                    .remove(r#"owner_namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stream_tail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stream_tail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stream_tail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_seq: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"admission_seq"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_seq"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_predecessor_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_predecessor_head"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_predecessor_head"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1AdmissionOwnerNamespace {
+    #[serde(rename = r#"hypervisor-ontology-action-contracts"#)]
+    HypervisorOntologyActionContracts,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyActionContractV1Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -107333,6 +108388,94 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_action_contract.content_hash.commits_both_bindings_effect_semantics_and_valid_time"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_action_contract.action_term.is_of_the_bound_ontology_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_action_contract.tool_binding.revision_is_owned_by_the_bound_tool"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_action_contract.physical_action.binds_a_safety_profile"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_action_contract.bindings.are_two_distinct_owner_commitments"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-action-contract/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_action_contract.migration.source_is_the_exact_predecessor_revision"),
     },
 ];
 
@@ -117644,6 +118787,127 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-action-contract/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -119263,6 +120527,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-artifact-intent/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-artifact-intent/v1","title":"FoundryArtifactIntent","description":"Durable pending obligation admitted BEFORE a content-addressed Foundry artifact blob is materialized and BEFORE its parent event (dataset materialization or program checkpoint). It binds the blob to a recoverable admitted intent so a post-materialization admission failure leaves a collectable record rather than an orphan. The intent identity embeds the artifact hash, so an intent can never name a blob other than the one it commits.","x-ioi-schema-version":"ioi.foundry-artifact-intent.v1","type":"object","additionalProperties":false,"required":["schema_version","intent_ref","artifact_family","artifact_hash","artifact_ref","parent_kind","parent_stream_tail","parent_resource_ref","parent_op_kind","parent_idempotency_key","owner_ref","status"],"properties":{"schema_version":{"const":"ioi.foundry-artifact-intent.v1"},"intent_ref":{"type":"string","pattern":"^foundry-artifact-intent://(?:foundry-dataset-artifacts|foundry-checkpoint-artifacts)/(?:dataset|program)[.][0-9a-f]{64}/[0-9a-f]{64}$"},"artifact_family":{"enum":["foundry-dataset-artifacts","foundry-checkpoint-artifacts"]},"artifact_hash":{"$ref":"#/$defs/hash"},"artifact_ref":{"type":"string","pattern":"^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$"},"parent_kind":{"enum":["dataset-snapshot","training-program"]},"parent_stream_tail":{"type":"string","pattern":"^(?:dataset|program)[.][0-9a-f]{64}$"},"parent_resource_ref":{"type":"string","pattern":"^(?:dataset-snapshot|trainpipe)://[^\\s]{1,500}$"},"parent_op_kind":{"enum":["event_stream.foundry_dataset_materialized","event_stream.foundry_program_checkpointed"]},"parent_idempotency_key":{"type":"string","minLength":1,"maxLength":256},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"status":{"const":"pending"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
     ("schema://ioi/foundations/assurance-transition-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/assurance-transition-receipt/v1","title":"AssuranceTransitionReceipt","description":"One step of the canonical assurance ladder as an immutable, exact-head object over an owner-resolved subject. Derived from the canon definition at docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#assurance-transition-receipt; the stage member set is frozen by canonical-enums.md and is not chosen here. The receipt names its actor, its evidence and what it does not assert; it is not a verdict and grants no authority.","x-ioi-schema-version":"ioi.assurance-transition-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_type","receipt_profile_ref","transition_id","subject_ref","subject_family","subject_content_hash","subject_resolved_by","from_stage","to_stage","to_stage_ordinal","transition_ordinal","outcome_class","actor_ref","evidence_refs","does_not_assert","valid_time","transaction_time","expected_predecessor_transition_ref","expected_predecessor_transition_hash","resulting_stage_head_hash","content_hash","authority_nonclaim","verdict_nonclaim","admission"],"properties":{"schema_version":{"const":"ioi.assurance-transition-receipt.v1"},"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"assurance_transition"},"receipt_profile_ref":{"const":"schema://ioi/foundations/assurance-transition-receipt/v1"},"transition_id":{"type":"string","pattern":"^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"},"subject_ref":{"$ref":"#/$defs/subjectRef"},"subject_family":{"description":"The closed discriminator naming which owner is entitled to resolve subject_ref. Present so a later unit can add its own resolver without reinterpreting a v1 record: an unresolvable family is refused by name, never admitted on the strength of its URI prefix.","enum":["work_result","ontology_revision","ontology_mapping_revision","ontology_assertion","finding","attempt"]},"subject_content_hash":{"description":"The subject owner's committed content hash, carried verbatim from that owner's own resolution. Never recomputed here and never asserted by the caller.","$ref":"#/$defs/sha256"},"subject_resolved_by":{"description":"The exact owner seam that re-resolved the subject for this transition. A record that names no resolver is a record whose subject was taken on faith. Deliberately a pattern rather than a closed enum: a later unit adds its own resolver and emits its own seam name without a v1 wire change, while the set of families this build can actually resolve stays a runtime fact that fails closed by name.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"from_stage":{"oneOf":[{"$ref":"#/$defs/assuranceStage"},{"type":"null"}]},"to_stage":{"$ref":"#/$defs/assuranceStage"},"to_stage_ordinal":{"description":"The ladder position of to_stage, 1-based in canonical order. It exists so that 'no stage skips' is a PORTABLE check rather than a runtime habit: a registered invariant pins it equal to transition_ordinal, and transition_ordinal is derived from the subject's own chain length. A transition that jumps attested -> verified therefore carries ordinal 3 at chain position 2 and fails offline, with no daemon present.","type":"integer","minimum":1,"maximum":6},"transition_ordinal":{"type":"integer","minimum":1,"maximum":6},"outcome_class":{"description":"ACC-8 clause 2. Retained verbatim; no consumer or projection may collapse a non-positive member into positive.","enum":["positive","negative","inconclusive","invalid","exploit","superseded","disputed","no_fault"]},"actor_ref":{"description":"Who stands behind this stage. Server-resolved from the authenticated principal; a caller may assert it but never author it.","$ref":"#/$defs/principalRef"},"evidence_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/evidenceRef"}},"does_not_assert":{"description":"The explicit nonclaim set. Non-empty by construction: a transition that disclaims nothing is the collapse of NN 20 into a bare success flag.","type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["correctness","external_world_occurrence","causality","acceptance","adjudication","settlement","economic_value","authority"]}},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/canonicalDateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}},"transaction_time":{"description":"Admission time, deliberately outside the content commitment. When the stage was claimed true is content; when it was recorded is admission.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/canonicalDateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}},"expected_predecessor_transition_ref":{"oneOf":[{"type":"string","pattern":"^assurance-transition://[^\\s]{1,460}$"},{"type":"null"}]},"expected_predecessor_transition_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"resulting_stage_head_hash":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"admission":{"description":"Server-resolved admission evidence from the owner-scoped Agentgres chain. Explicitly null on a portable record rather than absent, because the registered admission invariants are defined over null-or-object and an absent key would leave them silently unevaluated.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["transition_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"transition_id":{"type":"string","pattern":"^assurance-transition://[^\\s]{1,460}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-assurance-transitions"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,460}$"},"agentgres_receipt_ref":{"description":"The admitting batch's receipt ref. It is a receipt:// ref, not an agentgres:// one, because that is what the substrate's own ref builder emits.","type":"string","pattern":"^receipt://[^\\s]{1,460}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,460}$"},"authority_nonclaim":{"const":"assurance_transition_grants_no_authority"},"verdict_nonclaim":{"const":"assurance_transition_is_not_a_verdict"}},"allOf":[{"description":"attested is ladder position 1 and is the entry member: it advances from nothing.","if":{"properties":{"to_stage":{"const":"attested"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[1]},"from_stage":{"type":"null"}}}},{"description":"evidenced is ladder position 2 and advances only from attested.","if":{"properties":{"to_stage":{"const":"evidenced"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[2]},"from_stage":{"const":"attested"}}}},{"description":"verified is ladder position 3 and advances only from evidenced.","if":{"properties":{"to_stage":{"const":"verified"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[3]},"from_stage":{"const":"evidenced"}}}},{"description":"accepted is ladder position 4 and advances only from verified.","if":{"properties":{"to_stage":{"const":"accepted"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[4]},"from_stage":{"const":"verified"}}}},{"description":"adjudicated is ladder position 5 and advances only from accepted.","if":{"properties":{"to_stage":{"const":"adjudicated"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[5]},"from_stage":{"const":"accepted"}}}},{"description":"settled is ladder position 6 and advances only from adjudicated. v1 represents no no-contest shortcut to settlement; introducing one is a later owner ruling with its own evidence, not an omission to be read in here.","if":{"properties":{"to_stage":{"const":"settled"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[6]},"from_stage":{"const":"adjudicated"}}}},{"description":"The first transition of a subject enters the ladder at its narrowest member and names no predecessor.","if":{"properties":{"from_stage":{"type":"null"}},"required":["from_stage"]},"then":{"properties":{"to_stage":{"const":"attested"},"transition_ordinal":{"type":"integer","enum":[1]},"expected_predecessor_transition_ref":{"type":"null"},"expected_predecessor_transition_hash":{"type":"null"}}}},{"description":"A successor names the exact predecessor it advanced from; a stage that arrives without one is an unlinked claim.","if":{"properties":{"from_stage":{"type":"string"}},"required":["from_stage"]},"then":{"properties":{"transition_ordinal":{"type":"integer","minimum":2,"maximum":6},"expected_predecessor_transition_ref":{"type":"string"},"expected_predecessor_transition_hash":{"type":"string"}}}},{"description":"A stage short of acceptance may not omit the acceptance nonclaim, and one short of settlement may not omit the settlement nonclaim. This is the schema-level half of NN 20; the ordered no-skip rule itself is a portable invariant.","if":{"properties":{"to_stage":{"enum":["attested","evidenced","verified"]}},"required":["to_stage"]},"then":{"properties":{"does_not_assert":{"type":"array","allOf":[{"type":"array","contains":{"const":"acceptance"}},{"type":"array","contains":{"const":"settlement"}}]}}}}],"$defs":{"assuranceStage":{"description":"Frozen by docs/architecture/foundations/canonical-enums.md#assurance-stages-assurance_stage. This contract registers and drives the ladder; it does not choose its members.","enum":["attested","evidenced","verified","accepted","adjudicated","settled"]},"subjectRef":{"type":"string","pattern":"^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,460}$"},"principalRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact|receipt)://[^\\s]{1,460}$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v2", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2","title":"VerifierChallengeEnvelope","x-ioi-schema-version":"ioi.foundations.verifier-challenge-envelope.v2","description":"A typed challenge against a metric, rule, verifier, evidence set, eligibility decision, result, exploit, independence claim, collusion claim, or ontology mapping. v2 is the explicit successor of v1: every other property, enumeration and nullability is preserved byte-for-byte from v1, and the single change is that challenged_ref now admits the two semantic-plane subjects the v1 pattern refused while the v1 description and the 'mapping' challenge_kind already advertised them -- ontology-assertion:// and ontology-mapping://. Widening a registered pattern is a new version, not an edit: v1 bytes remain valid and addressable. The widening is owned by docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#challenging-a-semantic-plane-subject; all other fields remain owned by docs/architecture/domains/ioi-ai/collaborative-pursuit.md#verifierchallengeenvelope.","type":"object","additionalProperties":false,"required":["schema_version","verifier_challenge_id","challenger_ref","challenged_ref","challenge_kind","adjudicator_policy_ref","reverification_required","status"],"properties":{"schema_version":{"const":"ioi.foundations.verifier-challenge-envelope.v2"},"verifier_challenge_id":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,500}$"},"outcome_room_ref":{"oneOf":[{"type":"string","pattern":"^outcome-room://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"oneOf":[{"type":"object","description":"SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."},{"type":"null"}]},"challenger_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"},"challenged_ref":{"type":"string","pattern":"^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision|ontology-assertion|ontology-mapping)://[^\\s]{1,500}$","description":"v2 widening. The two added schemes are the M05.2 ontology-mapping revision and the M05.3 ontology assertion; nothing else about a challenge changes, and admitting a subject here is not a verdict about it."},"challenge_kind":{"enum":["metric","rule","verifier","evidence","eligibility","result","exploit","independence","collusion","mapping"]},"challenge_evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"}},"adjudicator_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"prior_rule_version_ref":{"oneOf":[{"type":"string","pattern":"^(?:rubric|verifier_path)://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_rule_version_ref":{"oneOf":[{"type":"string","pattern":"^(?:rubric|verifier_path)://[^\\s]{1,500}$"},{"type":"null"}]},"affected_attempt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^attempt://[^\\s]{1,500}$"}},"reverification_required":{"type":"boolean"},"adjudication_ref":{"oneOf":[{"type":"string","pattern":"^(?:decision|dispute)://[^\\s]{1,500}$"},{"type":"null"}]},"status":{"enum":["proposed","admitted","investigating","upheld","rejected","rule_changed","reverifying","resolved","withdrawn"]}}}"#),
+    ("schema://ioi/foundations/objects/ontology-action-contract/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-action-contract/v1","title":"OntologyActionContract","description":"One immutable, owner-qualified revision of an executable semantic action contract. It binds an exact admitted OntologyVersion revision and its committed hash, the exact action term that revision defines, an exact released RuntimeToolContract revision and its committed hash, the typed input/output contract, and the declared effect, risk, recovery, compensation, verification, evidence, receipt and physical-safety obligations. It COMPILES MEANING INTO A REQUEST AND GRANTS NOTHING: the same action still passes the capability, policy, authority, daemon-admission, evidence and verification gates named in `required_gates`, and this record neither invokes an effect nor mints a lease, grant, connection or credential.","x-ioi-schema-version":"ioi.ontology-action-contract.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_action_id","action_family_ref","action_record_profile","namespace","name","action_slug","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_revision_ref","predecessor_content_hash","content_hash","ontology_family_ref","ontology_revision_ref","ontology_content_hash","ontology_resolved_by","action_type_ref","runtime_tool_contract_revision_ref","runtime_tool_contract_content_hash","runtime_tool_resolved_by","bound_tool_id","bound_tool_risk_class","bound_tool_effect_class","bound_tool_class_vocabulary","bound_tool_input_schema_hash","bound_tool_output_schema_hash","bound_tool_primitive_capabilities_required","bound_tool_authority_scopes_required","typed_input_schema_ref","typed_output_schema_ref","target_object_model_refs","precondition_refs","postcondition_and_invariant_refs","expected_state_transition_ref","risk_class","effect_recovery_class","idempotency_and_retry_profile_ref","ambiguous_effect_and_reconciliation_profile_ref","compensation_profile_ref","preview_and_dry_run_profile_ref","approval_and_revocation_refs","local_policy_and_authority_scope_refs","verifier_and_evidence_refs","physical_safety_profile_ref","receipt_obligations","required_gates","required_gate_count","policy_hash","does_not_assert","constants","authority_nonclaim","invocation_nonclaim","valid_time","transaction_time","migration","admission","status"],"properties":{"schema_version":{"const":"ioi.ontology-action-contract.v1"},"ontology_action_id":{"$ref":"#/$defs/actionRevisionRef"},"action_family_ref":{"$ref":"#/$defs/actionFamilyRef"},"action_record_profile":{"const":"ontology_action_contract"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"action_slug":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"description":"`agentgres://domain/` plus exactly what `agentgres::refs::event_stream_domain` emits for this family's owner namespace and stream tail.","type":"string","pattern":"^agentgres://domain/event-stream-operations[.][^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/actionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"ontology_family_ref":{"$ref":"#/$defs/ontologyFamilyRef","description":"THE OFFLINE JOIN KEY, and the only reason this derived field exists. `ontology_revision_ref` and `action_type_ref` are both owner-qualified under one family, but a portable invariant can only relate two paths through a third that both share as a prefix. Without this member, 'the compiled term and the bound revision belong to the same family' would be a runtime refusal with no offline counterpart, and a record that bound namespace A's revision to namespace B's term would satisfy every shape check for a relying party holding only the bytes. It is derived by the admitting owner, never accepted from a caller, and it is inside the content commitment."},"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef","description":"EXACT, never a family head. A contract that named `ontology://ns/name` would silently re-mean itself whenever the family advanced, which is the reinterpretation an immutable version exists to refuse."},"ontology_content_hash":{"$ref":"#/$defs/sha256","description":"The ontology owner's committed hash for that exact revision, carried verbatim. It is what makes the membership the admitting owner already checked RE-CHECKABLE: any relying party holding the revision bytes can confirm `action_type_ref` in that revision's `action_types` without trusting this record."},"ontology_resolved_by":{"const":"ontology_version_routes::resolve_admitted_action_type","description":"The exact owner seam that produced this binding. It resolves the revision AND the action against one projection of the ontology family's own chain, so an unknown same-family term is refused rather than admitted; pinning the seam here is what stops a later build substituting a weaker reader while keeping the field."},"action_type_ref":{"$ref":"#/$defs/termRef","description":"The exact admitted action type this contract compiles. Membership in the bound revision's `action_types` is CHECKED by the ontology owner before admission — a well-formed, correctly-namespaced term the revision never declared is refused, not accepted with a caveat."},"runtime_tool_contract_revision_ref":{"$ref":"#/$defs/toolRevisionRef","description":"EXACT released revision, never a mutable tool family id. Admission and package pins use `revision_ref` plus `content_hash` by the connector/tool contract owner's own rule."},"runtime_tool_contract_content_hash":{"$ref":"#/$defs/sha256"},"runtime_tool_resolved_by":{"const":"runtime_tool_contract_registry::resolve_exact"},"bound_tool_id":{"$ref":"#/$defs/toolFamilyRef"},"bound_tool_risk_class":{"type":"string","minLength":1,"maxLength":64},"bound_tool_effect_class":{"type":"string","minLength":1,"maxLength":64},"bound_tool_class_vocabulary":{"const":"runtime_tool_declared_verbatim","description":"The bound tool's risk/effect strings are RETAINED AS THE TOOL OWNER DECLARES THEM and are not members of the canonical ladder. `canonical-enums.md` records that several runtime surfaces still carry pre-consolidation strings; mapping one onto the canonical ladder here would invent an equivalence this contract has no authority to assert. This record's own canonical assessment is `risk_class`."},"bound_tool_input_schema_hash":{"$ref":"#/$defs/sha256"},"bound_tool_output_schema_hash":{"$ref":"#/$defs/sha256"},"bound_tool_primitive_capabilities_required":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^prim:[^\\s]{1,120}$"}},"bound_tool_authority_scopes_required":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^scope:[^\\s]{1,120}$"}},"typed_input_schema_ref":{"$ref":"#/$defs/typedSchemaRef"},"typed_output_schema_ref":{"$ref":"#/$defs/typedSchemaRef"},"target_object_model_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^object-model://[^\\s]{1,240}$"}},"precondition_refs":{"$ref":"#/$defs/conditionRefSet"},"postcondition_and_invariant_refs":{"$ref":"#/$defs/conditionRefSet"},"expected_state_transition_ref":{"type":"string","pattern":"^(?:transition|state-delta)://[^\\s]{1,240}$"},"risk_class":{"enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"],"description":"The canonical ladder owned by `canonical-enums.md`, plus the peer top-tier `physical_action`. This contract registers the member; it does not define the set."},"effect_recovery_class":{"enum":["replayable","checkpointable","compensatable","reconciliation_required","non_retryable"]},"idempotency_and_retry_profile_ref":{"$ref":"#/$defs/policyRef"},"ambiguous_effect_and_reconciliation_profile_ref":{"$ref":"#/$defs/policyRef"},"compensation_profile_ref":{"oneOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"preview_and_dry_run_profile_ref":{"oneOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"approval_and_revocation_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:approval-policy|revocation)://[^\\s]{1,240}$"}},"local_policy_and_authority_scope_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy://|grant://|scope:)[^\\s]{1,240}$"},"description":"REQUIREMENTS, never holdings. A `grant://` member names the grant class an invoker must present; it is not a grant this record possesses, issues or consumes."},"verifier_and_evidence_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|evidence|schema)://[^\\s]{1,240}$"}},"physical_safety_profile_ref":{"oneOf":[{"type":"string","pattern":"^safety://[^\\s]{1,240}$"},{"type":"null"}]},"receipt_obligations":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"required_gates":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["capability","policy","authority","daemon_admission","evidence","verification"]},"description":"ACC-6 clause 5 AS A FIELD. The exact ladder this compiled action still has to pass. Six UNIQUE members drawn from a six-member enum is set equality stated in the keywords the registered-contract compiler supports: dropping a gate fails `minItems`, substituting one fails the enum, and duplicating one to make up the count fails `uniqueItems`. A relying party with only these bytes and no daemon catches all three."},"required_gate_count":{"type":"integer","minimum":6,"maximum":6,"description":"Pinned to exactly six by this schema and compared against the array's own length by a registered invariant, so gate removal fails twice and independently: once as a shape error and once as arithmetic over the ladder the record actually carries."},"policy_hash":{"$ref":"#/$defs/sha256","description":"The exact local policy snapshot in force when this revision was compiled. It is a commitment to WHICH policy applied, never a record that policy decided anything: `policy` remains a member of `required_gates` and `policy_decision` a mandatory member of `does_not_assert`."},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","capability_grant","lease","policy_decision","effect_admission","invocation","connection_is_authority","credential_is_authority","domain_correctness","physical_safety_clearance"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_grant"}},{"contains":{"const":"lease"}},{"contains":{"const":"policy_decision"}},{"contains":{"const":"effect_admission"}},{"contains":{"const":"invocation"}}],"description":"NN 9 AND NN 20 AS A CLOSED FIELD RATHER THAN A PARAGRAPH. Six members are mandatory, and each names a thing a reader might otherwise take a compiled action to confer: authority, a capability grant, a lease, a policy decision, an effect admission, or the invocation itself. `action_term_membership` is DELIBERATELY ABSENT FROM THE VOCABULARY. It belonged here only while the ontology owner published no way to check that the compiled term was one the bound revision actually declares; that seam now exists and admission uses it, so a record disclaiming membership would understate a binding this contract really carries. A nonclaim that understates the object is as much a misstatement as one that overstates it."},"constants":{"type":"object","additionalProperties":false,"required":["authority_nonclaim_token","capability_gate","policy_gate","authority_gate","daemon_admission_gate","evidence_gate","verification_gate"],"description":"TOKENS THE INVARIANT LANGUAGE HAS NO LITERALS FOR. The portable invariant DSL compares paths, never string constants, so a rule that wants to say \"this array contains exactly these six names\" needs the six names to exist somewhere in the document. Pinning them here as `const` gives the invariant layer a place to point at while keeping the schema the authority on their values. The result is two independent fences over one claim: the schema fixes the vocabulary and cardinality, the invariant fixes exact coverage, and an implementation that weakened the gate ladder would have to defeat both.","properties":{"authority_nonclaim_token":{"const":"authority"},"capability_gate":{"const":"capability"},"policy_gate":{"const":"policy"},"authority_gate":{"const":"authority"},"daemon_admission_gate":{"const":"daemon_admission"},"evidence_gate":{"const":"evidence"},"verification_gate":{"const":"verification"}}},"authority_nonclaim":{"const":"ontology_action_contract_grants_no_authority"},"invocation_nonclaim":{"const":"ontology_action_contract_does_not_invoke_or_dispatch"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_revision_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_revision_ref":{"oneOf":[{"$ref":"#/$defs/actionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_action_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_action_id":{"$ref":"#/$defs/actionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-action-contracts"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"description":"Exactly what `agentgres::refs::event_stream_operation_ref` emits. The bound is 460 rather than 240 because the real ref carries the owner namespace, a 96-character stream tail, the sequence and a full sha256 head; a schema that guessed a shorter ceiling would make every real admission unprojectable.","type":"string","pattern":"^agentgres://operation/event-stream/[^\\s]{1,460}$"},"agentgres_receipt_ref":{"description":"Exactly what `agentgres::refs::event_stream_receipt_ref` emits. It is a `receipt://` ref rather than an `agentgres://` one, and its trailing root is sha-prefix-stripped, because that is what the substrate's own ref builder does; guessing either would make every real admission unprojectable.","type":"string","pattern":"^receipt://agentgres/event-stream/[^\\s]{1,460}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"status":{"enum":["active","deprecated"],"description":"One admitted revision is `active` while it is the family head and `deprecated` once a successor closes its transaction interval. Its bytes and content hash never move; only the interval does."}},"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"actionFamilyRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"actionRevisionRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"toolFamilyRef":{"type":"string","pattern":"^tool://[A-Za-z0-9._~/-]{1,200}$"},"toolRevisionRef":{"type":"string","pattern":"^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$"},"typedSchemaRef":{"type":"string","pattern":"^(?:schema|artifact)://[^\\s]{1,240}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"conditionRefSet":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|invariant|state)://[^\\s]{1,240}$"}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -119491,6 +120756,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-artifact-intent/v1", r#"[{"rule_id":"foundry_artifact_intent.intent_ref.binds_artifact_hash","description":"The intent identity is content-addressed on the exact artifact it commits: the trailing path segment of intent_ref equals the hex of artifact_hash. An intent can therefore never name a blob other than the one whose durability it records, which is what makes an admitted intent a trustworthy cleanup obligation for its blob.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.intent_ref","delimiter":"/","target_path":"$.artifact_hash","target_prefix":"sha256:"}}]"#),
     ("schema://ioi/foundations/assurance-transition-receipt/v1", r#"[{"rule_id":"assurance_transition.ladder.position_matches_chain_position","description":"THE NO-SKIP RULE, PORTABLY. The ladder position of to_stage must equal the transition's position in its subject's own chain. transition_ordinal is derived from the durable chain length and to_stage_ordinal is pinned to to_stage by the schema, so a transition that jumps a member carries a ladder position its chain position cannot support and fails with no daemon present. This is the offline half of ACC-8 clause 1: a stage nobody stood behind cannot be reached by skipping the one before it.","expression":{"operator":"fields_equal","paths":["$.to_stage_ordinal","$.transition_ordinal"]}},{"rule_id":"assurance_transition.content_hash.commits_subject_stage_outcome_and_valid_time","description":"The content hash commits the bound subject and its owner-resolved hash, the exact ladder movement, the declared outcome class, the actor, the evidence and nonclaim sets, the predecessor link and VALID time. Transaction time and the admission block are deliberately excluded: when a stage was claimed true is content, when it was recorded is admission, which is what lets a predecessor's transaction interval close while its bytes stay frozen.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.assurance-transition-content-commitment-jcs-sha256.v1"},"transition_id":{"path":"$.transition_id"},"subject_ref":{"path":"$.subject_ref"},"subject_family":{"path":"$.subject_family"},"subject_content_hash":{"path":"$.subject_content_hash"},"subject_resolved_by":{"path":"$.subject_resolved_by"},"from_stage":{"path":"$.from_stage"},"to_stage":{"path":"$.to_stage"},"to_stage_ordinal":{"path":"$.to_stage_ordinal"},"transition_ordinal":{"path":"$.transition_ordinal"},"outcome_class":{"path":"$.outcome_class"},"actor_ref":{"path":"$.actor_ref"},"evidence_refs":{"path":"$.evidence_refs"},"does_not_assert":{"path":"$.does_not_assert"},"expected_predecessor_transition_ref":{"path":"$.expected_predecessor_transition_ref"},"expected_predecessor_transition_hash":{"path":"$.expected_predecessor_transition_hash"},"valid_time":{"path":"$.valid_time"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"assurance_transition.identity.binds_subject_family","description":"A transition id names the family of the subject it moves, so a record cannot be lifted onto another family's ladder while keeping its identity.","expression":{"operator":"field_starts_with_path","path":"$.transition_id","prefix":"assurance-transition://","expected_path":"$.subject_family","suffix":"/"}},{"rule_id":"assurance_transition.subject_hash.is_not_this_records_own_hash","description":"The subject's committed hash is the SUBJECT OWNER's, carried verbatim. An implementation that echoes this record's own content hash into the subject slot would satisfy every shape check while binding nothing, so the two are required to differ.","expression":{"operator":"fields_not_equal","paths":["$.subject_content_hash","$.content_hash"]}},{"rule_id":"assurance_transition.predecessor.is_not_this_record","description":"A successor whose predecessor hash equals its own content hash is a self-linked record, not a step; the chain would close into a loop that reads as history.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.expected_predecessor_transition_hash"]}},{"rule_id":"assurance_transition.nonclaims.does_not_assert_is_non_empty","description":"NN 20 as a checkable field. A transition that disclaims nothing has collapsed 'who stands behind what' into a bare success flag, which is the exact reading this ladder exists to refuse.","expression":{"operator":"non_empty","path":"$.does_not_assert"}},{"rule_id":"assurance_transition.evidence.is_non_empty","description":"Each transition names its evidence. A stage asserted with no evidence ref is prose wearing a receipt's shape.","expression":{"operator":"non_empty","path":"$.evidence_refs"}},{"rule_id":"assurance_transition.admission.binds_this_transition","description":"Admission evidence names this exact transition; a borrowed admission cannot make another record durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"transition_id","expected_path":"$.transition_id"}},{"rule_id":"assurance_transition.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
     ("schema://ioi/foundations/objects/verifier-challenge-envelope/v2", r#"[]"#),
+    ("schema://ioi/foundations/objects/ontology-action-contract/v1", r#"[{"rule_id":"ontology_action_contract.content_hash.commits_both_bindings_effect_semantics_and_valid_time","description":"The content hash commits the compiled action's identity, BOTH exact bindings (the ontology revision with its owner-resolved hash and the action term it defines; the RuntimeToolContract revision with its owner-resolved hash and the exact JCS hashes of its declared input and output schemas), the typed effect contract, the declared risk and recovery semantics, the whole gate ladder, the nonclaim set, the predecessor link, and VALID time. Transaction time and the admission block are deliberately excluded: when a compiled meaning is held true is content, when it was recorded is admission, which is what lets a predecessor's transaction interval close while its bytes and hash stay frozen.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-action-contract-content-commitment-jcs-sha256.v1"},"ontology_action_id":{"path":"$.ontology_action_id"},"action_family_ref":{"path":"$.action_family_ref"},"action_record_profile":{"path":"$.action_record_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"action_slug":{"path":"$.action_slug"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"ontology_family_ref":{"path":"$.ontology_family_ref"},"ontology_revision_ref":{"path":"$.ontology_revision_ref"},"ontology_content_hash":{"path":"$.ontology_content_hash"},"ontology_resolved_by":{"path":"$.ontology_resolved_by"},"action_type_ref":{"path":"$.action_type_ref"},"runtime_tool_contract_revision_ref":{"path":"$.runtime_tool_contract_revision_ref"},"runtime_tool_contract_content_hash":{"path":"$.runtime_tool_contract_content_hash"},"runtime_tool_resolved_by":{"path":"$.runtime_tool_resolved_by"},"bound_tool_id":{"path":"$.bound_tool_id"},"bound_tool_risk_class":{"path":"$.bound_tool_risk_class"},"bound_tool_effect_class":{"path":"$.bound_tool_effect_class"},"bound_tool_class_vocabulary":{"path":"$.bound_tool_class_vocabulary"},"bound_tool_input_schema_hash":{"path":"$.bound_tool_input_schema_hash"},"bound_tool_output_schema_hash":{"path":"$.bound_tool_output_schema_hash"},"bound_tool_primitive_capabilities_required":{"path":"$.bound_tool_primitive_capabilities_required"},"bound_tool_authority_scopes_required":{"path":"$.bound_tool_authority_scopes_required"},"typed_input_schema_ref":{"path":"$.typed_input_schema_ref"},"typed_output_schema_ref":{"path":"$.typed_output_schema_ref"},"target_object_model_refs":{"path":"$.target_object_model_refs"},"precondition_refs":{"path":"$.precondition_refs"},"postcondition_and_invariant_refs":{"path":"$.postcondition_and_invariant_refs"},"expected_state_transition_ref":{"path":"$.expected_state_transition_ref"},"risk_class":{"path":"$.risk_class"},"effect_recovery_class":{"path":"$.effect_recovery_class"},"idempotency_and_retry_profile_ref":{"path":"$.idempotency_and_retry_profile_ref"},"ambiguous_effect_and_reconciliation_profile_ref":{"path":"$.ambiguous_effect_and_reconciliation_profile_ref"},"compensation_profile_ref":{"path":"$.compensation_profile_ref"},"preview_and_dry_run_profile_ref":{"path":"$.preview_and_dry_run_profile_ref"},"approval_and_revocation_refs":{"path":"$.approval_and_revocation_refs"},"local_policy_and_authority_scope_refs":{"path":"$.local_policy_and_authority_scope_refs"},"verifier_and_evidence_refs":{"path":"$.verifier_and_evidence_refs"},"physical_safety_profile_ref":{"path":"$.physical_safety_profile_ref"},"receipt_obligations":{"path":"$.receipt_obligations"},"required_gates":{"path":"$.required_gates"},"required_gate_count":{"path":"$.required_gate_count"},"policy_hash":{"path":"$.policy_hash"},"does_not_assert":{"path":"$.does_not_assert"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"invocation_nonclaim":{"path":"$.invocation_nonclaim"},"valid_time":{"path":"$.valid_time"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"ontology_action_contract.identity.binds_its_own_family","description":"A revision identity is its family plus an ordinal. A record whose identity does not extend the family it names has been lifted onto another action's lineage while keeping its bytes.","expression":{"operator":"field_starts_with_path","path":"$.ontology_action_id","prefix":"ontology-action://","expected_path":"$.action_family_ref","strip_prefix":"ontology-action://","suffix":"/revision/"}},{"rule_id":"ontology_action_contract.identity.family_ends_with_its_action_slug","description":"The action family is owner-qualified and ends in the action it compiles, so the slug in the identity and the slug in the record cannot drift apart.","expression":{"operator":"field_ends_with","path":"$.action_family_ref","expected_path":"$.action_slug"}},{"rule_id":"ontology_action_contract.bound_revision.is_of_the_bound_ontology_family","description":"The EXACT ontology revision this contract compiles is a revision of the family it names. Without this, an implementation could bind one family's ref and another family's revision and satisfy every shape check.","expression":{"operator":"field_starts_with_path","path":"$.ontology_revision_ref","prefix":"ontology://","expected_path":"$.ontology_family_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"ontology_action_contract.action_term.is_of_the_bound_ontology_family","description":"THE SEMANTIC BINDING, PORTABLY. The compiled action term belongs to the SAME family as the exact bound revision, so a contract cannot claim to compile one domain's action while binding another domain's meaning. This is the half decidable from these bytes ALONE. The other half — that the revision actually declares this action among its `action_types` — is checked before admission by the ontology owner's own `resolve_admitted_action_type` seam, and `ontology_content_hash` commits the bytes that let any relying party re-check it. Two fences, one claim: a term that is well formed and correctly namespaced but never declared is refused at admission, and the evidence to catch it offline is carried here.","expression":{"operator":"field_starts_with_path","path":"$.action_type_ref","prefix":"ontology://","expected_path":"$.ontology_family_ref","strip_prefix":"ontology://","suffix":"/term/"}},{"rule_id":"ontology_action_contract.tool_binding.revision_is_owned_by_the_bound_tool","description":"The bound RuntimeToolContract revision is a revision OF the bound tool id. A revision ref belonging to another tool would bind a different effect surface than the one this contract names.","expression":{"operator":"field_starts_with_path","path":"$.runtime_tool_contract_revision_ref","prefix":"tool://","expected_path":"$.bound_tool_id","strip_prefix":"tool://","suffix":"/revision/"}},{"rule_id":"ontology_action_contract.gates.cover_the_canonical_ladder_exactly","description":"ACC-6 CLAUSE 5, PORTABLY AND INDEPENDENTLY OF THE SCHEMA. `required_gates` is exactly the capability, policy, authority, daemon-admission, evidence and verification gates — no omission, no substitution, no extra. The six tokens are `const`-pinned in `constants` because this language compares paths rather than literals, so this rule and the schema's enum/cardinality keywords are two fences a weakening implementation would have to defeat together. A mutation that removes any one gate fails here with no daemon present.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.required_gates","required_paths":["$.constants.capability_gate","$.constants.policy_gate","$.constants.authority_gate","$.constants.daemon_admission_gate","$.constants.evidence_gate","$.constants.verification_gate"],"required_array_paths":[]}},{"rule_id":"ontology_action_contract.gates.count_matches_the_declared_ladder","description":"The second, independent fence on ACC-6 clause 5. The gate ladder is pinned as an exact ordered six by the schema; this requires the declared count to equal the array's real length, so a build that dropped a gate would have to defeat both the ordered const list and this arithmetic to pass.","expression":{"operator":"array_length_equals","array_path":"$.required_gates","count_path":"$.required_gate_count"}},{"rule_id":"ontology_action_contract.nonclaims.does_not_assert_is_non_empty","description":"NN 9 as a checkable field. A contract that disclaims nothing has collapsed 'compiles meaning into a request' into 'confers permission to act on it', which is the exact reading this object exists to refuse.","expression":{"operator":"non_empty","path":"$.does_not_assert"}},{"rule_id":"ontology_action_contract.nonclaims.authority_is_always_disclaimed","description":"Of the closed nonclaim vocabulary, `authority` is the one member that may never be absent: a compiled action that does not say it confers no authority is read as conferring it by silence. The token itself is pinned by the schema in `constants`, so this rule and the schema's own `contains` clause are two independent fences over one claim — an implementation that dropped the authority nonclaim would have to defeat both.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.authority_nonclaim_token"}},{"rule_id":"ontology_action_contract.ontology_hash.is_not_this_records_own_hash","description":"The ontology revision's committed hash is the ONTOLOGY OWNER's, carried verbatim. An implementation that echoed this record's own content hash into that slot would satisfy every shape check while binding nothing.","expression":{"operator":"fields_not_equal","paths":["$.ontology_content_hash","$.content_hash"]}},{"rule_id":"ontology_action_contract.tool_hash.is_not_this_records_own_hash","description":"The same fence on the tool side, for the same reason.","expression":{"operator":"fields_not_equal","paths":["$.runtime_tool_contract_content_hash","$.content_hash"]}},{"rule_id":"ontology_action_contract.bindings.are_two_distinct_owner_commitments","description":"The ontology and tool commitments are two different owners' hashes. An implementation that resolved one and copied it into both slots would read as bound twice and be bound once.","expression":{"operator":"fields_not_equal","paths":["$.ontology_content_hash","$.runtime_tool_contract_content_hash"]}},{"rule_id":"ontology_action_contract.predecessor.is_not_this_record","description":"A successor whose predecessor hash equals its own content hash is a self-linked record, not a revision; the lineage would close into a loop that reads as history.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"ontology_action_contract.migration.source_is_the_exact_predecessor_revision","description":"A migration declares where it came from, and that is the immediate predecessor rather than any earlier revision a successor might prefer to claim.","expression":{"operator":"fields_equal","paths":["$.migration.from_revision_ref","$.predecessor_revision_ref"]}},{"rule_id":"ontology_action_contract.migration.source_hash_is_the_exact_predecessor_hash","description":"And it came from those exact bytes, so a migration cannot reinterpret a predecessor by naming it while binding a different commitment.","expression":{"operator":"fields_equal","paths":["$.migration.from_content_hash","$.predecessor_content_hash"]}},{"rule_id":"ontology_action_contract.physical_action.binds_a_safety_profile","description":"An action contract that can affect the physical world binds the Physical Action Safety profile before any actuator command is eligible. `physical_action` with a null safety profile is the exact combination canon forbids, and it is refused here without a daemon present.","expression":{"operator":"non_empty_when_in","path":"$.physical_safety_profile_ref","when_path":"$.risk_class","values":["physical_action"]}},{"rule_id":"ontology_action_contract.admission.binds_this_action_revision","description":"Admission evidence names this exact revision; a borrowed admission cannot make another record durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"ontology_action_id","expected_path":"$.ontology_action_id"}},{"rule_id":"ontology_action_contract.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -119594,6 +120860,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:allocation|receipt)://[^\s]{1,500}$"#,
         r#"^(?:allocation|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:approval-policy|revocation)://[^\s]{1,240}$"#,
+        r#"^(?:approval-policy|revocation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:artifact|cid)://[^\s]{1,248}$"#,
@@ -120028,6 +121298,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:participation-request|proposal)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:policy://|grant://|scope:)[^\s]{1,240}$"#,
+        r#"^(?:policy://|grant://|scope:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:policy|auth_factor)://[^\s]{1,500}$"#,
         r#"^(?:policy|auth_factor)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -120050,6 +121324,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:policy|gate|state)://[^\s]{1,500}$"#,
         r#"^(?:policy|gate|state)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:policy|invariant|state)://[^\s]{1,240}$"#,
+        r#"^(?:policy|invariant|state)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:policy|license)://[^\s]{1,500}$"#,
@@ -120236,6 +121514,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:schedule|policy|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:schema|artifact)://[^\s]{1,240}$"#,
+        r#"^(?:schema|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:schema|policy)://[^\s]+$"#,
         r#"^(?:schema|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -120372,6 +121654,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:transition|decision)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:transition|state-delta)://[^\s]{1,240}$"#,
+        r#"^(?:transition|state-delta)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:user|org)://[^\s]{1,500}$"#,
         r#"^(?:user|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -120386,6 +121672,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:user|wallet|org|project|system|governance)://[^\s]{1,248}$"#,
         r#"^(?:user|wallet|org|project|system|governance)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:verifier-path|evidence|schema)://[^\s]{1,240}$"#,
+        r#"^(?:verifier-path|evidence|schema)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:verifier-path|rubric|gate)://[^\s]{1,500}$"#,
@@ -120733,6 +122023,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^agentgres://domain/event-stream-operations[.][^\s]{1,224}$"#,
+        r#"^agentgres://domain/event-stream-operations[.][^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,224}$"#,
+    ),
+    (
         r#"^agentgres://object-set/[^\s]{1,248}$"#,
         r#"^agentgres://object-set/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -120759,6 +122053,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^agentgres://operation/\S+$"#,
         r#"^agentgres://operation/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^agentgres://operation/event-stream/[^\s]{1,460}$"#,
+        r#"^agentgres://operation/event-stream/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,460}$"#,
     ),
     (
         r#"^agentgres://state-root/[^\s]{1,240}$"#,
@@ -121563,12 +122861,24 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^node://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^object-model://[^\s]{1,240}$"#,
+        r#"^object-model://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^object://[^\s]{1,248}$"#,
         r#"^object://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^observation://\S*$"#,
         r#"^observation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
+    ),
+    (
+        r#"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
+        r#"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
+    ),
+    (
+        r#"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^ontology-assertion://[^\s]{1,248}$"#,
@@ -121716,6 +123026,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^preference://hypervisor/\S+$"#,
         r#"^preference://hypervisor/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (
+        r#"^prim:[^\s]{1,120}$"#,
+        r#"^prim:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,120}$"#,
+    ),
     (r#"^prim:[a-z0-9._-]+$"#, r#"^prim:[a-z0-9._-]+$"#),
     (r#"^prim:[a-z][a-z0-9._-]*$"#, r#"^prim:[a-z][a-z0-9._-]*$"#),
     (
@@ -121847,6 +123161,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^receipt://agentgres/event-stream/[^\s]{1,460}$"#,
+        r#"^receipt://agentgres/event-stream/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,460}$"#,
+    ),
+    (
         r#"^receipt://asar_[0-9a-f]{64}$"#,
         r#"^receipt://asar_[0-9a-f]{64}$"#,
     ),
@@ -121937,6 +123255,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^safety://[^\s]+$"#,
         r#"^safety://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (
+        r#"^safety://[^\s]{1,240}$"#,
+        r#"^safety://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
     (r#"^sao_[0-9a-f]+$"#, r#"^sao_[0-9a-f]+$"#),
     (
         r#"^schedule://[^\s]{1,500}$"#,
@@ -121985,6 +123307,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^scm-revision:[0-9a-f]{40,64}$"#,
         r#"^scm-revision:[0-9a-f]{40,64}$"#,
+    ),
+    (
+        r#"^scope:[^\s]{1,120}$"#,
+        r#"^scope:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,120}$"#,
     ),
     (
         r#"^scope:[^\s]{1,200}$"#,
@@ -122244,6 +123570,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^terms://[^\s]{1,500}$"#,
         r#"^terms://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^tool://[A-Za-z0-9._~/-]{1,200}$"#,
+        r#"^tool://[A-Za-z0-9._~/-]{1,200}$"#,
+    ),
+    (
+        r#"^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$"#,
+        r#"^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$"#,
     ),
     (
         r#"^tool://[A-Za-z0-9._~:/-]+$"#,
@@ -124296,6 +125630,17 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json"))),
     ("docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -125424,6 +126769,11 @@ mod tests {
         },
         "schema://ioi/foundations/objects/verifier-challenge-envelope/v2" => {
             serde_json::from_value::<VerifierChallengeEnvelopeV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/ontology-action-contract/v1" => {
+            serde_json::from_value::<OntologyActionContractV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -126558,6 +127908,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/ontology-action-contract/v1" => {
+            let projection = serde_json::from_value::<OntologyActionContractV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -126694,8 +128049,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            793,
-            "the registered golden corpus must remain the explicit 793-fixture bar",
+            804,
+            "the registered golden corpus must remain the explicit 804-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -126937,7 +128292,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 752,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 769,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

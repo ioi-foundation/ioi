@@ -1,0 +1,64 @@
+{
+  "_why_this_is_tracked": "THE ONE DEFECT THE OFFLINE CORPUS STRUCTURALLY CANNOT CATCH. Every registered fixture beside it is decidable from bytes alone. Whether 'ontology://<ns>/<name>/term/<slug>' is a member of a particular admitted revision's action_types is not: it is a fact about the ontology owner's chain, so no schema and no portable invariant can refuse it. This request body is schema-clean, invariant-clean, correctly namespaced and correctly shaped, and names an action the bound revision never declared. check:ontology-action-contract drives it against a live daemon over a REAL revision admitted through M05.1's own route in the same run, and requires a typed refusal with the chain unchanged either side of it. Its planted mutation removes the membership check and must redden this exact assertion.",
+  "_expected": {
+    "status": 404,
+    "error_code": "ontology_version_action_type_absent",
+    "chain_effect": "none — head, revision count and lineage are identical either side of the refusal"
+  },
+  "request": {
+    "owner_ref": "org://local",
+    "idempotency_key": "action-contract-unknown-same-family-term",
+    "namespace": "acme-clinic",
+    "name": "patient-intake",
+    "action_slug": "schedule-followup",
+    "governing_scope_ref": "domain://acme-clinic/intake",
+    "policy_hash": "sha256:1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+    "action_type_ref": "ontology://acme-clinic/patient-intake/term/never-declared",
+    "typed_input_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/input/v1",
+    "typed_output_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/output/v1",
+    "target_object_model_refs": [
+      "object-model://acme-clinic/patient-intake/appointment"
+    ],
+    "precondition_refs": [
+      "state://acme-clinic/patient-intake/appointment/unscheduled"
+    ],
+    "postcondition_and_invariant_refs": [
+      "invariant://acme-clinic/patient-intake/one-open-followup-per-patient"
+    ],
+    "expected_state_transition_ref": "transition://acme-clinic/patient-intake/appointment/unscheduled-to-scheduled",
+    "risk_class": "external_message",
+    "effect_recovery_class": "reconciliation_required",
+    "idempotency_and_retry_profile_ref": "policy://acme-clinic/intake/idempotency/v1",
+    "ambiguous_effect_and_reconciliation_profile_ref": "policy://acme-clinic/intake/reconciliation/v1",
+    "compensation_profile_ref": "policy://acme-clinic/intake/compensation/v1",
+    "preview_and_dry_run_profile_ref": null,
+    "approval_and_revocation_refs": [
+      "approval-policy://acme-clinic/intake/outbound-message"
+    ],
+    "local_policy_and_authority_scope_refs": [
+      "policy://acme-clinic/intake/outbound",
+      "scope:mail.send"
+    ],
+    "verifier_and_evidence_refs": [
+      "verifier-path://acme-clinic/intake/followup-scheduled",
+      "evidence://acme-clinic/intake/provider-response"
+    ],
+    "physical_safety_profile_ref": null,
+    "receipt_obligations": [
+      "receipt://acme-clinic/intake/action-admission",
+      "receipt://acme-clinic/intake/effect-execution"
+    ],
+    "does_not_assert": [
+      "authority",
+      "capability_grant",
+      "lease",
+      "policy_decision",
+      "effect_admission",
+      "invocation"
+    ],
+    "valid_time": {
+      "starts_at": "2026-01-01T00:00:00Z",
+      "ends_at": null
+    }
+  }
+}

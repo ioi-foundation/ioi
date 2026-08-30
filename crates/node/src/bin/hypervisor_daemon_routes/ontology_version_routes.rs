@@ -936,6 +936,22 @@ pub(crate) fn resolve_admitted_revision(
     identity: &RequestIdentity,
     ontology_id: &str,
 ) -> Result<ResolvedOntologyRevision, Reply> {
+    resolve_admitted_revision_projection(data_dir, identity, ontology_id)
+        .map(|(resolved, _)| resolved)
+}
+
+/// The one projection every exact-revision consumer shares.
+///
+/// It returns the reduced binding AND the contract-validated projected document it came from, so a
+/// consumer that needs one more fact out of the SAME revision reads it from the SAME projection
+/// rather than opening a second reader over this family. The document never leaves this module: the
+/// public seams above and below hand out reduced, purpose-shaped values only, which is what keeps
+/// "there is one interpretation of this family's truth" structural rather than promised.
+fn resolve_admitted_revision_projection(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    ontology_id: &str,
+) -> Result<(ResolvedOntologyRevision, Value), Reply> {
     let Some(coordinates) = parse_revision_identity(ontology_id) else {
         return Err(refuse(
             "ontology_version_identity_not_canonical",
@@ -994,7 +1010,110 @@ pub(crate) fn resolve_admitted_revision(
             ),
         ));
     }
-    Ok(resolved)
+    Ok((resolved, document.clone()))
+}
+
+/// One admitted ACTION TYPE, and the exact revision that defines it.
+///
+/// Deliberately not the whole document and not the whole `action_types` set. A consumer of this seam
+/// is compiling ONE action, so it receives that action's identity and label plus the binding
+/// coordinates it must commit — enough to bind exactly, and not enough to re-derive the family's
+/// meaning from a copy.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ResolvedOntologyActionType {
+    pub(crate) ontology_id: String,
+    pub(crate) ontology_family_ref: String,
+    pub(crate) content_hash: String,
+    pub(crate) action_type_ref: String,
+    pub(crate) action_label: String,
+    pub(crate) status: String,
+}
+
+/// Resolve one EXACT admitted action type against the EXACT admitted revision that declares it.
+///
+/// THIS EXISTS BECAUSE BINDING A REVISION IS NOT BINDING AN ACTION. `resolve_admitted_revision`
+/// answers "which bytes does this revision commit"; a consumer compiling a consequential action also
+/// needs "and is this action one of the things those bytes actually declare". Without this seam a
+/// contract could name a well-formed, correctly-namespaced term that the revision never declared, and
+/// every shape check would pass — a compiled action over meaning nobody admitted. M05.4 refuses that
+/// before admission, and it refuses it HERE, in the family's owner, rather than by a consumer
+/// re-reading this family's chain for itself.
+///
+/// SAME AUTHORIZATION, SAME TRUTH, SAME PROJECTION. It shares
+/// `resolve_admitted_revision_projection` with its sibling, so the scope check, the chain read, the
+/// contract validation and the content-hash re-derivation are the ones the query route already
+/// serves from. It adds no storage reader, consults no index, and never widens the caller's scope: a
+/// caller with no scope on this family cannot use it to learn whether an action exists.
+///
+/// MEMBERSHIP IS READ FROM THE PROJECTION, NEVER FROM A COPY. `action_types` is taken out of the
+/// contract-validated projected revision — the same bytes the committed `content_hash` covers — so a
+/// rebuilt or tampered index cannot make an unadmitted action resolve.
+///
+/// GRANTS NOTHING. It returns an identity, a label and a hash. It resolves no mapping, reads no
+/// capability, and its result is not permission to perform the action it names.
+pub(crate) fn resolve_admitted_action_type(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    ontology_id: &str,
+    action_type_ref: &str,
+) -> Result<ResolvedOntologyActionType, Reply> {
+    let (revision, document) =
+        resolve_admitted_revision_projection(data_dir, identity, ontology_id)?;
+    // The term must be of THIS family before it is looked for, so a foreign-namespace term is refused
+    // as the category error it is rather than reported as an absent action of this one.
+    let term_prefix = format!("{}/term/", revision.ontology_family_ref);
+    let Some(term_slug) = action_type_ref.strip_prefix(&term_prefix) else {
+        return Err(refuse(
+            "ontology_version_action_type_foreign_family",
+            format!(
+                "'{action_type_ref}' is not a term of '{}' — a version never declares, and never resolves, a term in another domain's namespace",
+                revision.ontology_family_ref
+            ),
+        ));
+    };
+    if !canonical_token(term_slug, 63) {
+        return Err(refuse(
+            "ontology_version_action_type_not_canonical",
+            format!("'{action_type_ref}' is not a canonical term identity"),
+        ));
+    }
+    let Some(declared) = document
+        .get("action_types")
+        .and_then(Value::as_array)
+        .and_then(|terms| {
+            terms
+                .iter()
+                .find(|term| term.get("term_id").and_then(Value::as_str) == Some(action_type_ref))
+        })
+    else {
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            "ontology_version_action_type_absent",
+            format!(
+                "revision '{ontology_id}' declares no action type '{action_type_ref}' — a well-formed term of the right family is still not an admitted action, and an absent action is a typed absence rather than an empty success"
+            ),
+        ));
+    };
+    let action_label = declared
+        .get("label")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    if action_label.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_GATEWAY,
+            "ontology_version_projection_failed",
+            format!("the chain resolved '{action_type_ref}' to a term carrying no label"),
+        ));
+    }
+    Ok(ResolvedOntologyActionType {
+        ontology_id: revision.ontology_id,
+        ontology_family_ref: revision.ontology_family_ref,
+        content_hash: revision.content_hash,
+        action_type_ref: action_type_ref.to_owned(),
+        action_label,
+        status: revision.status,
+    })
 }
 
 // ------------------------------------------------------------------------------------ producer route
@@ -1634,6 +1753,181 @@ mod tests {
             .cloned()
             .ok_or_else(|| "admitted head is absent from the lineage".to_string())?;
         Ok((document, head))
+    }
+
+    /// A proposal that declares ACTION types as well as entities, so the action-resolution seam has
+    /// something real to resolve against.
+    fn proposal_with_actions(
+        namespace: &str,
+        name: &str,
+        entities: &[&str],
+        actions: &[&str],
+    ) -> Value {
+        let mut body = proposal(namespace, name, entities, "2026-01-01T00:00:00Z");
+        body["action_types"] = actions
+            .iter()
+            .map(|action| {
+                json!({
+                    "term_id": format!("ontology://{namespace}/{name}/term/{action}"),
+                    "label": action,
+                })
+            })
+            .collect::<Vec<_>>()
+            .into();
+        body
+    }
+
+    /// THE SEAM M05.4 DEPENDS ON. Binding a revision is not binding an action: the resolver must
+    /// answer both, and it must refuse an action the revision never declared as firmly as it refuses
+    /// one from another domain. All four cases run against a REAL admitted revision on the chain.
+    #[test]
+    fn the_action_type_seam_resolves_only_actions_the_exact_revision_declares() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let caller = caller("user://acme", "action-seam-genesis");
+        let (v1, head) = admit(
+            data_dir,
+            &caller,
+            &proposal_with_actions(
+                "acme-clinic",
+                "patient-intake",
+                &["patient"],
+                &["schedule-followup"],
+            ),
+            None,
+        )
+        .unwrap();
+
+        // A declared action of the exact revision resolves, and carries that revision's committed
+        // hash verbatim rather than one recomputed here.
+        let resolved = resolve_admitted_action_type(
+            data_dir,
+            &caller.identity,
+            "ontology://acme-clinic/patient-intake/revision/1",
+            "ontology://acme-clinic/patient-intake/term/schedule-followup",
+        )
+        .expect("a declared action of the exact revision resolves");
+        assert_eq!(resolved.ontology_id, v1["ontology_id"]);
+        assert_eq!(
+            resolved.ontology_family_ref,
+            "ontology://acme-clinic/patient-intake"
+        );
+        assert_eq!(json!(resolved.content_hash), v1["content_hash"]);
+        assert_eq!(
+            resolved.action_type_ref,
+            "ontology://acme-clinic/patient-intake/term/schedule-followup"
+        );
+        assert_eq!(resolved.action_label, "schedule-followup");
+
+        // THE DEFECT THIS SEAM EXISTS FOR. Well formed, correctly namespaced, canonical — and never
+        // declared. A contract compiled over it would bind meaning nobody admitted.
+        let (status, _) = resolve_admitted_action_type(
+            data_dir,
+            &caller.identity,
+            "ontology://acme-clinic/patient-intake/revision/1",
+            "ontology://acme-clinic/patient-intake/term/never-declared",
+        )
+        .expect_err("an undeclared same-family action must not resolve");
+        assert_eq!(status, StatusCode::NOT_FOUND);
+
+        // An entity term is not an action term. The revision declares `patient`, but not as an
+        // action, so resolving it as one is the same absence.
+        assert!(resolve_admitted_action_type(
+            data_dir,
+            &caller.identity,
+            "ontology://acme-clinic/patient-intake/revision/1",
+            "ontology://acme-clinic/patient-intake/term/patient",
+        )
+        .is_err());
+
+        // A term of another family is refused as the category error it is, before membership is
+        // even asked.
+        let (status, Json(body)) = resolve_admitted_action_type(
+            data_dir,
+            &caller.identity,
+            "ontology://acme-clinic/patient-intake/revision/1",
+            "ontology://other-clinic/patient-intake/term/schedule-followup",
+        )
+        .expect_err("a foreign-family term must not resolve");
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            body["error"]["code"],
+            "ontology_version_action_type_foreign_family"
+        );
+
+        // EXACT, NOT LATEST. A successor that drops the action leaves revision 1 resolving it, and
+        // revision 2 refusing it — which is the whole point of binding an exact revision.
+        let successor = caller_with_key(&caller, "action-seam-successor");
+        admit(
+            data_dir,
+            &successor,
+            &proposal_with_actions(
+                "acme-clinic",
+                "patient-intake",
+                &["patient", "guardian"],
+                &["cancel-followup"],
+            ),
+            Some(&head),
+        )
+        .unwrap();
+        assert!(resolve_admitted_action_type(
+            data_dir,
+            &caller.identity,
+            "ontology://acme-clinic/patient-intake/revision/1",
+            "ontology://acme-clinic/patient-intake/term/schedule-followup",
+        )
+        .is_ok());
+        assert!(resolve_admitted_action_type(
+            data_dir,
+            &caller.identity,
+            "ontology://acme-clinic/patient-intake/revision/2",
+            "ontology://acme-clinic/patient-intake/term/schedule-followup",
+        )
+        .is_err());
+    }
+
+    /// The seam inherits its sibling's authorization exactly, so it cannot become an existence
+    /// oracle for another owner's actions: a caller with no scope on the family gets the same
+    /// refusal whether the action exists or not.
+    #[test]
+    fn the_action_type_seam_is_not_an_existence_oracle_for_another_owner() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let owner = caller("user://acme", "oracle-genesis");
+        admit(
+            data_dir,
+            &owner,
+            &proposal_with_actions(
+                "acme-clinic",
+                "patient-intake",
+                &["patient"],
+                &["schedule-followup"],
+            ),
+            None,
+        )
+        .unwrap();
+        let stranger = request_identity_for_test("user://stranger", ["org://stranger".to_string()]);
+        let declared = resolve_admitted_action_type(
+            data_dir,
+            &stranger,
+            "ontology://acme-clinic/patient-intake/revision/1",
+            "ontology://acme-clinic/patient-intake/term/schedule-followup",
+        )
+        .expect_err("a stranger resolves nothing here");
+        let undeclared = resolve_admitted_action_type(
+            data_dir,
+            &stranger,
+            "ontology://acme-clinic/patient-intake/revision/1",
+            "ontology://acme-clinic/patient-intake/term/never-declared",
+        )
+        .expect_err("a stranger resolves nothing here either");
+        assert_eq!(
+            declared.0, undeclared.0,
+            "a declared and an undeclared action must be indistinguishable to a caller with no scope"
+        );
+        assert_eq!(declared.1 .0, undeclared.1 .0);
     }
 
     #[test]

@@ -1,0 +1,288 @@
+{
+  "$id": "invariant://ioi/foundations/objects/ontology-action-contract/exact-binding-that-grants-nothing/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+  "rules": [
+    {
+      "rule_id": "ontology_action_contract.content_hash.commits_both_bindings_effect_semantics_and_valid_time",
+      "description": "The content hash commits the compiled action's identity, BOTH exact bindings (the ontology revision with its owner-resolved hash and the action term it defines; the RuntimeToolContract revision with its owner-resolved hash and the exact JCS hashes of its declared input and output schemas), the typed effect contract, the declared risk and recovery semantics, the whole gate ladder, the nonclaim set, the predecessor link, and VALID time. Transaction time and the admission block are deliberately excluded: when a compiled meaning is held true is content, when it was recorded is admission, which is what lets a predecessor's transaction interval close while its bytes and hash stay frozen.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.ontology-action-contract-content-commitment-jcs-sha256.v1"
+          },
+          "ontology_action_id": { "path": "$.ontology_action_id" },
+          "action_family_ref": { "path": "$.action_family_ref" },
+          "action_record_profile": { "path": "$.action_record_profile" },
+          "namespace": { "path": "$.namespace" },
+          "name": { "path": "$.name" },
+          "action_slug": { "path": "$.action_slug" },
+          "owner_id": { "path": "$.owner_id" },
+          "governing_scope_ref": { "path": "$.governing_scope_ref" },
+          "version": { "path": "$.version" },
+          "revision_ordinal": { "path": "$.revision_ordinal" },
+          "predecessor_revision_ref": { "path": "$.predecessor_revision_ref" },
+          "predecessor_content_hash": { "path": "$.predecessor_content_hash" },
+          "ontology_family_ref": { "path": "$.ontology_family_ref" },
+          "ontology_revision_ref": { "path": "$.ontology_revision_ref" },
+          "ontology_content_hash": { "path": "$.ontology_content_hash" },
+          "ontology_resolved_by": { "path": "$.ontology_resolved_by" },
+          "action_type_ref": { "path": "$.action_type_ref" },
+          "runtime_tool_contract_revision_ref": {
+            "path": "$.runtime_tool_contract_revision_ref"
+          },
+          "runtime_tool_contract_content_hash": {
+            "path": "$.runtime_tool_contract_content_hash"
+          },
+          "runtime_tool_resolved_by": { "path": "$.runtime_tool_resolved_by" },
+          "bound_tool_id": { "path": "$.bound_tool_id" },
+          "bound_tool_risk_class": { "path": "$.bound_tool_risk_class" },
+          "bound_tool_effect_class": { "path": "$.bound_tool_effect_class" },
+          "bound_tool_class_vocabulary": {
+            "path": "$.bound_tool_class_vocabulary"
+          },
+          "bound_tool_input_schema_hash": {
+            "path": "$.bound_tool_input_schema_hash"
+          },
+          "bound_tool_output_schema_hash": {
+            "path": "$.bound_tool_output_schema_hash"
+          },
+          "bound_tool_primitive_capabilities_required": {
+            "path": "$.bound_tool_primitive_capabilities_required"
+          },
+          "bound_tool_authority_scopes_required": {
+            "path": "$.bound_tool_authority_scopes_required"
+          },
+          "typed_input_schema_ref": { "path": "$.typed_input_schema_ref" },
+          "typed_output_schema_ref": { "path": "$.typed_output_schema_ref" },
+          "target_object_model_refs": { "path": "$.target_object_model_refs" },
+          "precondition_refs": { "path": "$.precondition_refs" },
+          "postcondition_and_invariant_refs": {
+            "path": "$.postcondition_and_invariant_refs"
+          },
+          "expected_state_transition_ref": {
+            "path": "$.expected_state_transition_ref"
+          },
+          "risk_class": { "path": "$.risk_class" },
+          "effect_recovery_class": { "path": "$.effect_recovery_class" },
+          "idempotency_and_retry_profile_ref": {
+            "path": "$.idempotency_and_retry_profile_ref"
+          },
+          "ambiguous_effect_and_reconciliation_profile_ref": {
+            "path": "$.ambiguous_effect_and_reconciliation_profile_ref"
+          },
+          "compensation_profile_ref": { "path": "$.compensation_profile_ref" },
+          "preview_and_dry_run_profile_ref": {
+            "path": "$.preview_and_dry_run_profile_ref"
+          },
+          "approval_and_revocation_refs": {
+            "path": "$.approval_and_revocation_refs"
+          },
+          "local_policy_and_authority_scope_refs": {
+            "path": "$.local_policy_and_authority_scope_refs"
+          },
+          "verifier_and_evidence_refs": {
+            "path": "$.verifier_and_evidence_refs"
+          },
+          "physical_safety_profile_ref": {
+            "path": "$.physical_safety_profile_ref"
+          },
+          "receipt_obligations": { "path": "$.receipt_obligations" },
+          "required_gates": { "path": "$.required_gates" },
+          "required_gate_count": { "path": "$.required_gate_count" },
+          "policy_hash": { "path": "$.policy_hash" },
+          "does_not_assert": { "path": "$.does_not_assert" },
+          "constants": { "path": "$.constants" },
+          "authority_nonclaim": { "path": "$.authority_nonclaim" },
+          "invocation_nonclaim": { "path": "$.invocation_nonclaim" },
+          "valid_time": { "path": "$.valid_time" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.identity.binds_its_own_family",
+      "description": "A revision identity is its family plus an ordinal. A record whose identity does not extend the family it names has been lifted onto another action's lineage while keeping its bytes.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_action_id",
+        "prefix": "ontology-action://",
+        "expected_path": "$.action_family_ref",
+        "strip_prefix": "ontology-action://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.identity.family_ends_with_its_action_slug",
+      "description": "The action family is owner-qualified and ends in the action it compiles, so the slug in the identity and the slug in the record cannot drift apart.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.action_family_ref",
+        "expected_path": "$.action_slug"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.bound_revision.is_of_the_bound_ontology_family",
+      "description": "The EXACT ontology revision this contract compiles is a revision of the family it names. Without this, an implementation could bind one family's ref and another family's revision and satisfy every shape check.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_revision_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_family_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.action_term.is_of_the_bound_ontology_family",
+      "description": "THE SEMANTIC BINDING, PORTABLY. The compiled action term belongs to the SAME family as the exact bound revision, so a contract cannot claim to compile one domain's action while binding another domain's meaning. This is the half decidable from these bytes ALONE. The other half — that the revision actually declares this action among its `action_types` — is checked before admission by the ontology owner's own `resolve_admitted_action_type` seam, and `ontology_content_hash` commits the bytes that let any relying party re-check it. Two fences, one claim: a term that is well formed and correctly namespaced but never declared is refused at admission, and the evidence to catch it offline is carried here.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.action_type_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_family_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/term/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.tool_binding.revision_is_owned_by_the_bound_tool",
+      "description": "The bound RuntimeToolContract revision is a revision OF the bound tool id. A revision ref belonging to another tool would bind a different effect surface than the one this contract names.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.runtime_tool_contract_revision_ref",
+        "prefix": "tool://",
+        "expected_path": "$.bound_tool_id",
+        "strip_prefix": "tool://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.gates.cover_the_canonical_ladder_exactly",
+      "description": "ACC-6 CLAUSE 5, PORTABLY AND INDEPENDENTLY OF THE SCHEMA. `required_gates` is exactly the capability, policy, authority, daemon-admission, evidence and verification gates — no omission, no substitution, no extra. The six tokens are `const`-pinned in `constants` because this language compares paths rather than literals, so this rule and the schema's enum/cardinality keywords are two fences a weakening implementation would have to defeat together. A mutation that removes any one gate fails here with no daemon present.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.required_gates",
+        "required_paths": [
+          "$.constants.capability_gate",
+          "$.constants.policy_gate",
+          "$.constants.authority_gate",
+          "$.constants.daemon_admission_gate",
+          "$.constants.evidence_gate",
+          "$.constants.verification_gate"
+        ],
+        "required_array_paths": []
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.gates.count_matches_the_declared_ladder",
+      "description": "The second, independent fence on ACC-6 clause 5. The gate ladder is pinned as an exact ordered six by the schema; this requires the declared count to equal the array's real length, so a build that dropped a gate would have to defeat both the ordered const list and this arithmetic to pass.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.required_gates",
+        "count_path": "$.required_gate_count"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.nonclaims.does_not_assert_is_non_empty",
+      "description": "NN 9 as a checkable field. A contract that disclaims nothing has collapsed 'compiles meaning into a request' into 'confers permission to act on it', which is the exact reading this object exists to refuse.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.does_not_assert"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.nonclaims.authority_is_always_disclaimed",
+      "description": "Of the closed nonclaim vocabulary, `authority` is the one member that may never be absent: a compiled action that does not say it confers no authority is read as conferring it by silence. The token itself is pinned by the schema in `constants`, so this rule and the schema's own `contains` clause are two independent fences over one claim — an implementation that dropped the authority nonclaim would have to defeat both.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.authority_nonclaim_token"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.ontology_hash.is_not_this_records_own_hash",
+      "description": "The ontology revision's committed hash is the ONTOLOGY OWNER's, carried verbatim. An implementation that echoed this record's own content hash into that slot would satisfy every shape check while binding nothing.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.ontology_content_hash", "$.content_hash"]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.tool_hash.is_not_this_records_own_hash",
+      "description": "The same fence on the tool side, for the same reason.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.runtime_tool_contract_content_hash", "$.content_hash"]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.bindings.are_two_distinct_owner_commitments",
+      "description": "The ontology and tool commitments are two different owners' hashes. An implementation that resolved one and copied it into both slots would read as bound twice and be bound once.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.ontology_content_hash",
+          "$.runtime_tool_contract_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.predecessor.is_not_this_record",
+      "description": "A successor whose predecessor hash equals its own content hash is a self-linked record, not a revision; the lineage would close into a loop that reads as history.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.content_hash", "$.predecessor_content_hash"]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.migration.source_is_the_exact_predecessor_revision",
+      "description": "A migration declares where it came from, and that is the immediate predecessor rather than any earlier revision a successor might prefer to claim.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.migration.from_revision_ref", "$.predecessor_revision_ref"]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.migration.source_hash_is_the_exact_predecessor_hash",
+      "description": "And it came from those exact bytes, so a migration cannot reinterpret a predecessor by naming it while binding a different commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.migration.from_content_hash", "$.predecessor_content_hash"]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.physical_action.binds_a_safety_profile",
+      "description": "An action contract that can affect the physical world binds the Physical Action Safety profile before any actuator command is eligible. `physical_action` with a null safety profile is the exact combination canon forbids, and it is refused here without a daemon present.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.physical_safety_profile_ref",
+        "when_path": "$.risk_class",
+        "values": ["physical_action"]
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.admission.binds_this_action_revision",
+      "description": "Admission evidence names this exact revision; a borrowed admission cannot make another record durable.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "ontology_action_id",
+        "expected_path": "$.ontology_action_id"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ]
+}

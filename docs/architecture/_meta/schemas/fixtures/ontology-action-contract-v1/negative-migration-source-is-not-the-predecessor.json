@@ -1,0 +1,130 @@
+{
+  "schema_version": "ioi.ontology-action-contract.v1",
+  "ontology_action_id": "ontology-action://acme-clinic/patient-intake/schedule-followup/revision/2",
+  "action_family_ref": "ontology-action://acme-clinic/patient-intake/schedule-followup",
+  "action_record_profile": "ontology_action_contract",
+  "namespace": "acme-clinic",
+  "name": "patient-intake",
+  "action_slug": "schedule-followup",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/intake",
+  "admission_domain_ref": "agentgres://domain/event-stream-operations.hypervisor-ontology-action-contracts.ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7",
+  "version": "v2",
+  "revision_ordinal": 2,
+  "predecessor_revision_ref": "ontology-action://acme-clinic/patient-intake/schedule-followup/revision/1",
+  "predecessor_content_hash": "sha256:4e574e56075f237851f44cbc76e6028de6668875742225ab7a9c316d435f43eb",
+  "content_hash": "sha256:c913fde285d588e659aa85baa53fd971c86da1a576843e326277c38615f32f38",
+  "ontology_family_ref": "ontology://acme-clinic/patient-intake",
+  "ontology_revision_ref": "ontology://acme-clinic/patient-intake/revision/4",
+  "ontology_content_hash": "sha256:dbcf2d0afce463349f0d51790b54824ff5602b6cb3e0fdf8709b5f6815c85584",
+  "ontology_resolved_by": "ontology_version_routes::resolve_admitted_action_type",
+  "action_type_ref": "ontology://acme-clinic/patient-intake/term/dispatch-transport",
+  "runtime_tool_contract_revision_ref": "tool://ioi/runtime/mail.send/revision/0123456789abcdef",
+  "runtime_tool_contract_content_hash": "sha256:147cfc6e456d27baa7efc8734006ba92a0e7c580002c25e742cefcf63812dd16",
+  "runtime_tool_resolved_by": "runtime_tool_contract_registry::resolve_exact",
+  "bound_tool_id": "tool://ioi/runtime/mail.send",
+  "bound_tool_risk_class": "external_effect",
+  "bound_tool_effect_class": "external_effect",
+  "bound_tool_class_vocabulary": "runtime_tool_declared_verbatim",
+  "bound_tool_input_schema_hash": "sha256:120d104a5e0326ce909f3ae7f703764384d6704bc6b0751e19dcbe70af6d8e61",
+  "bound_tool_output_schema_hash": "sha256:96722fa00dbf6e293ae18b78ae99115d33874560be354360cf2f6d23c802ed70",
+  "bound_tool_primitive_capabilities_required": [
+    "prim:net.request"
+  ],
+  "bound_tool_authority_scopes_required": [
+    "scope:mail.send"
+  ],
+  "typed_input_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/input/v1",
+  "typed_output_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/output/v1",
+  "target_object_model_refs": [
+    "object-model://acme-clinic/patient-intake/appointment"
+  ],
+  "precondition_refs": [
+    "state://acme-clinic/patient-intake/appointment/unscheduled"
+  ],
+  "postcondition_and_invariant_refs": [
+    "invariant://acme-clinic/patient-intake/one-open-followup-per-patient"
+  ],
+  "expected_state_transition_ref": "transition://acme-clinic/patient-intake/appointment/unscheduled-to-scheduled",
+  "risk_class": "physical_action",
+  "effect_recovery_class": "non_retryable",
+  "idempotency_and_retry_profile_ref": "policy://acme-clinic/intake/idempotency/v1",
+  "ambiguous_effect_and_reconciliation_profile_ref": "policy://acme-clinic/intake/reconciliation/v1",
+  "compensation_profile_ref": "policy://acme-clinic/intake/compensation/v1",
+  "preview_and_dry_run_profile_ref": "policy://acme-clinic/intake/dry-run/v1",
+  "approval_and_revocation_refs": [
+    "approval-policy://acme-clinic/intake/outbound-message"
+  ],
+  "local_policy_and_authority_scope_refs": [
+    "policy://acme-clinic/intake/outbound",
+    "scope:mail.send"
+  ],
+  "verifier_and_evidence_refs": [
+    "verifier-path://acme-clinic/intake/followup-scheduled",
+    "evidence://acme-clinic/intake/provider-response"
+  ],
+  "physical_safety_profile_ref": "safety://acme-clinic/intake/patient-transport/v1",
+  "receipt_obligations": [
+    "receipt://acme-clinic/intake/action-admission",
+    "receipt://acme-clinic/intake/effect-execution",
+    "receipt://acme-clinic/intake/physical-action-safety"
+  ],
+  "required_gates": [
+    "capability",
+    "policy",
+    "authority",
+    "daemon_admission",
+    "evidence",
+    "verification"
+  ],
+  "required_gate_count": 6,
+  "policy_hash": "sha256:4f26ae0ab860426c146caecd873c0c7678c6a0cfa129e9d43df71cd21295ea62",
+  "does_not_assert": [
+    "authority",
+    "capability_grant",
+    "lease",
+    "policy_decision",
+    "effect_admission",
+    "invocation",
+    "physical_safety_clearance"
+  ],
+  "constants": {
+    "authority_nonclaim_token": "authority",
+    "capability_gate": "capability",
+    "policy_gate": "policy",
+    "authority_gate": "authority",
+    "daemon_admission_gate": "daemon_admission",
+    "evidence_gate": "evidence",
+    "verification_gate": "verification"
+  },
+  "authority_nonclaim": "ontology_action_contract_grants_no_authority",
+  "invocation_nonclaim": "ontology_action_contract_does_not_invoke_or_dispatch",
+  "valid_time": {
+    "starts_at": "2026-01-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-08-30T13:00:00Z",
+    "superseded_at": null
+  },
+  "migration": {
+    "from_revision_ref": null,
+    "from_content_hash": null,
+    "from_revision_ordinal": 0,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false
+  },
+  "admission": {
+    "ontology_action_id": "ontology-action://acme-clinic/patient-intake/schedule-followup/revision/2",
+    "content_hash": "sha256:c913fde285d588e659aa85baa53fd971c86da1a576843e326277c38615f32f38",
+    "owner_namespace": "hypervisor-ontology-action-contracts",
+    "stream_tail": "ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7",
+    "agentgres_operation_ref": "agentgres://operation/event-stream/hypervisor-ontology-action-contracts/ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7/sequence/2/head/sha256:562f48558ca5443276f71736356b85dba8f66472a1c7efb549bce430525a5edd",
+    "agentgres_receipt_ref": "receipt://agentgres/event-stream/hypervisor-ontology-action-contracts/ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7/batch/2/0238c82979f41fbb30db2da0edb479c90fea0bef53de1fb73b096b1fdce6bc8f",
+    "admission_seq": 2,
+    "admission_head": "sha256:562f48558ca5443276f71736356b85dba8f66472a1c7efb549bce430525a5edd",
+    "admission_root": "sha256:0238c82979f41fbb30db2da0edb479c90fea0bef53de1fb73b096b1fdce6bc8f",
+    "expected_predecessor_head": "sha256:7247e8d0a3e90f3a4e6e2899480fc38080f761a91553124384ff4232e05d416f"
+  },
+  "status": "active"
+}

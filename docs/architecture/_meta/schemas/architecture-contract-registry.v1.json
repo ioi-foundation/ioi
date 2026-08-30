@@ -10682,6 +10682,93 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
+      "canonical_name": "OntologyActionContract",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologyactioncontractenvelope",
+      "schema_version": "ioi.ontology-action-contract.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-action-contract.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/ontology-action-contract/exact-binding-that-grants-nothing/v1",
+          "path": "invariants/ontology-action-contract.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OntologyActionContractV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OntologyActionContractV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ontology-action-contract-v1/positive-genesis-external-message.json",
+        "fixtures/ontology-action-contract-v1/positive-successor-physical-action.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_action_contract.content_hash.commits_both_bindings_effect_semantics_and_valid_time"
+        },
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_action_contract.action_term.is_of_the_bound_ontology_family"
+        },
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_action_contract.tool_binding.revision_is_owned_by_the_bound_tool"
+        },
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_action_contract.physical_action.binds_a_safety_profile"
+        },
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_action_contract.bindings.are_two_distinct_owner_commitments"
+        },
+        {
+          "path": "fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_action_contract.migration.source_is_the_exact_predecessor_revision"
+        }
+      ]
     }
   ]
 }
