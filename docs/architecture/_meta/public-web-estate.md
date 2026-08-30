@@ -105,3 +105,16 @@ conformance profile, the exact selected release/profile/backend matrix, and
 fresh evidence. These claims are independently closable and withdrawable.
 Missing, expired, simulated-only, or drifted evidence removes or downscopes the
 copy; evidence for one subject never closes another.
+
+Public pages may describe the integrated and focused-standalone delivery forms
+of the same bundle, but must not turn distribution into a capability claim. A
+downloadable Workstation client does not establish a Type 2 mapping until its
+hosted machine lifecycle and compatibility matrix pass. A bootable image does
+not establish a Type 1 mapping until the HypervisorOS installer, node-root
+lifecycle, hardware, update/recovery, enforcement, and support profile pass.
+Attached-estate evidence may qualify Hypervisor Infrastructure without claiming
+that Hypervisor is the attached estate's VMM. “Drop-in replacement” or
+supersession language additionally requires its own declared cluster, high
+availability, migration, storage, network, device, guest-compatibility,
+disaster-recovery, and operational-upgrade matrix; autonomy evidence cannot
+substitute for that matrix.

@@ -1514,6 +1514,57 @@ desired and observed phases/generations, boot epoch, receipts, and cleanup
 obligations. Provider ids remain evidence. Desired and observed state never
 collapse into one mutable `status` field.
 
+### Machine-control contract family
+
+The VM payload is the state binding, not the complete machine-control API. A
+released Workstation, Infrastructure, or HypervisorOS machine profile requires
+one source-neutral, registered contract family for:
+
+```text
+HypervisorMachineHost
+HypervisorMachineImage
+HypervisorMachineVolumeAttachment
+HypervisorMachineNetworkAttachment
+HypervisorMachineDeviceAssignment
+HypervisorMachineConsoleSession
+HypervisorMachineSnapshot
+HypervisorMachineMigrationPlan
+HypervisorHostMaintenancePlan
+HypervisorMachineOperation
+HypervisorMachineOperationReceipt
+```
+
+`HypervisorMachineOperation` carries an exact versioned operation member rather
+than a backend-authored string. The minimum lifecycle vocabulary is:
+
+```text
+discover | define | import | create | start | stop | pause | resume | reboot |
+open_console | close_console | snapshot | clone | restore | migrate | delete
+```
+
+An operation binds the target workload and generation, expected canonical head,
+owner and environment, backend registration and current capability declaration,
+all affected image/volume/network/device refs and hashes, authority and policy
+refs, idempotency key, cleanup/compensation obligation, and declared durability
+and observation boundary. Its receipt binds the admitted request, backend-native
+operation identity as evidence, pre/post desired and observed generations,
+result or typed ambiguity/refusal, consequence receipts, and exact verifier
+profile. Backend-native ids never become canonical identity.
+
+Backend support is a capability matrix, not a lowest-common-denominator lie.
+An unsupported operation fails before effect with the exact typed reason from
+the current capability declaration. A supported operation crosses normal
+daemon admission, final-invoker authority, Agentgres operation/receipt truth,
+restart reconstruction, effect reconciliation where external, and cleanup. A
+console session grants no ambient authority to mutate another machine or to
+bypass brokered credential and device policy.
+
+This family is **target canon and is not yet registered or implemented as one
+complete production path**. The current VM state payload and backend capability
+declaration are prerequisites, not evidence of Workstation, Infrastructure, or
+HypervisorOS lifecycle conformance. Contract registration and generated
+projection agreement precede any product claim over the family.
+
 `HypervisorEnvironmentConnectivityProfile` makes internal network access a
 typed posture instead of a tunnel workaround:
 

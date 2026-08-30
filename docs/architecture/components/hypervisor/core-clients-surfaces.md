@@ -283,6 +283,37 @@ Four owner-qualified bundles project these facets through existing surfaces:
 These are conformance and claim bundles, not apps, planes, primitive families,
 or truth owners. They may coexist and close independently.
 
+Each bundle may have two product delivery forms without creating a second
+implementation or truth path:
+
+```text
+integrated profile
+  the bundle is projected contextually through the existing Hypervisor client,
+  Environments, Operations, Governance, Provenance, and provider/node detail
+
+focused standalone client
+  a separately distributed client opens the same registered projections and
+  invokes the same daemon operations, authority checks, receipts, and readbacks
+```
+
+The focused client is standalone in distribution and experience, compositional
+in implementation, and never standalone in truth. It may provide its own
+navigation, saved views, windowing, workflow composition, and profile defaults;
+it may not persist a parallel machine inventory, desired/observed state,
+provider status, authority decision, operation journal, receipt, or restore
+lineage. Removing either delivery form leaves the governed machine and its
+history unchanged.
+
+An organization or external publisher may also package a specialized
+infrastructure console through the existing `extension_application` path. ODK
+may scaffold its typed inventory, forms, dashboards, policy-aware controls,
+fixtures, package skeleton, and conformance checks; Studio, Packages, Developer
+Console, and the product-surface compiler retain their existing authoring,
+admission, backend-registration, and projection roles. ODK is not the
+application or runtime, and native streaming, console, graphics, device, or
+host-integration code need not be generated. No generated or hand-authored
+console may bypass the same daemon operation and owner boundaries.
+
 The product should preserve the interaction grammar infrastructure operators and
 desktop virtualization users already expect:
 
