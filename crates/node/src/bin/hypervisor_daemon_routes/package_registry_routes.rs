@@ -392,10 +392,31 @@ struct PackageSource {
     domain_app: Value,
     manifest: Value,
     descriptor: Value,
+    /// The descriptor's OWN committed hash when it is a v2, so the package freezes the commitment
+    /// its owner published rather than one this module derives.
+    descriptor_content_hash: Option<String>,
+    /// Which registered contract the frozen descriptor was admitted under, recorded verbatim.
+    descriptor_schema_version: String,
 }
 
+/// M05.5 — THE PACKAGE SOURCE RESOLVES THROUGH THE DESCRIPTOR'S OWNER, NOT THE RECORD DIRECTORY.
+///
+/// This looked the descriptor up with `record_by_ref(.., "ref", ..)`, and a v2 descriptor HAS NO
+/// `ref` FIELD — its identity is `surface_descriptor_id`, and its row is a projection envelope
+/// rather than the record. So every v2 descriptor was unresolvable here: a DomainApp built on a
+/// correctly-bound, invariant-11-conformant descriptor could not be packaged at all, and the refusal
+/// said the ref "does not resolve", which is exactly what a caller would read as "you have not
+/// created it yet". The whole point of the descriptor unit is that a surface becomes durable product
+/// inventory only after it carries the binding set; the packaging lane, which is where inventory
+/// becomes durable, was the one consumer that could not see it.
+///
+/// It also skipped authorization: a record-directory scan answers for every owner, so the package
+/// froze another tenant's descriptor bytes into a candidate the caller owns. The owner reader
+/// applies the descriptor family's own scope and projects the admitted chain, so a deleted or
+/// corrupted row can neither hide a descriptor from packaging nor change what gets frozen.
 fn resolve_package_source(
     data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
     owner_ref: &str,
     domain_app_ref: &str,
 ) -> Result<PackageSource, Reply> {
@@ -451,25 +472,73 @@ fn resolve_package_source(
                 "the DomainApp's odk_manifest_ref does not resolve",
             )
         })?;
-    let descriptor = record_by_ref(data_dir, "odk-surface-descriptors", "ref", descriptor_ref)
-        .ok_or_else(|| {
-            bad(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "package_surface_descriptor_unresolved",
-                "the DomainApp's surface_descriptor_ref does not resolve",
-            )
-        })?;
-    if descriptor
-        .get("composition_pattern")
-        .and_then(Value::as_str)
-        != Some("domain_app")
-    {
+    let resolved = super::odk_routes::resolve_admitted_surface_descriptor(
+        data_dir,
+        identity,
+        descriptor_ref,
+    )
+    .map_err(|(_, Json(payload))| {
+        bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "package_surface_descriptor_unresolved",
+            format!(
+                "the DomainApp's surface_descriptor_ref does not resolve to an admitted descriptor this caller may package: {}",
+                payload
+                    .pointer("/error/message")
+                    .and_then(Value::as_str)
+                    .unwrap_or("refused by its owner")
+            ),
+        )
+    })?;
+    if resolved.composition_pattern != "domain_app" {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
             "package_surface_descriptor_pattern_mismatch",
             "the package source descriptor must declare composition_pattern domain_app",
         ));
     }
+    // A WITHDRAWN DESCRIPTOR IS NOT PRODUCT INVENTORY. The row sweep this replaces could not see the
+    // status at all, so a revoked descriptor packaged exactly like a live one.
+    if matches!(resolved.status.as_str(), "revoked" | "deleted") {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "package_surface_descriptor_withdrawn",
+            "the package source descriptor is withdrawn; a withdrawal is a governed state of the descriptor and a withdrawn surface does not become durable product inventory",
+        ));
+    }
+    // A DESCRIPTOR IS PACKAGED UNDER A CONTRACT THIS BUILD KNOWS. v1 is explicitly readable here —
+    // that is the whole compatibility surface, and it is stated rather than implied — and anything
+    // else fails closed instead of being frozen under a contract it was never admitted under.
+    let descriptor_schema_version = resolved.schema_version.clone();
+    let descriptor_content_hash = match descriptor_schema_version.as_str() {
+        "ioi.ontology-surface-descriptor.v2" => Some(
+            resolved
+                .record
+                .get("content_hash")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    bad(
+                        StatusCode::BAD_GATEWAY,
+                        "package_surface_descriptor_commitment_absent",
+                        "the admitted v2 descriptor carries no content_hash; a package freezes the owner's own commitment, never one this module invents",
+                    )
+                })?
+                .to_string(),
+        ),
+        // A stored v1 carries no self-commitment, so there is none to freeze and the candidate says
+        // so with an explicit null rather than a hash that would look like the owner's.
+        "ioi.hypervisor.odk.surface-descriptor.v1" => None,
+        unknown => {
+            return Err(bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "package_surface_descriptor_version_unsupported",
+                format!(
+                    "the package source descriptor was admitted as '{unknown}', which this lane neither packages nor downgrades"
+                ),
+            ))
+        }
+    };
+    let descriptor = resolved.record;
     let manifest_includes_descriptor = manifest
         .get("surface_descriptor_refs")
         .and_then(Value::as_array)
@@ -488,7 +557,22 @@ fn resolve_package_source(
         domain_app,
         manifest,
         descriptor,
+        descriptor_content_hash,
+        descriptor_schema_version,
     })
+}
+
+/// One descriptor's canonical identity, whichever registered contract admitted it.
+///
+/// A v2 names itself `surface_descriptor_id`; a stored v1 named itself `ref`. Reading only `ref`
+/// froze `null` into the candidate for every v2 — and `null` is what a package would then present as
+/// the exact descriptor it snapshotted.
+fn descriptor_identity(descriptor: &Value) -> Value {
+    descriptor
+        .get("surface_descriptor_id")
+        .or_else(|| descriptor.get("ref"))
+        .cloned()
+        .unwrap_or(Value::Null)
 }
 
 fn build_package_candidate(
@@ -497,7 +581,19 @@ fn build_package_candidate(
 ) -> Result<Value, Reply> {
     let domain_app_hash = digest(&source.domain_app)?;
     let manifest_hash = digest(&source.manifest)?;
-    let descriptor_hash = digest(&source.descriptor)?;
+    // THE OWNER'S COMMITMENT, NOT A SECOND ONE. A v2 descriptor carries a content hash its own
+    // registered invariant commits and any relying party can recompute from the bytes; re-digesting
+    // the record here would mint a NUMBER BESIDE IT that agrees with nothing and that no reader
+    // could check against the descriptor family. A stored v1 has no self-commitment, so this module
+    // derives one and the candidate labels it as derived rather than as the owner's.
+    let (descriptor_hash, descriptor_hash_source) = match &source.descriptor_content_hash {
+        Some(committed) => (json!(committed), "descriptor_owner_committed"),
+        None => (
+            json!(digest(&source.descriptor)?),
+            "derived_by_package_registry",
+        ),
+    };
+    let descriptor_ref = descriptor_identity(&source.descriptor);
     let package_ref = package_ref(&request.package_id);
     let surface_ref = surface_ref(&request.package_id);
     let material = json!({
@@ -505,12 +601,14 @@ fn build_package_candidate(
         "owner_ref": request.owner_ref,
         "domain_app_ref": request.domain_app_ref,
         "odk_manifest_ref": source.manifest["ref"],
-        "surface_descriptor_ref": source.descriptor["ref"],
+        "surface_descriptor_ref": descriptor_ref,
+        "surface_descriptor_schema_version": source.descriptor_schema_version,
         "surface_ref": surface_ref,
         "surface_class": "extension_application",
         "domain_app_content_hash": domain_app_hash,
         "odk_manifest_content_hash": manifest_hash,
         "surface_descriptor_content_hash": descriptor_hash,
+        "surface_descriptor_content_hash_source": descriptor_hash_source,
     });
     let candidate_content_hash = digest(&material)?;
     Ok(json!({
@@ -521,13 +619,18 @@ fn build_package_candidate(
         "owner_ref": request.owner_ref,
         "domain_app_ref": request.domain_app_ref,
         "odk_manifest_ref": source.manifest["ref"],
-        "surface_descriptor_ref": source.descriptor["ref"],
+        "surface_descriptor_ref": descriptor_ref,
         "surface_ref": surface_ref,
         "surface_class": "extension_application",
         "source_snapshots": {
             "domain_app_content_hash": domain_app_hash,
             "odk_manifest_content_hash": manifest_hash,
             "surface_descriptor_content_hash": descriptor_hash,
+            // WHOSE NUMBER THIS IS, said in the record. A commitment the descriptor owner published
+            // and one this lane derived are different kinds of fact, and a reader that cannot tell
+            // them apart would verify the second against the first and conclude nothing.
+            "surface_descriptor_content_hash_source": descriptor_hash_source,
+            "surface_descriptor_schema_version": source.descriptor_schema_version,
         },
         "candidate_content_hash": candidate_content_hash,
         "status": "candidate",
@@ -823,11 +926,17 @@ pub(crate) async fn handle_package_create(
     if let Err(reply) = validate_package_request(&request) {
         return reply;
     }
-    let source =
-        match resolve_package_source(&st.data_dir, &request.owner_ref, &request.domain_app_ref) {
-            Ok(source) => source,
-            Err(reply) => return reply,
-        };
+    // The AUTHENTICATED caller is carried into source resolution: the descriptor owner decides
+    // whether this principal may see the record it is about to freeze into a package.
+    let source = match resolve_package_source(
+        &st.data_dir,
+        &identity,
+        &request.owner_ref,
+        &request.domain_app_ref,
+    ) {
+        Ok(source) => source,
+        Err(reply) => return reply,
+    };
     let record = match build_package_candidate(&request, &source) {
         Ok(record) => record,
         Err(reply) => return reply,
@@ -1985,6 +2094,17 @@ pub(crate) fn launcher_registry_application_entries(
 mod tests {
     use super::*;
 
+    /// THE SMOKE PRODUCER NOW PRODUCES WHAT THIS LANE ACTUALLY PACKAGES.
+    ///
+    /// It built a v1 descriptor stub — three fields, a `ref`, no binding set — so the test froze a
+    /// record shape the daemon has not authored since M05.5 and could say nothing about the one it
+    /// has. Worse, it agreed with the consumer's own bug: both read `ref`, so the pair was
+    /// self-consistently wrong and no assertion could see it.
+    ///
+    /// The descriptor here is a v2 carrying its own commitment and EXACT M05.1 admitted revisions —
+    /// `ontology://<ns>/<name>/revision/<n>`, never a family head — because that is what an
+    /// owner-resolved descriptor binds, and a package that froze a mutable head would freeze
+    /// something that re-means itself.
     fn source() -> PackageSource {
         PackageSource {
             domain_app: json!({
@@ -1993,18 +2113,109 @@ mod tests {
                 "status":"draft",
                 "owner_ref":"org://local",
                 "odk_manifest_ref":"odk://manifest-test",
-                "surface_descriptor_ref":"surface-descriptor://descriptor-test"
+                "surface_descriptor_ref":"surface-descriptor://sd_0123456789abcdef0",
+                "ontology_refs":["ontology://acme-clinic/patient-intake/revision/3"],
+                "data_recipe_refs":["data-recipe://acme-clinic/intake-normalise/revision/1"]
             }),
             manifest: json!({
                 "schema_version":"ioi.hypervisor.odk.manifest.v1",
                 "ref":"odk://manifest-test",
-                "surface_descriptor_refs":["surface-descriptor://descriptor-test"]
+                "surface_descriptor_refs":["surface-descriptor://sd_0123456789abcdef0"]
             }),
             descriptor: json!({
-                "schema_version":"ioi.hypervisor.odk.surface-descriptor.v1",
-                "ref":"surface-descriptor://descriptor-test",
-                "composition_pattern":"domain_app"
+                "schema_version":"ioi.ontology-surface-descriptor.v2",
+                "surface_descriptor_id":"surface-descriptor://sd_0123456789abcdef0",
+                "composition_pattern":"domain_app",
+                "owner_ref":"org://local",
+                "ontology_refs":["ontology://acme-clinic/patient-intake/revision/3"],
+                "data_recipe_refs":["data-recipe://acme-clinic/intake-normalise/revision/1"],
+                "content_hash":"sha256:5c6ef4a3be03aec05a0a2bd575dff175b451aaea3f7b02ad53c4118dbfdd2ba0",
+                "status":"active"
             }),
+            descriptor_content_hash: Some(
+                "sha256:5c6ef4a3be03aec05a0a2bd575dff175b451aaea3f7b02ad53c4118dbfdd2ba0".into(),
+            ),
+            descriptor_schema_version: "ioi.ontology-surface-descriptor.v2".into(),
+        }
+    }
+
+    /// A v1 source, kept because v1 remains READABLE here and that compatibility is explicit.
+    fn v1_source() -> PackageSource {
+        let mut source = source();
+        source.descriptor = json!({
+            "schema_version":"ioi.hypervisor.odk.surface-descriptor.v1",
+            "ref":"surface-descriptor://sd_0123456789abcdef0",
+            "composition_pattern":"domain_app"
+        });
+        source.descriptor_content_hash = None;
+        source.descriptor_schema_version = "ioi.hypervisor.odk.surface-descriptor.v1".into();
+        source
+    }
+
+    /// The candidate freezes the descriptor OWNER'S committed hash, names the descriptor by its
+    /// canonical v2 identity, and says whose number it carries.
+    #[test]
+    fn a_v2_source_freezes_the_owner_commitment_and_names_it_as_the_owners() {
+        let record = build_package_candidate(&candidate_request(), &source()).unwrap();
+        assert_eq!(
+            record["surface_descriptor_ref"], "surface-descriptor://sd_0123456789abcdef0",
+            "a v2 names itself surface_descriptor_id; reading only `ref` froze null"
+        );
+        assert_eq!(
+            record["source_snapshots"]["surface_descriptor_content_hash"],
+            "sha256:5c6ef4a3be03aec05a0a2bd575dff175b451aaea3f7b02ad53c4118dbfdd2ba0",
+            "the frozen hash is the descriptor owner's own commitment, verbatim"
+        );
+        assert_eq!(
+            record["source_snapshots"]["surface_descriptor_content_hash_source"],
+            "descriptor_owner_committed"
+        );
+        assert_eq!(
+            record["source_snapshots"]["surface_descriptor_schema_version"],
+            "ioi.ontology-surface-descriptor.v2"
+        );
+    }
+
+    /// A stored v1 has no self-commitment, so the derived number is LABELLED as derived rather than
+    /// presented as the owner's — two different kinds of fact, distinguishable in the record.
+    #[test]
+    fn a_v1_source_labels_its_hash_as_derived_rather_than_owner_committed() {
+        let record = build_package_candidate(&candidate_request(), &v1_source()).unwrap();
+        assert_eq!(
+            record["source_snapshots"]["surface_descriptor_content_hash_source"],
+            "derived_by_package_registry"
+        );
+        assert_eq!(
+            record["source_snapshots"]["surface_descriptor_schema_version"],
+            "ioi.hypervisor.odk.surface-descriptor.v1"
+        );
+        assert!(valid_hash(
+            record["source_snapshots"]["surface_descriptor_content_hash"]
+                .as_str()
+                .unwrap_or_default()
+        ));
+        // The two sources are distinguishable in the candidate hash itself, so a v1 snapshot can
+        // never be mistaken for a v2 one after the fact.
+        assert_ne!(
+            record["candidate_content_hash"],
+            build_package_candidate(&candidate_request(), &source()).unwrap()
+                ["candidate_content_hash"]
+        );
+    }
+
+    /// The exactness this lane inherits from M05.1: what a package freezes is an ADMITTED REVISION,
+    /// never a family head that re-means itself after the freeze.
+    #[test]
+    fn the_packaged_descriptor_binds_exact_admitted_revisions_not_family_heads() {
+        let source = source();
+        let bound = source.descriptor["ontology_refs"].as_array().unwrap();
+        assert!(!bound.is_empty());
+        for reference in bound {
+            let reference = reference.as_str().unwrap();
+            assert!(
+                reference.contains("/revision/"),
+                "{reference} is a family head, and a package that froze one would freeze something that changes"
+            );
         }
     }
 

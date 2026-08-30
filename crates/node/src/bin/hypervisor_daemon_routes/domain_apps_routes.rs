@@ -225,11 +225,32 @@ struct Derived {
     data_recipe_refs: Vec<String>,
     mcp_contract_refs: Vec<String>,
 }
+/// M05.5 — THE LINEAGE READ CANONICAL NAMES THAT ONLY v1 HAD, SO A v2 DESCRIPTOR CONTRIBUTED NONE.
+///
+/// This read `descriptor.ontology_ref` and `descriptor.recipe_refs`: the singular binding and the
+/// unqualified recipe name, both of which the successor replaced with `ontology_refs` and
+/// `data_recipe_refs`. Neither key exists on a v2 record, and `arr_strs` on an absent key is an empty
+/// list rather than an error — so a DomainApp created over a v2 descriptor derived an EMPTY data
+/// lineage and recorded it as its provenance snapshot. Nothing failed. The app was admitted, its
+/// snapshot said this surface binds no ontology and no data recipe, and the descriptor that named
+/// eight exact admitted revisions sat right beside it.
+///
+/// BOTH SPELLINGS ARE READ HERE, AND ONLY HERE. This is a consumer reading two contract versions of
+/// the same fact, which is the one place compatibility belongs — v1's names are read FROM A STORED
+/// v1 RECORD, never accepted on a v2 and never written back. The descriptor authoring path still
+/// refuses the legacy spellings outright.
 fn derive_snapshot(descriptor: &Value, manifest: Option<&Value>, body: &Value) -> Derived {
     let mut ontology_refs = Vec::new();
     let mut data_recipe_refs = Vec::new();
     let mut mcp_contract_refs = Vec::new();
-    // From the descriptor: single ontology_ref + recipe_refs.
+    // From a v2 descriptor: the canonical plural binding and the canonical recipe name.
+    for r in arr_strs(descriptor, "ontology_refs") {
+        push_unique(&mut ontology_refs, &r);
+    }
+    for r in arr_strs(descriptor, "data_recipe_refs") {
+        push_unique(&mut data_recipe_refs, &r);
+    }
+    // From a stored v1 descriptor: the singular ontology_ref and the legacy recipe_refs.
     if let Some(o) = descriptor.get("ontology_ref").and_then(|v| v.as_str()) {
         push_unique(&mut ontology_refs, o);
     }
