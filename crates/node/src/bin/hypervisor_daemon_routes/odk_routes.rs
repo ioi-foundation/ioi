@@ -1841,13 +1841,32 @@ fn odk_admit(
     body: &Value,
     spec: OdkAdmission<'_>,
     id: &str,
-    mut record: Value,
+    record: Value,
     previous: Option<&Value>,
 ) -> (StatusCode, Json<Value>) {
     let identity = match super::substrate_store::resolve_request_identity(data_dir, headers) {
         Ok(identity) => identity,
         Err(error) => return odk_scope_refusal(error),
     };
+    odk_admit_with_identity(data_dir, &identity, body, spec, id, record, previous)
+}
+
+/// The admission itself, over an ALREADY-RESOLVED identity.
+///
+/// Split from the transport wrapper so the historical-upgrade proof can seed a stored v1 through the
+/// EXACT foundation the legacy lane used — same scope binding, same caller idempotency, same
+/// compare-and-swap, same Agentgres admission, same projection — without a public v1 authoring
+/// bypass, which this build refuses by design and must keep refusing.
+#[allow(clippy::too_many_arguments)]
+fn odk_admit_with_identity(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    body: &Value,
+    spec: OdkAdmission<'_>,
+    id: &str,
+    mut record: Value,
+    previous: Option<&Value>,
+) -> (StatusCode, Json<Value>) {
     let idempotency_key = body
         .get("idempotency_key")
         .and_then(|v| v.as_str())
@@ -1932,21 +1951,32 @@ fn odk_admit(
             let stamp = admitted_stamp_ms(commit.projection.operation.recorded_at_ms);
             let record = commit.projection.operation.payload.clone();
             let created = created_at.unwrap_or_else(|| json!(stamp.clone()));
-            let admitted = match spec.projection {
+            // THE ROW AND THE REPLY ANSWER TWO DIFFERENT QUESTIONS, and returning one object for both
+            // put two shapes under one key name. The envelope exists so local storage can carry
+            // runtime metadata without editing a closed registered record; it is not what a caller
+            // asked for. Returning it meant `POST` answered with
+            // `{schema_version: "…surface-descriptor-projection.v2", descriptor: {…}}` while `GET` on
+            // the same resource answered with the bare record — under the SAME `surface_descriptor`
+            // key. A consumer validating the create reply against the registered contract saw an
+            // object with two unknown fields and none of the known ones, so every field it wanted read
+            // as ABSENT rather than as an error. The row keeps the envelope; the reply is the
+            // canonical record, which is what is registered-valid and what every read already returns.
+            let (stored, reply_body) = match spec.projection {
                 OdkProjection::InlineTimestamps => {
                     let mut inlined = record;
                     inlined["created_at"] = created;
                     inlined["updated_at"] = json!(stamp);
-                    inlined
+                    (inlined.clone(), inlined)
                 }
                 // The canonical record is carried byte-exact; the timestamps sit beside it, so the
                 // thing a reader validates against the registered contract is what was admitted.
-                OdkProjection::DescriptorEnvelopeV2 => {
-                    descriptor_projection(&record, created, json!(stamp))
-                }
+                OdkProjection::DescriptorEnvelopeV2 => (
+                    descriptor_projection(&record, created, json!(stamp)),
+                    record,
+                ),
             };
             if let Err(response) =
-                persist_required(data_dir, spec.family, id, &admitted, spec.persist_error)
+                persist_required(data_dir, spec.family, id, &stored, spec.persist_error)
             {
                 return response;
             }
@@ -1958,7 +1988,7 @@ fn odk_admit(
                 },
                 Json(json!({
                     "ok": true,
-                    spec.reply_key: admitted,
+                    spec.reply_key: reply_body,
                     "replayed": commit.replayed,
                     "receipt_ref": commit.receipt_ref,
                     "operation_ref": commit.operation_ref
@@ -1996,10 +2026,19 @@ fn odk_derived_id(prefix: &str, owner_ref: &str, idempotency_key: &str) -> Strin
 ///
 /// So this authorizes first, enumerates the caller's descriptor scopes from the request-scope
 /// namespace, and resolves EACH ONE through the owner reader that projects the Agentgres chain. The
-/// row is compared and never consulted. The census beside the list is the deterministic complete
-/// inventory: it counts every descriptor stream in the ODK namespace — a total that does not depend
-/// on this caller — beside the number this caller is authorized for, so a caller can tell "there are
-/// none" from "there are none I may see", and neither from "the index lost some".
+/// row is compared and never consulted.
+///
+/// THE CENSUS IS SCOPED TO THE CALLER, AND THAT IS A CORRECTION. It briefly carried the global
+/// descriptor-stream total, the count this caller was NOT authorized for, and the process-wide
+/// read-model row count — so that a caller could tell "there are none" from "there are none I may
+/// see". Every one of those three is a fact about OTHER TENANTS, answered to anyone authenticated:
+/// poll the endpoint and the global total tells you when a competitor created a descriptor, and the
+/// difference tells you how many they hold. Replacing a corpus-wide read with a cross-tenant
+/// COUNTING oracle is not a fence, it is the same disclosure at lower resolution. A complete
+/// inventory is genuine evidence, but it belongs to offline and administrative evidence paths that
+/// are entitled to the whole substrate — not to an ordinary tenant-scoped list. What remains here is
+/// exactly what this caller already owns: how many of ITS descriptors resolved, how many were
+/// withdrawn, which were unreadable, and what ITS rows said.
 pub(crate) async fn handle_odk_descriptor_list(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -2017,28 +2056,6 @@ pub(crate) async fn handle_odk_descriptor_list(
         Ok(refs) => refs,
         Err(error) => return odk_scope_refusal(error),
     };
-
-    // THE COMPLETE STREAM INVENTORY, NOT A DERIVED ONE. Every ODK family shares one owner namespace
-    // and every tail is `{scope_kind}.{sha256}`, so the descriptor family's streams are exactly the
-    // tails carrying this scope kind's prefix. Counting them is what lets the census state the
-    // global total independently of who is asking — the number this caller may see is then a
-    // statement about authorization rather than about existence.
-    let inventory_prefix = format!("{ODK_DESCRIPTOR_SCOPE_KIND}.");
-    let all_tails =
-        match super::substrate_store::list_event_stream_tails(&st.data_dir, ODK_NAMESPACE) {
-            Ok(tails) => tails,
-            Err(error) => {
-                return odk_scope_refusal(
-                    super::substrate_store::RequestScopeRefusal::SubstrateUnavailable(
-                        error.to_string(),
-                    ),
-                )
-            }
-        };
-    let descriptor_streams = all_tails
-        .iter()
-        .filter(|tail| tail.starts_with(&inventory_prefix))
-        .count();
 
     let mut items: Vec<Value> = Vec::new();
     let mut withdrawn = 0usize;
@@ -2107,19 +2124,17 @@ pub(crate) async fn handle_odk_descriptor_list(
             // Answered from the owner chain, not from the rebuildable projection, so destroying the
             // index cannot shorten this list.
             "projection_source": "agentgres_owner_chain",
+            // EVERY NUMBER HERE IS A FACT ABOUT THIS CALLER'S OWN DESCRIPTORS. Nothing is derived
+            // from the substrate at large, so no count moves when another tenant writes.
             "census": {
-                "descriptor_streams_in_namespace": descriptor_streams,
+                "census_scope": "this_caller_only",
                 "authorized_for_this_caller": authorized.len(),
-                // The difference is a statement about AUTHORIZATION, published so a caller cannot
-                // read its own scoped view as the corpus.
-                "not_authorized_for_this_caller": descriptor_streams.saturating_sub(authorized.len()),
                 "resolved_from_chain": resolved_count,
                 "withdrawn_and_hidden": withdrawn,
                 "unreadable": unreadable,
                 "index_agreed_with_chain": index_agreed,
                 "index_absent_answered_from_chain": index_rebuilt_from_absent,
                 "index_stale_answered_from_chain": index_rebuilt_from_stale,
-                "read_model_rows_present": read_record_dir(&st.data_dir, KIND_SD).len(),
             },
             "authority_nonclaim": DESCRIPTOR_AUTHORITY_NONCLAIM,
             "truth_nonclaim": DESCRIPTOR_TRUTH_NONCLAIM,
@@ -2399,17 +2414,44 @@ fn build_descriptor_v2(
         }));
     }
 
-    let declared_nonclaims: Vec<String> = body
-        .get("does_not_assert")
-        .and_then(Value::as_array)
-        .map(|entries| {
-            entries
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default();
+    // THE NONCLAIM SET IS READ STRICTLY, BECAUSE FILTERING IT SILENTLY REWROTE THE CALLER'S CLAIM.
+    //
+    // `filter_map(Value::as_str)` DROPS every member that is not a string, and `.and_then(as_array)`
+    // turned a non-array into an empty list. So `does_not_assert: {"authority": true}` and
+    // `does_not_assert: [1, 2, 3]` both became `[]` — refused, but for "incomplete" rather than for
+    // being unreadable — while `["authority", 7, "runtime_truth", …]` silently DISCARDED the 7 and
+    // admitted a record whose nonclaim set was not the one the caller sent. A nonclaim is the record
+    // saying what it does not confer; quietly editing it is the one edit that must never be silent.
+    // Duplicates are refused for the same reason: the schema's `uniqueItems` would fail the record
+    // later with a shape complaint, and the caller's actual mistake — saying the same thing twice —
+    // is a fact this route can name.
+    let declared_nonclaims: Vec<String> = match body.get("does_not_assert") {
+        Some(Value::Array(entries)) => {
+            let mut tokens: Vec<String> = Vec::with_capacity(entries.len());
+            for entry in entries {
+                let Some(token) = entry.as_str() else {
+                    return Err(descriptor_refuse(
+                        "odk_descriptor_nonclaim_not_canonical",
+                        "every member of does_not_assert is one of the closed vocabulary's string tokens; a non-string member is refused rather than filtered out, because dropping it would admit a nonclaim set the caller did not send",
+                    ));
+                };
+                if tokens.iter().any(|seen| seen == token) {
+                    return Err(descriptor_refuse(
+                        "odk_descriptor_nonclaim_duplicated",
+                        format!("does_not_assert declares '{token}' twice; the set is a set"),
+                    ));
+                }
+                tokens.push(token.to_string());
+            }
+            tokens
+        }
+        _ => {
+            return Err(descriptor_refuse(
+                "odk_descriptor_nonclaim_not_canonical",
+                "does_not_assert is required and must be an array of the closed vocabulary's string tokens",
+            ))
+        }
+    };
     if let Some(missing) = DESCRIPTOR_REQUIRED_NONCLAIMS
         .iter()
         .find(|required| !declared_nonclaims.iter().any(|token| token == *required))
@@ -2422,44 +2464,91 @@ fn build_descriptor_v2(
         ));
     }
 
-    // MIGRATION IS EXPLICIT, OWNER-RESOLVED, AND SAME-OWNER. A descriptor converged from a stored v1
-    // names that predecessor and the exact bytes it came from; one authored fresh names none. A v1
-    // record is never read AS a v2.
-    //
-    // THE SOURCE COMES FROM THE CHAIN, NOT THE ROW. Loading the local record directory made a
-    // rebuildable projection load-bearing for a durable commitment: delete the row and a convergence
-    // refuses over a predecessor its owner still holds; corrupt it and the descriptor commits the
-    // hash of the corruption. It also skipped authorization entirely, so a caller could converge from
-    // ANOTHER TENANT'S descriptor and, because the commitment is carried in the successor, learn that
-    // tenant's exact record bytes. The owner reader applies this family's own scope, and the explicit
-    // owner comparison below closes the remaining case where one principal holds scope on both.
-    let migration = match body
-        .get(DESCRIPTOR_MIGRATION_SOURCE_KEY)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        None => json!({
-            "from_schema_version": Value::Null,
-            "from_descriptor_ref": Value::Null,
-            "from_content_hash": Value::Null,
-            "compatibility": "initial",
-            "reinterprets_predecessor": false,
-        }),
-        Some(predecessor_ref) => {
-            if !matches!(split_ref(predecessor_ref), Some(("surface-descriptor", _))) {
-                return Err(descriptor_refuse(
-                    "odk_descriptor_migration_source_not_canonical",
-                    "migrated_from_descriptor_ref must be a 'surface-descriptor://' ref",
-                ));
-            }
-            if predecessor_ref == format!("surface-descriptor://{id}") {
-                return Err(descriptor_refuse(
+    let migration = descriptor_migration_block(data_dir, identity, body, id, owner_ref)?;
+
+    let record = assemble_descriptor_v2(
+        id,
+        surface_ref,
+        display_name,
+        owner_ref,
+        pattern,
+        ontology_refs,
+        bound,
+        [
+            object_models,
+            data_recipes,
+            connector_mappings,
+            policy_views,
+            projections,
+            allowed_actions,
+            daemon_apis,
+            operator_contracts,
+            mcp_contracts,
+            authority_requirements,
+            receipt_obligations,
+            conformance_profiles,
+            generated_artifacts,
+        ],
+        migration,
+        declared_nonclaims,
+    );
+    finish_descriptor_v2(record, body)
+}
+/// Derive one descriptor's migration block, or refuse.
+///
+/// MIGRATION IS EXPLICIT, OWNER-RESOLVED, AND SAME-OWNER. A descriptor converged from a stored v1
+/// names that predecessor and the exact bytes it came from; one authored fresh names none. A v1
+/// record is never read AS a v2.
+///
+/// THE SOURCE COMES FROM THE CHAIN, NOT THE ROW. Loading the local record directory made a
+/// rebuildable projection load-bearing for a durable commitment: delete the row and a convergence
+/// refuses over a predecessor its owner still holds; corrupt it and the descriptor commits the hash
+/// of the corruption. It also skipped authorization entirely, so a caller could converge from
+/// ANOTHER TENANT'S descriptor and, because the commitment is carried in the successor, learn that
+/// tenant's exact record bytes. The owner reader applies this family's own scope, and the explicit
+/// owner comparison below closes the remaining case where one principal holds scope on both.
+///
+/// It is a NAMED SEAM rather than an inline block because it is the whole of the historical-upgrade
+/// contract, and the upgrade path is the one path a fresh deployment can never reach through the
+/// public API: this build refuses to author the v1 a convergence needs, by design. So
+/// `the_historical_v1_upgrade_converges_restarts_and_replays` seeds a real v1 through the same
+/// owner-scoped admission foundation the legacy lane used and drives THIS function — the production
+/// derivation, not a copy of it — for the success case and for every refusal.
+fn descriptor_migration_block(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    body: &Value,
+    id: &str,
+    owner_ref: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    Ok(
+        match body
+            .get(DESCRIPTOR_MIGRATION_SOURCE_KEY)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            None => json!({
+                "from_schema_version": Value::Null,
+                "from_descriptor_ref": Value::Null,
+                "from_content_hash": Value::Null,
+                "compatibility": "initial",
+                "reinterprets_predecessor": false,
+            }),
+            Some(predecessor_ref) => {
+                if !matches!(split_ref(predecessor_ref), Some(("surface-descriptor", _))) {
+                    return Err(descriptor_refuse(
+                        "odk_descriptor_migration_source_not_canonical",
+                        "migrated_from_descriptor_ref must be a 'surface-descriptor://' ref",
+                    ));
+                }
+                if predecessor_ref == format!("surface-descriptor://{id}") {
+                    return Err(descriptor_refuse(
                     "odk_descriptor_migration_source_is_itself",
                     "a descriptor is never converged from itself: a convergence mints a new record from a predecessor's bytes, and a record naming itself has a cycle rather than a provenance",
                 ));
-            }
-            let predecessor =
+                }
+                let predecessor =
                 resolve_admitted_surface_descriptor(data_dir, identity, predecessor_ref).map_err(
                     |(_, Json(payload))| {
                         descriptor_refuse(
@@ -2474,31 +2563,31 @@ fn build_descriptor_v2(
                         )
                     },
                 )?;
-            // A CONVERGENCE DOES NOT CROSS AN OWNERSHIP BOUNDARY. The successor is owned by this
-            // request's owner, so a predecessor owned by anyone else would move a record between
-            // owners under the name of a migration.
-            if predecessor.record.get("owner_ref").and_then(Value::as_str) != Some(owner_ref) {
-                return Err(descriptor_refuse(
+                // A CONVERGENCE DOES NOT CROSS AN OWNERSHIP BOUNDARY. The successor is owned by this
+                // request's owner, so a predecessor owned by anyone else would move a record between
+                // owners under the name of a migration.
+                if predecessor.record.get("owner_ref").and_then(Value::as_str) != Some(owner_ref) {
+                    return Err(descriptor_refuse(
                     "odk_descriptor_migration_source_owner_mismatch",
                     "a convergence names a predecessor owned by the SAME owner as the successor; a migration is not a way to move a descriptor between owners",
                 ));
-            }
-            // DOWNGRADE AND SIDEWAYS-MIGRATION BOTH FAIL CLOSED. Only the registered, deprecated v1
-            // is a legitimate source: a v2 is never converged from another v2, and an unknown stored
-            // version is refused rather than hashed under a contract it was not admitted under.
-            if predecessor.schema_version != DESCRIPTOR_V1_SCHEMA_VERSION {
-                return Err(descriptor_refuse(
+                }
+                // DOWNGRADE AND SIDEWAYS-MIGRATION BOTH FAIL CLOSED. Only the registered, deprecated v1
+                // is a legitimate source: a v2 is never converged from another v2, and an unknown stored
+                // version is refused rather than hashed under a contract it was not admitted under.
+                if predecessor.schema_version != DESCRIPTOR_V1_SCHEMA_VERSION {
+                    return Err(descriptor_refuse(
                     "odk_descriptor_migration_source_not_v1",
                     format!(
                         "a convergence names a stored '{DESCRIPTOR_V1_SCHEMA_VERSION}' predecessor; '{}' is refused rather than converged, because a record is only ever hashed under the contract it was admitted under",
                         predecessor.schema_version
                     ),
                 ));
-            }
-            // The predecessor is checked against its OWN registered contract before its bytes become
-            // a durable commitment: a source this build cannot project is a refusal here, not a hash
-            // of something nobody can name.
-            if let Err(reason) =
+                }
+                // The predecessor is checked against its OWN registered contract before its bytes become
+                // a durable commitment: a source this build cannot project is a refusal here, not a hash
+                // of something nobody can name.
+                if let Err(reason) =
                 ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
                     DESCRIPTOR_V1_CONTRACT_ID,
                     &predecessor.record,
@@ -2509,31 +2598,53 @@ fn build_descriptor_v2(
                     format!("the v1 predecessor is not valid against its own registered contract: {reason}"),
                 ));
             }
-            let from_content_hash = descriptor_v1_content_hash(&predecessor.record);
-            // A CALLER MAY PIN THE SOURCE BYTES, AND A CHANGED SOURCE THEN REFUSES. Without this a
-            // convergence silently commits whatever the predecessor says at the instant it runs, so
-            // a caller that read a v1, decided to converge it, and raced a change to it would freeze
-            // bytes it never saw.
-            if let Asserted::Present(asserted) =
-                descriptor_asserted_str(body, "expected_migration_source_content_hash")
-            {
-                if asserted != from_content_hash {
-                    return Err(descriptor_refuse(
+                let from_content_hash = descriptor_v1_content_hash(&predecessor.record);
+                // A CALLER MAY PIN THE SOURCE BYTES, AND A CHANGED SOURCE THEN REFUSES. Without this a
+                // convergence silently commits whatever the predecessor says at the instant it runs, so
+                // a caller that read a v1, decided to converge it, and raced a change to it would freeze
+                // bytes it never saw.
+                if let Asserted::Present(asserted) =
+                    descriptor_asserted_str(body, "expected_migration_source_content_hash")
+                {
+                    if asserted != from_content_hash {
+                        return Err(descriptor_refuse(
                         "odk_descriptor_migration_source_substituted",
                         "expected_migration_source_content_hash does not match the predecessor's current admitted bytes; the source changed after it was read, and a convergence commits bytes the caller actually saw",
                     ));
+                    }
                 }
+                json!({
+                    "from_schema_version": DESCRIPTOR_V1_SCHEMA_VERSION,
+                    "from_descriptor_ref": predecessor_ref,
+                    "from_content_hash": from_content_hash,
+                    "compatibility": "converged_from_v1",
+                    "reinterprets_predecessor": false,
+                })
             }
-            json!({
-                "from_schema_version": DESCRIPTOR_V1_SCHEMA_VERSION,
-                "from_descriptor_ref": predecessor_ref,
-                "from_content_hash": from_content_hash,
-                "compatibility": "converged_from_v1",
-                "reinterprets_predecessor": false,
-            })
-        }
-    };
+        },
+    )
+}
 
+/// Assemble one admitted v2 descriptor from its already-validated parts.
+///
+/// Separated from `build_descriptor_v2` so the record shape has ONE producer: the authoring route
+/// and the historical-upgrade proof assemble the same bytes through the same function, and a field
+/// added here reaches both without either being edited.
+#[allow(clippy::too_many_arguments)]
+fn assemble_descriptor_v2(
+    id: &str,
+    surface_ref: &str,
+    display_name: &str,
+    owner_ref: &str,
+    pattern: &str,
+    ontology_refs: Value,
+    bound: Vec<Value>,
+    members: [Value; 13],
+    migration: Value,
+    declared_nonclaims: Vec<String>,
+) -> Value {
+    let [object_models, data_recipes, connector_mappings, policy_views, projections, allowed_actions, daemon_apis, operator_contracts, mcp_contracts, authority_requirements, receipt_obligations, conformance_profiles, generated_artifacts] =
+        members;
     let mut record = json!({
         "schema_version": DESCRIPTOR_V2_SCHEMA_VERSION,
         "surface_descriptor_id": format!("surface-descriptor://{id}"),
@@ -2579,21 +2690,28 @@ fn build_descriptor_v2(
         "status": "draft",
     });
     record["content_hash"] = json!(descriptor_content_hash(&record));
+    record
+}
 
+/// Validate one assembled record against the REGISTERED contract before it can be admitted.
+fn descriptor_registered_valid(record: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        DESCRIPTOR_V2_CONTRACT_ID,
+        record,
+    )
+    .map_err(|reason| {
+        descriptor_refuse(
+            "odk_descriptor_not_registered_valid",
+            format!("the descriptor this request builds is not registered-valid: {reason}"),
+        )
+    })
+}
+
+fn finish_descriptor_v2(record: Value, body: &Value) -> Result<Value, (StatusCode, Json<Value>)> {
     // The projected record is validated against the REGISTERED contract before it can be admitted,
     // so an unprojectable descriptor is a refusal here rather than permanently durable bytes that
     // the read path can only answer 502 about.
-    if let Err(reason) =
-        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-            DESCRIPTOR_V2_CONTRACT_ID,
-            &record,
-        )
-    {
-        return Err(descriptor_refuse(
-            "odk_descriptor_not_registered_valid",
-            format!("the descriptor this request builds is not registered-valid: {reason}"),
-        ));
-    }
+    descriptor_registered_valid(&record)?;
 
     // The caller's remaining assertions are answered against the record this request actually built,
     // which is where those facts now exist. The same checker answers them on the replay path against
@@ -2687,26 +2805,52 @@ pub(crate) fn resolve_admitted_surface_descriptor(
         .unwrap_or_default()
         .to_string();
 
-    // A v2 record is re-validated against the REGISTERED contract on every read, so a chain frame a
-    // later build cannot project is reported as unreadable rather than served as though it were fine.
-    if schema_version == DESCRIPTOR_V2_SCHEMA_VERSION {
-        if let Err(reason) =
-            ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-                DESCRIPTOR_V2_CONTRACT_ID,
-                &record,
-            )
-        {
+    // EVERY VERSION IS VALIDATED, AND AN UNKNOWN ONE FAILS CLOSED.
+    //
+    // Only v2 was checked here, so the other two cases fell through to `Ok`: a stored v1 was served
+    // unvalidated, and a record carrying ANY other `schema_version` — including none at all — was
+    // served as though this build understood it. That is the exact shape of the defect this module
+    // keeps finding: the unknown case taking the success path because nobody wrote an arm for it.
+    // Both consumers then read that record's fields, and a field this build cannot interpret reads as
+    // ABSENT rather than as an error.
+    //
+    // v1 has been a registered contract since this unit landed, so there is no longer any reason for
+    // it to be the unchecked half. It is validated against its OWN contract — never against v2's,
+    // which would be reinterpreting it — and anything else is a typed refusal.
+    let contract_id = match schema_version.as_str() {
+        DESCRIPTOR_V2_SCHEMA_VERSION => DESCRIPTOR_V2_CONTRACT_ID,
+        DESCRIPTOR_V1_SCHEMA_VERSION => DESCRIPTOR_V1_CONTRACT_ID,
+        unknown => {
             return Err((
                 StatusCode::BAD_GATEWAY,
                 Json(json!({
                     "ok": false,
                     "error": {
-                        "code": "odk_descriptor_projection_failed",
-                        "message": format!("the chain holds a descriptor this build cannot project: {reason}")
+                        "code": "odk_descriptor_version_unsupported",
+                        "message": format!(
+                            "the chain holds a descriptor admitted as '{unknown}', which this build neither authors nor projects; an unrecognised stored version is refused rather than served as though it were understood"
+                        )
                     }
                 })),
-            ));
+            ))
         }
+    };
+    if let Err(reason) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            contract_id,
+            &record,
+        )
+    {
+        return Err((
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "odk_descriptor_projection_failed",
+                    "message": format!("the chain holds a descriptor this build cannot project against {contract_id}: {reason}")
+                }
+            })),
+        ));
     }
 
     // THE ROW IS COMPARED, NEVER CONSULTED. Reporting agreement positively is what lets a verifier
@@ -2742,6 +2886,17 @@ pub(crate) fn resolve_admitted_surface_descriptor(
 ///
 /// Deterministic and idempotent: the row is a function of the admitted history, so repairing a
 /// deleted or corrupted row restores exactly the bytes the chain implies and nothing else.
+///
+/// BOTH REGISTERED VERSIONS ARE REBUILT. This repaired only v2 and returned `Ok` for everything
+/// else, so `POST …/rebuild-index` on a stored v1 answered `200` with the resolved record and wrote
+/// NOTHING — a silent no-op that reads exactly like a successful repair. An operator who deleted a
+/// v1 row and then ran the documented recovery would be told the recovery succeeded and still have
+/// no row. The two versions store differently, and that difference is why the no-op was easy to miss:
+/// a v2 row is a projection envelope wrapping the record, while a v1 row IS the record with its
+/// runtime timestamps inlined, exactly as `OdkProjection::InlineTimestamps` writes it. Each is
+/// reconstructed in its own shape, so a rebuilt row is byte-identical to what the write path would
+/// have produced. `resolve_admitted_surface_descriptor` has already refused any unknown version, so
+/// there is no third case to fall through.
 pub(crate) fn rebuild_descriptor_row(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
@@ -2754,28 +2909,36 @@ pub(crate) fn rebuild_descriptor_row(
             "a descriptor is addressed as 'surface-descriptor://<id>'",
         ));
     };
-    if resolved.schema_version == DESCRIPTOR_V2_SCHEMA_VERSION {
-        // The timestamps are recovered from the row when it survives, because they are runtime
-        // metadata about admission rather than content; when it does not, they come from the chain's
-        // own recorded_at, which is the only honest source left.
-        let existing = load(data_dir, KIND_SD, id);
-        let created = existing
+    // The timestamps are recovered from the row when it survives, because they are runtime metadata
+    // about admission rather than content; when it does not, they are absent, which is the only
+    // honest answer left — the chain records when the operation was admitted, not when this
+    // projection was first written.
+    let existing = load(data_dir, KIND_SD, id);
+    let timestamp = |key: &str| {
+        existing
             .as_ref()
-            .and_then(|row| row.get("created_at").cloned())
-            .unwrap_or(Value::Null);
-        let updated = existing
-            .as_ref()
-            .and_then(|row| row.get("updated_at").cloned())
-            .unwrap_or(Value::Null);
-        let projection = descriptor_projection(&resolved.record, created, updated);
-        persist_required(
-            data_dir,
-            KIND_SD,
-            id,
-            &projection,
-            "odk_surface_descriptor_persistence_failed",
-        )?;
-    }
+            .and_then(|row| row.get(key).cloned())
+            .unwrap_or(Value::Null)
+    };
+    let created = timestamp("created_at");
+    let updated = timestamp("updated_at");
+    let row = match resolved.schema_version.as_str() {
+        DESCRIPTOR_V2_SCHEMA_VERSION => descriptor_projection(&resolved.record, created, updated),
+        // The legacy lane's own shape: the record itself, timestamps inlined.
+        _ => {
+            let mut inlined = resolved.record.clone();
+            inlined["created_at"] = created;
+            inlined["updated_at"] = updated;
+            inlined
+        }
+    };
+    persist_required(
+        data_dir,
+        KIND_SD,
+        id,
+        &row,
+        "odk_surface_descriptor_persistence_failed",
+    )?;
     Ok(resolved)
 }
 
@@ -3041,6 +3204,164 @@ const DESCRIPTOR_SERVER_AUTHORED_FIELDS: &[&str] = &[
 /// The caller's request name for the one migration input it chooses.
 const DESCRIPTOR_MIGRATION_SOURCE_KEY: &str = "migrated_from_descriptor_ref";
 
+/// The mutation-control inputs neither route derives: the caller's key and its head assertion.
+const DESCRIPTOR_CONTROL_FIELDS: &[&str] = &["idempotency_key", "expected_head"];
+
+/// The `expected_*` assertions these routes answer, named exactly.
+const DESCRIPTOR_ASSERTION_FIELDS: &[&str] = &[
+    "expected_descriptor_ref",
+    "expected_content_hash",
+    "expected_migration_source_content_hash",
+    "expected_status",
+    "expected_bound_ontology_content_hashes",
+];
+
+/// Every field a CREATE request may carry.
+///
+/// AN UNRECOGNISED FIELD IS A REFUSAL, NOT A SHRUG. Both routes read the fields they wanted and
+/// ignored the rest, so a request could carry anything at all and be admitted as though it had not.
+/// Three consequences, in rising order of seriousness. A caller that MISSPELLED a binding member —
+/// `receipt_obligation`, `daemon_api_ref` — was told the correctly-spelled one was absent, which
+/// points at the wrong field. A caller that sent a field this contract does not have got `201` and
+/// read the reply as confirmation it had been stored. And a caller that sent an
+/// AUTHORITY-LOOKING field — `authority_grant_ref`, `capability_lease_ref`, `granted_scopes`,
+/// `authority_nonclaim: "…grants_authority"` — was ALSO told `201`, with a record that of course
+/// contains no such thing. Nothing was granted, but the response is indistinguishable from one where
+/// something was, and "the server accepted my grant field" is precisely the misreading a descriptor's
+/// whole nonclaim vocabulary exists to prevent. Naming the closed set turns all three into one typed
+/// refusal that says which field it did not recognise.
+///
+/// This list is checked against the contract by
+/// `the_create_allowlist_is_exactly_caller_intent_plus_control_and_assertions`, so a member added to
+/// the caller-intent half of the contract partition cannot be left unauthorable here.
+const DESCRIPTOR_CREATE_REQUEST_FIELDS: &[&str] = &[
+    // The caller-authored contract fields, minus `owner_ref` which is read separately below.
+    "schema_version",
+    "surface_ref",
+    "display_name",
+    "owner_ref",
+    "composition_pattern",
+    "ontology_refs",
+    "canonical_object_model_refs",
+    "data_recipe_refs",
+    "policy_bound_data_view_refs",
+    "authority_requirement_refs",
+    "daemon_api_refs",
+    "receipt_obligations",
+    "conformance_profile_refs",
+    "connector_mapping_refs",
+    "ontology_projection_refs",
+    "allowed_action_refs",
+    "operator_contract_refs",
+    "mcp_contract_refs",
+    "generated_artifact_refs",
+    "does_not_assert",
+    // The one migration input a caller chooses.
+    DESCRIPTOR_MIGRATION_SOURCE_KEY,
+    // Mutation control and caller assertions.
+    "idempotency_key",
+    "expected_head",
+    "expected_descriptor_ref",
+    "expected_content_hash",
+    "expected_migration_source_content_hash",
+    "expected_status",
+    "expected_bound_ontology_content_hashes",
+];
+
+/// Every field a PATCH request may carry.
+///
+/// `owner_ref` is DELIBERATELY ABSENT. A successor takes its owner from the admitted record, so a
+/// body `owner_ref` was read by nothing and changed nothing — and a caller sending one was answered
+/// `200` with a record still owned by someone else. Refusing it says the true thing: moving a
+/// descriptor between owners is not an ordinary governed patch.
+const DESCRIPTOR_PATCH_REQUEST_FIELDS: &[&str] = &[
+    "display_name",
+    "composition_pattern",
+    "status",
+    "idempotency_key",
+    "expected_head",
+    "expected_descriptor_ref",
+    "expected_content_hash",
+    "expected_migration_source_content_hash",
+    "expected_status",
+    "expected_bound_ontology_content_hashes",
+];
+
+/// Refuse any request field outside a route's closed set — by its MOST SPECIFIC cause.
+///
+/// THE ORDER OF THESE THREE ARMS IS THE POINT. A closed allowlist placed in front of two existing,
+/// more informative refusals shadows both: `ontology_ref` on a create stops being "the v1 name for
+/// `ontology_refs`, refused rather than translated" and becomes a generic "unknown field", and
+/// `ontology_refs` on a patch stops being "a binding is not patchable — author a new descriptor" and
+/// becomes that same generic thing. Both callers then receive a refusal that is true and useless,
+/// and the two properties this unit spent its whole design establishing become invisible at the one
+/// moment a caller would learn them. A field this route KNOWS about is answered by the rule that
+/// knows why.
+fn refuse_unknown_request_fields(
+    body: &Value,
+    allowed: &[&str],
+    route: &str,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let Some(fields) = body.as_object() else {
+        return Err(descriptor_refuse(
+            "odk_descriptor_request_not_an_object",
+            "a descriptor request is a JSON object",
+        ));
+    };
+    for name in fields.keys() {
+        let name = name.as_str();
+        if allowed.contains(&name) {
+            continue;
+        }
+        // A LEGACY SPELLING, refused rather than translated — on either route.
+        if let Some((legacy, canonical)) = LEGACY_DESCRIPTOR_FIELDS
+            .iter()
+            .find(|(legacy, _)| *legacy == name)
+        {
+            return Err(descriptor_refuse(
+                "odk_descriptor_legacy_field_name",
+                format!(
+                    "'{legacy}' is the v1 name for '{canonical}'; it is refused rather than translated, because silently accepting it would keep two spellings alive for one canonical field"
+                ),
+            ));
+        }
+        // A REAL v2 FIELD this route will not let the caller set: the mistake is about governance,
+        // not spelling, and the refusal says which — and says it differently on the two routes,
+        // because they are two different mistakes. On a patch the field EXISTS on the record and the
+        // caller may not move it; on a create the caller is trying to author a value this server
+        // derives, and telling it "not patchable" would name the wrong reason.
+        //
+        // The contract's fields are the commitment material PLUS the commitment itself, which is
+        // absent from that list by construction — a hash cannot commit itself. Without the second
+        // clause, a caller offering its own `content_hash` — the one field whose forgery the whole
+        // commitment exists to prevent — would be told it had sent an "unknown field".
+        if DESCRIPTOR_CONTENT_MATERIAL_FIELDS.contains(&name) || name == "content_hash" {
+            return Err(if route == "patch" {
+                descriptor_refuse(
+                    "odk_descriptor_field_not_patchable",
+                    format!(
+                        "'{name}' is not an ordinary governed patch of a '{DESCRIPTOR_V2_SCHEMA_VERSION}'; this route moves {DESCRIPTOR_PATCHABLE_FIELDS:?} and an explicit status transition. A binding names an EXACT admitted revision, so moving one does not amend this descriptor — it describes a different surface, and the honest act is to author one"
+                    ),
+                )
+            } else {
+                descriptor_refuse(
+                    "odk_descriptor_field_not_caller_authored",
+                    format!(
+                        "'{name}' is a field of this contract that the SERVER derives; a caller does not author it. Accepting it and overwriting it would answer 201 to a request whose value was discarded, and accepting it and KEEPING it would let a caller write its own nonclaims, its own commitment or its own binding provenance"
+                    ),
+                )
+            });
+        }
+        return Err(descriptor_refuse(
+            "odk_descriptor_request_field_unknown",
+            format!(
+                "'{name}' is not a field of a descriptor {route} request; it is refused rather than ignored, because a request accepted with an unrecognised field reads as one where that field was stored. This route accepts exactly {allowed:?}"
+            ),
+        ));
+    }
+    Ok(())
+}
+
 /// Read one caller-authored field from a request with the SAME normalisation the builder applies.
 ///
 /// Comparing the raw request text instead would make a canonically-identical retry — one extra
@@ -3290,8 +3611,14 @@ pub(crate) async fn handle_odk_descriptor_create(
     let id = odk_derived_id("sd", owner_ref, idempotency_key);
     let descriptor_ref = format!("surface-descriptor://{id}");
 
-    // Assertion SHAPE is decided before anything is read, so an unreadable claim is answered as
-    // itself rather than surfacing as a refusal about a completely different thing.
+    // The closed request set, then assertion SHAPE — both before anything is read — so an
+    // unrecognised or unreadable field is answered as itself rather than surfacing as a refusal
+    // about a completely different thing.
+    if let Err(response) =
+        refuse_unknown_request_fields(&body, DESCRIPTOR_CREATE_REQUEST_FIELDS, "create")
+    {
+        return response;
+    }
     if let Err(response) = validate_descriptor_assertion_shapes(&body) {
         return response;
     }
@@ -3470,26 +3797,8 @@ fn apply_descriptor_patch(
             ));
         }
     }
-    // A FIELD THE CALLER NAMED AND THIS ROUTE WILL NOT MOVE IS REFUSED, NEVER IGNORED. Silently
-    // dropping it would answer `200` to a request that did not happen, and the caller would read the
-    // returned record as proof its change landed.
-    for key in body.as_object().into_iter().flatten().map(|(key, _)| key) {
-        let governed = DESCRIPTOR_PATCHABLE_FIELDS.contains(&key.as_str())
-            || key == "status"
-            || matches!(
-                key.as_str(),
-                "idempotency_key" | "expected_head" | "owner_ref"
-            )
-            || key.starts_with("expected_");
-        if !governed {
-            return Err(descriptor_refuse(
-                "odk_descriptor_field_not_patchable",
-                format!(
-                    "'{key}' is not an ordinary governed patch of a '{DESCRIPTOR_V2_SCHEMA_VERSION}'; this route moves {DESCRIPTOR_PATCHABLE_FIELDS:?} and an explicit status transition. A binding names an EXACT admitted revision, so moving one does not amend this descriptor — it describes a different surface, and the honest act is to author one"
-                ),
-            ));
-        }
-    }
+    // Legacy spellings, unknown fields and un-patchable contract fields are all refused by
+    // `refuse_unknown_request_fields` before this runs, each by its own cause.
     if let Some(pattern) = body.get("composition_pattern") {
         let Some(pattern) = pattern
             .as_str()
@@ -3569,6 +3878,11 @@ pub(crate) async fn handle_odk_descriptor_patch(
         Ok(identity) => identity,
         Err(error) => return odk_scope_refusal(error),
     };
+    if let Err(response) =
+        refuse_unknown_request_fields(&body, DESCRIPTOR_PATCH_REQUEST_FIELDS, "patch")
+    {
+        return response;
+    }
     if let Err(response) = validate_descriptor_assertion_shapes(&body) {
         return response;
     }
@@ -4245,6 +4559,622 @@ mod descriptor_v2_contract_tests {
             assert_ne!(*from, "revoked");
             // One-way: `draft` is only ever left, never returned to.
             assert_ne!(*to, "draft");
+        }
+    }
+
+    // ===================================================================== THE HISTORICAL UPGRADE
+    //
+    // THE ONE PATH A FRESH DEPLOYMENT CAN NEVER REACH THROUGH THE PUBLIC API. A convergence needs a
+    // stored v1 predecessor, and this build refuses to author one — that refusal IS the unit. So the
+    // success case cannot be driven by the live gate at all, and for one commit it was carried as a
+    // nonclaim: "the successful convergence path is not driven live, and cannot be." That is a real
+    // gap dressed as a disclosure. A migration that has never been executed is not a migration; it is
+    // a plan, and the first operator to run it would be its first test.
+    //
+    // This drives it, without inventing a bypass. It seeds the v1 through
+    // `odk_admit_with_identity` — the SAME owner-scoped foundation the legacy lane used, with the
+    // same scope binding, caller idempotency, compare-and-swap, admission and projection — then
+    // closes and reopens the substrate handle, resolves and rebuilds through the production readers,
+    // derives the migration block through the PRODUCTION `descriptor_migration_block`, assembles the
+    // successor through the PRODUCTION `assemble_descriptor_v2`, admits it through the same
+    // foundation, restarts again, and retries the convergence key after the source has moved.
+    //
+    // THE ONTOLOGY PREREQUISITE IS REAL, NOT SUPPLIED. An earlier cut of this test handed
+    // `assemble_descriptor_v2` literal `bound_ontology_revisions` rows and called the split with the
+    // live gate "each proves what it can legitimately reach". That was wrong, and it was wrong in the
+    // specific way this module keeps finding: the one seam the convergence depends on — owner
+    // resolution of an exact admitted revision — was the one seam the proof skipped, so the test
+    // could not have failed if `build_descriptor_v2` stopped resolving at all. A proof that routes
+    // around the thing it is proving is not a weaker proof; it is evidence for a different claim.
+    //
+    // So the prerequisite is seeded through M05.1's OWN admission helper, which derives the record,
+    // the content commitment and the projection with that owner's own code. The convergence then
+    // passes a COMPLETE authoring request into the production `build_descriptor_v2`, so
+    // `resolve_admitted_revision` and every request validation actually run, and the bound rows are
+    // whatever that owner committed.
+
+    fn upgrade_identity(principal: &str) -> super::super::substrate_store::RequestIdentity {
+        super::super::substrate_store::request_identity_for_test(
+            principal,
+            ["org://acme-clinic".to_string()],
+        )
+    }
+
+    /// THE LEGACY ID WIDTH IS A BOUNDED, RECORDED GAP — asserted here rather than described.
+    ///
+    /// `odk_derived_id` truncates to `prefix.len() + 17`, which for the `sd` prefix is nineteen
+    /// characters TOTAL — three of prefix and SIXTEEN hex digits. The registered v1 contract requires
+    /// seventeen. So a descriptor minted by the historical v1 producer does not satisfy the contract
+    /// this milestone registered for it.
+    ///
+    /// v1 IS NOT ALTERED TO MATCH. Widening the registered pattern to accommodate the old producer
+    /// would be reinterpreting a predecessor to fit its implementation, which is the exact move this
+    /// unit exists to refuse — and it would silently redefine what a "valid v1" is for every reader.
+    /// The contract states the canonical v1 envelope; the producer that fell short of it is gone, and
+    /// no path in this build mints a v1 at all.
+    ///
+    /// THE BOUNDED CONSEQUENCE, stated exactly: a genuine legacy row whose id carries sixteen hex
+    /// digits will FAIL `resolve_admitted_surface_descriptor`'s registered-v1 validation with
+    /// `odk_descriptor_projection_failed`, and can therefore be neither read through the owner seam
+    /// nor converged. It fails CLOSED — it is never reinterpreted, never half-converged, and never
+    /// silently repaired — and the refusal names the contract and the failing path. Repairing that
+    /// population needs a versioned successor to v1 with the real width, which is a migration this
+    /// unit does not own and does not perform. Until that lands, this is an open gap, and this test
+    /// is what keeps it from being forgotten.
+    #[test]
+    fn the_legacy_id_width_does_not_satisfy_the_registered_v1_contract() {
+        let minted = odk_derived_id("sd", "org://acme-clinic", "legacy-create-1");
+        assert_eq!(minted.len(), 19, "three of prefix and sixteen hex digits");
+        let hex = minted.trim_start_matches("sd_");
+        assert_eq!(hex.len(), 16);
+
+        let mut legacy: Value = serde_json::from_str(V1_FIXTURES[0].1).expect("fixture is JSON");
+        legacy["id"] = json!(minted);
+        legacy["ref"] = json!(format!("surface-descriptor://{minted}"));
+        let reason =
+            ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+                DESCRIPTOR_V1_CONTRACT_ID,
+                &legacy,
+            )
+            .expect_err("the historical producer's id width is refused by the registered contract");
+        assert!(
+            reason.contains("$.id"),
+            "the refusal names the failing field: {reason}"
+        );
+        // And the contract's own width is what a contract-valid v1 carries.
+        let canonical: Value = serde_json::from_str(V1_FIXTURES[0].1).expect("fixture is JSON");
+        assert_eq!(
+            canonical["id"]
+                .as_str()
+                .unwrap()
+                .trim_start_matches("sd_")
+                .len(),
+            17
+        );
+    }
+
+    /// The exact record the v1 lane minted, admitted through the shared foundation.
+    ///
+    /// The id is an explicit, contract-valid seventeen-hex literal rather than `odk_derived_id`'s
+    /// sixteen: this seeds the CANONICAL v1 the registered contract describes, and the width gap
+    /// above is recorded as its own bounded finding rather than smuggled in here.
+    fn seed_v1(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+        owner_ref: &str,
+        id: &str,
+        key: &str,
+        name: &str,
+    ) -> (String, StatusCode) {
+        let record = json!({
+            "schema_version": DESCRIPTOR_V1_SCHEMA_VERSION,
+            "object": "ioi.hypervisor.odk.surface_descriptor",
+            "id": id,
+            "ref": format!("surface-descriptor://{id}"),
+            "name": name,
+            "description": "the legacy descriptor record, exactly as the v1 lane minted it",
+            "status": "draft",
+            "composition_pattern": "monitoring_console",
+            "ontology_ref": "ontology://ont_2b7f4c8a9e1d05f36",
+            "recipe_refs": [],
+            "owner_ref": owner_ref,
+            "view_config": {},
+        });
+        let (status, _) = odk_admit_with_identity(
+            data_dir,
+            identity,
+            &json!({ "idempotency_key": key, "owner_ref": owner_ref }),
+            OdkAdmission {
+                family: KIND_SD,
+                scope_kind: ODK_DESCRIPTOR_SCOPE_KIND,
+                ref_prefix: "surface-descriptor://",
+                op_kind: "event_stream.hypervisor_odk_surface_descriptor_admitted",
+                reply_key: "surface_descriptor",
+                persist_error: "odk_surface_descriptor_persistence_failed",
+                // The legacy lane's own projection: the record IS the row.
+                projection: OdkProjection::InlineTimestamps,
+            },
+            &id,
+            record,
+            None,
+        );
+        (format!("surface-descriptor://{id}"), status)
+    }
+
+    /// A COMPLETE v2 authoring request, exactly as the route accepts one.
+    ///
+    /// Passed whole into `build_descriptor_v2`, so every member check, the closed nonclaim
+    /// vocabulary, the owner resolution of the ontology binding and the migration derivation all run.
+    fn upgrade_request(owner_ref: &str, key: &str, revision_ref: &str) -> Value {
+        json!({
+            "owner_ref": owner_ref,
+            "idempotency_key": key,
+            "schema_version": DESCRIPTOR_V2_SCHEMA_VERSION,
+            "display_name": "Intake console (converged from v1)",
+            "surface_ref": "surface://acme-clinic/intake-console",
+            "composition_pattern": "monitoring_console",
+            "ontology_refs": [revision_ref],
+            "canonical_object_model_refs": ["object-model://acme-clinic/patient-intake/appointment"],
+            "data_recipe_refs": [],
+            "policy_bound_data_view_refs": ["view://acme-clinic/intake/reviewer"],
+            "authority_requirement_refs": ["scope:intake.review"],
+            "daemon_api_refs": ["api://v1/hypervisor/ontology-versions"],
+            "receipt_obligations": ["receipt://acme-clinic/intake/review-decision"],
+            "conformance_profile_refs": ["profile://acme-clinic/intake/review-inbox/v1"],
+            "connector_mapping_refs": [],
+            "ontology_projection_refs": [],
+            "allowed_action_refs": [],
+            "operator_contract_refs": [],
+            "mcp_contract_refs": [],
+            "generated_artifact_refs": [],
+            "does_not_assert": DESCRIPTOR_REQUIRED_NONCLAIMS,
+        })
+    }
+
+    /// Seed the smallest contract-valid M05.1 revision through THAT OWNER'S own admission helper.
+    fn seed_ontology_revision(data_dir: &str, owner_ref: &str) -> String {
+        let caller = super::super::mutation_event_foundation::WriteCaller {
+            identity: upgrade_identity("user://one"),
+            owner_ref: owner_ref.to_string(),
+            idempotency_key: "upgrade-ontology-1".to_string(),
+        };
+        let proposal = json!({
+            "owner_ref": owner_ref,
+            "idempotency_key": "upgrade-ontology-1",
+            "namespace": "acme-clinic",
+            "name": "patient-intake",
+            "governing_scope_ref": "domain://acme-clinic/intake",
+            "policy_hash": format!("sha256:{}", "1a".repeat(32)),
+            "entity_types": [{
+                "term_id": "ontology://acme-clinic/patient-intake/term/patient",
+                "label": "patient",
+            }],
+            "valid_time": { "starts_at": "2026-01-01T00:00:00Z", "ends_at": null },
+        });
+        let (document, _) = super::super::ontology_version_routes::admit_revision_for_test(
+            data_dir, &caller, &proposal, None,
+        )
+        .expect("the ontology owner admits its own prerequisite revision");
+        document["ontology_id"]
+            .as_str()
+            .expect("the admitted revision names itself")
+            .to_string()
+    }
+
+    #[test]
+    fn the_historical_v1_upgrade_converges_restarts_and_replays() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        super::super::substrate_store::reset_handle_for_test();
+        let identity = upgrade_identity("user://one");
+        const OWNER: &str = "org://acme-clinic";
+        const V1_ID: &str = "sd_1a2b3c4d5e6f70819";
+
+        // --------------------------------- the REAL M05.1 prerequisite, through its owner's own code
+        let revision_ref = seed_ontology_revision(data_dir, OWNER);
+        assert_eq!(
+            revision_ref, "ontology://acme-clinic/patient-intake/revision/1",
+            "the prerequisite is an EXACT admitted revision, not a family head"
+        );
+
+        // ---------------------------------------------------------------- a REAL stored v1 exists
+        let (v1_ref, status) = seed_v1(
+            data_dir,
+            &identity,
+            OWNER,
+            V1_ID,
+            "legacy-create-1",
+            "Intake console",
+        );
+        assert_eq!(status, StatusCode::CREATED, "the v1 seed is admitted");
+
+        // ------------------------------------------------ state closes and reopens, then resolves
+        super::super::substrate_store::reset_handle_for_test();
+        let stored = resolve_admitted_surface_descriptor(data_dir, &identity, &v1_ref)
+            .expect("a stored v1 resolves after the handle is reopened");
+        assert_eq!(stored.schema_version, DESCRIPTOR_V1_SCHEMA_VERSION);
+        // FINDING 2: v1 is validated against its OWN registered contract on the read path. It used
+        // to be the unchecked half — only v2 was validated, so a stored v1 was served unexamined.
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            DESCRIPTOR_V1_CONTRACT_ID,
+            &stored.record,
+        )
+        .expect("the seeded v1 is valid against the registered v1 contract");
+
+        // FINDING 3: destroying the v1 row and rebuilding restores a v1-SHAPED row, rather than
+        // answering 200 and writing nothing.
+        let row_id = v1_ref.trim_start_matches("surface-descriptor://");
+        assert!(load(data_dir, KIND_SD, row_id).is_some());
+        remove_record(data_dir, KIND_SD, row_id);
+        assert!(load(data_dir, KIND_SD, row_id).is_none(), "the row is gone");
+        let rebuilt = rebuild_descriptor_row(data_dir, &identity, &v1_ref)
+            .expect("a stored v1 row rebuilds from the chain");
+        assert_eq!(rebuilt.index_state, "absent_rebuilt_from_agentgres");
+        let mut restored_row = load(data_dir, KIND_SD, row_id).expect("the v1 row is written back");
+        // The legacy lane INLINES its runtime timestamps into the row, so a rebuilt v1 row is the
+        // admitted record plus those two keys — that shape is the point, and it is what a silent
+        // no-op would not have produced. The timestamps themselves are null because the chain
+        // records when the operation was admitted, not when this projection was first written.
+        let row_object = restored_row.as_object_mut().expect("the row is an object");
+        assert_eq!(row_object.remove("created_at"), Some(Value::Null));
+        assert_eq!(row_object.remove("updated_at"), Some(Value::Null));
+        assert_eq!(
+            restored_row, stored.record,
+            "a rebuilt v1 row carries the admitted record in the legacy lane's own shape"
+        );
+
+        // ------------------------------------------------------- the convergence, production code
+        //
+        // THE WHOLE BUILDER RUNS. `build_descriptor_v2` validates the version gate, refuses the
+        // legacy names, checks all eight members, resolves the ontology binding through M05.1's own
+        // seam, enforces the closed nonclaim vocabulary, derives the migration block, assembles the
+        // record, commits it and validates it against the registered contract — none of which is
+        // skipped or supplied here.
+        let convergence_key = "converge-1";
+        let converged_id = odk_derived_id("sd", OWNER, convergence_key);
+        let mut request = upgrade_request(OWNER, convergence_key, &revision_ref);
+        request[DESCRIPTOR_MIGRATION_SOURCE_KEY] = json!(v1_ref);
+        let frozen = descriptor_v1_content_hash(&stored.record);
+
+        let converged = build_descriptor_v2(
+            data_dir,
+            &identity,
+            &request,
+            &converged_id,
+            OWNER,
+            "monitoring_console",
+        )
+        .expect("the production builder converges a same-owner stored v1");
+        assert_eq!(
+            converged["migration"]["compatibility"],
+            json!("converged_from_v1")
+        );
+        assert_eq!(
+            converged["migration"]["from_schema_version"],
+            json!(DESCRIPTOR_V1_SCHEMA_VERSION)
+        );
+        assert_eq!(converged["migration"]["from_descriptor_ref"], json!(v1_ref));
+        assert_eq!(
+            converged["migration"]["reinterprets_predecessor"],
+            json!(false)
+        );
+        // The frozen bytes are the predecessor's OWN commitment, under the v1 domain separator.
+        assert_eq!(converged["migration"]["from_content_hash"], json!(frozen));
+        // THE BINDING IS THE ONTOLOGY OWNER'S, RESOLVED — not a row this test supplied.
+        assert_eq!(converged["ontology_refs"], json!([revision_ref]));
+        assert_eq!(
+            converged["bound_ontology_revisions"][0]["ontology_revision_ref"],
+            json!(revision_ref)
+        );
+        let owner_hash = converged["bound_ontology_revisions"][0]["ontology_content_hash"]
+            .as_str()
+            .expect("the owner committed a hash")
+            .to_string();
+        assert!(owner_hash.starts_with("sha256:") && owner_hash.len() == 71);
+        assert_eq!(converged["bound_ontology_revision_count"], json!(1));
+        assert_eq!(
+            converged["ontology_resolved_by"],
+            json!("ontology_version_routes::resolve_admitted_revision"),
+            "the successor pins the real owner seam"
+        );
+        let (status, Json(reply)) = odk_admit_with_identity(
+            data_dir,
+            &identity,
+            &request,
+            OdkAdmission {
+                family: KIND_SD,
+                scope_kind: ODK_DESCRIPTOR_SCOPE_KIND,
+                ref_prefix: "surface-descriptor://",
+                op_kind: "event_stream.hypervisor_odk_surface_descriptor_admitted",
+                reply_key: "surface_descriptor",
+                persist_error: "odk_surface_descriptor_persistence_failed",
+                projection: OdkProjection::DescriptorEnvelopeV2,
+            },
+            &converged_id,
+            converged.clone(),
+            None,
+        );
+        assert_eq!(status, StatusCode::CREATED, "the convergence is admitted");
+        // FINDING 8: the reply is the BARE REGISTERED RECORD, byte-identical to what was assembled —
+        // not the storage envelope, which is what every other read returns.
+        assert_eq!(reply["surface_descriptor"], converged);
+
+        // ------------------------------------------------------------------ restart, then resolve
+        super::super::substrate_store::reset_handle_for_test();
+        let converged_ref = format!("surface-descriptor://{converged_id}");
+        let after_restart =
+            resolve_admitted_surface_descriptor(data_dir, &identity, &converged_ref)
+                .expect("the converged successor resolves after a restart");
+        assert_eq!(
+            after_restart.record, converged,
+            "the converged record projects byte-identically across a restart"
+        );
+        // The predecessor is UNREINTERPRETED: it is still itself, still v1, still its own bytes.
+        let predecessor_after = resolve_admitted_surface_descriptor(data_dir, &identity, &v1_ref)
+            .expect("the v1 predecessor is still readable after its successor exists");
+        assert_eq!(predecessor_after.record, stored.record);
+        assert_eq!(
+            predecessor_after.schema_version,
+            DESCRIPTOR_V1_SCHEMA_VERSION
+        );
+
+        // --------------------------------- THE SOURCE MOVES, AND THE CONVERGENCE KEY STILL REPLAYS
+        //
+        // This is the case that made the whole replay-first ordering necessary: a convergence
+        // re-derives its source hash from the predecessor, so a source that advanced between the
+        // first attempt and the retry changed the bytes of an already-admitted command and the
+        // substrate answered `same key, different bytes`.
+        let head = super::super::substrate_store::read_event_stream_operation(
+            data_dir,
+            ODK_NAMESPACE,
+            &odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, &v1_ref),
+        )
+        .expect("the v1 stream reads")
+        .expect("the v1 stream has a head")
+        .head;
+        let mut moved = stored.record.clone();
+        moved["name"] = json!("Intake console, renamed after the convergence");
+        let (status, _) = odk_admit_with_identity(
+            data_dir,
+            &identity,
+            &json!({ "idempotency_key": "legacy-patch-2", "expected_head": head }),
+            OdkAdmission {
+                family: KIND_SD,
+                scope_kind: ODK_DESCRIPTOR_SCOPE_KIND,
+                ref_prefix: "surface-descriptor://",
+                op_kind: "event_stream.hypervisor_odk_surface_descriptor_revised",
+                reply_key: "surface_descriptor",
+                persist_error: "odk_surface_descriptor_persistence_failed",
+                projection: OdkProjection::InlineTimestamps,
+            },
+            row_id,
+            moved,
+            Some(&stored.record),
+        );
+        assert_eq!(status, StatusCode::OK, "the v1 source advances");
+        let moved_hash = descriptor_v1_content_hash(
+            &resolve_admitted_surface_descriptor(data_dir, &identity, &v1_ref)
+                .expect("the moved v1 resolves")
+                .record,
+        );
+        assert_ne!(moved_hash, frozen, "the source really did change");
+
+        // The retry finds its own admitted fact, with the bytes it originally FROZE.
+        let history = descriptor_admitted_history(data_dir, &identity, Some(OWNER), &converged_ref)
+            .expect("the converged history reads");
+        let prior = history
+            .iter()
+            .find(|entry| entry.operation.idem_key == convergence_key)
+            .expect("the convergence key is in its own history");
+        assert!(
+            descriptor_replay_intent_divergence(&prior.operation.payload, &request).is_none(),
+            "the retry is the same command"
+        );
+        let (status, Json(replay)) = descriptor_replay_reply(&converged_ref, prior);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(replay["replayed"], json!(true));
+        // FINDING 8 again: a replay returns the same bare registered record, byte-for-byte.
+        assert_eq!(replay["surface_descriptor"], converged);
+        assert_eq!(
+            replay["surface_descriptor"]["migration"]["from_content_hash"],
+            json!(frozen),
+            "the replay carries the bytes the convergence froze, not the source's current bytes"
+        );
+
+        // ------------------------------------------------------------------ and the refusals
+        //
+        // Every one goes through the WHOLE production builder, not the migration seam alone, so each
+        // is proven reachable on the real authoring path with the ontology binding already resolved.
+        let target = "sd_fedcba98765432100";
+        let converge_from = |source: &str, extra: Option<(&str, &str)>| {
+            let mut body = upgrade_request(OWNER, "refusal-probe", &revision_ref);
+            body[DESCRIPTOR_MIGRATION_SOURCE_KEY] = json!(source);
+            if let Some((key, value)) = extra {
+                body[key] = json!(value);
+            }
+            body
+        };
+
+        // CHANGED SOURCE, ASSERTED: a caller pinning the bytes it read is refused once they move.
+        let (status, Json(refusal)) = build_descriptor_v2(
+            data_dir,
+            &identity,
+            &converge_from(
+                &v1_ref,
+                Some(("expected_migration_source_content_hash", &frozen)),
+            ),
+            target,
+            OWNER,
+            "monitoring_console",
+        )
+        .expect_err("a pinned source that has moved is refused");
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            refusal["error"]["code"],
+            json!("odk_descriptor_migration_source_substituted")
+        );
+
+        // DOWNGRADE / SIDEWAYS: a v2 is never a convergence source.
+        let (_, Json(refusal)) = build_descriptor_v2(
+            data_dir,
+            &identity,
+            &converge_from(&converged_ref, None),
+            target,
+            OWNER,
+            "monitoring_console",
+        )
+        .expect_err("a v2 source is refused");
+        assert_eq!(
+            refusal["error"]["code"],
+            json!("odk_descriptor_migration_source_not_v1")
+        );
+
+        // SELF-SOURCE: a record naming itself has a cycle, not a provenance.
+        let (_, Json(refusal)) = build_descriptor_v2(
+            data_dir,
+            &identity,
+            &converge_from(&v1_ref, None),
+            V1_ID,
+            OWNER,
+            "monitoring_console",
+        )
+        .expect_err("a self-naming source is refused");
+        assert_eq!(
+            refusal["error"]["code"],
+            json!("odk_descriptor_migration_source_is_itself")
+        );
+
+        // CROSS-OWNER: another principal's descriptor is not a convergence source, and the refusal
+        // comes from the owner seam rather than from a comparison this module makes on borrowed
+        // bytes — a caller with no scope learns nothing about whether the source exists. It refuses
+        // at the ONTOLOGY binding first, because that owner scopes its family the same way: a
+        // stranger cannot reach either resource, which is the property being asserted.
+        let stranger = upgrade_identity("user://two");
+        let (_, Json(refusal)) = build_descriptor_v2(
+            data_dir,
+            &stranger,
+            &converge_from(&v1_ref, None),
+            target,
+            OWNER,
+            "monitoring_console",
+        )
+        .expect_err("another principal cannot converge from this descriptor");
+        assert!(
+            matches!(
+                refusal["error"]["code"].as_str(),
+                Some("odk_descriptor_migration_source_unresolved")
+                    | Some("odk_descriptor_ontology_ref_unresolved")
+            ),
+            "a stranger is refused by an owner seam, not by a comparison on borrowed bytes: {refusal}"
+        );
+        // And the migration seam refuses it on its own, with no ontology step in the way.
+        let (_, Json(refusal)) = descriptor_migration_block(
+            data_dir,
+            &stranger,
+            &json!({ DESCRIPTOR_MIGRATION_SOURCE_KEY: v1_ref }),
+            target,
+            OWNER,
+        )
+        .expect_err("the migration seam refuses a stranger's convergence source");
+        assert_eq!(
+            refusal["error"]["code"],
+            json!("odk_descriptor_migration_source_unresolved")
+        );
+    }
+
+    /// The create allowlist is exactly the caller-authored half of the contract plus the control and
+    /// assertion inputs — so a member added to the contract cannot be left unauthorable.
+    #[test]
+    fn the_create_allowlist_is_exactly_caller_intent_plus_control_and_assertions() {
+        let mut expected: Vec<&str> = DESCRIPTOR_CALLER_INTENT_FIELDS
+            .iter()
+            .copied()
+            .chain(std::iter::once(DESCRIPTOR_MIGRATION_SOURCE_KEY))
+            .chain(DESCRIPTOR_CONTROL_FIELDS.iter().copied())
+            .chain(DESCRIPTOR_ASSERTION_FIELDS.iter().copied())
+            .collect();
+        expected.sort_unstable();
+        let mut actual: Vec<&str> = DESCRIPTOR_CREATE_REQUEST_FIELDS.to_vec();
+        actual.sort_unstable();
+        assert_eq!(actual, expected);
+
+        // The patch set is the governed fields plus the same control and assertion inputs, and
+        // `owner_ref` is deliberately NOT among them: a successor takes its owner from the admitted
+        // record, so a body `owner_ref` changed nothing and was answered 200.
+        let mut patch: Vec<&str> = DESCRIPTOR_PATCHABLE_FIELDS
+            .iter()
+            .copied()
+            .chain(std::iter::once("status"))
+            .chain(DESCRIPTOR_CONTROL_FIELDS.iter().copied())
+            .chain(DESCRIPTOR_ASSERTION_FIELDS.iter().copied())
+            .collect();
+        patch.sort_unstable();
+        let mut actual_patch: Vec<&str> = DESCRIPTOR_PATCH_REQUEST_FIELDS.to_vec();
+        actual_patch.sort_unstable();
+        assert_eq!(actual_patch, patch);
+        assert!(!DESCRIPTOR_PATCH_REQUEST_FIELDS.contains(&"owner_ref"));
+
+        // An authority-looking substitution is outside both closed sets, so it is refused BY NAME
+        // rather than accepted and ignored — and the refusal names the RIGHT reason. A field this
+        // contract does not have is unknown; a field it HAS but the server derives is refused as
+        // not-caller-authored, because telling a caller `authority_nonclaim` is "unknown" would be
+        // false, and accepting it would let a caller write its own nonclaims.
+        for (forged, expected) in [
+            (
+                "authority_grant_ref",
+                "odk_descriptor_request_field_unknown",
+            ),
+            (
+                "capability_lease_ref",
+                "odk_descriptor_request_field_unknown",
+            ),
+            ("granted_scopes", "odk_descriptor_request_field_unknown"),
+            (
+                "authority_nonclaim",
+                "odk_descriptor_field_not_caller_authored",
+            ),
+            ("content_hash", "odk_descriptor_field_not_caller_authored"),
+            (
+                "bound_ontology_revisions",
+                "odk_descriptor_field_not_caller_authored",
+            ),
+        ] {
+            assert!(!DESCRIPTOR_CREATE_REQUEST_FIELDS.contains(&forged));
+            assert!(!DESCRIPTOR_PATCH_REQUEST_FIELDS.contains(&forged));
+            let refused = refuse_unknown_request_fields(
+                &json!({ forged: "anything" }),
+                DESCRIPTOR_CREATE_REQUEST_FIELDS,
+                "create",
+            );
+            let (status, Json(payload)) = refused.expect_err("a forged field is refused");
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(payload["error"]["code"], json!(expected), "for '{forged}'");
+        }
+        // And on the patch route the same contract field is refused as NOT PATCHABLE, which is the
+        // governance answer that route owes.
+        let (_, Json(payload)) = refuse_unknown_request_fields(
+            &json!({ "ontology_refs": [] }),
+            DESCRIPTOR_PATCH_REQUEST_FIELDS,
+            "patch",
+        )
+        .expect_err("a binding is refused on patch");
+        assert_eq!(
+            payload["error"]["code"],
+            json!("odk_descriptor_field_not_patchable")
+        );
+        // A legacy spelling keeps its own, more informative refusal on BOTH routes rather than being
+        // shadowed by the allowlist.
+        for allowed in [
+            DESCRIPTOR_CREATE_REQUEST_FIELDS,
+            DESCRIPTOR_PATCH_REQUEST_FIELDS,
+        ] {
+            let (_, Json(payload)) =
+                refuse_unknown_request_fields(&json!({ "ontology_ref": "x" }), allowed, "create")
+                    .expect_err("a legacy spelling is refused");
+            assert_eq!(
+                payload["error"]["code"],
+                json!("odk_descriptor_legacy_field_name")
+            );
         }
     }
 

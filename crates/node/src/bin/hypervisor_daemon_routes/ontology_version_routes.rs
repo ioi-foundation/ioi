@@ -1596,6 +1596,143 @@ pub(crate) async fn handle_ontology_version_query(
     )
 }
 
+/// Admit one revision through the same server-side derivation the route uses, returning the
+/// projected contract document and the head a successor must name.
+///
+/// TEST-ONLY, AND DELIBERATELY NOT A PUBLIC BYPASS. It is `#[cfg(test)]`, so it does not exist in a
+/// shipped daemon and adds no route, no wire surface and no way for a caller to reach this family
+/// except `handle_ontology_version_admit`. It was already this module's own in-test admission
+/// helper; the only change is its visibility, so a CONSUMER'S focused test can seed the exact
+/// prerequisite this family publishes a resolver for. It duplicates no commitment logic: the content
+/// hash comes from this module's own `content_hash`, the projection from its own `project_lineage`,
+/// and the admission from the shared owner-scoped foundation — so a seed that this family would not
+/// itself admit cannot be produced here, and `resolve_admitted_revision` adjudicates the result.
+#[cfg(test)]
+pub(crate) fn admit_revision_for_test(
+    data_dir: &str,
+    caller: &WriteCaller,
+    body: &Value,
+    expected_head: Option<&str>,
+) -> Result<(Value, String), String> {
+    let content = validate_proposal(body).map_err(|(_, Json(body))| body.to_string())?;
+    let family = family_ref(&content.namespace, &content.name);
+    let scope = bind_request_resource_scope(
+        data_dir,
+        &caller.identity,
+        RESOURCE_KIND,
+        &family,
+        &caller.owner_ref,
+        &caller.owner_ref,
+        &caller.idempotency_key,
+    )
+    .map_err(|error| error.message())?;
+    let tail = stream_tail(RESOURCE_KIND, &family);
+    let history = read_owner_scoped_history(
+        data_dir,
+        &caller.identity,
+        &scope,
+        RESOURCE_KIND,
+        &family,
+        OWNER_NAMESPACE,
+        &tail,
+    )
+    .map_err(|error| error.message())?;
+    let lineage = project_lineage(&history, &family)?;
+    let predecessor = lineage.last().cloned();
+    let ordinal = predecessor.as_ref().map_or(1, |d| ordinal_of(d) + 1);
+    let predecessor_ref = predecessor
+        .as_ref()
+        .and_then(|d| d.get("ontology_id").cloned())
+        .unwrap_or(Value::Null);
+    let predecessor_hash = predecessor
+        .as_ref()
+        .and_then(|d| d.get("content_hash").cloned())
+        .unwrap_or(Value::Null);
+    let mut record = json!({
+        "schema_version": SCHEMA_VERSION,
+        "ontology_id": revision_ref(&content.namespace, &content.name, ordinal),
+        "ontology_family_ref": family,
+        "ontology_record_profile": RECORD_PROFILE,
+        "namespace": content.namespace,
+        "name": content.name,
+        "owner_id": caller.owner_ref,
+        "governing_scope_ref": content.governing_scope_ref,
+        "version": version_label(ordinal),
+        "revision_ordinal": ordinal,
+        "predecessor_version_ref": predecessor_ref,
+        "predecessor_content_hash": predecessor_hash,
+        "invariant_refs": content.invariant_refs,
+        "compatibility_profile_ref": content.compatibility_profile_ref,
+        "deprecation_policy_ref": content.deprecation_policy_ref,
+        "policy_hash": content.policy_hash,
+        "valid_time": content.valid_time,
+        "migration": {
+            "from_version_ref": predecessor_ref,
+            "from_content_hash": predecessor_hash,
+            "from_revision_ordinal": ordinal - 1,
+            "compatibility": if ordinal == 1 { "initial" } else { "breaking" },
+            "reinterprets_predecessor": false,
+            "term_mappings": if ordinal == 1 {
+                json!([])
+            } else {
+                json!([{
+                    "from_term_id": format!("ontology://{}/{}/term/patient", content.namespace, content.name),
+                    "to_term_id": format!("ontology://{}/{}/term/patient", content.namespace, content.name),
+                    "disposition": "retained",
+                }])
+            },
+        },
+    });
+    for (key, value) in content.term_sets {
+        record[key] = value;
+    }
+    record["content_hash"] = json!(content_hash(&record)?);
+    let payload = json!({
+        "schema_version": ADMISSION_PAYLOAD_SCHEMA,
+        "owner_ref": caller.owner_ref,
+        "resource_ref": family,
+        "version_record": record,
+    });
+    let commit = admit_owner_scoped_mutation(
+        data_dir,
+        expected_head.is_none(),
+        ScopedMutation {
+            identity: &caller.identity,
+            scope: &scope,
+            resource_kind: RESOURCE_KIND,
+            resource_ref: &family,
+            owner_namespace: OWNER_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: ADMIT_OP,
+            expected_head,
+            payload: &payload,
+            idempotency_key: &caller.idempotency_key,
+            recorded_at_ms: 1_756_000_000_000 + ordinal * 3_600_000,
+        },
+    )
+    .map_err(|error| error.message())?;
+    let lineage = project_lineage(
+        &read_owner_scoped_history(
+            data_dir,
+            &caller.identity,
+            &scope,
+            RESOURCE_KIND,
+            &family,
+            OWNER_NAMESPACE,
+            &tail,
+        )
+        .map_err(|error| error.message())?,
+        &family,
+    )?;
+    let head = commit.projection.head.clone();
+    let document = lineage
+        .iter()
+        .find(|d| d.pointer("/admission/admission_head") == Some(&json!(head)))
+        .cloned()
+        .ok_or_else(|| "admitted head is absent from the lineage".to_string())?;
+    Ok((document, head))
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::substrate_store::{request_identity_for_test, reset_handle_for_test};
@@ -1628,132 +1765,9 @@ mod tests {
         })
     }
 
-    /// Admit one revision through the same server-side derivation the route uses, returning the
-    /// projected contract document and the head a successor must name.
-    fn admit(
-        data_dir: &str,
-        caller: &WriteCaller,
-        body: &Value,
-        expected_head: Option<&str>,
-    ) -> Result<(Value, String), String> {
-        let content = validate_proposal(body).map_err(|(_, Json(body))| body.to_string())?;
-        let family = family_ref(&content.namespace, &content.name);
-        let scope = bind_request_resource_scope(
-            data_dir,
-            &caller.identity,
-            RESOURCE_KIND,
-            &family,
-            &caller.owner_ref,
-            &caller.owner_ref,
-            &caller.idempotency_key,
-        )
-        .map_err(|error| error.message())?;
-        let tail = stream_tail(RESOURCE_KIND, &family);
-        let history = read_owner_scoped_history(
-            data_dir,
-            &caller.identity,
-            &scope,
-            RESOURCE_KIND,
-            &family,
-            OWNER_NAMESPACE,
-            &tail,
-        )
-        .map_err(|error| error.message())?;
-        let lineage = project_lineage(&history, &family)?;
-        let predecessor = lineage.last().cloned();
-        let ordinal = predecessor.as_ref().map_or(1, |d| ordinal_of(d) + 1);
-        let predecessor_ref = predecessor
-            .as_ref()
-            .and_then(|d| d.get("ontology_id").cloned())
-            .unwrap_or(Value::Null);
-        let predecessor_hash = predecessor
-            .as_ref()
-            .and_then(|d| d.get("content_hash").cloned())
-            .unwrap_or(Value::Null);
-        let mut record = json!({
-            "schema_version": SCHEMA_VERSION,
-            "ontology_id": revision_ref(&content.namespace, &content.name, ordinal),
-            "ontology_family_ref": family,
-            "ontology_record_profile": RECORD_PROFILE,
-            "namespace": content.namespace,
-            "name": content.name,
-            "owner_id": caller.owner_ref,
-            "governing_scope_ref": content.governing_scope_ref,
-            "version": version_label(ordinal),
-            "revision_ordinal": ordinal,
-            "predecessor_version_ref": predecessor_ref,
-            "predecessor_content_hash": predecessor_hash,
-            "invariant_refs": content.invariant_refs,
-            "compatibility_profile_ref": content.compatibility_profile_ref,
-            "deprecation_policy_ref": content.deprecation_policy_ref,
-            "policy_hash": content.policy_hash,
-            "valid_time": content.valid_time,
-            "migration": {
-                "from_version_ref": predecessor_ref,
-                "from_content_hash": predecessor_hash,
-                "from_revision_ordinal": ordinal - 1,
-                "compatibility": if ordinal == 1 { "initial" } else { "breaking" },
-                "reinterprets_predecessor": false,
-                "term_mappings": if ordinal == 1 {
-                    json!([])
-                } else {
-                    json!([{
-                        "from_term_id": format!("ontology://{}/{}/term/patient", content.namespace, content.name),
-                        "to_term_id": format!("ontology://{}/{}/term/patient", content.namespace, content.name),
-                        "disposition": "retained",
-                    }])
-                },
-            },
-        });
-        for (key, value) in content.term_sets {
-            record[key] = value;
-        }
-        record["content_hash"] = json!(content_hash(&record)?);
-        let payload = json!({
-            "schema_version": ADMISSION_PAYLOAD_SCHEMA,
-            "owner_ref": caller.owner_ref,
-            "resource_ref": family,
-            "version_record": record,
-        });
-        let commit = admit_owner_scoped_mutation(
-            data_dir,
-            expected_head.is_none(),
-            ScopedMutation {
-                identity: &caller.identity,
-                scope: &scope,
-                resource_kind: RESOURCE_KIND,
-                resource_ref: &family,
-                owner_namespace: OWNER_NAMESPACE,
-                stream_tail: &tail,
-                op_kind: ADMIT_OP,
-                expected_head,
-                payload: &payload,
-                idempotency_key: &caller.idempotency_key,
-                recorded_at_ms: 1_756_000_000_000 + ordinal * 3_600_000,
-            },
-        )
-        .map_err(|error| error.message())?;
-        let lineage = project_lineage(
-            &read_owner_scoped_history(
-                data_dir,
-                &caller.identity,
-                &scope,
-                RESOURCE_KIND,
-                &family,
-                OWNER_NAMESPACE,
-                &tail,
-            )
-            .map_err(|error| error.message())?,
-            &family,
-        )?;
-        let head = commit.projection.head.clone();
-        let document = lineage
-            .iter()
-            .find(|d| d.pointer("/admission/admission_head") == Some(&json!(head)))
-            .cloned()
-            .ok_or_else(|| "admitted head is absent from the lineage".to_string())?;
-        Ok((document, head))
-    }
+    /// This module's own admission helper, now at module scope so a consumer's focused test can seed
+    /// the exact prerequisite this family publishes a resolver for. Unchanged in behaviour.
+    use super::admit_revision_for_test as admit;
 
     /// A proposal that declares ACTION types as well as entities, so the action-resolution seam has
     /// something real to resolve against.
