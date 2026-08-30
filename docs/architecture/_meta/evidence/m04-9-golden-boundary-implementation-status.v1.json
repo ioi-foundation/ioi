@@ -3,8 +3,14 @@
   "recorded_at": "2026-08-28",
   "subject": "ADR 0039 implementation-evidence status after the M04.9 exact-completion instrumentation leg",
   "adr": "docs/decisions/0039-propose-finality-profiles-over-agentgres-verifiable-batch-log.md",
-  "adr_status": "Proposed",
-  "adr_status_change": "none; this artifact records implementation evidence and does not advance, accept, or weaken the proposal",
+  "adr_status_at_recording": "Proposed",
+  "adr_status_change_in_this_historical_leg": "none; this artifact records the 2026-08-28 instrumentation leg and does not retroactively claim later implementation",
+  "current_adjudication": {
+    "status": "Accepted",
+    "recorded_at": "2026-08-30",
+    "artifact": "docs/architecture/_meta/evidence/m04-9-finality-framework-adjudication.v1.json",
+    "note": "The later complete two-profile runtime, cutover, fencing, peer-bearing AFT, restart, and mutation evidence supersedes this artifact's partial-status conclusion without rewriting its historical measurements."
+  },
   "historical_parity_evidence": {
     "artifact": "docs/architecture/_meta/evidence/m04-9-ordering-finality-parity-profile.v1.json",
     "disposition": "preserved_unchanged",
