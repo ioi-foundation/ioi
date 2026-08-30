@@ -536,6 +536,68 @@ async function run() {
       `status ${response.status} code ${code(response.j)} count ${after.count}`,
     );
   }
+  // ------------------------- a replay confirms one command; it never confirms a false assertion
+  //
+  // The comparison above asks "is this the same command?". These fields ask a different question
+  // that ORDINARY admission asks and the replay path used to skip: are the things the caller CLAIMS
+  // to know about the server's own derivation actually true? A `200 replayed: true` is read as
+  // "everything you asserted holds", so returning one while an assertion is false is the receipt
+  // lying about itself.
+  const TRUE_ASSERTIONS = {
+    subject_content_hash: SUBJECT_HASH,
+    subject_family: "ontology_revision",
+    expected_predecessor_transition_ref: null,
+    expected_predecessor_transition_hash: null,
+    expected_transition_ordinal: 1,
+    expected_content_hash: t1.content_hash,
+  };
+  for (const [field, value, expectedCode] of [
+    ["subject_content_hash", `sha256:${"4".repeat(64)}`, "assurance_transition_subject_hash_substituted"],
+    ["subject_family", "work_result", "assurance_transition_subject_family_substituted"],
+    [
+      "expected_predecessor_transition_ref",
+      "assurance-transition://ontology_revision/forged/transition/1",
+      "assurance_transition_predecessor_substituted",
+    ],
+    [
+      "expected_predecessor_transition_hash",
+      `sha256:${"5".repeat(64)}`,
+      "assurance_transition_predecessor_hash_substituted",
+    ],
+    ["expected_transition_ordinal", 2, "assurance_transition_ordinal_gap"],
+    ["expected_content_hash", `sha256:${"3".repeat(64)}`, "assurance_transition_content_hash_substituted"],
+  ]) {
+    const response = await req(
+      "POST",
+      AT,
+      transition({ subject: SUBJECT, key: "t1-attested", extra: { [field]: value } }),
+      { as: "A" },
+    );
+    const after = await ladderState(SUBJECT);
+    ok(
+      `replaying an admitted key while ASSERTING a false '${field}' is refused by that field's own cause and appends nothing — a stored success must never stand as confirmation of a server-derived fact nobody compared`,
+      response.status === 422 &&
+        code(response.j) === expectedCode &&
+        response.j?.replayed === undefined &&
+        after.count === 1 &&
+        after.head === head1,
+      `status ${response.status} code ${code(response.j)} count ${after.count}`,
+    );
+  }
+  const replayAllTrue = await req(
+    "POST",
+    AT,
+    transition({ subject: SUBJECT, key: "t1-attested", extra: { ...TRUE_ASSERTIONS } }),
+    { as: "A" },
+  );
+  ok(
+    "a retry that asserts ALL SIX server-derived facts at their true stored values still replays — the check refuses false claims without turning a correct, fully-asserted retry into a conflict",
+    replayAllTrue.status === 200 &&
+      replayAllTrue.j?.replayed === true &&
+      replayAllTrue.j?.assurance_transition?.admission?.admission_head === head1,
+    `status ${replayAllTrue.status} replayed ${replayAllTrue.j?.replayed}`,
+  );
+
   const replayAgain = await req(
     "POST",
     AT,
@@ -703,6 +765,32 @@ async function run() {
       !(t3.transaction_time?.recorded_at ?? "").startsWith("1999") &&
       t3.admission?.transition_id === t3.transition_id,
     `actor ${t3.actor_ref} recorded ${t3.transaction_time?.recorded_at} admission ${t3.admission?.transition_id}`,
+  );
+
+  // ------------------------------------------- expected_head is excluded from the replay checks
+  //
+  // A genuine retry follows an ambiguous response, so it necessarily still carries the head it
+  // originally compare-and-swapped against — which is stale by construction once the ladder has
+  // moved on. Refusing it would break the exact case the idempotency key exists to serve, so
+  // `expected_head` is deliberately absent from the assertion set above.
+  const staleHeadRetry = await req(
+    "POST",
+    AT,
+    transition({
+      subject: SUBJECT,
+      key: "t2-evidenced",
+      expectedHead: head1,
+      outcome: "exploit",
+    }),
+    { as: "A" },
+  );
+  ok(
+    "a true retry that still carries its ORIGINAL, now-stale expected_head replays rather than conflicting — the ladder has advanced twice since, so this is exactly the ambiguous-response case an idempotency key exists to serve and the assertion checks must not break it",
+    staleHeadRetry.status === 200 &&
+      staleHeadRetry.j?.replayed === true &&
+      staleHeadRetry.j?.assurance_transition?.transition_ordinal === 2 &&
+      staleHeadRetry.j?.assurance_transition?.outcome_class === "exploit",
+    `status ${staleHeadRetry.status} replayed ${staleHeadRetry.j?.replayed} ordinal ${staleHeadRetry.j?.assurance_transition?.transition_ordinal}`,
   );
 
   // --------------------------------------------------------- asserted server facts refuse by cause
@@ -1155,8 +1243,11 @@ function sourceCensus() {
   const PINNED_TESTS = [
     "content_commitment_excludes_transaction_time_and_admission",
     "every_ladder_member_is_the_canonical_enum_in_canonical_order",
+    "every_registered_fixture_agrees_with_the_generated_projection",
     "outcome_classes_carry_every_negative_member_acc8_requires",
+    "positive_fixture_admission_matches_the_producer_ref_shapes",
     "subject_family_classification_prefers_the_longer_scheme",
+    "subject_hash_echo_rule_fires_on_its_own_finding",
     "transition_identity_binds_the_subject_family_and_ordinal",
     "two_subjects_never_share_one_transition_identity",
   ];
@@ -1235,6 +1326,15 @@ const MUTANTS = [
       'replaying an admitted idempotency key with a CHANGED \'outcome_class\' is refused as a changed-intent replay and appends nothing — a key answers "did this exact command land?", so returning the stored transition in answer to a different one would substitute one claim for another',
     from: "    if let Some(field) = REPLAY_INTENT_FIELDS\n        .iter()\n        .find(|field| prior.get(*field) != now.get(*field))\n    {\n        return Some(field);\n    }",
     to: '    if false {\n        return Some("unreachable");\n    }',
+  },
+  {
+    id: "replay-skips-caller-assertion-checks",
+    reddens:
+      "replaying an admitted key while ASSERTING a false 'expected_content_hash' is refused by that field's own cause and appends nothing — a stored success must never stand as confirmation of a server-derived fact nobody compared",
+    // Replaced whole rather than guarded: the block returns a Reply, so the replacement has to keep
+    // the same control-flow shape to compile, and a non-compiling mutant proves nothing.
+    from: "            if let Some(response) = replay_assertion_divergence(&document, &body) {\n                return response;\n            }",
+    to: '            if false {\n                return bad(StatusCode::CONFLICT, "unreachable", "unreachable");\n            }',
   },
   {
     id: "historical-slice-filtered-after-projection",

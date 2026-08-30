@@ -1,19 +1,19 @@
 {
   "schema_version": "ioi.assurance-transition-receipt.v1",
-  "receipt_id": "receipt://assurance-transition/ontology_revision/6",
+  "receipt_id": "receipt://ontology_revision/clinical-intake~patient-intake~2/transition/6",
   "receipt_type": "assurance_transition",
   "receipt_profile_ref": "schema://ioi/foundations/assurance-transition-receipt/v1",
   "transition_id": "assurance-transition://ontology_revision/clinical-intake~patient-intake~2/transition/6",
   "subject_ref": "ontology://clinical-intake/patient-intake/revision/2",
   "subject_family": "ontology_revision",
-  "subject_content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "subject_content_hash": "sha256:290dfa0249ef8585c4c2ecf40fa49a409879ea82832b71302001f92f1b47da33",
   "subject_resolved_by": "ontology_version_routes::resolve_admitted_revision",
   "from_stage": "adjudicated",
   "to_stage": "settled",
   "to_stage_ordinal": 6,
   "transition_ordinal": 6,
   "outcome_class": "no_fault",
-  "actor_ref": "system://hypervisor/assurance",
+  "actor_ref": "user://clinical-intake-reviewer",
   "evidence_refs": [
     "evidence://assurance/ontology_revision/6"
   ],
@@ -31,22 +31,22 @@
     "superseded_at": null
   },
   "expected_predecessor_transition_ref": "assurance-transition://ontology_revision/clinical-intake~patient-intake~2/transition/5",
-  "expected_predecessor_transition_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "resulting_stage_head_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-  "authority_nonclaim": "assurance_transition_grants_no_authority",
-  "verdict_nonclaim": "assurance_transition_is_not_a_verdict",
-  "content_hash": "sha256:83193aef55df234c12eb99d877866b03a952e1d104f18292fe592703f4af71ce",
-  "admission_domain_ref": "agentgres://domain/hypervisor-assurance-transitions",
+  "expected_predecessor_transition_hash": "sha256:004fd9d79c16e6a2060b2a45a011aa82741b0c196a2656864ab33effec501762",
+  "resulting_stage_head_hash": "sha256:e1455e9493637c4b0ef8a583ae6b10bb7aa9bb502bad1c3fce5d69734156cb33",
+  "content_hash": "sha256:e1455e9493637c4b0ef8a583ae6b10bb7aa9bb502bad1c3fce5d69734156cb33",
+  "admission_domain_ref": "agentgres://domain/event-stream-operations.hypervisor-assurance-transitions.assurance-transition-subject.8c9447b4a4cdb2d33fc9cff15fc98d62ec35b5b12609d485414e0365d69e5ae5",
   "admission": {
     "transition_id": "assurance-transition://ontology_revision/clinical-intake~patient-intake~2/transition/6",
-    "content_hash": "sha256:83193aef55df234c12eb99d877866b03a952e1d104f18292fe592703f4af71ce",
+    "content_hash": "sha256:e1455e9493637c4b0ef8a583ae6b10bb7aa9bb502bad1c3fce5d69734156cb33",
     "owner_namespace": "hypervisor-assurance-transitions",
-    "stream_tail": "assurance-transition-subject/ontology_revision",
-    "agentgres_operation_ref": "agentgres://operation/hypervisor-assurance-transitions/1",
-    "agentgres_receipt_ref": "agentgres://receipt/hypervisor-assurance-transitions/1",
+    "stream_tail": "assurance-transition-subject.8c9447b4a4cdb2d33fc9cff15fc98d62ec35b5b12609d485414e0365d69e5ae5",
+    "agentgres_operation_ref": "agentgres://operation/event-stream/hypervisor-assurance-transitions/assurance-transition-subject.8c9447b4a4cdb2d33fc9cff15fc98d62ec35b5b12609d485414e0365d69e5ae5/sequence/6/head/sha256:d22ae9f96db8c882f8c695184151b79067a00093b46414b872d4653d5dcb77cc",
+    "agentgres_receipt_ref": "receipt://agentgres/event-stream/hypervisor-assurance-transitions/assurance-transition-subject.8c9447b4a4cdb2d33fc9cff15fc98d62ec35b5b12609d485414e0365d69e5ae5/batch/6/5788d586801befcc0eb79677a630e6a37de8c2b031a491dd679cd295abbd2b58",
     "admission_seq": 6,
-    "admission_head": "head-6",
-    "admission_root": "root-6",
-    "expected_predecessor_head": "head-5"
-  }
+    "admission_head": "sha256:d22ae9f96db8c882f8c695184151b79067a00093b46414b872d4653d5dcb77cc",
+    "admission_root": "sha256:5788d586801befcc0eb79677a630e6a37de8c2b031a491dd679cd295abbd2b58",
+    "expected_predecessor_head": "sha256:fe210207822b2a714bcf628c8c4460d85e5cccf1867bf6f63e5c3615d2c0749d"
+  },
+  "authority_nonclaim": "assurance_transition_grants_no_authority",
+  "verdict_nonclaim": "assurance_transition_is_not_a_verdict"
 }

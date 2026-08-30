@@ -117387,8 +117387,8 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json"#,
@@ -117398,8 +117398,8 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json"#,
@@ -117409,8 +117409,8 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json"#,
@@ -117420,8 +117420,8 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
-        oracle_contract_accept: false,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json"#,
@@ -117508,7 +117508,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
@@ -117519,7 +117519,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
@@ -117530,7 +117530,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
@@ -117541,7 +117541,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
@@ -117552,7 +117552,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
@@ -117563,7 +117563,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
@@ -117574,7 +117574,7 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         ),
         mutation_id: None,
         value_json: None,
-        ajv_schema_accept: false,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {

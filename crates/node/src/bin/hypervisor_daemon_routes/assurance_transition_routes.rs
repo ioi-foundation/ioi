@@ -624,6 +624,84 @@ fn replay_intent_divergence(
     }
 }
 
+/// Check a replaying caller's ASSERTIONS ABOUT SERVER-DERIVED FACTS against the exact command this
+/// key already admitted.
+///
+/// The semantic comparison above asks "is this the same command?". This asks a different question
+/// that the ordinary admission path asks and the replay path previously skipped: "are the things
+/// this caller CLAIMS to know about the server's own derivation actually true?"
+///
+/// The two are not the same, and the gap between them was reachable. Every one of these fields is
+/// OPTIONAL and is compared, on the ordinary path, against a value the server derived — the subject
+/// owner's current hash, the ladder's current predecessor, the next ordinal, the hash the content
+/// commits to. On a replay none of that ran, so a request whose six semantic fields matched could
+/// still carry a contradictory `expected_content_hash` or a fabricated predecessor and receive
+/// `200 replayed: true`. A success response is read as "everything you asserted holds", so
+/// answering one while a caller's assertion is false is the receipt telling a lie about itself.
+///
+/// Compared against the STORED command, not against today's derivation: the stored transition IS
+/// what that key admitted, and its own recorded values are the only correct answer to "what did the
+/// server derive when this landed?".
+///
+/// `expected_head` is DELIBERATELY ABSENT. A genuine retry follows an ambiguous response and
+/// necessarily still carries the head it originally compare-and-swapped against, which is stale by
+/// construction; refusing it would break the exact case the idempotency key exists to serve.
+/// Server-authored identity fields are absent for the opposite reason: a caller never authors them,
+/// so there is no assertion to check.
+fn replay_assertion_divergence(prior: &Value, body: &Value) -> Option<Reply> {
+    let stored = |key: &str| prior.get(key).cloned().unwrap_or(Value::Null);
+
+    if let Some(asserted) = body.get("subject_content_hash") {
+        if *asserted != stored("subject_content_hash") {
+            return Some(refuse(
+                "assurance_transition_subject_hash_substituted",
+                "subject_content_hash does not match the hash the transition this key already admitted was bound to; a replay confirms one exact command and never accepts a new claim about its subject",
+            ));
+        }
+    }
+    if let Some(asserted) = body.get("subject_family") {
+        if *asserted != stored("subject_family") {
+            return Some(refuse(
+                "assurance_transition_subject_family_substituted",
+                "subject_family does not match the family the transition this key already admitted names",
+            ));
+        }
+    }
+    if let Some(asserted) = body.get("expected_predecessor_transition_ref") {
+        if *asserted != stored("expected_predecessor_transition_ref") {
+            return Some(refuse(
+                "assurance_transition_predecessor_substituted",
+                "expected_predecessor_transition_ref does not name the predecessor the transition this key already admitted advanced from",
+            ));
+        }
+    }
+    if let Some(asserted) = body.get("expected_predecessor_transition_hash") {
+        if *asserted != stored("expected_predecessor_transition_hash") {
+            return Some(refuse(
+                "assurance_transition_predecessor_hash_substituted",
+                "expected_predecessor_transition_hash does not match the predecessor hash the transition this key already admitted advanced from",
+            ));
+        }
+    }
+    if let Some(asserted) = body.get("expected_transition_ordinal") {
+        if *asserted != stored("transition_ordinal") {
+            return Some(refuse(
+                "assurance_transition_ordinal_gap",
+                "expected_transition_ordinal does not match the ladder position the transition this key already admitted occupies",
+            ));
+        }
+    }
+    if let Some(asserted) = body.get("expected_content_hash") {
+        if *asserted != stored("content_hash") {
+            return Some(refuse(
+                "assurance_transition_content_hash_substituted",
+                "expected_content_hash does not match the hash the transition this key already admitted commits to",
+            ));
+        }
+    }
+    None
+}
+
 // ----------------------------------------------------------------------- durable ladder projection
 
 /// One admitted transition, exactly as the chain holds it.
@@ -978,6 +1056,13 @@ pub(crate) async fn handle_assurance_transition_admit(
                         "this idempotency key already admitted a transition whose '{field}' differs from this request; a key replays one exact command and is never a way to receive a stored transition in answer to a changed one"
                     ),
                 );
+            }
+            // AND THE CALLER'S ASSERTIONS STILL HAVE TO BE TRUE. Ordinary admission checks every
+            // caller-supplied claim about a server-derived fact; returning the stored success
+            // without running those checks would let a `200 replayed: true` stand as confirmation
+            // of assertions nobody ever compared.
+            if let Some(response) = replay_assertion_divergence(&document, &body) {
+                return response;
             }
             return (
                 StatusCode::OK,
@@ -1445,6 +1530,129 @@ mod tests {
                 "adjudicated",
                 "settled"
             ]
+        );
+    }
+
+    /// Load one registered fixture by file name.
+    ///
+    /// The fixtures are read from the repository rather than from an inlined copy on purpose: the
+    /// point of this regression is that the bytes a relying party would be handed are the bytes the
+    /// GENERATED projection accepts.
+    fn registered_fixture(name: &str) -> Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1")
+            .join(format!("{name}.json"));
+        let bytes = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("fixture {} is readable: {error}", path.display()));
+        serde_json::from_str(&bytes)
+            .unwrap_or_else(|error| panic!("fixture {} is JSON: {error}", path.display()))
+    }
+
+    /// EVERY REGISTERED FIXTURE, THROUGH THE GENERATED RUST PROJECTION.
+    ///
+    /// This exists because `npm run check:architecture-contracts` does NOT validate fixtures — it
+    /// proves only that the generated files are up to date with the registry. Fixture validity is
+    /// asserted by the generated golden test in `ioi-types`, which is a whole-workspace build away
+    /// and therefore easy to skip. A positive fixture that could never pass the contract it
+    /// illustrates is worse than no fixture: it is a worked example of an invalid record.
+    #[test]
+    fn every_registered_fixture_agrees_with_the_generated_projection() {
+        for name in [
+            "positive-genesis-attested",
+            "positive-exploit-outcome-retained",
+            "positive-verified-negative-outcome",
+            "positive-settled-adjudicated-predecessor",
+        ] {
+            let document = registered_fixture(name);
+            assert!(
+                validate_architecture_contract(CONTRACT_ID, &document).is_ok(),
+                "positive fixture {name} must be registered-valid: {:?}",
+                validate_architecture_contract(CONTRACT_ID, &document),
+            );
+        }
+        for name in [
+            "negative-stage-skip-attested-to-verified",
+            "negative-empty-does-not-assert",
+            "negative-verified-omits-acceptance-nonclaim",
+            "negative-unknown-outcome-class",
+            "negative-unsupported-subject-scheme",
+            "negative-genesis-carries-predecessor",
+            "negative-missing-verdict-nonclaim",
+            "negative-ladder-position-ahead-of-chain",
+            "negative-content-hash-substituted",
+            "negative-subject-substituted",
+            "negative-subject-hash-echoes-own-hash",
+            "negative-identity-family-mismatch",
+            "negative-admission-binds-other-transition",
+            "negative-admission-content-hash-substituted",
+        ] {
+            let document = registered_fixture(name);
+            assert!(
+                validate_architecture_contract(CONTRACT_ID, &document).is_err(),
+                "negative fixture {name} must be refused by the registered contract",
+            );
+        }
+    }
+
+    /// The admission block a positive fixture carries must be one the PRODUCER could have written.
+    ///
+    /// A fixture whose refs merely look plausible is a shape that happens to parse; these are the
+    /// exact forms `contract_document` builds from `agentgres::refs`, so a runtime change that moved
+    /// them would leave the corpus describing a record this daemon never emits.
+    #[test]
+    fn positive_fixture_admission_matches_the_producer_ref_shapes() {
+        let document = registered_fixture("positive-genesis-attested");
+        let subject = document["subject_ref"].as_str().expect("subject_ref");
+        let tail = stream_tail(RESOURCE_KIND, subject);
+        let admission = &document["admission"];
+        assert_eq!(admission["stream_tail"].as_str(), Some(tail.as_str()));
+        assert_eq!(admission["owner_namespace"].as_str(), Some(OWNER_NAMESPACE));
+        let head = admission["admission_head"].as_str().expect("head");
+        let root = admission["admission_root"].as_str().expect("root");
+        assert!(is_sha256(head), "admission_head is a real digest: {head}");
+        assert!(is_sha256(root), "admission_root is a real digest: {root}");
+        assert_eq!(
+            admission["agentgres_operation_ref"].as_str(),
+            Some(
+                agentgres::refs::event_stream_operation_ref(OWNER_NAMESPACE, &tail, 1, head)
+                    .as_str()
+            ),
+        );
+        assert_eq!(
+            admission["agentgres_receipt_ref"].as_str(),
+            Some(
+                agentgres::refs::event_stream_receipt_ref(OWNER_NAMESPACE, &tail, 1, root).as_str()
+            ),
+        );
+        assert_eq!(
+            document["admission_domain_ref"].as_str(),
+            Some(
+                format!(
+                    "agentgres://domain/{}",
+                    agentgres::refs::event_stream_domain(OWNER_NAMESPACE, &tail)
+                )
+                .as_str()
+            ),
+        );
+    }
+
+    /// The echo rule, isolated.
+    ///
+    /// It cannot be isolated in a FIXTURE: `subject_content_hash` sits inside the commitment, so any
+    /// record where it equals `content_hash` is a hash fixed point and necessarily trips the
+    /// commitment rule as well. The registered negative therefore fails two rules by construction —
+    /// that is a property of the design, not a defect in the corpus — and the single-rule evidence
+    /// lives here instead of being claimed there.
+    #[test]
+    fn subject_hash_echo_rule_fires_on_its_own_finding() {
+        let mut document = registered_fixture("positive-genesis-attested");
+        let echoed = document["content_hash"].clone();
+        document["subject_content_hash"] = echoed;
+        let error = validate_architecture_contract(CONTRACT_ID, &document)
+            .expect_err("an echoed subject hash is refused");
+        assert!(
+            error.contains("assurance_transition.subject_hash.is_not_this_records_own_hash"),
+            "the echo rule is among the findings: {error}",
         );
     }
 

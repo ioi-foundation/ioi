@@ -362,9 +362,20 @@ const PINNED = {
   //      foreign-qualified name against the 129710 baseline above. Module count, family mentions,
   //      judged token positions, all three writer buckets and the raw-filesystem count are again
   //      unchanged: the repair moved no owner edge.
+  //
+  //   4. Follow-up owner-review repair (2026-08-30, separate commit): validating a replaying
+  //      caller's assertions about server-derived facts before returning the stored success adds
+  //      +48 source tokens against the 129770 baseline above. Nothing else moves — not the
+  //      opaque-initialiser or foreign-qualified buckets, not the module count, not family
+  //      mentions, judged token positions, the three writer buckets or the raw-filesystem count.
+  //
+  //   5. Registered-fixture regression (2026-08-30, same follow-up commit): four focused tests that
+  //      drive every AssuranceTransitionReceipt fixture through the GENERATED Rust projection add a
+  //      further +80 source tokens against the 129818 baseline. They are test-region code and touch
+  //      no writer, family or filesystem population; every other pin below is unchanged.
   modules: 102,
   familyMentions: 284,
-  tokenMentions: 129770,
+  tokenMentions: 129898,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
