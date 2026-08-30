@@ -1946,6 +1946,419 @@ pub(crate) async fn handle_odk_descriptor_list(
 /// POST /v1/hypervisor/odk/surface-descriptors — create an OntologySurfaceDescriptor DRAFT bound to
 /// an ontology (+ optional recipe refs). `composition_pattern` must be one of the canonical patterns.
 /// `domain_app` is allowed as a pattern, but NO DomainApp object is created here.
+// ======================= M05.5 · THE INVARIANT-11 BINDING SET AND FIELD CONVERGENCE ==============
+//
+// WHAT WAS ABSENT AND WHY IT MATTERED. Non-negotiable 11 requires every ODK-generated surface to
+// declare owning ontology refs, object-model refs, data-recipe refs where applicable, policy-bound
+// data view refs, authority requirements, daemon/API dependencies, receipt obligations and
+// conformance expectations BEFORE it becomes durable product inventory. The v1 record carried none
+// of the eight. It also named its ontology binding `ontology_ref` (singular) and its recipes
+// `recipe_refs` — the unqualified name the term-boundary ruling forbids — so a stored descriptor
+// could not be checked against invariant 11 even in principle, and the field names diverged from the
+// canonical envelope in `objects/semantic-plane.md`.
+//
+// FIVE PROPERTIES ARE STRUCTURAL RATHER THAN DOCUMENTARY:
+//
+// 1. THE BINDING SET IS CARRIED, NOT DESCRIBED. All eight members are required fields of the
+//    registered v2 contract, and the record declares the set it satisfies, so a relying party with
+//    only the bytes can check invariant 11 without asking this daemon anything.
+//
+// 2. LEGACY NAMES ARE REFUSED, NOT TRANSLATED. `ontology_ref` and `recipe_refs` on an authoring
+//    request are a typed refusal. Silently mapping them onto the canonical names would make the
+//    convergence invisible and leave two spellings alive for the same fact.
+//
+// 3. ONTOLOGY REFS ARE OWNER-RESOLVED AND EXACT. Each is an admitted revision resolved through
+//    `ontology_version_routes::resolve_admitted_revision`, and that owner's committed hash is bound
+//    verbatim. A family head — `ontology://ns/name` — is refused: durable product inventory may not
+//    silently re-mean itself when the family advances.
+//
+// 4. AUTHORING IS AN ORDINARY GOVERNED MUTATION. It crosses `odk_admit` — authenticated owner scope,
+//    caller idempotency, compare-and-swap, Agentgres admission, receipt — and NOT a CapabilityLease
+//    or an AuthorityGrant. The stale wording that said otherwise was withdrawn by ruling and the
+//    record carries `capability_lease_crossing` as an explicit nonclaim so it cannot creep back.
+//
+// 5. v1 IS READABLE, NEVER REINTERPRETED. A stored v1 record keeps its own `schema_version` and is
+//    served as itself; nothing here reads one AS a v2. Converging one is an explicit act that names
+//    the predecessor and the exact bytes it came from.
+
+/// The eight canonical members of the invariant-11 binding set, in canon's own order.
+const INVARIANT_11_BINDING_SET: &[&str] = &[
+    "ontology_refs",
+    "canonical_object_model_refs",
+    "data_recipe_refs",
+    "policy_bound_data_view_refs",
+    "authority_requirement_refs",
+    "daemon_api_refs",
+    "receipt_obligations",
+    "conformance_profile_refs",
+];
+
+/// The legacy names v1 used for two of those members. Refused on authoring, never translated.
+const LEGACY_DESCRIPTOR_FIELDS: &[(&str, &str)] = &[
+    ("ontology_ref", "ontology_refs"),
+    ("recipe_refs", "data_recipe_refs"),
+];
+
+const DESCRIPTOR_V2_SCHEMA_VERSION: &str = "ioi.ontology-surface-descriptor.v2";
+const DESCRIPTOR_V1_SCHEMA_VERSION: &str = "ioi.hypervisor.odk.surface-descriptor.v1";
+const DESCRIPTOR_V2_CONTRACT_ID: &str =
+    "schema://ioi/foundations/objects/ontology-surface-descriptor/v2";
+const DESCRIPTOR_AUTHORITY_NONCLAIM: &str = "ontology_surface_descriptor_grants_no_authority";
+const DESCRIPTOR_TRUTH_NONCLAIM: &str =
+    "ontology_surface_descriptor_is_not_runtime_or_semantic_truth";
+/// NN 10 as a runtime refusal as well as a schema shape.
+const DESCRIPTOR_REQUIRED_NONCLAIMS: &[&str] = &[
+    "authority",
+    "capability_lease_crossing",
+    "runtime_truth",
+    "semantic_truth",
+    "permission_truth",
+    "marketplace_truth",
+];
+
+fn descriptor_refuse(code: &str, message: impl Into<String>) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message.into() } })),
+    )
+}
+
+/// A required non-empty ref set whose every member carries one of `schemes`.
+fn descriptor_ref_set(
+    body: &Value,
+    key: &str,
+    schemes: &[&str],
+    min: usize,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let Some(entries) = body.get(key) else {
+        return Err(descriptor_refuse(
+            "odk_descriptor_binding_member_absent",
+            format!(
+                "'{key}' is a member of the invariant-11 binding set and must be present; an absent member and a declared empty one are different findings, and a surface that declares neither cannot be checked against invariant 11"
+            ),
+        ));
+    };
+    let Some(entries) = entries.as_array() else {
+        return Err(descriptor_refuse(
+            "odk_descriptor_binding_member_malformed",
+            format!("'{key}' must be an array of refs"),
+        ));
+    };
+    if entries.len() < min {
+        return Err(descriptor_refuse(
+            "odk_descriptor_binding_member_empty",
+            format!("'{key}' needs at least {min} ref(s)"),
+        ));
+    }
+    let mut seen: Vec<String> = Vec::new();
+    for entry in entries {
+        let value = entry.as_str().unwrap_or("").trim().to_string();
+        if !schemes.iter().any(|scheme| value.starts_with(scheme)) {
+            return Err(descriptor_refuse(
+                "odk_descriptor_binding_ref_not_canonical",
+                format!("'{key}' carries '{value}', which is not one of {schemes:?}"),
+            ));
+        }
+        if seen.contains(&value) {
+            return Err(descriptor_refuse(
+                "odk_descriptor_binding_ref_duplicated",
+                format!("'{key}' declares '{value}' twice"),
+            ));
+        }
+        seen.push(value);
+    }
+    Ok(json!(seen))
+}
+
+/// Build one admitted v2 descriptor record, or refuse.
+fn build_descriptor_v2(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+    id: &str,
+    owner_ref: &str,
+    pattern: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    // THE VERSION GATE IS FIRST AND IT REFUSES RATHER THAN DOWNGRADING.
+    match body.get("schema_version") {
+        Some(Value::String(declared)) if declared == DESCRIPTOR_V2_SCHEMA_VERSION => {}
+        Some(Value::String(declared)) if declared == DESCRIPTOR_V1_SCHEMA_VERSION => {
+            return Err(descriptor_refuse(
+                "odk_descriptor_version_superseded",
+                format!(
+                    "'{DESCRIPTOR_V1_SCHEMA_VERSION}' carries none of the invariant-11 binding set and is no longer authorable; new descriptors are authored at '{DESCRIPTOR_V2_SCHEMA_VERSION}'. Stored v1 records remain readable and are never reinterpreted as v2"
+                ),
+            ))
+        }
+        Some(declared) => {
+            return Err(descriptor_refuse(
+                "odk_descriptor_version_unsupported",
+                format!(
+                    "this build authors {DESCRIPTOR_V2_SCHEMA_VERSION} only; '{declared}' is refused rather than downgraded"
+                ),
+            ))
+        }
+        None => {
+            return Err(descriptor_refuse(
+                "odk_descriptor_version_required",
+                format!(
+                    "schema_version is required and must be '{DESCRIPTOR_V2_SCHEMA_VERSION}'; an unversioned authoring request used to mint a descriptor with no binding set at all"
+                ),
+            ))
+        }
+    }
+
+    // LEGACY NAMES ARE REFUSED, NOT TRANSLATED. Mapping them silently would leave two live spellings
+    // for one fact and make the convergence invisible to everyone downstream.
+    for (legacy, canonical) in LEGACY_DESCRIPTOR_FIELDS {
+        if body.get(*legacy).is_some() {
+            return Err(descriptor_refuse(
+                "odk_descriptor_legacy_field_name",
+                format!(
+                    "'{legacy}' is the v1 name for '{canonical}'; it is refused rather than translated, because silently accepting it would keep two spellings alive for one canonical field"
+                ),
+            ));
+        }
+    }
+
+    let display_name = body
+        .get("display_name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+    if display_name.is_empty() || display_name.len() > 160 {
+        return Err(descriptor_refuse(
+            "odk_descriptor_display_name_required",
+            "display_name is required and is 1..160 characters",
+        ));
+    }
+    let surface_ref = body
+        .get("surface_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+    if !surface_ref.starts_with("surface://") || surface_ref.len() > 250 {
+        return Err(descriptor_refuse(
+            "odk_descriptor_surface_ref_not_canonical",
+            "surface_ref must be a 'surface://' ref",
+        ));
+    }
+
+    // THE EIGHT MEMBERS. `data_recipe_refs` may be empty — canon says 'where applicable' — but it
+    // must be PRESENT, because an absent member and a declared 'this surface binds none' are
+    // different findings and only one of them is checkable.
+    let ontology_refs = descriptor_ref_set(body, "ontology_refs", &["ontology://"], 1)?;
+    let object_models =
+        descriptor_ref_set(body, "canonical_object_model_refs", &["object-model://"], 1)?;
+    let data_recipes = descriptor_ref_set(body, "data_recipe_refs", &["data-recipe://"], 0)?;
+    let policy_views = descriptor_ref_set(body, "policy_bound_data_view_refs", &["view://"], 1)?;
+    let authority_requirements = descriptor_ref_set(
+        body,
+        "authority_requirement_refs",
+        &["policy://", "grant://", "scope:"],
+        1,
+    )?;
+    let daemon_apis = descriptor_ref_set(body, "daemon_api_refs", &["api://"], 1)?;
+    let receipt_obligations = descriptor_ref_set(body, "receipt_obligations", &["receipt://"], 1)?;
+    let conformance_profiles =
+        descriptor_ref_set(body, "conformance_profile_refs", &["profile://"], 1)?;
+
+    // The remaining canonical envelope members. Optional in cardinality, required in presence.
+    let connector_mappings =
+        descriptor_ref_set(body, "connector_mapping_refs", &["mapping://"], 0)?;
+    let projections = descriptor_ref_set(body, "ontology_projection_refs", &["projection://"], 0)?;
+    let allowed_actions = descriptor_ref_set(
+        body,
+        "allowed_action_refs",
+        &["action://", "ontology-action://"],
+        0,
+    )?;
+    let operator_contracts =
+        descriptor_ref_set(body, "operator_contract_refs", &["contract://"], 0)?;
+    let mcp_contracts = descriptor_ref_set(body, "mcp_contract_refs", &["mcp-profile://"], 0)?;
+    let generated_artifacts =
+        descriptor_ref_set(body, "generated_artifact_refs", &["artifact://"], 0)?;
+
+    // OWNER RESOLUTION, NOT A PREFIX CHECK. Each ontology ref is resolved by the family's own
+    // published reader, which also decides authorization, and that owner's committed hash is bound
+    // verbatim. A caller with no scope on a family cannot bind it, and a family head is refused by
+    // the resolver's own identity parser before anything else happens.
+    let identity = match super::substrate_store::resolve_request_identity(data_dir, headers) {
+        Ok(identity) => identity,
+        Err(error) => return Err(odk_scope_refusal(error)),
+    };
+    let mut bound = Vec::new();
+    for entry in ontology_refs.as_array().into_iter().flatten() {
+        let reference = entry.as_str().unwrap_or_default();
+        let resolved = super::ontology_version_routes::resolve_admitted_revision(
+            data_dir, &identity, reference,
+        )
+        .map_err(|(status, Json(payload))| {
+            (
+                status,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "odk_descriptor_ontology_ref_unresolved",
+                        "message": format!(
+                            "'{reference}' is not an exact admitted ontology revision this caller may bind; a surface descriptor binds owner-resolved revisions, never a family head and never a ref it merely spells correctly"
+                        ),
+                        "owner_refusal": payload,
+                    }
+                })),
+            )
+        })?;
+        bound.push(json!({
+            "ontology_revision_ref": resolved.ontology_id,
+            "ontology_content_hash": resolved.content_hash,
+        }));
+    }
+
+    let declared_nonclaims: Vec<String> = body
+        .get("does_not_assert")
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+    if let Some(missing) = DESCRIPTOR_REQUIRED_NONCLAIMS
+        .iter()
+        .find(|required| !declared_nonclaims.iter().any(|token| token == *required))
+    {
+        return Err(descriptor_refuse(
+            "odk_descriptor_nonclaim_incomplete",
+            format!(
+                "a descriptor must explicitly disclaim '{missing}': a descriptor that does not say so is read as claiming it by omission, and `capability_lease_crossing` in particular is the wording a withdrawn ruling once made true"
+            ),
+        ));
+    }
+
+    // MIGRATION IS EXPLICIT. A descriptor converged from a stored v1 names that predecessor and the
+    // exact bytes it came from; one authored fresh names none. A v1 record is never read AS a v2.
+    let migration = match body
+        .get("migrated_from_descriptor_ref")
+        .and_then(Value::as_str)
+    {
+        None => json!({
+            "from_schema_version": Value::Null,
+            "from_descriptor_ref": Value::Null,
+            "from_content_hash": Value::Null,
+            "compatibility": "initial",
+            "reinterprets_predecessor": false,
+        }),
+        Some(predecessor_ref) => {
+            let Some((_, predecessor_id)) = split_ref(predecessor_ref) else {
+                return Err(descriptor_refuse(
+                    "odk_descriptor_migration_source_not_canonical",
+                    "migrated_from_descriptor_ref must be a 'surface-descriptor://' ref",
+                ));
+            };
+            let Some(predecessor) = load(data_dir, KIND_SD, predecessor_id) else {
+                return Err(descriptor_refuse(
+                    "odk_descriptor_migration_source_unresolved",
+                    format!("'{predecessor_ref}' does not resolve to a stored descriptor"),
+                ));
+            };
+            if predecessor.get("schema_version").and_then(Value::as_str)
+                != Some(DESCRIPTOR_V1_SCHEMA_VERSION)
+            {
+                return Err(descriptor_refuse(
+                    "odk_descriptor_migration_source_not_v1",
+                    "a convergence names a stored v1 predecessor; a v2 record is not converged from another v2",
+                ));
+            }
+            json!({
+                "from_schema_version": DESCRIPTOR_V1_SCHEMA_VERSION,
+                "from_descriptor_ref": predecessor_ref,
+                "from_content_hash": descriptor_content_hash(&predecessor),
+                "compatibility": "converged_from_v1",
+                "reinterprets_predecessor": false,
+            })
+        }
+    };
+
+    let mut record = json!({
+        "schema_version": DESCRIPTOR_V2_SCHEMA_VERSION,
+        "surface_descriptor_id": format!("surface-descriptor://{id}"),
+        "descriptor_record_profile": "ontology_surface_descriptor",
+        "surface_ref": surface_ref,
+        "display_name": display_name,
+        "owner_ref": owner_ref,
+        "composition_pattern": pattern,
+        "ontology_refs": ontology_refs,
+        "bound_ontology_revisions": bound,
+        "bound_ontology_revision_count": bound.len(),
+        "ontology_resolved_by": "ontology_version_routes::resolve_admitted_revision",
+        "canonical_object_model_refs": object_models,
+        "data_recipe_refs": data_recipes,
+        "connector_mapping_refs": connector_mappings,
+        "policy_bound_data_view_refs": policy_views,
+        "ontology_projection_refs": projections,
+        "allowed_action_refs": allowed_actions,
+        "daemon_api_refs": daemon_apis,
+        "operator_contract_refs": operator_contracts,
+        "mcp_contract_refs": mcp_contracts,
+        "authority_requirement_refs": authority_requirements,
+        "receipt_obligations": receipt_obligations,
+        "conformance_profile_refs": conformance_profiles,
+        "generated_artifact_refs": generated_artifacts,
+        "invariant_11_binding_set": INVARIANT_11_BINDING_SET,
+        "invariant_11_member_count": INVARIANT_11_BINDING_SET.len(),
+        "migration": migration,
+        "constants": {
+            "member_ontology_refs": "ontology_refs",
+            "member_canonical_object_model_refs": "canonical_object_model_refs",
+            "member_data_recipe_refs": "data_recipe_refs",
+            "member_policy_bound_data_view_refs": "policy_bound_data_view_refs",
+            "member_authority_requirement_refs": "authority_requirement_refs",
+            "member_daemon_api_refs": "daemon_api_refs",
+            "member_receipt_obligations": "receipt_obligations",
+            "member_conformance_profile_refs": "conformance_profile_refs",
+            "nonclaim_authority_token": "authority",
+        },
+        "authority_nonclaim": DESCRIPTOR_AUTHORITY_NONCLAIM,
+        "truth_nonclaim": DESCRIPTOR_TRUTH_NONCLAIM,
+        "does_not_assert": declared_nonclaims,
+        "status": "draft",
+    });
+    record["content_hash"] = json!(descriptor_content_hash(&record));
+
+    // The projected record is validated against the REGISTERED contract before it can be admitted,
+    // so an unprojectable descriptor is a refusal here rather than permanently durable bytes that
+    // the read path can only answer 502 about.
+    if let Err(reason) =
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            DESCRIPTOR_V2_CONTRACT_ID,
+            &record,
+        )
+    {
+        return Err(descriptor_refuse(
+            "odk_descriptor_not_registered_valid",
+            format!("the descriptor this request builds is not registered-valid: {reason}"),
+        ));
+    }
+    Ok(record)
+}
+
+/// SHA-256 over the JCS bytes of a descriptor minus its own hash field.
+fn descriptor_content_hash(record: &Value) -> String {
+    use sha2::Digest;
+    let mut material = record.clone();
+    if let Some(object) = material.as_object_mut() {
+        object.remove("content_hash");
+    }
+    let bytes = serde_jcs::to_vec(&json!({
+        "domain": "ioi.ontology-surface-descriptor-content-commitment-jcs-sha256.v2",
+        "record": material,
+    }))
+    .unwrap_or_default();
+    format!("sha256:{:x}", sha2::Sha256::digest(&bytes))
+}
+
 pub(crate) async fn handle_odk_descriptor_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -1989,44 +2402,20 @@ pub(crate) async fn handle_odk_descriptor_create(
             &format!("composition_pattern must be one of {COMPOSITION_PATTERNS:?}"),
         );
     }
-    let ontology_ref = body
-        .get("ontology_ref")
-        .and_then(|v| v.as_str())
-        .map(str::trim)
-        .unwrap_or("");
-    if let Err((c, m)) = require_local_ref(&st.data_dir, ontology_ref, "ontology", "ontology_ref") {
-        return bad(&c, &m);
-    }
-    let recipe_refs = str_refs(&body, "recipe_refs");
-    if let Err((c, m)) =
-        require_local_ref_list(&st.data_dir, &recipe_refs, "recipe", "recipe_ref", false)
-    {
-        return bad(&c, &m);
-    }
     // Identity is derived from the owner + caller key, never from wall-clock nanos: a replayed
     // request must resolve to the SAME resource, which a timestamp id can never do.
-    let id = odk_derived_id(
-        "sd",
-        body.get("owner_ref").and_then(|v| v.as_str()).unwrap_or(""),
-        body.get("idempotency_key")
-            .and_then(|v| v.as_str())
-            .unwrap_or(""),
-    );
-    let record = json!({
-        "schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
-        "object": "ioi.hypervisor.odk.surface_descriptor",
-        "id": id,
-        "ref": format!("surface-descriptor://{id}"),
-        "name": body.get("name").and_then(|v| v.as_str()).unwrap_or("surface-descriptor"),
-        "description": body.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-        "status": "draft",
-        "composition_pattern": pattern,
-        "ontology_ref": ontology_ref,
-        "recipe_refs": recipe_refs,
-        "owner_ref": owner_ref,
-        // Opaque view configuration (no generated UI artifact is produced).
-        "view_config": body.get("view_config").cloned().unwrap_or_else(|| json!({}))
-    });
+    let id = odk_derived_id("sd", owner_ref, idempotency_key);
+
+    // M05.5 — NEW AUTHORING USES THE SUCCESSOR, AND THE LEGACY SHAPE IS REFUSED RATHER THAN ACCEPTED.
+    //
+    // A descriptor authored today without the invariant-11 binding set becomes durable product
+    // inventory that no reader can check against invariant 11 — which is exactly the state this unit
+    // exists to end. Stored v1 records stay READABLE on the query path under explicit compatibility
+    // rules and are never reinterpreted as v2; what is closed here is authoring NEW ones.
+    let record = match build_descriptor_v2(&st.data_dir, &headers, &body, &id, owner_ref, pattern) {
+        Ok(record) => record,
+        Err(response) => return response,
+    };
 
     odk_admit(
         &st.data_dir,
@@ -2095,28 +2484,39 @@ pub(crate) async fn handle_odk_descriptor_patch(
             );
         }
     }
-    if let Some(oref) = body.get("ontology_ref").and_then(|v| v.as_str()) {
-        if let Err((c, m)) = require_local_ref(&st.data_dir, oref, "ontology", "ontology_ref") {
-            return bad(&c, &m);
+    // M05.5 — THE LEGACY NAMES CANNOT COME BACK THROUGH PATCH EITHER. Refusing them at create and
+    // accepting them here would leave the convergence one request away from being undone, and a v2
+    // record carrying `ontology_ref` would be exactly the divergence this unit closed.
+    let stored_version = d
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    for (legacy, canonical) in LEGACY_DESCRIPTOR_FIELDS {
+        if body.get(*legacy).is_some() {
+            return descriptor_refuse(
+                "odk_descriptor_legacy_field_name",
+                format!(
+                    "'{legacy}' is the v1 name for '{canonical}' and is refused on patch as it is on create; a converged descriptor does not acquire the legacy spelling back one request later"
+                ),
+            );
         }
     }
-    if body.get("recipe_refs").is_some() {
-        if let Err((c, m)) = require_local_ref_list(
-            &st.data_dir,
-            &str_refs(&body, "recipe_refs"),
-            "recipe",
-            "recipe_ref",
-            false,
-        ) {
-            return bad(&c, &m);
-        }
+    // A STORED v1 IS READABLE, NOT EDITABLE INTO A v2. Patching one would either reinterpret it —
+    // reading bytes that never carried the binding set as though they did — or mint a half-converged
+    // record. Convergence is its own explicit act, through create, naming this record as its source.
+    if stored_version == DESCRIPTOR_V1_SCHEMA_VERSION {
+        return descriptor_refuse(
+            "odk_descriptor_v1_is_readable_not_patchable",
+            format!(
+                "this descriptor is a stored '{DESCRIPTOR_V1_SCHEMA_VERSION}' record; it remains readable exactly as admitted and is never edited into a '{DESCRIPTOR_V2_SCHEMA_VERSION}'. Converge it explicitly by authoring a successor that names it in migrated_from_descriptor_ref"
+            ),
+        );
     }
     for key in [
-        "name",
+        "display_name",
         "description",
         "composition_pattern",
-        "ontology_ref",
-        "recipe_refs",
         "view_config",
     ] {
         if let Some(v) = body.get(key) {
@@ -2130,6 +2530,25 @@ pub(crate) async fn handle_odk_descriptor_patch(
         o.remove("created_at");
         o.remove("updated_at")
     });
+
+    // THE COMMITMENT FOLLOWS THE BYTES. An ordinary governed mutation is still a mutation: leaving
+    // the predecessor's `content_hash` on a changed record would make every later reader verify a
+    // commitment over bytes that no longer exist. The record is then re-validated against the
+    // registered contract, so a patch cannot walk a descriptor out of invariant-11 conformance.
+    if d.get("schema_version").and_then(Value::as_str) == Some(DESCRIPTOR_V2_SCHEMA_VERSION) {
+        d["content_hash"] = json!(descriptor_content_hash(&d));
+        if let Err(reason) =
+            ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+                DESCRIPTOR_V2_CONTRACT_ID,
+                &d,
+            )
+        {
+            return descriptor_refuse(
+                "odk_descriptor_not_registered_valid",
+                format!("this patch would leave the descriptor not registered-valid: {reason}"),
+            );
+        }
+    }
 
     let previous = load(&st.data_dir, KIND_SD, &id).unwrap_or_else(|| json!({}));
     odk_admit(

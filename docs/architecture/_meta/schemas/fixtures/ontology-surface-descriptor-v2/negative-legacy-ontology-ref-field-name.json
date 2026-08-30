@@ -1,0 +1,97 @@
+{
+  "schema_version": "ioi.ontology-surface-descriptor.v2",
+  "surface_descriptor_id": "surface-descriptor://sd_acme_intake_queue",
+  "descriptor_record_profile": "ontology_surface_descriptor",
+  "surface_ref": "surface://acme-clinic/intake-review-queue",
+  "display_name": "Intake review queue",
+  "owner_ref": "org://acme-clinic",
+  "composition_pattern": "review_inbox",
+  "ontology_ref": "ontology://acme-clinic/patient-intake/revision/3",
+  "bound_ontology_revisions": [
+    {
+      "ontology_revision_ref": "ontology://acme-clinic/patient-intake/revision/3",
+      "ontology_content_hash": "sha256:75ce6c2a141e45240b61a55e9c6aac193f5937b71c66ee0168bb879db1c5f401"
+    }
+  ],
+  "bound_ontology_revision_count": 1,
+  "ontology_resolved_by": "ontology_version_routes::resolve_admitted_revision",
+  "canonical_object_model_refs": [
+    "object-model://acme-clinic/patient-intake/appointment"
+  ],
+  "data_recipe_refs": [
+    "data-recipe://acme-clinic/intake-normalise/revision/1"
+  ],
+  "connector_mapping_refs": [
+    "mapping://acme-clinic/intake-form"
+  ],
+  "policy_bound_data_view_refs": [
+    "view://acme-clinic/intake/reviewer"
+  ],
+  "ontology_projection_refs": [
+    "projection://acme-clinic/intake/by-status"
+  ],
+  "allowed_action_refs": [
+    "ontology-action://acme-clinic/patient-intake/schedule-followup"
+  ],
+  "daemon_api_refs": [
+    "api://v1/hypervisor/ontology-versions"
+  ],
+  "operator_contract_refs": [
+    "contract://acme-clinic/intake-reviewer"
+  ],
+  "mcp_contract_refs": [
+    "mcp-profile://acme-clinic/intake"
+  ],
+  "authority_requirement_refs": [
+    "scope:intake.review",
+    "policy://acme-clinic/intake/reviewer"
+  ],
+  "receipt_obligations": [
+    "receipt://acme-clinic/intake/review-decision"
+  ],
+  "conformance_profile_refs": [
+    "profile://acme-clinic/intake/review-inbox/v1"
+  ],
+  "generated_artifact_refs": [],
+  "invariant_11_binding_set": [
+    "ontology_refs",
+    "canonical_object_model_refs",
+    "data_recipe_refs",
+    "policy_bound_data_view_refs",
+    "authority_requirement_refs",
+    "daemon_api_refs",
+    "receipt_obligations",
+    "conformance_profile_refs"
+  ],
+  "invariant_11_member_count": 8,
+  "content_hash": "sha256:dce9cfb8723d41c0cb622a1b734e8f43c77a1cc49a01734fe14babddbaa6f3dd",
+  "migration": {
+    "from_schema_version": null,
+    "from_descriptor_ref": null,
+    "from_content_hash": null,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false
+  },
+  "constants": {
+    "member_ontology_refs": "ontology_refs",
+    "member_canonical_object_model_refs": "canonical_object_model_refs",
+    "member_data_recipe_refs": "data_recipe_refs",
+    "member_policy_bound_data_view_refs": "policy_bound_data_view_refs",
+    "member_authority_requirement_refs": "authority_requirement_refs",
+    "member_daemon_api_refs": "daemon_api_refs",
+    "member_receipt_obligations": "receipt_obligations",
+    "member_conformance_profile_refs": "conformance_profile_refs",
+    "nonclaim_authority_token": "authority"
+  },
+  "authority_nonclaim": "ontology_surface_descriptor_grants_no_authority",
+  "truth_nonclaim": "ontology_surface_descriptor_is_not_runtime_or_semantic_truth",
+  "does_not_assert": [
+    "authority",
+    "capability_lease_crossing",
+    "runtime_truth",
+    "semantic_truth",
+    "permission_truth",
+    "marketplace_truth"
+  ],
+  "status": "active"
+}

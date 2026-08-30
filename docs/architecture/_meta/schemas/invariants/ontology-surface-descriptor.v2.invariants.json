@@ -1,0 +1,107 @@
+{
+  "$id": "invariant://ioi/foundations/objects/ontology-surface-descriptor/invariant-11-binding-set/v2",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+  "rules": [
+    {
+      "rule_id": "ontology_surface_descriptor.invariant_11.binding_set_covers_every_canonical_member",
+      "description": "INVARIANT 11, PORTABLY. The declared binding set is EXACTLY the eight members non-negotiable 11 names — owning ontology refs, object-model refs, data-recipe refs, policy-bound data view refs, authority requirements, daemon/API dependencies, receipt obligations and conformance expectations — with nothing omitted and nothing extra. The member names are pinned by the schema in `constants`, so this rule needs no literals of its own and the two fences stay independent: a build that narrowed the binding set would have to defeat the schema's enum-and-cardinality AND this exact coverage. Before this contract existed, no stored descriptor could be checked against invariant 11 at all.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.invariant_11_binding_set",
+        "required_paths": [
+          "$.constants.member_ontology_refs",
+          "$.constants.member_canonical_object_model_refs",
+          "$.constants.member_data_recipe_refs",
+          "$.constants.member_policy_bound_data_view_refs",
+          "$.constants.member_authority_requirement_refs",
+          "$.constants.member_daemon_api_refs",
+          "$.constants.member_receipt_obligations",
+          "$.constants.member_conformance_profile_refs"
+        ],
+        "required_array_paths": []
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.invariant_11.member_count_matches_the_declared_set",
+      "description": "The second, independent fence on the same claim: the declared member count equals the binding set's real length, so a shortened set would have to defeat both the schema's cardinality and this arithmetic.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.invariant_11_binding_set",
+        "count_path": "$.invariant_11_member_count"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.ontology_binding.every_owned_revision_is_counted",
+      "description": "NAMING A REVISION IS NOT BINDING ONE. The owning-ontology set and the declared count agree, so the number of revisions a descriptor claims to own is a fact about the bytes rather than about how many the reader happens to look at.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.ontology_refs",
+        "count_path": "$.bound_ontology_revision_count"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.ontology_binding.every_owned_revision_carries_an_owner_hash",
+      "description": "And the bound-hash set is the SAME size, so a descriptor that named three revisions and committed the hash of one — which reads as a complete binding and is not — fails here. Together with the uniqueness rule below, this makes 'every owned revision carries its owner's committed hash' decidable from the bytes alone.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.bound_ontology_revisions",
+        "count_path": "$.bound_ontology_revision_count"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice",
+      "description": "A duplicated entry would let a descriptor reach the required count while leaving another owned revision unbound; the pair of counts alone cannot see that, so identity is required to be unique.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.bound_ontology_revisions",
+        "fields": ["ontology_revision_ref"]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.nonclaims.authority_is_never_omitted",
+      "description": "Of the closed nonclaim vocabulary, `authority` may never be absent: a descriptor that does not say it confers no authority is read as conferring it by silence. The token is pinned by the schema, so this rule and the schema's own `contains` clause are two independent fences over one claim.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.nonclaims.does_not_assert_is_non_empty",
+      "description": "NN 10 as a checkable field. A descriptor that disclaims nothing has collapsed 'declares what a surface binds' into 'is what the surface is', which is the reading this object exists to refuse.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.does_not_assert"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.identity.surface_ref_is_not_the_descriptor_ref",
+      "description": "The surface a descriptor describes and the descriptor itself are two objects. An implementation that echoed one into the other would satisfy every shape check while binding nothing.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.surface_ref", "$.surface_descriptor_id"]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.migration.a_converged_record_names_its_exact_source_bytes",
+      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION. A descriptor converged from a stored v1 names that predecessor's exact content hash; one authored fresh at v2 names none. Both are legitimate and they are distinguishable from the bytes, so a fresh record cannot claim a provenance it does not have and a converged one cannot hide the predecessor it came from. `reinterprets_predecessor` is pinned false by the schema on both paths: a convergence ADDS the binding set its predecessor never carried and never claims the predecessor already meant this.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.migration.from_descriptor_ref",
+              "$.migration.from_content_hash"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.migration.from_content_hash"
+          }
+        ]
+      }
+    }
+  ]
+}

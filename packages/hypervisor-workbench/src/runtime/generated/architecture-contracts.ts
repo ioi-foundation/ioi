@@ -9430,6 +9430,61 @@ export type OntologyActionContractV1 = {
   status: "active" | "deprecated";
 };
 
+export type OntologySurfaceDescriptorV2 = {
+  schema_version: "ioi.ontology-surface-descriptor.v2";
+  surface_descriptor_id: string;
+  descriptor_record_profile: "ontology_surface_descriptor";
+  surface_ref: string;
+  display_name: string;
+  owner_ref: string;
+  composition_pattern: "list_detail" | "object_view" | "object_editor" | "graph" | "wizard" | "review_inbox" | "monitoring_console" | "dashboard" | "data_recipe_builder" | "connector_mapping_editor" | "domain_app";
+  ontology_refs: Array<string>;
+  bound_ontology_revisions: Array<{
+        ontology_revision_ref: string;
+        ontology_content_hash: string;
+      }>;
+  bound_ontology_revision_count: number;
+  ontology_resolved_by: "ontology_version_routes::resolve_admitted_revision";
+  canonical_object_model_refs: Array<string>;
+  data_recipe_refs: Array<string>;
+  policy_bound_data_view_refs: Array<string>;
+  authority_requirement_refs: Array<string>;
+  daemon_api_refs: Array<string>;
+  receipt_obligations: Array<string>;
+  conformance_profile_refs: Array<string>;
+  connector_mapping_refs: Array<string>;
+  ontology_projection_refs: Array<string>;
+  allowed_action_refs: Array<string>;
+  operator_contract_refs: Array<string>;
+  mcp_contract_refs: Array<string>;
+  generated_artifact_refs: Array<string>;
+  invariant_11_binding_set: Array<"ontology_refs" | "canonical_object_model_refs" | "data_recipe_refs" | "policy_bound_data_view_refs" | "authority_requirement_refs" | "daemon_api_refs" | "receipt_obligations" | "conformance_profile_refs">;
+  invariant_11_member_count: number;
+  content_hash: string;
+  migration: {
+      from_schema_version: "ioi.hypervisor.odk.surface-descriptor.v1" | null;
+      from_descriptor_ref: string | null;
+      from_content_hash: string | null;
+      compatibility: "initial" | "converged_from_v1";
+      reinterprets_predecessor: false;
+    };
+  constants: {
+      member_ontology_refs: "ontology_refs";
+      member_canonical_object_model_refs: "canonical_object_model_refs";
+      member_data_recipe_refs: "data_recipe_refs";
+      member_policy_bound_data_view_refs: "policy_bound_data_view_refs";
+      member_authority_requirement_refs: "authority_requirement_refs";
+      member_daemon_api_refs: "daemon_api_refs";
+      member_receipt_obligations: "receipt_obligations";
+      member_conformance_profile_refs: "conformance_profile_refs";
+      nonclaim_authority_token: "authority";
+    };
+  authority_nonclaim: "ontology_surface_descriptor_grants_no_authority";
+  truth_nonclaim: "ontology_surface_descriptor_is_not_runtime_or_semantic_truth";
+  does_not_assert: Array<"authority" | "capability_lease_crossing" | "runtime_truth" | "semantic_truth" | "permission_truth" | "marketplace_truth" | "registration" | "launchability" | "mount_admission" | "conformance_result">;
+  status: "draft" | "active" | "deprecated" | "revoked";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -15871,6 +15926,102 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "ontology_action_contract.migration.source_is_the_exact_predecessor_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_surface_descriptor.ontology_binding.every_owned_revision_carries_an_owner_hash"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice"
   }
 ] as const;
 
@@ -24085,6 +24236,90 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -24973,6 +25208,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:0|[1-9][0-9]*)$",
   "^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:acceptance|decision|receipt)://[^\\s]{1,500}$",
+  "^(?:action|ontology-action)://[^\\s]{1,240}$",
   "^(?:agentgres|decision)://[^\\s]{1,500}$",
   "^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$",
   "^(?:agentgres|event)://[^\\s]{1,248}$",
@@ -25079,6 +25315,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:ontology-assertion|verifier-challenge|dispute)://[^\\s]{1,248}$",
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
+  "^(?:org|project)://[^\\s]{1,240}$",
   "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
   "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$",
@@ -25302,6 +25539,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://storage-receipt/stc_[0-9a-f]+$",
   "^agentgres://trace/[^\\s]{1,240}$",
   "^akash1[02-9ac-hj-np-z]{38}$",
+  "^api://[^\\s]{1,240}$",
   "^appraisal://[^\\s]{1,248}$",
   "^appraiser://[^\\s]{1,248}$",
   "^approval-ceremony-context://[^\\s]{1,500}$",
@@ -25372,8 +25610,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^context-lease://[^\\s]{1,500}$",
   "^context-route-resolver://\\S*$",
   "^context_lease://[^\\s]{1,500}$",
+  "^contract://[^\\s]{1,240}$",
   "^controller-binding://[^\\s]+$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^data-recipe://[^\\s]{1,200}/revision/[^\\s]{1,64}$",
   "^data-recipe://[^\\s]{1,500}$",
   "^dataset-snapshot://[^\\s]{1,500}$",
   "^dataset-snapshot://foundry/[0-9a-f]{64}$",
@@ -25481,8 +25721,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^local-agent-pairing://[^\\s]{1,500}$",
   "^location://[^\\s]{1,248}$",
   "^lost-suffix://[^\\s]{1,248}$",
+  "^mapping://[^\\s]{1,240}$",
   "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^mcp-profile://[^\\s]{1,240}$",
   "^measurement-policy://[^\\s]{1,248}$",
   "^membership-transition://[^\\s]{1,248}$",
   "^migration-destination-acknowledgement://[^\\s]{1,248}$",
@@ -25544,11 +25786,13 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^prim:[a-z][a-z0-9._-]*$",
   "^prim:[a-z][a-z0-9._-]{0,127}$",
   "^privacy:[^\\s]{1,200}$",
+  "^profile://[^\\s]{1,240}$",
   "^profile://[^\\s]{1,248}$",
   "^profile://[^\\s]{1,500}$",
   "^project://[^\\s?#\\\\]+$",
   "^project://\\S*$",
   "^project:[^\\s]{1,200}$",
+  "^projection://[^\\s]{1,240}$",
   "^projection://hypervisor/product-surface/\\S*$",
   "^proof://[^\\s]+$",
   "^proof://[^\\s]{1,248}$",
@@ -25655,7 +25899,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^storage://[^\\s]{1,500}$",
   "^subscription-lease://[A-Za-z0-9._:-]+$",
   "^support-incident://[A-Za-z0-9._:-]+$",
+  "^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^surface-serving://\\S*$",
+  "^surface://[^\\s]{1,240}$",
   "^surface://[^\\s]{1,500}$",
   "^surface://\\S*$",
   "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$",
@@ -25700,6 +25946,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^verifier-contract://[^\\s]{1,248}$",
   "^verifier-path://[^\\s]{1,500}$",
   "^verifier://[^\\s]{1,248}$",
+  "^view://[^\\s]{1,240}$",
   "^wallet-auth-challenge://[A-Za-z0-9._:-]+$",
   "^wallet-ownership-proof://[A-Za-z0-9._:-]+$",
   "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$",
@@ -25952,7 +26199,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-artifact-intent/v1": "sha256:90a68419c1347290914c48a0565e575777b0e940e09beaef621a9956aafaf883",
   "schema://ioi/foundations/assurance-transition-receipt/v1": "sha256:62d284c67dd29fe5d9ae2148229b995c99c75ab6b29c03194bf4f4bc05e89733",
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27",
-  "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5"
+  "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5",
+  "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": "sha256:ca956c0b6a71aa45dc1233bc1999e0425bfe3c651a8eebc15aa79273fd1b4193"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -96153,6 +96401,478 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "title": "OntologySurfaceDescriptor",
+    "description": "The versioned successor that carries the INVARIANT-11 BINDING SET. Non-negotiable 11 of domain-ontologies-and-data-recipes.md requires every ODK-generated surface to declare owning ontology refs, object-model refs, data-recipe refs where applicable, policy-bound data view refs, authority requirements, daemon/API dependencies, receipt obligations and conformance expectations BEFORE it becomes durable product inventory. v1 carried none of them and named its ontology binding `ontology_ref`/`recipe_refs`, so no stored descriptor could be checked against invariant 11 at all. This contract lands the eight members as required fields, converges the legacy names onto canon, and binds ontology refs as EXACT admitted revisions rather than mutable family heads. AUTHORING IS AN ORDINARY GOVERNED MUTATION: a descriptor declares what a surface binds and is not runtime truth, semantic truth, permission truth or marketplace truth, and authoring one crosses no CapabilityLease and no AuthorityGrant.",
+    "x-ioi-schema-version": "ioi.ontology-surface-descriptor.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "surface_descriptor_id",
+      "descriptor_record_profile",
+      "surface_ref",
+      "display_name",
+      "owner_ref",
+      "composition_pattern",
+      "ontology_refs",
+      "bound_ontology_revisions",
+      "bound_ontology_revision_count",
+      "ontology_resolved_by",
+      "canonical_object_model_refs",
+      "data_recipe_refs",
+      "policy_bound_data_view_refs",
+      "authority_requirement_refs",
+      "daemon_api_refs",
+      "receipt_obligations",
+      "conformance_profile_refs",
+      "connector_mapping_refs",
+      "ontology_projection_refs",
+      "allowed_action_refs",
+      "operator_contract_refs",
+      "mcp_contract_refs",
+      "generated_artifact_refs",
+      "invariant_11_binding_set",
+      "invariant_11_member_count",
+      "content_hash",
+      "migration",
+      "constants",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ontology-surface-descriptor.v2"
+      },
+      "surface_descriptor_id": {
+        "$ref": "#/$defs/descriptorRef"
+      },
+      "descriptor_record_profile": {
+        "const": "ontology_surface_descriptor"
+      },
+      "surface_ref": {
+        "type": "string",
+        "pattern": "^surface://[^\\s]{1,240}$"
+      },
+      "display_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,240}$"
+      },
+      "composition_pattern": {
+        "enum": [
+          "list_detail",
+          "object_view",
+          "object_editor",
+          "graph",
+          "wizard",
+          "review_inbox",
+          "monitoring_console",
+          "dashboard",
+          "data_recipe_builder",
+          "connector_mapping_editor",
+          "domain_app"
+        ],
+        "description": "The eleven canonical members, unchanged from v1. The pattern vocabulary was already complete; it was the binding set that was absent, so this successor does not touch it."
+      },
+      "ontology_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ontologyRevisionRef"
+        },
+        "description": "INVARIANT-11 MEMBER 1, and the field-name convergence. v1 carried a singular `ontology_ref`; canon says owning ontology REFS. Each is an EXACT admitted revision — `ontology://ns/name/revision/N` — never `ontology://ns/name`. A descriptor bound to a mutable family head would silently re-mean itself whenever that family advanced, which is precisely what durable product inventory may not do."
+      },
+      "bound_ontology_revisions": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ontology_revision_ref",
+            "ontology_content_hash"
+          ],
+          "properties": {
+            "ontology_revision_ref": {
+              "$ref": "#/$defs/ontologyRevisionRef"
+            },
+            "ontology_content_hash": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "description": "The ontology owner's committed hash for each bound revision, carried verbatim from its published resolver. Naming a revision is not binding one: without the hash a relying party holding the descriptor could not tell whether the revision it names is the revision it was authored against."
+      },
+      "bound_ontology_revision_count": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 32,
+        "description": "Compared by registered invariants against BOTH `ontology_refs` and `bound_ontology_revisions`, so a descriptor that named three revisions and committed one hash — which reads as a complete binding and is not — fails on the arithmetic rather than on inspection."
+      },
+      "ontology_resolved_by": {
+        "const": "ontology_version_routes::resolve_admitted_revision",
+        "description": "The exact owner seam that produced every entry in `bound_ontology_revisions`. Pinned so a later build cannot substitute a prefix check for owner resolution while keeping the field."
+      },
+      "canonical_object_model_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^object-model://[^\\s]{1,240}$"
+        },
+        "description": "INVARIANT-11 MEMBER 2."
+      },
+      "data_recipe_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/dataRecipeRevisionRef"
+        },
+        "description": "INVARIANT-11 MEMBER 3, and the second field-name convergence: v1 called this `recipe_refs`, which is the unqualified name the term-boundary ruling forbids. Canon says 'data-recipe refs WHERE APPLICABLE', so the array may be empty — but it must be PRESENT, because an absent field and a declared 'this surface binds none' are different findings. Each entry is an exact `data-recipe://.../revision/...`, never a family head."
+      },
+      "policy_bound_data_view_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^view://[^\\s]{1,240}$"
+        },
+        "description": "INVARIANT-11 MEMBER 4."
+      },
+      "authority_requirement_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:policy://|grant://|scope:)[^\\s]{1,240}$"
+        },
+        "description": "INVARIANT-11 MEMBER 5. REQUIREMENTS, NEVER HOLDINGS. A `grant://` member names the grant class an invoker must present at the surface's own effect boundary; it is not a grant this descriptor possesses, issues, consumes or can be redeemed against. Declaring what a surface will need is the opposite of holding it."
+      },
+      "daemon_api_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^api://[^\\s]{1,240}$"
+        },
+        "description": "INVARIANT-11 MEMBER 6."
+      },
+      "receipt_obligations": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        },
+        "description": "INVARIANT-11 MEMBER 7."
+      },
+      "conformance_profile_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^profile://[^\\s]{1,240}$"
+        },
+        "description": "INVARIANT-11 MEMBER 8."
+      },
+      "connector_mapping_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^mapping://[^\\s]{1,240}$"
+        }
+      },
+      "ontology_projection_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^projection://[^\\s]{1,240}$"
+        }
+      },
+      "allowed_action_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:action|ontology-action)://[^\\s]{1,240}$"
+        },
+        "description": "What the surface may OFFER, not what it may perform. An action named here still compiles through its own `OntologyActionContract` and still passes every gate that contract names."
+      },
+      "operator_contract_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^contract://[^\\s]{1,240}$"
+        }
+      },
+      "mcp_contract_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^mcp-profile://[^\\s]{1,240}$"
+        }
+      },
+      "generated_artifact_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^artifact://[^\\s]{1,240}$"
+        }
+      },
+      "invariant_11_binding_set": {
+        "type": "array",
+        "minItems": 8,
+        "maxItems": 8,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "ontology_refs",
+            "canonical_object_model_refs",
+            "data_recipe_refs",
+            "policy_bound_data_view_refs",
+            "authority_requirement_refs",
+            "daemon_api_refs",
+            "receipt_obligations",
+            "conformance_profile_refs"
+          ]
+        },
+        "description": "INVARIANT 11 AS A FIELD, so a stored descriptor is checkable against it by a relying party who has only the bytes. Eight UNIQUE members drawn from an eight-member enum is set equality stated in the keywords the registered-contract compiler supports: omitting a member fails `minItems`, substituting one fails the enum, and duplicating one to make up the count fails `uniqueItems`. The names are the canonical field names, so a descriptor that reverted to `ontology_ref` or `recipe_refs` could not name its own binding set."
+      },
+      "invariant_11_member_count": {
+        "type": "integer",
+        "minimum": 8,
+        "maximum": 8,
+        "description": "Compared against the array's real length by a registered invariant, so a shortened binding set fails twice and independently."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_schema_version",
+          "from_descriptor_ref",
+          "from_content_hash",
+          "compatibility",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "from_schema_version": {
+            "oneOf": [
+              {
+                "const": "ioi.hypervisor.odk.surface-descriptor.v1"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "EXPLICIT MIGRATION, never silent reinterpretation. A v2 descriptor converged from a stored v1 names that predecessor and the exact bytes it was converged from. A descriptor authored fresh at v2 carries null. There is no third case: a v1 record is never READ AS a v2 record."
+          },
+          "from_descriptor_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/descriptorRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "converged_from_v1"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false,
+            "description": "A migration adds the binding set the predecessor never carried; it never claims the predecessor already meant this. v1 stays exactly as readable, and exactly as unconvergeable, as it was."
+          }
+        }
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "member_ontology_refs",
+          "member_canonical_object_model_refs",
+          "member_data_recipe_refs",
+          "member_policy_bound_data_view_refs",
+          "member_authority_requirement_refs",
+          "member_daemon_api_refs",
+          "member_receipt_obligations",
+          "member_conformance_profile_refs",
+          "nonclaim_authority_token"
+        ],
+        "description": "The eight canonical member names, pinned so a portable invariant can require `invariant_11_binding_set` to cover exactly them without the invariant language needing literals of its own. The schema fixes the vocabulary, the invariant fixes exact coverage, and a build that narrowed the binding set would have to defeat both.",
+        "properties": {
+          "member_ontology_refs": {
+            "const": "ontology_refs"
+          },
+          "member_canonical_object_model_refs": {
+            "const": "canonical_object_model_refs"
+          },
+          "member_data_recipe_refs": {
+            "const": "data_recipe_refs"
+          },
+          "member_policy_bound_data_view_refs": {
+            "const": "policy_bound_data_view_refs"
+          },
+          "member_authority_requirement_refs": {
+            "const": "authority_requirement_refs"
+          },
+          "member_daemon_api_refs": {
+            "const": "daemon_api_refs"
+          },
+          "member_receipt_obligations": {
+            "const": "receipt_obligations"
+          },
+          "member_conformance_profile_refs": {
+            "const": "conformance_profile_refs"
+          },
+          "nonclaim_authority_token": {
+            "const": "authority",
+            "description": "Pinned so a portable invariant can require `does_not_assert` to CONTAIN it without the invariant language needing a literal of its own."
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "ontology_surface_descriptor_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "ontology_surface_descriptor_is_not_runtime_or_semantic_truth",
+        "description": "Non-negotiable 10, as a field: ODK descriptors can scaffold surfaces, domain apps, evals, workers and packages, but they cannot become runtime truth, permission truth, semantic truth or marketplace truth by themselves."
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 10,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "capability_lease_crossing",
+            "runtime_truth",
+            "semantic_truth",
+            "permission_truth",
+            "marketplace_truth",
+            "registration",
+            "launchability",
+            "mount_admission",
+            "conformance_result"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            }
+          },
+          {
+            "contains": {
+              "const": "capability_lease_crossing"
+            }
+          },
+          {
+            "contains": {
+              "const": "runtime_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "semantic_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "permission_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "marketplace_truth"
+            }
+          }
+        ],
+        "description": "Six mandatory members. `capability_lease_crossing` is among them because the stale wording that made descriptor authoring an authority crossing was withdrawn by ruling and may not be reintroduced: authoring your own descriptor is not delegated authority, a secret, a decryption lease, external account access or high-risk approval, so it is an ORDINARY GOVERNED MUTATION. The vocabulary deliberately contains NO token for invariant-11 completeness: this contract CHECKS that, and a record disclaiming a binding it enforces would understate itself as surely as one overstating it. The enum is the fence — an absent member cannot be declared."
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "deprecated",
+          "revoked"
+        ],
+        "description": "Canon's four members, verbatim. The v1 record lane writes a `deleted` tombstone, which is a fifth name canon does not define; the v2 route converges that lane onto `revoked` rather than widening the enum to accommodate it. A withdrawal is a governed state of the descriptor, not a different kind of object."
+      }
+    },
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "descriptorRef": {
+        "type": "string",
+        "pattern": "^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "ontologyRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "dataRecipeRevisionRef": {
+        "type": "string",
+        "pattern": "^data-recipe://[^\\s]{1,200}/revision/[^\\s]{1,64}$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -106450,6 +107170,113 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expected_path": "$.content_hash"
       }
     }
+  ],
+  "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": [
+    {
+      "rule_id": "ontology_surface_descriptor.invariant_11.binding_set_covers_every_canonical_member",
+      "description": "INVARIANT 11, PORTABLY. The declared binding set is EXACTLY the eight members non-negotiable 11 names — owning ontology refs, object-model refs, data-recipe refs, policy-bound data view refs, authority requirements, daemon/API dependencies, receipt obligations and conformance expectations — with nothing omitted and nothing extra. The member names are pinned by the schema in `constants`, so this rule needs no literals of its own and the two fences stay independent: a build that narrowed the binding set would have to defeat the schema's enum-and-cardinality AND this exact coverage. Before this contract existed, no stored descriptor could be checked against invariant 11 at all.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.invariant_11_binding_set",
+        "required_paths": [
+          "$.constants.member_ontology_refs",
+          "$.constants.member_canonical_object_model_refs",
+          "$.constants.member_data_recipe_refs",
+          "$.constants.member_policy_bound_data_view_refs",
+          "$.constants.member_authority_requirement_refs",
+          "$.constants.member_daemon_api_refs",
+          "$.constants.member_receipt_obligations",
+          "$.constants.member_conformance_profile_refs"
+        ],
+        "required_array_paths": []
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.invariant_11.member_count_matches_the_declared_set",
+      "description": "The second, independent fence on the same claim: the declared member count equals the binding set's real length, so a shortened set would have to defeat both the schema's cardinality and this arithmetic.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.invariant_11_binding_set",
+        "count_path": "$.invariant_11_member_count"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.ontology_binding.every_owned_revision_is_counted",
+      "description": "NAMING A REVISION IS NOT BINDING ONE. The owning-ontology set and the declared count agree, so the number of revisions a descriptor claims to own is a fact about the bytes rather than about how many the reader happens to look at.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.ontology_refs",
+        "count_path": "$.bound_ontology_revision_count"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.ontology_binding.every_owned_revision_carries_an_owner_hash",
+      "description": "And the bound-hash set is the SAME size, so a descriptor that named three revisions and committed the hash of one — which reads as a complete binding and is not — fails here. Together with the uniqueness rule below, this makes 'every owned revision carries its owner's committed hash' decidable from the bytes alone.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.bound_ontology_revisions",
+        "count_path": "$.bound_ontology_revision_count"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice",
+      "description": "A duplicated entry would let a descriptor reach the required count while leaving another owned revision unbound; the pair of counts alone cannot see that, so identity is required to be unique.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.bound_ontology_revisions",
+        "fields": [
+          "ontology_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.nonclaims.authority_is_never_omitted",
+      "description": "Of the closed nonclaim vocabulary, `authority` may never be absent: a descriptor that does not say it confers no authority is read as conferring it by silence. The token is pinned by the schema, so this rule and the schema's own `contains` clause are two independent fences over one claim.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.nonclaims.does_not_assert_is_non_empty",
+      "description": "NN 10 as a checkable field. A descriptor that disclaims nothing has collapsed 'declares what a surface binds' into 'is what the surface is', which is the reading this object exists to refuse.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.does_not_assert"
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.identity.surface_ref_is_not_the_descriptor_ref",
+      "description": "The surface a descriptor describes and the descriptor itself are two objects. An implementation that echoed one into the other would satisfy every shape check while binding nothing.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.surface_ref",
+          "$.surface_descriptor_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.migration.a_converged_record_names_its_exact_source_bytes",
+      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION. A descriptor converged from a stored v1 names that predecessor's exact content hash; one authored fresh at v2 names none. Both are legitimate and they are distinguishable from the bytes, so a fresh record cannot claim a provenance it does not have and a converged one cannot hide the predecessor it came from. `reinterprets_predecessor` is pinned false by the schema on both paths: a convergence ADDS the binding set its predecessor never carried and never claims the predecessor already meant this.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.migration.from_descriptor_ref",
+              "$.migration.from_content_hash"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.migration.from_content_hash"
+          }
+        ]
+      }
+    }
   ]
 };
 
@@ -108657,4 +109484,10 @@ export function validateOntologyActionContractV1(
   value: unknown,
 ): value is OntologyActionContractV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/ontology-action-contract/v1", value).ok;
+}
+
+export function validateOntologySurfaceDescriptorV2(
+  value: unknown,
+): value is OntologySurfaceDescriptorV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/ontology-surface-descriptor/v2", value).ok;
 }

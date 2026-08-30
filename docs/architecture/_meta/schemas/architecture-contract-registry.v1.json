@@ -10769,6 +10769,93 @@
           "expected_rule_id": "ontology_action_contract.migration.source_is_the_exact_predecessor_revision"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+      "canonical_name": "OntologySurfaceDescriptor",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologysurfacedescriptorenvelope",
+      "schema_version": "ioi.ontology-surface-descriptor.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-surface-descriptor.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/ontology-surface-descriptor/invariant-11-binding-set/v2",
+          "path": "invariants/ontology-surface-descriptor.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OntologySurfaceDescriptorV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OntologySurfaceDescriptorV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
+        "fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_surface_descriptor.ontology_binding.every_owned_revision_carries_an_owner_hash"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice"
+        }
+      ]
     }
   ]
 }
