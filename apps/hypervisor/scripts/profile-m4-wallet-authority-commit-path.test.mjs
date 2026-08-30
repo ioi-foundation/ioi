@@ -1444,7 +1444,7 @@ test("FAIL CLOSED: a missing proposal-wait line refuses rather than defaulting t
   );
 });
 
-test("FAIL CLOSED: a proposal-wait line for a DIFFERENT transaction is not borrowed", () => {
+test("FAIL CLOSED: a proposal-wait line for a DIFFERENT transaction is not adopted", () => {
   // The line exists, is well-formed, and names the SAME height -- it simply
   // belongs to another transaction. Accepting it would report a wait this
   // approval never experienced, which a height-keyed join would have done.
