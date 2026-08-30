@@ -22,8 +22,11 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     # Hard ceiling so a hung step (e.g. a flaky Ubuntu mirror) fails fast and a
-    # rerun lands on a fresh VM, instead of hanging toward the 6h default.
-    timeout-minutes: 90
+    # rerun lands on a fresh VM, instead of hanging toward the 6h default. Raised
+    # from 90 when the two daemon-building M04 plane verifiers moved into this job:
+    # the serial gauntlet already ran ~88 minutes and the movers add live-daemon
+    # journeys on top.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -168,6 +171,28 @@ jobs:
           if-no-files-found: error
           path: .artifacts/implementation/package-registry-smoke
 
+      # These two M04 plane verifiers rebuild the current daemon and boot the real
+      # wallet.network fixture through cargo, so they can only run where the Rust
+      # toolchain, the native kernel-build deps, and the warm target dir all exist —
+      # this job. The product_surfaces job is Node-only by design (see the
+      # check:architecture-contracts note there) and was failing on libdbus-sys the
+      # moment either verifier invoked cargo. Their census artifacts are published
+      # below so the floors gate in product_surfaces still sees the whole family.
+      - name: Verify the daemon-building M04 planes against an isolated live daemon
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: |
+          npm run check:m4-goalrun-activation-plane --workspace=@ioi/hypervisor-app
+          npm run check:m4-outcome-room-system-spine --workspace=@ioi/hypervisor-app
+
+      - name: Publish the M04 plane verifier census
+        uses: actions/upload-artifact@v4
+        with:
+          name: m4-plane-verifier-census
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .artifacts/verifier-census
+
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
@@ -277,8 +302,6 @@ jobs:
           npm run check:skill-contracts --workspace=@ioi/hypervisor-app
           npm run check:goal-profile-contracts --workspace=@ioi/hypervisor-app
           npm run check:m3-goalrun-plane --workspace=@ioi/hypervisor-app
-          npm run check:m4-goalrun-activation-plane --workspace=@ioi/hypervisor-app
-          npm run check:m4-outcome-room-system-spine --workspace=@ioi/hypervisor-app
           npm run check:m4-work-lifecycle-plane --workspace=@ioi/hypervisor-app
           npm run check:launch-chain --workspace=@ioi/hypervisor-app
           npm run check:session-authority --workspace=@ioi/hypervisor-app
@@ -325,6 +348,14 @@ jobs:
       # The floor the verifier family never had. Every verifier above is pinned at the number of
       # assertions it actually EXECUTED; deleting assertions from any of them was silently green
       # before this gate existed. Runs after the journeys because it reads their census artifacts.
+      # The two daemon-building M04 plane verifiers run in build_and_test (they need cargo and
+      # the native kernel deps); their census lands here by artifact so the family stays whole.
+      - name: Download the M04 plane verifier census
+        uses: actions/download-artifact@v4
+        with:
+          name: m4-plane-verifier-census
+          path: .artifacts/verifier-census
+
       - name: Verify the verifier family did not shrink
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
