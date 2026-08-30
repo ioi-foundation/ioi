@@ -1016,13 +1016,21 @@ fn projection_cache_state(cache_key: &str, lineage: &[Value]) -> &'static str {
 
 // ---------------------------------------------------------------------------------- read path helpers
 
-fn read_lineage(
+/// The projected revisions AND the true head of the stream they came from.
+///
+/// THE TWO ARE NOT THE SAME THING, and conflating them is a real defect this gate caught. A challenge
+/// is its own operation on this family's stream, so after one is admitted the stream head is the
+/// CHALLENGE's head while the last REVISION still carries the older one. Exact-head admission is
+/// about the chain, so every compare-and-swap below names the stream head; deriving it from the last
+/// revision would make the second challenge — and every successor after any challenge — conflict
+/// forever.
+fn read_lineage_and_head(
     family: Family,
     data_dir: &str,
     identity: &RequestIdentity,
     scope: &RequestResourceScope,
     family_ref: &str,
-) -> Result<Vec<Value>, Reply> {
+) -> Result<(Vec<Value>, Option<String>), Reply> {
     let history = read_owner_scoped_history(
         data_dir,
         identity,
@@ -1033,13 +1041,25 @@ fn read_lineage(
         &stream_tail(family.resource_kind(), family_ref),
     )
     .map_err(mutation_refusal_reply)?;
-    project_lineage(family, &history, family_ref).map_err(|reason| {
+    let stream_head = history.last().map(|entry| entry.head.clone());
+    let lineage = project_lineage(family, &history, family_ref).map_err(|reason| {
         bad(
             StatusCode::BAD_GATEWAY,
             &format!("{}_projection_failed", family.label()),
             reason,
         )
-    })
+    })?;
+    Ok((lineage, stream_head))
+}
+
+fn read_lineage(
+    family: Family,
+    data_dir: &str,
+    identity: &RequestIdentity,
+    scope: &RequestResourceScope,
+    family_ref: &str,
+) -> Result<Vec<Value>, Reply> {
+    read_lineage_and_head(family, data_dir, identity, scope, family_ref).map(|(lineage, _)| lineage)
 }
 
 fn authorized_lineage(
@@ -1507,7 +1527,11 @@ struct LineagePosition {
     current_head: Option<String>,
 }
 
-fn lineage_position(lineage: &[Value], id_field: &str) -> LineagePosition {
+fn lineage_position(
+    lineage: &[Value],
+    id_field: &str,
+    stream_head: Option<String>,
+) -> LineagePosition {
     let predecessor = lineage.last();
     LineagePosition {
         ordinal: predecessor.map_or(1, |document| ordinal_of(document) + 1),
@@ -1517,10 +1541,7 @@ fn lineage_position(lineage: &[Value], id_field: &str) -> LineagePosition {
         predecessor_hash: predecessor
             .and_then(|document| document.get("content_hash").cloned())
             .unwrap_or(Value::Null),
-        current_head: predecessor
-            .and_then(|document| document.pointer("/admission/admission_head"))
-            .and_then(Value::as_str)
-            .map(str::to_owned),
+        current_head: stream_head,
     }
 }
 
@@ -1973,14 +1994,14 @@ pub(crate) async fn handle_ontology_overlay_admit(
         Ok(scope) => scope,
         Err(error) => return scope_refusal_reply(error),
     };
-    let lineage = match read_lineage(
+    let (lineage, stream_head) = match read_lineage_and_head(
         Family::Overlay,
         &st.data_dir,
         &caller.identity,
         &scope,
         &family_ref,
     ) {
-        Ok(lineage) => lineage,
+        Ok(pair) => pair,
         Err(response) => return response,
     };
     match replay_prior_admission(
@@ -1996,7 +2017,7 @@ pub(crate) async fn handle_ontology_overlay_admit(
         Err(response) => return response,
     }
 
-    let position = lineage_position(&lineage, "overlay_id");
+    let position = lineage_position(&lineage, "overlay_id", stream_head);
     let expected_head = match check_expected_head(Family::Overlay, &body, &position) {
         Ok(value) => value,
         Err(response) => return response,
@@ -2519,14 +2540,14 @@ pub(crate) async fn handle_ontology_crosswalk_admit(
         Ok(scope) => scope,
         Err(error) => return scope_refusal_reply(error),
     };
-    let lineage = match read_lineage(
+    let (lineage, stream_head) = match read_lineage_and_head(
         Family::Crosswalk,
         &st.data_dir,
         &caller.identity,
         &scope,
         &family_ref,
     ) {
-        Ok(lineage) => lineage,
+        Ok(pair) => pair,
         Err(response) => return response,
     };
     match replay_prior_admission(
@@ -2541,7 +2562,7 @@ pub(crate) async fn handle_ontology_crosswalk_admit(
         Ok(None) => {}
         Err(response) => return response,
     }
-    let position = lineage_position(&lineage, "ontology_mapping_id");
+    let position = lineage_position(&lineage, "ontology_mapping_id", stream_head);
     let expected_head = match check_expected_head(Family::Crosswalk, &body, &position) {
         Ok(value) => value,
         Err(response) => return response,
@@ -3056,14 +3077,14 @@ pub(crate) async fn handle_semantic_mapping_decision_admit(
         Ok(scope) => scope,
         Err(error) => return scope_refusal_reply(error),
     };
-    let lineage = match read_lineage(
+    let (lineage, stream_head) = match read_lineage_and_head(
         Family::Decision,
         &st.data_dir,
         &caller.identity,
         &scope,
         &family_ref,
     ) {
-        Ok(lineage) => lineage,
+        Ok(pair) => pair,
         Err(response) => return response,
     };
     match replay_prior_admission(
@@ -3078,7 +3099,7 @@ pub(crate) async fn handle_semantic_mapping_decision_admit(
         Ok(None) => {}
         Err(response) => return response,
     }
-    let position = lineage_position(&lineage, "ontology_mapping_id");
+    let position = lineage_position(&lineage, "ontology_mapping_id", stream_head);
     let expected_head = match check_expected_head(Family::Decision, &body, &position) {
         Ok(value) => value,
         Err(response) => return response,
@@ -3283,10 +3304,11 @@ async fn handle_challenge(
         Ok(scope) => scope,
         Err(error) => return scope_refusal_reply(error),
     };
-    let lineage = match read_lineage(family, &st.data_dir, &caller.identity, &scope, &family_ref) {
-        Ok(lineage) => lineage,
-        Err(response) => return response,
-    };
+    let (lineage, stream_head) =
+        match read_lineage_and_head(family, &st.data_dir, &caller.identity, &scope, &family_ref) {
+            Ok(pair) => pair,
+            Err(response) => return response,
+        };
     // The subject must EXIST before it can be challenged. Appending a challenge against a revision
     // this family never admitted would leave a permanently dangling standing nobody can resolve.
     let Some(subject) = lineage
@@ -3349,11 +3371,9 @@ async fn handle_challenge(
         "resolution": resolution,
         "resolution_receipt_ref": receipt_ref,
     });
-    let expected_head = lineage
-        .last()
-        .and_then(|document| document.pointer("/admission/admission_head"))
-        .and_then(Value::as_str)
-        .map(str::to_owned);
+    // The STREAM head, not the last revision's: a challenge already admitted against this family
+    // moved the stream on without minting a revision.
+    let expected_head = stream_head;
     let recorded_at_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_millis() as u64);
