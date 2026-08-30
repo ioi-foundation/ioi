@@ -13,7 +13,7 @@
   "revision_ordinal": 1,
   "predecessor_revision_ref": null,
   "predecessor_content_hash": null,
-  "content_hash": "sha256:4e574e56075f237851f44cbc76e6028de6668875742225ab7a9c316d435f43eb",
+  "content_hash": "sha256:4e86852e26917903eac9155b18b92962763da563b77e049de7c81dbaca14a4ce",
   "ontology_family_ref": "ontology://acme-clinic/patient-intake",
   "ontology_revision_ref": "ontology://acme-clinic/patient-intake/revision/3",
   "ontology_content_hash": "sha256:75ce6c2a141e45240b61a55e9c6aac193f5937b71c66ee0168bb879db1c5f401",
@@ -34,8 +34,8 @@
   "bound_tool_authority_scopes_required": [
     "scope:mail.send"
   ],
-  "typed_input_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/input/v1",
-  "typed_output_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/output/v1",
+  "typed_input_schema_ref": "schema://runtime-tool-contract/input/sha256:120d104a5e0326ce909f3ae7f703764384d6704bc6b0751e19dcbe70af6d8e61",
+  "typed_output_schema_ref": "schema://runtime-tool-contract/output/sha256:96722fa00dbf6e293ae18b78ae99115d33874560be354360cf2f6d23c802ed70",
   "target_object_model_refs": [
     "object-model://acme-clinic/patient-intake/appointment"
   ],
@@ -114,7 +114,7 @@
   },
   "admission": {
     "ontology_action_id": "ontology-action://acme-clinic/patient-intake/schedule-followup/revision/1",
-    "content_hash": "sha256:4e574e56075f237851f44cbc76e6028de6668875742225ab7a9c316d435f43eb",
+    "content_hash": "sha256:4e86852e26917903eac9155b18b92962763da563b77e049de7c81dbaca14a4ce",
     "owner_namespace": "hypervisor-ontology-action-contracts",
     "stream_tail": "ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7",
     "agentgres_operation_ref": "agentgres://operation/event-stream/hypervisor-ontology-action-contracts/ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7/sequence/1/head/sha256:7247e8d0a3e90f3a4e6e2899480fc38080f761a91553124384ff4232e05d416f",

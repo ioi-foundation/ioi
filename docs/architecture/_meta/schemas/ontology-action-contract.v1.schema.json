@@ -207,10 +207,10 @@
       }
     },
     "typed_input_schema_ref": {
-      "$ref": "#/$defs/typedSchemaRef"
+      "$ref": "#/$defs/inputTypedSchemaRef"
     },
     "typed_output_schema_ref": {
-      "$ref": "#/$defs/typedSchemaRef"
+      "$ref": "#/$defs/outputTypedSchemaRef"
     },
     "target_object_model_refs": {
       "type": "array",
@@ -673,9 +673,13 @@
       "type": "string",
       "pattern": "^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$"
     },
-    "typedSchemaRef": {
+    "inputTypedSchemaRef": {
       "type": "string",
-      "pattern": "^(?:schema|artifact)://[^\\s]{1,240}$"
+      "pattern": "^schema://runtime-tool-contract/input/sha256:[0-9a-f]{64}$"
+    },
+    "outputTypedSchemaRef": {
+      "type": "string",
+      "pattern": "^schema://runtime-tool-contract/output/sha256:[0-9a-f]{64}$"
     },
     "policyRef": {
       "type": "string",

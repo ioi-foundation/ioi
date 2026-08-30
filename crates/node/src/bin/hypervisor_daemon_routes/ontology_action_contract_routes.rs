@@ -70,6 +70,7 @@ use super::ontology_version_routes::resolve_admitted_action_type;
 use super::substrate_store::{
     authorize_request_resource_scope, authorized_request_resource_refs,
     bind_request_resource_scope, resolve_request_identity, RequestIdentity, RequestResourceScope,
+    RequestScopeRefusal,
 };
 use super::DaemonState;
 
@@ -207,6 +208,22 @@ fn canonical_token(value: &str, max_len: usize) -> bool {
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
 }
 
+fn canonical_action_revision_ref(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix("ontology-action://") else {
+        return false;
+    };
+    let parts = rest.split('/').collect::<Vec<_>>();
+    parts.len() == 5
+        && canonical_token(parts[0], 63)
+        && canonical_token(parts[1], 63)
+        && canonical_token(parts[2], 63)
+        && parts[3] == "revision"
+        && !parts[4].starts_with('0')
+        && parts[4]
+            .parse::<u64>()
+            .is_ok_and(|ordinal| ordinal > 0 && ordinal <= MAX_REVISION_ORDINAL)
+}
+
 fn str_field<'a>(body: &'a Value, key: &str) -> &'a str {
     body.get(key)
         .and_then(Value::as_str)
@@ -223,6 +240,10 @@ fn revision_ref(namespace: &str, name: &str, action_slug: &str, ordinal: u64) ->
         "{}/revision/{ordinal}",
         family_ref(namespace, name, action_slug)
     )
+}
+
+fn typed_tool_schema_ref(direction: &str, schema_hash: &str) -> String {
+    format!("schema://runtime-tool-contract/{direction}/{schema_hash}")
 }
 
 fn version_label(ordinal: u64) -> String {
@@ -294,6 +315,7 @@ const CONTENT_MATERIAL_FIELDS: &[&str] = &[
     "authority_nonclaim",
     "invocation_nonclaim",
     "valid_time",
+    "migration",
 ];
 
 fn digest_over(record: &Value, domain: &str, fields: &[&str]) -> Result<String, String> {
@@ -347,6 +369,7 @@ struct ProposedContract {
     receipt_obligations: Value,
     does_not_assert: Value,
     valid_time: Value,
+    compatibility: Option<String>,
 }
 
 fn parse_time(value: &str) -> Option<u64> {
@@ -458,7 +481,10 @@ fn ref_set(
                 format!("{key} carries a ref that is oversized or non-ASCII: '{value}'"),
             ));
         }
-        if !schemes.iter().any(|scheme| value.starts_with(scheme)) {
+        if !schemes
+            .iter()
+            .any(|scheme| value.starts_with(scheme) && value.len() > scheme.len())
+        {
             return Err(refuse(
                 "ontology_action_contract_ref_scheme_unknown",
                 format!("{key} carries '{value}', which uses none of the schemes {schemes:?} this field admits"),
@@ -483,7 +509,9 @@ fn required_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<String, Rep
         || value
             .bytes()
             .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control() || !byte.is_ascii())
-        || !schemes.iter().any(|scheme| value.starts_with(scheme))
+        || !schemes
+            .iter()
+            .any(|scheme| value.starts_with(scheme) && value.len() > scheme.len())
     {
         return Err(refuse(
             "ontology_action_contract_ref_not_canonical",
@@ -498,6 +526,7 @@ fn optional_ref(body: &Value, key: &str, scheme: &str) -> Result<Value, Reply> {
         None | Some(Value::Null) => Ok(Value::Null),
         Some(Value::String(value))
             if value.starts_with(scheme)
+                && value.len() > scheme.len()
                 && value.len() <= scheme.len() + 240
                 && !value.bytes().any(|byte| {
                     byte.is_ascii_whitespace() || byte.is_ascii_control() || !byte.is_ascii()
@@ -729,6 +758,20 @@ fn validate_proposal(body: &Value) -> Result<ProposedContract, Reply> {
     )?;
     let does_not_assert = validate_nonclaims(body)?;
     let valid_time = validate_valid_time(body)?;
+    let compatibility = match body.get("compatibility") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(value))
+            if matches!(value.as_str(), "initial" | "additive" | "breaking") =>
+        {
+            Some(value.clone())
+        }
+        Some(_) => {
+            return Err(refuse(
+                "ontology_action_contract_compatibility_not_canonical",
+                "compatibility must be 'initial', 'additive', or 'breaking' when present",
+            ))
+        }
+    };
 
     // INV-37. Everything below is RESOLVED by this module or by another owner. A caller may ASSERT
     // any of them through an `expected_*` field and receive a typed refusal on disagreement; it may
@@ -806,6 +849,7 @@ fn validate_proposal(body: &Value) -> Result<ProposedContract, Reply> {
         receipt_obligations,
         does_not_assert,
         valid_time,
+        compatibility,
     })
 }
 
@@ -816,7 +860,6 @@ struct ResolvedSemantics {
     ontology_family_ref: String,
     ontology_revision_ref: String,
     ontology_content_hash: String,
-    action_label: String,
 }
 
 /// Resolve the exact admitted semantic action: the revision that defines it, and the action itself.
@@ -855,7 +898,6 @@ fn resolve_semantics(
         ontology_family_ref: action.ontology_family_ref,
         ontology_revision_ref: action.ontology_id,
         ontology_content_hash: action.content_hash,
-        action_label: action.action_label,
     })
 }
 
@@ -1006,6 +1048,31 @@ fn project_admitted(entry: &ExactProjection) -> Result<AdmittedRevision, String>
             .map_or(Value::Null, Value::String),
         recorded_at_ms: entry.operation.recorded_at_ms,
     })
+}
+
+/// Validate the complete registered contract before the canonical operation chain is mutated.
+///
+/// Admission refs and transaction time do not exist until Agentgres accepts the operation, so the
+/// preflight uses the schema's explicit `admission: null` form and a fixed transaction-time cell.
+/// Those fields are outside the content commitment. The actual non-null admission document is
+/// independently rebuilt and validated by `contract_document` after commit. This first fence is
+/// what prevents a producer/schema mismatch from appending an invalid record and poisoning every
+/// later projection of the family.
+fn validate_contract_before_admission(record: &Value, family: &str) -> Result<(), String> {
+    let mut document = record.clone();
+    let tail = stream_tail(RESOURCE_KIND, family);
+    document["admission_domain_ref"] = json!(format!(
+        "agentgres://domain/{}",
+        agentgres::refs::event_stream_domain(OWNER_NAMESPACE, &tail)
+    ));
+    document["transaction_time"] = json!({
+        "recorded_at": "1970-01-01T00:00:00Z",
+        "superseded_at": null,
+    });
+    document["admission"] = Value::Null;
+    document["status"] = json!("active");
+    validate_architecture_contract(CONTRACT_ID, &document)
+        .map_err(|reason| format!("prospective action contract is not registered-valid: {reason}"))
 }
 
 /// Assemble the registered `OntologyActionContract` document for one admitted revision.
@@ -1177,6 +1244,25 @@ fn authorized_lineage(
 
 // ----------------------------------------------------------------------- idempotent replay intent
 
+fn compatibility_for_ordinal(proposal: &ProposedContract, ordinal: u64) -> Result<&str, Reply> {
+    match (ordinal, proposal.compatibility.as_deref()) {
+        (1, None | Some("initial")) => Ok("initial"),
+        (2.., Some(value @ ("additive" | "breaking"))) => Ok(value),
+        (1, Some(_)) => Err(refuse(
+            "ontology_action_contract_compatibility_not_initial",
+            "the first revision of a family has 'initial' compatibility",
+        )),
+        (2.., _) => Err(refuse(
+            "ontology_action_contract_compatibility_required",
+            "a successor declares 'additive' or 'breaking'; compatibility is part of the immutable revision commitment",
+        )),
+        _ => Err(refuse(
+            "ontology_action_contract_compatibility_not_canonical",
+            "revision ordinal must be positive before compatibility can be derived",
+        )),
+    }
+}
+
 /// The intent a replayed key must still be asking about.
 ///
 /// REPLAY ONLY AN IDENTICAL COMMAND. Answering from the projected lineage without first comparing
@@ -1197,10 +1283,9 @@ fn authorized_lineage(
 ///
 /// TWO CLASSES OF FIELD ARE DELIBERATELY EXCLUDED, and each is excluded for a stated reason:
 ///
-///   * `ontology_revision_ref`, `runtime_tool_contract_revision_ref` and
-///     `runtime_tool_contract_content_hash` are bound from the OWNER-RESOLVED values rather than the
-///     caller's raw strings, because that is what the stored document holds. Comparing the raw
-///     request text would make a canonically-identical retry read as a changed intent.
+///   * Exact ontology/tool revision refs and the tool hash are compared from the request itself on
+///     replay. They are canonical identities, so no current registry lookup is needed to answer a
+///     historical retry after restart or revocation; fresh admission still resolves all three.
 ///   * `expected_head` is not compared at all. A genuine retry after an ambiguous response
 ///     necessarily carries the PRE-ADMISSION head, so requiring it to match would turn every real
 ///     duplicate into a conflict and make the idempotency key unusable — which is the same reason
@@ -1210,20 +1295,18 @@ fn authorized_lineage(
 /// derived family refs, the gate ladder, the content hash — are never caller intent and are not here.
 fn proposal_intent(
     proposal: &ProposedContract,
-    semantics: &ResolvedSemantics,
-    tool: &ResolvedTool,
-) -> BTreeMap<&'static str, Value> {
+    ordinal: u64,
+) -> Result<BTreeMap<&'static str, Value>, Reply> {
     let ProposedContract {
         namespace,
         name,
         action_slug,
         governing_scope_ref,
         policy_hash,
-        // Owner-resolved below, from `semantics` and `tool`.
-        ontology_revision_ref: _,
+        ontology_revision_ref,
         action_type_ref,
-        runtime_tool_contract_revision_ref: _,
-        runtime_tool_contract_content_hash: _,
+        runtime_tool_contract_revision_ref,
+        runtime_tool_contract_content_hash,
         typed_input_schema_ref,
         typed_output_schema_ref,
         target_object_model_refs,
@@ -1243,25 +1326,24 @@ fn proposal_intent(
         receipt_obligations,
         does_not_assert,
         valid_time,
+        compatibility: _,
     } = proposal;
-    BTreeMap::from([
+    let compatibility = compatibility_for_ordinal(proposal, ordinal)?;
+    Ok(BTreeMap::from([
         ("namespace", json!(namespace)),
         ("name", json!(name)),
         ("action_slug", json!(action_slug)),
         ("governing_scope_ref", json!(governing_scope_ref)),
         ("policy_hash", json!(policy_hash)),
-        (
-            "ontology_revision_ref",
-            json!(semantics.ontology_revision_ref),
-        ),
+        ("ontology_revision_ref", json!(ontology_revision_ref)),
         ("action_type_ref", json!(action_type_ref)),
         (
             "runtime_tool_contract_revision_ref",
-            json!(tool.revision_ref),
+            json!(runtime_tool_contract_revision_ref),
         ),
         (
             "runtime_tool_contract_content_hash",
-            json!(tool.content_hash),
+            json!(runtime_tool_contract_content_hash),
         ),
         ("typed_input_schema_ref", json!(typed_input_schema_ref)),
         ("typed_output_schema_ref", json!(typed_output_schema_ref)),
@@ -1309,7 +1391,8 @@ fn proposal_intent(
         ("receipt_obligations", receipt_obligations.clone()),
         ("does_not_assert", does_not_assert.clone()),
         ("valid_time", valid_time.clone()),
-    ])
+        ("compatibility", json!(compatibility)),
+    ]))
 }
 
 /// The exact caller-authored field on which this request diverges from the one this key admitted.
@@ -1320,13 +1403,19 @@ fn proposal_intent(
 fn replay_intent_divergence(
     document: &Value,
     proposal: &ProposedContract,
-    semantics: &ResolvedSemantics,
-    tool: &ResolvedTool,
-) -> Option<&'static str> {
-    proposal_intent(proposal, semantics, tool)
+) -> Result<Option<&'static str>, Reply> {
+    let ordinal = ordinal_of(document);
+    Ok(proposal_intent(proposal, ordinal)?
         .into_iter()
-        .find(|(field, expected)| document.get(*field).unwrap_or(&Value::Null) != expected)
-        .map(|(field, _)| field)
+        .find(|(field, expected)| {
+            let stored = if *field == "compatibility" {
+                document.pointer("/migration/compatibility")
+            } else {
+                document.get(*field)
+            };
+            stored.unwrap_or(&Value::Null) != expected
+        })
+        .map(|(field, _)| field))
 }
 
 /// One caller-supplied `expected_*` assertion, read WITHOUT letting a wrong type become an absence.
@@ -1384,6 +1473,44 @@ fn validate_assertion_shapes(body: &Value) -> Result<(), Reply> {
             return Err(assertion_not_canonical(key, required));
         }
     }
+    for key in ["expected_ontology_content_hash", "expected_content_hash"] {
+        if let Asserted::Present(value) = asserted_str(body, key) {
+            if !is_sha256(value) {
+                return Err(assertion_not_canonical(
+                    key,
+                    "a canonical lowercase 'sha256:<64 hex>' string",
+                ));
+            }
+        }
+    }
+    if let Asserted::Present(value) = asserted_str(body, "expected_bound_tool_id") {
+        if !value.starts_with("tool://") || value.len() <= "tool://".len() || value.len() > 248 {
+            return Err(assertion_not_canonical(
+                "expected_bound_tool_id",
+                "a non-empty canonical 'tool://' ref",
+            ));
+        }
+    }
+    match body.get("expected_predecessor_revision_ref") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(value)) if canonical_action_revision_ref(value) => {}
+        Some(_) => {
+            return Err(assertion_not_canonical(
+                "expected_predecessor_revision_ref",
+                "null or a canonical 'ontology-action://.../revision/N' ref",
+            ))
+        }
+    }
+    match body.get("expected_predecessor_content_hash") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(value)) if is_sha256(value) => {}
+        Some(_) => {
+            return Err(assertion_not_canonical(
+                "expected_predecessor_content_hash",
+                "null or a canonical lowercase 'sha256:<64 hex>' string",
+            ))
+        }
+    }
     if matches!(
         asserted_u64(body, "expected_revision_ordinal"),
         Asserted::Malformed
@@ -1426,6 +1553,44 @@ fn assertion_not_canonical(key: &str, required: &str) -> Reply {
 /// would turn every real duplicate into a conflict and make the idempotency key unusable. That is
 /// the same reason replay is resolved before the head precondition at all.
 fn replay_assertion_divergence(document: &Value, body: &Value) -> Option<Reply> {
+    match asserted_str(body, "expected_ontology_content_hash") {
+        Asserted::Absent => {}
+        Asserted::Malformed => {
+            return Some(assertion_not_canonical(
+                "expected_ontology_content_hash",
+                "a 'sha256:<64 hex>' string",
+            ))
+        }
+        Asserted::Present(asserted) => {
+            if Some(asserted)
+                != document
+                    .get("ontology_content_hash")
+                    .and_then(Value::as_str)
+            {
+                return Some(refuse(
+                    "ontology_action_contract_ontology_hash_substituted",
+                    "expected_ontology_content_hash does not match the exact ontology commitment stored for the revision this key admitted",
+                ));
+            }
+        }
+    }
+    match asserted_str(body, "expected_bound_tool_id") {
+        Asserted::Absent => {}
+        Asserted::Malformed => {
+            return Some(assertion_not_canonical(
+                "expected_bound_tool_id",
+                "a 'tool://' string",
+            ))
+        }
+        Asserted::Present(asserted) => {
+            if Some(asserted) != document.get("bound_tool_id").and_then(Value::as_str) {
+                return Some(refuse(
+                    "ontology_action_contract_tool_identity_substituted",
+                    "expected_bound_tool_id does not match the exact RuntimeToolContract owner stored for the revision this key admitted",
+                ));
+            }
+        }
+    }
     match asserted_u64(body, "expected_revision_ordinal") {
         Asserted::Absent => {}
         Asserted::Malformed => {
@@ -1491,6 +1656,73 @@ fn replay_assertion_divergence(document: &Value, body: &Value) -> Option<Reply> 
     None
 }
 
+fn replay_existing_admission(
+    data_dir: &str,
+    caller: &WriteCaller,
+    scope: &RequestResourceScope,
+    family: &str,
+    lineage: &[Value],
+    body: &Value,
+    proposal: &ProposedContract,
+) -> Result<Option<Reply>, Reply> {
+    let prior = prior_admission_for_key_on_stream(
+        data_dir,
+        &caller.identity,
+        scope,
+        RESOURCE_KIND,
+        family,
+        OWNER_NAMESPACE,
+        &stream_tail(RESOURCE_KIND, family),
+        &caller.idempotency_key,
+    )
+    .map_err(mutation_refusal_reply)?;
+    let Some(prior) = prior else {
+        return Ok(None);
+    };
+    let Some(document) = lineage
+        .iter()
+        .find(|document| document.pointer("/admission/admission_head") == Some(&json!(prior.head)))
+    else {
+        return Err(bad(
+            StatusCode::BAD_GATEWAY,
+            "ontology_action_contract_projection_disagrees_with_ack",
+            "this key's admitted head is absent from the family's projected lineage",
+        ));
+    };
+    match replay_intent_divergence(document, proposal)? {
+        Some(field) => {
+            return Err(bad(
+                StatusCode::CONFLICT,
+                "ontology_action_contract_replay_intent_changed",
+                format!(
+                    "this idempotency key already admitted a contract whose '{field}' differs from this request; a key replays one exact command and is never a way to receive a stored contract in answer to a changed one"
+                ),
+            ))
+        }
+        None => {}
+    }
+    if let Some(response) = replay_assertion_divergence(document, body) {
+        return Err(response);
+    }
+    Ok(Some((
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "replayed": true,
+            "ontology_action_contract": document,
+            "expected_head_for_successor": lineage
+                .last()
+                .and_then(|head| head.pointer("/admission/admission_head"))
+                .cloned()
+                .unwrap_or(Value::Null),
+            "receipt_ref": document.pointer("/admission/agentgres_receipt_ref").cloned().unwrap_or(Value::Null),
+            "operation_ref": document.pointer("/admission/agentgres_operation_ref").cloned().unwrap_or(Value::Null),
+            "authority_nonclaim": AUTHORITY_NONCLAIM,
+            "invocation_nonclaim": INVOCATION_NONCLAIM,
+        })),
+    )))
+}
+
 // ------------------------------------------------------------------------------- producer route
 
 /// POST /v1/hypervisor/ontology-action-contracts — admit one immutable revision of one
@@ -1517,6 +1749,42 @@ pub(crate) async fn handle_ontology_action_contract_admit(
         return response;
     }
 
+    let family = family_ref(&proposal.namespace, &proposal.name, &proposal.action_slug);
+    // Historical replay is answered from immutable admitted bytes before consulting mutable
+    // current owner state. A tool may be revoked after this revision was admitted, and a dynamic
+    // registry may be reconstructed differently after restart; neither fact rewrites the command
+    // that this key already committed. Only an existing, already-authorized scope is inspected at
+    // this point, so an unresolvable fresh proposal still creates no scope or operation.
+    let existing = match authorize_request_resource_scope(
+        &st.data_dir,
+        &caller.identity,
+        RESOURCE_KIND,
+        &family,
+        Some(&caller.owner_ref),
+    ) {
+        Ok(scope) => {
+            let lineage = match read_lineage(&st.data_dir, &caller.identity, &scope, &family) {
+                Ok(lineage) => lineage,
+                Err(response) => return response,
+            };
+            match replay_existing_admission(
+                &st.data_dir,
+                &caller,
+                &scope,
+                &family,
+                &lineage,
+                &body,
+                &proposal,
+            ) {
+                Ok(Some(response)) => return response,
+                Ok(None) => Some((scope, lineage)),
+                Err(response) => return response,
+            }
+        }
+        Err(RequestScopeRefusal::ResourceScopeRequired) => None,
+        Err(error) => return scope_refusal_reply(error),
+    };
+
     // BOTH BINDINGS RESOLVE BEFORE ANY SCOPE IS BOUND OR ANY BYTE IS WRITTEN. An unresolvable
     // revision or an unreleased tool stops here, so neither can acquire a stream, a scope or a
     // durable contract on the strength of its spelling.
@@ -1537,6 +1805,26 @@ pub(crate) async fn handle_ontology_action_contract_admit(
         Ok(tool) => tool,
         Err(response) => return response,
     };
+    let expected_action_type_ref = format!(
+        "{}/term/{}",
+        semantics.ontology_family_ref, proposal.action_slug
+    );
+    if proposal.action_type_ref != expected_action_type_ref {
+        return refuse(
+            "ontology_action_contract_action_identity_substituted",
+            "action_slug must name the exact action term resolved from the bound ontology revision; local aliases require an admitted mapping decision and are not invented by this contract",
+        );
+    }
+    let expected_input_schema_ref = typed_tool_schema_ref("input", &tool.input_schema_hash);
+    let expected_output_schema_ref = typed_tool_schema_ref("output", &tool.output_schema_hash);
+    if proposal.typed_input_schema_ref != expected_input_schema_ref
+        || proposal.typed_output_schema_ref != expected_output_schema_ref
+    {
+        return refuse(
+            "ontology_action_contract_typed_schema_binding_substituted",
+            "typed input/output schema refs must be the canonical content-addressed refs derived from the exact RuntimeToolContract schema bytes",
+        );
+    }
     // Two owners, two commitments. An implementation that resolved one and copied it into both slots
     // would read as bound twice and be bound once; the registered invariant catches it offline and
     // this catches it before the durable write.
@@ -1582,90 +1870,29 @@ pub(crate) async fn handle_ontology_action_contract_admit(
         }
     }
 
-    let family = family_ref(&proposal.namespace, &proposal.name, &proposal.action_slug);
-    let scope = match bind_request_resource_scope(
-        &st.data_dir,
-        &caller.identity,
-        RESOURCE_KIND,
-        &family,
-        &caller.owner_ref,
-        &caller.owner_ref,
-        &caller.idempotency_key,
-    ) {
-        Ok(scope) => scope,
-        Err(error) => return scope_refusal_reply(error),
-    };
-    let lineage = match read_lineage(&st.data_dir, &caller.identity, &scope, &family) {
-        Ok(lineage) => lineage,
-        Err(response) => return response,
+    let (scope, lineage) = match existing {
+        Some(existing) => existing,
+        None => {
+            let scope = match bind_request_resource_scope(
+                &st.data_dir,
+                &caller.identity,
+                RESOURCE_KIND,
+                &family,
+                &caller.owner_ref,
+                &caller.owner_ref,
+                &caller.idempotency_key,
+            ) {
+                Ok(scope) => scope,
+                Err(error) => return scope_refusal_reply(error),
+            };
+            let lineage = match read_lineage(&st.data_dir, &caller.identity, &scope, &family) {
+                Ok(lineage) => lineage,
+                Err(response) => return response,
+            };
+            (scope, lineage)
+        }
     };
     let predecessor = lineage.last().cloned();
-
-    // REPLAY BEFORE PRECONDITIONS. A retry after an ambiguous response necessarily observes a newer
-    // head than the one it originally compare-and-swapped against, so checking `expected_head` first
-    // would turn every real duplicate into a conflict and make the idempotency key unusable.
-    match prior_admission_for_key_on_stream(
-        &st.data_dir,
-        &caller.identity,
-        &scope,
-        RESOURCE_KIND,
-        &family,
-        OWNER_NAMESPACE,
-        &stream_tail(RESOURCE_KIND, &family),
-        &caller.idempotency_key,
-    ) {
-        Ok(Some(prior)) => {
-            let Some(document) = lineage
-                .iter()
-                .find(|document| {
-                    document.pointer("/admission/admission_head") == Some(&json!(prior.head))
-                })
-                .cloned()
-            else {
-                return bad(
-                    StatusCode::BAD_GATEWAY,
-                    "ontology_action_contract_projection_disagrees_with_ack",
-                    "this key's admitted head is absent from the family's projected lineage",
-                );
-            };
-            if let Some(field) = replay_intent_divergence(&document, &proposal, &semantics, &tool) {
-                return bad(
-                    StatusCode::CONFLICT,
-                    "ontology_action_contract_replay_intent_changed",
-                    format!(
-                        "this idempotency key already admitted a contract whose '{field}' differs from this request; a key replays one exact command and is never a way to receive a stored contract in answer to a changed one"
-                    ),
-                );
-            }
-            // THE CALLER'S ASSERTIONS ARE ANSWERED ON THIS PATH TOO. The two owner-resolved
-            // assertions above (`expected_ontology_content_hash`, `expected_bound_tool_id`) were
-            // already checked before the scope was bound; these four are about facts of the STORED
-            // revision, so they are checked here against it. Without this block a reused key was a
-            // way to have a false claim about the record go unexamined rather than refused.
-            if let Some(response) = replay_assertion_divergence(&document, &body) {
-                return response;
-            }
-            return (
-                StatusCode::OK,
-                Json(json!({
-                    "ok": true,
-                    "replayed": true,
-                    "ontology_action_contract": document,
-                    "expected_head_for_successor": lineage
-                        .last()
-                        .and_then(|head| head.pointer("/admission/admission_head"))
-                        .cloned()
-                        .unwrap_or(Value::Null),
-                    "receipt_ref": document.pointer("/admission/agentgres_receipt_ref").cloned().unwrap_or(Value::Null),
-                    "operation_ref": document.pointer("/admission/agentgres_operation_ref").cloned().unwrap_or(Value::Null),
-                    "authority_nonclaim": AUTHORITY_NONCLAIM,
-                    "invocation_nonclaim": INVOCATION_NONCLAIM,
-                })),
-            );
-        }
-        Ok(None) => {}
-        Err(error) => return mutation_refusal_reply(error),
-    }
 
     let expected_head = match body.get("expected_head") {
         None | Some(Value::Null) => None,
@@ -1745,18 +1972,9 @@ pub(crate) async fn handle_ontology_action_contract_admit(
         }
     }
 
-    let compatibility = match body.get("compatibility") {
-        None | Some(Value::Null) if ordinal == 1 => "initial".to_string(),
-        Some(Value::String(value)) if matches!(value.as_str(), "additive" | "breaking") => {
-            value.clone()
-        }
-        Some(Value::String(value)) if value == "initial" && ordinal == 1 => value.clone(),
-        _ => {
-            return refuse(
-                "ontology_action_contract_compatibility_required",
-                "a successor declares 'additive' or 'breaking'; only the first revision of a family is 'initial'",
-            )
-        }
+    let compatibility = match compatibility_for_ordinal(&proposal, ordinal) {
+        Ok(value) => value.to_string(),
+        Err(response) => return response,
     };
 
     let ontology_action_id = revision_ref(
@@ -1864,6 +2082,15 @@ pub(crate) async fn handle_ontology_action_contract_admit(
         }
     }
     record["content_hash"] = json!(derived_hash);
+
+    if let Err(reason) = validate_contract_before_admission(&record, &family) {
+        return refuse(
+            "ontology_action_contract_registered_contract_refused",
+            format!(
+                "the proposed action contract does not satisfy its registered contract before admission: {reason}"
+            ),
+        );
+    }
 
     let payload = json!({
         "schema_version": ADMISSION_PAYLOAD_SCHEMA,
@@ -2164,6 +2391,7 @@ mod tests {
             "does_not_assert",
             "risk_class",
             "valid_time",
+            "migration",
         ] {
             assert!(
                 CONTENT_MATERIAL_FIELDS.contains(&included),
@@ -2348,6 +2576,78 @@ mod tests {
                 validate_architecture_contract(CONTRACT_ID, &document).is_err(),
                 "{name} must be refused by the registered contract"
             );
+            // Repair exactly the named defect and require the same bytes to become valid. This is
+            // stronger than merely observing generic rejection: a negative carrying a second,
+            // unnamed defect would remain red after its advertised defect was repaired.
+            let mut repaired = document.clone();
+            match *name {
+                "negative-action-term-from-another-family" => {
+                    repaired["action_type_ref"] = json!(format!(
+                        "{}/term/{}",
+                        repaired["ontology_family_ref"]
+                            .as_str()
+                            .expect("ontology family"),
+                        repaired["action_slug"].as_str().expect("action slug")
+                    ));
+                }
+                "negative-bindings-collapsed-into-one-hash" => {
+                    repaired["runtime_tool_contract_content_hash"] =
+                        json!(format!("sha256:{}", "2b".repeat(32)));
+                }
+                "negative-content-hash-substituted" => {}
+                "negative-gate-removed-from-the-ladder" => {
+                    repaired["required_gates"] = json!(REQUIRED_GATES);
+                    repaired["required_gate_count"] = json!(REQUIRED_GATES.len());
+                }
+                "negative-migration-source-is-not-the-predecessor" => {
+                    repaired["migration"]["from_revision_ref"] =
+                        repaired["predecessor_revision_ref"].clone();
+                    repaired["migration"]["from_content_hash"] =
+                        repaired["predecessor_content_hash"].clone();
+                    repaired["migration"]["from_revision_ordinal"] = json!(
+                        repaired["revision_ordinal"]
+                            .as_u64()
+                            .expect("revision ordinal")
+                            - 1
+                    );
+                }
+                "negative-mutable-latest-ontology-binding" => {
+                    repaired["ontology_revision_ref"] = json!(format!(
+                        "{}/revision/1",
+                        repaired["ontology_family_ref"]
+                            .as_str()
+                            .expect("ontology family")
+                    ));
+                }
+                "negative-physical-action-without-safety-profile" => {
+                    repaired["physical_safety_profile_ref"] =
+                        json!("safety://acme-clinic/physical-action/v1");
+                }
+                "negative-retired-action-term-membership-nonclaim" => {
+                    repaired["does_not_assert"] = Value::Array(
+                        repaired["does_not_assert"]
+                            .as_array()
+                            .expect("nonclaims")
+                            .iter()
+                            .filter(|value| value.as_str() != Some("action_term_membership"))
+                            .cloned()
+                            .collect(),
+                    );
+                }
+                "negative-tool-revision-of-another-tool" => {
+                    repaired["runtime_tool_contract_revision_ref"] = json!(format!(
+                        "{}/revision/0123456789abcdef",
+                        repaired["bound_tool_id"].as_str().expect("bound tool")
+                    ));
+                }
+                other => panic!("unaccounted negative fixture {other}"),
+            }
+            repaired["content_hash"] =
+                json!(content_hash(&repaired).expect("repaired content hash"));
+            repaired["admission"]["content_hash"] = repaired["content_hash"].clone();
+            validate_architecture_contract(CONTRACT_ID, &repaired).unwrap_or_else(|reason| {
+                panic!("{name} has an unnamed defect after its named defect is repaired: {reason}")
+            });
             let family = document["action_family_ref"]
                 .as_str()
                 .unwrap_or_else(|| panic!("{name} carries no action family ref"));
@@ -2428,9 +2728,40 @@ mod tests {
         }
     }
 
+    #[test]
+    fn registered_contract_is_validated_before_admission_and_refuses_prefix_only_refs() {
+        let mut record: Value = serde_json::from_str(include_str!(
+            "../../../../../docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json"
+        ))
+        .expect("positive action contract fixture is JSON");
+        let family = record["action_family_ref"]
+            .as_str()
+            .expect("fixture family")
+            .to_string();
+        let object = record.as_object_mut().expect("fixture object");
+        for projection_only in [
+            "admission_domain_ref",
+            "transaction_time",
+            "admission",
+            "status",
+        ] {
+            object.remove(projection_only);
+        }
+        record["content_hash"] = json!(content_hash(&record).expect("content hash"));
+        validate_contract_before_admission(&record, &family)
+            .expect("the complete positive producer record passes before admission");
+
+        record["typed_input_schema_ref"] = json!("schema://");
+        record["content_hash"] = json!(content_hash(&record).expect("mutated content hash"));
+        assert!(
+            validate_contract_before_admission(&record, &family).is_err(),
+            "a prefix-only ref must be refused before it can append an unprojectable operation"
+        );
+    }
+
     /// EVERY caller-authored material input is compared before a key replays a stored contract.
     ///
-    /// The names below are the twenty-eight members of `ProposedContract` minus the three that are
+    /// The names below are the twenty-nine members of `ProposedContract` minus the three that are
     /// bound from their owners' resolved values instead of the caller's raw text, plus those three
     /// under the names the stored document uses. The count is asserted too: `proposal_intent`
     /// destructures the struct exhaustively, so a new field cannot be silently omitted — but a new
@@ -2468,25 +2799,9 @@ mod tests {
             receipt_obligations: json!(["receipt://acme/action-admission"]),
             does_not_assert: json!(["authority"]),
             valid_time: json!({ "starts_at": "2026-01-01T00:00:00Z", "ends_at": null }),
+            compatibility: Some("additive".into()),
         };
-        let semantics = ResolvedSemantics {
-            ontology_family_ref: "ontology://acme-clinic/patient-intake".into(),
-            ontology_revision_ref: proposal.ontology_revision_ref.clone(),
-            ontology_content_hash: format!("sha256:{}", "3c".repeat(32)),
-            action_label: "schedule followup".into(),
-        };
-        let tool = ResolvedTool {
-            tool_id: "tool://ioi/runtime/mail.send".into(),
-            revision_ref: proposal.runtime_tool_contract_revision_ref.clone(),
-            content_hash: proposal.runtime_tool_contract_content_hash.clone(),
-            risk_class: "external_effect".into(),
-            effect_class: "external_effect".into(),
-            input_schema_hash: format!("sha256:{}", "4d".repeat(32)),
-            output_schema_hash: format!("sha256:{}", "5e".repeat(32)),
-            primitive_capabilities_required: json!(["prim:net.request"]),
-            authority_scopes_required: json!(["scope:mail.send"]),
-        };
-        let intent = proposal_intent(&proposal, &semantics, &tool);
+        let intent = proposal_intent(&proposal, 2).expect("successor compatibility is canonical");
         for field in [
             "namespace",
             "name",
@@ -2516,6 +2831,7 @@ mod tests {
             "receipt_obligations",
             "does_not_assert",
             "valid_time",
+            "compatibility",
         ] {
             assert!(
                 intent.contains_key(field),
@@ -2524,28 +2840,37 @@ mod tests {
         }
         assert_eq!(
             intent.len(),
-            28,
+            29,
             "the intention document is every caller-authored material input and nothing else"
         );
 
         // A document that agrees on every field replays; changing any ONE of them diverges, and the
         // divergence names the field rather than reporting a generic mismatch.
-        let document = Value::Object(
+        let mut document = Value::Object(
             intent
                 .iter()
+                .filter(|(field, _)| **field != "compatibility")
                 .map(|(field, value)| ((*field).to_string(), value.clone()))
                 .collect(),
         );
-        assert_eq!(
-            replay_intent_divergence(&document, &proposal, &semantics, &tool),
-            None
-        );
+        document["revision_ordinal"] = json!(2);
+        document["migration"] = json!({ "compatibility": "additive" });
+        assert!(matches!(
+            replay_intent_divergence(&document, &proposal),
+            std::result::Result::Ok(None)
+        ));
         for field in intent.keys() {
             let mut altered = document.clone();
-            altered[*field] = json!("changed-under-the-same-key");
-            assert_eq!(
-                replay_intent_divergence(&altered, &proposal, &semantics, &tool),
-                Some(*field),
+            if *field == "compatibility" {
+                altered["migration"]["compatibility"] = json!("breaking");
+            } else {
+                altered[*field] = json!("changed-under-the-same-key");
+            }
+            assert!(
+                matches!(
+                    replay_intent_divergence(&altered, &proposal),
+                    std::result::Result::Ok(Some(changed)) if changed == *field
+                ),
                 "changing '{field}' under an admitted key must be a typed conflict, not a replay"
             );
         }

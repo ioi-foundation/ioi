@@ -13,12 +13,12 @@
   "revision_ordinal": 2,
   "predecessor_revision_ref": "ontology-action://acme-clinic/patient-intake/schedule-followup/revision/1",
   "predecessor_content_hash": "sha256:4e574e56075f237851f44cbc76e6028de6668875742225ab7a9c316d435f43eb",
-  "content_hash": "sha256:c913fde285d588e659aa85baa53fd971c86da1a576843e326277c38615f32f38",
+  "content_hash": "sha256:12139c89b375e55dc3b5a1fc00ae4a55c65729b999dbe1ce78505f2c6f6cddb3",
   "ontology_family_ref": "ontology://acme-clinic/patient-intake",
   "ontology_revision_ref": "ontology://acme-clinic/patient-intake/revision/4",
   "ontology_content_hash": "sha256:dbcf2d0afce463349f0d51790b54824ff5602b6cb3e0fdf8709b5f6815c85584",
   "ontology_resolved_by": "ontology_version_routes::resolve_admitted_action_type",
-  "action_type_ref": "ontology://acme-clinic/patient-intake/term/dispatch-transport",
+  "action_type_ref": "ontology://acme-clinic/patient-intake/term/schedule-followup",
   "runtime_tool_contract_revision_ref": "tool://ioi/runtime/mail.send/revision/0123456789abcdef",
   "runtime_tool_contract_content_hash": "sha256:147cfc6e456d27baa7efc8734006ba92a0e7c580002c25e742cefcf63812dd16",
   "runtime_tool_resolved_by": "runtime_tool_contract_registry::resolve_exact",
@@ -34,8 +34,8 @@
   "bound_tool_authority_scopes_required": [
     "scope:mail.send"
   ],
-  "typed_input_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/input/v1",
-  "typed_output_schema_ref": "schema://acme-clinic/patient-intake/schedule-followup/output/v1",
+  "typed_input_schema_ref": "schema://runtime-tool-contract/input/sha256:120d104a5e0326ce909f3ae7f703764384d6704bc6b0751e19dcbe70af6d8e61",
+  "typed_output_schema_ref": "schema://runtime-tool-contract/output/sha256:96722fa00dbf6e293ae18b78ae99115d33874560be354360cf2f6d23c802ed70",
   "target_object_model_refs": [
     "object-model://acme-clinic/patient-intake/appointment"
   ],
@@ -116,7 +116,7 @@
   },
   "admission": {
     "ontology_action_id": "ontology-action://acme-clinic/patient-intake/schedule-followup/revision/2",
-    "content_hash": "sha256:c913fde285d588e659aa85baa53fd971c86da1a576843e326277c38615f32f38",
+    "content_hash": "sha256:12139c89b375e55dc3b5a1fc00ae4a55c65729b999dbe1ce78505f2c6f6cddb3",
     "owner_namespace": "hypervisor-ontology-action-contracts",
     "stream_tail": "ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7",
     "agentgres_operation_ref": "agentgres://operation/event-stream/hypervisor-ontology-action-contracts/ontology-action-contract-family.ae7df16e7d5ff522c6e9868f16a955a81eeb9a6c6d47f489da36b1d6ccc438d7/sequence/2/head/sha256:562f48558ca5443276f71736356b85dba8f66472a1c7efb549bce430525a5edd",

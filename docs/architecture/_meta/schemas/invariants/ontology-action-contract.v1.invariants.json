@@ -97,7 +97,8 @@
           "constants": { "path": "$.constants" },
           "authority_nonclaim": { "path": "$.authority_nonclaim" },
           "invocation_nonclaim": { "path": "$.invocation_nonclaim" },
-          "valid_time": { "path": "$.valid_time" }
+          "valid_time": { "path": "$.valid_time" },
+          "migration": { "path": "$.migration" }
         },
         "expected_path": "$.content_hash",
         "expected_encoding": "sha256_string"
@@ -146,6 +147,15 @@
         "expected_path": "$.ontology_family_ref",
         "strip_prefix": "ontology://",
         "suffix": "/term/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.action_term.ends_with_the_action_slug",
+      "description": "Together with the term-ref schema and family-prefix rule, this binds the OntologyActionContract family identity to the exact resolved ontology term. A local alias requires its own admitted mapping decision and is never invented here.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.action_type_ref",
+        "expected_path": "$.action_slug"
       }
     },
     {

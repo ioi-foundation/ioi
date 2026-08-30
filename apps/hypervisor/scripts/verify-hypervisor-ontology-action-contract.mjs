@@ -294,6 +294,8 @@ function ontologyProposal({ key, expectedHead = null, actions = [SLUG], entities
 }
 
 let TOOL = null;
+const toolSchemaDigest = (schema) =>
+  `sha256:${crypto.createHash("sha256").update(canonicalJson(schema)).digest("hex")}`;
 
 function contractProposal(overrides = {}) {
   return {
@@ -306,8 +308,8 @@ function contractProposal(overrides = {}) {
     action_type_ref: ACTION,
     runtime_tool_contract_revision_ref: TOOL?.revision_ref,
     runtime_tool_contract_content_hash: TOOL?.content_hash,
-    typed_input_schema_ref: `schema://${NS}/${NAME}/${SLUG}/input/v1`,
-    typed_output_schema_ref: `schema://${NS}/${NAME}/${SLUG}/output/v1`,
+    typed_input_schema_ref: `schema://runtime-tool-contract/input/${TOOL?.input_schema_hash}`,
+    typed_output_schema_ref: `schema://runtime-tool-contract/output/${TOOL?.output_schema_hash}`,
     target_object_model_refs: [`object-model://${NS}/${NAME}/appointment`],
     precondition_refs: [`state://${NS}/${NAME}/appointment/unscheduled`],
     postcondition_and_invariant_refs: [`invariant://${NS}/${NAME}/one-open-followup`],
@@ -444,7 +446,13 @@ async function run() {
       entry.registry_status === "released",
   );
   TOOL = candidate
-    ? { revision_ref: candidate.revision_ref, content_hash: candidate.content_hash, tool_id: candidate.tool_id }
+    ? {
+        revision_ref: candidate.revision_ref,
+        content_hash: candidate.content_hash,
+        tool_id: candidate.tool_id,
+        input_schema_hash: toolSchemaDigest(candidate.input_schema),
+        output_schema_hash: toolSchemaDigest(candidate.output_schema),
+      }
     : null;
   ok(
     "PRECONDITION: the bound RuntimeToolContract revision is a REAL released revision discovered from the daemon's own tool projection, not one this file invented",
@@ -490,13 +498,13 @@ async function run() {
   // differ would prove nothing about a tool whose input and output shapes are legitimately identical
   // — and several seeded native tools are exactly that — so the claim is checked the only way that
   // is true of every tool: by hashing that tool's declared bytes independently and comparing.
-  const toolSchemaDigest = (schema) =>
-    `sha256:${crypto.createHash("sha256").update(canonicalJson(schema)).digest("hex")}`;
   ok(
     "the typed IO contract is pinned to the tool's own SCHEMA BYTES: both commitments are reproduced here by hashing the tool projection's own declared input and output schemas, so binding the tool ref alone could not leave the typed contract free to move underneath an admitted action",
     candidate !== undefined &&
       v1.bound_tool_input_schema_hash === toolSchemaDigest(candidate.input_schema) &&
-      v1.bound_tool_output_schema_hash === toolSchemaDigest(candidate.output_schema),
+      v1.bound_tool_output_schema_hash === toolSchemaDigest(candidate.output_schema) &&
+      v1.typed_input_schema_ref === `schema://runtime-tool-contract/input/${v1.bound_tool_input_schema_hash}` &&
+      v1.typed_output_schema_ref === `schema://runtime-tool-contract/output/${v1.bound_tool_output_schema_hash}`,
     `in ${(v1.bound_tool_input_schema_hash ?? "").slice(0, 22)} out ${(v1.bound_tool_output_schema_hash ?? "").slice(0, 22)}`,
   );
   ok(
@@ -607,6 +615,24 @@ async function run() {
       runtime_tool_contract_content_hash: `sha256:${"0".repeat(64)}`,
     }),
     "ontology_action_contract_tool_unresolved",
+  );
+  await refusesWithoutTouchingTheChain(
+    "the OntologyActionContract family slug must name the EXACT resolved ontology action term — a local alias is not invented without an admitted mapping decision",
+    contractProposal({
+      idempotency_key: "oac-action-slug-substitution",
+      ontology_revision_ref: ontologyRevision.ontology_id,
+      action_slug: "cancel-followup",
+    }),
+    "ontology_action_contract_action_identity_substituted",
+  );
+  await refusesWithoutTouchingTheChain(
+    "caller-authored typed schema names cannot float above the tool bytes — both refs are exact content-addressed projections of the bound RuntimeToolContract schemas",
+    contractProposal({
+      idempotency_key: "oac-typed-schema-substitution",
+      ontology_revision_ref: ontologyRevision.ontology_id,
+      typed_input_schema_ref: `schema://runtime-tool-contract/input/sha256:${"0".repeat(64)}`,
+    }),
+    "ontology_action_contract_typed_schema_binding_substituted",
   );
   await refusesWithoutTouchingTheChain(
     "an UNKNOWN CONTRACT VERSION is refused rather than downgraded — serving an unknown version as v1 is how a contract silently loses a field",
@@ -835,6 +861,17 @@ async function run() {
     `status ${successor.status} ordinal ${v2.revision_ordinal} ${code(successor.j)}`,
   );
   await refusesWithoutTouchingTheChain(
+    "changing successor migration compatibility under its admitted key is a typed conflict — compatibility is replay intent and immutable content, not uncommitted commentary",
+    contractProposal({
+      idempotency_key: "oac-successor",
+      ontology_revision_ref: revision2.ontology_id,
+      expected_head: genesis.j?.expected_head_for_successor,
+      compatibility: "additive",
+      risk_class: "commerce",
+    }),
+    "ontology_action_contract_replay_intent_changed",
+  );
+  await refusesWithoutTouchingTheChain(
     "a successor offered against a head this family never had is refused — a fork does not become a lineage by asserting one",
     contractProposal({
       idempotency_key: "oac-fork",
@@ -911,6 +948,21 @@ async function run() {
     afterRestart.j?.index_state === "rebuilt_from_agentgres",
     `index reported ${afterRestart.j?.index_state ?? "(none)"}`,
   );
+  const replayAfterRestart = await req(
+    "POST",
+    OAC,
+    contractProposal({
+      idempotency_key: "oac-genesis",
+      ontology_revision_ref: ontologyRevision.ontology_id,
+    }),
+  );
+  ok(
+    "the original command REPLAYS AFTER RESTART from immutable admitted bytes before mutable current tool resolution — revocation or loss of a process-local registry snapshot cannot rewrite historical idempotency",
+    replayAfterRestart.status === 200 &&
+      replayAfterRestart.j?.replayed === true &&
+      replayAfterRestart.j?.ontology_action_contract?.content_hash === v1.content_hash,
+    `status ${replayAfterRestart.status} replayed ${replayAfterRestart.j?.replayed} ${code(replayAfterRestart.j)}`,
+  );
 
   // ------------------------------------------------------------------------------------- query plane
   const exact = await req(
@@ -963,6 +1015,20 @@ async function run() {
     "module source carries no authority-plane call",
   );
   const productionSource = routeSource.slice(0, routeSource.indexOf("#[cfg(test)]"));
+  ok(
+    "historical replay is ordered before mutable ontology/tool resolution in the producer source, while fresh admission still resolves both owners",
+    productionSource.indexOf("match replay_existing_admission(") >= 0 &&
+      productionSource.indexOf("match replay_existing_admission(") <
+        productionSource.indexOf("let semantics = match resolve_semantics("),
+    "replay lookup precedes current owner resolution",
+  );
+  ok(
+    "the COMPLETE registered contract is validated before the shared mutation admission — producer/schema drift cannot append an operation that every later projection must refuse",
+    productionSource.indexOf("if let Err(reason) = validate_contract_before_admission(&record, &family)") >= 0 &&
+      productionSource.indexOf("if let Err(reason) = validate_contract_before_admission(&record, &family)") <
+        productionSource.indexOf("let commit = match admit_owner_scoped_mutation("),
+    "registered validation precedes the shared admission boundary",
+  );
   ok(
     "and it INVOKES NOTHING: no runtime host, no final invoker and no tool call appears in this module's production path at all — the patterns are CALL-SHAPED so the module's own prose about not invoking cannot satisfy the check that it does not",
     !/runtime_host::|handle_action_execution\s*\(|handle_runtime_host_session\s*\(|"mcp_tool_call"|RuntimeAgentService/u.test(
@@ -1098,24 +1164,72 @@ const MUTANTS = [
     reddens:
       "a reused key asserting a false 'expected_content_hash' is refused by its ORDINARY cause and appends nothing — replaying a stored contract never means the caller's claims about it go unchecked",
     source: ROUTE_SOURCE,
-    from: "            if let Some(response) = replay_assertion_divergence(&document, &body) {\n                return response;\n            }",
-    to: "            if let Some(response) = replay_assertion_divergence(&document, &body).filter(|_| false) {\n                return response;\n            }",
+    from: "    if let Some(response) = replay_assertion_divergence(document, body) {\n        return Err(response);\n    }",
+    to: "    if let Some(response) = replay_assertion_divergence(document, body).filter(|_| false) {\n        return Err(response);\n    }",
   },
   {
     id: "replay-intent-narrowed-to-the-old-twelve-field-subset",
     reddens:
       "changing 'receipt_obligations' under the admitted key is a typed conflict and appends nothing — replay compares EVERY caller-authored material input, not a remembered subset of them",
     source: ROUTE_SOURCE,
-    from: "    proposal_intent(proposal, semantics, tool)\n        .into_iter()\n        .find(|(field, expected)| document.get(*field).unwrap_or(&Value::Null) != expected)",
-    to: "    proposal_intent(proposal, semantics, tool)\n        .into_iter()\n        .filter(|(field, _)| {\n            matches!(\n                *field,\n                \"ontology_revision_ref\"\n                    | \"action_type_ref\"\n                    | \"runtime_tool_contract_revision_ref\"\n                    | \"runtime_tool_contract_content_hash\"\n                    | \"typed_input_schema_ref\"\n                    | \"typed_output_schema_ref\"\n                    | \"risk_class\"\n                    | \"effect_recovery_class\"\n                    | \"physical_safety_profile_ref\"\n                    | \"does_not_assert\"\n                    | \"policy_hash\"\n                    | \"valid_time\"\n            )\n        })\n        .find(|(field, expected)| document.get(*field).unwrap_or(&Value::Null) != expected)",
+    from: '        ("receipt_obligations", receipt_obligations.clone()),',
+    to: '        // MUTANT: receipt obligations omitted from replay intent.',
   },
   {
     id: "replay-lookup-never-compares-intent",
     reddens:
       "the same key with a CHANGED INTENT is refused — an idempotency key replays one exact command and is never a way to receive a stored contract in answer to a different one",
     source: ROUTE_SOURCE,
-    from: "            if let Some(field) = replay_intent_divergence(&document, &proposal, &semantics, &tool)",
-    to: "            if let Some(field) = None::<&str>.map(|field: &str| field).or(replay_intent_divergence(&document, &proposal, &semantics, &tool).filter(|_| false))",
+    from: "    match replay_intent_divergence(document, proposal)? {",
+    to: "    match None::<&str> {",
+  },
+  {
+    id: "migration-omitted-from-content-commitment",
+    reddens:
+      "the served content hash is INDEPENDENTLY reproducible from the registered invariant profile's own material fields — the daemon does not get to define its own commitment",
+    source: ROUTE_SOURCE,
+    from: '    "migration",\n];',
+    to: '    // MUTANT: migration is not committed.\n];',
+  },
+  {
+    id: "compatibility-omitted-from-replay-intent",
+    reddens:
+      "changing successor migration compatibility under its admitted key is a typed conflict — compatibility is replay intent and immutable content, not uncommitted commentary",
+    source: ROUTE_SOURCE,
+    from: '        ("compatibility", json!(compatibility)),',
+    to: '        // MUTANT: compatibility omitted from replay intent.',
+  },
+  {
+    id: "action-slug-not-bound-to-resolved-term",
+    reddens:
+      "the OntologyActionContract family slug must name the EXACT resolved ontology action term — a local alias is not invented without an admitted mapping decision",
+    source: ROUTE_SOURCE,
+    from: "    if proposal.action_type_ref != expected_action_type_ref {",
+    to: "    if false && proposal.action_type_ref != expected_action_type_ref {",
+  },
+  {
+    id: "typed-schema-refs-not-bound-to-tool-bytes",
+    reddens:
+      "caller-authored typed schema names cannot float above the tool bytes — both refs are exact content-addressed projections of the bound RuntimeToolContract schemas",
+    source: ROUTE_SOURCE,
+    from: "    if proposal.typed_input_schema_ref != expected_input_schema_ref\n        || proposal.typed_output_schema_ref != expected_output_schema_ref",
+    to: "    if false\n        && (proposal.typed_input_schema_ref != expected_input_schema_ref\n            || proposal.typed_output_schema_ref != expected_output_schema_ref)",
+  },
+  {
+    id: "registered-validation-skipped-before-admission",
+    reddens:
+      "the COMPLETE registered contract is validated before the shared mutation admission — producer/schema drift cannot append an operation that every later projection must refuse",
+    source: ROUTE_SOURCE,
+    from: "    if let Err(reason) = validate_contract_before_admission(&record, &family) {",
+    to: "    if let Err(reason) = Ok::<(), String>(()) {",
+  },
+  {
+    id: "historical-replay-not-returned-before-owner-resolution",
+    reddens:
+      "the original command REPLAYS AFTER RESTART from immutable admitted bytes before mutable current tool resolution — revocation or loss of a process-local registry snapshot cannot rewrite historical idempotency",
+    source: ROUTE_SOURCE,
+    from: "                Ok(Some(response)) => return response,",
+    to: "                Ok(Some(_response)) => None,",
   },
   {
     id: "exact-head-check-removed",

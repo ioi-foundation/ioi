@@ -25143,7 +25143,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$",
   "^(?:schedule|change-plan|event)://[^\\s]{1,240}$",
   "^(?:schedule|policy|artifact)://[^\\s]{1,500}$",
-  "^(?:schema|artifact)://[^\\s]{1,240}$",
   "^(?:schema|policy)://[^\\s]+$",
   "^(?:schema|policy)://[^\\s]{1,500}$",
   "^(?:schema|profile)://[^\\s]{1,500}$",
@@ -25608,6 +25607,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^schema://[^\\s]{1,240}$",
   "^schema://[^\\s]{1,248}$",
   "^schema://[^\\s]{1,400}$",
+  "^schema://runtime-tool-contract/input/sha256:[0-9a-f]{64}$",
+  "^schema://runtime-tool-contract/output/sha256:[0-9a-f]{64}$",
   "^scm-destination-binding://[^\\s]{1,248}$",
   "^scm-publication-attempt://[^\\s]{1,248}$",
   "^scm-publication-effect://[^\\s]{1,248}$",
@@ -25951,7 +25952,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-artifact-intent/v1": "sha256:90a68419c1347290914c48a0565e575777b0e940e09beaef621a9956aafaf883",
   "schema://ioi/foundations/assurance-transition-receipt/v1": "sha256:62d284c67dd29fe5d9ae2148229b995c99c75ab6b29c03194bf4f4bc05e89733",
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27",
-  "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:9ac1369a66dac61ced9c9d478e61444e2306fd9833198dadc844cd96e6612e2c"
+  "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -95663,10 +95664,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       },
       "typed_input_schema_ref": {
-        "$ref": "#/$defs/typedSchemaRef"
+        "$ref": "#/$defs/inputTypedSchemaRef"
       },
       "typed_output_schema_ref": {
-        "$ref": "#/$defs/typedSchemaRef"
+        "$ref": "#/$defs/outputTypedSchemaRef"
       },
       "target_object_model_refs": {
         "type": "array",
@@ -96129,9 +96130,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "pattern": "^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$"
       },
-      "typedSchemaRef": {
+      "inputTypedSchemaRef": {
         "type": "string",
-        "pattern": "^(?:schema|artifact)://[^\\s]{1,240}$"
+        "pattern": "^schema://runtime-tool-contract/input/sha256:[0-9a-f]{64}$"
+      },
+      "outputTypedSchemaRef": {
+        "type": "string",
+        "pattern": "^schema://runtime-tool-contract/output/sha256:[0-9a-f]{64}$"
       },
       "policyRef": {
         "type": "string",
@@ -106229,6 +106234,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           },
           "valid_time": {
             "path": "$.valid_time"
+          },
+          "migration": {
+            "path": "$.migration"
           }
         },
         "expected_path": "$.content_hash",
@@ -106278,6 +106286,15 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expected_path": "$.ontology_family_ref",
         "strip_prefix": "ontology://",
         "suffix": "/term/"
+      }
+    },
+    {
+      "rule_id": "ontology_action_contract.action_term.ends_with_the_action_slug",
+      "description": "Together with the term-ref schema and family-prefix rule, this binds the OntologyActionContract family identity to the exact resolved ontology term. A local alias requires its own admitted mapping decision and is never invented here.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.action_type_ref",
+        "expected_path": "$.action_slug"
       }
     },
     {
