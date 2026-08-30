@@ -1014,6 +1014,15 @@ impl TestValidator {
                     "IOI_AFT_BENCH_NODE_LABEL",
                     format!("validator-{}-orch", base_port),
                 );
+                // Test-only phase mutations are meaningful only under the
+                // explicit benchmark trace gate. The outer verifier strips
+                // ambient IOI_TEST_* variables, and the wallet fixture
+                // re-asserts this exact requested value before the cargo test;
+                // propagate it once more to the validator process that owns
+                // both wired call sites.
+                if let Some(spec) = std::env::var_os("IOI_TESTING_M049_PLANTED_PHASE_DELAY") {
+                    orch_cmd.env("IOI_TESTING_M049_PLANTED_PHASE_DELAY", spec);
+                }
             }
             if agentic_model_path.is_some() {
                 orch_cmd.env("GUARDIAN_ADDR", &guardian_addr);

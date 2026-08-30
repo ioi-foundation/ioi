@@ -117,6 +117,10 @@ fn sync_cursor_when_peer_is_ahead(
     (peer_height > executed_height).then_some(admitted_height)
 }
 
+fn effective_executed_height(reported_height: u64, tracked_height: u64) -> u64 {
+    reported_height.max(tracked_height)
+}
+
 pub async fn start_catchup_to_peer<CS, ST, CE, V>(
     context: &mut MainLoopContext<CS, ST, CE, V>,
     peer: PeerId,
@@ -297,7 +301,7 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    let committed_tip = context.last_executed_block.as_ref();
+    let committed_tip = context.last_committed_block.as_ref();
     let committed_height = committed_tip.map(|block| block.header.height).unwrap_or(0);
     let committed_hash = committed_tip.and_then(|block| block.header.hash().ok());
     let mut blocks = context
@@ -653,19 +657,23 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
 
     for block in blocks {
         let applying_height = block.header.height;
-        let workload_height = workload_client
+        let reported_height = workload_client
             .get_status()
             .await
             .map(|status| status.height)
-            .unwrap_or_else(|_| {
-                context
-                    .last_executed_block
-                    .as_ref()
-                    .map(|candidate| candidate.header.height)
-                    .unwrap_or(0)
-            });
+            .unwrap_or(0);
+        let tracked_height = context
+            .last_executed_block
+            .as_ref()
+            .map(|candidate| candidate.header.height)
+            .unwrap_or(0);
+        // AFT status is intentionally collapse/Agentgres-backed. It may lag
+        // the speculative workload tip by the descendant-QC finality depth,
+        // so it must never make sync replay an already executed height as if
+        // it were a new state transition.
+        let workload_height = effective_executed_height(reported_height, tracked_height);
 
-        let processed_block = if workload_height >= applying_height {
+        let (processed_block, replaces_live_tip) = if workload_height >= applying_height {
             match super::runtime_finality::stage_execution_equivalent_candidate(
                 context,
                 block.clone(),
@@ -692,7 +700,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                         workload_height,
                         "Reconciled an execution-equivalent synced block against the speculative workload projection."
                     );
-                    block.clone()
+                    (block.clone(), false)
                 }
                 Ok(false) => {
                     let active_profile = match context
@@ -865,7 +873,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                         admitted_height,
                         "Atomically replaced an unadmitted AFT workload projection from committed sync history."
                     );
-                    processed_block
+                    (processed_block, true)
                 }
                 Err(error) => {
                     context
@@ -923,20 +931,20 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                 );
                 return;
             }
-            processed_block
+            (processed_block, true)
         };
         if let Some(progress) = context.sync_progress.as_mut() {
             progress.next = processed_block.header.height;
         }
-        context.last_executed_block = match workload_client.get_status().await {
-            Ok(status) => workload_client
-                .get_block_by_height(status.height)
-                .await
-                .ok()
-                .flatten()
-                .or_else(|| Some(processed_block.clone())),
-            Err(_) => Some(processed_block.clone()),
-        };
+        if replaces_live_tip
+            || context
+                .last_executed_block
+                .as_ref()
+                .map(|tip| tip.header.height <= processed_block.header.height)
+                .unwrap_or(true)
+        {
+            context.last_executed_block = Some(processed_block.clone());
+        }
         match observe_live_committed_chain_through_block(
             &context.consensus_engine_ref,
             context.config.consensus_type,
@@ -1269,8 +1277,8 @@ async fn trigger_catchup_vote<CS, ST, CE, V>(
 #[cfg(test)]
 mod tests {
     use super::{
-        sync_cursor_when_peer_is_ahead, sync_response_entry_is_committed,
-        within_aft_sync_replacement_window,
+        effective_executed_height, sync_cursor_when_peer_is_ahead,
+        sync_response_entry_is_committed, within_aft_sync_replacement_window,
     };
 
     #[test]
@@ -1323,5 +1331,11 @@ mod tests {
         assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 13), Some(10));
         assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 12), None);
         assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 11), None);
+    }
+
+    #[test]
+    fn collapse_backed_status_cannot_downgrade_the_tracked_execution_tip() {
+        assert_eq!(effective_executed_height(10, 12), 12);
+        assert_eq!(effective_executed_height(12, 10), 12);
     }
 }

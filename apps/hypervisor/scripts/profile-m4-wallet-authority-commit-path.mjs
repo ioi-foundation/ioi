@@ -42,9 +42,12 @@
 // actually resolved along with the provenance of each of its values, and the
 // client poll interval.
 //
-// M04.9(a) EXACT COMPLETION AND PROPOSAL WAIT. Two phases M04.9 recorded as
-// unmeasured now carry numbers, and one that did not is split out so it cannot
-// borrow theirs:
+// M04.9 EXACT COMPLETION AND CANONICAL-ATTEMPT ATTRIBUTION. The v2 predecessor
+// measured proposal wait and exact event-driven completion, but its global
+// transaction/height joins could select a noncanonical AFT proposal attempt.
+// The v4 predecessor first bound every approval's client-visible identity and
+// raw proposal transaction identity to the Agentgres-admitted
+// height/view/producer/block identity and then selects only that attempt:
 //   * the per-transaction mempool-to-proposal wait, bracketed by the mempool's
 //     own first-seen observation and the producer's selection instant, and
 //     correlated BY TRANSACTION HASH rather than by height; and
@@ -55,6 +58,13 @@
 //     comparable rather than one replacing the other.
 //   * receipt creation stays UNMEASURED, under its own narrower name, because
 //     no seam brackets it.
+//
+// V5 QUALIFICATION SEMANTICS. The post-durability status/event publication
+// interval is not nested inside producer-side ordering/finalization: in AFT
+// those observations may come from different validators, and publication
+// starts after durability. V5 also records the exact requested planted delay;
+// the fixture explicitly carries that one test-only value across its otherwise
+// fail-closed IOI_TEST_* sanitizer.
 //
 // ONE ARTIFACT IS NOT A COMPARISON. This produces a single-profile artifact.
 // Comparing two profiles means running it twice and reading both; no
@@ -106,60 +116,97 @@ export const SOAK_VERIFIER = "verify-m4-room-participation-contribution-plane.mj
 // plus `completion_client_observation`, which additionally carries an EXACT
 // event-driven wait beside the polled upper bound. A `.v1` reader summing what
 // it believes is one slot would double-count the split.
-export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-finality-parity-profile.v2";
+export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-finality-parity-profile.v5";
 
 // The predecessor identifiers, carried as literals.
 //
-// Two jobs. They tell a reader of a `.v2` artifact exactly which schemas it
+// Two jobs. They tell a reader of a `.v4` artifact exactly which schemas it
 // supersedes, and they keep the tracked M04.8 work-item code anchors
 // (docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json)
 // satisfied -- those anchors require this file to CONTAIN each string, which a
 // declared lineage does honestly, rather than requiring this file to still
 // EMIT it, which after a breaking change it cannot.
-export const PREDECESSOR_ARTIFACT_SCHEMA_VERSION = "ioi.m048.commit-path-profile.v1";
+export const ORIGINATING_ARTIFACT_SCHEMA_VERSION = "ioi.m048.commit-path-profile.v1";
 export const SUPERSEDED_ARTIFACT_SCHEMA_VERSION =
   "ioi.m049.ordering-finality-parity-profile.v1";
+export const PREDECESSOR_ARTIFACT_SCHEMA_VERSION =
+  "ioi.m049.ordering-finality-parity-profile.v4";
 
 // Carried into every artifact so a reader resolves the lineage from the
 // artifact rather than from this file.
 export const SCHEMA_COMPATIBILITY = {
   version: ARTIFACT_SCHEMA_VERSION,
-  predecessor: SUPERSEDED_ARTIFACT_SCHEMA_VERSION,
+  predecessor: PREDECESSOR_ARTIFACT_SCHEMA_VERSION,
   // The M04.8 identifier this lineage began at. Kept so a reader holding the
   // oldest artifact can still resolve the chain forward.
-  originating_predecessor: PREDECESSOR_ARTIFACT_SCHEMA_VERSION,
+  originating_predecessor: ORIGINATING_ARTIFACT_SCHEMA_VERSION,
   compatible_with_predecessor: false,
-  extended_by: "M04.9(a) exact transaction completion and proposal-wait instrumentation",
+  extended_by:
+    "M04.9 observed planted-delay declaration and corrected post-durability publication semantics",
   additive:
-    "bench_proposal_wait parser contract, the per-approval completion_event correlation block, and the event_driven_completion implementation record are new; a predecessor reader ignores them.",
+    "run.planted_delay records the exact test-only mutation requested of the validator, after the fixture has propagated it across the sanitized verifier boundary.",
   breaking: {
-    // Slots a v1/v2 reader knows that no longer exist under those names.
-    split_slots: {
-      receipt_creation_durable_ack: ["receipt_creation", "durable_ack_publication"],
-      completion_notification_client_observation: [
-        "completion_notification_transport",
-        "completion_client_observation",
-      ],
+    phase_nesting: {
+      ordering_finalization_no_longer_contains: ["durable_ack_publication"],
+      durable_ack_publication_nested_in: ["client_commit_wait", "client_event_observation"],
     },
-    // Phases whose `measured` flag changed. A reader that hard-coded
-    // "proposal_cadence_wait is always absent" now sees a number.
-    newly_measured_phases: [
-      "proposal_cadence_wait",
-      "durable_ack_publication",
-      "notification_transport_lag",
-      "client_event_observation",
-    ],
-    renamed_phases: {
-      aft_inclusion_finalization: "ordering_finalization",
-      receipt_creation_durable_ack: "receipt_creation",
-    },
-    renamed_fields: { proposal_cadence: "scheduler_and_block_cadence" },
     changed_semantics:
-      "`exclusive` now means a leaf disjoint from other exclusive leaves, not disjoint from every phase; execution_prepare is relabelled from inclusive to exclusive and joins safe_partition. `safe_partition` gains three leaves, so a `.v1` lower bound and a `.v2` lower bound are not comparable.",
+      "A v4 artifact declared the post-durability status/event publication interval nested inside producer-side ordering/finalization. Peer-bearing AFT may observe those spans on different validators, and the publication begins only after durable finalization. v5 treats durable_ack_publication as the disjoint post-durability leaf it actually measures and removes the false cross-observer nesting anomaly.",
+  },
+  historical_lineage: {
+    v3_to_v4: {
+      required_identity_fields: {
+        canonical_admission: ["proposal_tx_hash"],
+      },
+      changed_semantics:
+        "v4 binds the client-visible receipt/status identity and raw signed proposal transaction identity to the same Agentgres-admitted height/view/producer/block, then uses proposal_tx_hash for raw proposal attribution.",
+    },
+    v2_to_v3: {
+      required_identity_fields: {
+        proposal_and_ordering: ["producer_account_id", "producer_node"],
+        execution: [
+          "observer_node",
+          "view",
+          "producer_account_id",
+          "block_payload_hash",
+        ],
+        persistence: ["observer_node", "block_payload_hash"],
+        canonical_admission: [
+          "tx_hash",
+          "height",
+          "view",
+          "producer_account_id",
+          "canonical_block_hash",
+          "observer_node",
+        ],
+      },
+      changed_semantics:
+        "A v2 artifact assumed one proposal-wait line globally per transaction and selected block phases by height. Peer-bearing AFT legitimately produces multiple local observations and proposal attempts at one height. v3 first bound the Agentgres-admitted canonical attempt, then selected only that attempt and its producer-side workload persistence observation.",
+    },
+    v1_to_v2: {
+      split_slots: {
+        receipt_creation_durable_ack: ["receipt_creation", "durable_ack_publication"],
+        completion_notification_client_observation: [
+          "completion_notification_transport",
+          "completion_client_observation",
+        ],
+      },
+      newly_measured_phases: [
+        "proposal_cadence_wait",
+        "durable_ack_publication",
+        "notification_transport_lag",
+        "client_event_observation",
+      ],
+      renamed_phases: {
+        aft_inclusion_finalization: "ordering_finalization",
+        receipt_creation_durable_ack: "receipt_creation",
+      },
+      renamed_fields: { proposal_cadence: "scheduler_and_block_cadence" },
+    },
   },
   // EXACT compatibility statement, rather than a bare `false`.
   compatibility_statement:
-    "A `.v1` consumer must not read a `.v2` artifact. Phase NAMES it knows retain their meaning -- client_submission_admission, ordering_finalization, execution_prepare, execution_commit, state_commitment_materialization, durable_persistence, client_commit_wait and proof_exact_state_resolution are unchanged in semantics and in source field -- so a consumer that reads only those specific keys by name still reads them correctly. What breaks is any consumer that enumerates ORDERING_PARITY_SLOTS, enumerates safe_partition, sums the exclusive leaves, or assumes proposal_cadence_wait and the receipt/notification slots carry no number.",
+    "A v4 consumer must not read a v5 artifact. v5 removes a false producer-to-observer nesting relation and records the exact planted-delay mutation requested across the qualification boundary. Phase values are unchanged, but their summation and anomaly semantics are intentionally incompatible.",
 };
 
 // The readiness bar the unprofiled soak runs under, and which a profiled run
@@ -180,7 +227,8 @@ export const READY_HEIGHT_LAG_MAX = "1";
 // can see exactly which contract a given profile was parsed under.
 //
 // Accepted line shape (a bare operation token after the tag is optional):
-//   [BENCH-IAVL] <op?> height=<u64> version_count=<u64> tree_depth=<u64>
+//   [BENCH-IAVL] <op?> observer_node=<token> height=<u64>
+//                block_payload_hash=<hex> version_count=<u64> tree_depth=<u64>
 //                unique_nodes=<u64> new_nodes=<u64> new_node_bytes=<u64>
 //                block_bytes=<u64> commitment_ms=<nonnegative-decimal>
 //                durable_store_ms=<nonnegative-decimal>
@@ -189,7 +237,9 @@ export const BENCH_IAVL_CONTRACT = {
   tag: "[BENCH-IAVL]",
   correlation_field: "height",
   required_fields: [
+    "observer_node",
     "height",
+    "block_payload_hash",
     "version_count",
     "tree_depth",
     "unique_nodes",
@@ -247,6 +297,7 @@ export const BENCH_IAVL_CONTRACT = {
 //
 // Accepted line shape:
 //   [BENCH-ORDERING] proposal height=<u64> view=<u64> ordering_profile=<name>
+//                    producer_account_id=<hex> producer_node=<token>
 //                    ticker_interval_ms=<u64>
 //                    ticker_interval_provenance=<token>
 //                    min_tick_ms=<u64> min_tick_provenance=<token>
@@ -262,6 +313,8 @@ export const BENCH_ORDERING_CONTRACT = {
   required_fields: [
     "height",
     "view",
+    "producer_account_id",
+    "producer_node",
     "ordering_profile",
     "ticker_interval_ms",
     "ticker_interval_provenance",
@@ -307,22 +360,20 @@ export const BENCH_ORDERING_CONTRACT = {
 // its mempool read returns and emits this line for every transaction the
 // resulting proposal carries.
 //
-// CORRELATED BY TRANSACTION HASH, NOT BY HEIGHT -- and that is the whole
-// point. Every other tag in this file is height-keyed, which is correct for
-// them because they measure work done ONCE PER BLOCK. This measures work done
-// once per TRANSACTION: two transactions in one block waited different lengths
-// of time, so a height key would have to pick one and misattribute the other.
-// `height` and `view` are carried as dimensions of the observation so a reader
-// can join it to the block-level tags, never as its key.
+// START CORRELATED BY TRANSACTION HASH, ATTEMPT SELECTED BY CANONICAL IDENTITY.
+// Two transactions in one block can wait different lengths of time, while a
+// peer-bearing AFT transaction can be proposed in multiple views. The tx hash
+// finds every local proposal observation; the Agentgres-admitted
+// height/view/producer identity selects the one canonical attempt.
 //
-// EXACTLY ONE LINE PER TRANSACTION, by construction: the producer TAKES the
-// mempool's first-seen entry when it selects, so a transaction re-proposed
-// after its entry was taken emits nothing rather than a second, wrong wait.
-// This parser therefore refuses a duplicate rather than picking one, because a
-// duplicate would mean that construction no longer holds.
+// One line per LOCAL mempool observation. Peer-bearing AFT may legitimately
+// emit several lines for one transaction when different validators propose it
+// in different views. The canonical attempt is selected only after an
+// Agentgres-admitted `[BENCH-CANONICAL-TX]` identity is available.
 //
 // Accepted line shape:
 //   [BENCH-PROPOSAL-WAIT] selected tx_hash=<hex> height=<u64> view=<u64>
+//                         producer_account_id=<hex> producer_node=<token>
 //                         first_seen_at_ms=<u64>
 //                         proposal_selected_at_ms=<u64>
 //                         proposal_wait_ms=<u64>
@@ -334,6 +385,8 @@ export const BENCH_PROPOSAL_WAIT_CONTRACT = {
     "tx_hash",
     "height",
     "view",
+    "producer_account_id",
+    "producer_node",
     "first_seen_at_ms",
     "proposal_selected_at_ms",
     "proposal_wait_ms",
@@ -343,7 +396,30 @@ export const BENCH_PROPOSAL_WAIT_CONTRACT = {
   // clock) zero is distinguishable from a genuine sub-millisecond pickup.
   recomputable_from: ["first_seen_at_ms", "proposal_selected_at_ms"],
   notes:
-    "Per-TRANSACTION, hash-keyed. The wait ends when the producer's mempool read returned, before any planted-delay seam, so a delay planted in selection moves select_ms and leaves this value where it was.",
+    "Per-TRANSACTION and per local proposal attempt. The wait ends when that producer's mempool read returned, before any planted-delay seam. Only the attempt matching Agentgres-admitted height/view/producer is attributed.",
+};
+
+// Accepted line shape:
+//   [BENCH-CANONICAL-TX] admitted tx_hash=<client-visible-hex>
+//                        proposal_tx_hash=<raw-signed-transaction-hex>
+//                        height=<u64> view=<u64>
+//                        producer_account_id=<hex>
+//                        canonical_block_hash=<hex> observer_node=<token>
+export const BENCH_CANONICAL_TX_CONTRACT = {
+  tag: "[BENCH-CANONICAL-TX]",
+  op: "admitted",
+  correlation_field: "tx_hash",
+  required_fields: [
+    "tx_hash",
+    "proposal_tx_hash",
+    "height",
+    "view",
+    "producer_account_id",
+    "canonical_block_hash",
+    "observer_node",
+  ],
+  notes:
+    "Emitted only while publishing committed status from an Agentgres-rooted recognized-effect outbox. tx_hash is the client-visible receipt/status identity; proposal_tx_hash is the raw signed transaction identity used by the mempool/proposal seam. Duplicate observer lines must agree on both and the complete canonical identity.",
 };
 
 // The planted-delay mutation apparatus, as this file understands it.
@@ -383,6 +459,35 @@ export const PLANTED_DELAY_CONTRACT = {
     "not a production default, not a runtime tunable, and not reachable on an untraced run",
 };
 
+export function parsePlantedDelayDeclaration(raw) {
+  if (raw === undefined || raw === null || raw === "") return null;
+  const match = /^([^=]+)=([0-9]+)$/u.exec(raw);
+  if (!match) {
+    throw new Error(
+      `IOI_TESTING_M049_PLANTED_PHASE_DELAY must be exactly <phase>=<delay_ms>; got ${JSON.stringify(raw)}`,
+    );
+  }
+  const phase = match[1];
+  const delayMs = Number(match[2]);
+  if (!Object.hasOwn(PLANTED_DELAY_CONTRACT.wired_phases, phase)) {
+    throw new Error(
+      `IOI_TESTING_M049_PLANTED_PHASE_DELAY names unwired phase ${JSON.stringify(phase)}`,
+    );
+  }
+  if (!Number.isSafeInteger(delayMs) || delayMs < 1 || delayMs > 60_000) {
+    throw new Error(
+      `IOI_TESTING_M049_PLANTED_PHASE_DELAY delay must be an integer in 1..=60000; got ${JSON.stringify(match[2])}`,
+    );
+  }
+  return {
+    spec: raw,
+    phase,
+    delay_ms: delayMs,
+    arming: ["IOI_AFT_BENCH_TRACE", "IOI_TESTING_M049_PLANTED_PHASE_DELAY"],
+    provenance: "requested:process-environment; propagated explicitly across the sanitized verifier and validator-child boundaries",
+  };
+}
+
 export const BENCH_TAGS = {
   approval: "[BENCH-APPROVAL]",
   consensus: "[BENCH-CONSENSUS]",
@@ -390,6 +495,7 @@ export const BENCH_TAGS = {
   iavl: BENCH_IAVL_CONTRACT.tag,
   ordering: BENCH_ORDERING_CONTRACT.tag,
   proposal_wait: BENCH_PROPOSAL_WAIT_CONTRACT.tag,
+  canonical_tx: BENCH_CANONICAL_TX_CONTRACT.tag,
 };
 
 // A measurement the emitter could not take is spelled this way rather than
@@ -517,7 +623,6 @@ export const PHASES = {
       "state_commitment_materialization",
       "durable_persistence",
       "receipt_creation",
-      "durable_ack_publication",
     ],
     nested_in: ["client_commit_wait", "client_event_observation"],
     quantized_by: null,
@@ -628,7 +733,6 @@ export const PHASES = {
     nested_in: [
       "client_commit_wait",
       "client_event_observation",
-      "ordering_finalization",
     ],
     quantized_by: null,
   },
@@ -886,14 +990,11 @@ export function indexByHeight(text, tag, op = null) {
 
 // Index `[TAG] <op>` lines by the TRANSACTION HASH they name.
 //
-// The height-keyed sibling above is correct for per-block work. This exists
-// for per-transaction work, where a height key would have to collapse several
-// distinct observations into one.
-//
-// A repeated hash is an ERROR rather than a last-wins overwrite. The emitter
-// takes the mempool's first-seen entry when it selects, so exactly one line per
-// transaction is a construction guarantee; a second line means that guarantee
-// no longer holds, and quietly keeping one of the two would hide it.
+// This exported legacy helper deliberately enforces uniqueness and remains
+// useful for tags whose contract promises one observation per transaction.
+// Proposal-wait parsing does not use it: peer-bearing AFT legitimately emits
+// several attempts for one transaction, so the v3 parser indexes all of them
+// and selects the Agentgres-admitted canonical identity.
 export function indexByTxHash(text, tag, op = null) {
   const index = new Map();
   const duplicates = new Set();
@@ -907,6 +1008,74 @@ export function indexByTxHash(text, tag, op = null) {
     index.set(txHash, { fields: parsed.fields });
   }
   return { index, duplicates };
+}
+
+function indexAllByTxHash(text, tag, op = null) {
+  const index = new Map();
+  for (const line of String(text ?? "").split("\n")) {
+    const parsed = parseBenchLine(line, tag);
+    if (!parsed) continue;
+    if (op !== null && parsed.op !== op) continue;
+    const txHash = parsed.fields.tx_hash;
+    if (typeof txHash !== "string" || !/^[0-9a-f]{64}$/u.test(txHash)) continue;
+    const entries = index.get(txHash) ?? [];
+    entries.push({ fields: parsed.fields });
+    index.set(txHash, entries);
+  }
+  return index;
+}
+
+function attemptKey(fields) {
+  const height = integerField(fields, "height");
+  const view = integerField(fields, "view");
+  const producer = fields.producer_account_id;
+  if (height === null || view === null || !/^[0-9a-f]{64}$/u.test(producer ?? "")) return null;
+  return `${height}/${view}/${producer}`;
+}
+
+function indexAllByAttempt(text, tag, op = null) {
+  const index = new Map();
+  for (const line of String(text ?? "").split("\n")) {
+    const parsed = parseBenchLine(line, tag);
+    if (!parsed) continue;
+    if (op !== null && parsed.op !== op) continue;
+    const key = attemptKey(parsed.fields);
+    if (key === null) continue;
+    const entries = index.get(key) ?? [];
+    entries.push({ fields: parsed.fields });
+    index.set(key, entries);
+  }
+  return index;
+}
+
+function indexAllByPersistenceIdentity(text) {
+  const index = new Map();
+  for (const line of String(text ?? "").split("\n")) {
+    const parsed = parseBenchLine(line, BENCH_TAGS.iavl);
+    if (!parsed) continue;
+    const height = integerField(parsed.fields, "height");
+    const observer = parsed.fields.observer_node;
+    const payloadHash = parsed.fields.block_payload_hash;
+    if (
+      height === null || typeof observer !== "string" || observer.length === 0 ||
+      !/^[0-9a-f]{64}$/u.test(payloadHash ?? "")
+    ) continue;
+    const key = `${height}/${observer}/${payloadHash}`;
+    const entries = index.get(key) ?? [];
+    entries.push({ fields: parsed.fields });
+    index.set(key, entries);
+  }
+  return index;
+}
+
+function requireSingleObservation(entries, description, requestHash) {
+  const candidates = entries ?? [];
+  if (candidates.length !== 1) {
+    throw new ProfileIncomplete(
+      `approval ${requestHash}: ${description} has ${candidates.length} observations; exactly one canonical-attempt observation is required`,
+    );
+  }
+  return candidates[0];
 }
 
 export function parseApprovalLines(text) {
@@ -960,18 +1129,26 @@ export function buildCommitPathProfile({
   traceText = "",
   run = {},
 }) {
-  const consensusSelect = indexByHeight(traceText, BENCH_TAGS.consensus, "proposal_select");
-  const consensusProcess = indexByHeight(traceText, BENCH_TAGS.consensus, "proposal_process");
-  const consensusFinalize = indexByHeight(traceText, BENCH_TAGS.consensus, "proposal_finalize");
-  const execPrepare = indexByHeight(traceText, BENCH_TAGS.exec, "prepare_block");
-  const execCommit = indexByHeight(traceText, BENCH_TAGS.exec, "commit_block");
-  const iavl = indexByHeight(traceText, BENCH_TAGS.iavl);
-  const ordering = indexByHeight(traceText, BENCH_TAGS.ordering, BENCH_ORDERING_CONTRACT.op);
-  // Per-TRANSACTION, so hash-keyed rather than height-keyed.
-  const { index: proposalWait, duplicates: proposalWaitDuplicates } = indexByTxHash(
+  const consensusSelect = indexAllByAttempt(traceText, BENCH_TAGS.consensus, "proposal_select");
+  const consensusProcess = indexAllByAttempt(traceText, BENCH_TAGS.consensus, "proposal_process");
+  const consensusFinalize = indexAllByAttempt(traceText, BENCH_TAGS.consensus, "proposal_finalize");
+  const execPrepare = indexAllByAttempt(traceText, BENCH_TAGS.exec, "prepare_block");
+  const execCommit = indexAllByAttempt(traceText, BENCH_TAGS.exec, "commit_block");
+  const iavl = indexAllByPersistenceIdentity(traceText);
+  const ordering = indexAllByAttempt(
+    traceText,
+    BENCH_TAGS.ordering,
+    BENCH_ORDERING_CONTRACT.op,
+  );
+  const proposalWait = indexAllByTxHash(
     traceText,
     BENCH_TAGS.proposal_wait,
     BENCH_PROPOSAL_WAIT_CONTRACT.op,
+  );
+  const canonicalTransactions = indexAllByTxHash(
+    traceText,
+    BENCH_TAGS.canonical_tx,
+    BENCH_CANONICAL_TX_CONTRACT.op,
   );
 
   const approvalRecords = new Map();
@@ -993,43 +1170,137 @@ export function buildCommitPathProfile({
       "exact committed block height",
       requestHash,
     );
-    const commit = requireField(
-      execCommit.get(height),
-      `[BENCH-EXEC] commit_block at height ${height}`,
+    const txHash = fields.tx_hash;
+    if (typeof txHash !== "string" || !/^[0-9a-f]{64}$/u.test(txHash)) {
+      throw new ProfileIncomplete(
+        `approval ${requestHash}: [BENCH-APPROVAL] carries tx_hash=${txHash}, which is not a ` +
+          "64-character hex transaction hash; per-transaction phases cannot be correlated without one",
+      );
+    }
+
+    const canonicalLines = requireField(
+      canonicalTransactions.get(txHash),
+      `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} for tx ${txHash}`,
       requestHash,
     );
-    const prepare = requireField(
-      execPrepare.get(height),
-      `[BENCH-EXEC] prepare_block at height ${height}`,
+    const canonicalIdentities = new Map();
+    for (const line of canonicalLines) {
+      for (const name of BENCH_CANONICAL_TX_CONTRACT.required_fields) {
+        if (line.fields[name] === undefined) {
+          throw new ProfileIncomplete(
+            `approval ${requestHash}: ${BENCH_CANONICAL_TX_CONTRACT.tag} for tx ${txHash} omits required field '${name}'`,
+          );
+        }
+      }
+      const key = [
+        line.fields.proposal_tx_hash,
+        line.fields.height,
+        line.fields.view,
+        line.fields.producer_account_id,
+        line.fields.canonical_block_hash,
+      ].join("/");
+      canonicalIdentities.set(key, line);
+    }
+    if (canonicalIdentities.size !== 1) {
+      throw new ProfileIncomplete(
+        `approval ${requestHash}: Agentgres observers reported ${canonicalIdentities.size} canonical identities for tx ${txHash}`,
+      );
+    }
+    const canonical = [...canonicalIdentities.values()][0];
+    const canonicalHeight = requireField(
+      integerField(canonical.fields, "height"),
+      "Agentgres-admitted canonical height",
       requestHash,
     );
-    const tree = requireField(
-      iavl.get(height),
-      `${BENCH_IAVL_CONTRACT.tag} at height ${height}`,
+    const canonicalView = requireField(
+      integerField(canonical.fields, "view"),
+      "Agentgres-admitted canonical view",
       requestHash,
     );
-    const select = requireField(
-      consensusSelect.get(height),
-      `[BENCH-CONSENSUS] proposal_select at height ${height}`,
+    const canonicalProducer = canonical.fields.producer_account_id;
+    const proposalTxHash = canonical.fields.proposal_tx_hash;
+    if (
+      canonicalHeight !== height ||
+      !/^[0-9a-f]{64}$/u.test(proposalTxHash ?? "") ||
+      !/^[0-9a-f]{64}$/u.test(canonicalProducer ?? "") ||
+      !/^[0-9a-f]{64}$/u.test(canonical.fields.canonical_block_hash ?? "")
+    ) {
+      throw new ProfileIncomplete(
+        `approval ${requestHash}: canonical transaction identity does not bind the approval's exact height/producer/block`,
+      );
+    }
+    const canonicalAttempt = `${canonicalHeight}/${canonicalView}/${canonicalProducer}`;
+
+    const proposalCandidates = (proposalWait.get(proposalTxHash) ?? []).filter(
+      (candidate) => attemptKey(candidate.fields) === canonicalAttempt,
+    );
+    const proposalWaitLine = requireSingleObservation(
+      proposalCandidates,
+      `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} canonical attempt for proposal tx ${proposalTxHash}`,
       requestHash,
     );
-    const processed = requireField(
-      consensusProcess.get(height),
-      `[BENCH-CONSENSUS] proposal_process at height ${height}`,
+    for (const name of BENCH_PROPOSAL_WAIT_CONTRACT.required_fields) {
+      if (proposalWaitLine.fields[name] === undefined) {
+        throw new ProfileIncomplete(
+          `approval ${requestHash}: ${BENCH_PROPOSAL_WAIT_CONTRACT.tag} for proposal tx ${proposalTxHash} omits required field '${name}'`,
+        );
+      }
+    }
+    const producerNode = proposalWaitLine.fields.producer_node;
+    if (typeof producerNode !== "string" || !producerNode.endsWith("-orch")) {
+      throw new ProfileIncomplete(
+        `approval ${requestHash}: canonical proposal carries producer_node=${producerNode}; the producer workload observer cannot be resolved`,
+      );
+    }
+    const workloadObserver = `${producerNode.slice(0, -"-orch".length)}-workload`;
+
+    const select = requireSingleObservation(
+      consensusSelect.get(canonicalAttempt),
+      `[BENCH-CONSENSUS] proposal_select for canonical attempt ${canonicalAttempt}`,
       requestHash,
     );
-    const finalize = requireField(
-      consensusFinalize.get(height),
-      `[BENCH-CONSENSUS] proposal_finalize at height ${height}`,
+    const processed = requireSingleObservation(
+      consensusProcess.get(canonicalAttempt),
+      `[BENCH-CONSENSUS] proposal_process for canonical attempt ${canonicalAttempt}`,
+      requestHash,
+    );
+    const finalize = requireSingleObservation(
+      consensusFinalize.get(canonicalAttempt),
+      `[BENCH-CONSENSUS] proposal_finalize for canonical attempt ${canonicalAttempt}`,
+      requestHash,
+    );
+    const orderingLine = requireSingleObservation(
+      ordering.get(canonicalAttempt),
+      `${BENCH_ORDERING_CONTRACT.tag} canonical attempt ${canonicalAttempt}`,
+      requestHash,
+    );
+    const prepare = requireSingleObservation(
+      (execPrepare.get(canonicalAttempt) ?? []).filter(
+        (candidate) => candidate.fields.observer_node === workloadObserver,
+      ),
+      `[BENCH-EXEC] prepare_block for canonical attempt on ${workloadObserver}`,
+      requestHash,
+    );
+    const commit = requireSingleObservation(
+      (execCommit.get(canonicalAttempt) ?? []).filter(
+        (candidate) => candidate.fields.observer_node === workloadObserver,
+      ),
+      `[BENCH-EXEC] commit_block for canonical attempt on ${workloadObserver}`,
+      requestHash,
+    );
+    const payloadHash = commit.fields.block_payload_hash;
+    if (!/^[0-9a-f]{64}$/u.test(payloadHash ?? "")) {
+      throw new ProfileIncomplete(
+        `approval ${requestHash}: canonical execution commit omitted its exact block payload hash`,
+      );
+    }
+    const tree = requireSingleObservation(
+      iavl.get(`${height}/${workloadObserver}/${payloadHash}`),
+      `${BENCH_IAVL_CONTRACT.tag} canonical payload on ${workloadObserver}`,
       requestHash,
     );
     // A parity artifact that cannot name the engine that produced a height is
     // not parity evidence, so this fails closed rather than defaulting.
-    const orderingLine = requireField(
-      ordering.get(height),
-      `${BENCH_ORDERING_CONTRACT.tag} ${BENCH_ORDERING_CONTRACT.op} at height ${height}`,
-      requestHash,
-    );
     for (const name of BENCH_ORDERING_CONTRACT.required_fields) {
       if (orderingLine.fields[name] === undefined) {
         throw new ProfileIncomplete(
@@ -1089,34 +1360,6 @@ export function buildCommitPathProfile({
     // on the transaction hash the approval line carries. Joining them on
     // height would attribute one transaction's wait to every transaction in
     // its block.
-    const txHash = fields.tx_hash;
-    if (typeof txHash !== "string" || !/^[0-9a-f]{64}$/u.test(txHash)) {
-      throw new ProfileIncomplete(
-        `approval ${requestHash}: [BENCH-APPROVAL] carries tx_hash=${txHash}, which is not a ` +
-          "64-character hex transaction hash; per-transaction phases cannot be correlated without one",
-      );
-    }
-    if (proposalWaitDuplicates.has(txHash)) {
-      throw new ProfileIncomplete(
-        `approval ${requestHash}: ${BENCH_PROPOSAL_WAIT_CONTRACT.tag} names tx_hash=${txHash} more ` +
-          "than once. Exactly one line per transaction is a construction guarantee of the emitter " +
-          "(it TAKES the mempool first-seen entry on selection), so a duplicate means that " +
-          "guarantee no longer holds and neither line can be trusted",
-      );
-    }
-    const proposalWaitLine = requireField(
-      proposalWait.get(txHash) ?? null,
-      `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} for tx ${txHash}`,
-      requestHash,
-    );
-    for (const name of BENCH_PROPOSAL_WAIT_CONTRACT.required_fields) {
-      if (proposalWaitLine.fields[name] === undefined) {
-        throw new ProfileIncomplete(
-          `approval ${requestHash}: ${BENCH_PROPOSAL_WAIT_CONTRACT.tag} for tx ${txHash} omits ` +
-            `required field '${name}'`,
-        );
-      }
-    }
     const proposalWaitMs = requireField(
       integerField(proposalWaitLine.fields, "proposal_wait_ms"),
       "mempool-to-proposal wait",
@@ -1342,15 +1585,6 @@ export function buildCommitPathProfile({
     if (commitExclusiveMs < 0) {
       anomalies.push("commit_exclusive_ms_negative: commit time is below the commitment/store it contains");
     }
-    for (const [label, entry] of [
-      ["exec_commit", commit],
-      ["exec_prepare", prepare],
-      ["iavl", tree],
-    ]) {
-      if (entry.observations > 1) {
-        anomalies.push(`${label}_height_observed_${entry.observations}_times`);
-      }
-    }
     // Surfaced rather than clamped, exactly like the residuals above. This is
     // the ONE value here derived across two clocks, so a negative reading is
     // evidence about the deployment's clocks, not about the transport -- and
@@ -1360,19 +1594,9 @@ export function buildCommitPathProfile({
         "notification_transport_lag_negative: the client observed the completion event at a wall-clock instant earlier than the server's published_at_ms, so the two clocks disagree",
       );
     }
-    // `durable_ack_publication` is declared nested inside
-    // `ordering_finalization` -- the finalize span wraps the whole durable
-    // seam. A publication interval larger than the finalize it happened inside
-    // means the declared nesting does not hold for this observation.
-    //
     // NOT asserted: that the pushed wait beats the polled one. Both are real
     // and the ordering between them is a race the poll interval decides, so a
     // check either way would fire on healthy runs and mean nothing.
-    if (durableAckPublicationMs > phases.ordering_finalization) {
-      anomalies.push(
-        "durable_ack_publication_exceeds_ordering_finalization: the publication interval is larger than the finalization span declared to contain it",
-      );
-    }
 
     approvals.push({
       request_hash: requestHash,
@@ -1381,6 +1605,21 @@ export function buildCommitPathProfile({
       target_scope: fields.target_scope ?? null,
       route: route?.route ?? null,
       tx_hash: fields.tx_hash ?? null,
+      canonical_attempt: {
+        height: canonicalHeight,
+        view: canonicalView,
+        client_visible_tx_hash: txHash,
+        proposal_tx_hash: proposalTxHash,
+        producer_account_id: canonicalProducer,
+        producer_node: producerNode,
+        producer_workload_observer: workloadObserver,
+        canonical_block_hash: canonical.fields.canonical_block_hash,
+        block_payload_hash: payloadHash,
+        agentgres_observer_count: canonicalLines.length,
+        proposal_attempt_observations_for_transaction:
+          (proposalWait.get(proposalTxHash) ?? []).length,
+        provenance: `observed:${BENCH_CANONICAL_TX_CONTRACT.tag}`,
+      },
       // Which engine ordered this height, and the cadence it was configured
       // with. Configuration, never a duration.
       ordering: {
@@ -1454,8 +1693,9 @@ export function buildCommitPathProfile({
         first_seen_at_ms: proposalFirstSeenAtMs,
         proposal_selected_at_ms: proposalSelectedAtMs,
         proposal_wait_ms: proposalWaitMs,
-        correlated_by: BENCH_PROPOSAL_WAIT_CONTRACT.correlation_field,
+        correlated_by: "canonical_attempt.proposal_tx_hash",
         provenance: `observed:${BENCH_PROPOSAL_WAIT_CONTRACT.tag}`,
+        selected_from_attempt_observations: (proposalWait.get(proposalTxHash) ?? []).length,
       },
       completion_event: {
         // The two SERVER timestamps and their difference.
@@ -1592,7 +1832,11 @@ export function buildCommitPathProfile({
       // fail closed on missing timing state. What remains unmeasured is listed
       // so a reader is not left to assume the list is empty.
       dimension_control: {
-        varied: ["ordering_profile", "profile-required validator topology"],
+        varied: [
+          "ordering_profile",
+          "profile-required validator topology",
+          ...(run.planted_delay ? [`test-only planted delay: ${run.planted_delay.spec}`] : []),
+        ],
         held_identical: [
           "block-timestamp derivation (both engines use compute_next_timestamp_ms over the same on-chain BlockTimingParams/BlockTimingRuntime)",
           "genesis block timing (base == min == max == effective, retarget disabled, same value for both profiles)",
@@ -1702,14 +1946,19 @@ export function buildCommitPathProfile({
     // artifact with one transaction's number copied onto every row in its
     // block.
     correlation_contract: {
-      by_height: [
+      by_height: [],
+      by_tx_hash: [
+        BENCH_TAGS.canonical_tx,
+        BENCH_TAGS.proposal_wait,
+        `${BENCH_TAGS.approval}.event_*`,
+      ],
+      by_agentgres_canonical_attempt: [
         BENCH_TAGS.consensus,
         BENCH_TAGS.exec,
-        BENCH_TAGS.iavl,
         BENCH_TAGS.ordering,
       ],
-      by_tx_hash: [BENCH_TAGS.proposal_wait, `${BENCH_TAGS.approval}.event_*`],
-      rule: "A tag measuring per-BLOCK work joins on height. A tag measuring per-TRANSACTION work joins on tx_hash. Two transactions committing at one height must produce two distinct proposal waits and two distinct completion events; a height join would collapse them.",
+      by_persistence_identity: [BENCH_TAGS.iavl],
+      rule: "First join the approval to an Agentgres-admitted transaction identity. Then select consensus/ordering by exact height+view+producer, execution by that attempt plus the producer workload observer, and IAVL persistence by height+observer+canonical block-payload hash. Noncanonical proposal attempts remain visible but are never attributed.",
     },
     coverage: {
       approvals_attributed: approvals.length,
@@ -1937,6 +2186,9 @@ export function parseArgs(argv) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const plantedDelay = parsePlantedDelayDeclaration(
+    process.env.IOI_TESTING_M049_PLANTED_PHASE_DELAY,
+  );
   const outDir = resolve(args.out ?? mkdtempSync(join(tmpdir(), "ioi-m048-profile-")));
   mkdirSync(outDir, { recursive: true });
   const traceDir = join(outDir, "trace");
@@ -2006,6 +2258,7 @@ async function main() {
         // cannot masquerade as the cadence that ran.
         requested_proposal_cadence_ms: args.proposalCadenceMs,
         requested_consensus_min_tick_ms: args.consensusMinTickMs,
+        planted_delay: plantedDelay,
         readiness_lag_pin: {
           IOI_TEST_READY_HEIGHT_LAG_MAX: READY_HEIGHT_LAG_MAX,
           why: "IOI_AFT_BENCH_TRACE otherwise raises the cluster ready-height lag from 1 to 16",

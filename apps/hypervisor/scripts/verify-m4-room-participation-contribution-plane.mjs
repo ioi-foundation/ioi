@@ -17,6 +17,10 @@ import {
   startRealWalletNetworkPrincipalAuthorityFixture,
 } from "./lib/wallet-network-principal-authority-fixture.mjs";
 import {
+  authorityUnavailableDetail,
+  retryAuthorityUnavailable,
+} from "./lib/retry-authority-unavailable.mjs";
+import {
   bootstrapActiveSystem,
   exactGenesisBody,
   rebindGenesisBodySystem,
@@ -48,6 +52,22 @@ const requireValue = (value, message) => {
   if (!value) throw new Error(message);
   return value;
 };
+const invocationFailureSummary = (response) => (response.body?.invocations ?? []).map(
+  (candidate) => ({
+    role_key: candidate.role_key ?? null,
+    status: candidate.status ?? null,
+    blocker: candidate.blocker ?? null,
+    execution_receipt: candidate.execution_receipt == null ? null : {
+      exit_status: candidate.execution_receipt.exit_status ?? null,
+      timed_out: candidate.execution_receipt.timed_out ?? null,
+      spawn_error: candidate.execution_receipt.spawn_error ?? null,
+    },
+    implementation_result_candidate: candidate.implementation_result_candidate == null ? null : {
+      execution_succeeded: candidate.implementation_result_candidate.execution_succeeded ?? null,
+      summary: candidate.implementation_result_candidate.summary ?? null,
+    },
+  }),
+);
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const waitForOwnerProjection = async (call, path, timeoutMs = 30_000) => {
   const deadline = Date.now() + timeoutMs;
@@ -143,13 +163,17 @@ function observeGovernedRoute(route, approval, targetScope, timings) {
 
 async function governed(call, resolver, path, body) {
   const challengeStarted = process.hrtime.bigint();
-  const challenge = await call("POST", path, body);
+  const challengeAttempt = await retryAuthorityUnavailable(
+    () => call("POST", path, body),
+  );
+  const challenge = challengeAttempt.response;
   const challengeMs = elapsedMs(challengeStarted);
   const refusal = challenge.body?.error ?? challenge.body;
   const approval = refusal?.approval;
   requireValue(
     challenge.status === 403 && approval?.policy_hash && approval?.request_hash,
-    `authority challenge absent for ${path}: ${challenge.status}/${challenge.body?.error?.code || "none"}`,
+    `authority challenge absent for ${path}: ${challenge.status}/${challenge.body?.error?.code || "none"}` +
+      `${challenge.status === 503 ? `/${authorityUnavailableDetail(challenge)}` : ""}`,
   );
   requireValue(
     refusal?.required_authority_ref === SYSTEM_AUTHORITY,
@@ -164,42 +188,62 @@ async function governed(call, resolver, path, body) {
   );
   const mintRecordedMs = elapsedMs(mintStarted);
   const resolutionStarted = process.hrtime.bigint();
-  const response = await call("POST", path, { ...body, wallet_approval_grant: grant });
+  const resolutionAttempt = await retryAuthorityUnavailable(
+    () => call("POST", path, { ...body, wallet_approval_grant: grant }),
+  );
+  const response = resolutionAttempt.response;
   const authorityResolutionMs = elapsedMs(resolutionStarted);
   observeGovernedRoute(path, approval, refusal.required_scope, {
     challenge_ms: challengeMs,
+    challenge_attempts: challengeAttempt.attempts,
     mint_recorded_ms: mintRecordedMs,
     authority_resolution_ms: authorityResolutionMs,
+    authority_resolution_attempts: resolutionAttempt.attempts,
     response_status: response.status,
+    ...(response.status === 503
+      ? { authority_unavailable_detail: authorityUnavailableDetail(response) }
+      : {}),
   });
   return { challenge, response, grant };
 }
 
 async function walletAuthorizedPost(call, resolver, path, body, scope) {
   const challengeStarted = process.hrtime.bigint();
-  const challenge = await call("POST", path, body);
+  const challengeAttempt = await retryAuthorityUnavailable(
+    () => call("POST", path, body),
+  );
+  const challenge = challengeAttempt.response;
   const challengeMs = elapsedMs(challengeStarted);
   const approval = challenge.body?.approval ?? challenge.body?.error?.approval;
   requireValue(
     challenge.status === 403 && approval?.policy_hash && approval?.request_hash,
-    `authority challenge absent for ${path}: ${challenge.status}/${challenge.body?.error?.code || "none"}`,
+    `authority challenge absent for ${path}: ${challenge.status}/${challenge.body?.error?.code || "none"}` +
+      `${challenge.status === 503 ? `/${authorityUnavailableDetail(challenge)}` : ""}`,
   );
   const mintStarted = process.hrtime.bigint();
   const grant = await resolver.mintRecorded(DEPLOYMENT_AUTHORITY, approval.policy_hash, approval.request_hash, scope);
   const mintRecordedMs = elapsedMs(mintStarted);
   const operationToken = challenge.body?.operation_token ?? challenge.body?.authority_challenge?.operation_token;
   const resolutionStarted = process.hrtime.bigint();
-  const response = await call("POST", path, {
-    ...body,
-    ...(operationToken ? { operation_token: operationToken } : {}),
-    wallet_approval_grant: grant,
-  });
+  const resolutionAttempt = await retryAuthorityUnavailable(
+    () => call("POST", path, {
+      ...body,
+      ...(operationToken ? { operation_token: operationToken } : {}),
+      wallet_approval_grant: grant,
+    }),
+  );
+  const response = resolutionAttempt.response;
   const authorityResolutionMs = elapsedMs(resolutionStarted);
   observeGovernedRoute(path, approval, scope, {
     challenge_ms: challengeMs,
+    challenge_attempts: challengeAttempt.attempts,
     mint_recorded_ms: mintRecordedMs,
     authority_resolution_ms: authorityResolutionMs,
+    authority_resolution_attempts: resolutionAttempt.attempts,
     response_status: response.status,
+    ...(response.status === 503
+      ? { authority_unavailable_detail: authorityUnavailableDetail(response) }
+      : {}),
   });
   return { challenge, response, grant };
 }
@@ -347,7 +391,7 @@ async function establishRoom(call, resolver, profile) {
       (candidate) => candidate.status === "waiting_on_conductor" &&
         candidate.implementation_result_candidate?.execution_succeeded === true,
     ),
-    `GoalRun produced no successful waiting invocation (${started.response.status})`,
+    `GoalRun produced no successful waiting invocation (${started.response.status}): ${JSON.stringify(invocationFailureSummary(started.response))}`,
   );
   const currentGoalResponse = await call(
     "GET", `/v1/goal-orchestration/goal-runs/${goal.goal_run_id}`, undefined,
@@ -393,7 +437,8 @@ async function establishRoom(call, resolver, profile) {
   } while (true);
   const workResult = requireValue(
     resultResponse.status >= 200 && resultResponse.status < 300 && resultResponse.body?.admission?.admitted_object,
-    `room WorkResult failed ${resultResponse.status}/${resultResponse.body?.error?.code || "none"}`,
+    `room WorkResult failed ${resultResponse.status}/${resultResponse.body?.error?.code || "none"}/` +
+      `${JSON.stringify(resultResponse.body?.error ?? null).slice(0, 1_200)}`,
   );
   return {
     goal: attached.body.goal_run,

@@ -414,6 +414,14 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       );
     }
     spawnEnv.IOI_TEST_READY_HEIGHT_LAG_MAX = String(readyHeightLagMax);
+    // The verifier intentionally strips every IOI_TEST_* variable before it
+    // constructs baseEnv. A planted-delay campaign is an explicit profiled
+    // test input, so re-assert exactly this one value under the same trace
+    // gate. No other ambient fault injection crosses the boundary.
+    const plantedPhaseDelay = process.env.IOI_TESTING_M049_PLANTED_PHASE_DELAY;
+    if (plantedPhaseDelay !== undefined) {
+      spawnEnv.IOI_TESTING_M049_PLANTED_PHASE_DELAY = String(plantedPhaseDelay);
+    }
   }
   const child = spawn(
     process.execPath,

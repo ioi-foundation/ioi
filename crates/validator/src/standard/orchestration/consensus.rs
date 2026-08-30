@@ -78,6 +78,13 @@ fn benchmark_trace_enabled() -> bool {
     std::env::var_os("IOI_AFT_BENCH_TRACE").is_some()
 }
 
+fn benchmark_node_label() -> String {
+    std::env::var("IOI_AFT_BENCH_NODE_LABEL")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| format!("pid-{}", std::process::id()))
+}
+
 pub(crate) const AFT_RECOVERED_CONSENSUS_HEADER_WINDOW: u64 = 5;
 pub(crate) const AFT_RECOVERED_CONSENSUS_HEADER_STITCH_OVERLAP: u64 = 2;
 pub(crate) const DEFAULT_AFT_RECOVERED_CONSENSUS_HEADER_STITCH_WINDOW_BUDGET: u64 = 5;

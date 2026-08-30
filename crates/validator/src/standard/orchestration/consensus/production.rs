@@ -33,6 +33,8 @@ pub(super) fn format_proposal_wait_line(
     tx_hash_hex: &str,
     height: u64,
     view: u64,
+    producer_account_id: &str,
+    producer_node: &str,
     first_seen_at_ms: u64,
     proposal_selected_at_ms: u64,
 ) -> Result<String> {
@@ -45,10 +47,12 @@ pub(super) fn format_proposal_wait_line(
         )
     })?;
     Ok(format!(
-        "{BENCH_PROPOSAL_WAIT_TAG} selected tx_hash={} height={} view={} first_seen_at_ms={} proposal_selected_at_ms={} proposal_wait_ms={}",
+        "{BENCH_PROPOSAL_WAIT_TAG} selected tx_hash={} height={} view={} producer_account_id={} producer_node={} first_seen_at_ms={} proposal_selected_at_ms={} proposal_wait_ms={}",
         tx_hash_hex,
         height,
         view,
+        producer_account_id,
+        producer_node,
         first_seen_at_ms,
         proposal_selected_at_ms,
         proposal_wait_ms,
@@ -332,6 +336,24 @@ fn workload_tip_requires_hydration(
         || (workload_tip_height == local_tip_height && workload_tip_hash != local_tip_hash)
 }
 
+fn required_aft_bootstrap_peer_count(validator_count: usize) -> usize {
+    if validator_count <= 1 {
+        return 0;
+    }
+    // GuardianMajority uses the classic >2/3 count threshold for the
+    // peer-bearing runtime profile. The local validator supplies one vote;
+    // wait until enough remote validators are actually connected for the
+    // first proposal to be able to form a QC. Later proposals may traverse
+    // the established gossip mesh, so this direct-connect gate is bootstrap
+    // specific.
+    validator_count
+        .saturating_mul(2)
+        .checked_div(3)
+        .unwrap_or(0)
+        .saturating_add(1)
+        .saturating_sub(1)
+}
+
 fn nonce_scope(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     match tx {
         ChainTransaction::System(tx) => Some((tx.header.account_id, tx.header.nonce)),
@@ -445,6 +467,7 @@ pub(super) async fn maybe_replay_tip_vote<CS, ST, CE, V>(
     consensus_engine_ref: &Arc<Mutex<CE>>,
     local_keypair: &libp2p::identity::Keypair,
     tip_block: &Block<ChainTransaction>,
+    rebroadcast_proposal: bool,
 ) -> Result<()>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -541,6 +564,20 @@ where
         }
     }
 
+    // A proposal is deliberately replayed only while the exact executed tip is
+    // ahead of the Agentgres-admitted head.  These are the same bytes already
+    // staged and broadcast by the producer; replay creates no authority and is
+    // never exposed through admitted-history sync.  Publishing before the vote
+    // lets a peer that joined the gossip mesh late validate the proposal before
+    // observing this node's periodically replayed vote.
+    if rebroadcast_proposal {
+        let proposal_blob = codec::to_bytes_canonical(tip_block)
+            .map_err(|e| anyhow!("failed to encode pending AFT proposal for replay: {e}"))?;
+        let _ = swarm_commander
+            .send(SwarmCommand::PublishBlock(proposal_blob))
+            .await;
+    }
+
     let _ = swarm_commander
         .send(SwarmCommand::BroadcastVote(vote_blob))
         .await;
@@ -549,6 +586,7 @@ where
         height = tip_block.header.height,
         view = tip_block.header.view,
         block = %hex::encode(&vote_hash[..4]),
+        proposal_rebroadcast = rebroadcast_proposal,
         "Broadcast replayed tip vote for the local tip."
     );
 
@@ -671,6 +709,7 @@ where
         configured_bootstrap_peers,
         signer,
         batch_verifier,
+        runtime_finality_ref,
     ) = {
         let ctx = context_arc.lock().await;
         (
@@ -687,6 +726,7 @@ where
             ctx.configured_bootstrap_peers,
             ctx.signer.clone(),
             ctx.batch_verifier.clone(),
+            ctx.runtime_finality.clone(),
         )
     };
 
@@ -1122,11 +1162,24 @@ where
     }
 
     if let Some(tip_block) = last_executed_block_opt.as_ref() {
+        let rebroadcast_proposal = if matches!(cons_ty, ioi_types::config::ConsensusType::Aft) {
+            let coordinator = runtime_finality_ref.lock().await;
+            let admitted_height = coordinator
+                .last_admitted_block()?
+                .map(|block| block.header.height)
+                .unwrap_or(0);
+            coordinator.active_profile()?
+                == ioi_types::config::RuntimeFinalityProfile::BftConsensusAftV1
+                && tip_block.header.height > admitted_height
+        } else {
+            false
+        };
         if let Err(error) = maybe_replay_tip_vote(
             context_arc,
             &consensus_engine_ref,
             &local_keypair,
             tip_block,
+            rebroadcast_proposal,
         )
         .await
         {
@@ -1860,7 +1913,23 @@ where
                 .map(|v| v.account_id.0.to_vec())
                 .collect();
 
-            if producing_h == 1 && validator_count_hint > 1 {
+            if producing_h == 1 && matches!(cons_ty, ioi_types::config::ConsensusType::Aft) {
+                let validator_count = effective_vs.validators.len();
+                let required_peers = required_aft_bootstrap_peer_count(validator_count);
+                if known_peer_count < required_peers {
+                    tracing::info!(
+                        target: "consensus",
+                        height = producing_h,
+                        validator_count,
+                        known_peer_count,
+                        required_peers,
+                        "Waiting for a rooted-set QC-capable peer set before the first AFT proposal."
+                    );
+                    return Ok(());
+                }
+            }
+
+            if producing_h == 1 && effective_vs.validators.len() > 1 {
                 let bootstrap_leader = effective_vs.validators.first().map(|v| v.account_id);
                 eprintln!(
                     "[BOOTSTRAP-GATE] local={} leader={} configured_bootstrap_peers={} known_peer_count={} validator_count_hint={} validator_set_len={}",
@@ -1980,6 +2049,8 @@ where
                 valid_txs.clone()
             };
             let attempted_txs = ordered_txs.clone();
+            let producer_account_id_hex = hex::encode(our_account_id.0);
+            let producer_node = benchmark_node_label();
             let new_block_template = Block {
                 header,
                 transactions: ordered_txs,
@@ -2000,6 +2071,8 @@ where
                         &hex::encode(tx_hash),
                         producing_h,
                         view,
+                        &producer_account_id_hex,
+                        &producer_node,
                         first_seen_at_ms,
                         selected_at_ms,
                     )?;
@@ -2031,9 +2104,11 @@ where
                         .min(u128::from(u64::MAX))
                         as u64;
                     eprintln!(
-                        "[BENCH-ORDERING] proposal height={} view={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} genesis_block_interval_ms={} genesis_block_interval_provenance={} block_timestamp_ms={} proposal_observed_at_ms={} view_timeout_secs={}",
+                        "[BENCH-ORDERING] proposal height={} view={} producer_account_id={} producer_node={} ordering_profile={} ticker_interval_ms={} ticker_interval_provenance={} min_tick_ms={} min_tick_provenance={} genesis_block_interval_ms={} genesis_block_interval_provenance={} block_timestamp_ms={} proposal_observed_at_ms={} view_timeout_secs={}",
                         producing_h,
                         view,
+                        producer_account_id_hex,
+                        producer_node,
                         ordering_profile_label(cons_ty),
                         cadence.ticker_interval_ms,
                         cadence.ticker_interval_provenance,
@@ -2047,9 +2122,11 @@ where
                     );
                 }
                 eprintln!(
-                    "[BENCH-CONSENSUS] proposal_select height={} view={} candidate_txs={} valid_txs={} select_ms={} verify_ms={}",
+                    "[BENCH-CONSENSUS] proposal_select height={} view={} producer_account_id={} producer_node={} candidate_txs={} valid_txs={} select_ms={} verify_ms={}",
                     producing_h,
                     view,
+                    producer_account_id_hex,
+                    producer_node,
                     candidate_txs.len(),
                     valid_txs.len(),
                     selection_elapsed.as_millis(),
@@ -2078,9 +2155,11 @@ where
                     let process_elapsed = process_started.elapsed();
                     if benchmark_trace_enabled() {
                         eprintln!(
-                            "[BENCH-CONSENSUS] proposal_process height={} view={} tx_count={} process_block_ms={}",
+                            "[BENCH-CONSENSUS] proposal_process height={} view={} producer_account_id={} producer_node={} tx_count={} process_block_ms={}",
                             final_block.header.height,
                             view,
+                            producer_account_id_hex,
+                            producer_node,
                             final_block.transactions.len(),
                             process_elapsed.as_millis(),
                         );
@@ -2144,9 +2223,11 @@ where
                     let finalize_elapsed = finalize_started.elapsed();
                     if benchmark_trace_enabled() {
                         eprintln!(
-                            "[BENCH-CONSENSUS] proposal_finalize height={} view={} finalize_ms={}",
+                            "[BENCH-CONSENSUS] proposal_finalize height={} view={} producer_account_id={} producer_node={} finalize_ms={}",
                             producing_h,
                             view,
+                            producer_account_id_hex,
+                            producer_node,
                             finalize_elapsed.as_millis(),
                         );
                         tracing::info!(

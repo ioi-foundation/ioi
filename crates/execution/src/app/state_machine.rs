@@ -991,8 +991,11 @@ where
 
         if benchmark_trace {
             eprintln!(
-                "[BENCH-EXEC] prepare_block height={} tx_count={} replay_mode={} replay_gate={} nonce_chain_edges={} replay_debt={} validation_aborts={} validation_errors={} validation_rewinds={} execution_errors={} snapshot_ms={} parallel_exec_ms={} fallback_exec_ms={} overlay_ms={} collect_results_ms={} roots_ms={} total_ms={}",
+                "[BENCH-EXEC] prepare_block observer_node={} height={} view={} producer_account_id={} tx_count={} replay_mode={} replay_gate={} nonce_chain_edges={} replay_debt={} validation_aborts={} validation_errors={} validation_rewinds={} execution_errors={} snapshot_ms={} parallel_exec_ms={} fallback_exec_ms={} overlay_ms={} collect_results_ms={} roots_ms={} total_ms={}",
+                benchmark_node_label(),
                 block.header.height,
+                block.header.view,
+                hex::encode(block.header.producer_account_id.0),
                 num_txs,
                 replay_mode,
                 replay_gate,
@@ -1688,9 +1691,12 @@ where
             .map_err(|e| ChainError::Transaction(e.to_string()))?;
         tracing::info!(target: "execution", event = "commit", height = block.header.height, state_root = hex::encode(&block.header.state_root.0), anchor = hex::encode(anchor.as_ref()));
 
-        let _block_bytes = committed_block_bytes
+        let block_bytes = committed_block_bytes
             .take()
             .ok_or_else(|| ChainError::Transaction("Committed block bytes missing".to_string()))?;
+        let block_payload_hash = sha256(&block_bytes)
+            .map(hex::encode)
+            .map_err(|error| ChainError::Transaction(error.to_string()))?;
         let store_elapsed = Duration::ZERO;
 
         // Expose the new tip only after the committed block is queryable from storage.
@@ -1710,8 +1716,12 @@ where
             // durable store time; `snapshot_clone_ms` is exclusive of all of
             // them and is not part of `total_ms`'s nested decomposition.
             eprintln!(
-                "[BENCH-EXEC] commit_block height={} tx_count={} proof_verify_ms={} apply_ms={} end_block_ms={} persist_ms={} put_block_ms={} total_ms={} snapshot_clone_ms={} block_bytes={} proc_cpu_user_ms={} proc_cpu_sys_ms={}",
+                "[BENCH-EXEC] commit_block observer_node={} height={} view={} producer_account_id={} block_payload_hash={} tx_count={} proof_verify_ms={} apply_ms={} end_block_ms={} persist_ms={} put_block_ms={} total_ms={} snapshot_clone_ms={} block_bytes={} proc_cpu_user_ms={} proc_cpu_sys_ms={}",
+                benchmark_node_label(),
                 block.header.height,
+                block.header.view,
+                hex::encode(block.header.producer_account_id.0),
+                block_payload_hash,
                 block.transactions.len(),
                 proof_verify_elapsed.as_millis(),
                 apply_elapsed.as_millis(),

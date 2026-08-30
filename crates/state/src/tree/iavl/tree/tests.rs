@@ -382,8 +382,10 @@ fn iavl_commit_with_block_does_not_advance_commit_state_before_durability() {
 #[test]
 fn iavl_bench_sample_renders_the_exact_field_contract() {
     let sample = CombinedCommitSample {
+        observer_node: "validator-test-workload".to_string(),
         height: 7,
         block_bytes: 512,
+        block_payload_hash: Some([0x11; 32]),
         commitment: Duration::from_micros(1_250),
         durable_store: Duration::from_micros(43_500),
         tree_depth: Some(3),
@@ -394,7 +396,7 @@ fn iavl_bench_sample_renders_the_exact_field_contract() {
 
     assert_eq!(
         sample.render(2),
-        "[BENCH-IAVL] height=7 version_count=2 tree_depth=3 unique_nodes=9 new_nodes=4 \
+        "[BENCH-IAVL] observer_node=validator-test-workload height=7 block_payload_hash=1111111111111111111111111111111111111111111111111111111111111111 version_count=2 tree_depth=3 unique_nodes=9 new_nodes=4 \
          new_node_bytes=640 block_bytes=512 commitment_ms=1.250 durable_store_ms=43.500 \
          atomic_state_block=true"
     );
@@ -402,7 +404,7 @@ fn iavl_bench_sample_renders_the_exact_field_contract() {
 
 #[test]
 fn iavl_bench_sample_reports_unavailable_depth_rather_than_guessing() {
-    let sample = CombinedCommitSample::new(1, 0);
+    let sample = CombinedCommitSample::new(1, &[]);
 
     assert_eq!(sample.tree_depth, None);
     assert!(sample.render(0).contains(" tree_depth=unavailable "));
@@ -415,7 +417,8 @@ fn iavl_bench_sample_captures_the_staged_delta_and_depth() {
     tree.insert(b"key3", b"value3").unwrap();
 
     let (root, stats) = tree.stage_height_delta(9).unwrap();
-    let mut sample = CombinedCommitSample::new(9, 128);
+    let block_bytes = vec![0; 128];
+    let mut sample = CombinedCommitSample::new(9, &block_bytes);
     tree.record_commitment_sample(&mut sample, root, stats);
 
     // Two leaves plus the inner node that joins them.

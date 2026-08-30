@@ -1,7 +1,7 @@
 use super::{
-    format_proposal_wait_line, parse_failed_tx_index, resolve_ordering_cadence,
-    retain_nonce_heads_for_canonical_order, workload_tip_requires_hydration,
-    BENCH_PROPOSAL_WAIT_TAG,
+    format_proposal_wait_line, parse_failed_tx_index, required_aft_bootstrap_peer_count,
+    resolve_ordering_cadence, retain_nonce_heads_for_canonical_order,
+    workload_tip_requires_hydration, BENCH_PROPOSAL_WAIT_TAG,
 };
 use ioi_types::app::{
     AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
@@ -105,6 +105,15 @@ fn cold_workload_tip_requires_hydration() {
 fn unhashable_local_tip_fails_toward_hydration() {
     let hash = [0x11; 32];
     assert!(workload_tip_requires_hydration(184, Some(&hash), 184, None,));
+}
+
+#[test]
+fn aft_bootstrap_waits_for_enough_remote_votes_to_form_a_qc() {
+    assert_eq!(required_aft_bootstrap_peer_count(1), 0);
+    assert_eq!(required_aft_bootstrap_peer_count(2), 1);
+    assert_eq!(required_aft_bootstrap_peer_count(3), 2);
+    assert_eq!(required_aft_bootstrap_peer_count(4), 2);
+    assert_eq!(required_aft_bootstrap_peer_count(7), 4);
 }
 
 // ---------------------------------------------------------------------------
@@ -337,8 +346,16 @@ fn the_ticker_and_the_block_floor_are_resolved_independently() {
 #[test]
 fn the_proposal_wait_line_is_keyed_by_transaction_hash_not_height() {
     let hash = "ab".repeat(32);
-    let line =
-        format_proposal_wait_line(&hash, 412, 3, 1_000, 1_250).expect("ordered observation clocks");
+    let line = format_proposal_wait_line(
+        &hash,
+        412,
+        3,
+        &"aa".repeat(32),
+        "validator-20000-orch",
+        1_000,
+        1_250,
+    )
+    .expect("ordered observation clocks");
 
     assert!(
         line.starts_with(&format!("{BENCH_PROPOSAL_WAIT_TAG} selected ")),
@@ -349,6 +366,8 @@ fn the_proposal_wait_line_is_keyed_by_transaction_hash_not_height() {
     // Dimensions, not keys.
     assert!(line.contains(" height=412 "));
     assert!(line.contains(" view=3 "));
+    assert!(line.contains(&format!(" producer_account_id={} ", "aa".repeat(32))));
+    assert!(line.contains(" producer_node=validator-20000-orch "));
     // The measurement and both of its edges, so a reader can recompute it.
     assert!(line.contains(" first_seen_at_ms=1000 "));
     assert!(line.contains(" proposal_selected_at_ms=1250 "));
@@ -360,10 +379,26 @@ fn two_transactions_at_one_height_yield_two_independent_waits() {
     // The reason the line is hash-keyed. Both transactions below are picked up
     // by the SAME proposal at the same instant, but they entered the mempool
     // 850ms apart, so exactly one of them waited 900ms.
-    let early = format_proposal_wait_line(&"11".repeat(32), 412, 0, 1_000, 1_900)
-        .expect("ordered observation clocks");
-    let late = format_proposal_wait_line(&"22".repeat(32), 412, 0, 1_850, 1_900)
-        .expect("ordered observation clocks");
+    let early = format_proposal_wait_line(
+        &"11".repeat(32),
+        412,
+        0,
+        &"aa".repeat(32),
+        "validator-20000-orch",
+        1_000,
+        1_900,
+    )
+    .expect("ordered observation clocks");
+    let late = format_proposal_wait_line(
+        &"22".repeat(32),
+        412,
+        0,
+        &"aa".repeat(32),
+        "validator-20000-orch",
+        1_850,
+        1_900,
+    )
+    .expect("ordered observation clocks");
 
     assert!(early.ends_with(" proposal_wait_ms=900"));
     assert!(late.ends_with(" proposal_wait_ms=50"));
@@ -375,13 +410,29 @@ fn two_transactions_at_one_height_yield_two_independent_waits() {
 
 #[test]
 fn a_backwards_clock_refuses_instead_of_becoming_a_plausible_zero_wait() {
-    let error = format_proposal_wait_line(&"33".repeat(32), 9, 0, 2_000, 1_500)
-        .expect_err("a backwards observation clock must fail closed");
+    let error = format_proposal_wait_line(
+        &"33".repeat(32),
+        9,
+        0,
+        &"aa".repeat(32),
+        "validator-20000-orch",
+        2_000,
+        1_500,
+    )
+    .expect_err("a backwards observation clock must fail closed");
     assert!(error.to_string().contains("clock moved backwards"));
 
     // A same-millisecond pickup is a real zero, not a fault.
-    let instant = format_proposal_wait_line(&"44".repeat(32), 9, 0, 2_000, 2_000)
-        .expect("equal observation instants are a real zero wait");
+    let instant = format_proposal_wait_line(
+        &"44".repeat(32),
+        9,
+        0,
+        &"aa".repeat(32),
+        "validator-20000-orch",
+        2_000,
+        2_000,
+    )
+    .expect("equal observation instants are a real zero wait");
     assert!(instant.ends_with(" proposal_wait_ms=0"));
 }
 

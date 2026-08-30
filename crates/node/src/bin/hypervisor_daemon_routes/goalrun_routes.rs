@@ -13925,6 +13925,15 @@ async fn run_invocation(
     } else {
         "exit_nonzero"
     };
+    let failure_message = if outcome.summary.trim().is_empty() {
+        outcome
+            .error
+            .as_deref()
+            .or(outcome.spawn_error.as_deref())
+            .unwrap_or("harness invocation failed")
+    } else {
+        outcome.summary.as_str()
+    };
     let mut invocation = json!({
         "schema_version": INVOCATION_SCHEMA_VERSION,
         "goal_run_id": goal_run_id,
@@ -13988,7 +13997,7 @@ async fn run_invocation(
     } else {
         invocation["blocker"] = json!({
             "reason_code":failure_kind,
-            "message":outcome.summary,
+            "message":failure_message,
             "receipt_ref":receipt_ref,
         });
     }

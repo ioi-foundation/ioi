@@ -1,6 +1,7 @@
-# ADR 0039: Propose Finality Profiles Over The Agentgres Verifiable Batch Log
+# ADR 0039: Finality Profiles Over The Agentgres Verifiable Batch Log
 
-- Status: Proposed — design only; no runtime authority change
+- Status: Accepted — implemented two-profile local/runtime boundary; no
+  deployment authority or default change
 - Date: 2026-08-28 (revised 2026-08-28: profile labels reconciled to the
   canonical enum; the seven recognition **relationship** classes K1–K7 and
   their derivation added; successor-proof field binding and successor
@@ -20,9 +21,17 @@
   not established. Revised again 2026-08-28: `c85d3ad53` implements the
   Agentgres-owned atomic recognized-effect store for the exact
   `single_authority_v1` scope. Its 34 named crash edges and adversarial suite
-  close the atomicity blocker, but this ADR remains **Proposed**: no admitted
-  profile cutover, prior-writer fencing, restart/downgrade proof, or proof of
-  no dual-authority interval exists, and no profile is selectable or default.
+  close the atomicity blocker. Revised again 2026-08-30: the complete M04.9
+  implementation adds exact `bft_consensus`/`bft_consensus_aft_v1` and
+  `single_authority`/`single_authority_v1` runtime members, routes both through
+  the Agentgres recognized-effect boundary, admits governed bidirectional
+  cutovers with exact writer fencing and restart recovery, and qualifies the
+  peer-bearing AFT control plus explicit non-default Solo selection. The full
+  cutover, crash/concurrency, offline-verification, deterministic, scheduled
+  soak, matched-baseline, and planted-delay matrices are green. This ADR is
+  therefore **Accepted** for that exact two-profile scope. AFT remains the
+  runtime default, and this decision authorizes no deployment, push, release,
+  threshold/witness/external-finality profile, or broader peer-safety claim.
 - Owners: Agentgres / ordering and finality / wallet.network authority
 - Refines if accepted: ADRs 0003 and 0038 and the ordering/finality profiles
 - Bounded by, and does not amend: the source-neutral deterministic admission
@@ -32,8 +41,8 @@
   ([`canonical-enums.md`](../architecture/foundations/canonical-enums.md)),
   and `INV-41`/`INV-42`
   ([`invariants.md`](../architecture/foundations/invariants.md))
-- Confidence: supported for review by the M04.9 parity experiment; not accepted
-  architecture and not implementation authority
+- Confidence: accepted from the complete M04.9 integrated implementation and
+  qualification evidence; deployment selection remains a separate decision
 
 ## Context
 
@@ -496,60 +505,51 @@ The proposal may advance only after all of the following are mechanized:
 
 The M04.9 evidence is recorded in
 [`m04-9-ordering-finality-parity-profile.v1.json`](../architecture/_meta/evidence/m04-9-ordering-finality-parity-profile.v1.json).
-It supports proposing this direction, not accepting it. That artifact is the
-historical parity record and is preserved unchanged: slots a later leg newly
+That artifact supported the original proposal and remains the preserved
+historical parity record: slots a later leg newly
 measured were genuinely unmeasured when it was written, and a measurement
 record that is edited to match what came after it is no longer a record.
 
 ### Implementation-evidence status
 
-A first instrumentation leg landed at
-`d0677b62c1ad4594e9d76d025b7f974c0a31fa05`. Its status is recorded in
+A first instrumentation leg landed at `d0677b62c1ad4594e9d76d025b7f974c0a31fa05`.
+Its historical status is recorded in
 [`m04-9-golden-boundary-implementation-status.v1.json`](../architecture/_meta/evidence/m04-9-golden-boundary-implementation-status.v1.json).
-Summarized against the gates above: **no gate is closed, and exactly two moved
-partway.** What exists now is:
+The completed implementation supersedes that partial status without rewriting
+the historical artifact:
 
-- an **exact transaction-specific completion event**. On the canonical
-  finalization path it is published only after the finalized header for that
-  height was durably updated *and* `Committed` was published for that exact
-  transaction, and it is driven by the hashes the status publisher returned, so
-  on that path an event cannot exist for a transaction whose status was not
-  published. That path holds its publishers as private nested helpers, which
-  constrains the path — it does **not** make the event unconstructible
-  elsewhere, since the enum variant is public. No global compile-time guarantee
-  is claimed; the ordering is bound by focused tests, and any other
-  construction site remains reviewable and is not canonical completion;
-- **subscription before submit** in the profiled path, because a completion
-  event can only be observed by a stream that already exists;
-- **exact proposal first-seen and selection instrumentation**, correlated by
-  transaction hash with height and view as dimensions rather than as the key,
-  held in a structure no admission, ordering, nonce, or block decision reads;
-- **separate proposal, order-durability, notification-transport, and
-  client-observation slots**, splitting two previously bundled slots; and
-- **fail-closed planted-delay seams** for proposal selection and durable-ACK
-  publication, which refuse on an unarmed, malformed, unknown-phase, or
-  out-of-range spec rather than silently doing nothing, since an armed no-op
-  reads exactly like a planted delay that landed.
-
-Gate four — an event-driven completion identity — now has its **identity**. It
-does not have the separate measurement of the two costs the gate also requires.
-Gate five has its **seam**. It has neither the planted-delay mutation run nor
-the repeated release-host baselines, so **no numeric tripwire may be selected**,
-and none is. The remaining gates are untouched.
-
-The leg claims **no latency**. Its tests assert event identity, publication
-ordering, observation isolation, parser line shape, and the refusal set — shape,
-ordering, and refusal, never a measurement. It claims **no peer safety**: the
-fixture is still one validator exercising no cross-node ordering. It alters
-**no default**: the observation table and the client subscription are unarmed
-without the existing test-only benchmark-trace gate, a planted delay
-additionally requires its own spec, and the completion event is an additive
-stream field whose timestamps are observations carried alongside a commit and
-never inputs to admission, ordering, execution, or state. There is still no
-exact crash injection at receipt creation, checkpoint construction, finality
-signing, root publication, or ACK treated as one recognized-effect transaction;
-no profile cutover, fencing, restart, downgrade, or dual-authority evidence; no
-new batching evidence; and no production checkpoint or finality successor.
+- Agentgres registers exact `bft_consensus`/`bft_consensus_aft_v1` and
+  `single_authority`/`single_authority_v1` members; compatibility labels resolve
+  before admission, and unknown or mismatched profile/version pairs refuse.
+- The production validator routes both profiles through one
+  `RecognizedEffectStore` profile spine. The operation, state commitment,
+  individual receipts, v2 checkpoint, profile certificate, availability
+  material, authority snapshot, and stable outbox are bound at one rooted,
+  device-flushed Agentgres linearization point before publication or ACK.
+- A canonical cutover operation binds domain, idempotency identity, exact prior
+  and next profiles and writers, Agentgres and canonical heads, activation
+  epoch/sequence, authority and revocation epochs, wallet governance evidence,
+  guarantee delta, policy/verifier/availability/retention roots, delay,
+  checkpoint, prior-writer fence, and rollback-or-freeze plan.
+- Every effect revalidates the active profile, epoch, head, authority and
+  revocation epochs, writer identity, and fence token at commit. Concurrent and
+  multiple pre-cutover processes refresh the spine and refuse after activation;
+  restart reconstructs exactly one eligible writer or an explicit frozen state.
+- `bft_consensus` to `single_authority` is classified as a weakening and
+  refuses without the complete INV-42 burden: a separately declared threshold,
+  distinct authorization evidence, activation delay, pre-change checkpoint,
+  and rollback or freeze executable without the incoming authority.
+- The full four-validator AFT fixture exercises n=4, f=1, q=3 under partial
+  synchrony with three distinct authenticated signatures. It establishes only
+  that bounded native AFT contract; no larger-membership, asynchronous,
+  threshold-authority, witness, or external-chain claim is implied.
+- Matched v5 release profiles hold the operation sequence, daemon build,
+  backend, cadence, polling, notification mode, and host constant. Real planted
+  campaigns moved Solo ordering/finalization by +253 ms for a 250 ms proposal
+  selection plant and AFT ACK publication by +273 ms for a 250 ms ACK plant,
+  while the unrelated execution/persistence leaves did not absorb the planted
+  magnitude. Fresh-chain proposal wait remained variable, so no numeric
+  production tripwire is selected.
 
 ### Historical blockers to any successor version
 
@@ -582,46 +582,35 @@ neither v1 schema was modified:
    offline recomputation, including immediate-predecessor body/signature and
    range/state/head continuity checks.
 
-### Current acceptance blocker
+### Final acceptance adjudication
 
-The ADR remains **Proposed**. Commit `c85d3ad53` closes the atomicity blocker
-for the exact reference `single_authority_v1`, resolved ordinary K2/K3,
-integrity/availability scope. `RecognizedEffectStore` first persists and
-validates the immutable availability inputs, constructs the complete signed v2
-bundle and stable five-intent outbox, and then appends their JCS record in the
-dedicated Agentgres mux domain. The rooted batch after required device flush is
-the sole authoritative linearization point. An uncertain complete rooted write
-is validated and flushed during reopen before its reconstructed head is
-exposed; partial or unrooted tails are discarded. The writer refuses further
-in-process admission after any durability uncertainty until that reopen.
+All acceptance gates above are mechanized and green for the exact two-profile
+boundary, so this ADR is **Accepted**. The decision rests on the integrated
+runtime and evidence together, not on a profile label or single-node fixture:
 
-Everything outside that record — current IAVL/Redb materialization, status,
-root publication, `TransactionCommitted`, durable ACK, and client notification
-— remains an idempotent post-commit projection or delivery. It is not described
-as cross-store atomicity. Stable consequence identities replay identical bytes
-and refuse changed bytes. Recovery reconstructs the exact committed record and
-may restore missing availability side files from its canonical signed bytes;
-conflicting bytes still fail closed. Prepared candidates and orphaned
-content-addressed bytes remain non-authoritative.
+- both named runtime profiles and certificate implementations are exact and
+  versioned;
+- Solo is explicitly runtime-selectable and qualified but non-default;
+- AFT remains the unchanged default and is qualified with real peers;
+- both paths use the same Agentgres-owned atomic recognized-effect boundary;
+- both cutover directions are genuine admitted operations, with the weakening
+  direction separately governed under INV-42;
+- stale processes, writers, heads, epochs, fences, authorities, policies,
+  verifier roots, availability roots, and retention roots cannot commit;
+- crash/restart exposes one eligible writer or an explicit freeze, never dual
+  authority;
+- rollback after next-profile effects is a successor transition or freeze and
+  never erases history or revives a stale writer;
+- the offline verifier and runtime substitution matrices fail closed; and
+- the accepted machine-readable record names the precise peer and performance
+  evidence and preserves every unsupported claim as a nonclaim.
 
-The focused matrix arms the exact before/after edge for all 17 required phases.
-Every preparation/frame-precommit interruption reopens with no effect and
-admits one clean retry. A complete rooted uncertain append reopens only after
-strict validation and startup flush, then an identical retry replays the prior
-bytes. Every post-commit delivery edge reopens with the full canonical effect
-and redrives or replays its consequence. Torn, partial, unrooted, stale-head,
-stale-revocation, changed-byte replay, availability, projection, publication,
-ACK, range, root, predecessor, conflict, recognition, retention, signer, and
-verifier mutations fail closed across the Agentgres and offline-verifier gates.
-
-The next smallest acceptance blocker is now an **admitted profile-cutover
-operation** that binds the prior and next canonical profile/version and proves
-prior-writer fencing, exact restart recovery, downgrade refusal, and absence of
-a dual-authority interval. No v2 profile is production-selectable or
-default-authorized until that separate matrix is green. Peer-bearing AFT,
-threshold/witness, external-chain, and batching work remain separate
-per-profile qualifications, not prerequisites for the atomic seam or portable
-verification framework.
+Acceptance is architecture and local/runtime implementation authority for this
+boundary only. It is not deployment authority. No manifest default changes,
+push, release, deployment, provider contact, or remote mutation follows from
+this adjudication. Threshold authority, authority-bearing witnesses,
+external-chain finality, batching, JMT/backend replacement, and fractal
+partitioning remain excluded.
 
 The exact adjudication and per-profile matrix are recorded in
 [`m04-9-finality-framework-adjudication.v1.json`](../architecture/_meta/evidence/m04-9-finality-framework-adjudication.v1.json).
@@ -632,10 +621,10 @@ JMT remains stopped until incremental commit, proof, persistence/restart,
 pruning, and historical-anchor parity are proven through `StateManager`.
 Fractal partitioning remains stopped until measured need and fail-closed
 cross-partition proof consumption plus adjudication exist. Neither option is a
-prerequisite for finality profiles, and this proposal grants neither option
+prerequisite for finality profiles, and this decision grants neither option
 implementation authority.
 
-## Consequences if accepted later
+## Consequences
 
 - Deployments could match finality work to the trust relationship while
   retaining one Agentgres history and one receipt/state contract.
@@ -652,10 +641,10 @@ implementation authority.
   dependency, and no profile here creates network enrollment, a fee, or an
   ambient toll on local execution (`INV-27`).
 
-## Rejection and reversal
+## Reversal
 
-Rejecting this proposal leaves ADR 0038 and the current AFT control unchanged.
-If it is later accepted, any deployment-profile change remains reversible only
+Reversing this decision leaves ADR 0038 and the current AFT control unchanged.
+Any deployment-profile change remains reversible only
 through an admitted transition operation whose recovery and finality rules are
-defined by the then-accepted protocol. No implementation may cite this
-Proposed ADR alone as authority to change the runtime spine.
+defined by this accepted protocol and a separately authorized deployment
+decision. This ADR alone is not authority to change a deployed default.
