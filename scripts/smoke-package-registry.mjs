@@ -8,7 +8,25 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const binary = path.join(root, "target", "debug", "hypervisor-daemon");
+
+/// Where this smoke finds the daemon it drives.
+///
+/// The default is unchanged. The two overrides exist because a build that sets `CARGO_TARGET_DIR`
+/// — which every task-scoped build in this repo does — puts the binary somewhere else entirely, and
+/// this script would then fail its `accessSync` before reaching a single assertion. That reads as
+/// "the package registry is broken" rather than "you built into another directory". The sibling gate
+/// `verify-hypervisor-ontology-surface-invariant-11.mjs` already resolves it this exact way.
+function daemonBinary() {
+  if (process.env.IOI_HYPERVISOR_DAEMON_BINARY) {
+    return process.env.IOI_HYPERVISOR_DAEMON_BINARY;
+  }
+  if (process.env.CARGO_TARGET_DIR) {
+    return path.join(process.env.CARGO_TARGET_DIR, "debug", "hypervisor-daemon");
+  }
+  return path.join(root, "target", "debug", "hypervisor-daemon");
+}
+
+const binary = daemonBinary();
 const artifactRoot = path.join(
   root,
   ".artifacts",
@@ -30,6 +48,8 @@ const report = {
     "No extension_application registration is created.",
     "No System interface or serving binding is created.",
     "No executable process, public route, or launch eligibility is claimed.",
+    "Authoring the OntologySurfaceDescriptor crosses no CapabilityLease and no AuthorityGrant; it is an ordinary governed mutation and confers nothing.",
+    "Binding an ontology revision asserts no semantic correctness about that revision.",
   ],
 };
 
@@ -219,6 +239,40 @@ function encoded(value) {
   return encodeURIComponent(value);
 }
 
+const OWNER = "org://local";
+const ONTOLOGY_NAMESPACE = "package-registry-smoke";
+const ONTOLOGY_NAME = "registry-surface";
+/// The FIRST revision of that family, by construction: an ontology admitted with no predecessor.
+/// Pinned so a descriptor binding cannot silently become a family head or a later revision.
+const EXPECTED_REVISION = `ontology://${ONTOLOGY_NAMESPACE}/${ONTOLOGY_NAME}/revision/1`;
+
+/// The six mandatory nonclaims of the registered v2 descriptor contract.
+///
+/// `capability_lease_crossing` is among them because the stale wording that made descriptor
+/// authoring an authority crossing was withdrawn by ruling: authoring your own descriptor is not
+/// delegated authority, a secret, a decryption lease, external account access, or a high-risk
+/// approval. It is an ORDINARY GOVERNED MUTATION, and this smoke asserts the record says so.
+const DESCRIPTOR_NONCLAIMS = [
+  "authority",
+  "capability_lease_crossing",
+  "runtime_truth",
+  "semantic_truth",
+  "permission_truth",
+  "marketplace_truth",
+];
+
+/// The eight members non-negotiable 11 requires, in canon's own order.
+const INVARIANT_11_BINDING_SET = [
+  "ontology_refs",
+  "canonical_object_model_refs",
+  "data_recipe_refs",
+  "policy_bound_data_view_refs",
+  "authority_requirement_refs",
+  "daemon_api_refs",
+  "receipt_obligations",
+  "conformance_profile_refs",
+];
+
 function exactPackageRoutes(index) {
   return (index.families ?? [])
     .flatMap((family) => family.paths ?? [])
@@ -297,9 +351,57 @@ async function run() {
     expectStatus(ontology, 201, "ODK ontology source is durable");
     const ontologyRef = ontology.body.ontology.ref;
 
-    const descriptor = await request(
+    // ------------------------------------------------- the M05.1 prerequisite, through ITS OWNER
+    //
+    // TWO DIFFERENT FAMILIES, AND THIS SMOKE DOES NOT CONFLATE THEM. The ODK `DomainOntology`
+    // created above is the dev kit's own authoring object and is what an ODK manifest lists. A
+    // descriptor's `ontology_refs` are M05.1 `OntologyVersion` REVISIONS, and every one is resolved
+    // through that family's own admission before a descriptor can bind it — a ref this script merely
+    // spelled correctly would be refused, and so would a mutable family head. So the prerequisite is
+    // admitted here, through the owner route, and its exact revision id is what the descriptor binds.
+    const revision = await request(
       daemon,
-      "create_domain_app_descriptor",
+      "admit_ontology_version_revision",
+      "POST",
+      "/v1/hypervisor/ontology-versions",
+      {
+        owner_ref: OWNER,
+        idempotency_key: "package-registry-smoke-ontology-version-v1",
+        namespace: ONTOLOGY_NAMESPACE,
+        name: ONTOLOGY_NAME,
+        governing_scope_ref: `domain://${ONTOLOGY_NAMESPACE}/registry`,
+        policy_hash: `sha256:${"1a".repeat(32)}`,
+        entity_types: [
+          {
+            term_id: `ontology://${ONTOLOGY_NAMESPACE}/${ONTOLOGY_NAME}/term/package`,
+            label: "package",
+          },
+        ],
+        valid_time: { starts_at: "2026-01-01T00:00:00Z", ends_at: null },
+      },
+    );
+    expectStatus(
+      revision,
+      201,
+      "M05.1 admits the exact ontology revision a descriptor may bind",
+    );
+    const revisionRef = revision.body.ontology_version.ontology_id;
+    assertThat(
+      revisionRef === EXPECTED_REVISION,
+      "the prerequisite is an EXACT admitted revision, never a mutable family head",
+      { revision_ref: revisionRef },
+    );
+
+    // THE LEGACY SHAPE IS REFUSED, NOT TRANSLATED. This request is the one this smoke used to send:
+    // a singular `ontology_ref`, `recipe_refs` under the unqualified name, a `name` the v2 contract
+    // does not have, and no `schema_version` at all. It carried NONE of the eight members
+    // non-negotiable 11 requires, so the surface it described could not be checked against invariant
+    // 11 even in principle — and it is exactly what a caller left on the old shape still sends.
+    // Asserting the refusal here keeps this smoke a witness to the convergence rather than a lane
+    // that would quietly start passing again if the legacy names were ever re-accepted.
+    const legacyDescriptor = await request(
+      daemon,
+      "legacy_descriptor_shape_refused",
       "POST",
       "/v1/hypervisor/odk/surface-descriptors",
       {
@@ -307,12 +409,100 @@ async function run() {
         composition_pattern: "domain_app",
         ontology_ref: ontologyRef,
         recipe_refs: [],
-        owner_ref: "org://local",
-        idempotency_key: "package-registry-smoke-descriptor-v1",
+        owner_ref: OWNER,
+        idempotency_key: "package-registry-smoke-descriptor-legacy",
       },
     );
+    expectStatus(
+      legacyDescriptor,
+      422,
+      "the legacy v1 descriptor shape is refused rather than translated",
+    );
+
+    // ------------------------------------------------------- a COMPLETE registered v2 descriptor
+    //
+    // All eight members of the invariant-11 binding set are present under their canonical names, and
+    // the six mandatory nonclaims are declared. `data_recipe_refs` is deliberately an EMPTY LIST
+    // rather than absent: canon says "where applicable", and a surface declaring it binds none is a
+    // different, checkable fact from a surface that never said.
+    const descriptorRequest = {
+      owner_ref: OWNER,
+      idempotency_key: "package-registry-smoke-descriptor-v2",
+      schema_version: "ioi.ontology-surface-descriptor.v2",
+      display_name: "Package registry smoke surface",
+      surface_ref: `surface://${ONTOLOGY_NAMESPACE}/registry-smoke`,
+      composition_pattern: "domain_app",
+      ontology_refs: [revisionRef],
+      canonical_object_model_refs: [
+        `object-model://${ONTOLOGY_NAMESPACE}/${ONTOLOGY_NAME}/package`,
+      ],
+      data_recipe_refs: [],
+      policy_bound_data_view_refs: [`view://${ONTOLOGY_NAMESPACE}/registry/reviewer`],
+      authority_requirement_refs: ["scope:packages.admit"],
+      daemon_api_refs: ["api://v1/hypervisor/packages"],
+      receipt_obligations: [`receipt://${ONTOLOGY_NAMESPACE}/registry/admission`],
+      conformance_profile_refs: [`profile://${ONTOLOGY_NAMESPACE}/registry-smoke/v1`],
+      connector_mapping_refs: [],
+      ontology_projection_refs: [],
+      allowed_action_refs: [],
+      operator_contract_refs: [],
+      mcp_contract_refs: [],
+      generated_artifact_refs: [],
+      does_not_assert: [...DESCRIPTOR_NONCLAIMS],
+    };
+    const descriptor = await request(
+      daemon,
+      "create_domain_app_descriptor",
+      "POST",
+      "/v1/hypervisor/odk/surface-descriptors",
+      descriptorRequest,
+    );
     expectStatus(descriptor, 201, "ODK domain-app descriptor is durable");
-    const descriptorRef = descriptor.body.surface_descriptor.ref;
+    const descriptorRecord = descriptor.body.surface_descriptor;
+    // THE CANONICAL IDENTITY IS `surface_descriptor_id`. v1's `ref` is not a field a v2 carries, so
+    // reading it produced `undefined` and every downstream binding named nothing at all.
+    const descriptorRef = descriptorRecord.surface_descriptor_id;
+    assertThat(
+      typeof descriptorRef === "string" &&
+        /^surface-descriptor:\/\/sd_[0-9a-f]{16}$/u.test(descriptorRef) &&
+        descriptorRecord.ref === undefined,
+      "the descriptor is consumed by its canonical identity, not v1's `ref`",
+      { surface_descriptor_id: descriptorRef ?? null },
+    );
+    assertThat(
+      JSON.stringify(descriptorRecord.invariant_11_binding_set) ===
+        JSON.stringify(INVARIANT_11_BINDING_SET) &&
+        INVARIANT_11_BINDING_SET.every((member) =>
+          Array.isArray(descriptorRecord[member]),
+        ),
+      "the descriptor carries the exact invariant-11 binding set under canonical names",
+      { declared: descriptorRecord.invariant_11_binding_set ?? null },
+    );
+    assertThat(
+      JSON.stringify(descriptorRecord.ontology_refs) === JSON.stringify([revisionRef]) &&
+        descriptorRecord.bound_ontology_revisions?.[0]?.ontology_revision_ref ===
+          revisionRef &&
+        /^sha256:[0-9a-f]{64}$/u.test(
+          descriptorRecord.bound_ontology_revisions?.[0]?.ontology_content_hash ?? "",
+        ) &&
+        descriptorRecord.ontology_resolved_by ===
+          "ontology_version_routes::resolve_admitted_revision",
+      "the descriptor binds the owner-resolved exact revision and that owner's committed hash",
+    );
+    // THE DESCRIPTOR GRANTS NOTHING, AND SAYS SO IN ITS OWN BYTES. Authoring one is an ordinary
+    // governed mutation — no CapabilityLease, no AuthorityGrant — and the record disclaims the
+    // crossing explicitly so the withdrawn wording cannot creep back in through a passing smoke.
+    assertThat(
+      DESCRIPTOR_NONCLAIMS.every((token) =>
+        (descriptorRecord.does_not_assert ?? []).includes(token),
+      ) &&
+        descriptorRecord.authority_nonclaim ===
+          "ontology_surface_descriptor_grants_no_authority" &&
+        descriptorRecord.truth_nonclaim ===
+          "ontology_surface_descriptor_is_not_runtime_or_semantic_truth",
+      "the descriptor declares every mandatory nonclaim, including capability_lease_crossing",
+      { does_not_assert: descriptorRecord.does_not_assert ?? null },
+    );
 
     const manifest = await request(
       daemon,
@@ -324,7 +514,7 @@ async function run() {
         ontology_refs: [ontologyRef],
         recipe_refs: [],
         surface_descriptor_refs: [descriptorRef],
-        owner_ref: "org://local",
+        owner_ref: OWNER,
         idempotency_key: "package-registry-smoke-manifest-v1",
       },
     );
@@ -340,7 +530,7 @@ async function run() {
         name: "Package registry smoke app",
         surface_descriptor_ref: descriptorRef,
         odk_manifest_ref: manifestRef,
-        owner_ref: "org://local",
+        owner_ref: OWNER,
         idempotency_key: "package-registry-smoke-domain-app-v1",
       },
     );
@@ -349,7 +539,7 @@ async function run() {
 
     const candidateRequest = {
       package_id: "local-package-registry-smoke",
-      owner_ref: "org://local",
+      owner_ref: OWNER,
       domain_app_ref: domainAppRef,
       idempotency_key: "package-registry-smoke-candidate-v1",
       recorded_at_ms: 1,
