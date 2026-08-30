@@ -8228,6 +8228,18 @@
         {
           "path": "fixtures/ontology-version-v1/negative-missing-valid-time.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-unsupported-schema-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-term-entry-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json",
+          "expected_failure": "schema"
         }
       ]
     },

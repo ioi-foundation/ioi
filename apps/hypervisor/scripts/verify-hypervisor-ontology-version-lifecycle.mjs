@@ -541,6 +541,83 @@ async function run() {
       "ontology_version_valid_time_not_ordered",
       { valid_time: { starts_at: "2026-06-01T00:00:00Z", ends_at: "2026-01-01T00:00:00Z" } },
     ],
+    [
+      "an unsupported CONTRACT VERSION is refused rather than downgraded — an unknown version is not read as v1 merely because v1 is the only one this build implements",
+      "ontology_version_schema_version_unsupported",
+      { schema_version: "ioi.ontology-version.v0" },
+    ],
+    [
+      "a foreign RECORD PROFILE is refused: this family admits `ontology_version` and nothing else",
+      "ontology_version_record_profile_unsupported",
+      { ontology_record_profile: "ontology_overlay" },
+    ],
+    [
+      "a TERM entry carrying a field the registered contract does not define is refused BEFORE admission — after the durable write it would only surface as a permanently unprojectable revision",
+      "ontology_version_nested_entry_unknown_field",
+      {
+        entity_types: [
+          {
+            term_id: "ontology://acme-clinic/patient-intake/term/patient",
+            label: "Patient",
+            globally_canonical: true,
+          },
+        ],
+      },
+    ],
+    [
+      "a TERM-MAPPING entry carrying an undefined field is refused before admission for the same reason",
+      "ontology_version_nested_entry_unknown_field",
+      {
+        term_mappings: [
+          {
+            from_term_id: "ontology://acme-clinic/patient-intake/term/patient",
+            to_term_id: "ontology://acme-clinic/patient-intake/term/patient",
+            disposition: "retained",
+            reviewer_ref: "user://someone",
+          },
+        ],
+      },
+    ],
+    [
+      "a nested entry that is not an object at all is refused",
+      "ontology_version_nested_entry_malformed",
+      { entity_types: ["ontology://acme-clinic/patient-intake/term/patient"] },
+    ],
+    [
+      "a MALFORMED term suffix — a second path segment where a term name belongs — is refused",
+      "ontology_version_term_id_not_canonical",
+      {
+        entity_types: [
+          {
+            term_id: "ontology://acme-clinic/patient-intake/term/patient/extra",
+            label: "Patient",
+          },
+        ],
+      },
+    ],
+    [
+      "a DUPLICATE invariant ref is refused, not silently collapsed: the contract requires uniqueItems and deduplicating would change the bytes about to be hashed",
+      "ontology_version_invariant_ref_duplicated",
+      { invariant_refs: ["invariant://acme/one/v1", "invariant://acme/one/v1"] },
+    ],
+    [
+      "two mappings out of the SAME term are refused: a migration that says two things about one term has not explained it",
+      "ontology_version_term_mapping_duplicated",
+      {
+        term_mappings: [
+          {
+            from_term_id: "ontology://acme-clinic/patient-intake/term/patient",
+            to_term_id: "ontology://acme-clinic/patient-intake/term/patient",
+            disposition: "retained",
+          },
+          {
+            from_term_id: "ontology://acme-clinic/patient-intake/term/patient",
+            to_term_id: null,
+            disposition: "removed",
+          },
+        ],
+      },
+    ],
   ];
 
   let refusalsLeftTheChainAlone = true;
@@ -571,6 +648,59 @@ async function run() {
     `revision_count pinned at ${baselineCount}, head pinned at ${baselineHead}`,
   );
 
+  // Two of those refusals get their own no-append proof rather than relying only on the aggregate
+  // above, because both are cases where the bytes would have become DURABLE before anything noticed:
+  // a downgraded contract version, and a nested shape the registered contract rejects only at
+  // projection time. For each, the chain is read immediately before and immediately after.
+  for (const [claim, expectedCode, extra] of [
+    [
+      "a DOWNGRADED contract version appends nothing: the chain's head, sequence and revision count are identical either side of the refusal",
+      "ontology_version_schema_version_unsupported",
+      { schema_version: "ioi.ontology-version.v0" },
+    ],
+    [
+      "an undefined nested field appends nothing either — the refusal happens before the durable write, so no unprojectable revision can exist",
+      "ontology_version_nested_entry_unknown_field",
+      {
+        entity_types: [
+          {
+            term_id: "ontology://acme-clinic/patient-intake/term/patient",
+            label: "Patient",
+            reviewer_ref: "user://someone",
+          },
+        ],
+      },
+    ],
+  ]) {
+    const before = await lineageOf("acme-clinic", "patient-intake");
+    const attempt = await req(
+      "POST",
+      OV,
+      proposal({
+        key: `noappend-${expectedCode}`,
+        terms: ["patient", "guardian", "visitor"],
+        startsAt: "2026-09-01T00:00:00Z",
+        expectedHead: head2,
+        extra,
+      }),
+    );
+    const after = await lineageOf("acme-clinic", "patient-intake");
+    const beforeHead = before.j?.resolved_ontology_version?.admission?.admission_head;
+    const afterHead = after.j?.resolved_ontology_version?.admission?.admission_head;
+    const beforeSeq = before.j?.resolved_ontology_version?.admission?.admission_seq;
+    const afterSeq = after.j?.resolved_ontology_version?.admission?.admission_seq;
+    ok(
+      claim,
+      code(attempt.j) === expectedCode &&
+        after.status === 200 &&
+        beforeHead === afterHead &&
+        beforeSeq === afterSeq &&
+        before.j?.revision_count === after.j?.revision_count &&
+        canonicalJson(before.j?.lineage) === canonicalJson(after.j?.lineage),
+      `code ${code(attempt.j)}; head ${beforeHead === afterHead ? "unmoved" : "MOVED"}; seq ${beforeSeq}->${afterSeq}; count ${before.j?.revision_count}->${after.j?.revision_count}`,
+    );
+  }
+
   const noOp = await req(
     "POST",
     OV,
@@ -586,6 +716,46 @@ async function run() {
     code(noOp.j) === "ontology_version_no_op_revision",
     `status ${noOp.status} code ${code(noOp.j)}`,
   );
+
+  // What is ACCEPTED is rebuilt from validated parts rather than forwarded, which is the other half
+  // of the same property: rejection alone would still let padded or oddly-spelled bytes reach the
+  // chain and be hashed there. This admits revision 3, so every count below is 3.
+  await sleep(60);
+  const canonicalized = await req(
+    "POST",
+    OV,
+    proposal({
+      key: "acme-canonicalized",
+      startsAt: "2026-09-01T00:00:00Z",
+      expectedHead: head2,
+      extra: {
+        entity_types: [
+          {
+            term_id: "  ontology://acme-clinic/patient-intake/term/patient  ",
+            label: "  Patient  ",
+          },
+          {
+            term_id: "ontology://acme-clinic/patient-intake/term/ward",
+            label: "Ward",
+          },
+        ],
+      },
+    }),
+  );
+  const canonicalTerms = canonicalized.j?.ontology_version?.entity_types ?? [];
+  ok(
+    "accepted nested entries are REBUILT from validated parts, so the admitted bytes are the daemon's and carry exactly the contract's fields",
+    canonicalized.status === 201 &&
+      canonicalJson(canonicalTerms) ===
+        canonicalJson([
+          { term_id: "ontology://acme-clinic/patient-intake/term/patient", label: "Patient" },
+          { term_id: "ontology://acme-clinic/patient-intake/term/ward", label: "Ward" },
+        ]) &&
+      registeredContentCommitment(canonicalized.j.ontology_version).digest ===
+        canonicalized.j.ontology_version.content_hash,
+    `status ${canonicalized.status} terms ${canonicalJson(canonicalTerms)}`,
+  );
+  const head3 = canonicalized.j?.ontology_version?.admission?.admission_head ?? head2;
 
   // ------------------------------------------------------------- cross-namespace, same local name
   const harbor = await req(
@@ -720,7 +890,7 @@ async function run() {
   const afterRestart = await lineageOf("acme-clinic", "patient-intake");
   ok(
     "the whole lineage REPLAYS byte-identically after a daemon restart, over a chain whose write-ahead log was left with 4KB of garbage on its tail — corrupting the log's unacked tail cannot alter admitted truth",
-    canonicalJson(afterRestart.j?.lineage) === truthPrint && afterRestart.j?.revision_count === 2,
+    canonicalJson(afterRestart.j?.lineage) === truthPrint && afterRestart.j?.revision_count === 3,
     `identical ${canonicalJson(afterRestart.j?.lineage) === truthPrint} count ${afterRestart.j?.revision_count} log was ${beforeRestartBytes}B + 4096B of garbage`,
   );
   ok(
@@ -736,15 +906,16 @@ async function run() {
     proposal({
       key: "acme-post-restart",
       terms: ["patient", "guardian", "visitor"],
-      startsAt: "2026-09-01T00:00:00Z",
+      startsAt: "2026-10-01T00:00:00Z",
       expectedHead: restartHead,
     }),
   );
   ok(
     "and the chain still ADMITS against the head recovered from that replay, so recovery restored a writable head rather than a readable copy",
     v3.status === 201 &&
-      v3.j?.ontology_version?.revision_ordinal === 3 &&
-      v3.j?.ontology_version?.predecessor_content_hash === v2.content_hash,
+      v3.j?.ontology_version?.revision_ordinal === 4 &&
+      v3.j?.ontology_version?.predecessor_content_hash ===
+        canonicalized.j?.ontology_version?.content_hash,
     `status ${v3.status} ordinal ${v3.j?.ontology_version?.revision_ordinal}`,
   );
 
@@ -828,6 +999,20 @@ const MUTANTS = [
       "a successor whose content is byte-identical to the head is refused as a REPLAYED revision, not admitted as an edit",
     from: "        if proposed_meaning == previous_meaning {",
     to: "        if false && proposed_meaning == previous_meaning {",
+  },
+  {
+    id: "unknown-contract-version-silently-downgraded",
+    reddens:
+      "a DOWNGRADED contract version appends nothing: the chain's head, sequence and revision count are identical either side of the refusal",
+    from: "        Some(Value::String(declared)) if declared == SCHEMA_VERSION => {}",
+    to: "        Some(Value::String(declared)) if !declared.is_empty() || declared == SCHEMA_VERSION => {}",
+  },
+  {
+    id: "nested-unknown-field-admitted",
+    reddens:
+      "an undefined nested field appends nothing either — the refusal happens before the durable write, so no unprojectable revision can exist",
+    from: "    if let Some(unknown) = object.keys().find(|key| !permitted.contains(&key.as_str())) {",
+    to: "    if let Some(unknown) = object.keys().find(|key| false && !permitted.contains(&key.as_str())) {",
   },
   {
     id: "replay-lookup-never-finds-the-callers-key",

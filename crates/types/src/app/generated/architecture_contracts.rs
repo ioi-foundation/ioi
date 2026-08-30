@@ -105148,6 +105148,30 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json",
         expected_accept: true,
@@ -114673,6 +114697,39 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json"#,
         contract_id: r#"schema://ioi/foundations/oracle-evidence-admission-receipt/v1"#,
         source_fixture_path: Some(
@@ -122802,6 +122859,9 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json"))),
     ("docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json"))),
@@ -125335,8 +125395,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            764,
-            "the registered golden corpus must remain the explicit 764-fixture bar",
+            767,
+            "the registered golden corpus must remain the explicit 767-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

@@ -14154,6 +14154,30 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json",
     "expected": "accept",
@@ -22237,6 +22261,27 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json",
     "contract_id": "schema://ioi/foundations/ontology-version/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json",
     "mutation_id": null,
     "value_json": null
   },

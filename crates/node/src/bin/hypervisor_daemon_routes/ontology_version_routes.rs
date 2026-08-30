@@ -73,8 +73,17 @@ const ADMISSION_PAYLOAD_SCHEMA: &str = "ioi.hypervisor.ontology-version-admissio
 const CONTRACT_ID: &str = "schema://ioi/foundations/ontology-version/v1";
 const CONTENT_COMMITMENT_DOMAIN: &str = "ioi.ontology-version-content-commitment-jcs-sha256.v1";
 const AUTHORITY_NONCLAIM: &str = "ontology_version_grants_no_authority";
+/// The exact wire contract this build implements. A caller naming any other version is refused, not
+/// downgraded — see the first gate in `validate_proposal`.
+const SCHEMA_VERSION: &str = "ioi.ontology-version.v1";
+const RECORD_PROFILE: &str = "ontology_version";
 const MAX_TERMS_PER_SET: usize = 256;
 const MAX_TERM_MAPPINGS: usize = 512;
+const MAX_INVARIANT_REFS: usize = 128;
+/// The closed key sets the registered contract declares for its nested objects. Enforced BEFORE
+/// admission so a stray key cannot become permanently unprojectable durable truth.
+const TERM_FIELDS: &[&str] = &["term_id", "label"];
+const TERM_MAPPING_FIELDS: &[&str] = &["from_term_id", "to_term_id", "disposition"];
 const TERM_SETS: &[&str] = &[
     "entity_types",
     "relationship_types",
@@ -234,6 +243,35 @@ struct ProposedContent {
     term_mappings: Value,
 }
 
+/// Refuse any key a nested caller object is not permitted to carry.
+///
+/// PRE-ADMISSION, ALWAYS. The registered contract closes these objects with
+/// `additionalProperties: false`, but that check runs during PROJECTION — which is after the durable
+/// append. A stray key reaching the chain would therefore be permanently unprojectable: the family
+/// would answer 502 forever with the offending bytes already admitted. So the closed key set is
+/// enforced here, where a refusal still costs nothing.
+fn require_closed_object<'a>(
+    entry: &'a Value,
+    permitted: &[&str],
+    at: &str,
+) -> Result<&'a Map<String, Value>, Reply> {
+    let Some(object) = entry.as_object() else {
+        return Err(refuse(
+            "ontology_version_nested_entry_malformed",
+            format!("every {at} entry must be an object with exactly {permitted:?}"),
+        ));
+    };
+    if let Some(unknown) = object.keys().find(|key| !permitted.contains(&key.as_str())) {
+        return Err(refuse(
+            "ontology_version_nested_entry_unknown_field",
+            format!(
+                "{at} entry carries '{unknown}', which the registered contract does not define; an unknown field would only be caught after the durable write"
+            ),
+        ));
+    }
+    Ok(object)
+}
+
 fn term_set(body: &Value, key: &str, namespace: &str, name: &str) -> Result<Value, Reply> {
     let items = body.get(key).cloned().unwrap_or_else(|| json!([]));
     let Some(entries) = items.as_array() else {
@@ -249,8 +287,10 @@ fn term_set(body: &Value, key: &str, namespace: &str, name: &str) -> Result<Valu
         ));
     }
     let prefix = format!("ontology://{namespace}/{name}/term/");
-    let mut seen = Vec::new();
+    let mut seen: Vec<String> = Vec::new();
+    let mut canonical: Vec<Value> = Vec::with_capacity(entries.len());
     for entry in entries {
+        require_closed_object(entry, TERM_FIELDS, key)?;
         let term_id = str_field(entry, "term_id");
         let label = str_field(entry, "label");
         if !term_id.starts_with(&prefix) {
@@ -273,15 +313,18 @@ fn term_set(body: &Value, key: &str, namespace: &str, name: &str) -> Result<Valu
                 format!("{key} term '{term_id}' needs a 1..160 character label"),
             ));
         }
-        if seen.iter().any(|seen: &String| seen == term_id) {
+        if seen.iter().any(|previous| previous == term_id) {
             return Err(refuse(
                 "ontology_version_term_duplicated",
                 format!("{key} declares '{term_id}' twice"),
             ));
         }
         seen.push(term_id.to_string());
+        // REBUILT, not forwarded. What is admitted is what this function constructed from validated
+        // parts, so nothing the caller sent can travel to the chain unexamined.
+        canonical.push(json!({ "term_id": term_id, "label": label }));
     }
-    Ok(items)
+    Ok(Value::Array(canonical))
 }
 
 fn optional_ref(body: &Value, key: &str, scheme: &str) -> Result<Value, Reply> {
@@ -300,6 +343,35 @@ fn optional_ref(body: &Value, key: &str, scheme: &str) -> Result<Value, Reply> {
 }
 
 fn validate_proposal(body: &Value) -> Result<ProposedContent, Reply> {
+    // THE CONTRACT VERSION IS THE FIRST GATE, and it is a refusal rather than a coercion. An unknown
+    // or older `schema_version` cannot be read as v1 merely because v1 is the only version this build
+    // implements — that is a silent downgrade, and it would be a durable one, because the bytes would
+    // already be on the chain by the time anything noticed. The same applies to the record profile:
+    // this family admits `ontology_version` and nothing else.
+    match body.get("schema_version") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(declared)) if declared == SCHEMA_VERSION => {}
+        Some(declared) => {
+            return Err(refuse(
+                "ontology_version_schema_version_unsupported",
+                format!(
+                    "this build admits {SCHEMA_VERSION} only; {declared} is refused rather than downgraded or interpreted"
+                ),
+            ))
+        }
+    }
+    match body.get("ontology_record_profile") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(declared)) if declared == RECORD_PROFILE => {}
+        Some(declared) => {
+            return Err(refuse(
+                "ontology_version_record_profile_unsupported",
+                format!(
+                    "this family admits the {RECORD_PROFILE} profile only; {declared} belongs to another owner"
+                ),
+            ))
+        }
+    }
     if body.get("transaction_time").is_some_and(|v| !v.is_null()) {
         return Err(refuse(
             "ontology_version_transaction_time_server_resolved",
@@ -353,24 +425,38 @@ fn validate_proposal(body: &Value) -> Result<ProposedContent, Reply> {
     let deprecation_policy_ref = optional_ref(body, "deprecation_policy_ref", "policy://")?;
     let invariant_refs = match body.get("invariant_refs") {
         None | Some(Value::Null) => json!([]),
-        Some(Value::Array(entries)) if entries.len() <= 128 => {
+        Some(Value::Array(entries)) if entries.len() <= MAX_INVARIANT_REFS => {
+            let mut canonical: Vec<Value> = Vec::with_capacity(entries.len());
             for entry in entries {
-                if !entry
+                let Some(reference) = entry
                     .as_str()
-                    .is_some_and(|value| value.starts_with("invariant://") && value.len() <= 252)
-                {
+                    .map(str::trim)
+                    .filter(|value| value.starts_with("invariant://") && value.len() <= 252)
+                else {
                     return Err(refuse(
                         "ontology_version_invariant_ref_not_canonical",
                         "every invariant_refs entry must be an 'invariant://' ref",
                     ));
+                };
+                // The registered contract requires uniqueItems. A duplicate is REFUSED rather than
+                // silently collapsed: a caller that repeated a ref meant something, and quietly
+                // deduplicating would change the bytes it is about to be given a content hash for.
+                if canonical.iter().any(|held| held == &json!(reference)) {
+                    return Err(refuse(
+                        "ontology_version_invariant_ref_duplicated",
+                        format!("invariant_refs declares '{reference}' twice"),
+                    ));
                 }
+                canonical.push(json!(reference));
             }
-            json!(entries)
+            Value::Array(canonical)
         }
         Some(_) => {
             return Err(refuse(
                 "ontology_version_invariant_refs_malformed",
-                "invariant_refs must be an array of at most 128 'invariant://' refs",
+                format!(
+                    "invariant_refs must be an array of at most {MAX_INVARIANT_REFS} 'invariant://' refs"
+                ),
             ))
         }
     };
@@ -468,38 +554,63 @@ fn validate_term_mappings(body: &Value, namespace: &str, name: &str) -> Result<V
         ));
     }
     let prefix = format!("ontology://{namespace}/{name}/term/");
+    let mut seen: Vec<String> = Vec::new();
+    let mut canonical: Vec<Value> = Vec::with_capacity(entries.len());
     for entry in entries {
+        // This one keeps its own name ahead of the generic unknown-field refusal: a caller reaching
+        // for `reinterprets_predecessor` is not making a typo, and the refusal should say so.
         if entry.get("reinterprets_predecessor").is_some() {
             return Err(refuse(
                 "ontology_version_migration_reinterpretation_refused",
                 "a migration never reinterprets the revision it succeeds; the predecessor's bytes and content hash are frozen",
             ));
         }
+        require_closed_object(entry, TERM_MAPPING_FIELDS, "term_mappings")?;
         let from_term_id = str_field(entry, "from_term_id");
-        if !from_term_id.starts_with(&prefix) {
+        if !from_term_id.starts_with(&prefix) || !canonical_token(&from_term_id[prefix.len()..], 63)
+        {
             return Err(refuse(
                 "ontology_version_term_foreign_namespace",
                 format!("term_mappings maps '{from_term_id}', which is not a term of this family"),
             ));
         }
-        match entry.get("to_term_id") {
-            Some(Value::Null) | None => {}
-            Some(Value::String(to_term_id)) if to_term_id.starts_with(&prefix) => {}
-            Some(_) => {
-                return Err(refuse(
+        let to_term_id =
+            match entry.get("to_term_id") {
+                Some(Value::Null) | None => Value::Null,
+                Some(Value::String(to_term_id))
+                    if to_term_id.starts_with(&prefix)
+                        && canonical_token(&to_term_id[prefix.len()..], 63) =>
+                {
+                    json!(to_term_id)
+                }
+                Some(_) => return Err(refuse(
                     "ontology_version_term_foreign_namespace",
                     "term_mappings may only map to a term of this family, or to null for a removal",
-                ))
-            }
-        }
-        if !DISPOSITIONS.contains(&str_field(entry, "disposition")) {
+                )),
+            };
+        let disposition = str_field(entry, "disposition");
+        if !DISPOSITIONS.contains(&disposition) {
             return Err(refuse(
                 "ontology_version_term_disposition_unsupported",
                 format!("every term mapping needs a disposition from {DISPOSITIONS:?}"),
             ));
         }
+        // One source term, one disposition. Two mappings out of the same term say two different
+        // things about it, and a migration that is ambiguous about a term has not explained it.
+        if seen.iter().any(|previous| previous == from_term_id) {
+            return Err(refuse(
+                "ontology_version_term_mapping_duplicated",
+                format!("term_mappings maps '{from_term_id}' twice"),
+            ));
+        }
+        seen.push(from_term_id.to_string());
+        canonical.push(json!({
+            "from_term_id": from_term_id,
+            "to_term_id": to_term_id,
+            "disposition": disposition,
+        }));
     }
-    Ok(mappings)
+    Ok(Value::Array(canonical))
 }
 
 // ----------------------------------------------------------------------- durable lineage projection
@@ -530,6 +641,19 @@ fn project_admitted(entry: &ExactProjection) -> Result<AdmittedRevision, String>
         .get("version_record")
         .cloned()
         .ok_or_else(|| "ontology-version admission carries no version record".to_string())?;
+    // THE READ SIDE REFUSES AN UNKNOWN CONTRACT VERSION TOO. A frame written by a build this one does
+    // not implement is reported as unreadable rather than projected as though it were v1 — a
+    // downgrade is no more acceptable on the way out of the chain than on the way in.
+    if record.get("schema_version").and_then(Value::as_str) != Some(SCHEMA_VERSION)
+        || record
+            .get("ontology_record_profile")
+            .and_then(Value::as_str)
+            != Some(RECORD_PROFILE)
+    {
+        return Err(format!(
+            "ontology-version chain holds a revision this build does not implement (expected {SCHEMA_VERSION} / {RECORD_PROFILE})"
+        ));
+    }
     // The served content hash is RE-DERIVED, never trusted: a tampered log frame or a rebuilt index
     // cannot make this module serve bytes that do not hash to what they claim.
     let derived = content_hash(&record)?;
@@ -911,10 +1035,10 @@ pub(crate) async fn handle_ontology_version_admit(
     }
 
     let mut record = json!({
-        "schema_version": "ioi.ontology-version.v1",
+        "schema_version": SCHEMA_VERSION,
         "ontology_id": revision_ref(&proposal.namespace, &proposal.name, ordinal),
         "ontology_family_ref": family,
-        "ontology_record_profile": "ontology_version",
+        "ontology_record_profile": RECORD_PROFILE,
         "namespace": proposal.namespace,
         "name": proposal.name,
         "owner_id": caller.owner_ref,
@@ -1261,10 +1385,10 @@ mod tests {
             .and_then(|d| d.get("content_hash").cloned())
             .unwrap_or(Value::Null);
         let mut record = json!({
-            "schema_version": "ioi.ontology-version.v1",
+            "schema_version": SCHEMA_VERSION,
             "ontology_id": revision_ref(&content.namespace, &content.name, ordinal),
             "ontology_family_ref": family,
-            "ontology_record_profile": "ontology_version",
+            "ontology_record_profile": RECORD_PROFILE,
             "namespace": content.namespace,
             "name": content.name,
             "owner_id": caller.owner_ref,
@@ -1787,6 +1911,250 @@ mod tests {
                 "{field} was accepted with code {code}"
             );
         }
+    }
+
+    /// The refusal code a proposal yields, for the table-driven pre-admission cases below.
+    fn refusal_code(body: &Value) -> String {
+        validate_proposal(body)
+            .err()
+            .map(|(_, Json(reply))| reply["error"]["code"].as_str().unwrap_or("").to_string())
+            .unwrap_or_else(|| "ACCEPTED".to_string())
+    }
+
+    #[test]
+    fn an_unknown_or_downgraded_contract_version_is_refused_not_interpreted() {
+        let base = proposal(
+            "acme-clinic",
+            "patient-intake",
+            &["patient"],
+            "2026-01-01T00:00:00Z",
+        );
+        // The version this build implements may be stated explicitly.
+        let mut current = base.clone();
+        current["schema_version"] = json!(SCHEMA_VERSION);
+        assert!(validate_proposal(&current).is_ok());
+
+        for declared in [
+            "ioi.ontology-version.v0",
+            "ioi.ontology-version.v2",
+            "ioi.ontology-assertion.v1",
+            "",
+        ] {
+            let mut body = base.clone();
+            body["schema_version"] = json!(declared);
+            assert_eq!(
+                refusal_code(&body),
+                "ontology_version_schema_version_unsupported",
+                "'{declared}' must refuse rather than be read as {SCHEMA_VERSION}"
+            );
+        }
+        let mut wrong_type = base.clone();
+        wrong_type["schema_version"] = json!(1);
+        assert_eq!(
+            refusal_code(&wrong_type),
+            "ontology_version_schema_version_unsupported"
+        );
+
+        let mut profile = base.clone();
+        profile["ontology_record_profile"] = json!("ontology_overlay");
+        assert_eq!(
+            refusal_code(&profile),
+            "ontology_version_record_profile_unsupported",
+            "an overlay belongs to M05.2's owner, not to this family"
+        );
+    }
+
+    #[test]
+    fn an_unimplemented_contract_version_on_the_chain_is_unreadable_rather_than_projected() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let owner = caller("user://acme", "downgraded-frame");
+        let family = "ontology://acme-clinic/patient-intake";
+        let scope = bind_request_resource_scope(
+            data_dir,
+            &owner.identity,
+            RESOURCE_KIND,
+            family,
+            &owner.owner_ref,
+            &owner.owner_ref,
+            &owner.idempotency_key,
+        )
+        .unwrap();
+
+        // A frame written by a build this one does not implement, admitted directly onto the chain so
+        // the READ guard is what is under test rather than the request-side one.
+        let mut record = json!({
+            "schema_version": "ioi.ontology-version.v0",
+            "ontology_id": "ontology://acme-clinic/patient-intake/revision/1",
+            "ontology_family_ref": family,
+            "ontology_record_profile": RECORD_PROFILE,
+            "namespace": "acme-clinic",
+            "name": "patient-intake",
+            "owner_id": owner.owner_ref,
+            "governing_scope_ref": "domain://acme-clinic/intake",
+            "version": "v1",
+            "revision_ordinal": 1,
+            "predecessor_version_ref": Value::Null,
+            "predecessor_content_hash": Value::Null,
+            "entity_types": [],
+            "relationship_types": [],
+            "event_types": [],
+            "action_types": [],
+            "invariant_refs": [],
+            "compatibility_profile_ref": Value::Null,
+            "deprecation_policy_ref": Value::Null,
+            "policy_hash": format!("sha256:{}", "1a".repeat(32)),
+            "valid_time": { "starts_at": "2026-01-01T00:00:00Z", "ends_at": Value::Null },
+            "migration": {
+                "from_version_ref": Value::Null,
+                "from_content_hash": Value::Null,
+                "from_revision_ordinal": 0,
+                "compatibility": "initial",
+                "reinterprets_predecessor": false,
+                "term_mappings": [],
+            },
+        });
+        // Hash it correctly, so the ONLY thing wrong with the frame is its contract version.
+        record["content_hash"] = json!(content_hash(&record).unwrap());
+        let payload = json!({
+            "schema_version": ADMISSION_PAYLOAD_SCHEMA,
+            "owner_ref": owner.owner_ref,
+            "resource_ref": family,
+            "version_record": record,
+        });
+        let tail = stream_tail(RESOURCE_KIND, family);
+        admit_owner_scoped_mutation(
+            data_dir,
+            true,
+            ScopedMutation {
+                identity: &owner.identity,
+                scope: &scope,
+                resource_kind: RESOURCE_KIND,
+                resource_ref: family,
+                owner_namespace: OWNER_NAMESPACE,
+                stream_tail: &tail,
+                op_kind: ADMIT_OP,
+                expected_head: None,
+                payload: &payload,
+                idempotency_key: &owner.idempotency_key,
+                recorded_at_ms: 1_756_000_000_000,
+            },
+        )
+        .unwrap();
+
+        let history = read_owner_scoped_history(
+            data_dir,
+            &owner.identity,
+            &scope,
+            RESOURCE_KIND,
+            family,
+            OWNER_NAMESPACE,
+            &tail,
+        )
+        .unwrap();
+        let refusal = project_lineage(&history, family).expect_err(
+            "a version this build does not implement must not project as though it were v1",
+        );
+        assert!(
+            refusal.contains("does not implement"),
+            "unexpected refusal: {refusal}"
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn nested_caller_shapes_are_canonicalized_or_refused_before_admission() {
+        let base = proposal(
+            "acme-clinic",
+            "patient-intake",
+            &["patient"],
+            "2026-01-01T00:00:00Z",
+        );
+        let term = |extra: Value| {
+            let mut body = base.clone();
+            body["entity_types"] = json!([extra]);
+            body
+        };
+        // A key the registered contract does not define would only be caught during PROJECTION,
+        // which is after the durable write. It must be refused here instead.
+        assert_eq!(
+            refusal_code(&term(json!({
+                "term_id": "ontology://acme-clinic/patient-intake/term/patient",
+                "label": "Patient",
+                "globally_canonical": true,
+            }))),
+            "ontology_version_nested_entry_unknown_field"
+        );
+        assert_eq!(
+            refusal_code(&term(json!(
+                "ontology://acme-clinic/patient-intake/term/patient"
+            ))),
+            "ontology_version_nested_entry_malformed"
+        );
+        // A malformed term suffix: a second path segment is not a term name.
+        assert_eq!(
+            refusal_code(&term(json!({
+                "term_id": "ontology://acme-clinic/patient-intake/term/patient/extra",
+                "label": "Patient",
+            }))),
+            "ontology_version_term_id_not_canonical"
+        );
+        assert_eq!(
+            refusal_code(&term(json!({
+                "term_id": "ontology://acme-clinic/patient-intake/term/Patient",
+                "label": "Patient",
+            }))),
+            "ontology_version_term_id_not_canonical"
+        );
+
+        let mut duplicate_invariants = base.clone();
+        duplicate_invariants["invariant_refs"] =
+            json!(["invariant://acme/one/v1", "invariant://acme/one/v1"]);
+        assert_eq!(
+            refusal_code(&duplicate_invariants),
+            "ontology_version_invariant_ref_duplicated"
+        );
+
+        let mapping = |entry: Value| {
+            let mut body = base.clone();
+            body["term_mappings"] = json!([entry]);
+            body
+        };
+        let retained = json!({
+            "from_term_id": "ontology://acme-clinic/patient-intake/term/patient",
+            "to_term_id": "ontology://acme-clinic/patient-intake/term/patient",
+            "disposition": "retained",
+        });
+        let mut unknown_field = retained.clone();
+        unknown_field["reviewer_ref"] = json!("user://someone");
+        assert_eq!(
+            refusal_code(&mapping(unknown_field)),
+            "ontology_version_nested_entry_unknown_field"
+        );
+        assert_eq!(
+            refusal_code(&mapping(json!(["not", "an", "object"]))),
+            "ontology_version_nested_entry_malformed"
+        );
+        let mut duplicate_mappings = base.clone();
+        duplicate_mappings["term_mappings"] = json!([retained, retained]);
+        assert_eq!(
+            refusal_code(&duplicate_mappings),
+            "ontology_version_term_mapping_duplicated"
+        );
+
+        // ...and what IS accepted is REBUILT from validated parts, so the admitted bytes are this
+        // module's, not the caller's.
+        let mut noisy = base.clone();
+        noisy["entity_types"] = json!([{
+            "term_id": "  ontology://acme-clinic/patient-intake/term/patient  ",
+            "label": "  Patient  ",
+        }]);
+        let accepted = validate_proposal(&noisy).expect("trimmed canonical parts are accepted");
+        assert_eq!(
+            accepted.term_sets["entity_types"],
+            json!([{ "term_id": "ontology://acme-clinic/patient-intake/term/patient", "label": "Patient" }])
+        );
     }
 
     #[test]

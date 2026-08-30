@@ -315,9 +315,27 @@ const PINNED = {
   // concat!-arg fixture includes — the five new opaque include arguments and the five new bare
   // #[cfg(test)] assemblies. No ODK mention, raw-filesystem call, or owner/admitter edge
   // changes; family mentions, judged token positions, and filesystem reach are unchanged.
-  modules: 100,
+  //
+  // M05.1 OntologyVersion re-derivation (2026-08-30). Two independent movements, recorded
+  // separately because conflating them would bury one of them:
+  //
+  //   1. A PRE-EXISTING, UNATTRIBUTED DRIFT of +7 source tokens (128020 -> 128027) was already
+  //      present before this unit's branch work. It was measured by parking
+  //      ontology_version_routes.rs and reverting the daemon's registration, then re-running this
+  //      gate: the token pin was the ONLY assertion red at that point. It is re-derived here
+  //      rather than left standing red, and it is named as unattributed rather than folded into
+  //      the M05.1 delta, because this run did not find out which change made it.
+  //
+  //   2. ontology_version_routes.rs joins the reachable graph — +1 module, and against the
+  //      corrected 128027 baseline +965 source tokens, +21 opaque initialisers and +14
+  //      foreign-qualified names. The module writes NO record family: its only durable artifact is
+  //      the shared Agentgres chain, reached through the owner-scoped mutation boundary. So all
+  //      THREE writer buckets, the raw-filesystem count, family mentions and judged token
+  //      positions are unchanged, which is the load-bearing part of this row: the new module is
+  //      reachable and readable to this census and adjudicates to no ODK family at all.
+  modules: 101,
   familyMentions: 284,
-  tokenMentions: 128020,
+  tokenMentions: 128992,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
@@ -338,8 +356,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4211,
-    "opaque-initialiser": 1986,
+    "foreign-qualified": 4225,
+    "opaque-initialiser": 2007,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
