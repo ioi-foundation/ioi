@@ -1,0 +1,132 @@
+{
+  "$id": "invariant://ioi/foundations/ontology-version/immutable-cross-namespace-identity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/ontology-version/v1",
+  "rules": [
+    {
+      "rule_id": "ontology_version.identity.binds_family_revision_path",
+      "description": "A revision id is its family's ref plus an explicit revision path; it can never name another family's lineage.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_id",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_family_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_version.family.binds_owner_namespace",
+      "description": "Identity is owner-qualified: the family ref opens with the owning namespace, so two domains may hold the same local name without colliding.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_family_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "ontology_version.family.binds_local_name",
+      "description": "The family ref carries this domain's own local name verbatim.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.ontology_family_ref",
+        "expected_path": "$.name"
+      }
+    },
+    {
+      "rule_id": "ontology_version.identity.binds_version_label",
+      "description": "The readable version label is the revision segment of the identity; a relabelled version no longer addresses its own object.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.ontology_id",
+        "delimiter": "/",
+        "target_path": "$.version",
+        "target_prefix": "v"
+      }
+    },
+    {
+      "rule_id": "ontology_version.content_hash.commits_semantic_content_and_valid_time",
+      "description": "The content hash commits identity, lineage, every declared term set, governing policy and VALID time. Transaction time is deliberately excluded: when a fact was true is content, when it was recorded is admission.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.ontology-version-content-commitment-jcs-sha256.v1" },
+          "ontology_family_ref": { "path": "$.ontology_family_ref" },
+          "namespace": { "path": "$.namespace" },
+          "name": { "path": "$.name" },
+          "version": { "path": "$.version" },
+          "revision_ordinal": { "path": "$.revision_ordinal" },
+          "predecessor_version_ref": { "path": "$.predecessor_version_ref" },
+          "predecessor_content_hash": { "path": "$.predecessor_content_hash" },
+          "entity_types": { "path": "$.entity_types" },
+          "relationship_types": { "path": "$.relationship_types" },
+          "event_types": { "path": "$.event_types" },
+          "action_types": { "path": "$.action_types" },
+          "invariant_refs": { "path": "$.invariant_refs" },
+          "governing_scope_ref": { "path": "$.governing_scope_ref" },
+          "compatibility_profile_ref": { "path": "$.compatibility_profile_ref" },
+          "deprecation_policy_ref": { "path": "$.deprecation_policy_ref" },
+          "policy_hash": { "path": "$.policy_hash" },
+          "valid_time": { "path": "$.valid_time" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "ontology_version.predecessor.binds_migration_source",
+      "description": "The migration migrates from exactly the declared predecessor, never from a substituted one.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.predecessor_version_ref", "$.migration.from_version_ref"]
+      }
+    },
+    {
+      "rule_id": "ontology_version.predecessor_hash.binds_migration_source",
+      "description": "The migration carries the predecessor's exact content hash, so a successor cannot reinterpret the revision it succeeds.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.predecessor_content_hash", "$.migration.from_content_hash"]
+      }
+    },
+    {
+      "rule_id": "ontology_version.migration.source_revision_is_strictly_earlier",
+      "description": "A migration source is strictly earlier than the revision it produces; equal or later sources are forks and gaps wearing successor clothing.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": ["$.migration.from_revision_ordinal", "$.revision_ordinal"]
+      }
+    },
+    {
+      "rule_id": "ontology_version.content_hash.differs_from_predecessor",
+      "description": "A successor whose content hash equals its predecessor's is a replayed revision, not an edit.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.content_hash", "$.predecessor_content_hash"]
+      }
+    },
+    {
+      "rule_id": "ontology_version.admission.binds_this_revision",
+      "description": "Admission evidence names this exact revision; a borrowed admission cannot make another version durable.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "ontology_id",
+        "expected_path": "$.ontology_id"
+      }
+    },
+    {
+      "rule_id": "ontology_version.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "schema_version": "ioi.ontology-version.v1",
+  "ontology_id": "ontology://acme-clinic/patient-intake/revision/2",
+  "ontology_family_ref": "ontology://acme-clinic/patient-intake",
+  "ontology_record_profile": "ontology_version",
+  "namespace": "acme-clinic",
+  "name": "patient-intake",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/clinical-intake",
+  "admission_domain_ref": "agentgres://domain/event-stream-operations.hypervisor-ontology-versions.ontology-version.6c1f0d9c2b4a8e37d5f0a1b2c3d4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7",
+  "version": "v2",
+  "revision_ordinal": 2,
+  "predecessor_version_ref": "ontology://harbor-clinic/patient-intake/revision/1",
+  "predecessor_content_hash": "sha256:6e246c6ad6767ed34cea46779c2e07ccf8ef9e7c227efc497ef0decab17a10a5",
+  "content_hash": "sha256:218e3f819fdf823f3b856c0a460bb5bc9746ea8db022098268dcaa927861c049",
+  "entity_types": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/patient",
+      "label": "Patient"
+    },
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/visit",
+      "label": "Visit"
+    },
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/guardian",
+      "label": "Guardian"
+    }
+  ],
+  "relationship_types": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/attended-by",
+      "label": "Attended by"
+    }
+  ],
+  "event_types": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/intake-recorded",
+      "label": "Intake recorded"
+    }
+  ],
+  "action_types": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/schedule-followup",
+      "label": "Schedule follow-up"
+    }
+  ],
+  "invariant_refs": [
+    "invariant://acme-clinic/patient-intake/one-guardian-per-minor/v1"
+  ],
+  "compatibility_profile_ref": "compatibility://acme-clinic/patient-intake/breaking-rename/v1",
+  "deprecation_policy_ref": null,
+  "policy_hash": "sha256:11a1cf4b6dbb2b4c07f2b91d3e6f0a5c8d4e2b7a90c1d3e5f70819a2b3c4d5e6",
+  "valid_time": {
+    "starts_at": "2026-06-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-08-30T10:15:00Z",
+    "superseded_at": null
+  },
+  "migration": {
+    "from_version_ref": "ontology://acme-clinic/patient-intake/revision/1",
+    "from_content_hash": "sha256:6e246c6ad6767ed34cea46779c2e07ccf8ef9e7c227efc497ef0decab17a10a5",
+    "from_revision_ordinal": 1,
+    "compatibility": "breaking",
+    "reinterprets_predecessor": false,
+    "term_mappings": [
+      {
+        "from_term_id": "ontology://acme-clinic/patient-intake/term/encounter",
+        "to_term_id": "ontology://acme-clinic/patient-intake/term/visit",
+        "disposition": "renamed"
+      },
+      {
+        "from_term_id": "ontology://acme-clinic/patient-intake/term/patient",
+        "to_term_id": "ontology://acme-clinic/patient-intake/term/patient",
+        "disposition": "retained"
+      }
+    ]
+  },
+  "admission": {
+    "ontology_id": "ontology://acme-clinic/patient-intake/revision/2",
+    "content_hash": "sha256:218e3f819fdf823f3b856c0a460bb5bc9746ea8db022098268dcaa927861c049",
+    "owner_namespace": "hypervisor-ontology-versions",
+    "stream_tail": "ontology-version.6c1f0d9c2b4a8e37d5f0a1b2c3d4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7",
+    "agentgres_operation_ref": "agentgres://event-stream-operations/hypervisor-ontology-versions/ontology-version.6c1f0d9c2b4a8e37d5f0a1b2c3d4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7/operation/1/sha256:4d9f3c6e8a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60718293a4b",
+    "agentgres_receipt_ref": "receipt://agentgres/event-stream/hypervisor-ontology-versions/ontology-version.6c1f0d9c2b4a8e37d5f0a1b2c3d4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7/batch/1/sha256:5e0a4d7f9b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c",
+    "admission_seq": 1,
+    "admission_head": "sha256:4d9f3c6e8a0b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60718293a4b",
+    "admission_root": "sha256:5e0a4d7f9b1c2d3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c",
+    "expected_predecessor_head": "sha256:2b7d1a4c6e8f0912a3b4c5d6e7f809102132435465768798a9bacbdcedfe0f10"
+  },
+  "authority_nonclaim": "ontology_version_grants_no_authority",
+  "status": "active"
+}

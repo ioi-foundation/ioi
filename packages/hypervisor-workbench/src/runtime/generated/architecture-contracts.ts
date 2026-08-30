@@ -6763,6 +6763,77 @@ export type OntologyAssertionAdmissionReceiptV1 = {
   agentgres_operation_ref: string;
 };
 
+export type OntologyVersionV1 = {
+  schema_version: "ioi.ontology-version.v1";
+  ontology_id: string;
+  ontology_family_ref: string;
+  ontology_record_profile: "ontology_version";
+  namespace: string;
+  name: string;
+  owner_id: string;
+  governing_scope_ref: string;
+  admission_domain_ref: string;
+  version: string;
+  revision_ordinal: number;
+  predecessor_version_ref: string | null;
+  predecessor_content_hash: string | null;
+  content_hash: string;
+  entity_types: Array<{
+        term_id: string;
+        label: string;
+      }>;
+  relationship_types: Array<{
+        term_id: string;
+        label: string;
+      }>;
+  event_types: Array<{
+        term_id: string;
+        label: string;
+      }>;
+  action_types: Array<{
+        term_id: string;
+        label: string;
+      }>;
+  invariant_refs: Array<string>;
+  compatibility_profile_ref: string | null;
+  deprecation_policy_ref: string | null;
+  policy_hash: string;
+  valid_time: {
+      starts_at: string;
+      ends_at: string | null;
+    };
+  transaction_time: {
+      recorded_at: string;
+      superseded_at: string | null;
+    };
+  migration: {
+      from_version_ref: string | null;
+      from_content_hash: string | null;
+      from_revision_ordinal: number;
+      compatibility: "initial" | "additive" | "breaking";
+      reinterprets_predecessor: false;
+      term_mappings: Array<{
+              from_term_id: string;
+              to_term_id: string | null;
+              disposition: "retained" | "renamed" | "added" | "removed" | "narrowed" | "widened";
+            }>;
+    };
+  admission: null | {
+      ontology_id: string;
+      content_hash: string;
+      owner_namespace: string;
+      stream_tail: string;
+      agentgres_operation_ref: string;
+      agentgres_receipt_ref: string;
+      admission_seq: number;
+      admission_head: string;
+      admission_root: string;
+      expected_predecessor_head: string | null;
+    };
+  authority_nonclaim: "ontology_version_grants_no_authority";
+  status: "draft" | "active" | "deprecated" | "revoked";
+};
+
 export type OracleEvidenceAdmissionReceiptV1 = {
   schema_version: "ioi.oracle-evidence-admission-receipt.v1";
   receipt_id: string;
@@ -13957,6 +14028,126 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/ontology-assertion-admission-receipt/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/negative-admitted-without-oracle.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_version.family.binds_owner_namespace"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_version.identity.binds_version_label"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_version.content_hash.commits_semantic_content_and_valid_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_version.predecessor.binds_migration_source"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_version.predecessor_hash.binds_migration_source"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_version.migration.source_revision_is_strictly_earlier"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_version.admission.binds_this_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -21945,6 +22136,111 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json",
+    "contract_id": "schema://ioi/foundations/ontology-version/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json",
     "contract_id": "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json",
@@ -23965,6 +24261,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:decision|dispute)://[^\\s]{1,500}$",
   "^(?:decision|receipt)://[^\\s]{1,500}$",
   "^(?:decision|work-claim|receipt)://[^\\s]{1,500}$",
+  "^(?:domain|org|project|service|system)://[^\\s]{1,240}$",
   "^(?:domain|system|agentgres)://[^\\s]{1,500}$",
   "^(?:event|receipt)://[^\\s]{1,248}$",
   "^(?:evidence|artifact)://[^\\s]{1,248}$",
@@ -24020,6 +24317,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:ontology-assertion|verifier-challenge|dispute)://[^\\s]{1,248}$",
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
+  "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
   "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$",
   "^(?:origin-binding|origin)://[^\\s]{1,500}$",
@@ -24163,6 +24461,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9.-]+$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$",
+  "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$",
   "^[A-Za-z0-9_-]+$",
   "^[A-Za-z0-9_-]{43,256}$",
   "^[A-Za-z0-9_-]{43}$",
@@ -24172,7 +24471,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[^\\s][ -~]{0,2047}$",
   "^[a-z0-9](?:[a-z0-9.:-]{0,251}[a-z0-9]|)$",
   "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+  "^[a-z0-9][a-z0-9-]{0,62}$",
   "^[a-z0-9][a-z0-9._-]*$",
+  "^[a-z0-9][a-z0-9._-]{0,95}$",
   "^[a-z0-9][a-z0-9._:/-]{0,127}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$",
@@ -24210,6 +24511,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://[^\\s]{1,240}$",
   "^agentgres://[^\\s]{1,400}$",
   "^agentgres://[^\\s]{1,500}$",
+  "^agentgres://domain/[^\\s]{1,224}$",
   "^agentgres://domain/[^\\s]{1,240}$",
   "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$",
   "^agentgres://object-set/[^\\s]{1,248}$",
@@ -24282,6 +24584,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
   "^commitment://state-transition/sha256:[0-9a-f]{64}$",
+  "^compatibility://[^\\s]{1,240}$",
   "^composition://[^\\s]{1,500}$",
   "^compute://[^\\s]{1,500}$",
   "^conflict-key://[^\\s]{1,248}$",
@@ -24385,6 +24688,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^install://automation/[^\\s/?#\\\\]{1,160}$",
   "^install://automation/[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$",
+  "^invariant://[^\\s]{1,240}$",
   "^invariant://[^\\s]{1,248}$",
   "^ioi://publisher/[^\\s]{1,224}$",
   "^key://[^\\s]+$",
@@ -24421,6 +24725,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^observation://\\S*$",
   "^ontology-assertion://[^\\s]{1,248}$",
   "^ontology://[^\\s]{1,248}$",
+  "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
+  "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
+  "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$",
   "^oracle-evidence-profile://[^\\s]{1,248}$",
   "^oracle-evidence-profile://[^\\s]{1,500}$",
   "^ordering-profile://[^\\s]{1,248}$",
@@ -24599,6 +24906,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^transition://[^\\s]{1,248}$",
   "^transition://state-transition/sha256:[0-9a-f]{64}$",
   "^user://[^\\s/?#\\\\]+$",
+  "^v[1-9][0-9]{0,8}$",
   "^vault://[^\\s]{1,248}$",
   "^verification://[^\\s]{1,248}$",
   "^verifier-challenge://[^\\s]{1,500}$",
@@ -24794,6 +25102,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1": "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2",
   "schema://ioi/foundations/ontology-assertion/v1": "sha256:b8d08e5d17982fd3c458c260c3c6ad2470864880e6a5960a4cbae0551a863095",
   "schema://ioi/foundations/ontology-assertion-admission-receipt/v1": "sha256:520168cb04de8dd898ca9a038066ec8e64ca98c10ea74673ce0c745bf168792e",
+  "schema://ioi/foundations/ontology-version/v1": "sha256:61b25cda079d98021d7dc96f07706e418d8ec23d83c83b291a66cd0dbef80fd8",
   "schema://ioi/foundations/oracle-evidence-admission-receipt/v1": "sha256:0c429e3ae06b9f6058054245a887800ce4033132ff77556693ae643cd3104734",
   "schema://ioi/foundations/oracle-evidence-profile/v1": "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1",
   "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3",
@@ -76805,6 +77114,590 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/ontology-version/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/ontology-version/v1",
+    "title": "OntologyVersion",
+    "description": "A DomainOntologyEnvelope carrying ontology_record_profile ontology_version: one immutable, owner-qualified ontology revision. Identity is cross-namespace, valid time and transaction time are separate axes, and admission records local operational truth rather than global canonicality. Meaning never grants authority.",
+    "x-ioi-schema-version": "ioi.ontology-version.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "ontology_id",
+      "ontology_family_ref",
+      "ontology_record_profile",
+      "namespace",
+      "name",
+      "owner_id",
+      "governing_scope_ref",
+      "admission_domain_ref",
+      "version",
+      "revision_ordinal",
+      "predecessor_version_ref",
+      "predecessor_content_hash",
+      "content_hash",
+      "entity_types",
+      "relationship_types",
+      "event_types",
+      "action_types",
+      "invariant_refs",
+      "compatibility_profile_ref",
+      "deprecation_policy_ref",
+      "policy_hash",
+      "valid_time",
+      "transaction_time",
+      "migration",
+      "admission",
+      "authority_nonclaim",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ontology-version.v1"
+      },
+      "ontology_id": {
+        "$ref": "#/$defs/ontologyRevisionRef"
+      },
+      "ontology_family_ref": {
+        "$ref": "#/$defs/ontologyFamilyRef"
+      },
+      "ontology_record_profile": {
+        "const": "ontology_version"
+      },
+      "namespace": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "name": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "owner_id": {
+        "type": "string",
+        "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+      },
+      "governing_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+      },
+      "admission_domain_ref": {
+        "type": "string",
+        "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^v[1-9][0-9]{0,8}$"
+      },
+      "revision_ordinal": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 999999999
+      },
+      "predecessor_version_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ontologyRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_content_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "entity_types": {
+        "$ref": "#/$defs/termSet"
+      },
+      "relationship_types": {
+        "$ref": "#/$defs/termSet"
+      },
+      "event_types": {
+        "$ref": "#/$defs/termSet"
+      },
+      "action_types": {
+        "$ref": "#/$defs/termSet"
+      },
+      "invariant_refs": {
+        "type": "array",
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^invariant://[^\\s]{1,240}$"
+        }
+      },
+      "compatibility_profile_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^compatibility://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "deprecation_policy_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "valid_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "starts_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "ends_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "transaction_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recorded_at",
+          "superseded_at"
+        ],
+        "properties": {
+          "recorded_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "superseded_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_version_ref",
+          "from_content_hash",
+          "from_revision_ordinal",
+          "compatibility",
+          "reinterprets_predecessor",
+          "term_mappings"
+        ],
+        "properties": {
+          "from_version_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ontologyRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_revision_ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "additive",
+              "breaking"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          },
+          "term_mappings": {
+            "type": "array",
+            "maxItems": 512,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "from_term_id",
+                "to_term_id",
+                "disposition"
+              ],
+              "properties": {
+                "from_term_id": {
+                  "$ref": "#/$defs/termRef"
+                },
+                "to_term_id": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/termRef"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "disposition": {
+                  "enum": [
+                    "retained",
+                    "renamed",
+                    "added",
+                    "removed",
+                    "narrowed",
+                    "widened"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "admission": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ontology_id",
+              "content_hash",
+              "owner_namespace",
+              "stream_tail",
+              "agentgres_operation_ref",
+              "agentgres_receipt_ref",
+              "admission_seq",
+              "admission_head",
+              "admission_root",
+              "expected_predecessor_head"
+            ],
+            "properties": {
+              "ontology_id": {
+                "$ref": "#/$defs/ontologyRevisionRef"
+              },
+              "content_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "owner_namespace": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$"
+              },
+              "stream_tail": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+              },
+              "agentgres_operation_ref": {
+                "type": "string",
+                "pattern": "^agentgres://[^\\s]{1,240}$"
+              },
+              "agentgres_receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,240}$"
+              },
+              "admission_seq": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "admission_head": {
+                "$ref": "#/$defs/sha256"
+              },
+              "admission_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "expected_predecessor_head": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "authority_nonclaim": {
+        "const": "ontology_version_grants_no_authority"
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "deprecated",
+          "revoked"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1
+            },
+            "predecessor_content_hash": {
+              "type": "null"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 0
+                },
+                "compatibility": {
+                  "const": "initial"
+                },
+                "term_mappings": {
+                  "type": "array",
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 999999999
+            },
+            "predecessor_content_hash": {
+              "type": "string"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "string"
+                },
+                "from_content_hash": {
+                  "type": "string"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 999999999
+                },
+                "compatibility": {
+                  "enum": [
+                    "additive",
+                    "breaking"
+                  ]
+                },
+                "term_mappings": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "draft"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "admission": {
+              "type": "null"
+            },
+            "transaction_time": {
+              "type": "object",
+              "properties": {
+                "superseded_at": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "active"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "admission": {
+              "type": "object"
+            },
+            "transaction_time": {
+              "type": "object",
+              "properties": {
+                "superseded_at": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "deprecated"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "admission": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nameToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "ontologyFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "ontologyRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "termRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "termSet": {
+        "type": "array",
+        "maxItems": 256,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "term_id",
+            "label"
+          ],
+          "properties": {
+            "term_id": {
+              "$ref": "#/$defs/termRef"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        }
+      }
+    }
+  },
   "schema://ioi/foundations/oracle-evidence-admission-receipt/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
@@ -101876,6 +102769,181 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   ],
   "schema://ioi/foundations/ontology-assertion/v1": [],
   "schema://ioi/foundations/ontology-assertion-admission-receipt/v1": [],
+  "schema://ioi/foundations/ontology-version/v1": [
+    {
+      "rule_id": "ontology_version.identity.binds_family_revision_path",
+      "description": "A revision id is its family's ref plus an explicit revision path; it can never name another family's lineage.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_id",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_family_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_version.family.binds_owner_namespace",
+      "description": "Identity is owner-qualified: the family ref opens with the owning namespace, so two domains may hold the same local name without colliding.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_family_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "ontology_version.family.binds_local_name",
+      "description": "The family ref carries this domain's own local name verbatim.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.ontology_family_ref",
+        "expected_path": "$.name"
+      }
+    },
+    {
+      "rule_id": "ontology_version.identity.binds_version_label",
+      "description": "The readable version label is the revision segment of the identity; a relabelled version no longer addresses its own object.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.ontology_id",
+        "delimiter": "/",
+        "target_path": "$.version",
+        "target_prefix": "v"
+      }
+    },
+    {
+      "rule_id": "ontology_version.content_hash.commits_semantic_content_and_valid_time",
+      "description": "The content hash commits identity, lineage, every declared term set, governing policy and VALID time. Transaction time is deliberately excluded: when a fact was true is content, when it was recorded is admission.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.ontology-version-content-commitment-jcs-sha256.v1"
+          },
+          "ontology_family_ref": {
+            "path": "$.ontology_family_ref"
+          },
+          "namespace": {
+            "path": "$.namespace"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "revision_ordinal": {
+            "path": "$.revision_ordinal"
+          },
+          "predecessor_version_ref": {
+            "path": "$.predecessor_version_ref"
+          },
+          "predecessor_content_hash": {
+            "path": "$.predecessor_content_hash"
+          },
+          "entity_types": {
+            "path": "$.entity_types"
+          },
+          "relationship_types": {
+            "path": "$.relationship_types"
+          },
+          "event_types": {
+            "path": "$.event_types"
+          },
+          "action_types": {
+            "path": "$.action_types"
+          },
+          "invariant_refs": {
+            "path": "$.invariant_refs"
+          },
+          "governing_scope_ref": {
+            "path": "$.governing_scope_ref"
+          },
+          "compatibility_profile_ref": {
+            "path": "$.compatibility_profile_ref"
+          },
+          "deprecation_policy_ref": {
+            "path": "$.deprecation_policy_ref"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "valid_time": {
+            "path": "$.valid_time"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "ontology_version.predecessor.binds_migration_source",
+      "description": "The migration migrates from exactly the declared predecessor, never from a substituted one.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_version_ref",
+          "$.migration.from_version_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_version.predecessor_hash.binds_migration_source",
+      "description": "The migration carries the predecessor's exact content hash, so a successor cannot reinterpret the revision it succeeds.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_content_hash",
+          "$.migration.from_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_version.migration.source_revision_is_strictly_earlier",
+      "description": "A migration source is strictly earlier than the revision it produces; equal or later sources are forks and gaps wearing successor clothing.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.migration.from_revision_ordinal",
+          "$.revision_ordinal"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_version.content_hash.differs_from_predecessor",
+      "description": "A successor whose content hash equals its predecessor's is a replayed revision, not an edit.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.content_hash",
+          "$.predecessor_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_version.admission.binds_this_revision",
+      "description": "Admission evidence names this exact revision; a borrowed admission cannot make another version durable.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "ontology_id",
+        "expected_path": "$.ontology_id"
+      }
+    },
+    {
+      "rule_id": "ontology_version.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ],
   "schema://ioi/foundations/oracle-evidence-admission-receipt/v1": [],
   "schema://ioi/foundations/oracle-evidence-profile/v1": [
     {
@@ -104447,6 +105515,12 @@ export function validateOntologyAssertionAdmissionReceiptV1(
   value: unknown,
 ): value is OntologyAssertionAdmissionReceiptV1 {
   return validateArchitectureContract("schema://ioi/foundations/ontology-assertion-admission-receipt/v1", value).ok;
+}
+
+export function validateOntologyVersionV1(
+  value: unknown,
+): value is OntologyVersionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/ontology-version/v1", value).ok;
 }
 
 export function validateOracleEvidenceAdmissionReceiptV1(

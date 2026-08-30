@@ -8131,6 +8131,107 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/ontology-version/v1",
+      "canonical_name": "OntologyVersion",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#domainontologyenvelope",
+      "schema_version": "ioi.ontology-version.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-version.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/ontology-version/immutable-cross-namespace-identity/v1",
+          "path": "invariants/ontology-version.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OntologyVersionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OntologyVersionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ontology-version-v1/positive-genesis-active.json",
+        "fixtures/ontology-version-v1/positive-migrated-successor.json",
+        "fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-version-v1/negative-foreign-namespace-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_version.family.binds_owner_namespace"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-version-label-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_version.identity.binds_version_label"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-content-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_version.content_hash.commits_semantic_content_and_valid_time"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-predecessor-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_version.predecessor.binds_migration_source"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_version.predecessor_hash.binds_migration_source"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-migration-source-not-earlier.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_version.migration.source_revision_is_strictly_earlier"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-admission-binds-other-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_version.admission.binds_this_revision"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-active-without-admission.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-globally-canonical-claim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-version-v1/negative-missing-valid-time.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
       "canonical_name": "OracleEvidenceAdmissionReceipt",
       "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#oracle-evidence-admission-receipt",

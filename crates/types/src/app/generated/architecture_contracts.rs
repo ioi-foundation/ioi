@@ -205,6 +205,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v1", "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2"),
     ("schema://ioi/foundations/ontology-assertion/v1", "sha256:b8d08e5d17982fd3c458c260c3c6ad2470864880e6a5960a4cbae0551a863095"),
     ("schema://ioi/foundations/ontology-assertion-admission-receipt/v1", "sha256:520168cb04de8dd898ca9a038066ec8e64ca98c10ea74673ce0c745bf168792e"),
+    ("schema://ioi/foundations/ontology-version/v1", "sha256:61b25cda079d98021d7dc96f07706e418d8ec23d83c83b291a66cd0dbef80fd8"),
     ("schema://ioi/foundations/oracle-evidence-admission-receipt/v1", "sha256:0c429e3ae06b9f6058054245a887800ce4033132ff77556693ae643cd3104734"),
     ("schema://ioi/foundations/oracle-evidence-profile/v1", "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1"),
     ("schema://ioi/foundations/ordering-admission-finality-profile/v1", "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3"),
@@ -72946,6 +72947,770 @@ pub enum OntologyAssertionAdmissionReceiptV1Decision {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1 {
+    pub schema_version: OntologyVersionV1SchemaVersion,
+    pub ontology_id: String,
+    pub ontology_family_ref: String,
+    pub ontology_record_profile: OntologyVersionV1OntologyRecordProfile,
+    pub namespace: String,
+    pub name: String,
+    pub owner_id: String,
+    pub governing_scope_ref: String,
+    pub admission_domain_ref: String,
+    pub version: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub predecessor_version_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub content_hash: String,
+    pub entity_types: Vec<OntologyVersionV1EntityTypesItem>,
+    pub relationship_types: Vec<OntologyVersionV1RelationshipTypesItem>,
+    pub event_types: Vec<OntologyVersionV1EventTypesItem>,
+    pub action_types: Vec<OntologyVersionV1ActionTypesItem>,
+    pub invariant_refs: Vec<String>,
+    pub compatibility_profile_ref: Option<String>,
+    pub deprecation_policy_ref: Option<String>,
+    pub policy_hash: String,
+    pub valid_time: OntologyVersionV1ValidTime,
+    pub transaction_time: OntologyVersionV1TransactionTime,
+    pub migration: OntologyVersionV1Migration,
+    pub admission: Option<OntologyVersionV1Admission>,
+    pub authority_nonclaim: OntologyVersionV1AuthorityNonclaim,
+    pub status: OntologyVersionV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-version/v1","title":"OntologyVersion","description":"A DomainOntologyEnvelope carrying ontology_record_profile ontology_version: one immutable, owner-qualified ontology revision. Identity is cross-namespace, valid time and transaction time are separate axes, and admission records local operational truth rather than global canonicality. Meaning never grants authority.","x-ioi-schema-version":"ioi.ontology-version.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_id","ontology_family_ref","ontology_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","entity_types","relationship_types","event_types","action_types","invariant_refs","compatibility_profile_ref","deprecation_policy_ref","policy_hash","valid_time","transaction_time","migration","admission","authority_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-version.v1"},"ontology_id":{"$ref":"#/$defs/ontologyRevisionRef"},"ontology_family_ref":{"$ref":"#/$defs/ontologyFamilyRef"},"ontology_record_profile":{"const":"ontology_version"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/ontologyRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"entity_types":{"$ref":"#/$defs/termSet"},"relationship_types":{"$ref":"#/$defs/termSet"},"event_types":{"$ref":"#/$defs/termSet"},"action_types":{"$ref":"#/$defs/termSet"},"invariant_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^invariant://[^\\s]{1,240}$"}},"compatibility_profile_ref":{"oneOf":[{"type":"string","pattern":"^compatibility://[^\\s]{1,240}$"},{"type":"null"}]},"deprecation_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},{"type":"null"}]},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor","term_mappings"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/ontologyRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false},"term_mappings":{"type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["from_term_id","to_term_id","disposition"],"properties":{"from_term_id":{"$ref":"#/$defs/termRef"},"to_term_id":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"disposition":{"enum":["retained","renamed","added","removed","narrowed","widened"]}}}}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_id":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,95}$"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"authority_nonclaim":{"const":"ontology_version_grants_no_authority"},"status":{"enum":["draft","active","deprecated","revoked"]}},"allOf":[{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"},"term_mappings":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]},"term_mappings":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"status":{"const":"draft"}},"required":["status"]},"then":{"properties":{"admission":{"type":"null"},"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"null"}}}}}},{"if":{"properties":{"status":{"const":"active"}},"required":["status"]},"then":{"properties":{"admission":{"type":"object"},"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"null"}}}}}},{"if":{"properties":{"status":{"const":"deprecated"}},"required":["status"]},"then":{"properties":{"admission":{"type":"object"}}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"termSet":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["term_id","label"],"properties":{"term_id":{"$ref":"#/$defs/termRef"},"label":{"type":"string","minLength":1,"maxLength":160}}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OntologyVersionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_record_profile:
+                serde_json::from_value::<OntologyVersionV1OntologyRecordProfile>(
+                    object.remove(r#"ontology_record_profile"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ontology_record_profile"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entity_types: serde_json::from_value::<Vec<OntologyVersionV1EntityTypesItem>>(
+                object
+                    .remove(r#"entity_types"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entity_types"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            relationship_types:
+                serde_json::from_value::<Vec<OntologyVersionV1RelationshipTypesItem>>(
+                    object
+                        .remove(r#"relationship_types"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"relationship_types"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            event_types: serde_json::from_value::<Vec<OntologyVersionV1EventTypesItem>>(
+                object
+                    .remove(r#"event_types"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"event_types"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_types: serde_json::from_value::<Vec<OntologyVersionV1ActionTypesItem>>(
+                object
+                    .remove(r#"action_types"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_types"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invariant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"invariant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invariant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"compatibility_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compatibility_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deprecation_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"deprecation_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deprecation_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_time: serde_json::from_value::<OntologyVersionV1ValidTime>(
+                object
+                    .remove(r#"valid_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transaction_time: serde_json::from_value::<OntologyVersionV1TransactionTime>(
+                object
+                    .remove(r#"transaction_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transaction_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<OntologyVersionV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<Option<OntologyVersionV1Admission>>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<OntologyVersionV1AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OntologyVersionV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyVersionV1SchemaVersion {
+    #[serde(rename = r#"ioi.ontology-version.v1"#)]
+    IoiOntologyVersionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyVersionV1OntologyRecordProfile {
+    #[serde(rename = r#"ontology_version"#)]
+    OntologyVersion,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1EntityTypesItem {
+    pub term_id: String,
+    pub label: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1EntityTypesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["term_id","label"],"properties":{"term_id":{"$ref":"#/$defs/termRef"},"label":{"type":"string","minLength":1,"maxLength":160}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1RelationshipTypesItem {
+    pub term_id: String,
+    pub label: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1RelationshipTypesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["term_id","label"],"properties":{"term_id":{"$ref":"#/$defs/termRef"},"label":{"type":"string","minLength":1,"maxLength":160}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1EventTypesItem {
+    pub term_id: String,
+    pub label: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1EventTypesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["term_id","label"],"properties":{"term_id":{"$ref":"#/$defs/termRef"},"label":{"type":"string","minLength":1,"maxLength":160}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1ActionTypesItem {
+    pub term_id: String,
+    pub label: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1ActionTypesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["term_id","label"],"properties":{"term_id":{"$ref":"#/$defs/termRef"},"label":{"type":"string","minLength":1,"maxLength":160}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1ValidTime {
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1ValidTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            starts_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"starts_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"starts_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ends_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ends_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ends_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1TransactionTime {
+    pub recorded_at: String,
+    pub superseded_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1TransactionTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recorded_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recorded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            superseded_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"superseded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"superseded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1Migration {
+    pub from_version_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub from_revision_ordinal: ArchitectureContractInteger,
+    pub compatibility: OntologyVersionV1MigrationCompatibility,
+    pub reinterprets_predecessor: OntologyVersionV1MigrationReinterpretsPredecessor,
+    pub term_mappings: Vec<OntologyVersionV1MigrationTermMappingsItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor","term_mappings"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/ontologyRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false},"term_mappings":{"type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["from_term_id","to_term_id","disposition"],"properties":{"from_term_id":{"$ref":"#/$defs/termRef"},"to_term_id":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"disposition":{"enum":["retained","renamed","added","removed","narrowed","widened"]}}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"from_revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<OntologyVersionV1MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                OntologyVersionV1MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            term_mappings:
+                serde_json::from_value::<Vec<OntologyVersionV1MigrationTermMappingsItem>>(
+                    object
+                        .remove(r#"term_mappings"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"term_mappings"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyVersionV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"additive"#)]
+    Additive,
+    #[serde(rename = r#"breaking"#)]
+    Breaking,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OntologyVersionV1MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for OntologyVersionV1MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1MigrationTermMappingsItem {
+    pub from_term_id: String,
+    pub to_term_id: Option<String>,
+    pub disposition: OntologyVersionV1MigrationTermMappingsItemDisposition,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1MigrationTermMappingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from_term_id","to_term_id","disposition"],"properties":{"from_term_id":{"$ref":"#/$defs/termRef"},"to_term_id":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"disposition":{"enum":["retained","renamed","added","removed","narrowed","widened"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"from_term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            to_term_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"to_term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"to_term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition: serde_json::from_value::<
+                OntologyVersionV1MigrationTermMappingsItemDisposition,
+            >(
+                object
+                    .remove(r#"disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyVersionV1MigrationTermMappingsItemDisposition {
+    #[serde(rename = r#"retained"#)]
+    Retained,
+    #[serde(rename = r#"renamed"#)]
+    Renamed,
+    #[serde(rename = r#"added"#)]
+    Added,
+    #[serde(rename = r#"removed"#)]
+    Removed,
+    #[serde(rename = r#"narrowed"#)]
+    Narrowed,
+    #[serde(rename = r#"widened"#)]
+    Widened,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyVersionV1Admission {
+    pub ontology_id: String,
+    pub content_hash: String,
+    pub owner_namespace: String,
+    pub stream_tail: String,
+    pub agentgres_operation_ref: String,
+    pub agentgres_receipt_ref: String,
+    pub admission_seq: ArchitectureContractInteger,
+    pub admission_head: String,
+    pub admission_root: String,
+    pub expected_predecessor_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyVersionV1Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-version/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_id":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,95}$"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stream_tail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stream_tail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stream_tail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_seq: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"admission_seq"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_seq"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_predecessor_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_predecessor_head"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_predecessor_head"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyVersionV1AuthorityNonclaim {
+    #[serde(rename = r#"ontology_version_grants_no_authority"#)]
+    OntologyVersionGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyVersionV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct OracleEvidenceAdmissionReceiptV1 {
     pub schema_version: OracleEvidenceAdmissionReceiptV1SchemaVersion,
     pub receipt_id: String,
@@ -104263,6 +105028,126 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_version.family.binds_owner_namespace"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_version.identity.binds_version_label"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_version.content_hash.commits_semantic_content_and_valid_time"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_version.predecessor.binds_migration_source"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_version.predecessor_hash.binds_migration_source"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_version.migration.source_revision_is_strictly_earlier"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_version.admission.binds_this_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-version/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json",
         expected_accept: true,
@@ -113623,6 +114508,171 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-version/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json"#,
         contract_id: r#"schema://ioi/foundations/oracle-evidence-admission-receipt/v1"#,
         source_fixture_path: Some(
@@ -116884,6 +117934,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","title":"ManagedWorkBillingLedgerBundle","description":"Portable projection of one owner-derived managed-work billing chain. All monetary and Work Credit quantities are fixed-point integer units; no floating-point amount is valid.","x-ioi-schema-version":"ioi.foundations.managed-work-billing-ledger-bundle.v1","type":"object","additionalProperties":false,"required":["schema_version","bundle_ref","billing_account_ref","work_ref","rate_card","plan","quote","holds","usage_records","overrun_decisions","final_debit","adjustments","ledger_head_hash","exported_at_ms","assurance_status"],"properties":{"schema_version":{"const":"ioi.foundations.managed-work-billing-ledger-bundle.v1"},"bundle_ref":{"$ref":"#/$defs/ref"},"billing_account_ref":{"$ref":"#/$defs/ref"},"work_ref":{"$ref":"#/$defs/ref"},"rate_card":{"$ref":"#/$defs/rate_card"},"plan":{"$ref":"#/$defs/plan"},"quote":{"$ref":"#/$defs/quote"},"holds":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/hold"}},"usage_records":{"type":"array","items":{"$ref":"#/$defs/usage_record"}},"overrun_decisions":{"type":"array","items":{"$ref":"#/$defs/overrun_decision"}},"final_debit":{"anyOf":[{"$ref":"#/$defs/final_debit"},{"type":"null"}]},"adjustments":{"type":"array","items":{"$ref":"#/$defs/adjustment"}},"ledger_head_hash":{"$ref":"#/$defs/hash"},"exported_at_ms":{"$ref":"#/$defs/safe_integer"},"assurance_status":{"enum":["internal_event_log","supplier_partially_reconciled","supplier_reconciled"]}},"$defs":{"safe_integer":{"type":"integer","minimum":0,"maximum":9007199254740991},"positive_safe_integer":{"type":"integer","minimum":1,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"work_credit_amount":{"type":"object","additionalProperties":false,"required":["unit","units"],"properties":{"unit":{"const":"micro_work_credit"},"units":{"$ref":"#/$defs/safe_integer"}}},"cost_breakdown":{"type":"object","additionalProperties":false,"required":["currency_code","provider_cost_minor","broker_fee_minor","participant_cost_minor","verifier_cost_minor","ioi_fee_minor","excluded_customer_borne_provider_cost_minor","supplier_reconciliation_state"],"properties":{"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"broker_fee_minor":{"$ref":"#/$defs/safe_integer"},"participant_cost_minor":{"$ref":"#/$defs/safe_integer"},"verifier_cost_minor":{"$ref":"#/$defs/safe_integer"},"ioi_fee_minor":{"$ref":"#/$defs/safe_integer"},"excluded_customer_borne_provider_cost_minor":{"$ref":"#/$defs/safe_integer"},"supplier_reconciliation_state":{"enum":["not_applicable","estimated","supplier_statement_reconciled"]}}},"meter_rate":{"type":"object","additionalProperties":false,"required":["meter_class","work_credit_micro_units_per_meter_unit","charge_component"],"properties":{"meter_class":{"type":"string","minLength":1},"work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charge_component":{"enum":["managed_model","managed_runtime","broker","participant","verifier","ioi_managed_service","non_billable_telemetry"]}}},"rate_card":{"type":"object","additionalProperties":false,"required":["rate_card_ref","version","body_hash","currency_code","meter_rates","ioi_fee_policy_ref","issued_at_ms","expires_at_ms"],"properties":{"rate_card_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"currency_code":{"type":"string","pattern":"^[A-Z]{3}$"},"meter_rates":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/meter_rate"}},"ioi_fee_policy_ref":{"$ref":"#/$defs/ref"},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"plan":{"type":"object","additionalProperties":false,"required":["plan_ref","version","body_hash","rate_card_ref","rate_card_body_hash","included_work_credits","reset_policy","issued_at_ms","expires_at_ms"],"properties":{"plan_ref":{"$ref":"#/$defs/ref"},"version":{"$ref":"#/$defs/positive_safe_integer"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"included_work_credits":{"$ref":"#/$defs/work_credit_amount"},"reset_policy":{"enum":["non_resetting","monthly_expiring","contract_term_expiring"]},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"quote":{"type":"object","additionalProperties":false,"required":["quote_ref","body_hash","rate_card_ref","rate_card_body_hash","plan_ref","plan_body_hash","estimated_work_credits","required_hold","overrun_policy","max_attempt_count","allowed_commercial_postures","issued_at_ms","expires_at_ms"],"properties":{"quote_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"rate_card_ref":{"$ref":"#/$defs/ref"},"rate_card_body_hash":{"$ref":"#/$defs/hash"},"plan_ref":{"$ref":"#/$defs/ref"},"plan_body_hash":{"$ref":"#/$defs/hash"},"estimated_work_credits":{"$ref":"#/$defs/work_credit_amount"},"required_hold":{"$ref":"#/$defs/work_credit_amount"},"overrun_policy":{"enum":["block","exact_additional_hold"]},"max_attempt_count":{"$ref":"#/$defs/positive_safe_integer"},"allowed_commercial_postures":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]}},"issued_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"}}},"hold":{"type":"object","additionalProperties":false,"required":["hold_ref","body_hash","quote_ref","idempotency_key","hold_kind","overrun_decision_ref","amount","created_at_ms","expires_at_ms","status"],"properties":{"hold_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"idempotency_key":{"type":"string","minLength":1},"hold_kind":{"enum":["initial","exact_additional"]},"overrun_decision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"},"expires_at_ms":{"$ref":"#/$defs/positive_safe_integer"},"status":{"enum":["active","consumed","released"]}}},"usage_record":{"type":"object","additionalProperties":false,"required":["usage_ref","body_hash","quote_ref","sequence","previous_usage_hash","runtime_receipt_refs","supplier_statement_refs","meter_class","quantity_units","rate_work_credit_micro_units_per_meter_unit","charged_work_credits","commercial_posture","cost_breakdown","coarse_ocu_projection","occurred_at_ms"],"properties":{"usage_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"sequence":{"$ref":"#/$defs/positive_safe_integer"},"previous_usage_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"runtime_receipt_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"supplier_statement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"meter_class":{"type":"string","minLength":1},"quantity_units":{"$ref":"#/$defs/safe_integer"},"rate_work_credit_micro_units_per_meter_unit":{"$ref":"#/$defs/safe_integer"},"charged_work_credits":{"$ref":"#/$defs/work_credit_amount"},"commercial_posture":{"enum":["managed","customer_byok","customer_byoa","customer_cloud","self_hosted","local"]},"cost_breakdown":{"$ref":"#/$defs/cost_breakdown"},"coarse_ocu_projection":{"type":"boolean"},"occurred_at_ms":{"$ref":"#/$defs/safe_integer"}}},"overrun_decision":{"type":"object","additionalProperties":false,"required":["overrun_decision_ref","body_hash","quote_ref","usage_head_hash","held_work_credits","projected_work_credits","exact_overage_work_credits","decision","additional_hold_amount","created_at_ms"],"properties":{"overrun_decision_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"held_work_credits":{"$ref":"#/$defs/work_credit_amount"},"projected_work_credits":{"$ref":"#/$defs/work_credit_amount"},"exact_overage_work_credits":{"$ref":"#/$defs/work_credit_amount"},"decision":{"enum":["block","exact_additional_hold"]},"additional_hold_amount":{"$ref":"#/$defs/work_credit_amount"},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}},"final_debit":{"type":"object","additionalProperties":false,"required":["final_debit_ref","body_hash","quote_ref","usage_head_hash","usage_record_refs","hold_refs","debited_work_credits","finalized_at_ms"],"properties":{"final_debit_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"quote_ref":{"$ref":"#/$defs/ref"},"usage_head_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"usage_record_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"hold_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"debited_work_credits":{"$ref":"#/$defs/work_credit_amount"},"finalized_at_ms":{"$ref":"#/$defs/safe_integer"}}},"adjustment":{"type":"object","additionalProperties":false,"required":["adjustment_ref","body_hash","final_debit_ref","previous_adjustment_hash","adjustment_kind","amount","reason_code","evidence_refs","created_at_ms"],"properties":{"adjustment_ref":{"$ref":"#/$defs/ref"},"body_hash":{"$ref":"#/$defs/hash"},"final_debit_ref":{"$ref":"#/$defs/ref"},"previous_adjustment_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"adjustment_kind":{"enum":["refund","writeoff"]},"amount":{"$ref":"#/$defs/work_credit_amount"},"reason_code":{"type":"string","minLength":1},"evidence_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"created_at_ms":{"$ref":"#/$defs/safe_integer"}}}}}"##),
     ("schema://ioi/foundations/ontology-assertion/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-assertion/v1","title":"OntologyAssertion","description":"Attributed, time-bounded and challengeable semantic assertion. Admission records operational truth, not universal truth.","x-ioi-schema-version":"ioi.ontology-assertion.v1","type":"object","additionalProperties":false,"required":["schema_version","assertion_id","assertion_profile","ontology_ref","fact_class_ref","subject_ref","predicate_ref","object_or_value_ref","valid_time","transaction_time","source_and_observation_context_refs","confidence_or_uncertainty","supporting_evidence_refs","contradicting_assertion_refs","oracle_evidence_profile_ref","oracle_evidence_admission_receipt_ref","ontology_assertion_admission_receipt_ref","applicability_scope_ref","permitted_consequence_scope_refs","causal_or_counterfactual_context_ref","supersedes_ref","dispute_ref","status"],"properties":{"schema_version":{"const":"ioi.ontology-assertion.v1"},"assertion_id":{"type":"string","pattern":"^ontology-assertion://[^\\s]{1,248}$"},"assertion_profile":{"const":"provenance_assertion"},"ontology_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"fact_class_ref":{"oneOf":[{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},{"type":"null"}]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"predicate_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"object_or_value_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":2048},{"type":"number","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"boolean"},{"type":"null"}]},"valid_time":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"$ref":"#/$defs/dateTime"}}}]},"transaction_time":{"$ref":"#/$defs/dateTime"},"source_and_observation_context_refs":{"$ref":"#/$defs/canonicalRefs"},"confidence_or_uncertainty":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"supporting_evidence_refs":{"$ref":"#/$defs/evidenceRefs"},"contradicting_assertion_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology-assertion|finding)://[^\\s]{1,248}$"}},"oracle_evidence_profile_ref":{"oneOf":[{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},{"type":"null"}]},"oracle_evidence_admission_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"ontology_assertion_admission_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"causal_or_counterfactual_context_ref":{"oneOf":[{"type":"string","pattern":"^(?:artifact|finding)://[^\\s]{1,248}$"},{"type":"null"}]},"supersedes_ref":{"oneOf":[{"type":"string","pattern":"^ontology-assertion://[^\\s]{1,248}$"},{"type":"null"}]},"dispute_ref":{"oneOf":[{"type":"string","pattern":"^dispute://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","contradicted","superseded","disputed","rejected"]}},"allOf":[{"if":{"properties":{"status":{"const":"admitted"}},"required":["status"]},"then":{"properties":{"fact_class_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"oracle_evidence_profile_ref":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"oracle_evidence_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"ontology_assertion_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"status":{"const":"proposed"}},"required":["status"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"null"},"ontology_assertion_admission_receipt_ref":{"type":"null"}}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/canonicalRef"}},"evidenceRefs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"}},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"nullableReceiptRef":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]}}}"##),
     ("schema://ioi/foundations/ontology-assertion-admission-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-assertion-admission-receipt/v1","title":"OntologyAssertionAdmissionReceipt","description":"Separate exact-head Agentgres/domain admission decision over one ontology assertion.","x-ioi-schema-version":"ioi.ontology-assertion-admission-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_type","system_id","assertion_ref","assertion_commitment","fact_class_ref","oracle_evidence_profile_ref","oracle_evidence_admission_receipt_ref","applicability_scope_ref","permitted_consequence_scope_refs","decision","expected_predecessor_assertion_head_ref","expected_predecessor_assertion_head_hash","resulting_assertion_head_hash","policy_ref","authority_refs","agentgres_operation_ref"],"properties":{"schema_version":{"const":"ioi.ontology-assertion-admission-receipt.v1"},"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"ontology_assertion_admission"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"assertion_ref":{"$ref":"#/$defs/assertionRef"},"assertion_commitment":{"$ref":"#/$defs/hash"},"fact_class_ref":{"oneOf":[{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},{"type":"null"}]},"oracle_evidence_profile_ref":{"oneOf":[{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},{"type":"null"}]},"oracle_evidence_admission_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"decision":{"enum":["admitted","rejected"]},"expected_predecessor_assertion_head_ref":{"oneOf":[{"$ref":"#/$defs/assertionRef"},{"type":"null"}]},"expected_predecessor_assertion_head_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_assertion_head_hash":{"$ref":"#/$defs/hash"},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"authority_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|lease)://[^\\s]{1,248}$"}},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"decision":{"const":"admitted"}},"required":["decision"]},"then":{"properties":{"fact_class_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"oracle_evidence_profile_ref":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"oracle_evidence_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"expected_predecessor_assertion_head_ref":{"type":"null"}},"required":["expected_predecessor_assertion_head_ref"]},"then":{"properties":{"expected_predecessor_assertion_head_hash":{"type":"null"}}},"else":{"properties":{"expected_predecessor_assertion_head_hash":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/canonicalRef"}},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"assertionRef":{"type":"string","pattern":"^ontology-assertion://[^\\s]{1,248}$"}}}"##),
+    ("schema://ioi/foundations/ontology-version/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-version/v1","title":"OntologyVersion","description":"A DomainOntologyEnvelope carrying ontology_record_profile ontology_version: one immutable, owner-qualified ontology revision. Identity is cross-namespace, valid time and transaction time are separate axes, and admission records local operational truth rather than global canonicality. Meaning never grants authority.","x-ioi-schema-version":"ioi.ontology-version.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_id","ontology_family_ref","ontology_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","entity_types","relationship_types","event_types","action_types","invariant_refs","compatibility_profile_ref","deprecation_policy_ref","policy_hash","valid_time","transaction_time","migration","admission","authority_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-version.v1"},"ontology_id":{"$ref":"#/$defs/ontologyRevisionRef"},"ontology_family_ref":{"$ref":"#/$defs/ontologyFamilyRef"},"ontology_record_profile":{"const":"ontology_version"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/ontologyRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"entity_types":{"$ref":"#/$defs/termSet"},"relationship_types":{"$ref":"#/$defs/termSet"},"event_types":{"$ref":"#/$defs/termSet"},"action_types":{"$ref":"#/$defs/termSet"},"invariant_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^invariant://[^\\s]{1,240}$"}},"compatibility_profile_ref":{"oneOf":[{"type":"string","pattern":"^compatibility://[^\\s]{1,240}$"},{"type":"null"}]},"deprecation_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},{"type":"null"}]},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor","term_mappings"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/ontologyRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false},"term_mappings":{"type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["from_term_id","to_term_id","disposition"],"properties":{"from_term_id":{"$ref":"#/$defs/termRef"},"to_term_id":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"disposition":{"enum":["retained","renamed","added","removed","narrowed","widened"]}}}}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_id":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,95}$"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"authority_nonclaim":{"const":"ontology_version_grants_no_authority"},"status":{"enum":["draft","active","deprecated","revoked"]}},"allOf":[{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"},"term_mappings":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]},"term_mappings":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"status":{"const":"draft"}},"required":["status"]},"then":{"properties":{"admission":{"type":"null"},"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"null"}}}}}},{"if":{"properties":{"status":{"const":"active"}},"required":["status"]},"then":{"properties":{"admission":{"type":"object"},"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"null"}}}}}},{"if":{"properties":{"status":{"const":"deprecated"}},"required":["status"]},"then":{"properties":{"admission":{"type":"object"}}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"termSet":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["term_id","label"],"properties":{"term_id":{"$ref":"#/$defs/termRef"},"label":{"type":"string","minLength":1,"maxLength":160}}}}}}"##),
     ("schema://ioi/foundations/oracle-evidence-admission-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/oracle-evidence-admission-receipt/v1","title":"OracleEvidenceAdmissionReceipt","description":"Exact-head receipt for one qualified, defeasible, freshness- and consequence-scoped oracle/evidence determination.","x-ioi-schema-version":"ioi.oracle-evidence-admission-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_type","system_id","assertion_ref","assertion_commitment","fact_class_ref","oracle_evidence_profile_ref","oracle_evidence_profile_version","oracle_evidence_profile_body_hash","evidence_bundle_refs","evidence_root","evidence_dependency_graph_ref","evidence_dependency_graph_root","source_independence_evidence_refs","verifier_path_refs","verification_receipt_refs","freshness_and_uncertainty_assessment_ref","contradiction_and_challenge_refs","decision","applicability_scope_ref","permitted_consequence_scope_refs","effective_at","valid_until","policy_ref","required_authority_refs","expected_predecessor_admission_receipt_ref","expected_predecessor_admission_head_hash","resulting_admission_head_hash","agentgres_operation_ref"],"properties":{"schema_version":{"const":"ioi.oracle-evidence-admission-receipt.v1"},"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"oracle_evidence_admission"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"assertion_ref":{"$ref":"#/$defs/assertionRef"},"assertion_commitment":{"$ref":"#/$defs/hash"},"fact_class_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,248}$"},"oracle_evidence_profile_ref":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"oracle_evidence_profile_version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"oracle_evidence_profile_body_hash":{"$ref":"#/$defs/hash"},"evidence_bundle_refs":{"$ref":"#/$defs/evidenceRefs"},"evidence_root":{"$ref":"#/$defs/hash"},"evidence_dependency_graph_ref":{"type":"string","pattern":"^(?:evidence|artifact)://[^\\s]{1,248}$"},"evidence_dependency_graph_root":{"$ref":"#/$defs/hash"},"source_independence_evidence_refs":{"$ref":"#/$defs/optionalEvidenceRefs"},"verifier_path_refs":{"$ref":"#/$defs/canonicalRefs"},"verification_receipt_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/receiptRef"}},"freshness_and_uncertainty_assessment_ref":{"type":"string","pattern":"^evidence://[^\\s]{1,248}$"},"contradiction_and_challenge_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology-assertion|verifier-challenge|dispute)://[^\\s]{1,248}$"}},"decision":{"enum":["admitted_for_scope","held_unknown","rejected","escalated"]},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"effective_at":{"$ref":"#/$defs/dateTime"},"valid_until":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"required_authority_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:grant|lease)://[^\\s]{1,248}$"}},"expected_predecessor_admission_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"expected_predecessor_admission_head_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"resulting_admission_head_hash":{"$ref":"#/$defs/hash"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://operation/[^\\s]{1,248}$"}},"allOf":[{"if":{"properties":{"decision":{"const":"admitted_for_scope"}},"required":["decision"]},"then":{"properties":{"valid_until":{"$ref":"#/$defs/dateTime"},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}},"else":{"properties":{"valid_until":{"type":"null"},"permitted_consequence_scope_refs":{"type":"array","maxItems":0}}}},{"if":{"properties":{"expected_predecessor_admission_receipt_ref":{"type":"null"}},"required":["expected_predecessor_admission_receipt_ref"]},"then":{"properties":{"expected_predecessor_admission_head_hash":{"type":"null"}}},"else":{"properties":{"expected_predecessor_admission_head_hash":{"$ref":"#/$defs/hash"}}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/canonicalRef"}},"evidenceRefs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"}},"optionalEvidenceRefs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"}},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"assertionRef":{"type":"string","pattern":"^ontology-assertion://[^\\s]{1,248}$"}}}"##),
     ("schema://ioi/foundations/oracle-evidence-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/oracle-evidence-profile/v1","title":"OracleEvidenceProfile","description":"Qualified, defeasible, scope-bound evidence admission profile for one System.","x-ioi-schema-version":"ioi.oracle-evidence-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","oracle_evidence_profile_id","system_id","version","fact_class_refs","source_requirements","aggregation","contradiction","challenge","admission","missing_or_stale_evidence_mode","source_replacement_policy_ref","privacy_policy_ref","retention_policy_ref","status"],"properties":{"schema_version":{"const":"ioi.oracle-evidence-profile.v1"},"oracle_evidence_profile_id":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"version":{"$ref":"#/$defs/version"},"fact_class_refs":{"$ref":"#/$defs/canonicalRefs"},"source_requirements":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_class","source_refs","evidence_schema_ref","signer_or_principal_refs","freshness_and_finality_policy_ref","independence_group_ref","required"],"properties":{"source_class":{"enum":["official_record","institutional_attestation","signed_sensor","contractual_notice","human_attestation","network_commitment","other"]},"source_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_schema_ref":{"$ref":"#/$defs/schemaRef"},"signer_or_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"freshness_and_finality_policy_ref":{"$ref":"#/$defs/policyRef"},"independence_group_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"required":{"type":"boolean"}},"allOf":[{"if":{"properties":{"required":{"type":"boolean","const":true}},"required":["required"]},"then":{"properties":{"source_refs":{"type":"array","minItems":1}}}}]},"minItems":1,"maxItems":64,"uniqueItems":true},"aggregation":{"type":"object","additionalProperties":false,"required":["rule","minimum_sources","minimum_independent_principals","threshold_policy_ref","correlated_failure_policy_ref","uncertainty_policy_ref"],"properties":{"rule":{"enum":["single_source","threshold","weighted","adjudicated"]},"minimum_sources":{"$ref":"#/$defs/positiveInteger"},"minimum_independent_principals":{"$ref":"#/$defs/positiveInteger"},"threshold_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"correlated_failure_policy_ref":{"$ref":"#/$defs/policyRef"},"uncertainty_policy_ref":{"$ref":"#/$defs/policyRef"}},"allOf":[{"if":{"properties":{"rule":{"enum":["threshold","weighted"]}},"required":["rule"]},"then":{"properties":{"threshold_policy_ref":{"$ref":"#/$defs/policyRef"}}}}]},"contradiction":{"type":"object","additionalProperties":false,"required":["policy","adjudicator_refs","dispute_policy_ref"],"properties":{"policy":{"enum":["fail_closed","hold_pending","escalate"]},"adjudicator_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_policy_ref":{"$ref":"#/$defs/policyRef"}}},"challenge":{"type":"object","additionalProperties":false,"required":["challenge_window_ref","verifier_refs","appeal_policy_ref"],"properties":{"challenge_window_ref":{"$ref":"#/$defs/policyRef"},"verifier_refs":{"$ref":"#/$defs/canonicalRefs"},"appeal_policy_ref":{"$ref":"#/$defs/policyRef"}}},"admission":{"type":"object","additionalProperties":false,"required":["decision_semantics","ontology_assertion_schema_refs","required_verifier_path_refs","ontology_action_contract_refs","permitted_applicability_scope_refs","permitted_consequence_scope_refs","maximum_assertion_validity_policy_ref","required_authority_refs","policy_ref","receipt_obligations"],"properties":{"decision_semantics":{"const":"qualified_scope_bound_operational_determination"},"ontology_assertion_schema_refs":{"$ref":"#/$defs/schemaRefs"},"required_verifier_path_refs":{"$ref":"#/$defs/canonicalRefs"},"ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_applicability_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"maximum_assertion_validity_policy_ref":{"$ref":"#/$defs/policyRef"},"required_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"policy_ref":{"$ref":"#/$defs/policyRef"},"receipt_obligations":{"type":"array","items":{"const":"oracle_evidence_admission"},"minItems":1,"maxItems":1,"uniqueItems":true}}},"missing_or_stale_evidence_mode":{"enum":["unknown","read_only","pause","escalate"]},"source_replacement_policy_ref":{"$ref":"#/$defs/policyRef"},"privacy_policy_ref":{"$ref":"#/$defs/policyRef"},"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"status":{"enum":["draft","active","superseded","revoked"]}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"},"schemaRefs":{"type":"array","items":{"$ref":"#/$defs/schemaRef"},"maxItems":128,"uniqueItems":true}}}"##),
     ("schema://ioi/foundations/ordering-admission-finality-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ordering-admission-finality-profile/v1","title":"OrderingAdmissionFinalityProfile","description":"Ordering, admission, cryptographic continuity, finality, and fault-model profile for one System.","x-ioi-schema-version":"ioi.ordering-admission-finality-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","ordering_profile_id","system_id","constitution_ref","version","profile","authority_distribution","ordering","admission","cryptographic_continuity","finality","fault_model_ref","liveness_policy_ref","membership_and_profile_change_policy_ref","conformance_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"ordering_profile_id":{"$ref":"#/$defs/orderingProfileRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"version":{"$ref":"#/$defs/version"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"authority_distribution":{"type":"object","additionalProperties":false,"required":["posture","principal_refs","independence_evidence_refs"],"properties":{"posture":{"enum":["single_principal","declared_multi_principal","external_network"]},"principal_refs":{"$ref":"#/$defs/canonicalRefs"},"independence_evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"ordering":{"type":"object","additionalProperties":false,"required":["rule_ref","member_node_membership_refs","writer_epoch_required","fencing_required","leader_or_sequencer_selection_ref","conflict_rule_ref"],"properties":{"rule_ref":{"$ref":"#/$defs/policyRef"},"member_node_membership_refs":{"type":"array","items":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"maxItems":256,"uniqueItems":true},"writer_epoch_required":{"type":"boolean"},"fencing_required":{"type":"boolean"},"leader_or_sequencer_selection_ref":{"$ref":"#/$defs/nullablePolicyRef"},"conflict_rule_ref":{"$ref":"#/$defs/policyRef"}}},"admission":{"type":"object","additionalProperties":false,"required":["deterministic_transition_function_ref","schema_root","policy_root","authority_rule_ref","threshold","require_expected_predecessor_root","receipt_obligations"],"properties":{"deterministic_transition_function_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,248}$"},"schema_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"authority_rule_ref":{"$ref":"#/$defs/policyRef"},"threshold":{"type":"object","additionalProperties":false,"required":["required","eligible"],"properties":{"required":{"$ref":"#/$defs/portableInteger"},"eligible":{"$ref":"#/$defs/portableInteger"}}},"require_expected_predecessor_root":{"type":"boolean","const":true},"receipt_obligations":{"$ref":"#/$defs/canonicalRefs"}}},"cryptographic_continuity":{"type":"object","additionalProperties":false,"required":["hash_and_signature_suite_ref","sequence_rule_ref","require_monotonic_sequence","require_expected_predecessor_commitment","operation_or_batch_commitment_schema_ref","admission_proof_schema_ref","require_resulting_state_root","require_receipt_root","checkpoint_and_compaction_policy_ref"],"properties":{"hash_and_signature_suite_ref":{"$ref":"#/$defs/schemaRef"},"sequence_rule_ref":{"$ref":"#/$defs/policyRef"},"require_monotonic_sequence":{"type":"boolean","const":true},"require_expected_predecessor_commitment":{"type":"boolean","const":true},"operation_or_batch_commitment_schema_ref":{"$ref":"#/$defs/schemaRef"},"admission_proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"require_resulting_state_root":{"type":"boolean","const":true},"require_receipt_root":{"type":"boolean","const":true},"checkpoint_and_compaction_policy_ref":{"$ref":"#/$defs/policyRef"}}},"finality":{"type":"object","additionalProperties":false,"required":["scope","rule_ref","proof_schema_ref","rollback_posture","external_network_ref","external_contract_ref","external_confirmation_policy_ref"],"properties":{"scope":{"enum":["local_operational","cross_domain","public_economic"]},"rule_ref":{"$ref":"#/$defs/policyRef"},"proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"rollback_posture":{"enum":["recoverable_before_final","compensation_only_after_final","irreversible_after_final"]},"external_network_ref":{"anyOf":[{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},{"type":"null"}]},"external_contract_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"external_confirmation_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"}}},"fault_model_ref":{"$ref":"#/$defs/policyRef"},"liveness_policy_ref":{"$ref":"#/$defs/policyRef"},"membership_and_profile_change_policy_ref":{"$ref":"#/$defs/policyRef"},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"status":{"enum":["draft","active","superseded","revoked"]}},"allOf":[{"if":{"properties":{"profile":{"const":"external_chain_finality"}},"required":["profile"]},"then":{"properties":{"authority_distribution":{"type":"object","properties":{"posture":{"const":"external_network"}}},"finality":{"type":"object","properties":{"external_network_ref":{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},"external_confirmation_policy_ref":{"$ref":"#/$defs/policyRef"}}}}}},{"if":{"properties":{"profile":{"enum":["single_authority","replicated_single_authority"]}},"required":["profile"]},"then":{"properties":{"authority_distribution":{"type":"object","properties":{"posture":{"const":"single_principal"},"principal_refs":{"type":"array","minItems":1,"maxItems":1}}}}}},{"if":{"properties":{"status":{"const":"draft"}},"required":["status"]},"then":{"properties":{"conformance_receipt_refs":{"type":"array","maxItems":0}}}},{"if":{"properties":{"status":{"const":"active"}},"required":["status"]},"then":{"properties":{"conformance_receipt_refs":{"type":"array","minItems":1}}}}],"$defs":{"portableInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true}}}"##),
@@ -117109,6 +118160,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/managed-work-billing-ledger-bundle/v1", r#"[{"rule_id":"managed_work_billing.rate_card.window","description":"A RateCard has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.rate_card.issued_at_ms","$.rate_card.expires_at_ms"]}},{"rule_id":"managed_work_billing.plan.window","description":"A Plan has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.plan.issued_at_ms","$.plan.expires_at_ms"]}},{"rule_id":"managed_work_billing.quote.window","description":"An immutable WorkQuote has a finite non-empty validity interval.","expression":{"operator":"numbers_lt","paths":["$.quote.issued_at_ms","$.quote.expires_at_ms"]}},{"rule_id":"managed_work_billing.hold.required","description":"An exportable admitted billing chain contains at least one finite CreditHold.","expression":{"operator":"non_empty","path":"$.holds"}},{"rule_id":"managed_work_billing.ledger_head.required","description":"The bundle binds the current append-only ledger head.","expression":{"operator":"non_empty","path":"$.ledger_head_hash"}}]"#),
     ("schema://ioi/foundations/ontology-assertion/v1", r#"[]"#),
     ("schema://ioi/foundations/ontology-assertion-admission-receipt/v1", r#"[]"#),
+    ("schema://ioi/foundations/ontology-version/v1", r#"[{"rule_id":"ontology_version.identity.binds_family_revision_path","description":"A revision id is its family's ref plus an explicit revision path; it can never name another family's lineage.","expression":{"operator":"field_starts_with_path","path":"$.ontology_id","prefix":"ontology://","expected_path":"$.ontology_family_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"ontology_version.family.binds_owner_namespace","description":"Identity is owner-qualified: the family ref opens with the owning namespace, so two domains may hold the same local name without colliding.","expression":{"operator":"field_starts_with_path","path":"$.ontology_family_ref","prefix":"ontology://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"ontology_version.family.binds_local_name","description":"The family ref carries this domain's own local name verbatim.","expression":{"operator":"field_ends_with","path":"$.ontology_family_ref","expected_path":"$.name"}},{"rule_id":"ontology_version.identity.binds_version_label","description":"The readable version label is the revision segment of the identity; a relabelled version no longer addresses its own object.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.ontology_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"ontology_version.content_hash.commits_semantic_content_and_valid_time","description":"The content hash commits identity, lineage, every declared term set, governing policy and VALID time. Transaction time is deliberately excluded: when a fact was true is content, when it was recorded is admission.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-version-content-commitment-jcs-sha256.v1"},"ontology_family_ref":{"path":"$.ontology_family_ref"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"entity_types":{"path":"$.entity_types"},"relationship_types":{"path":"$.relationship_types"},"event_types":{"path":"$.event_types"},"action_types":{"path":"$.action_types"},"invariant_refs":{"path":"$.invariant_refs"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"compatibility_profile_ref":{"path":"$.compatibility_profile_ref"},"deprecation_policy_ref":{"path":"$.deprecation_policy_ref"},"policy_hash":{"path":"$.policy_hash"},"valid_time":{"path":"$.valid_time"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"ontology_version.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor, never from a substituted one.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"ontology_version.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor cannot reinterpret the revision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"ontology_version.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces; equal or later sources are forks and gaps wearing successor clothing.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"ontology_version.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not an edit.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"ontology_version.admission.binds_this_revision","description":"Admission evidence names this exact revision; a borrowed admission cannot make another version durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"ontology_id","expected_path":"$.ontology_id"}},{"rule_id":"ontology_version.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
     ("schema://ioi/foundations/oracle-evidence-admission-receipt/v1", r#"[]"#),
     ("schema://ioi/foundations/oracle-evidence-profile/v1", r#"[{"rule_id":"oracle_evidence.contradiction.escalation_adjudicator.required","description":"Escalation names at least one adjudicator.","expression":{"operator":"non_empty_when_in","path":"$.contradiction.adjudicator_refs","when_path":"$.contradiction.policy","values":["escalate"]}}]"#),
     ("schema://ioi/foundations/ordering-admission-finality-profile/v1", r#"[{"rule_id":"ordering_admission_finality.threshold.required_lte_eligible","description":"The required admission threshold cannot exceed the eligible principal count.","expression":{"operator":"numbers_lte","paths":["$.admission.threshold.required","$.admission.threshold.eligible"]}}]"#),
@@ -117434,6 +118486,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:decision|work-claim|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:domain|org|project|service|system)://[^\s]{1,240}$"#,
+        r#"^(?:domain|org|project|service|system)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:domain|system|agentgres)://[^\s]{1,500}$"#,
         r#"^(?:domain|system|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -117652,6 +118708,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:org|project)://[^\s?#\\]+$"#,
         r#"^(?:org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]+$"#,
+    ),
+    (
+        r#"^(?:org|project|service|system|wallet)://[^\s]{1,240}$"#,
+        r#"^(?:org|project|service|system|wallet)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:org|project|system|user)://[^\s]{1,500}$"#,
@@ -118201,6 +119261,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$"#,
         r#"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$"#,
     ),
+    (
+        r#"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"#,
+        r#"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"#,
+    ),
     (r#"^[A-Za-z0-9_-]+$"#, r#"^[A-Za-z0-9_-]+$"#),
     (r#"^[A-Za-z0-9_-]{43,256}$"#, r#"^[A-Za-z0-9_-]{43,256}$"#),
     (r#"^[A-Za-z0-9_-]{43}$"#, r#"^[A-Za-z0-9_-]{43}$"#),
@@ -118222,7 +119286,15 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[a-z0-9]+(?:-[a-z0-9]+)*$"#,
         r#"^[a-z0-9]+(?:-[a-z0-9]+)*$"#,
     ),
+    (
+        r#"^[a-z0-9][a-z0-9-]{0,62}$"#,
+        r#"^[a-z0-9][a-z0-9-]{0,62}$"#,
+    ),
     (r#"^[a-z0-9][a-z0-9._-]*$"#, r#"^[a-z0-9][a-z0-9._-]*$"#),
+    (
+        r#"^[a-z0-9][a-z0-9._-]{0,95}$"#,
+        r#"^[a-z0-9][a-z0-9._-]{0,95}$"#,
+    ),
     (
         r#"^[a-z0-9][a-z0-9._:/-]{0,127}$"#,
         r#"^[a-z0-9][a-z0-9._:/-]{0,127}$"#,
@@ -118349,6 +119421,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^agentgres://[^\s]{1,500}$"#,
         r#"^agentgres://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^agentgres://domain/[^\s]{1,224}$"#,
+        r#"^agentgres://domain/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,224}$"#,
     ),
     (
         r#"^agentgres://domain/[^\s]{1,240}$"#,
@@ -118634,6 +119710,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^commitment://state-transition/sha256:[0-9a-f]{64}$"#,
         r#"^commitment://state-transition/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^compatibility://[^\s]{1,240}$"#,
+        r#"^compatibility://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^composition://[^\s]{1,500}$"#,
@@ -119045,6 +120125,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^install://automation/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,140}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^invariant://[^\s]{1,240}$"#,
+        r#"^invariant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^invariant://[^\s]{1,248}$"#,
         r#"^invariant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -119187,6 +120271,18 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^ontology://[^\s]{1,248}$"#,
         r#"^ontology://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
+    ),
+    (
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"#,
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"#,
     ),
     (
         r#"^oracle-evidence-profile://[^\s]{1,248}$"#,
@@ -119867,6 +120963,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^user://[^\s/?#\\]+$"#,
         r#"^user://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]+$"#,
     ),
+    (r#"^v[1-9][0-9]{0,8}$"#, r#"^v[1-9][0-9]{0,8}$"#),
     (
         r#"^vault://[^\s]{1,248}$"#,
         r#"^vault://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
@@ -121690,6 +122787,21 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/negative-admitted-without-oracle.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/negative-admitted-without-oracle.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json"))),
     ("docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json"))),
     ("docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json"))),
     ("docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json"))),
@@ -122658,6 +123770,11 @@ mod tests {
         },
         "schema://ioi/foundations/ontology-assertion-admission-receipt/v1" => {
             serde_json::from_value::<OntologyAssertionAdmissionReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/ontology-version/v1" => {
+            serde_json::from_value::<OntologyVersionV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -123777,6 +124894,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/ontology-version/v1" => {
+            let projection = serde_json::from_value::<OntologyVersionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/oracle-evidence-admission-receipt/v1" => {
             let projection = serde_json::from_value::<OracleEvidenceAdmissionReceiptV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -124213,8 +125335,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            749,
-            "the registered golden corpus must remain the explicit 749-fixture bar",
+            764,
+            "the registered golden corpus must remain the explicit 764-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -124456,7 +125578,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 730,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 742,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

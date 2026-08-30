@@ -134,6 +134,8 @@ mod mutation_event_foundation;
 mod odk_routes;
 #[path = "hypervisor_daemon_routes/ontology_projection_routes.rs"]
 mod ontology_projection_routes;
+#[path = "hypervisor_daemon_routes/ontology_version_routes.rs"]
+mod ontology_version_routes;
 #[path = "hypervisor_daemon_routes/ontology_workbench_routes.rs"]
 mod ontology_workbench_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
@@ -770,6 +772,14 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/enforcement-coverage",
             get(enforcement_coverage_routes::handle_operability),
+        )
+        // M05.1 — immutable, owner-qualified ontology revisions on the canonical Agentgres chain.
+        // One producer, one bitemporal query consumer; no ontology is presumed globally canonical
+        // and neither route mints, widens or consults authority.
+        .route(
+            "/v1/hypervisor/ontology-versions",
+            post(ontology_version_routes::handle_ontology_version_admit)
+                .get(ontology_version_routes::handle_ontology_version_query),
         )
         .route(
             "/v1/action-requests",

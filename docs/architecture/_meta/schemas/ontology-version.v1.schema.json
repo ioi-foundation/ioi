@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/ontology-version/v1",
+  "title": "OntologyVersion",
+  "description": "A DomainOntologyEnvelope carrying ontology_record_profile ontology_version: one immutable, owner-qualified ontology revision. Identity is cross-namespace, valid time and transaction time are separate axes, and admission records local operational truth rather than global canonicality. Meaning never grants authority.",
+  "x-ioi-schema-version": "ioi.ontology-version.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "ontology_id", "ontology_family_ref", "ontology_record_profile",
+    "namespace", "name", "owner_id", "governing_scope_ref", "admission_domain_ref",
+    "version", "revision_ordinal", "predecessor_version_ref", "predecessor_content_hash",
+    "content_hash", "entity_types", "relationship_types", "event_types", "action_types",
+    "invariant_refs", "compatibility_profile_ref", "deprecation_policy_ref", "policy_hash",
+    "valid_time", "transaction_time", "migration", "admission", "authority_nonclaim", "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.ontology-version.v1" },
+    "ontology_id": { "$ref": "#/$defs/ontologyRevisionRef" },
+    "ontology_family_ref": { "$ref": "#/$defs/ontologyFamilyRef" },
+    "ontology_record_profile": { "const": "ontology_version" },
+    "namespace": { "$ref": "#/$defs/nameToken" },
+    "name": { "$ref": "#/$defs/nameToken" },
+    "owner_id": {
+      "type": "string",
+      "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+    },
+    "governing_scope_ref": {
+      "type": "string",
+      "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+    },
+    "admission_domain_ref": {
+      "type": "string",
+      "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+    },
+    "version": { "type": "string", "pattern": "^v[1-9][0-9]{0,8}$" },
+    "revision_ordinal": { "type": "integer", "minimum": 1, "maximum": 999999999 },
+    "predecessor_version_ref": {
+      "oneOf": [{ "$ref": "#/$defs/ontologyRevisionRef" }, { "type": "null" }]
+    },
+    "predecessor_content_hash": {
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "content_hash": { "$ref": "#/$defs/sha256" },
+    "entity_types": { "$ref": "#/$defs/termSet" },
+    "relationship_types": { "$ref": "#/$defs/termSet" },
+    "event_types": { "$ref": "#/$defs/termSet" },
+    "action_types": { "$ref": "#/$defs/termSet" },
+    "invariant_refs": {
+      "type": "array", "maxItems": 128, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^invariant://[^\\s]{1,240}$" }
+    },
+    "compatibility_profile_ref": {
+      "oneOf": [
+        { "type": "string", "pattern": "^compatibility://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "deprecation_policy_ref": {
+      "oneOf": [
+        { "type": "string", "pattern": "^policy://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "policy_hash": { "$ref": "#/$defs/sha256" },
+    "valid_time": {
+      "type": "object", "additionalProperties": false,
+      "required": ["starts_at", "ends_at"],
+      "properties": {
+        "starts_at": { "$ref": "#/$defs/dateTime" },
+        "ends_at": { "oneOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] }
+      }
+    },
+    "transaction_time": {
+      "type": "object", "additionalProperties": false,
+      "required": ["recorded_at", "superseded_at"],
+      "properties": {
+        "recorded_at": { "$ref": "#/$defs/dateTime" },
+        "superseded_at": { "oneOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] }
+      }
+    },
+    "migration": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "from_version_ref", "from_content_hash", "from_revision_ordinal",
+        "compatibility", "reinterprets_predecessor", "term_mappings"
+      ],
+      "properties": {
+        "from_version_ref": {
+          "oneOf": [{ "$ref": "#/$defs/ontologyRevisionRef" }, { "type": "null" }]
+        },
+        "from_content_hash": {
+          "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "from_revision_ordinal": { "type": "integer", "minimum": 0, "maximum": 999999999 },
+        "compatibility": { "enum": ["initial", "additive", "breaking"] },
+        "reinterprets_predecessor": { "const": false },
+        "term_mappings": {
+          "type": "array", "maxItems": 512, "uniqueItems": true,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["from_term_id", "to_term_id", "disposition"],
+            "properties": {
+              "from_term_id": { "$ref": "#/$defs/termRef" },
+              "to_term_id": { "oneOf": [{ "$ref": "#/$defs/termRef" }, { "type": "null" }] },
+              "disposition": {
+                "enum": ["retained", "renamed", "added", "removed", "narrowed", "widened"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "admission": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "ontology_id", "content_hash", "owner_namespace", "stream_tail",
+            "agentgres_operation_ref", "agentgres_receipt_ref", "admission_seq",
+            "admission_head", "admission_root", "expected_predecessor_head"
+          ],
+          "properties": {
+            "ontology_id": { "$ref": "#/$defs/ontologyRevisionRef" },
+            "content_hash": { "$ref": "#/$defs/sha256" },
+            "owner_namespace": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,95}$" },
+            "stream_tail": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$" },
+            "agentgres_operation_ref": {
+              "type": "string", "pattern": "^agentgres://[^\\s]{1,240}$"
+            },
+            "agentgres_receipt_ref": {
+              "type": "string", "pattern": "^receipt://[^\\s]{1,240}$"
+            },
+            "admission_seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "admission_head": { "$ref": "#/$defs/sha256" },
+            "admission_root": { "$ref": "#/$defs/sha256" },
+            "expected_predecessor_head": {
+              "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+            }
+          }
+        }
+      ]
+    },
+    "authority_nonclaim": { "const": "ontology_version_grants_no_authority" },
+    "status": { "enum": ["draft", "active", "deprecated", "revoked"] }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "predecessor_version_ref": { "type": "null" } },
+        "required": ["predecessor_version_ref"]
+      },
+      "then": {
+        "properties": {
+          "revision_ordinal": { "type": "integer", "minimum": 1, "maximum": 1 },
+          "predecessor_content_hash": { "type": "null" },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "from_version_ref": { "type": "null" },
+              "from_content_hash": { "type": "null" },
+              "from_revision_ordinal": { "type": "integer", "minimum": 0, "maximum": 0 },
+              "compatibility": { "const": "initial" },
+              "term_mappings": { "type": "array", "maxItems": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "predecessor_version_ref": { "type": "string" } },
+        "required": ["predecessor_version_ref"]
+      },
+      "then": {
+        "properties": {
+          "revision_ordinal": { "type": "integer", "minimum": 2, "maximum": 999999999 },
+          "predecessor_content_hash": { "type": "string" },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "from_version_ref": { "type": "string" },
+              "from_content_hash": { "type": "string" },
+              "from_revision_ordinal": {
+                "type": "integer", "minimum": 1, "maximum": 999999999
+              },
+              "compatibility": { "enum": ["additive", "breaking"] },
+              "term_mappings": { "type": "array", "minItems": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "draft" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "admission": { "type": "null" },
+          "transaction_time": {
+            "type": "object",
+            "properties": { "superseded_at": { "type": "null" } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "active" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "admission": { "type": "object" },
+          "transaction_time": {
+            "type": "object",
+            "properties": { "superseded_at": { "type": "null" } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "deprecated" } }, "required": ["status"] },
+      "then": { "properties": { "admission": { "type": "object" } } }
+    }
+  ],
+  "$defs": {
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nameToken": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+    "ontologyFamilyRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "ontologyRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "termRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "termSet": {
+      "type": "array", "maxItems": 256, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["term_id", "label"],
+        "properties": {
+          "term_id": { "$ref": "#/$defs/termRef" },
+          "label": { "type": "string", "minLength": 1, "maxLength": 160 }
+        }
+      }
+    }
+  }
+}

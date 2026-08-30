@@ -1,0 +1,48 @@
+{
+  "schema_version": "ioi.ontology-version.v1",
+  "ontology_id": "ontology://harbor-clinic/patient-intake/revision/1",
+  "ontology_family_ref": "ontology://harbor-clinic/patient-intake",
+  "ontology_record_profile": "ontology_version",
+  "namespace": "harbor-clinic",
+  "name": "patient-intake",
+  "owner_id": "org://harbor-clinic",
+  "governing_scope_ref": "domain://harbor-clinic/intake",
+  "admission_domain_ref": "agentgres://domain/event-stream-operations.hypervisor-ontology-versions.ontology-version.9a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f809",
+  "version": "v1",
+  "revision_ordinal": 1,
+  "predecessor_version_ref": null,
+  "predecessor_content_hash": null,
+  "content_hash": "sha256:c02912b03187b6f2ef8523653a90e314490a5860332c6fb4ed711e671b37c6ca",
+  "entity_types": [
+    {
+      "term_id": "ontology://harbor-clinic/patient-intake/term/patient",
+      "label": "Seafarer"
+    }
+  ],
+  "relationship_types": [],
+  "event_types": [],
+  "action_types": [],
+  "invariant_refs": [],
+  "compatibility_profile_ref": null,
+  "deprecation_policy_ref": null,
+  "policy_hash": "sha256:22b2d05c7ecc3c5d18a3ca2e4f701b6d9e5f3c8ba1d2e4f6081920b3c4d5e6f7",
+  "valid_time": {
+    "starts_at": "2026-03-15T00:00:00Z",
+    "ends_at": "2027-03-15T00:00:00Z"
+  },
+  "transaction_time": {
+    "recorded_at": "2026-08-30T11:00:00Z",
+    "superseded_at": null
+  },
+  "migration": {
+    "from_version_ref": null,
+    "from_content_hash": null,
+    "from_revision_ordinal": 0,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false,
+    "term_mappings": []
+  },
+  "admission": null,
+  "authority_nonclaim": "ontology_version_grants_no_authority",
+  "status": "draft"
+}

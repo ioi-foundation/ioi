@@ -1,0 +1,69 @@
+{
+  "schema_version": "ioi.ontology-version.v1",
+  "ontology_id": "ontology://acme-clinic/patient-intake/revision/1",
+  "ontology_family_ref": "ontology://acme-clinic/patient-intake",
+  "ontology_record_profile": "ontology_version",
+  "namespace": "acme-clinic",
+  "name": "patient-intake",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/clinical-intake",
+  "admission_domain_ref": "agentgres://domain/event-stream-operations.hypervisor-ontology-versions.ontology-version.6c1f0d9c2b4a8e37d5f0a1b2c3d4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7",
+  "version": "v1",
+  "revision_ordinal": 1,
+  "predecessor_version_ref": null,
+  "predecessor_content_hash": null,
+  "content_hash": "sha256:6e246c6ad6767ed34cea46779c2e07ccf8ef9e7c227efc497ef0decab17a10a5",
+  "entity_types": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/patient",
+      "label": "Patient"
+    },
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/encounter",
+      "label": "Encounter"
+    }
+  ],
+  "relationship_types": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/attended-by",
+      "label": "Attended by"
+    }
+  ],
+  "event_types": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/intake-recorded",
+      "label": "Intake recorded"
+    }
+  ],
+  "action_types": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/term/schedule-followup",
+      "label": "Schedule follow-up"
+    }
+  ],
+  "invariant_refs": [
+    "invariant://acme-clinic/patient-intake/one-guardian-per-minor/v1"
+  ],
+  "compatibility_profile_ref": null,
+  "deprecation_policy_ref": null,
+  "policy_hash": "sha256:11a1cf4b6dbb2b4c07f2b91d3e6f0a5c8d4e2b7a90c1d3e5f70819a2b3c4d5e6",
+  "valid_time": {
+    "starts_at": "2026-01-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-08-30T09:00:00Z",
+    "superseded_at": null
+  },
+  "migration": {
+    "from_version_ref": null,
+    "from_content_hash": null,
+    "from_revision_ordinal": 0,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false,
+    "term_mappings": []
+  },
+  "admission": null,
+  "authority_nonclaim": "ontology_version_grants_no_authority",
+  "status": "active"
+}
