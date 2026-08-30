@@ -10846,6 +10846,11 @@
           "expected_failure": "schema"
         },
         {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_surface_descriptor.content_hash.commits_the_whole_descriptor"
+        },
+        {
           "path": "fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json",
           "expected_failure": "invariant",
           "expected_rule_id": "ontology_surface_descriptor.ontology_binding.every_owned_revision_carries_an_owner_hash"

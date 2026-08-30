@@ -2603,17 +2603,64 @@ pub(crate) fn rebuild_descriptor_row(
 }
 
 /// SHA-256 over the JCS bytes of a descriptor minus its own hash field.
+/// The exact material the registered invariant
+/// `ontology_surface_descriptor.content_hash.commits_the_whole_descriptor` commits: every field of
+/// the contract except the hash itself, under a domain separator.
+///
+/// FLAT AND ENUMERATED, BECAUSE THAT IS WHAT THE INVARIANT LANGUAGE CAN CHECK. The first cut hashed
+/// a nested `{domain, record}` preimage, which no supported operator can reproduce — so the
+/// commitment was computed by this module and verified by NOTHING. A hash only this code can check
+/// is not a commitment; it is a number the record carries. `material_fields` builds a flat map, so
+/// the producer builds the same flat map, and the two agree by construction rather than by hope.
+const DESCRIPTOR_CONTENT_MATERIAL_FIELDS: &[&str] = &[
+    "schema_version",
+    "surface_descriptor_id",
+    "descriptor_record_profile",
+    "surface_ref",
+    "display_name",
+    "owner_ref",
+    "composition_pattern",
+    "ontology_refs",
+    "bound_ontology_revisions",
+    "bound_ontology_revision_count",
+    "ontology_resolved_by",
+    "canonical_object_model_refs",
+    "data_recipe_refs",
+    "policy_bound_data_view_refs",
+    "authority_requirement_refs",
+    "daemon_api_refs",
+    "receipt_obligations",
+    "conformance_profile_refs",
+    "connector_mapping_refs",
+    "ontology_projection_refs",
+    "allowed_action_refs",
+    "operator_contract_refs",
+    "mcp_contract_refs",
+    "generated_artifact_refs",
+    "invariant_11_binding_set",
+    "invariant_11_member_count",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "status",
+];
+
+const DESCRIPTOR_CONTENT_COMMITMENT_DOMAIN: &str =
+    "ioi.ontology-surface-descriptor-content-commitment-jcs-sha256.v2";
+
 fn descriptor_content_hash(record: &Value) -> String {
     use sha2::Digest;
-    let mut material = record.clone();
-    if let Some(object) = material.as_object_mut() {
-        object.remove("content_hash");
+    let mut material = serde_json::Map::new();
+    material.insert("domain".into(), json!(DESCRIPTOR_CONTENT_COMMITMENT_DOMAIN));
+    for field in DESCRIPTOR_CONTENT_MATERIAL_FIELDS {
+        material.insert(
+            (*field).to_string(),
+            record.get(*field).cloned().unwrap_or(Value::Null),
+        );
     }
-    let bytes = serde_jcs::to_vec(&json!({
-        "domain": "ioi.ontology-surface-descriptor-content-commitment-jcs-sha256.v2",
-        "record": material,
-    }))
-    .unwrap_or_default();
+    let bytes = serde_jcs::to_vec(&Value::Object(material)).unwrap_or_default();
     format!("sha256:{:x}", sha2::Sha256::digest(&bytes))
 }
 
@@ -2945,6 +2992,206 @@ pub(crate) async fn handle_odk_descriptor_delete(
     // the wrong way round. The row now carries the revoked record, the list view still hides it, and
     // an exact retry replays the same admitted successor instead of failing to find its own subject.
     reply
+}
+
+#[cfg(test)]
+mod descriptor_v2_contract_tests {
+    use super::*;
+
+    const FIXTURES: &[(&str, &str)] = &[
+        (
+            "positive-authored-at-v2",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json"),
+        ),
+        (
+            "positive-converged-from-v1",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json"),
+        ),
+        (
+            "negative-legacy-ontology-ref-field-name",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json"),
+        ),
+        (
+            "negative-legacy-recipe-refs-field-name",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json"),
+        ),
+        (
+            "negative-mutable-latest-ontology-binding",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json"),
+        ),
+        (
+            "negative-binding-set-member-missing",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json"),
+        ),
+        (
+            "negative-binding-set-member-substituted",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json"),
+        ),
+        (
+            "negative-capability-lease-nonclaim-omitted",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json"),
+        ),
+        (
+            "negative-v1-schema-version-on-v2",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json"),
+        ),
+        (
+            "negative-binding-set-count-narrowed",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json"),
+        ),
+        (
+            "negative-stale-content-hash",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json"),
+        ),
+        (
+            "negative-named-revision-without-owner-hash",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json"),
+        ),
+        (
+            "negative-revision-bound-twice",
+            include_str!("../../../../../docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json"),
+        ),
+    ];
+
+    fn fixture(name: &str) -> Value {
+        let (_, body) = FIXTURES
+            .iter()
+            .find(|(candidate, _)| *candidate == name)
+            .unwrap_or_else(|| panic!("no fixture named {name}"));
+        serde_json::from_str(body).expect("fixture is JSON")
+    }
+
+    fn registered(document: &Value) -> Result<(), String> {
+        ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+            DESCRIPTOR_V2_CONTRACT_ID,
+            document,
+        )
+    }
+
+    /// The registered v2 corpus, run against the SAME validator the admission path uses.
+    ///
+    /// WHY THIS FAMILY CHECKS ITSELF. The shared golden-fixture test iterates every registered
+    /// contract and aborts on the FIRST failure; it currently aborts on an
+    /// `assurance-transition-receipt` positive failing `$.admission: failed oneOf`, a defect that
+    /// predates this branch at `ea40cfde2` and belongs to another owner. Letting a neighbour's broken
+    /// fixture mean this contract's corpus is never executed would be exactly the "green because
+    /// nothing ran" failure this program keeps finding.
+    #[test]
+    fn the_registered_v2_corpus_passes_and_fails_exactly_where_it_claims_to() {
+        for (name, body) in FIXTURES {
+            let document: Value = serde_json::from_str(body).expect("fixture is JSON");
+            let result = registered(&document);
+            if name.starts_with("positive-") {
+                result.unwrap_or_else(|reason| {
+                    panic!("{name} must pass the registered contract: {reason}")
+                });
+                // THE PRODUCER IS THE ORACLE: the commitment is recomputed by the same function the
+                // admission path uses, so a fixture cannot agree with a hash nothing produces.
+                assert_eq!(
+                    json!(descriptor_content_hash(&document)),
+                    document["content_hash"],
+                    "{name} content hash"
+                );
+            } else {
+                assert!(
+                    result.is_err(),
+                    "{name} must be refused by the registered contract"
+                );
+            }
+        }
+    }
+
+    /// The stale-hash negative differs from a valid record in EXACTLY its hash.
+    ///
+    /// Repairing only the hash must make it valid; otherwise the fixture carries a second, unnamed
+    /// defect and would be evidence for the wrong rule.
+    #[test]
+    fn the_stale_hash_negative_has_exactly_one_defect() {
+        let stale = fixture("negative-stale-content-hash");
+        assert!(registered(&stale).is_err());
+        assert_ne!(
+            json!(descriptor_content_hash(&stale)),
+            stale["content_hash"],
+            "the stale-hash negative must actually carry a stale hash"
+        );
+        let mut repaired = stale.clone();
+        repaired["content_hash"] = json!(descriptor_content_hash(&stale));
+        assert!(
+            registered(&repaired).is_ok(),
+            "repairing ONLY the hash must make it valid, proving the hash was its single defect"
+        );
+    }
+
+    /// The producer's commitment material IS the registered rule's, field for field.
+    ///
+    /// A hash both sides compute from separately-maintained lists agrees until someone edits one of
+    /// them. This makes a field added to the contract and forgotten in the producer fail here, rather
+    /// than at the first admitted record nobody can verify.
+    #[test]
+    fn the_content_commitment_material_is_the_registered_material() {
+        const PROFILE: &str = include_str!(
+            "../../../../../docs/architecture/_meta/schemas/invariants/ontology-surface-descriptor.v2.invariants.json"
+        );
+        let profile: Value = serde_json::from_str(PROFILE).expect("profile is JSON");
+        let rule = profile["rules"]
+            .as_array()
+            .expect("rules")
+            .iter()
+            .find(|rule| {
+                rule["rule_id"]
+                    == "ontology_surface_descriptor.content_hash.commits_the_whole_descriptor"
+            })
+            .expect("the registered profile declares a content commitment rule");
+        let mut registered_fields: Vec<String> = rule["expression"]["material_fields"]
+            .as_object()
+            .expect("material fields")
+            .keys()
+            .filter(|key| *key != "domain")
+            .cloned()
+            .collect();
+        registered_fields.sort();
+        let mut produced: Vec<String> = DESCRIPTOR_CONTENT_MATERIAL_FIELDS
+            .iter()
+            .map(|field| (*field).to_string())
+            .collect();
+        produced.sort();
+        assert_eq!(registered_fields, produced);
+        assert_eq!(
+            rule["expression"]["material_fields"]["domain"]["value"],
+            json!(DESCRIPTOR_CONTENT_COMMITMENT_DOMAIN)
+        );
+    }
+
+    /// The binding set the module emits is canon's eight, and the legacy names it refuses are the
+    /// two v1 spellings those members replaced.
+    #[test]
+    fn the_binding_set_and_the_refused_legacy_names_are_canonical() {
+        assert_eq!(
+            INVARIANT_11_BINDING_SET,
+            &[
+                "ontology_refs",
+                "canonical_object_model_refs",
+                "data_recipe_refs",
+                "policy_bound_data_view_refs",
+                "authority_requirement_refs",
+                "daemon_api_refs",
+                "receipt_obligations",
+                "conformance_profile_refs",
+            ]
+        );
+        assert_eq!(
+            LEGACY_DESCRIPTOR_FIELDS,
+            &[
+                ("ontology_ref", "ontology_refs"),
+                ("recipe_refs", "data_recipe_refs"),
+            ]
+        );
+        // Each legacy name's canonical successor is itself a binding-set member, so the convergence
+        // lands ON the set invariant 11 requires rather than beside it.
+        for (_, canonical) in LEGACY_DESCRIPTOR_FIELDS {
+            assert!(INVARIANT_11_BINDING_SET.contains(canonical));
+        }
+    }
 }
 
 #[cfg(test)]

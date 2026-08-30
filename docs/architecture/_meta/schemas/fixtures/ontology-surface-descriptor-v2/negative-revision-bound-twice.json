@@ -71,7 +71,7 @@
     "conformance_profile_refs"
   ],
   "invariant_11_member_count": 8,
-  "content_hash": "sha256:d2d161cd97f5451ea3302d13044feb02511cda237a0863f8d5329e57ce22817b",
+  "content_hash": "sha256:140ca1c035140f0ab4bfee6dc77d07869e7e22fbdc7482640e8b9973b28b50bc",
   "migration": {
     "from_schema_version": null,
     "from_descriptor_ref": null,

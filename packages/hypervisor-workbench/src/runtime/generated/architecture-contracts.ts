@@ -16009,6 +16009,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_surface_descriptor.content_hash.commits_the_whole_descriptor"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json",
     "expected": "reject",
     "expected_schema_accept": true,
@@ -24302,6 +24310,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json",
     "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -107172,6 +107187,117 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     }
   ],
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": [
+    {
+      "rule_id": "ontology_surface_descriptor.content_hash.commits_the_whole_descriptor",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The first cut of this contract had the route derive a content hash that no registered rule checked, over a nested preimage no supported operator could reproduce — a number the record carried rather than a commitment anyone could test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. The producer builds the same flat material map, so the two agree by construction rather than by hope.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.ontology-surface-descriptor-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "surface_descriptor_id": {
+            "path": "$.surface_descriptor_id"
+          },
+          "descriptor_record_profile": {
+            "path": "$.descriptor_record_profile"
+          },
+          "surface_ref": {
+            "path": "$.surface_ref"
+          },
+          "display_name": {
+            "path": "$.display_name"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "composition_pattern": {
+            "path": "$.composition_pattern"
+          },
+          "ontology_refs": {
+            "path": "$.ontology_refs"
+          },
+          "bound_ontology_revisions": {
+            "path": "$.bound_ontology_revisions"
+          },
+          "bound_ontology_revision_count": {
+            "path": "$.bound_ontology_revision_count"
+          },
+          "ontology_resolved_by": {
+            "path": "$.ontology_resolved_by"
+          },
+          "canonical_object_model_refs": {
+            "path": "$.canonical_object_model_refs"
+          },
+          "data_recipe_refs": {
+            "path": "$.data_recipe_refs"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "authority_requirement_refs": {
+            "path": "$.authority_requirement_refs"
+          },
+          "daemon_api_refs": {
+            "path": "$.daemon_api_refs"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "conformance_profile_refs": {
+            "path": "$.conformance_profile_refs"
+          },
+          "connector_mapping_refs": {
+            "path": "$.connector_mapping_refs"
+          },
+          "ontology_projection_refs": {
+            "path": "$.ontology_projection_refs"
+          },
+          "allowed_action_refs": {
+            "path": "$.allowed_action_refs"
+          },
+          "operator_contract_refs": {
+            "path": "$.operator_contract_refs"
+          },
+          "mcp_contract_refs": {
+            "path": "$.mcp_contract_refs"
+          },
+          "generated_artifact_refs": {
+            "path": "$.generated_artifact_refs"
+          },
+          "invariant_11_binding_set": {
+            "path": "$.invariant_11_binding_set"
+          },
+          "invariant_11_member_count": {
+            "path": "$.invariant_11_member_count"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
     {
       "rule_id": "ontology_surface_descriptor.invariant_11.binding_set_covers_every_canonical_member",
       "description": "INVARIANT 11, PORTABLY. The declared binding set is EXACTLY the eight members non-negotiable 11 names — owning ontology refs, object-model refs, data-recipe refs, policy-bound data view refs, authority requirements, daemon/API dependencies, receipt obligations and conformance expectations — with nothing omitted and nothing extra. The member names are pinned by the schema in `constants`, so this rule needs no literals of its own and the two fences stay independent: a build that narrowed the binding set would have to defeat the schema's enum-and-cardinality AND this exact coverage. Before this contract existed, no stored descriptor could be checked against invariant 11 at all.",

@@ -66,7 +66,7 @@
     "generated_artifact_refs"
   ],
   "invariant_11_member_count": 8,
-  "content_hash": "sha256:5aab5b92fa71704a0fa0273261a240740e1f3ded5ada3ba3ec45931acbd54340",
+  "content_hash": "sha256:9678c1afc1b0173c51ef5da647ebe8c8677d2193a9fffa7407ed88056b8b2b38",
   "migration": {
     "from_schema_version": null,
     "from_descriptor_ref": null,
