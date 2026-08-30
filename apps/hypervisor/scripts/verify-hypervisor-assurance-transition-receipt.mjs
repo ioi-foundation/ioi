@@ -598,6 +598,50 @@ async function run() {
     `status ${replayAllTrue.status} replayed ${replayAllTrue.j?.replayed}`,
   );
 
+  // --------------- a MALFORMED assertion is refused, never read as an absent one (tri-state)
+  //
+  // `body.get(k).and_then(Value::as_str)` has two outcomes where the wire has three: absent,
+  // present-and-well-typed, and present-and-MALFORMED. Collapsing the third into the first drops the
+  // assertion silently and returns a success — which is read as "everything you asserted holds".
+  // Checked on BOTH paths, because a fresh admission and a replay that disagreed about the same
+  // malformed body would be two different contracts wearing one route.
+  for (const [field, malformed] of [
+    ["subject_content_hash", 12345],
+    ["subject_family", ["ontology_revision"]],
+    ["expected_transition_ordinal", "1"],
+    ["expected_content_hash", { sha256: "…" }],
+    ["to_stage", true],
+  ]) {
+    for (const [lane, replaying] of [
+      ["a FRESH admission", false],
+      ["a REPLAY of an admitted key", true],
+    ]) {
+      const response = await req(
+        "POST",
+        AT,
+        transition({
+          subject: SUBJECT,
+          // The replay lane reuses the EXACT admitted key, so this is a real replay attempt and not
+          // a fresh command wearing a similar name.
+          key: replaying ? "t1-attested" : `malformed-fresh-${field}`,
+          expectedHead: replaying ? null : head1,
+          extra: { [field]: malformed },
+        }),
+        { as: "A" },
+      );
+      const after = await ladderState(SUBJECT);
+      ok(
+        `on ${lane}, a present-but-MALFORMED '${field}' is refused as a non-canonical assertion and appends nothing — a wrong JSON type is a third state, not a synonym for absent, and reading it as absent would return a success confirming a claim nobody compared`,
+        response.status === 422 &&
+          code(response.j) === "assurance_transition_assertion_not_canonical" &&
+          (response.j?.error?.message ?? "").includes(field) &&
+          after.count === 1 &&
+          after.head === head1,
+        `status ${response.status} code ${code(response.j)} count ${after.count}`,
+      );
+    }
+  }
+
   const replayAgain = await req(
     "POST",
     AT,
@@ -1241,11 +1285,13 @@ function sourceCensus() {
     .map((match) => match[1])
     .sort();
   const PINNED_TESTS = [
+    "admission_targeted_negatives_diverge_only_in_the_field_they_target",
     "content_commitment_excludes_transaction_time_and_admission",
     "every_ladder_member_is_the_canonical_enum_in_canonical_order",
+    "every_non_admission_fixture_matches_the_producer_ref_shapes",
     "every_registered_fixture_agrees_with_the_generated_projection",
+    "malformed_assertions_are_refused_rather_than_read_as_absent",
     "outcome_classes_carry_every_negative_member_acc8_requires",
-    "positive_fixture_admission_matches_the_producer_ref_shapes",
     "subject_family_classification_prefers_the_longer_scheme",
     "subject_hash_echo_rule_fires_on_its_own_finding",
     "transition_identity_binds_the_subject_family_and_ordinal",
@@ -1326,6 +1372,15 @@ const MUTANTS = [
       'replaying an admitted idempotency key with a CHANGED \'outcome_class\' is refused as a changed-intent replay and appends nothing — a key answers "did this exact command land?", so returning the stored transition in answer to a different one would substitute one claim for another',
     from: "    if let Some(field) = REPLAY_INTENT_FIELDS\n        .iter()\n        .find(|field| prior.get(*field) != now.get(*field))\n    {\n        return Some(field);\n    }",
     to: '    if false {\n        return Some("unreachable");\n    }',
+  },
+  {
+    id: "malformed-assertion-read-as-absent",
+    reddens:
+      "on a FRESH admission, a present-but-MALFORMED 'subject_content_hash' is refused as a non-canonical assertion and appends nothing — a wrong JSON type is a third state, not a synonym for absent, and reading it as absent would return a success confirming a claim nobody compared",
+    // Restores the two-state read the owner review found: the malformed case falls back to being
+    // treated as absent, which is exactly the silent drop this check exists to prevent.
+    from: "    validate_assertion_types(body)?;",
+    to: "    let _ = validate_assertion_types(body);",
   },
   {
     id: "replay-skips-caller-assertion-checks",

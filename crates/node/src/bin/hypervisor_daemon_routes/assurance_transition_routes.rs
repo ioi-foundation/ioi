@@ -436,6 +436,63 @@ fn validate_valid_time(body: &Value) -> Result<Value, Reply> {
     Ok(json!({ "starts_at": starts_at, "ends_at": ends_at }))
 }
 
+/// The optional caller assertions about server-derived facts whose JSON TYPE is fixed.
+///
+/// `expected_predecessor_transition_ref` and `_hash` are deliberately absent: null is a MEANINGFUL
+/// value for them (a genesis transition advances from nothing), and they are compared as whole JSON
+/// values, so a wrong type simply fails to equal the stored one and refuses by its own cause.
+/// `expected_head` is absent for the reason stated at its own gate: it carries its own typed
+/// refusal and a stale value is the normal, correct content of a retry.
+const STRING_ASSERTIONS: &[&str] = &[
+    "subject_content_hash",
+    "subject_family",
+    "expected_content_hash",
+    "to_stage",
+];
+const UNSIGNED_ASSERTIONS: &[&str] = &["expected_transition_ordinal"];
+
+/// Refuse a caller assertion that is PRESENT BUT MALFORMED, rather than reading it as absent.
+///
+/// THE THIRD STATE IS THE WHOLE POINT. `body.get(k).and_then(Value::as_str)` has two outcomes where
+/// the wire has three: absent, present-and-well-typed, and present-and-malformed. Collapsing the
+/// third into the first means a caller who sends `expected_content_hash: 12345` has its assertion
+/// SILENTLY DROPPED and receives a success — and a success is read as "everything you asserted
+/// holds". That is the same defect class as answering a replay without comparing intent: a record
+/// that says more than anyone checked.
+///
+/// Checked once here, before either the fresh or the replay path branches, so the two cannot drift
+/// into treating the same malformed body differently.
+fn validate_assertion_types(body: &Value) -> Result<(), Reply> {
+    for key in STRING_ASSERTIONS {
+        match body.get(*key) {
+            None | Some(Value::String(_)) => {}
+            Some(_) => {
+                return Err(refuse(
+                    "assurance_transition_assertion_not_canonical",
+                    format!(
+                        "'{key}' must be a string when present; a malformed assertion is refused rather than ignored, because ignoring it would return a success that reads as confirmation of a claim nobody compared"
+                    ),
+                ))
+            }
+        }
+    }
+    for key in UNSIGNED_ASSERTIONS {
+        match body.get(*key) {
+            None => {}
+            Some(value) if value.as_u64().is_some() => {}
+            Some(_) => {
+                return Err(refuse(
+                    "assurance_transition_assertion_not_canonical",
+                    format!(
+                        "'{key}' must be a non-negative integer when present; a malformed assertion is refused rather than ignored, because ignoring it would return a success that reads as confirmation of a claim nobody compared"
+                    ),
+                ))
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_proposal(body: &Value) -> Result<ProposedTransition, Reply> {
     // UNKNOWN CONTRACT VERSIONS ARE REFUSED, NEVER DOWNGRADED. A caller naming a version this build
     // does not implement is told so, rather than having its bytes reinterpreted as v1.
@@ -449,6 +506,9 @@ fn validate_proposal(body: &Value) -> Result<ProposedTransition, Reply> {
             ))
         }
     }
+
+    // Assertion TYPES first, so a malformed one can never reach either path as an absence.
+    validate_assertion_types(body)?;
 
     let subject_ref = str_field(body, "subject_ref");
     if subject_ref.is_empty()
@@ -1600,40 +1660,184 @@ mod tests {
     /// exact forms `contract_document` builds from `agentgres::refs`, so a runtime change that moved
     /// them would leave the corpus describing a record this daemon never emits.
     #[test]
-    fn positive_fixture_admission_matches_the_producer_ref_shapes() {
-        let document = registered_fixture("positive-genesis-attested");
-        let subject = document["subject_ref"].as_str().expect("subject_ref");
-        let tail = stream_tail(RESOURCE_KIND, subject);
-        let admission = &document["admission"];
-        assert_eq!(admission["stream_tail"].as_str(), Some(tail.as_str()));
-        assert_eq!(admission["owner_namespace"].as_str(), Some(OWNER_NAMESPACE));
-        let head = admission["admission_head"].as_str().expect("head");
-        let root = admission["admission_root"].as_str().expect("root");
-        assert!(is_sha256(head), "admission_head is a real digest: {head}");
-        assert!(is_sha256(root), "admission_root is a real digest: {root}");
-        assert_eq!(
-            admission["agentgres_operation_ref"].as_str(),
-            Some(
-                agentgres::refs::event_stream_operation_ref(OWNER_NAMESPACE, &tail, 1, head)
-                    .as_str()
-            ),
+    fn every_non_admission_fixture_matches_the_producer_ref_shapes() {
+        // Excluded because their whole purpose is a BROKEN admission block. Named here rather than
+        // silently skipped, and separately held to producer fidelity by the test below.
+        const ADMISSION_TARGETED: &[&str] = &[
+            "negative-admission-binds-other-transition",
+            "negative-admission-content-hash-substituted",
+        ];
+        let corpus = [
+            "positive-genesis-attested",
+            "positive-exploit-outcome-retained",
+            "positive-verified-negative-outcome",
+            "positive-settled-adjudicated-predecessor",
+            "negative-stage-skip-attested-to-verified",
+            "negative-empty-does-not-assert",
+            "negative-verified-omits-acceptance-nonclaim",
+            "negative-unknown-outcome-class",
+            "negative-unsupported-subject-scheme",
+            "negative-genesis-carries-predecessor",
+            "negative-missing-verdict-nonclaim",
+            "negative-ladder-position-ahead-of-chain",
+            "negative-content-hash-substituted",
+            "negative-subject-substituted",
+            "negative-subject-hash-echoes-own-hash",
+            "negative-identity-family-mismatch",
+        ];
+        assert!(
+            corpus.iter().all(|name| !ADMISSION_TARGETED.contains(name)),
+            "the admission-targeted negatives are excluded from this sweep, not listed in it",
         );
-        assert_eq!(
-            admission["agentgres_receipt_ref"].as_str(),
-            Some(
-                agentgres::refs::event_stream_receipt_ref(OWNER_NAMESPACE, &tail, 1, root).as_str()
-            ),
-        );
-        assert_eq!(
-            document["admission_domain_ref"].as_str(),
-            Some(
-                format!(
-                    "agentgres://domain/{}",
-                    agentgres::refs::event_stream_domain(OWNER_NAMESPACE, &tail)
-                )
+        for name in corpus {
+            let document = registered_fixture(name);
+            let subject = document["subject_ref"]
                 .as_str()
+                .unwrap_or_else(|| panic!("{name} carries subject_ref"));
+            // Derived from the fixture's OWN subject: a shared constant would let a record drift
+            // onto another subject's stream and still pass.
+            let tail = stream_tail(RESOURCE_KIND, subject);
+            let admission = &document["admission"];
+            let seq = admission["admission_seq"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("{name} carries admission_seq"));
+            let head = admission["admission_head"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{name} carries admission_head"));
+            let root = admission["admission_root"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{name} carries admission_root"));
+
+            assert_eq!(
+                admission["owner_namespace"].as_str(),
+                Some(OWNER_NAMESPACE),
+                "{name}: owner namespace",
+            );
+            assert_eq!(
+                admission["stream_tail"].as_str(),
+                Some(tail.as_str()),
+                "{name}: dotted stream tail over its own subject",
+            );
+            assert!(
+                is_sha256(head),
+                "{name}: admission_head is a digest: {head}"
+            );
+            assert!(
+                is_sha256(root),
+                "{name}: admission_root is a digest: {root}"
+            );
+            match admission["expected_predecessor_head"].as_str() {
+                None => assert!(
+                    admission["expected_predecessor_head"].is_null(),
+                    "{name}: predecessor head is a digest or null",
+                ),
+                Some(previous) => assert!(
+                    is_sha256(previous),
+                    "{name}: predecessor head is a digest: {previous}",
+                ),
+            }
+            assert_eq!(
+                admission["agentgres_operation_ref"].as_str(),
+                Some(
+                    agentgres::refs::event_stream_operation_ref(OWNER_NAMESPACE, &tail, seq, head)
+                        .as_str()
+                ),
+                "{name}: operation ref is the one agentgres::refs builds",
+            );
+            assert_eq!(
+                admission["agentgres_receipt_ref"].as_str(),
+                Some(
+                    agentgres::refs::event_stream_receipt_ref(OWNER_NAMESPACE, &tail, seq, root)
+                        .as_str()
+                ),
+                "{name}: receipt ref is the one agentgres::refs builds",
+            );
+            assert_eq!(
+                document["admission_domain_ref"].as_str(),
+                Some(
+                    format!(
+                        "agentgres://domain/{}",
+                        agentgres::refs::event_stream_domain(OWNER_NAMESPACE, &tail)
+                    )
+                    .as_str()
+                ),
+                "{name}: admission domain ref",
+            );
+        }
+    }
+
+    /// The excluded pair is excluded for its DEFECT, not for its ref shapes.
+    ///
+    /// Without this, "excluded" becomes a place where a fixture with a wrong stream tail could hide.
+    /// Each still sits on its own subject's stream with real digests; only the one field it targets
+    /// diverges.
+    #[test]
+    fn admission_targeted_negatives_diverge_only_in_the_field_they_target() {
+        for (name, broken) in [
+            ("negative-admission-binds-other-transition", "transition_id"),
+            (
+                "negative-admission-content-hash-substituted",
+                "content_hash",
             ),
-        );
+        ] {
+            let document = registered_fixture(name);
+            let subject = document["subject_ref"].as_str().expect("subject_ref");
+            let tail = stream_tail(RESOURCE_KIND, subject);
+            let admission = &document["admission"];
+            assert_eq!(
+                admission["stream_tail"].as_str(),
+                Some(tail.as_str()),
+                "{name}: still on its own subject's stream",
+            );
+            assert!(
+                is_sha256(admission["admission_head"].as_str().expect("head")),
+                "{name}: still carries a real head",
+            );
+            assert_ne!(
+                admission[broken], document[broken],
+                "{name}: the targeted field is the one that diverges",
+            );
+        }
+    }
+
+    /// Every optional assertion is TRI-STATE at the type level.
+    ///
+    /// Absent is silence, present-and-well-typed is a claim to check, and present-and-malformed is a
+    /// refusal. The unit-level proof matters alongside the live one because this is the single gate
+    /// both the fresh and the replay path depend on: if it ever went two-state again, both paths
+    /// would start dropping assertions in the same invisible way.
+    #[test]
+    fn malformed_assertions_are_refused_rather_than_read_as_absent() {
+        for key in STRING_ASSERTIONS {
+            let body = json!({ *key: 12345 });
+            assert!(
+                validate_assertion_types(&body).is_err(),
+                "a numeric '{key}' is refused rather than ignored",
+            );
+            let well_typed = json!({ *key: "anything" });
+            assert!(
+                validate_assertion_types(&well_typed).is_ok(),
+                "a string '{key}' is a claim to check, not a refusal",
+            );
+        }
+        for key in UNSIGNED_ASSERTIONS {
+            for malformed in [json!("1"), json!(-1), json!(1.5), json!(null)] {
+                let body = json!({ *key: malformed });
+                assert!(
+                    validate_assertion_types(&body).is_err(),
+                    "a non-unsigned '{key}' is refused rather than ignored",
+                );
+            }
+            assert!(validate_assertion_types(&json!({ *key: 2 })).is_ok());
+        }
+        // Absence stays silence: an empty body asserts nothing and is not a refusal.
+        assert!(validate_assertion_types(&json!({})).is_ok());
+        // The two predecessor refs are deliberately outside this gate — null is meaningful for them
+        // and they are compared as whole JSON values, so a wrong type refuses by its own cause.
+        assert!(validate_assertion_types(
+            &json!({ "expected_predecessor_transition_ref": 7, "expected_head": 9 })
+        )
+        .is_ok());
     }
 
     /// The echo rule, isolated.

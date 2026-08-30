@@ -373,9 +373,16 @@ const PINNED = {
   //      drive every AssuranceTransitionReceipt fixture through the GENERATED Rust projection add a
   //      further +80 source tokens against the 129818 baseline. They are test-region code and touch
   //      no writer, family or filesystem population; every other pin below is unchanged.
+  //
+  //   6. Tri-state assertion typing and the corpus-wide producer-shape sweep (2026-08-30, separate
+  //      follow-up): refusing a present-but-malformed caller assertion instead of reading it as
+  //      absent, plus tests that re-derive every fixture's admission refs from `agentgres::refs`,
+  //      add +96 source tokens and +8 opaque initialisers against the 129898 baseline. Module count,
+  //      family mentions, judged token positions, foreign-qualified names, all three writer buckets
+  //      and the raw-filesystem count are unchanged: still no owner edge.
   modules: 102,
   familyMentions: 284,
-  tokenMentions: 129898,
+  tokenMentions: 129994,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
@@ -397,7 +404,7 @@ const PINNED = {
    */
   unadjudicable: {
     "foreign-qualified": 4242,
-    "opaque-initialiser": 2046,
+    "opaque-initialiser": 2054,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
