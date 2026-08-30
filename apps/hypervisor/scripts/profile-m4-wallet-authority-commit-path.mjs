@@ -45,7 +45,7 @@
 // M04.9 EXACT COMPLETION AND CANONICAL-ATTEMPT ATTRIBUTION. The v2 predecessor
 // measured proposal wait and exact event-driven completion, but its global
 // transaction/height joins could select a noncanonical AFT proposal attempt.
-// This v4 successor first binds every approval's client-visible identity and
+// The v4 predecessor first bound every approval's client-visible identity and
 // raw proposal transaction identity to the Agentgres-admitted
 // height/view/producer/block identity and then selects only that attempt:
 //   * the per-transaction mempool-to-proposal wait, bracketed by the mempool's
@@ -58,6 +58,13 @@
 //     comparable rather than one replacing the other.
 //   * receipt creation stays UNMEASURED, under its own narrower name, because
 //     no seam brackets it.
+//
+// V5 QUALIFICATION SEMANTICS. The post-durability status/event publication
+// interval is not nested inside producer-side ordering/finalization: in AFT
+// those observations may come from different validators, and publication
+// starts after durability. V5 also records the exact requested planted delay;
+// the fixture explicitly carries that one test-only value across its otherwise
+// fail-closed IOI_TEST_* sanitizer.
 //
 // ONE ARTIFACT IS NOT A COMPARISON. This produces a single-profile artifact.
 // Comparing two profiles means running it twice and reading both; no
@@ -109,7 +116,7 @@ export const SOAK_VERIFIER = "verify-m4-room-participation-contribution-plane.mj
 // plus `completion_client_observation`, which additionally carries an EXACT
 // event-driven wait beside the polled upper bound. A `.v1` reader summing what
 // it believes is one slot would double-count the split.
-export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-finality-parity-profile.v4";
+export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-finality-parity-profile.v5";
 
 // The predecessor identifiers, carried as literals.
 //
@@ -123,7 +130,7 @@ export const ORIGINATING_ARTIFACT_SCHEMA_VERSION = "ioi.m048.commit-path-profile
 export const SUPERSEDED_ARTIFACT_SCHEMA_VERSION =
   "ioi.m049.ordering-finality-parity-profile.v1";
 export const PREDECESSOR_ARTIFACT_SCHEMA_VERSION =
-  "ioi.m049.ordering-finality-parity-profile.v3";
+  "ioi.m049.ordering-finality-parity-profile.v4";
 
 // Carried into every artifact so a reader resolves the lineage from the
 // artifact rather than from this file.
@@ -135,17 +142,25 @@ export const SCHEMA_COMPATIBILITY = {
   originating_predecessor: ORIGINATING_ARTIFACT_SCHEMA_VERSION,
   compatible_with_predecessor: false,
   extended_by:
-    "M04.9 exact client-visible-to-proposal transaction binding at canonical admission",
+    "M04.9 observed planted-delay declaration and corrected post-durability publication semantics",
   additive:
-    "bench_canonical_tx binds the client-visible receipt/status identity and raw signed proposal transaction identity to the same Agentgres-admitted height/view/producer/block.",
+    "run.planted_delay records the exact test-only mutation requested of the validator, after the fixture has propagated it across the sanitized verifier boundary.",
   breaking: {
-    required_identity_fields: {
-      canonical_admission: ["proposal_tx_hash"],
+    phase_nesting: {
+      ordering_finalization_no_longer_contains: ["durable_ack_publication"],
+      durable_ack_publication_nested_in: ["client_commit_wait", "client_event_observation"],
     },
     changed_semantics:
-      "A v3 artifact used the client-visible receipt/status tx_hash to find the raw proposal-wait observation. Those identities can differ when receipt_map installs an alias. v4 uses tx_hash only to find the approval's canonical admission and proposal_tx_hash only to find the raw signed transaction's proposal attempts.",
+      "A v4 artifact declared the post-durability status/event publication interval nested inside producer-side ordering/finalization. Peer-bearing AFT may observe those spans on different validators, and the publication begins only after durable finalization. v5 treats durable_ack_publication as the disjoint post-durability leaf it actually measures and removes the false cross-observer nesting anomaly.",
   },
   historical_lineage: {
+    v3_to_v4: {
+      required_identity_fields: {
+        canonical_admission: ["proposal_tx_hash"],
+      },
+      changed_semantics:
+        "v4 binds the client-visible receipt/status identity and raw signed proposal transaction identity to the same Agentgres-admitted height/view/producer/block, then uses proposal_tx_hash for raw proposal attribution.",
+    },
     v2_to_v3: {
       required_identity_fields: {
         proposal_and_ordering: ["producer_account_id", "producer_node"],
@@ -191,7 +206,7 @@ export const SCHEMA_COMPATIBILITY = {
   },
   // EXACT compatibility statement, rather than a bare `false`.
   compatibility_statement:
-    "A v3 consumer must not read a v4 artifact. v4 requires an Agentgres-admitted proposal_tx_hash distinct from the client-visible tx_hash so proposal attribution never relies on receipt aliases. This corrects a causal-identity defect and is intentionally schema-breaking.",
+    "A v4 consumer must not read a v5 artifact. v5 removes a false producer-to-observer nesting relation and records the exact planted-delay mutation requested across the qualification boundary. Phase values are unchanged, but their summation and anomaly semantics are intentionally incompatible.",
 };
 
 // The readiness bar the unprofiled soak runs under, and which a profiled run
@@ -444,6 +459,35 @@ export const PLANTED_DELAY_CONTRACT = {
     "not a production default, not a runtime tunable, and not reachable on an untraced run",
 };
 
+export function parsePlantedDelayDeclaration(raw) {
+  if (raw === undefined || raw === null || raw === "") return null;
+  const match = /^([^=]+)=([0-9]+)$/u.exec(raw);
+  if (!match) {
+    throw new Error(
+      `IOI_TESTING_M049_PLANTED_PHASE_DELAY must be exactly <phase>=<delay_ms>; got ${JSON.stringify(raw)}`,
+    );
+  }
+  const phase = match[1];
+  const delayMs = Number(match[2]);
+  if (!Object.hasOwn(PLANTED_DELAY_CONTRACT.wired_phases, phase)) {
+    throw new Error(
+      `IOI_TESTING_M049_PLANTED_PHASE_DELAY names unwired phase ${JSON.stringify(phase)}`,
+    );
+  }
+  if (!Number.isSafeInteger(delayMs) || delayMs < 1 || delayMs > 60_000) {
+    throw new Error(
+      `IOI_TESTING_M049_PLANTED_PHASE_DELAY delay must be an integer in 1..=60000; got ${JSON.stringify(match[2])}`,
+    );
+  }
+  return {
+    spec: raw,
+    phase,
+    delay_ms: delayMs,
+    arming: ["IOI_AFT_BENCH_TRACE", "IOI_TESTING_M049_PLANTED_PHASE_DELAY"],
+    provenance: "requested:process-environment; propagated explicitly across the sanitized verifier and validator-child boundaries",
+  };
+}
+
 export const BENCH_TAGS = {
   approval: "[BENCH-APPROVAL]",
   consensus: "[BENCH-CONSENSUS]",
@@ -579,7 +623,6 @@ export const PHASES = {
       "state_commitment_materialization",
       "durable_persistence",
       "receipt_creation",
-      "durable_ack_publication",
     ],
     nested_in: ["client_commit_wait", "client_event_observation"],
     quantized_by: null,
@@ -690,7 +733,6 @@ export const PHASES = {
     nested_in: [
       "client_commit_wait",
       "client_event_observation",
-      "ordering_finalization",
     ],
     quantized_by: null,
   },
@@ -1552,19 +1594,9 @@ export function buildCommitPathProfile({
         "notification_transport_lag_negative: the client observed the completion event at a wall-clock instant earlier than the server's published_at_ms, so the two clocks disagree",
       );
     }
-    // `durable_ack_publication` is declared nested inside
-    // `ordering_finalization` -- the finalize span wraps the whole durable
-    // seam. A publication interval larger than the finalize it happened inside
-    // means the declared nesting does not hold for this observation.
-    //
     // NOT asserted: that the pushed wait beats the polled one. Both are real
     // and the ordering between them is a race the poll interval decides, so a
     // check either way would fire on healthy runs and mean nothing.
-    if (durableAckPublicationMs > phases.ordering_finalization) {
-      anomalies.push(
-        "durable_ack_publication_exceeds_ordering_finalization: the publication interval is larger than the finalization span declared to contain it",
-      );
-    }
 
     approvals.push({
       request_hash: requestHash,
@@ -1800,7 +1832,11 @@ export function buildCommitPathProfile({
       // fail closed on missing timing state. What remains unmeasured is listed
       // so a reader is not left to assume the list is empty.
       dimension_control: {
-        varied: ["ordering_profile", "profile-required validator topology"],
+        varied: [
+          "ordering_profile",
+          "profile-required validator topology",
+          ...(run.planted_delay ? [`test-only planted delay: ${run.planted_delay.spec}`] : []),
+        ],
         held_identical: [
           "block-timestamp derivation (both engines use compute_next_timestamp_ms over the same on-chain BlockTimingParams/BlockTimingRuntime)",
           "genesis block timing (base == min == max == effective, retarget disabled, same value for both profiles)",
@@ -2150,6 +2186,9 @@ export function parseArgs(argv) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const plantedDelay = parsePlantedDelayDeclaration(
+    process.env.IOI_TESTING_M049_PLANTED_PHASE_DELAY,
+  );
   const outDir = resolve(args.out ?? mkdtempSync(join(tmpdir(), "ioi-m048-profile-")));
   mkdirSync(outDir, { recursive: true });
   const traceDir = join(outDir, "trace");
@@ -2219,6 +2258,7 @@ async function main() {
         // cannot masquerade as the cadence that ran.
         requested_proposal_cadence_ms: args.proposalCadenceMs,
         requested_consensus_min_tick_ms: args.consensusMinTickMs,
+        planted_delay: plantedDelay,
         readiness_lag_pin: {
           IOI_TEST_READY_HEIGHT_LAG_MAX: READY_HEIGHT_LAG_MAX,
           why: "IOI_AFT_BENCH_TRACE otherwise raises the cluster ready-height lag from 1 to 16",

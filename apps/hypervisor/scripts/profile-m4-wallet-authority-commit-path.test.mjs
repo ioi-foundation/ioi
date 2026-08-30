@@ -40,6 +40,7 @@ import {
   parseBenchLine,
   parseArgs,
   parseObservationRecords,
+  parsePlantedDelayDeclaration,
   profileEnv,
 } from "./profile-m4-wallet-authority-commit-path.mjs";
 
@@ -617,6 +618,35 @@ test("the wrapper pins readiness lag because the trace seam would change it", ()
   assert.equal(env.PATH, "/usr/bin", "the surrounding environment is preserved");
 });
 
+test("the artifact declaration records one exact wired planted delay", () => {
+  assert.deepEqual(parsePlantedDelayDeclaration("proposal_selection=125"), {
+    spec: "proposal_selection=125",
+    phase: "proposal_selection",
+    delay_ms: 125,
+    arming: ["IOI_AFT_BENCH_TRACE", "IOI_TESTING_M049_PLANTED_PHASE_DELAY"],
+    provenance:
+      "requested:process-environment; propagated explicitly across the sanitized verifier and validator-child boundaries",
+  });
+  assert.equal(parsePlantedDelayDeclaration(undefined), null);
+  assert.equal(parsePlantedDelayDeclaration(""), null);
+});
+
+test("the artifact declaration refuses malformed, unwired, and out-of-range mutations", () => {
+  assert.throws(() => parsePlantedDelayDeclaration("proposal_selection"), /exactly/u);
+  assert.throws(() => parsePlantedDelayDeclaration("unknown=10"), /unwired/u);
+  assert.throws(() => parsePlantedDelayDeclaration("proposal_selection=0"), /1\.\.=60000/u);
+  assert.throws(() => parsePlantedDelayDeclaration("proposal_selection=60001"), /1\.\.=60000/u);
+});
+
+test("post-durability publication is not nested in producer-side finalization", () => {
+  assert.equal(PHASES.ordering_finalization.contains.includes("durable_ack_publication"), false);
+  assert.equal(PHASES.durable_ack_publication.nested_in.includes("ordering_finalization"), false);
+  assert.deepEqual(PHASES.durable_ack_publication.nested_in, [
+    "client_commit_wait",
+    "client_event_observation",
+  ]);
+});
+
 test("an observed durable_store on the [BENCH-IAVL] line outranks the declared one", () => {
   const complete = inputs();
   const observed = complete.traceText.replace(
@@ -934,7 +964,7 @@ test("an incompatible change carries a new schema identifier, not the predecesso
   // would ask a reader holding both artifacts to tell them apart by noticing a
   // disclosure rather than by reading the version.
   const profile = buildCommitPathProfile(inputs());
-  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v4");
+  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v5");
   assert.notEqual(
     profile.schema_version,
     profile.schema_compatibility.predecessor,
@@ -942,7 +972,7 @@ test("an incompatible change carries a new schema identifier, not the predecesso
   );
   assert.equal(
     profile.schema_compatibility.predecessor,
-    "ioi.m049.ordering-finality-parity-profile.v3",
+    "ioi.m049.ordering-finality-parity-profile.v4",
     "the identifier this schema supersedes is named, not implied",
   );
   assert.equal(SCHEMA_COMPATIBILITY.version, profile.schema_version);
@@ -962,30 +992,39 @@ test("both predecessor identifiers are carried so the tracked work-item anchors 
   );
   assert.equal(
     profile.schema_compatibility.predecessor,
-    "ioi.m049.ordering-finality-parity-profile.v3",
+    "ioi.m049.ordering-finality-parity-profile.v4",
   );
   assert.equal(SUPERSEDED_ARTIFACT_SCHEMA_VERSION, "ioi.m049.ordering-finality-parity-profile.v1");
 });
 
 test("the incompatibility is stated exactly, not as a bare boolean", () => {
   // "compatible_with_predecessor: false" tells a reader nothing about WHAT
-  // broke. v4 names the newly required raw proposal identity; older causal
+  // broke. v5 names the corrected post-durability relationship; older causal
   // identities and phase splits remain available as explicit lineage.
   const profile = buildCommitPathProfile(inputs());
   const breaking = profile.schema_compatibility.breaking;
-  assert.deepEqual(breaking.required_identity_fields.canonical_admission, [
-    "proposal_tx_hash",
+  assert.deepEqual(breaking.phase_nesting.ordering_finalization_no_longer_contains, [
+    "durable_ack_publication",
   ]);
   assert.ok(
-    breaking.changed_semantics.includes("receipt_map installs an alias"),
-    "the corrected alias/raw-transaction causal defect must be disclosed",
+    breaking.changed_semantics.includes("post-durability status/event publication"),
+    "the corrected producer/observer nesting defect must be disclosed",
   );
-  assert.ok(/v3 consumer must not read a v4 artifact/u.test(
+  assert.ok(/v4 consumer must not read a v5 artifact/u.test(
     profile.schema_compatibility.compatibility_statement,
   ));
-  assert.ok(/Agentgres-admitted proposal_tx_hash/u.test(
+  assert.ok(/false producer-to-observer nesting relation/u.test(
     profile.schema_compatibility.compatibility_statement,
   ));
+});
+
+test("historical v3-to-v4 receipt-alias incompatibility remains explicit", () => {
+  const historical = buildCommitPathProfile(inputs()).schema_compatibility
+    .historical_lineage.v3_to_v4;
+  assert.deepEqual(historical.required_identity_fields.canonical_admission, [
+    "proposal_tx_hash",
+  ]);
+  assert.ok(historical.changed_semantics.includes("client-visible receipt/status identity"));
 });
 
 test("historical v2-to-v3 canonical-attempt incompatibilities remain explicit", () => {
