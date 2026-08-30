@@ -45,7 +45,8 @@
 // M04.9 EXACT COMPLETION AND CANONICAL-ATTEMPT ATTRIBUTION. The v2 predecessor
 // measured proposal wait and exact event-driven completion, but its global
 // transaction/height joins could select a noncanonical AFT proposal attempt.
-// This v3 successor first binds every approval to the Agentgres-admitted
+// This v4 successor first binds every approval's client-visible identity and
+// raw proposal transaction identity to the Agentgres-admitted
 // height/view/producer/block identity and then selects only that attempt:
 //   * the per-transaction mempool-to-proposal wait, bracketed by the mempool's
 //     own first-seen observation and the producer's selection instant, and
@@ -108,11 +109,11 @@ export const SOAK_VERIFIER = "verify-m4-room-participation-contribution-plane.mj
 // plus `completion_client_observation`, which additionally carries an EXACT
 // event-driven wait beside the polled upper bound. A `.v1` reader summing what
 // it believes is one slot would double-count the split.
-export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-finality-parity-profile.v3";
+export const ARTIFACT_SCHEMA_VERSION = "ioi.m049.ordering-finality-parity-profile.v4";
 
 // The predecessor identifiers, carried as literals.
 //
-// Two jobs. They tell a reader of a `.v3` artifact exactly which schemas it
+// Two jobs. They tell a reader of a `.v4` artifact exactly which schemas it
 // supersedes, and they keep the tracked M04.8 work-item code anchors
 // (docs/architecture/_meta/work-items/m04-8-wallet-authority-commit-latency.v1.json)
 // satisfied -- those anchors require this file to CONTAIN each string, which a
@@ -122,7 +123,7 @@ export const ORIGINATING_ARTIFACT_SCHEMA_VERSION = "ioi.m048.commit-path-profile
 export const SUPERSEDED_ARTIFACT_SCHEMA_VERSION =
   "ioi.m049.ordering-finality-parity-profile.v1";
 export const PREDECESSOR_ARTIFACT_SCHEMA_VERSION =
-  "ioi.m049.ordering-finality-parity-profile.v2";
+  "ioi.m049.ordering-finality-parity-profile.v3";
 
 // Carried into every artifact so a reader resolves the lineage from the
 // artifact rather than from this file.
@@ -134,32 +135,39 @@ export const SCHEMA_COMPATIBILITY = {
   originating_predecessor: ORIGINATING_ARTIFACT_SCHEMA_VERSION,
   compatible_with_predecessor: false,
   extended_by:
-    "M04.9 canonical-attempt correlation for peer-bearing proposal, execution and persistence instrumentation",
+    "M04.9 exact client-visible-to-proposal transaction binding at canonical admission",
   additive:
-    "bench_canonical_tx binds each transaction to its Agentgres-admitted height/view/producer/block; proposal, execution and persistence observations carry attempt and observer identities.",
+    "bench_canonical_tx binds the client-visible receipt/status identity and raw signed proposal transaction identity to the same Agentgres-admitted height/view/producer/block.",
   breaking: {
     required_identity_fields: {
-      proposal_and_ordering: ["producer_account_id", "producer_node"],
-      execution: [
-        "observer_node",
-        "view",
-        "producer_account_id",
-        "block_payload_hash",
-      ],
-      persistence: ["observer_node", "block_payload_hash"],
-      canonical_admission: [
-        "tx_hash",
-        "height",
-        "view",
-        "producer_account_id",
-        "canonical_block_hash",
-        "observer_node",
-      ],
+      canonical_admission: ["proposal_tx_hash"],
     },
     changed_semantics:
-      "A v2 artifact assumed one proposal-wait line globally per transaction and selected block phases by height. Peer-bearing AFT legitimately produces multiple local observations and proposal attempts at one height. v3 first binds the Agentgres-admitted canonical attempt, then selects only that attempt and its producer-side workload persistence observation.",
+      "A v3 artifact used the client-visible receipt/status tx_hash to find the raw proposal-wait observation. Those identities can differ when receipt_map installs an alias. v4 uses tx_hash only to find the approval's canonical admission and proposal_tx_hash only to find the raw signed transaction's proposal attempts.",
   },
   historical_lineage: {
+    v2_to_v3: {
+      required_identity_fields: {
+        proposal_and_ordering: ["producer_account_id", "producer_node"],
+        execution: [
+          "observer_node",
+          "view",
+          "producer_account_id",
+          "block_payload_hash",
+        ],
+        persistence: ["observer_node", "block_payload_hash"],
+        canonical_admission: [
+          "tx_hash",
+          "height",
+          "view",
+          "producer_account_id",
+          "canonical_block_hash",
+          "observer_node",
+        ],
+      },
+      changed_semantics:
+        "A v2 artifact assumed one proposal-wait line globally per transaction and selected block phases by height. Peer-bearing AFT legitimately produces multiple local observations and proposal attempts at one height. v3 first bound the Agentgres-admitted canonical attempt, then selected only that attempt and its producer-side workload persistence observation.",
+    },
     v1_to_v2: {
       split_slots: {
         receipt_creation_durable_ack: ["receipt_creation", "durable_ack_publication"],
@@ -183,7 +191,7 @@ export const SCHEMA_COMPATIBILITY = {
   },
   // EXACT compatibility statement, rather than a bare `false`.
   compatibility_statement:
-    "A v2 consumer must not read a v3 artifact. Phase names remain, but every proposal, execution and persistence value is now selected by the Agentgres-admitted canonical attempt rather than by a height-only last observation. This corrects a causal-attribution defect and is intentionally schema-breaking.",
+    "A v3 consumer must not read a v4 artifact. v4 requires an Agentgres-admitted proposal_tx_hash distinct from the client-visible tx_hash so proposal attribution never relies on receipt aliases. This corrects a causal-identity defect and is intentionally schema-breaking.",
 };
 
 // The readiness bar the unprofiled soak runs under, and which a profiled run
@@ -376,12 +384,19 @@ export const BENCH_PROPOSAL_WAIT_CONTRACT = {
     "Per-TRANSACTION and per local proposal attempt. The wait ends when that producer's mempool read returned, before any planted-delay seam. Only the attempt matching Agentgres-admitted height/view/producer is attributed.",
 };
 
+// Accepted line shape:
+//   [BENCH-CANONICAL-TX] admitted tx_hash=<client-visible-hex>
+//                        proposal_tx_hash=<raw-signed-transaction-hex>
+//                        height=<u64> view=<u64>
+//                        producer_account_id=<hex>
+//                        canonical_block_hash=<hex> observer_node=<token>
 export const BENCH_CANONICAL_TX_CONTRACT = {
   tag: "[BENCH-CANONICAL-TX]",
   op: "admitted",
   correlation_field: "tx_hash",
   required_fields: [
     "tx_hash",
+    "proposal_tx_hash",
     "height",
     "view",
     "producer_account_id",
@@ -389,7 +404,7 @@ export const BENCH_CANONICAL_TX_CONTRACT = {
     "observer_node",
   ],
   notes:
-    "Emitted only while publishing committed status from an Agentgres-rooted recognized-effect outbox. Duplicate observer lines must agree on the complete canonical identity.",
+    "Emitted only while publishing committed status from an Agentgres-rooted recognized-effect outbox. tx_hash is the client-visible receipt/status identity; proposal_tx_hash is the raw signed transaction identity used by the mempool/proposal seam. Duplicate observer lines must agree on both and the complete canonical identity.",
 };
 
 // The planted-delay mutation apparatus, as this file understands it.
@@ -1136,6 +1151,7 @@ export function buildCommitPathProfile({
         }
       }
       const key = [
+        line.fields.proposal_tx_hash,
         line.fields.height,
         line.fields.view,
         line.fields.producer_account_id,
@@ -1160,8 +1176,10 @@ export function buildCommitPathProfile({
       requestHash,
     );
     const canonicalProducer = canonical.fields.producer_account_id;
+    const proposalTxHash = canonical.fields.proposal_tx_hash;
     if (
       canonicalHeight !== height ||
+      !/^[0-9a-f]{64}$/u.test(proposalTxHash ?? "") ||
       !/^[0-9a-f]{64}$/u.test(canonicalProducer ?? "") ||
       !/^[0-9a-f]{64}$/u.test(canonical.fields.canonical_block_hash ?? "")
     ) {
@@ -1171,18 +1189,18 @@ export function buildCommitPathProfile({
     }
     const canonicalAttempt = `${canonicalHeight}/${canonicalView}/${canonicalProducer}`;
 
-    const proposalCandidates = (proposalWait.get(txHash) ?? []).filter(
+    const proposalCandidates = (proposalWait.get(proposalTxHash) ?? []).filter(
       (candidate) => attemptKey(candidate.fields) === canonicalAttempt,
     );
     const proposalWaitLine = requireSingleObservation(
       proposalCandidates,
-      `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} canonical attempt for tx ${txHash}`,
+      `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} canonical attempt for proposal tx ${proposalTxHash}`,
       requestHash,
     );
     for (const name of BENCH_PROPOSAL_WAIT_CONTRACT.required_fields) {
       if (proposalWaitLine.fields[name] === undefined) {
         throw new ProfileIncomplete(
-          `approval ${requestHash}: ${BENCH_PROPOSAL_WAIT_CONTRACT.tag} for tx ${txHash} omits required field '${name}'`,
+          `approval ${requestHash}: ${BENCH_PROPOSAL_WAIT_CONTRACT.tag} for proposal tx ${proposalTxHash} omits required field '${name}'`,
         );
       }
     }
@@ -1558,13 +1576,16 @@ export function buildCommitPathProfile({
       canonical_attempt: {
         height: canonicalHeight,
         view: canonicalView,
+        client_visible_tx_hash: txHash,
+        proposal_tx_hash: proposalTxHash,
         producer_account_id: canonicalProducer,
         producer_node: producerNode,
         producer_workload_observer: workloadObserver,
         canonical_block_hash: canonical.fields.canonical_block_hash,
         block_payload_hash: payloadHash,
         agentgres_observer_count: canonicalLines.length,
-        proposal_attempt_observations_for_transaction: (proposalWait.get(txHash) ?? []).length,
+        proposal_attempt_observations_for_transaction:
+          (proposalWait.get(proposalTxHash) ?? []).length,
         provenance: `observed:${BENCH_CANONICAL_TX_CONTRACT.tag}`,
       },
       // Which engine ordered this height, and the cadence it was configured
@@ -1640,9 +1661,9 @@ export function buildCommitPathProfile({
         first_seen_at_ms: proposalFirstSeenAtMs,
         proposal_selected_at_ms: proposalSelectedAtMs,
         proposal_wait_ms: proposalWaitMs,
-        correlated_by: BENCH_PROPOSAL_WAIT_CONTRACT.correlation_field,
+        correlated_by: "canonical_attempt.proposal_tx_hash",
         provenance: `observed:${BENCH_PROPOSAL_WAIT_CONTRACT.tag}`,
-        selected_from_attempt_observations: (proposalWait.get(txHash) ?? []).length,
+        selected_from_attempt_observations: (proposalWait.get(proposalTxHash) ?? []).length,
       },
       completion_event: {
         // The two SERVER timestamps and their difference.

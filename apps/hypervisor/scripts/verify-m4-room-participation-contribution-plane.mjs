@@ -437,7 +437,8 @@ async function establishRoom(call, resolver, profile) {
   } while (true);
   const workResult = requireValue(
     resultResponse.status >= 200 && resultResponse.status < 300 && resultResponse.body?.admission?.admitted_object,
-    `room WorkResult failed ${resultResponse.status}/${resultResponse.body?.error?.code || "none"}`,
+    `room WorkResult failed ${resultResponse.status}/${resultResponse.body?.error?.code || "none"}/` +
+      `${JSON.stringify(resultResponse.body?.error ?? null).slice(0, 1_200)}`,
   );
   return {
     goal: attached.body.goal_run,

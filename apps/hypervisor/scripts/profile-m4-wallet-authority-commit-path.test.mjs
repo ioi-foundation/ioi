@@ -120,7 +120,7 @@ function traceLines(v) {
     `[BENCH-EXEC] commit_block observer_node=${WORKLOAD_NODE} height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} block_payload_hash=${BLOCK_PAYLOAD_HASH} tx_count=1 proof_verify_ms=0 apply_ms=90 end_block_ms=4 persist_ms=${v.commit_persist_ms} put_block_ms=0 total_ms=${v.commit_total_ms} snapshot_clone_ms=${v.snapshot_clone_ms} block_bytes=${v.block_bytes} proc_cpu_user_ms=${v.proc_cpu_user_ms} proc_cpu_sys_ms=${v.proc_cpu_sys_ms}`,
     `${BENCH_IAVL_CONTRACT.tag} commit observer_node=${WORKLOAD_NODE} height=${HEIGHT} block_payload_hash=${BLOCK_PAYLOAD_HASH} version_count=${v.version_count} tree_depth=${v.tree_depth} unique_nodes=${v.unique_nodes} new_nodes=${v.new_nodes} new_node_bytes=${v.new_node_bytes} block_bytes=${v.block_bytes} commitment_ms=${v.commitment_ms} durable_store_ms=${v.durable_store_ms} atomic_state_block=${v.atomic_state_block}`,
     proposalWaitLine(v),
-    `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} tx_hash=${v.tx_hash} height=${v.committed_height ?? HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} canonical_block_hash=${CANONICAL_BLOCK_HASH} observer_node=${PRODUCER_NODE}`,
+    `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} tx_hash=${v.tx_hash} proposal_tx_hash=${v.proposal_tx_hash ?? v.tx_hash} height=${v.committed_height ?? HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} canonical_block_hash=${CANONICAL_BLOCK_HASH} observer_node=${PRODUCER_NODE}`,
     `[BENCH-APPROVAL] request_hash=${REQUEST_HASH} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=${v.tx_hash} admission_ms=${v.admission_ms} committed_height=${v.committed_height ?? HEIGHT} commit_wait_ms=${v.commit_wait_ms} commit_poll_count=${v.commit_poll_count} commit_poll_interval_ms=${v.commit_poll_interval_ms} approval_query_ms=${v.approval_query_ms} approval_verify_ms=${v.approval_verify_ms} event_wait_ms=${v.event_wait_ms} event_committed_height=${v.event_committed_height ?? v.committed_height ?? HEIGHT} event_durable_commit_ms=${v.event_durable_commit_ms} event_published_at_ms=${v.event_published_at_ms} event_observed_at_ms=${v.event_observed_at_ms}`,
   ];
 }
@@ -159,7 +159,7 @@ function secondaryApprovalLines(height, overrides = {}) {
   const observedAtMs = overrides.eventObservedAtMs ?? BASE.event_observed_at_ms;
   return [
     `${BENCH_PROPOSAL_WAIT_CONTRACT.tag} ${BENCH_PROPOSAL_WAIT_CONTRACT.op} tx_hash=${txHash} height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} producer_node=${PRODUCER_NODE} first_seen_at_ms=${firstSeenAtMs} proposal_selected_at_ms=${selectedAtMs} proposal_wait_ms=${Math.max(0, selectedAtMs - firstSeenAtMs)}`,
-    `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} tx_hash=${txHash} height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} canonical_block_hash=${CANONICAL_BLOCK_HASH} observer_node=${PRODUCER_NODE}`,
+    `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} tx_hash=${txHash} proposal_tx_hash=${overrides.proposalTxHash ?? txHash} height=${height} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} canonical_block_hash=${CANONICAL_BLOCK_HASH} observer_node=${PRODUCER_NODE}`,
     `[BENCH-APPROVAL] request_hash=${requestHash} policy_hash=${POLICY_HASH} principal_ref=org://acme/research target_scope=room_participation.request tx_hash=${txHash} admission_ms=3 committed_height=${height} commit_wait_ms=2500 commit_poll_count=5 commit_poll_interval_ms=500 approval_query_ms=7 approval_verify_ms=1 event_wait_ms=${eventWaitMs} event_committed_height=${height} event_durable_commit_ms=${BASE.event_durable_commit_ms} event_published_at_ms=${BASE.event_published_at_ms} event_observed_at_ms=${observedAtMs}`,
   ];
 }
@@ -934,7 +934,7 @@ test("an incompatible change carries a new schema identifier, not the predecesso
   // would ask a reader holding both artifacts to tell them apart by noticing a
   // disclosure rather than by reading the version.
   const profile = buildCommitPathProfile(inputs());
-  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v3");
+  assert.equal(profile.schema_version, "ioi.m049.ordering-finality-parity-profile.v4");
   assert.notEqual(
     profile.schema_version,
     profile.schema_compatibility.predecessor,
@@ -942,7 +942,7 @@ test("an incompatible change carries a new schema identifier, not the predecesso
   );
   assert.equal(
     profile.schema_compatibility.predecessor,
-    "ioi.m049.ordering-finality-parity-profile.v2",
+    "ioi.m049.ordering-finality-parity-profile.v3",
     "the identifier this schema supersedes is named, not implied",
   );
   assert.equal(SCHEMA_COMPATIBILITY.version, profile.schema_version);
@@ -962,32 +962,50 @@ test("both predecessor identifiers are carried so the tracked work-item anchors 
   );
   assert.equal(
     profile.schema_compatibility.predecessor,
-    "ioi.m049.ordering-finality-parity-profile.v2",
+    "ioi.m049.ordering-finality-parity-profile.v3",
   );
   assert.equal(SUPERSEDED_ARTIFACT_SCHEMA_VERSION, "ioi.m049.ordering-finality-parity-profile.v1");
 });
 
 test("the incompatibility is stated exactly, not as a bare boolean", () => {
   // "compatible_with_predecessor: false" tells a reader nothing about WHAT
-  // broke. v3 names its newly required causal identities; the older phase
-  // splits remain available separately as historical v1-to-v2 lineage.
+  // broke. v4 names the newly required raw proposal identity; older causal
+  // identities and phase splits remain available as explicit lineage.
   const profile = buildCommitPathProfile(inputs());
   const breaking = profile.schema_compatibility.breaking;
-  assert.deepEqual(breaking.required_identity_fields.proposal_and_ordering, [
+  assert.deepEqual(breaking.required_identity_fields.canonical_admission, [
+    "proposal_tx_hash",
+  ]);
+  assert.ok(
+    breaking.changed_semantics.includes("receipt_map installs an alias"),
+    "the corrected alias/raw-transaction causal defect must be disclosed",
+  );
+  assert.ok(/v3 consumer must not read a v4 artifact/u.test(
+    profile.schema_compatibility.compatibility_statement,
+  ));
+  assert.ok(/Agentgres-admitted proposal_tx_hash/u.test(
+    profile.schema_compatibility.compatibility_statement,
+  ));
+});
+
+test("historical v2-to-v3 canonical-attempt incompatibilities remain explicit", () => {
+  const profile = buildCommitPathProfile(inputs());
+  const historical = profile.schema_compatibility.historical_lineage.v2_to_v3;
+  assert.deepEqual(historical.required_identity_fields.proposal_and_ordering, [
     "producer_account_id",
     "producer_node",
   ]);
-  assert.deepEqual(breaking.required_identity_fields.execution, [
+  assert.deepEqual(historical.required_identity_fields.execution, [
     "observer_node",
     "view",
     "producer_account_id",
     "block_payload_hash",
   ]);
-  assert.deepEqual(breaking.required_identity_fields.persistence, [
+  assert.deepEqual(historical.required_identity_fields.persistence, [
     "observer_node",
     "block_payload_hash",
   ]);
-  assert.deepEqual(breaking.required_identity_fields.canonical_admission, [
+  assert.deepEqual(historical.required_identity_fields.canonical_admission, [
     "tx_hash",
     "height",
     "view",
@@ -995,16 +1013,7 @@ test("the incompatibility is stated exactly, not as a bare boolean", () => {
     "canonical_block_hash",
     "observer_node",
   ]);
-  assert.ok(
-    breaking.changed_semantics.includes("selected block phases by height"),
-    "the corrected height-only causal-attribution defect must be disclosed",
-  );
-  assert.ok(/v2 consumer must not read a v3 artifact/u.test(
-    profile.schema_compatibility.compatibility_statement,
-  ));
-  assert.ok(/Agentgres-admitted canonical attempt/u.test(
-    profile.schema_compatibility.compatibility_statement,
-  ));
+  assert.ok(historical.changed_semantics.includes("selected block phases by height"));
 });
 
 test("historical v1-to-v2 incompatibilities remain explicit without masquerading as v3 breaks", () => {
@@ -1432,7 +1441,7 @@ test("the artifact discloses what co-varies with the ordering profile", () => {
 // M04.9(a): per-transaction proposal wait
 // ---------------------------------------------------------------------------
 
-test("the proposal wait is correlated by transaction hash, not by height", () => {
+test("the proposal wait is correlated by the canonical raw proposal hash, not by height", () => {
   const profile = buildCommitPathProfile(inputs());
   const [approval] = profile.approvals;
   assert.equal(approval.tx_hash, TX_HASH);
@@ -1442,11 +1451,27 @@ test("the proposal wait is correlated by transaction hash, not by height", () =>
   );
   assert.equal(approval.proposal_wait.first_seen_at_ms, BASE.first_seen_at_ms);
   assert.equal(approval.proposal_wait.proposal_selected_at_ms, BASE.proposal_selected_at_ms);
-  assert.equal(approval.proposal_wait.correlated_by, "tx_hash");
+  assert.equal(approval.proposal_wait.correlated_by, "canonical_attempt.proposal_tx_hash");
   // The contract states the rule in the artifact, so a reader does not have to
   // infer it from which fields happen to be present.
   assert.ok(profile.correlation_contract.by_tx_hash.includes(BENCH_PROPOSAL_WAIT_CONTRACT.tag));
   assert.ok(!profile.correlation_contract.by_height.includes(BENCH_PROPOSAL_WAIT_CONTRACT.tag));
+});
+
+test("a client-visible receipt alias is never used as the raw proposal identity", () => {
+  const proposalTxHash = "9".repeat(64);
+  const profile = buildCommitPathProfile(
+    inputs({
+      proposal_tx_hash: proposalTxHash,
+      proposal_wait_tx_hash: proposalTxHash,
+    }),
+  );
+  const [approval] = profile.approvals;
+  assert.equal(approval.tx_hash, TX_HASH, "the approval remains keyed by its client-visible alias");
+  assert.equal(approval.canonical_attempt.client_visible_tx_hash, TX_HASH);
+  assert.equal(approval.canonical_attempt.proposal_tx_hash, proposalTxHash);
+  assert.equal(approval.proposal_wait.selected_from_attempt_observations, 1);
+  assert.equal(approval.phases.proposal_cadence_wait, 950);
 });
 
 test("MULTI-TX: two approvals at one height get their own waits and their own events", () => {
@@ -1494,7 +1519,7 @@ test("MULTI-TX: two approvals at one height get their own waits and their own ev
 test("FAIL CLOSED: a missing proposal-wait line refuses rather than defaulting the wait", () => {
   assert.throws(
     () => buildCommitPathProfile(inputs({}, { dropLines: [BENCH_PROPOSAL_WAIT_CONTRACT.tag] })),
-    /\[BENCH-PROPOSAL-WAIT\] canonical attempt for tx/u,
+    /\[BENCH-PROPOSAL-WAIT\] canonical attempt for proposal tx/u,
   );
 });
 
@@ -1504,7 +1529,7 @@ test("FAIL CLOSED: a proposal-wait line for a DIFFERENT transaction is not borro
   // approval never experienced, which a height-keyed join would have done.
   assert.throws(
     () => buildCommitPathProfile(inputs({ proposal_wait_tx_hash: "f".repeat(64) })),
-    new RegExp(`\\[BENCH-PROPOSAL-WAIT\\] canonical attempt for tx ${TX_HASH}`, "u"),
+    new RegExp(`\\[BENCH-PROPOSAL-WAIT\\] canonical attempt for proposal tx ${TX_HASH}`, "u"),
   );
 });
 
@@ -1537,7 +1562,7 @@ test("FAIL CLOSED: a duplicated proposal-wait line refuses instead of picking on
   );
   assert.throws(
     () => buildCommitPathProfile({ ...base, traceText: duplicated }),
-    /canonical attempt for tx c{64} has 2 observations/u,
+    /canonical attempt for proposal tx c{64} has 2 observations/u,
   );
 });
 
@@ -1561,7 +1586,7 @@ test("Agentgres observer replicas must agree on one canonical attempt", () => {
   const base = inputs();
   const replicated =
     `${BENCH_CANONICAL_TX_CONTRACT.tag} ${BENCH_CANONICAL_TX_CONTRACT.op} ` +
-    `tx_hash=${TX_HASH} height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} ` +
+    `tx_hash=${TX_HASH} proposal_tx_hash=${TX_HASH} height=${HEIGHT} view=1 producer_account_id=${PRODUCER_ACCOUNT_ID} ` +
     `canonical_block_hash=${CANONICAL_BLOCK_HASH} observer_node=validator-20100-orch`;
   const replicatedTrace = `${base.traceText}\n${replicated}`;
   const profile = buildCommitPathProfile({ ...base, traceText: replicatedTrace });

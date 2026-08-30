@@ -952,7 +952,7 @@ async fn publish_statuses(
     tx_status_cache: &Arc<tokio::sync::Mutex<lru::LruCache<String, super::context::TxStatusEntry>>>,
     block: &Block<ChainTransaction>,
 ) -> Vec<String> {
-    let hashes = client_visible_hashes(receipt_map, block).await;
+    let hash_bindings = client_visible_transaction_hashes(receipt_map, block).await;
     if std::env::var_os("IOI_AFT_BENCH_TRACE").is_some() {
         let observer_node = std::env::var("IOI_AFT_BENCH_NODE_LABEL")
             .ok()
@@ -962,10 +962,11 @@ async fn publish_statuses(
             .map(hex::encode)
             .unwrap_or_else(|_| "unavailable".to_string());
         let producer_account_id = hex::encode(block.header.producer_account_id.0);
-        for tx_hash in &hashes {
+        for (tx_hash, proposal_tx_hash) in &hash_bindings {
             eprintln!(
-                "[BENCH-CANONICAL-TX] admitted tx_hash={} height={} view={} producer_account_id={} canonical_block_hash={} observer_node={}",
+                "[BENCH-CANONICAL-TX] admitted tx_hash={} proposal_tx_hash={} height={} view={} producer_account_id={} canonical_block_hash={} observer_node={}",
                 tx_hash,
+                proposal_tx_hash,
                 block.header.height,
                 block.header.view,
                 producer_account_id,
@@ -974,6 +975,10 @@ async fn publish_statuses(
             );
         }
     }
+    let hashes = hash_bindings
+        .into_iter()
+        .map(|(client_visible_hash, _)| client_visible_hash)
+        .collect::<Vec<_>>();
     let mut statuses = tx_status_cache.lock().await;
     for tx_hash in &hashes {
         if let Some(entry) = statuses.get_mut(tx_hash) {
@@ -997,16 +1002,34 @@ async fn client_visible_hashes(
     receipt_map: &Arc<tokio::sync::Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
     block: &Block<ChainTransaction>,
 ) -> Vec<String> {
+    client_visible_transaction_hashes(receipt_map, block)
+        .await
+        .into_iter()
+        .map(|(client_visible_hash, _)| client_visible_hash)
+        .collect()
+}
+
+/// Returns `(client-visible receipt/status identity, raw signed transaction
+/// identity)` for each transaction in canonical block order.  The two hashes
+/// frequently coincide, but a receipt alias may replace the raw transaction
+/// hash at the client boundary.  Proposal instrumentation always names the raw
+/// transaction; keeping both prevents evidence from joining unlike identities.
+async fn client_visible_transaction_hashes(
+    receipt_map: &Arc<tokio::sync::Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
+    block: &Block<ChainTransaction>,
+) -> Vec<(String, String)> {
     let receipts = receipt_map.lock().await;
     block
         .transactions
         .iter()
         .filter_map(|transaction| transaction.hash().ok())
         .map(|hash| {
-            receipts
+            let proposal_tx_hash = hex::encode(hash);
+            let client_visible_hash = receipts
                 .peek(&hash)
                 .cloned()
-                .unwrap_or_else(|| hex::encode(hash))
+                .unwrap_or_else(|| proposal_tx_hash.clone());
+            (client_visible_hash, proposal_tx_hash)
         })
         .collect()
 }
