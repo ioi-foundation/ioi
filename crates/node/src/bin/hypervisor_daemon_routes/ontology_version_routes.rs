@@ -830,6 +830,173 @@ fn authorized_lineage(
     read_lineage(data_dir, identity, &scope, family)
 }
 
+// ------------------------------------------------------- the exact admitted-revision resolution seam
+
+/// The largest revision ordinal the registered contract admits. Bounded here too, so an identity
+/// that could never name a real revision is refused by the PARSER rather than by arithmetic.
+const MAX_REVISION_ORDINAL: u64 = 999_999_999;
+
+/// The coordinates one `ontology://…/revision/N` identity names.
+struct RevisionCoordinates {
+    namespace: String,
+    name: String,
+    ordinal: u64,
+}
+
+/// Parse an exact revision identity, or refuse it.
+///
+/// STRICT AND TOTAL, because a later unit is about to BIND whatever comes out of here. An identity
+/// that has to be normalized before it can be compared is not an exact identity: two spellings that
+/// resolve to one revision would let a crosswalk claim it mapped something other than what it
+/// mapped. So every non-canonical spelling is rejected rather than repaired — percent-escapes and
+/// backslashes (which can smuggle a separator), query and fragment tails, empty/repeated/trailing
+/// segments, a non-canonical namespace or name, and any ordinal that is signed, zero, zero-padded,
+/// oversized, or not a bare run of ASCII digits.
+fn parse_revision_identity(ontology_id: &str) -> Option<RevisionCoordinates> {
+    if ontology_id.len() > 320
+        || ontology_id.bytes().any(|byte| {
+            byte.is_ascii_whitespace()
+                || byte.is_ascii_control()
+                || !byte.is_ascii()
+                || matches!(byte, b'?' | b'#' | b'\\' | b'%')
+        })
+    {
+        return None;
+    }
+    let mut segments = ontology_id.strip_prefix("ontology://")?.split('/');
+    let namespace = segments.next()?;
+    let name = segments.next()?;
+    let marker = segments.next()?;
+    let ordinal = segments.next()?;
+    // A fifth segment is a trailing slash or an extra path element; either way this is not the
+    // identity it is pretending to be.
+    if segments.next().is_some()
+        || marker != "revision"
+        || !canonical_token(namespace, 63)
+        || !canonical_token(name, 63)
+    {
+        return None;
+    }
+    // Length is checked BEFORE parsing so an oversized run of digits is refused rather than
+    // overflowing, and a leading zero is refused so one revision has exactly one spelling.
+    if ordinal.is_empty()
+        || ordinal.len() > 9
+        || ordinal.starts_with('0')
+        || !ordinal.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    let ordinal: u64 = ordinal.parse().ok()?;
+    if ordinal == 0 || ordinal > MAX_REVISION_ORDINAL {
+        return None;
+    }
+    Some(RevisionCoordinates {
+        namespace: namespace.to_owned(),
+        name: name.to_owned(),
+        ordinal,
+    })
+}
+
+/// One admitted revision, reduced to the coordinates a consumer needs to BIND it.
+///
+/// Deliberately not the whole contract document. A consumer of this seam needs to name a revision,
+/// prove which bytes it named, and know whether it is still the family's head — it does not need the
+/// term sets, and handing them over invites a later unit to re-derive meaning from a copy instead of
+/// re-resolving it. `content_hash` is the committed one, carried verbatim from the projection.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ResolvedOntologyRevision {
+    pub(crate) ontology_id: String,
+    pub(crate) ontology_family_ref: String,
+    pub(crate) namespace: String,
+    pub(crate) name: String,
+    pub(crate) revision_ordinal: u64,
+    pub(crate) content_hash: String,
+    pub(crate) status: String,
+}
+
+/// Resolve one EXACT admitted ontology revision for a caller entitled to see it.
+///
+/// THIS LIVES IN THE OWNER MODULE ON PURPOSE. `M05.2`'s overlays and crosswalks and `M05.3`'s
+/// provenance assertions all need to bind an exact revision, and each of them writing its own reader
+/// is how a family acquires a second interpretation of its own truth. There is one reader, it is
+/// here, and it is the same `authorized_lineage` the query route serves from — same owner scope,
+/// same chain projection, same content-hash re-derivation. It adds no storage reader, consults no
+/// index, and never widens the caller's scope.
+///
+/// EXACT, NOT LATEST. The requested ordinal is selected out of the projected lineage, so a
+/// predecessor stays resolvable after successors land — which is the whole point of an immutable
+/// version and the precondition every later unit in this module depends on.
+///
+/// GRANTS NOTHING. It returns coordinates and a hash. It resolves no mapping, reads no capability,
+/// and its result is not permission to act on the meaning it names.
+#[allow(dead_code)] // The M05.2/M05.3 consumption seam, landed with its owner ahead of its first
+                    // caller so that neither later unit has a reason to mint a duplicate reader.
+pub(crate) fn resolve_admitted_revision(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    ontology_id: &str,
+) -> Result<ResolvedOntologyRevision, Reply> {
+    let Some(coordinates) = parse_revision_identity(ontology_id) else {
+        return Err(refuse(
+            "ontology_version_identity_not_canonical",
+            "an ontology revision is addressed as 'ontology://<namespace>/<name>/revision/<n>' with a canonical namespace, name and unpadded positive ordinal; a spelling that needs normalising is refused rather than repaired",
+        ));
+    };
+    let family = family_ref(&coordinates.namespace, &coordinates.name);
+    // AUTHORIZATION IS THE OWNER SEAM'S, UNCHANGED. A caller with no scope on this family and a
+    // caller who owns nothing here receive the same refusal, so this cannot be used as an existence
+    // oracle for another domain's lineage.
+    let lineage = authorized_lineage(data_dir, identity, &family)?;
+    let Some(document) = lineage
+        .iter()
+        .find(|document| ordinal_of(document) == coordinates.ordinal)
+    else {
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            "ontology_version_revision_absent",
+            format!(
+                "this family has no revision {} — an absent revision is a typed absence, never an empty success",
+                coordinates.ordinal
+            ),
+        ));
+    };
+    let field = |key: &str| {
+        document
+            .get(key)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let resolved = ResolvedOntologyRevision {
+        ontology_id: field("ontology_id"),
+        ontology_family_ref: field("ontology_family_ref"),
+        namespace: field("namespace"),
+        name: field("name"),
+        revision_ordinal: coordinates.ordinal,
+        content_hash: field("content_hash"),
+        status: field("status"),
+    };
+    // The projection is already contract-validated, so a disagreement here means the chain answered
+    // with a revision other than the one addressed. That is not something to hand a consumer with a
+    // caveat; it is an unreadable chain.
+    if resolved.ontology_id != ontology_id
+        || resolved.ontology_family_ref != family
+        || resolved.namespace != coordinates.namespace
+        || resolved.name != coordinates.name
+        || !is_sha256(&resolved.content_hash)
+        || resolved.status.is_empty()
+    {
+        return Err(bad(
+            StatusCode::BAD_GATEWAY,
+            "ontology_version_projection_failed",
+            format!(
+                "the chain resolved '{ontology_id}' to a revision that does not bind that identity"
+            ),
+        ));
+    }
+    Ok(resolved)
+}
+
 // ------------------------------------------------------------------------------------ producer route
 
 /// POST /v1/hypervisor/ontology-versions — admit one immutable revision of one owner-qualified
@@ -2155,6 +2322,324 @@ mod tests {
             accepted.term_sets["entity_types"],
             json!([{ "term_id": "ontology://acme-clinic/patient-intake/term/patient", "label": "Patient" }])
         );
+    }
+
+    /// The (status, code) pair one resolver refusal carries. Compared as a WHOLE so a test cannot
+    /// claim two refusals are indistinguishable while their statuses differ.
+    fn refusal_shape(reply: &Reply) -> (u16, String) {
+        (
+            reply.0.as_u16(),
+            reply.1 .0["error"]["code"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned(),
+        )
+    }
+
+    #[test]
+    fn an_exact_historical_revision_still_resolves_after_its_successors_land() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let owner = caller("user://acme", "genesis-1");
+        let (v1, head1) = admit(
+            data_dir,
+            &owner,
+            &proposal(
+                "acme-clinic",
+                "patient-intake",
+                &["patient"],
+                "2026-01-01T00:00:00Z",
+            ),
+            None,
+        )
+        .unwrap();
+        let (v2, head2) = admit(
+            data_dir,
+            &caller_with_key(&owner, "successor-2"),
+            &proposal(
+                "acme-clinic",
+                "patient-intake",
+                &["patient", "guardian"],
+                "2026-06-01T00:00:00Z",
+            ),
+            Some(&head1),
+        )
+        .unwrap();
+        let (v3, _head3) = admit(
+            data_dir,
+            &caller_with_key(&owner, "successor-3"),
+            &proposal(
+                "acme-clinic",
+                "patient-intake",
+                &["patient", "guardian", "visitor"],
+                "2026-09-01T00:00:00Z",
+            ),
+            Some(&head2),
+        )
+        .unwrap();
+
+        // The FIRST revision, resolved after two successors have landed on top of it.
+        let resolved = resolve_admitted_revision(
+            data_dir,
+            &owner.identity,
+            "ontology://acme-clinic/patient-intake/revision/1",
+        )
+        .expect("a predecessor stays resolvable after its successors");
+        assert_eq!(
+            resolved.ontology_id,
+            "ontology://acme-clinic/patient-intake/revision/1"
+        );
+        assert_eq!(
+            resolved.ontology_family_ref,
+            "ontology://acme-clinic/patient-intake"
+        );
+        assert_eq!(resolved.namespace, "acme-clinic");
+        assert_eq!(resolved.name, "patient-intake");
+        assert_eq!(resolved.revision_ordinal, 1);
+        assert_eq!(resolved.content_hash, v1["content_hash"].as_str().unwrap());
+        assert_eq!(resolved.status, "deprecated");
+
+        // The middle one resolves to ITS bytes, not the head's — exact, never latest.
+        let middle = resolve_admitted_revision(
+            data_dir,
+            &owner.identity,
+            "ontology://acme-clinic/patient-intake/revision/2",
+        )
+        .unwrap();
+        assert_eq!(middle.content_hash, v2["content_hash"].as_str().unwrap());
+        assert_ne!(middle.content_hash, resolved.content_hash);
+        assert_eq!(middle.status, "deprecated");
+
+        let head = resolve_admitted_revision(
+            data_dir,
+            &owner.identity,
+            "ontology://acme-clinic/patient-intake/revision/3",
+        )
+        .unwrap();
+        assert_eq!(head.content_hash, v3["content_hash"].as_str().unwrap());
+        assert_eq!(head.status, "active");
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_resolved_revision_binds_its_own_identity_content_hash_and_family() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let owner = caller("user://acme", "genesis-1");
+        admit(
+            data_dir,
+            &owner,
+            &proposal(
+                "acme-clinic",
+                "patient-intake",
+                &["patient"],
+                "2026-01-01T00:00:00Z",
+            ),
+            None,
+        )
+        .unwrap();
+        let family = "ontology://acme-clinic/patient-intake";
+        let scope = authorize_request_resource_scope(
+            data_dir,
+            &owner.identity,
+            RESOURCE_KIND,
+            family,
+            None,
+        )
+        .unwrap();
+        let document = read_lineage(data_dir, &owner.identity, &scope, family).unwrap()[0].clone();
+        let resolved = resolve_admitted_revision(
+            data_dir,
+            &owner.identity,
+            "ontology://acme-clinic/patient-intake/revision/1",
+        )
+        .unwrap();
+
+        // The hash handed to a consumer is the COMMITTED one, re-derivable from the same content.
+        assert_eq!(resolved.content_hash, content_hash(&document).unwrap());
+        assert_eq!(
+            resolved.content_hash,
+            document["content_hash"].as_str().unwrap()
+        );
+        assert_eq!(resolved.ontology_id, document["ontology_id"]);
+        assert_eq!(
+            resolved.ontology_family_ref,
+            document["ontology_family_ref"]
+        );
+        assert_eq!(resolved.revision_ordinal, ordinal_of(&document));
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn a_foreign_owner_resolves_nothing_and_learns_nothing_about_existence() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let harbor = WriteCaller {
+            identity: request_identity_for_test(
+                "user://harbor",
+                ["org://harbor-clinic".to_string()],
+            ),
+            owner_ref: "org://harbor-clinic".to_string(),
+            idempotency_key: "harbor-genesis".to_string(),
+        };
+        admit(
+            data_dir,
+            &harbor,
+            &proposal(
+                "harbor-clinic",
+                "patient-intake",
+                &["patient"],
+                "2026-01-01T00:00:00Z",
+            ),
+            None,
+        )
+        .unwrap();
+        let intruder = caller("user://acme", "unused");
+
+        let foreign = resolve_admitted_revision(
+            data_dir,
+            &intruder.identity,
+            "ontology://harbor-clinic/patient-intake/revision/1",
+        )
+        .expect_err("another domain's lineage is not resolvable");
+        let never_existed = resolve_admitted_revision(
+            data_dir,
+            &intruder.identity,
+            "ontology://nowhere-clinic/patient-intake/revision/1",
+        )
+        .expect_err("a family that was never admitted is not resolvable either");
+
+        // THE POINT: an existing-but-foreign family and a family that never existed answer
+        // IDENTICALLY, so this seam cannot be used to enumerate another owner's ontologies.
+        assert_eq!(refusal_shape(&foreign), refusal_shape(&never_existed));
+        // And the refusal body carries no coordinate of the thing that does exist.
+        let rendered = foreign.1 .0.to_string();
+        assert!(
+            !rendered.contains("harbor-clinic"),
+            "the refusal leaked the family it refused: {rendered}"
+        );
+
+        // The owner itself still resolves it, so the refusal above is authorization and not absence.
+        assert!(resolve_admitted_revision(
+            data_dir,
+            &harbor.identity,
+            "ontology://harbor-clinic/patient-intake/revision/1",
+        )
+        .is_ok());
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn an_absent_exact_revision_is_a_typed_absence() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let owner = caller("user://acme", "genesis-1");
+        admit(
+            data_dir,
+            &owner,
+            &proposal(
+                "acme-clinic",
+                "patient-intake",
+                &["patient"],
+                "2026-01-01T00:00:00Z",
+            ),
+            None,
+        )
+        .unwrap();
+        for absent in [
+            "ontology://acme-clinic/patient-intake/revision/2",
+            "ontology://acme-clinic/patient-intake/revision/999999999",
+        ] {
+            let refusal =
+                resolve_admitted_revision(data_dir, &owner.identity, absent).expect_err(absent);
+            assert_eq!(
+                refusal_shape(&refusal),
+                (404, "ontology_version_revision_absent".to_owned()),
+                "{absent}"
+            );
+        }
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn malformed_revision_identities_are_refused_before_any_chain_read() {
+        // Every one of these must fail in the PARSER. If any reached the substrate it would need a
+        // data dir, so the absence of one here is itself part of the assertion.
+        for malformed in [
+            "",
+            "ontology://",
+            "ontology://acme-clinic",
+            "ontology://acme-clinic/patient-intake",
+            "ontology://acme-clinic/patient-intake/revision",
+            "ontology://acme-clinic/patient-intake/revision/",
+            "ontology://acme-clinic/patient-intake/revision/1/",
+            "ontology://acme-clinic/patient-intake/revision/1/2",
+            "ontology://acme-clinic//revision/1",
+            "ontology:///patient-intake/revision/1",
+            "ontology://acme-clinic/patient-intake//revision/1",
+            "ontology://acme-clinic/patient-intake/revisions/1",
+            "ontology://acme-clinic/patient-intake/REVISION/1",
+            "ontology-version://acme-clinic/patient-intake/revision/1",
+            "ontology:/acme-clinic/patient-intake/revision/1",
+            "ontology://Acme-Clinic/patient-intake/revision/1",
+            "ontology://acme-clinic/Patient-Intake/revision/1",
+            "ontology://-acme/patient-intake/revision/1",
+            "ontology://acme_clinic/patient-intake/revision/1",
+            "ontology://acme-clinic/patient-intake/revision/0",
+            "ontology://acme-clinic/patient-intake/revision/01",
+            "ontology://acme-clinic/patient-intake/revision/+1",
+            "ontology://acme-clinic/patient-intake/revision/-1",
+            "ontology://acme-clinic/patient-intake/revision/1.0",
+            "ontology://acme-clinic/patient-intake/revision/1e3",
+            "ontology://acme-clinic/patient-intake/revision/1_000",
+            "ontology://acme-clinic/patient-intake/revision/ 1",
+            "ontology://acme-clinic/patient-intake/revision/1 ",
+            "ontology://acme-clinic/patient-intake/revision/1\t",
+            "ontology://acme-clinic/patient-intake/revision/1\n",
+            "ontology://acme-clinic/patient-intake/revision/1?as_of=2026",
+            "ontology://acme-clinic/patient-intake/revision/1#head",
+            "ontology:\\\\acme-clinic\\patient-intake\\revision\\1",
+            "ontology://acme-clinic/patient%2Dintake/revision/1",
+            "ontology://acme-clinic/patient-intake/revision/1000000000",
+            "ontology://acme-clinic/patient-intake/revision/99999999999999999999",
+            "ontology://acme-clinic/pátient-intake/revision/1",
+        ] {
+            assert!(
+                parse_revision_identity(malformed).is_none(),
+                "'{malformed}' must not parse as an exact revision identity"
+            );
+            let refusal = resolve_admitted_revision(
+                "/nonexistent-data-dir-the-parser-must-never-reach",
+                &request_identity_for_test("user://acme", ["org://acme-clinic".to_string()]),
+                malformed,
+            )
+            .expect_err("a malformed identity is refused");
+            assert_eq!(
+                refusal_shape(&refusal),
+                (422, "ontology_version_identity_not_canonical".to_owned()),
+                "'{malformed}'"
+            );
+        }
+
+        // ...and the canonical spellings that MUST parse, so the table above is a boundary rather
+        // than a rejection of everything.
+        for (identity, ordinal) in [
+            ("ontology://acme-clinic/patient-intake/revision/1", 1u64),
+            ("ontology://a/b/revision/7", 7),
+            ("ontology://acme-clinic/patient-intake/revision/42", 42),
+            (
+                "ontology://acme-clinic/patient-intake/revision/999999999",
+                999_999_999,
+            ),
+        ] {
+            let parsed = parse_revision_identity(identity)
+                .unwrap_or_else(|| panic!("'{identity}' must parse"));
+            assert_eq!(parsed.ordinal, ordinal);
+        }
     }
 
     #[test]
