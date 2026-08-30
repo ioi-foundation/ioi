@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+  "title": "OntologySurfaceDescriptorV1",
+  "description": "THE PREDECESSOR, REGISTERED SO IT CAN BE NAMED EXACTLY — DEPRECATED AND READ-ONLY. This is the record the ODK descriptor lane minted before the invariant-11 binding set existed: a singular `ontology_ref`, a `recipe_refs` list under the unqualified name the term-boundary ruling forbids, an opaque `view_config`, and NONE of the eight members non-negotiable 11 requires. It is registered for three reasons and no others. First, so `successor_of` on v2 names a contract that actually exists rather than a version string in a comment. Second, so a v2 record converged from a stored v1 can commit that predecessor's EXACT bytes: a convergence hashes the v1 record over ITS OWN enumerated fields under its own domain separator, which is the only way `migration.from_content_hash` identifies one v1 record rather than every v1 record that happens to share an owner and a pattern. Third, so 'v1 carries none of the binding set' is a checked expectation with registered fixtures instead of a claim in prose. AUTHORING AT v1 IS CLOSED. The daemon refuses `schema_version: ioi.hypervisor.odk.surface-descriptor.v1` on create and refuses to patch a stored v1 into a v2. Stored v1 records remain readable EXACTLY as admitted and are never reinterpreted; converging one is an explicit act that names it and its bytes.",
+  "x-ioi-schema-version": "ioi.hypervisor.odk.surface-descriptor.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "name",
+    "description",
+    "status",
+    "composition_pattern",
+    "ontology_ref",
+    "recipe_refs",
+    "owner_ref",
+    "view_config"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.odk.surface-descriptor.v1"
+    },
+    "object": {
+      "const": "ioi.hypervisor.odk.surface_descriptor"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^sd_[0-9a-f]{17}$",
+      "description": "Derived from owner + caller idempotency key, never wall-clock, so a retried create resolves the same resource."
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^surface-descriptor://sd_[0-9a-f]{17}$"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "v1's own field. v2 renamed it `display_name` and made it 1..160 and mandatory; the two are NOT the same field and a convergence carries neither one into the other silently."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "v1 carried free prose here. v2 has no counterpart: a descriptor declares what a surface BINDS, and the eight binding members are the description."
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "deleted"
+      ],
+      "description": "The two states the v1 lane could ever write. `deleted` is a fifth name canon's four-member status vocabulary does not define, which is why v2 converges a withdrawal onto `revoked` rather than widening the canonical enum to accommodate a legacy tombstone."
+    },
+    "composition_pattern": {
+      "enum": [
+        "list_detail",
+        "object_view",
+        "object_editor",
+        "graph",
+        "wizard",
+        "review_inbox",
+        "monitoring_console",
+        "dashboard",
+        "data_recipe_builder",
+        "connector_mapping_editor",
+        "domain_app"
+      ],
+      "description": "The eleven canonical members. The pattern vocabulary was already complete at v1 and v2 does not touch it — it was the binding set that was absent."
+    },
+    "ontology_ref": {
+      "type": "string",
+      "description": "THE SINGULAR, UNRESOLVED, MUTABLE BINDING v2 EXISTS TO REPLACE. One ref, checked only for local resolvability, with no owner resolution, no committed hash and no requirement that it name an exact revision — so a v1 descriptor bound to a family head silently re-meant itself whenever that family advanced."
+    },
+    "recipe_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string"
+      },
+      "description": "The unqualified name the term-boundary ruling forbids. v2 calls this `data_recipe_refs` and refuses the legacy spelling rather than translating it."
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,240}$"
+    },
+    "view_config": {
+      "type": "object",
+      "description": "Opaque by construction: no generated UI artifact was ever produced from it, and nothing downstream could check it against anything."
+    }
+  }
+}

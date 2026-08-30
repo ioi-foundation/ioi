@@ -598,6 +598,32 @@ function validateExpression(rootSchema, expression, at, errors) {
           errors.push(`${at}: ${name} must be a canonical path array`);
         }
       }
+      // A REQUIRED SET MAY BE PROJECTED OUT OF OBJECTS, NOT ONLY READ AS SCALARS. The three
+      // existing sources can name a scalar path, a scalar array, or a derived ref — none of them
+      // can say "the `x` field of every entry in this array of objects". Exact set equality
+      // between a ref list and the rows that bind those refs is therefore inexpressible, and the
+      // pair of length checks that stands in for it cannot see an equal-count substitution.
+      if (expression.required_item_field_paths !== undefined) {
+        if (!Array.isArray(expression.required_item_field_paths)) {
+          errors.push(`${at}: required_item_field_paths must be an array`);
+        } else {
+          for (const entry of expression.required_item_field_paths) {
+            if (
+              !isObject(entry) ||
+              pathParts(entry.path) === null ||
+              !/^[a-z][a-z0-9_]*$/u.test(String(entry.field))
+            ) {
+              errors.push(`${at}: required_item_field_paths is malformed`);
+            } else if (
+              !fieldExistsAtPath(rootSchema, entry.path, entry.field, true)
+            ) {
+              errors.push(
+                `${at}: array item field does not resolve at ${entry.path}: ${entry.field}`,
+              );
+            }
+          }
+        }
+      }
       if (
         expression.required_derived_refs !== undefined &&
         (!Array.isArray(expression.required_derived_refs) ||

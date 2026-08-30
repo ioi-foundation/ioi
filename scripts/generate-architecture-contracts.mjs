@@ -2546,6 +2546,23 @@ function generatorExactRefCoverage(value, expression) {
     if (suffix === null) return false;
     required.push(`${derived.prefix}${suffix}`);
   }
+  for (const entry of expression.required_item_field_paths ?? []) {
+    if (
+      !isPlainObject(entry) ||
+      typeof entry.path !== "string" ||
+      typeof entry.field !== "string"
+    ) {
+      return false;
+    }
+    const rows = generatorValueAtPath(value, entry.path);
+    if (!Array.isArray(rows)) return false;
+    for (const row of rows) {
+      if (!isPlainObject(row)) return false;
+      const candidate = row[entry.field];
+      if (typeof candidate !== "string") return false;
+      required.push(candidate);
+    }
+  }
   return (
     actual.length === required.length &&
     canonicalJson([...actual].sort(codePointCompare)) ===
@@ -3786,6 +3803,26 @@ function exactRefCoverage(value: unknown, expression: JsonObject): boolean {
         : candidate;
     if (suffix === null) return false;
     required.push(derived.prefix + suffix);
+  }
+  const itemFieldPaths = Array.isArray(expression.required_item_field_paths)
+    ? expression.required_item_field_paths
+    : [];
+  for (const entry of itemFieldPaths) {
+    if (
+      !isObject(entry) ||
+      typeof entry.path !== "string" ||
+      typeof entry.field !== "string"
+    ) {
+      return false;
+    }
+    const rows = valueAtPath(value, entry.path);
+    if (!Array.isArray(rows)) return false;
+    for (const row of rows) {
+      if (!isObject(row)) return false;
+      const candidate = (row as JsonObject)[entry.field];
+      if (typeof candidate !== "string") return false;
+      required.push(candidate);
+    }
   }
   return (
     actual.length === required.length &&
@@ -5368,6 +5405,28 @@ fn exact_ref_coverage(value: &Value, expression: &Value) -> bool {
             None => candidate,
         };
         required.push(format!("{prefix}{suffix}"));
+    }
+    for entry in expression
+        .get("required_item_field_paths")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(path) = entry.get("path").and_then(Value::as_str) else {
+            return false;
+        };
+        let Some(field) = entry.get("field").and_then(Value::as_str) else {
+            return false;
+        };
+        let Some(rows) = value_at_path(value, path).and_then(Value::as_array) else {
+            return false;
+        };
+        for row in rows {
+            let Some(candidate) = row.get(field).and_then(Value::as_str) else {
+                return false;
+            };
+            required.push(candidate.to_owned());
+        }
     }
     let mut actual = actual;
     actual.sort_unstable();

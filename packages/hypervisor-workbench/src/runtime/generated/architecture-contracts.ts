@@ -9430,6 +9430,21 @@ export type OntologyActionContractV1 = {
   status: "active" | "deprecated";
 };
 
+export type OntologySurfaceDescriptorV1 = {
+  schema_version: "ioi.hypervisor.odk.surface-descriptor.v1";
+  object: "ioi.hypervisor.odk.surface_descriptor";
+  id: string;
+  ref: string;
+  name: string;
+  description: string;
+  status: "draft" | "deleted";
+  composition_pattern: "list_detail" | "object_view" | "object_editor" | "graph" | "wizard" | "review_inbox" | "monitoring_console" | "dashboard" | "data_recipe_builder" | "connector_mapping_editor" | "domain_app";
+  ontology_ref: string;
+  recipe_refs: Array<string>;
+  owner_ref: string;
+  view_config: Record<string, unknown>;
+};
+
 export type OntologySurfaceDescriptorV2 = {
   schema_version: "ioi.ontology-surface-descriptor.v2";
   surface_descriptor_id: string;
@@ -15928,6 +15943,30 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "ontology_action_contract.migration.source_is_the_exact_predecessor_revision"
   },
   {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
     "expected": "accept",
@@ -16030,6 +16069,30 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_surface_descriptor.ontology_binding.the_bound_set_is_exactly_the_owning_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -24244,6 +24307,27 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
     "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
@@ -24331,6 +24415,27 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
     "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -25885,6 +25990,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^scope:[a-z][a-z0-9._-]{0,127}$",
   "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$",
   "^scope:autonomous_system[.]membership[.][a-z_]{1,64}$",
+  "^sd_[0-9a-f]{17}$",
   "^sensor://[^\\s]+$",
   "^service://[^\\s]{1,248}$",
   "^session-route:[^\\s]{1,240}$",
@@ -25915,6 +26021,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^subscription-lease://[A-Za-z0-9._:-]+$",
   "^support-incident://[A-Za-z0-9._:-]+$",
   "^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^surface-descriptor://sd_[0-9a-f]{17}$",
   "^surface-serving://\\S*$",
   "^surface://[^\\s]{1,240}$",
   "^surface://[^\\s]{1,500}$",
@@ -26215,7 +26322,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/assurance-transition-receipt/v1": "sha256:62d284c67dd29fe5d9ae2148229b995c99c75ab6b29c03194bf4f4bc05e89733",
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27",
   "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5",
-  "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": "sha256:ca956c0b6a71aa45dc1233bc1999e0425bfe3c651a8eebc15aa79273fd1b4193"
+  "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": "sha256:8555f92bfd59dffeb01228f8b759d8150962eef762dbf72d26fa002160b171ec",
+  "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": "sha256:72784f0460f17dd9a45503103fdfb32663b25c9ca3698187a2dc1f38cf6c7368"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -96417,6 +96525,99 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+    "title": "OntologySurfaceDescriptorV1",
+    "description": "THE PREDECESSOR, REGISTERED SO IT CAN BE NAMED EXACTLY — DEPRECATED AND READ-ONLY. This is the record the ODK descriptor lane minted before the invariant-11 binding set existed: a singular `ontology_ref`, a `recipe_refs` list under the unqualified name the term-boundary ruling forbids, an opaque `view_config`, and NONE of the eight members non-negotiable 11 requires. It is registered for three reasons and no others. First, so `successor_of` on v2 names a contract that actually exists rather than a version string in a comment. Second, so a v2 record converged from a stored v1 can commit that predecessor's EXACT bytes: a convergence hashes the v1 record over ITS OWN enumerated fields under its own domain separator, which is the only way `migration.from_content_hash` identifies one v1 record rather than every v1 record that happens to share an owner and a pattern. Third, so 'v1 carries none of the binding set' is a checked expectation with registered fixtures instead of a claim in prose. AUTHORING AT v1 IS CLOSED. The daemon refuses `schema_version: ioi.hypervisor.odk.surface-descriptor.v1` on create and refuses to patch a stored v1 into a v2. Stored v1 records remain readable EXACTLY as admitted and are never reinterpreted; converging one is an explicit act that names it and its bytes.",
+    "x-ioi-schema-version": "ioi.hypervisor.odk.surface-descriptor.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "object",
+      "id",
+      "ref",
+      "name",
+      "description",
+      "status",
+      "composition_pattern",
+      "ontology_ref",
+      "recipe_refs",
+      "owner_ref",
+      "view_config"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.odk.surface-descriptor.v1"
+      },
+      "object": {
+        "const": "ioi.hypervisor.odk.surface_descriptor"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^sd_[0-9a-f]{17}$",
+        "description": "Derived from owner + caller idempotency key, never wall-clock, so a retried create resolves the same resource."
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^surface-descriptor://sd_[0-9a-f]{17}$"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 200,
+        "description": "v1's own field. v2 renamed it `display_name` and made it 1..160 and mandatory; the two are NOT the same field and a convergence carries neither one into the other silently."
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 2000,
+        "description": "v1 carried free prose here. v2 has no counterpart: a descriptor declares what a surface BINDS, and the eight binding members are the description."
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "deleted"
+        ],
+        "description": "The two states the v1 lane could ever write. `deleted` is a fifth name canon's four-member status vocabulary does not define, which is why v2 converges a withdrawal onto `revoked` rather than widening the canonical enum to accommodate a legacy tombstone."
+      },
+      "composition_pattern": {
+        "enum": [
+          "list_detail",
+          "object_view",
+          "object_editor",
+          "graph",
+          "wizard",
+          "review_inbox",
+          "monitoring_console",
+          "dashboard",
+          "data_recipe_builder",
+          "connector_mapping_editor",
+          "domain_app"
+        ],
+        "description": "The eleven canonical members. The pattern vocabulary was already complete at v1 and v2 does not touch it — it was the binding set that was absent."
+      },
+      "ontology_ref": {
+        "type": "string",
+        "description": "THE SINGULAR, UNRESOLVED, MUTABLE BINDING v2 EXISTS TO REPLACE. One ref, checked only for local resolvability, with no owner resolution, no committed hash and no requirement that it name an exact revision — so a v1 descriptor bound to a family head silently re-meant itself whenever that family advanced."
+      },
+      "recipe_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string"
+        },
+        "description": "The unqualified name the term-boundary ruling forbids. v2 calls this `data_recipe_refs` and refuses the legacy spelling rather than translating it."
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,240}$"
+      },
+      "view_config": {
+        "type": "object",
+        "description": "Opaque by construction: no generated UI artifact was ever produced from it, and nothing downstream could check it against anything."
+      }
+    }
+  },
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
@@ -96703,6 +96904,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "migration": {
         "type": "object",
         "additionalProperties": false,
+        "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A descriptor authored fresh at v2 has no predecessor and says so in all three slots at once; a descriptor converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Stating the five fields as independently nullable admitted shapes canon does not define, and the partial ones READ AS COMPLETE: `converged_from_v1` with a null `from_content_hash` says 'I came from a v1' while naming no bytes anyone could check, and a `from_descriptor_ref` under `initial` claims a provenance its own compatibility label denies. `compatibility` is a two-member enum and the two conditionals below partition it exactly, so the two legitimate tuples are the ONLY two and a partial or mixed migration block is a SCHEMA refusal rather than something a reader has to notice. `reinterprets_predecessor` is pinned false on both: a convergence ADDS the binding set its predecessor never carried and never claims the predecessor already meant this.",
         "required": [
           "from_schema_version",
           "from_descriptor_ref",
@@ -96720,7 +96922,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                 "type": "null"
               }
             ],
-            "description": "EXPLICIT MIGRATION, never silent reinterpretation. A v2 descriptor converged from a stored v1 names that predecessor and the exact bytes it was converged from. A descriptor authored fresh at v2 carries null. There is no third case: a v1 record is never READ AS a v2 record."
+            "description": "The exact registered predecessor contract, `schema://ioi/foundations/objects/ontology-surface-descriptor/v1`, which is deprecated and read-only. There is no third source: a v2 is never converged from another v2, and a v1 record is never READ AS a v2 record."
           },
           "from_descriptor_ref": {
             "oneOf": [
@@ -96740,7 +96942,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 descriptors the same commitment, so a source that changed after convergence would be indistinguishable from one that did not."
           },
           "compatibility": {
             "enum": [
@@ -96752,7 +96955,61 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "const": false,
             "description": "A migration adds the binding set the predecessor never carried; it never claims the predecessor already meant this. v1 stays exactly as readable, and exactly as unconvergeable, as it was."
           }
-        }
+        },
+        "allOf": [
+          {
+            "title": "authored fresh at v2 — all three provenance slots are null together",
+            "if": {
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "from_schema_version": {
+                  "type": "null"
+                },
+                "from_descriptor_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "title": "converged from a stored v1 — all three provenance slots are present together",
+            "if": {
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "converged_from_v1"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "from_schema_version": {
+                  "const": "ioi.hypervisor.odk.surface-descriptor.v1"
+                },
+                "from_descriptor_ref": {
+                  "$ref": "#/$defs/descriptorRef"
+                },
+                "from_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              }
+            }
+          }
+        ]
       },
       "constants": {
         "type": "object",
@@ -107186,6 +107443,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": [],
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": [
     {
       "rule_id": "ontology_surface_descriptor.content_hash.commits_the_whole_descriptor",
@@ -107345,6 +107603,22 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     },
     {
+      "rule_id": "ontology_surface_descriptor.ontology_binding.the_bound_set_is_exactly_the_owning_set",
+      "description": "THE TWO COUNTS AGREEING IS NOT THE TWO SETS AGREEING. The pair of length rules above, plus uniqueness, forces `bound_ontology_revisions` to hold as many DISTINCT revisions as `ontology_refs` names — and a descriptor that names three revisions while binding three OTHER revisions satisfies every one of them. Every arithmetic fence passes, `uniqueItems` passes, and the record reads as a complete binding while committing an owner hash for a revision this surface does not own and committing nothing for one it does. This is the rule that says the projected set of `ontology_revision_ref` IS the owning set, member for member. It needs the operator's item-field projection because no scalar path, scalar array or derived ref can say 'the `ontology_revision_ref` of every row', and set equality between a ref list and the rows that bind it is otherwise inexpressible in this language.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.ontology_refs",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.bound_ontology_revisions",
+            "field": "ontology_revision_ref"
+          }
+        ]
+      }
+    },
+    {
       "rule_id": "ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice",
       "description": "A duplicated entry would let a descriptor reach the required count while leaving another owned revision unbound; the pair of counts alone cannot see that, so identity is required to be unique.",
       "expression": {
@@ -107385,21 +107659,48 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     },
     {
       "rule_id": "ontology_surface_descriptor.migration.a_converged_record_names_its_exact_source_bytes",
-      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION. A descriptor converged from a stored v1 names that predecessor's exact content hash; one authored fresh at v2 names none. Both are legitimate and they are distinguishable from the bytes, so a fresh record cannot claim a provenance it does not have and a converged one cannot hide the predecessor it came from. `reinterprets_predecessor` is pinned false by the schema on both paths: a convergence ADDS the binding set its predecessor never carried and never claims the predecessor already meant this.",
+      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — as an invariant independent of the schema's `oneOf`. A record whose compatibility says it came from a v1 must name the exact bytes it came from. The first cut of this rule was `any_of(from_descriptor_ref equals from_content_hash, from_content_hash is non-empty)`, which every well-formed record on EITHER path satisfies: the fresh tuple passes the first branch because null equals null, and any record with a hash passes the second — including a mixed one claiming `initial` while naming a predecessor. It could not fail on a real defect, and a rule that cannot fail is not a fence. This one is conditioned on the compatibility label, so a `converged_from_v1` record with no source hash fails HERE as well as at the schema.",
       "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "fields_equal",
-            "paths": [
-              "$.migration.from_descriptor_ref",
-              "$.migration.from_content_hash"
-            ]
-          },
-          {
-            "operator": "non_empty",
-            "path": "$.migration.from_content_hash"
-          }
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_content_hash",
+        "when_path": "$.migration.compatibility",
+        "values": [
+          "converged_from_v1"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.migration.a_converged_record_names_its_predecessor",
+      "description": "And the predecessor itself, by ref: naming the bytes without naming the record they came from leaves a relying party holding a hash it cannot resolve to anything.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_descriptor_ref",
+        "when_path": "$.migration.compatibility",
+        "values": [
+          "converged_from_v1"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.migration.a_record_is_never_its_own_predecessor",
+      "description": "A convergence mints a NEW descriptor whose identity is derived from its own owner and caller key; the v1 it came from keeps its own. A record naming itself as its predecessor claims to have been converged from bytes that are its own, which is a cycle rather than a provenance — and it would let a v2 acquire a migration history without any v1 ever having existed. On the fresh path the predecessor ref is null, which is trivially not the descriptor's own id, so one rule covers both branches.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.surface_descriptor_id",
+          "$.migration.from_descriptor_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.migration.a_converged_record_names_its_predecessor_contract",
+      "description": "And the contract that predecessor was admitted under, so 'converged from a v1' names the exact registered predecessor rather than an unstated one. The three together make the converged tuple whole at the invariant layer, independently of the schema's two-branch `oneOf`, and a build that collapsed the `oneOf` into five independently-nullable fields would still fail all three here.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_schema_version",
+        "when_path": "$.migration.compatibility",
+        "values": [
+          "converged_from_v1"
         ]
       }
     }
@@ -107947,6 +108248,26 @@ function exactRefCoverage(value: unknown, expression: JsonObject): boolean {
         : candidate;
     if (suffix === null) return false;
     required.push(derived.prefix + suffix);
+  }
+  const itemFieldPaths = Array.isArray(expression.required_item_field_paths)
+    ? expression.required_item_field_paths
+    : [];
+  for (const entry of itemFieldPaths) {
+    if (
+      !isObject(entry) ||
+      typeof entry.path !== "string" ||
+      typeof entry.field !== "string"
+    ) {
+      return false;
+    }
+    const rows = valueAtPath(value, entry.path);
+    if (!Array.isArray(rows)) return false;
+    for (const row of rows) {
+      if (!isObject(row)) return false;
+      const candidate = (row as JsonObject)[entry.field];
+      if (typeof candidate !== "string") return false;
+      required.push(candidate);
+    }
   }
   return (
     actual.length === required.length &&
@@ -109610,6 +109931,12 @@ export function validateOntologyActionContractV1(
   value: unknown,
 ): value is OntologyActionContractV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/ontology-action-contract/v1", value).ok;
+}
+
+export function validateOntologySurfaceDescriptorV1(
+  value: unknown,
+): value is OntologySurfaceDescriptorV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/ontology-surface-descriptor/v1", value).ok;
 }
 
 export function validateOntologySurfaceDescriptorV2(

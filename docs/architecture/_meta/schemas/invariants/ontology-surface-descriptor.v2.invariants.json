@@ -103,6 +103,22 @@
       }
     },
     {
+      "rule_id": "ontology_surface_descriptor.ontology_binding.the_bound_set_is_exactly_the_owning_set",
+      "description": "THE TWO COUNTS AGREEING IS NOT THE TWO SETS AGREEING. The pair of length rules above, plus uniqueness, forces `bound_ontology_revisions` to hold as many DISTINCT revisions as `ontology_refs` names — and a descriptor that names three revisions while binding three OTHER revisions satisfies every one of them. Every arithmetic fence passes, `uniqueItems` passes, and the record reads as a complete binding while committing an owner hash for a revision this surface does not own and committing nothing for one it does. This is the rule that says the projected set of `ontology_revision_ref` IS the owning set, member for member. It needs the operator's item-field projection because no scalar path, scalar array or derived ref can say 'the `ontology_revision_ref` of every row', and set equality between a ref list and the rows that bind it is otherwise inexpressible in this language.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.ontology_refs",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.bound_ontology_revisions",
+            "field": "ontology_revision_ref"
+          }
+        ]
+      }
+    },
+    {
       "rule_id": "ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice",
       "description": "A duplicated entry would let a descriptor reach the required count while leaving another owned revision unbound; the pair of counts alone cannot see that, so identity is required to be unique.",
       "expression": {
@@ -138,22 +154,43 @@
     },
     {
       "rule_id": "ontology_surface_descriptor.migration.a_converged_record_names_its_exact_source_bytes",
-      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION. A descriptor converged from a stored v1 names that predecessor's exact content hash; one authored fresh at v2 names none. Both are legitimate and they are distinguishable from the bytes, so a fresh record cannot claim a provenance it does not have and a converged one cannot hide the predecessor it came from. `reinterprets_predecessor` is pinned false by the schema on both paths: a convergence ADDS the binding set its predecessor never carried and never claims the predecessor already meant this.",
+      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — as an invariant independent of the schema's `oneOf`. A record whose compatibility says it came from a v1 must name the exact bytes it came from. The first cut of this rule was `any_of(from_descriptor_ref equals from_content_hash, from_content_hash is non-empty)`, which every well-formed record on EITHER path satisfies: the fresh tuple passes the first branch because null equals null, and any record with a hash passes the second — including a mixed one claiming `initial` while naming a predecessor. It could not fail on a real defect, and a rule that cannot fail is not a fence. This one is conditioned on the compatibility label, so a `converged_from_v1` record with no source hash fails HERE as well as at the schema.",
       "expression": {
-        "operator": "any_of",
-        "expressions": [
-          {
-            "operator": "fields_equal",
-            "paths": [
-              "$.migration.from_descriptor_ref",
-              "$.migration.from_content_hash"
-            ]
-          },
-          {
-            "operator": "non_empty",
-            "path": "$.migration.from_content_hash"
-          }
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_content_hash",
+        "when_path": "$.migration.compatibility",
+        "values": ["converged_from_v1"]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.migration.a_converged_record_names_its_predecessor",
+      "description": "And the predecessor itself, by ref: naming the bytes without naming the record they came from leaves a relying party holding a hash it cannot resolve to anything.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_descriptor_ref",
+        "when_path": "$.migration.compatibility",
+        "values": ["converged_from_v1"]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.migration.a_record_is_never_its_own_predecessor",
+      "description": "A convergence mints a NEW descriptor whose identity is derived from its own owner and caller key; the v1 it came from keeps its own. A record naming itself as its predecessor claims to have been converged from bytes that are its own, which is a cycle rather than a provenance — and it would let a v2 acquire a migration history without any v1 ever having existed. On the fresh path the predecessor ref is null, which is trivially not the descriptor's own id, so one rule covers both branches.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.surface_descriptor_id",
+          "$.migration.from_descriptor_ref"
         ]
+      }
+    },
+    {
+      "rule_id": "ontology_surface_descriptor.migration.a_converged_record_names_its_predecessor_contract",
+      "description": "And the contract that predecessor was admitted under, so 'converged from a v1' names the exact registered predecessor rather than an unstated one. The three together make the converged tuple whole at the invariant layer, independently of the schema's two-branch `oneOf`, and a build that collapsed the `oneOf` into five independently-nullable fields would still fail all three here.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_schema_version",
+        "when_path": "$.migration.compatibility",
+        "values": ["converged_from_v1"]
       }
     }
   ]

@@ -1,11 +1,11 @@
 {
   "schema_version": "ioi.ontology-surface-descriptor.v2",
-  "surface_descriptor_id": "surface-descriptor://sd_acme_legacy_console",
+  "surface_descriptor_id": "surface-descriptor://sd_migration_partial_tuple",
   "descriptor_record_profile": "ontology_surface_descriptor",
-  "surface_ref": "surface://acme-clinic/intake-console",
-  "display_name": "Intake console (converged from v1)",
+  "surface_ref": "surface://acme-clinic/intake-review-queue",
+  "display_name": "Intake review queue",
   "owner_ref": "org://acme-clinic",
-  "composition_pattern": "monitoring_console",
+  "composition_pattern": "review_inbox",
   "ontology_refs": [
     "ontology://acme-clinic/patient-intake/revision/3"
   ],
@@ -66,11 +66,11 @@
     "conformance_profile_refs"
   ],
   "invariant_11_member_count": 8,
-  "content_hash": "sha256:849c619ba5dfdba0c50604b014b6e38bb76f38bd4834011a4659e455cc7e8764",
+  "content_hash": "sha256:0ff6eec41d13ef9974a050ba76d6f99bf9da0c1a94af6ddcf566c7c75c7825fd",
   "migration": {
     "from_schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
     "from_descriptor_ref": "surface-descriptor://sd_acme_v1_console",
-    "from_content_hash": "sha256:6d8ec0b841ebb59cbb8547b2cb4b6fd420e3e94a6ec640616f6707b6442e3f3f",
+    "from_content_hash": null,
     "compatibility": "converged_from_v1",
     "reinterprets_predecessor": false
   },

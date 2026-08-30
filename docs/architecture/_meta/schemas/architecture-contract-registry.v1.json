@@ -10771,6 +10771,43 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
+      "canonical_name": "OntologySurfaceDescriptor",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologysurfacedescriptorenvelope",
+      "schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-surface-descriptor.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {"kind":"typescript_projection","path":"packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts","symbol":"OntologySurfaceDescriptorV1"},
+        {"kind":"rust_projection","path":"crates/types/src/app/generated/architecture_contracts.rs","symbol":"OntologySurfaceDescriptorV1"}
+      ],
+      "positive_fixture_refs": ["fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json"],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
       "canonical_name": "OntologySurfaceDescriptor",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologysurfacedescriptorenvelope",
@@ -10780,7 +10817,7 @@
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
-        "successor_of": null,
+        "successor_of": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
         "successor_contract_id": null,
         "compatibility": "breaking",
         "migration_policy": "explicit_adapter_required",
@@ -10859,6 +10896,19 @@
           "path": "fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
           "expected_failure": "invariant",
           "expected_rule_id": "ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_surface_descriptor.ontology_binding.the_bound_set_is_exactly_the_owning_set"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
+          "expected_failure": "schema"
         }
       ]
     }

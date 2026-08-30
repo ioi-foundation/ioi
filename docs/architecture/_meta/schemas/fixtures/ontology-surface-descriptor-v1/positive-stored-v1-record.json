@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
+  "object": "ioi.hypervisor.odk.surface_descriptor",
+  "id": "sd_2b7f4c8a9e1d05f36",
+  "ref": "surface-descriptor://sd_2b7f4c8a9e1d05f36",
+  "name": "Intake console",
+  "description": "The legacy descriptor record, exactly as the v1 lane minted it.",
+  "status": "draft",
+  "composition_pattern": "monitoring_console",
+  "ontology_ref": "ontology://acme-clinic/patient-intake",
+  "recipe_refs": [
+    "recipe://acme-clinic/intake-normalise"
+  ],
+  "owner_ref": "org://acme-clinic",
+  "view_config": {
+    "columns": [
+      "patient",
+      "status"
+    ]
+  }
+}

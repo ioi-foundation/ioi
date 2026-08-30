@@ -284,6 +284,7 @@
     "migration": {
       "type": "object",
       "additionalProperties": false,
+      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A descriptor authored fresh at v2 has no predecessor and says so in all three slots at once; a descriptor converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Stating the five fields as independently nullable admitted shapes canon does not define, and the partial ones READ AS COMPLETE: `converged_from_v1` with a null `from_content_hash` says 'I came from a v1' while naming no bytes anyone could check, and a `from_descriptor_ref` under `initial` claims a provenance its own compatibility label denies. `compatibility` is a two-member enum and the two conditionals below partition it exactly, so the two legitimate tuples are the ONLY two and a partial or mixed migration block is a SCHEMA refusal rather than something a reader has to notice. `reinterprets_predecessor` is pinned false on both: a convergence ADDS the binding set its predecessor never carried and never claims the predecessor already meant this.",
       "required": [
         "from_schema_version",
         "from_descriptor_ref",
@@ -301,7 +302,7 @@
               "type": "null"
             }
           ],
-          "description": "EXPLICIT MIGRATION, never silent reinterpretation. A v2 descriptor converged from a stored v1 names that predecessor and the exact bytes it was converged from. A descriptor authored fresh at v2 carries null. There is no third case: a v1 record is never READ AS a v2 record."
+          "description": "The exact registered predecessor contract, `schema://ioi/foundations/objects/ontology-surface-descriptor/v1`, which is deprecated and read-only. There is no third source: a v2 is never converged from another v2, and a v1 record is never READ AS a v2 record."
         },
         "from_descriptor_ref": {
           "oneOf": [
@@ -321,7 +322,8 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 descriptors the same commitment, so a source that changed after convergence would be indistinguishable from one that did not."
         },
         "compatibility": {
           "enum": [
@@ -333,7 +335,61 @@
           "const": false,
           "description": "A migration adds the binding set the predecessor never carried; it never claims the predecessor already meant this. v1 stays exactly as readable, and exactly as unconvergeable, as it was."
         }
-      }
+      },
+      "allOf": [
+        {
+          "title": "authored fresh at v2 — all three provenance slots are null together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "initial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "type": "null"
+              },
+              "from_descriptor_ref": {
+                "type": "null"
+              },
+              "from_content_hash": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "title": "converged from a stored v1 — all three provenance slots are present together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "converged_from_v1"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "const": "ioi.hypervisor.odk.surface-descriptor.v1"
+              },
+              "from_descriptor_ref": {
+                "$ref": "#/$defs/descriptorRef"
+              },
+              "from_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
     },
     "constants": {
       "type": "object",

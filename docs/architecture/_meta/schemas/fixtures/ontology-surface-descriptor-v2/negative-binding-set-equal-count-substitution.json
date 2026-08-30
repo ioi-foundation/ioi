@@ -1,21 +1,26 @@
 {
   "schema_version": "ioi.ontology-surface-descriptor.v2",
-  "surface_descriptor_id": "surface-descriptor://sd_acme_legacy_console",
+  "surface_descriptor_id": "surface-descriptor://sd_equal_count_substitution",
   "descriptor_record_profile": "ontology_surface_descriptor",
-  "surface_ref": "surface://acme-clinic/intake-console",
-  "display_name": "Intake console (converged from v1)",
+  "surface_ref": "surface://acme-clinic/intake-review-queue",
+  "display_name": "Intake review queue",
   "owner_ref": "org://acme-clinic",
-  "composition_pattern": "monitoring_console",
+  "composition_pattern": "review_inbox",
   "ontology_refs": [
-    "ontology://acme-clinic/patient-intake/revision/3"
+    "ontology://acme-clinic/patient-intake/revision/3",
+    "ontology://acme-clinic/patient-intake/revision/4"
   ],
   "bound_ontology_revisions": [
     {
       "ontology_revision_ref": "ontology://acme-clinic/patient-intake/revision/3",
       "ontology_content_hash": "sha256:75ce6c2a141e45240b61a55e9c6aac193f5937b71c66ee0168bb879db1c5f401"
+    },
+    {
+      "ontology_revision_ref": "ontology://acme-clinic/billing-codes/revision/9",
+      "ontology_content_hash": "sha256:1d4f22b0a0a8b7d3f0b8b1cbe0a0d8f7c2ebd9a4f6c1e3b5d7a9c0e2f4b6d8a0"
     }
   ],
-  "bound_ontology_revision_count": 1,
+  "bound_ontology_revision_count": 2,
   "ontology_resolved_by": "ontology_version_routes::resolve_admitted_revision",
   "canonical_object_model_refs": [
     "object-model://acme-clinic/patient-intake/appointment"
@@ -66,12 +71,12 @@
     "conformance_profile_refs"
   ],
   "invariant_11_member_count": 8,
-  "content_hash": "sha256:849c619ba5dfdba0c50604b014b6e38bb76f38bd4834011a4659e455cc7e8764",
+  "content_hash": "sha256:f1d5267f2754cd3e9e44ba38c9efa6339f12b813addf32844f421e33cee6b446",
   "migration": {
-    "from_schema_version": "ioi.hypervisor.odk.surface-descriptor.v1",
-    "from_descriptor_ref": "surface-descriptor://sd_acme_v1_console",
-    "from_content_hash": "sha256:6d8ec0b841ebb59cbb8547b2cb4b6fd420e3e94a6ec640616f6707b6442e3f3f",
-    "compatibility": "converged_from_v1",
+    "from_schema_version": null,
+    "from_descriptor_ref": null,
+    "from_content_hash": null,
+    "compatibility": "initial",
     "reinterprets_predecessor": false
   },
   "constants": {
