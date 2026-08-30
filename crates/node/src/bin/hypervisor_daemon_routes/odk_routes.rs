@@ -1408,6 +1408,7 @@ pub(crate) async fn handle_odk_recipe_create(
             op_kind: "event_stream.hypervisor_odk_data_recipe_admitted",
             reply_key: "data_recipe",
             persist_error: "odk_data_recipe_persistence_failed",
+            projection: OdkProjection::InlineTimestamps,
         },
         &id,
         record,
@@ -1492,6 +1493,7 @@ pub(crate) async fn handle_odk_recipe_patch(
             op_kind: "event_stream.hypervisor_odk_data_recipe_revised",
             reply_key: "data_recipe",
             persist_error: "odk_data_recipe_persistence_failed",
+            projection: OdkProjection::InlineTimestamps,
         },
         &id,
         r,
@@ -1591,6 +1593,7 @@ pub(crate) async fn handle_odk_manifest_create(
             op_kind: "event_stream.hypervisor_odk_manifest_admitted",
             reply_key: "manifest",
             persist_error: "odk_manifest_persistence_failed",
+            projection: OdkProjection::InlineTimestamps,
         },
         &id,
         record,
@@ -1688,6 +1691,7 @@ pub(crate) async fn handle_odk_manifest_patch(
             op_kind: "event_stream.hypervisor_odk_manifest_revised",
             reply_key: "manifest",
             persist_error: "odk_manifest_persistence_failed",
+            projection: OdkProjection::InlineTimestamps,
         },
         &id,
         man,
@@ -1783,6 +1787,52 @@ struct OdkAdmission<'a> {
     op_kind: &'a str,
     reply_key: &'a str,
     persist_error: &'a str,
+    /// How the admitted payload is projected for storage and reply.
+    projection: OdkProjection,
+}
+
+/// Where runtime timestamps go relative to the admitted record.
+///
+/// THE LEGACY FAMILIES INLINE THEM AND THE v2 DESCRIPTOR CANNOT. `odk_admit` used to stamp
+/// `created_at`/`updated_at` onto a copy of the admitted payload for every family. That is harmless
+/// for an open record shape and WRONG for a registered one: the v2 descriptor contract closes its
+/// object with `additionalProperties: false`, so a projection carrying two extra keys is not
+/// registered-valid — the admitted CHAIN bytes were clean, but the row on disk and the record handed
+/// back to the caller were not. Widening the contract to admit two storage fields would be letting
+/// local storage edit canon, so the record stays exactly as admitted and the runtime metadata sits
+/// beside it in an envelope.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OdkProjection {
+    /// Stamp `created_at`/`updated_at` onto the record itself (the four legacy ODK families).
+    InlineTimestamps,
+    /// Keep the admitted record byte-exact under `descriptor`, with runtime metadata beside it.
+    DescriptorEnvelopeV2,
+}
+
+/// The projection envelope schema for a v2 descriptor row and reply.
+const DESCRIPTOR_PROJECTION_SCHEMA: &str = "ioi.hypervisor.odk.surface-descriptor-projection.v2";
+
+/// Wrap one admitted v2 descriptor so the canonical record survives projection byte-exact.
+fn descriptor_projection(record: &Value, created_at: Value, updated_at: Value) -> Value {
+    json!({
+        "schema_version": DESCRIPTOR_PROJECTION_SCHEMA,
+        "descriptor_contract_id": DESCRIPTOR_V2_CONTRACT_ID,
+        "descriptor": record,
+        "created_at": created_at,
+        "updated_at": updated_at,
+    })
+}
+
+/// The canonical descriptor inside a stored row, whichever shape that row is in.
+///
+/// A v2 row is an envelope; a stored v1 row IS the record. Reading them through one accessor is what
+/// lets consumers stop caring, without any path silently reinterpreting a v1 as a v2.
+fn descriptor_record_of(row: &Value) -> &Value {
+    if row.get("schema_version").and_then(Value::as_str) == Some(DESCRIPTOR_PROJECTION_SCHEMA) {
+        row.get("descriptor").unwrap_or(row)
+    } else {
+        row
+    }
 }
 
 fn odk_admit(
@@ -1880,9 +1930,21 @@ fn odk_admit(
     ) {
         Ok(commit) => {
             let stamp = admitted_stamp_ms(commit.projection.operation.recorded_at_ms);
-            let mut admitted = commit.projection.operation.payload.clone();
-            admitted["created_at"] = created_at.unwrap_or_else(|| json!(stamp.clone()));
-            admitted["updated_at"] = json!(stamp);
+            let record = commit.projection.operation.payload.clone();
+            let created = created_at.unwrap_or_else(|| json!(stamp.clone()));
+            let admitted = match spec.projection {
+                OdkProjection::InlineTimestamps => {
+                    let mut inlined = record;
+                    inlined["created_at"] = created;
+                    inlined["updated_at"] = json!(stamp);
+                    inlined
+                }
+                // The canonical record is carried byte-exact; the timestamps sit beside it, so the
+                // thing a reader validates against the registered contract is what was admitted.
+                OdkProjection::DescriptorEnvelopeV2 => {
+                    descriptor_projection(&record, created, json!(stamp))
+                }
+            };
             if let Err(response) =
                 persist_required(data_dir, spec.family, id, &admitted, spec.persist_error)
             {
@@ -1921,10 +1983,18 @@ pub(crate) async fn handle_odk_descriptor_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
-    let mut items = read_record_dir(&st.data_dir, KIND_SD);
-    // Surviving tombstones (status == "deleted") are the durable record of a deletion, not a live
-    // descriptor — they must never surface in the read-model list.
-    items.retain(|d| d["status"] != "deleted");
+    let rows = read_record_dir(&st.data_dir, KIND_SD);
+    // A row is either a v2 envelope or a stored v1 record; the canonical descriptor is unwrapped so
+    // callers read and filter the SAME field names in both cases, with no path reinterpreting a v1
+    // as a v2.
+    let mut items: Vec<Value> = rows
+        .iter()
+        .map(|row| descriptor_record_of(row).clone())
+        .collect();
+    // Surviving tombstones are the durable record of a withdrawal, not a live descriptor, and must
+    // never surface here. v2 converged that state onto canon's `revoked`; `deleted` is the v1 name
+    // and is still filtered, so stored v1 rows keep behaving exactly as they did.
+    items.retain(|d| d["status"] != "deleted" && d["status"] != "revoked");
     if let Some(cp) = q
         .get("composition_pattern")
         .map(|s| s.trim())
@@ -1932,15 +2002,30 @@ pub(crate) async fn handle_odk_descriptor_list(
     {
         items.retain(|d| d.get("composition_pattern").and_then(|v| v.as_str()) == Some(cp));
     }
+    // CANONICAL NAME ON THE QUERY TOO. v2 binds `ontology_refs`; a stored v1 has the singular
+    // `ontology_ref`. One parameter matches either, because the caller is asking about a binding
+    // rather than about which contract version happens to hold it.
     if let Some(oref) = q
-        .get("ontology_ref")
+        .get("ontology_refs")
+        .or_else(|| q.get("ontology_ref"))
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
     {
-        items.retain(|d| d.get("ontology_ref").and_then(|v| v.as_str()) == Some(oref));
+        items.retain(|d| {
+            d.get("ontology_ref").and_then(|v| v.as_str()) == Some(oref)
+                || d.get("ontology_refs")
+                    .and_then(Value::as_array)
+                    .is_some_and(|refs| refs.iter().any(|value| value.as_str() == Some(oref)))
+        });
     }
-    sort_by_updated(&mut items);
-    Json(json!({ "ok": true, "surface_descriptors": items }))
+    Json(json!({
+        "ok": true,
+        "surface_descriptors": items,
+        // This inventory is a READ-MODEL SWEEP, not owner truth: the exact-descriptor route resolves
+        // from the chain. Saying so stops a caller reading a short list as an authoritative absence.
+        "projection_source": "read_model_row_sweep",
+        "authority_nonclaim": DESCRIPTOR_AUTHORITY_NONCLAIM,
+    }))
 }
 
 /// POST /v1/hypervisor/odk/surface-descriptors — create an OntologySurfaceDescriptor DRAFT bound to
@@ -2344,6 +2429,179 @@ fn build_descriptor_v2(
     Ok(record)
 }
 
+// ------------------------------------------------- the published descriptor resolution seam
+
+/// One admitted descriptor, resolved from the Agentgres chain rather than from the read model.
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedSurfaceDescriptor {
+    pub(crate) descriptor_ref: String,
+    pub(crate) schema_version: String,
+    pub(crate) composition_pattern: String,
+    pub(crate) status: String,
+    /// The canonical admitted record, byte-exact as the chain holds it.
+    pub(crate) record: Value,
+    pub(crate) admitted_head: String,
+    pub(crate) revision_count: usize,
+    /// Whether the local row agreed with the chain, was rebuilt, or was absent entirely.
+    pub(crate) index_state: &'static str,
+}
+
+/// Resolve one descriptor for a caller entitled to see it, FROM THE CHAIN.
+///
+/// THIS EXISTS BECAUSE THE ROW WAS THE ANSWER AND SHOULD NEVER HAVE BEEN. Every descriptor read —
+/// list, get, patch, delete, and both consumer routes — used to load the local record directory. That
+/// makes the rebuildable projection load-bearing: delete the row and the descriptor is gone, corrupt
+/// it and the descriptor is whatever the corruption says, even though the Agentgres owner chain still
+/// holds the admitted truth. A projection whose loss changes the answer is not a projection.
+///
+/// So this reads the owner-scoped operation history, takes the last admitted payload as the record,
+/// and reports what the row DID say — it is never consulted for the answer. Authorization is the same
+/// owner seam the writes cross, so a caller with no scope on this descriptor learns nothing about
+/// whether it exists.
+///
+/// GRANTS NOTHING. It returns a record, a head and a status. Reading a descriptor is not permission
+/// to mount, serve, register or act on the surface it describes.
+pub(crate) fn resolve_admitted_surface_descriptor(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    descriptor_ref: &str,
+) -> Result<ResolvedSurfaceDescriptor, (StatusCode, Json<Value>)> {
+    let Some(("surface-descriptor", id)) = split_ref(descriptor_ref) else {
+        return Err(descriptor_refuse(
+            "odk_descriptor_ref_not_canonical",
+            "a descriptor is addressed as 'surface-descriptor://<id>'",
+        ));
+    };
+    let scope = super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        ODK_DESCRIPTOR_SCOPE_KIND,
+        descriptor_ref,
+        None,
+    )
+    .map_err(odk_scope_refusal)?;
+    let tail = odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, descriptor_ref);
+    let history = super::mutation_event_foundation::read_owner_scoped_history(
+        data_dir,
+        identity,
+        &scope,
+        ODK_DESCRIPTOR_SCOPE_KIND,
+        descriptor_ref,
+        ODK_NAMESPACE,
+        &tail,
+    )
+    .map_err(odk_mutation_refusal)?;
+    let Some(latest) = history.last() else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "odk_surface_descriptor_not_found",
+                    "message": "this descriptor has no admitted history — an absent descriptor is a typed absence, never an empty success"
+                }
+            })),
+        ));
+    };
+    let record = latest.operation.payload.clone();
+    let schema_version = record
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+
+    // A v2 record is re-validated against the REGISTERED contract on every read, so a chain frame a
+    // later build cannot project is reported as unreadable rather than served as though it were fine.
+    if schema_version == DESCRIPTOR_V2_SCHEMA_VERSION {
+        if let Err(reason) =
+            ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+                DESCRIPTOR_V2_CONTRACT_ID,
+                &record,
+            )
+        {
+            return Err((
+                StatusCode::BAD_GATEWAY,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "odk_descriptor_projection_failed",
+                        "message": format!("the chain holds a descriptor this build cannot project: {reason}")
+                    }
+                })),
+            ));
+        }
+    }
+
+    // THE ROW IS COMPARED, NEVER CONSULTED. Reporting agreement positively is what lets a verifier
+    // prove the rebuild happened rather than infer it from an unchanged answer.
+    let row = load(data_dir, KIND_SD, id);
+    let index_state = match row.as_ref() {
+        None => "absent_rebuilt_from_agentgres",
+        Some(row) if descriptor_record_of(row) == &record => "agreed_with_agentgres",
+        Some(_) => "stale_rebuilt_from_agentgres",
+    };
+
+    Ok(ResolvedSurfaceDescriptor {
+        descriptor_ref: descriptor_ref.to_string(),
+        composition_pattern: record
+            .get("composition_pattern")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        status: record
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        schema_version,
+        record,
+        admitted_head: latest.head.clone(),
+        revision_count: history.len(),
+        index_state,
+    })
+}
+
+/// Rebuild the local read-model row for one descriptor from the chain, and report what changed.
+///
+/// Deterministic and idempotent: the row is a function of the admitted history, so repairing a
+/// deleted or corrupted row restores exactly the bytes the chain implies and nothing else.
+pub(crate) fn rebuild_descriptor_row(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    descriptor_ref: &str,
+) -> Result<ResolvedSurfaceDescriptor, (StatusCode, Json<Value>)> {
+    let resolved = resolve_admitted_surface_descriptor(data_dir, identity, descriptor_ref)?;
+    let Some(("surface-descriptor", id)) = split_ref(descriptor_ref) else {
+        return Err(descriptor_refuse(
+            "odk_descriptor_ref_not_canonical",
+            "a descriptor is addressed as 'surface-descriptor://<id>'",
+        ));
+    };
+    if resolved.schema_version == DESCRIPTOR_V2_SCHEMA_VERSION {
+        // The timestamps are recovered from the row when it survives, because they are runtime
+        // metadata about admission rather than content; when it does not, they come from the chain's
+        // own recorded_at, which is the only honest source left.
+        let existing = load(data_dir, KIND_SD, id);
+        let created = existing
+            .as_ref()
+            .and_then(|row| row.get("created_at").cloned())
+            .unwrap_or(Value::Null);
+        let updated = existing
+            .as_ref()
+            .and_then(|row| row.get("updated_at").cloned())
+            .unwrap_or(Value::Null);
+        let projection = descriptor_projection(&resolved.record, created, updated);
+        persist_required(
+            data_dir,
+            KIND_SD,
+            id,
+            &projection,
+            "odk_surface_descriptor_persistence_failed",
+        )?;
+    }
+    Ok(resolved)
+}
+
 /// SHA-256 over the JCS bytes of a descriptor minus its own hash field.
 fn descriptor_content_hash(record: &Value) -> String {
     use sha2::Digest;
@@ -2428,6 +2686,7 @@ pub(crate) async fn handle_odk_descriptor_create(
             op_kind: "event_stream.hypervisor_odk_surface_descriptor_admitted",
             reply_key: "surface_descriptor",
             persist_error: "odk_surface_descriptor_persistence_failed",
+            projection: OdkProjection::DescriptorEnvelopeV2,
         },
         &id,
         record,
@@ -2435,31 +2694,70 @@ pub(crate) async fn handle_odk_descriptor_create(
     )
 }
 
+/// GET /v1/hypervisor/odk/surface-descriptors/:id — the descriptor as its OWNER holds it.
+///
+/// Answered from the Agentgres chain through the published resolver, not from the read-model row, so
+/// deleting or corrupting that row cannot hide or alter an admitted descriptor. `index_state` reports
+/// what the row DID say, which is how a verifier proves the rebuild happened rather than inferring it
+/// from an unchanged answer. Identity is required: reading a descriptor is scoped to its owner.
 pub(crate) async fn handle_odk_descriptor_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let mut reply = json_get(&st.data_dir, KIND_SD, "surface_descriptor", &id).0;
-    // W1.2 / MEF-GAP-004 — surface the admitted head so a caller can compare-and-swap on patch.
-    // Without it the CAS contract is unusable: the client has nothing honest to send. Read from
-    // the admitted stream, never from the read-model record, so a divergence is visible rather
-    // than laundered.
-    if reply["ok"].as_bool() == Some(true) {
-        let resource_ref = format!("surface-descriptor://{id}");
-        let tail = odk_hash_tail(ODK_DESCRIPTOR_SCOPE_KIND, &resource_ref);
-        let head =
-            super::substrate_store::read_event_stream_operation(&st.data_dir, ODK_NAMESPACE, &tail)
-                .ok()
-                .flatten()
-                .map(|projection| projection.head);
-        reply["admitted_head"] = match head {
-            Some(head) => json!(head),
-            // No admitted stream means the descriptor predates owner-scoped admission. Say so
-            // rather than emitting a head the daemon would then refuse.
-            None => Value::Null,
-        };
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let descriptor_ref = format!("surface-descriptor://{id}");
+    match resolve_admitted_surface_descriptor(&st.data_dir, &identity, &descriptor_ref) {
+        Ok(resolved) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "surface_descriptor": resolved.record,
+                "admitted_head": resolved.admitted_head,
+                "revision_count": resolved.revision_count,
+                "index_state": resolved.index_state,
+                "authority_nonclaim": DESCRIPTOR_AUTHORITY_NONCLAIM,
+                "truth_nonclaim": DESCRIPTOR_TRUTH_NONCLAIM,
+            })),
+        ),
+        Err(response) => response,
     }
-    Json(reply)
+}
+
+/// POST /v1/hypervisor/odk/surface-descriptors/:id/rebuild-index — repair the read-model row.
+///
+/// The row is a function of the admitted history, so this is deterministic and idempotent: it
+/// restores exactly the bytes the chain implies. It exists to make "the index can be destroyed and
+/// rebuilt without altering truth" an operation a verifier can PERFORM, rather than a property the
+/// module asserts about itself.
+pub(crate) async fn handle_odk_descriptor_rebuild_index(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let descriptor_ref = format!("surface-descriptor://{id}");
+    match rebuild_descriptor_row(&st.data_dir, &identity, &descriptor_ref) {
+        Ok(resolved) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "surface_descriptor": resolved.record,
+                "admitted_head": resolved.admitted_head,
+                "revision_count": resolved.revision_count,
+                // What the row said BEFORE the repair, so a caller can tell a no-op from a recovery.
+                "index_state_before_rebuild": resolved.index_state,
+                "authority_nonclaim": DESCRIPTOR_AUTHORITY_NONCLAIM,
+            })),
+        ),
+        Err(response) => response,
+    }
 }
 
 pub(crate) async fn handle_odk_descriptor_patch(
@@ -2562,6 +2860,7 @@ pub(crate) async fn handle_odk_descriptor_patch(
             op_kind: "event_stream.hypervisor_odk_surface_descriptor_revised",
             reply_key: "surface_descriptor",
             persist_error: "odk_surface_descriptor_persistence_failed",
+            projection: OdkProjection::DescriptorEnvelopeV2,
         },
         &id,
         d,
@@ -2578,17 +2877,45 @@ pub(crate) async fn handle_odk_descriptor_delete(
     // only one that took no identity at all: any caller could erase any descriptor. It is a
     // successor mutation like any other, so it carries the same owner scope, caller idempotency
     // and compare-and-swap, and it is RECORDED rather than silently dropping the row.
-    let Some(previous) = load(&st.data_dir, KIND_SD, &id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(
-                json!({ "ok": false, "code": "odk_surface_descriptor_not_found",
-                         "message": "surface_descriptor not found" }),
-            ),
-        );
+    // THE CHAIN IS THE PRECONDITION, NOT THE ROW. Reading the local row here made deletion
+    // self-erasing: the first delete removed the only row, so an exact retry — the ordinary
+    // consequence of an ambiguous response — answered 404 for a descriptor whose withdrawal was
+    // already admitted and durable. Resolving from the owner history instead means the retry finds
+    // the same admitted state and replays it, and a caller who deleted the row by hand cannot make
+    // the descriptor disappear from its own owner.
+    let descriptor_ref = format!("surface-descriptor://{id}");
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
     };
+    let resolved =
+        match resolve_admitted_surface_descriptor(&st.data_dir, &identity, &descriptor_ref) {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
+    let previous = resolved.record.clone();
     let mut tombstone = previous.clone();
-    tombstone["status"] = json!("deleted");
+    // CANON'S OWN WITHDRAWAL STATE. The v1 lane wrote `deleted`, which is a fifth status the
+    // canonical envelope does not define; v2 converges onto `revoked`. The hash follows the bytes and
+    // the tombstone is re-validated, so a withdrawal is a registered-valid successor rather than an
+    // out-of-contract record that only the delete path knows how to read.
+    if resolved.schema_version == DESCRIPTOR_V2_SCHEMA_VERSION {
+        tombstone["status"] = json!("revoked");
+        tombstone["content_hash"] = json!(descriptor_content_hash(&tombstone));
+        if let Err(reason) =
+            ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+                DESCRIPTOR_V2_CONTRACT_ID,
+                &tombstone,
+            )
+        {
+            return descriptor_refuse(
+                "odk_descriptor_not_registered_valid",
+                format!("the withdrawal this request builds is not registered-valid: {reason}"),
+            );
+        }
+    } else {
+        tombstone["status"] = json!("deleted");
+    }
     let body = json!({
         "idempotency_key": headers.get("x-ioi-idempotency-key")
             .and_then(|v| v.to_str().ok()).unwrap_or(""),
@@ -2606,17 +2933,17 @@ pub(crate) async fn handle_odk_descriptor_delete(
             op_kind: "event_stream.hypervisor_odk_surface_descriptor_deleted",
             reply_key: "surface_descriptor",
             persist_error: "odk_surface_descriptor_persistence_failed",
+            projection: OdkProjection::DescriptorEnvelopeV2,
         },
         &id,
         tombstone,
         Some(&previous),
     );
-    if reply.0 == StatusCode::OK {
-        // The admitted tombstone is the record of the deletion; the read-model row goes only
-        // after it is durable, so a failed admission never loses the descriptor.
-        // CLASSIFIED — rollback/cleanup: read-model row removal after the admitted tombstone is durable; discard tolerates idempotent replays where the row is already gone
-        let _ = remove_record(&st.data_dir, KIND_SD, &id);
-    }
+    // THE WITHDRAWN ROW IS KEPT, AS THE WITHDRAWAL. Removing it left the chain holding an admitted
+    // tombstone that no local read could see, so the projection and the owner disagreed about a
+    // descriptor's existence — and the disagreement resolved in favour of the projection, which is
+    // the wrong way round. The row now carries the revoked record, the list view still hides it, and
+    // an exact retry replays the same admitted successor instead of failing to find its own subject.
     reply
 }
 

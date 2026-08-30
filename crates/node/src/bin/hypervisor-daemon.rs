@@ -2146,6 +2146,13 @@ async fn async_main() -> anyhow::Result<()> {
                 .patch(odk_routes::handle_odk_descriptor_patch)
                 .delete(odk_routes::handle_odk_descriptor_delete),
         )
+        // M05.5 — the read-model row is a projection of this descriptor's Agentgres chain, so it can
+        // be destroyed and rebuilt without altering truth. This makes that an operation a verifier
+        // can PERFORM, rather than a property the module asserts about itself.
+        .route(
+            "/v1/hypervisor/odk/surface-descriptors/:id/rebuild-index",
+            post(odk_routes::handle_odk_descriptor_rebuild_index),
+        )
         // Packages — the narrow daemon-owned middle of the ODK composable-app ladder.  This
         // admits exact package candidates, immutable releases, disabled local installation
         // bindings, and the two successor verbs (release recall, installation uninstall).  It

@@ -146,33 +146,41 @@ fn push_unique(v: &mut Vec<String>, s: &str) {
     }
 }
 
-/// Resolve `surface_descriptor_ref` and enforce the app-shape contract: it must be a
-/// `surface-descriptor://` ref that resolves AND whose composition_pattern is `domain_app`.
-fn resolve_domain_app_descriptor(data_dir: &str, sd_ref: &str) -> Result<Value, (String, String)> {
-    match split_ref(sd_ref) {
-        Some(("surface-descriptor", id)) => match load(data_dir, KIND_SD, id) {
-            Some(d) => {
-                if d.get("composition_pattern").and_then(|v| v.as_str()) == Some("domain_app") {
-                    Ok(d)
-                } else {
-                    Err((
-                        "domain_app_descriptor_pattern_mismatch".into(),
-                        "surface_descriptor_ref must reference a descriptor whose composition_pattern == domain_app".into(),
-                    ))
-                }
-            }
-            None => Err((
-                "domain_app_descriptor_unresolved".into(),
-                format!(
-                    "surface_descriptor_ref '{sd_ref}' does not resolve to a surface descriptor"
-                ),
-            )),
-        },
-        _ => Err((
-            "domain_app_ref_prefix_invalid".into(),
-            "surface_descriptor_ref must be a 'surface-descriptor://' ref".into(),
-        )),
+/// Resolve `surface_descriptor_ref` and enforce the app-shape contract: it must resolve through the
+/// descriptor OWNER and carry `composition_pattern: domain_app`.
+///
+/// M05.5 — THROUGH THE OWNER'S PUBLISHED READER, NOT THE RECORD DIRECTORY. This consumer used to
+/// `load()` the local row, which made a rebuildable projection load-bearing for an admission
+/// decision: delete the row and a DomainApp could not be created over a descriptor its owner had
+/// admitted; corrupt the row and the pattern check ran against whatever the corruption said. The
+/// owner reader answers from the Agentgres chain and applies that family's own scope, so this route
+/// consumes an owner-resolved fact instead of re-deriving one from a copy.
+fn resolve_domain_app_descriptor(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    sd_ref: &str,
+) -> Result<Value, (String, String)> {
+    let resolved =
+        super::odk_routes::resolve_admitted_surface_descriptor(data_dir, identity, sd_ref)
+            .map_err(|(_, axum::Json(payload))| {
+                (
+                    "domain_app_descriptor_unresolved".to_string(),
+                    format!(
+                        "surface_descriptor_ref '{sd_ref}' does not resolve to an admitted surface descriptor this caller may bind: {}",
+                        payload
+                            .pointer("/error/message")
+                            .and_then(|value| value.as_str())
+                            .unwrap_or("refused by its owner")
+                    ),
+                )
+            })?;
+    if resolved.composition_pattern != "domain_app" {
+        return Err((
+            "domain_app_descriptor_pattern_mismatch".into(),
+            "surface_descriptor_ref must reference a descriptor whose composition_pattern == domain_app".into(),
+        ));
     }
+    Ok(resolved.record)
 }
 
 /// Resolve an optional `odk_manifest_ref`: must be an `odk://` ref that resolves AND whose
@@ -361,7 +369,7 @@ pub(crate) async fn handle_domain_apps_create(
             "A DomainApp must declare a surface_descriptor_ref (the app-shape contract).",
         );
     }
-    let descriptor = match resolve_domain_app_descriptor(&st.data_dir, sd_ref) {
+    let descriptor = match resolve_domain_app_descriptor(&st.data_dir, &caller.identity, sd_ref) {
         Ok(d) => d,
         Err((c, m)) => return bad(&c, &m),
     };
@@ -523,10 +531,11 @@ pub(crate) async fn handle_domain_apps_patch(
             .to_string()
     };
     if touches_refs {
-        let descriptor = match resolve_domain_app_descriptor(&st.data_dir, &sd_ref) {
-            Ok(d) => d,
-            Err((c, m)) => return bad(&c, &m),
-        };
+        let descriptor =
+            match resolve_domain_app_descriptor(&st.data_dir, &caller.identity, &sd_ref) {
+                Ok(d) => d,
+                Err((c, m)) => return bad(&c, &m),
+            };
         let manifest = if man_ref.is_empty() {
             None
         } else {
