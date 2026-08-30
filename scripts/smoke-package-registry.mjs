@@ -742,7 +742,12 @@ async function run() {
     );
 
     report.objects = {
+      // BOTH ONTOLOGY FAMILIES ARE NAMED, because they are not the same thing and a report that
+      // recorded only one would leave a reader unable to tell which the descriptor actually bound.
+      // `ontology_ref` is the ODK DomainOntology the manifest lists; `ontology_version_revision_ref`
+      // is the exact admitted M05.1 revision the descriptor binds under `ontology_refs`.
       ontology_ref: ontologyRef,
+      ontology_version_revision_ref: revisionRef,
       surface_descriptor_ref: descriptorRef,
       odk_manifest_ref: manifestRef,
       domain_app_ref: domainAppRef,
