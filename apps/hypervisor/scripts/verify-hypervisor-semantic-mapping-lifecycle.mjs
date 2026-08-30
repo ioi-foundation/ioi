@@ -1371,9 +1371,10 @@ const MUTANTS = [
   {
     id: "overlay-accepts-a-base-term",
     file: ROUTE_SOURCE,
-    find: '            return Err(refuse(\n                "ontology_overlay_added_term_in_foreign_namespace",',
-    replace: '            return Ok(Value::Array(Vec::new())); #[allow(unreachable_code)] {\n            return Err(refuse(\n                "ontology_overlay_added_term_in_foreign_namespace",',
-    closes: "}",
+    // The fence is a `let ... else` whose refusal names the fork; weakening the prefix it strips is
+    // what lets a base-namespace term through, so the mutant edits the prefix rather than the arm.
+    find: '    let prefix = format!("{overlay_family}/term/");',
+    replace: '    let prefix = String::new();',
     target:
       "OVERLAY REFUSES: minting a term inside the BASE family's namespace is an edit of the base, which is a fork",
   },
@@ -1514,8 +1515,7 @@ async function runMutationBattery() {
       rows.push({ id: mutant.id, verdict: "STALE", detail: "anchor absent from current source" });
       continue;
     }
-    let mutated = original.replace(mutant.find, mutant.replace);
-    if (mutant.closes) mutated = mutated.replace(mutant.replace, `${mutant.replace}`);
+    const mutated = original.replace(mutant.find, mutant.replace);
     fs.writeFileSync(mutant.file, mutated);
     if (!rebuild()) {
       rows.push({ id: mutant.id, verdict: "NO_BUILD", detail: "mutant did not compile" });
