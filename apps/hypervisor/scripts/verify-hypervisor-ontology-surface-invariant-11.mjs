@@ -543,6 +543,35 @@ async function run() {
       : `cargo test exited ${upgrade.status}: ${upgradeOutput.slice(-400)}`,
   );
 
+  // THE OTHER v1 MUTATION AN OPERATOR ACTUALLY PERFORMS, bound in the same way and for the same
+  // reason: a stored v1 cannot be authored over HTTP, so WITHDRAWING one is only reachable from a
+  // focused test over the production withdrawal function. It is a separate `cargo test` rather than
+  // more assertions inside the upgrade test because the two prove different things and a reader of
+  // this gate's output should be able to see which one went red.
+  const withdrawal = spawnSync(
+    "cargo",
+    [
+      "test",
+      "--locked",
+      "-p",
+      "ioi-node",
+      "--bin",
+      "hypervisor-daemon",
+      "a_stored_v1_withdrawal_is_version_correct_and_repairs_to_the_same_bytes",
+      "--",
+      "--nocapture",
+    ],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  const withdrawalOutput = `${withdrawal.stdout ?? ""}${withdrawal.stderr ?? ""}`;
+  ok(
+    "A STORED v1 IS WITHDRAWN IN ITS OWN VERSION'S SHAPE, AND THE ROW IS REPAIRED TO THE SAME BYTES: the delete path built a valid v1 tombstone and then persisted it through an envelope hard-coded to the v2 contract, so the row on disk announced `…/ontology-surface-descriptor/v2` over a record admitted as v1 — while the documented repair wrote that same descriptor in a different shape. Two shapes for one admitted state, invisible because every read answers from the chain",
+    withdrawal.status === 0 && /test result: ok\. 1 passed; 0 failed/u.test(withdrawalOutput),
+    withdrawal.status === 0
+      ? `cargo test ok: ${(withdrawalOutput.match(/test result: ok\.[^\n]*/u) ?? ["(no summary line)"])[0]}`
+      : `cargo test exited ${withdrawal.status}: ${withdrawalOutput.slice(-400)}`,
+  );
+
   // =========================================================================== LIVE: the daemon
   await startDaemon();
 
@@ -1024,6 +1053,23 @@ async function run() {
     `row ${row ? path.relative(dataDir, row) : "(not found)"}`,
   );
   const rowBytes = row ? fs.readFileSync(row, "utf8") : "";
+  const rowAsWritten = row ? JSON.parse(rowBytes) : null;
+  // THE PROJECTION METADATA THE WRITE PATH LEFT BEHIND. This descriptor has been created and
+  // patched, so its row is the product of a SUCCESSOR write — which is exactly where the metadata
+  // used to be lost. A successor composed its row from `previous["created_at"]`, and a v2 record
+  // does not carry `created_at` at all (the envelope does), so that read was JSON null and every
+  // patched descriptor's row said it had never been created. Asserting it here fences the write
+  // half; the rebuild assertions below fence the repair half against the same bytes.
+  ok(
+    "THE ROW A SUCCESSOR WRITE LEAVES CARRIES DERIVED, NON-NULL PROJECTION METADATA, and names the contract its contents were actually admitted under — a patched descriptor's row used to claim creation time `null`, because the successor read `created_at` off a record that has no such field",
+    rowAsWritten?.schema_version === "ioi.hypervisor.odk.surface-descriptor-projection.v2" &&
+      rowAsWritten?.descriptor_contract_id === V2 &&
+      /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/u.test(rowAsWritten?.created_at ?? "") &&
+      /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/u.test(rowAsWritten?.updated_at ?? "") &&
+      rowAsWritten.created_at <= rowAsWritten.updated_at &&
+      stateBeforeIndexDamage.count > 1,
+    `created_at ${rowAsWritten?.created_at ?? "(none)"} updated_at ${rowAsWritten?.updated_at ?? "(none)"} revisions ${stateBeforeIndexDamage.count}`,
+  );
   if (row) fs.rmSync(row);
   const afterDelete = await chainState(descriptorId);
   ok(
@@ -1034,6 +1080,43 @@ async function run() {
       afterDelete.count === stateBeforeIndexDamage.count &&
       afterDelete.indexState === "absent_rebuilt_from_agentgres",
     `index ${afterDelete.indexState}`,
+  );
+  // THE REPAIR OF A DESTROYED ROW IS BYTE-IDENTICAL TO THE WRITE, metadata included. This is the
+  // case the old repair could not do at all: with the row gone there was nothing left to copy the
+  // timestamps from, so it wrote `created_at: null` / `updated_at: null` and called that a recovery.
+  // A rebuilt row differing from the written one in ANY field means the projection is not a function
+  // of the chain, whatever the record inside it says.
+  const rebuildFromAbsent = await req("POST", `${SD}/${descriptorId}/rebuild-index`, {});
+  const restoredRow = row && fs.existsSync(row) ? JSON.parse(fs.readFileSync(row, "utf8")) : null;
+  ok(
+    "REPAIRING A DESTROYED ROW RESTORES THE EXACT BYTES THE WRITE PATH PRODUCED, TIMESTAMPS INCLUDED: the projection metadata is DERIVED from the admitted history — the genesis admission and the latest one — so there is nothing left to lose when the row is. It used to be copied out of the row being repaired, which meant a destroyed row was rebuilt with `created_at: null` and a corrupted one was rebuilt with the corruption",
+    rebuildFromAbsent.status === 200 &&
+      rebuildFromAbsent.j?.index_state_before_rebuild === "absent_rebuilt_from_agentgres" &&
+      restoredRow !== null &&
+      canonicalJson(restoredRow) === canonicalJson(rowAsWritten),
+    `before ${rebuildFromAbsent.j?.index_state_before_rebuild} created_at ${restoredRow?.created_at ?? "(none)"}`,
+  );
+  // NOW CORRUPT THE METADATA ALONE, leaving the canonical record inside the envelope untouched. A
+  // comparison that only looked at the record would report this row as agreeing with the chain and
+  // leave the damage in place; the row is compared WHOLE against the row a rebuild would write.
+  if (row) {
+    const metadataOnly = JSON.parse(JSON.stringify(rowAsWritten));
+    metadataOnly.created_at = "1999-01-01T00:00:00Z";
+    metadataOnly.updated_at = "1999-01-01T00:00:00Z";
+    fs.writeFileSync(row, JSON.stringify(metadataOnly));
+  }
+  const afterMetadataCorrupt = await chainState(descriptorId);
+  const rebuildFromMetadata = await req("POST", `${SD}/${descriptorId}/rebuild-index`, {});
+  const afterMetadataRepair =
+    row && fs.existsSync(row) ? JSON.parse(fs.readFileSync(row, "utf8")) : null;
+  ok(
+    "A ROW WHOSE METADATA ALONE DRIFTED IS STALE, NOT AGREEING: `agreed_with_agentgres` means byte-identical to what a repair would write, not merely carrying the right record. The corrupted stamps are reported as a disagreement and then DISCARDED by the repair rather than carried forward",
+    afterMetadataCorrupt.indexState === "stale_rebuilt_from_agentgres" &&
+      canonicalJson(afterMetadataCorrupt.record) === canonicalJson(stateBeforeIndexDamage.record) &&
+      rebuildFromMetadata.status === 200 &&
+      canonicalJson(afterMetadataRepair) === canonicalJson(rowAsWritten) &&
+      afterMetadataRepair?.created_at !== "1999-01-01T00:00:00Z",
+    `index ${afterMetadataCorrupt.indexState} repaired created_at ${afterMetadataRepair?.created_at ?? "(none)"}`,
   );
   if (row) {
     fs.mkdirSync(path.dirname(row), { recursive: true });
@@ -1060,11 +1143,26 @@ async function run() {
       canonicalJson(afterRebuild.record) === canonicalJson(stateBeforeIndexDamage.record),
     `before ${rebuild.j?.index_state_before_rebuild} after ${afterRebuild.indexState}`,
   );
+  // AND IT IS IDEMPOTENT AND HONEST ABOUT A NO-OP. Repairing a healthy row must change nothing and
+  // must SAY it found nothing to repair, or an operator cannot tell a recovery from a no-op — which
+  // is the exact confusion the v1 silent no-op created.
+  const rebuildAgain = await req("POST", `${SD}/${descriptorId}/rebuild-index`, {});
+  const afterSecondRebuild =
+    row && fs.existsSync(row) ? JSON.parse(fs.readFileSync(row, "utf8")) : null;
+  ok(
+    "REPAIRING AN ALREADY-HEALTHY ROW IS AN IDEMPOTENT NO-OP THAT SAYS SO: three repairs from three different starting states — absent, metadata-corrupt, record-corrupt — all converge on ONE byte-string, and a fourth changes nothing",
+    rebuildAgain.status === 200 &&
+      rebuildAgain.j?.index_state_before_rebuild === "agreed_with_agentgres" &&
+      canonicalJson(afterSecondRebuild) === canonicalJson(rowAsWritten),
+    `before ${rebuildAgain.j?.index_state_before_rebuild}`,
+  );
 
   // ------------------------------------------------------------------------------------ restart
   await stopDaemon();
   await startDaemon();
   const afterRestart = await chainState(descriptorId);
+  const rowAfterRestart =
+    row && fs.existsSync(row) ? JSON.parse(fs.readFileSync(row, "utf8")) : null;
   ok(
     "DURABLE TRUTH SURVIVES A RESTART: after the process is stopped and started over the same data directory, the descriptor projects byte-identically from its own admitted history",
     afterRestart.status === 200 &&
@@ -1072,6 +1170,12 @@ async function run() {
       afterRestart.head === stateBeforeIndexDamage.head &&
       afterRestart.count === stateBeforeIndexDamage.count,
     `count ${afterRestart.count}`,
+  );
+  ok(
+    "AND SO DOES THE PROJECTION METADATA: the derived stamps are a function of the admitted history, not of the process that happened to be running, so a restart neither moves them nor makes the row disagree with the chain",
+    afterRestart.indexState === "agreed_with_agentgres" &&
+      canonicalJson(rowAfterRestart) === canonicalJson(rowAsWritten),
+    `index ${afterRestart.indexState} created_at ${rowAfterRestart?.created_at ?? "(none)"}`,
   );
 
   // --------------------------------------------------------------------------- the two consumers
@@ -1206,6 +1310,14 @@ async function run() {
       (listAfterWithdraw.j?.surface_descriptors ?? []).length === 0,
     `on disk: ${(withdrawnOnDisk?.descriptor ?? withdrawnOnDisk)?.status ?? "(absent)"}, tenant view: ${(listAfterWithdraw.j?.surface_descriptors ?? []).length}`,
   );
+  ok(
+    "A WITHDRAWAL MOVES THE LAST-UPDATE STAMP AND LEAVES THE CREATION STAMP EXACTLY WHERE IT WAS. Both are derived from the admitted history — genesis and latest — so a successor cannot rewrite when this descriptor came into existence, and it cannot lose the fact either: the withdrawal used to write BOTH as null",
+    withdrawnOnDisk?.created_at === rowAsWritten?.created_at &&
+      withdrawnOnDisk?.updated_at >= rowAsWritten?.updated_at &&
+      typeof withdrawnOnDisk?.updated_at === "string" &&
+      (await chainState(descriptorId)).indexState === "agreed_with_agentgres",
+    `created_at ${withdrawnOnDisk?.created_at ?? "(none)"} (was ${rowAsWritten?.created_at ?? "(none)"}) updated_at ${withdrawnOnDisk?.updated_at ?? "(none)"}`,
+  );
   const packageWithdrawn = await req("POST", "/v1/hypervisor/packages", {
     package_id: "intake-review-2",
     owner_ref: OWNER,
@@ -1292,7 +1404,38 @@ const MUTANTS = [
       "A CORRUPTED ROW IS NEVER AUTHORITATIVE: the answer still comes from the chain, the corruption does not appear in it, and the disagreement is reported rather than served",
     source: ROUTE_SOURCE,
     from: "    let row = load(data_dir, KIND_SD, id);\n    let index_state = match row.as_ref() {",
-    to: "    let row = load(data_dir, KIND_SD, id);\n    let record = row.as_ref().map(|row| descriptor_record_of(row).clone()).unwrap_or(record);\n    let index_state = match row.as_ref() {",
+    to: '    let row = load(data_dir, KIND_SD, id);\n    let record = row.as_ref().and_then(|row| row.get("descriptor").cloned()).unwrap_or(record);\n    let index_state = match row.as_ref() {',
+  },
+  {
+    id: "projection-metadata-copied-from-the-row-it-repairs",
+    reddens:
+      "THE ROW A SUCCESSOR WRITE LEAVES CARRIES DERIVED, NON-NULL PROJECTION METADATA, and names the contract its contents were actually admitted under — a patched descriptor's row used to claim creation time `null`, because the successor read `created_at` off a record that has no such field",
+    source: ROUTE_SOURCE,
+    // The exact historical defect: recover the creation stamp FROM the row instead of deriving it
+    // from the genesis admission. A repair then carries forward whatever the damage said, and a
+    // destroyed row rebuilds with nothing at all — which is what "deterministic" has to exclude.
+    from: "    let projected_created_at = history\n        .first()\n        .map(|entry| admitted_stamp_ms(entry.operation.recorded_at_ms))\n        .unwrap_or_default();",
+    to: '    let projected_created_at = load(data_dir, KIND_SD, id)\n        .and_then(|row| row.get("created_at").and_then(Value::as_str).map(str::to_string))\n        .unwrap_or_default();',
+  },
+  {
+    id: "index-agreement-ignores-projection-metadata",
+    reddens:
+      "A ROW WHOSE METADATA ALONE DRIFTED IS STALE, NOT AGREEING: `agreed_with_agentgres` means byte-identical to what a repair would write, not merely carrying the right record. The corrupted stamps are reported as a disagreement and then DISCARDED by the repair rather than carried forward",
+    source: ROUTE_SOURCE,
+    // Compare only the canonical record inside the row, which is what this did before: a row whose
+    // metadata was damaged then reported agreement and the damage was never repaired.
+    from: '        Some(row) if *row == expected => "agreed_with_agentgres",',
+    to: '        Some(row)\n            if row.get("descriptor").unwrap_or(row) == expected.get("descriptor").unwrap_or(&expected) =>\n        {\n            "agreed_with_agentgres"\n        }',
+  },
+  {
+    id: "v1-row-stored-under-the-v2-contract-id",
+    reddens:
+      "A STORED v1 IS WITHDRAWN IN ITS OWN VERSION'S SHAPE, AND THE ROW IS REPAIRED TO THE SAME BYTES: the delete path built a valid v1 tombstone and then persisted it through an envelope hard-coded to the v2 contract, so the row on disk announced `…/ontology-surface-descriptor/v2` over a record admitted as v1 — while the documented repair wrote that same descriptor in a different shape. Two shapes for one admitted state, invisible because every read answers from the chain",
+    source: ROUTE_SOURCE,
+    // Reinstate the hard-coded v2 envelope for a v1 record: the projection announces a contract the
+    // bytes inside it were never admitted under.
+    from: '        Some(DESCRIPTOR_V1_SCHEMA_VERSION) => {\n            let mut inlined = record.clone();\n            inlined["created_at"] = json!(created_at);\n            inlined["updated_at"] = json!(updated_at);\n            Ok(inlined)\n        }',
+    to: '        Some(DESCRIPTOR_V1_SCHEMA_VERSION) => Ok(json!({\n            "schema_version": DESCRIPTOR_PROJECTION_SCHEMA,\n            "descriptor_contract_id": DESCRIPTOR_V2_CONTRACT_ID,\n            "descriptor": record,\n            "created_at": created_at,\n            "updated_at": updated_at,\n        })),',
   },
   {
     id: "patch-allowlist-reopened-to-every-field",
