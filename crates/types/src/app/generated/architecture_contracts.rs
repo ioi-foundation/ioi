@@ -271,6 +271,10 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/ontology-action-contract/v1", "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5"),
     ("schema://ioi/foundations/objects/ontology-surface-descriptor/v1", "sha256:8555f92bfd59dffeb01228f8b759d8150962eef762dbf72d26fa002160b171ec"),
     ("schema://ioi/foundations/objects/ontology-surface-descriptor/v2", "sha256:72784f0460f17dd9a45503103fdfb32663b25c9ca3698187a2dc1f38cf6c7368"),
+    ("schema://ioi/foundations/ontology-overlay/v1", "sha256:56b57fa3e0ca896b60fc0c4c11bd66b484a12e64f94df7fea0ad4e243649b6ab"),
+    ("schema://ioi/foundations/ontology-crosswalk/v1", "sha256:a7abed71d27df9794f5d63e0ec5f6a8bcda3b24ba6e29557d24b3912a6900d99"),
+    ("schema://ioi/foundations/semantic-mapping-decision/v1", "sha256:a35f12979fc1f3f4d9b70f498464b8aff0af33b02e82999aa2d98c98a0b2c8b9"),
+    ("schema://ioi/foundations/ontology-assertion/v2", "sha256:289ac57362611c30979eca7245e6220a3325b6510429a3a54c855f3302abf869"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -102922,6 +102926,4567 @@ pub enum OntologySurfaceDescriptorV2Status {
     Revoked,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyOverlayV1 {
+    pub schema_version: OntologyOverlayV1SchemaVersion,
+    pub overlay_id: String,
+    pub overlay_family_ref: String,
+    pub ontology_family_ref: String,
+    pub ontology_record_profile: OntologyOverlayV1OntologyRecordProfile,
+    pub namespace: String,
+    pub name: String,
+    pub overlay_name: String,
+    pub owner_id: String,
+    pub governing_scope_ref: String,
+    pub admission_domain_ref: String,
+    pub version: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub predecessor_version_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub content_hash: String,
+    pub base_ontology_version_refs: Vec<String>,
+    pub base_ontology_bindings: Vec<OntologyOverlayV1BaseOntologyBindingsItem>,
+    pub base_resolved_by: String,
+    pub added_terms: Vec<OntologyOverlayV1AddedTermsItem>,
+    pub overlaid_terms: Vec<OntologyOverlayV1OverlaidTermsItem>,
+    pub invariant_refs: Vec<String>,
+    pub compatibility_profile_ref: Option<String>,
+    pub deprecation_policy_ref: Option<String>,
+    pub policy_hash: String,
+    pub valid_time: OntologyOverlayV1ValidTime,
+    pub transaction_time: OntologyOverlayV1TransactionTime,
+    pub migration: OntologyOverlayV1Migration,
+    pub admission: Option<OntologyOverlayV1Admission>,
+    pub fork_nonclaim: OntologyOverlayV1ForkNonclaim,
+    pub authority_nonclaim: OntologyOverlayV1AuthorityNonclaim,
+    pub global_canonicality_nonclaim: OntologyOverlayV1GlobalCanonicalityNonclaim,
+    pub status: OntologyOverlayV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-overlay/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-overlay/v1","title":"OntologyOverlay","description":"A DomainOntologyEnvelope carrying ontology_record_profile ontology_overlay: one immutable, owner-qualified local divergence from one or more exact base OntologyVersion revisions. Derived from docs/architecture/foundations/objects/semantic-plane.md#domainontologyenvelope. An overlay diverges WITHOUT forking: it binds each base revision by exact ref AND that owner's committed content hash, it may only add terms in its own overlay namespace, and it may relabel, narrow, annotate or hide a base term without redefining or deleting the base meaning. Identity and lifecycle are the overlay's own and are distinct from both the base version and any crosswalk. Meaning never grants authority.","x-ioi-schema-version":"ioi.ontology-overlay.v1","type":"object","additionalProperties":false,"required":["schema_version","overlay_id","overlay_family_ref","ontology_family_ref","ontology_record_profile","namespace","name","overlay_name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","base_ontology_version_refs","base_ontology_bindings","base_resolved_by","added_terms","overlaid_terms","invariant_refs","compatibility_profile_ref","deprecation_policy_ref","policy_hash","valid_time","transaction_time","migration","admission","fork_nonclaim","authority_nonclaim","global_canonicality_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-overlay.v1"},"overlay_id":{"$ref":"#/$defs/overlayRevisionRef"},"overlay_family_ref":{"$ref":"#/$defs/overlayFamilyRef"},"ontology_family_ref":{"description":"The BASE family this overlay diverges from. The overlay family ref is this ref plus an explicit /overlay/ path, so an overlay can never be mistaken for a base version and can never address another domain's lineage.","$ref":"#/$defs/ontologyFamilyRef"},"ontology_record_profile":{"const":"ontology_overlay"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"overlay_name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/overlayRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"base_ontology_version_refs":{"description":"The canonical DomainOntologyEnvelope field: the exact base revisions this overlay overlays. Every entry is an EXACT revision ref; a family ref or a mutable 'latest' pointer is unrepresentable here, because an overlay whose base can move is a fork that has not admitted it yet.","type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"$ref":"#/$defs/ontologyRevisionRef"}},"base_ontology_bindings":{"description":"The same base set carrying each base owner's committed content hash and revision ordinal, resolved through the base owner's own reader. A ref without its owner's hash names a revision without proving which bytes it named.","type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["ontology_version_ref","content_hash","revision_ordinal","record_status"],"properties":{"ontology_version_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_status":{"enum":["active","deprecated"]}}}},"base_resolved_by":{"description":"The exact owner seam that re-resolved every base revision. An overlay that names no resolver is an overlay whose base was taken on faith.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"added_terms":{"description":"Terms the overlay contributes, minted in the OVERLAY's own namespace path. An overlay never mints a term inside its base family's namespace; that would be an edit of the base, which is a fork.","type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["term_id","label","term_kind"],"properties":{"term_id":{"$ref":"#/$defs/overlayTermRef"},"label":{"type":"string","minLength":1,"maxLength":160},"term_kind":{"enum":["entity","relationship","event","action"]}}}},"overlaid_terms":{"description":"Base terms this overlay locally diverges on. The disposition set is deliberately narrower than a version migration's: an overlay may relabel, narrow, annotate or hide, and it may NOT remove, widen or redefine, because those change what the base means rather than how this domain reads it.","type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["base_term_id","overlay_disposition","overlay_label"],"properties":{"base_term_id":{"$ref":"#/$defs/termRef"},"overlay_disposition":{"enum":["relabelled","narrowed","annotated","hidden"]},"overlay_label":{"type":"string","minLength":1,"maxLength":160}}}},"invariant_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^invariant://[^\\s]{1,240}$"}},"compatibility_profile_ref":{"oneOf":[{"type":"string","pattern":"^compatibility://[^\\s]{1,240}$"},{"type":"null"}]},"deprecation_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},{"type":"null"}]},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"description":"Admission time, deliberately outside the content commitment. When a divergence was held true is content; when it was recorded is admission.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/overlayRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["overlay_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"overlay_id":{"$ref":"#/$defs/overlayRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-overlays"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"fork_nonclaim":{"const":"ontology_overlay_does_not_fork_or_redefine_its_base"},"authority_nonclaim":{"const":"ontology_overlay_grants_no_authority"},"global_canonicality_nonclaim":{"const":"ontology_overlay_asserts_no_globally_canonical_ontology"},"status":{"enum":["active","deprecated"]}},"allOf":[{"description":"An overlay that diverges in no way is not an overlay. At least one of the two divergence sets carries an entry.","anyOf":[{"properties":{"added_terms":{"type":"array","minItems":1}}},{"properties":{"overlaid_terms":{"type":"array","minItems":1}}}]},{"description":"The first revision of an overlay lineage migrates from nothing and names no predecessor.","if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"description":"A successor names the exact predecessor it advanced from, by ref and by that predecessor's committed hash.","if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"description":"Every projected overlay revision is admitted; there is no draft overlay on the chain, because an unadmitted overlay is a request rather than a record.","properties":{"admission":{"type":"object"}}},{"description":"An active revision's transaction interval is still open; a deprecated one has been closed by its successor.","if":{"properties":{"status":{"const":"active"}},"required":["status"]},"then":{"properties":{"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"null"}}}}}},{"if":{"properties":{"status":{"const":"deprecated"}},"required":["status"]},"then":{"properties":{"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"string"}}}}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"overlayFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}$"},"overlayRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"overlayTermRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OntologyOverlayV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overlay_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"overlay_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overlay_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overlay_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"overlay_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overlay_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_record_profile:
+                serde_json::from_value::<OntologyOverlayV1OntologyRecordProfile>(
+                    object.remove(r#"ontology_record_profile"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ontology_record_profile"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overlay_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"overlay_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overlay_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_ontology_version_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"base_ontology_version_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"base_ontology_version_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_ontology_bindings: serde_json::from_value::<
+                Vec<OntologyOverlayV1BaseOntologyBindingsItem>,
+            >(
+                object
+                    .remove(r#"base_ontology_bindings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"base_ontology_bindings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_resolved_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"base_resolved_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"base_resolved_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            added_terms: serde_json::from_value::<Vec<OntologyOverlayV1AddedTermsItem>>(
+                object
+                    .remove(r#"added_terms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"added_terms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overlaid_terms: serde_json::from_value::<Vec<OntologyOverlayV1OverlaidTermsItem>>(
+                object
+                    .remove(r#"overlaid_terms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overlaid_terms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invariant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"invariant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invariant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"compatibility_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compatibility_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deprecation_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"deprecation_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deprecation_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_time: serde_json::from_value::<OntologyOverlayV1ValidTime>(
+                object
+                    .remove(r#"valid_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transaction_time: serde_json::from_value::<OntologyOverlayV1TransactionTime>(
+                object
+                    .remove(r#"transaction_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transaction_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<OntologyOverlayV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<Option<OntologyOverlayV1Admission>>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fork_nonclaim: serde_json::from_value::<OntologyOverlayV1ForkNonclaim>(
+                object
+                    .remove(r#"fork_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fork_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<OntologyOverlayV1AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            global_canonicality_nonclaim: serde_json::from_value::<
+                OntologyOverlayV1GlobalCanonicalityNonclaim,
+            >(
+                object
+                    .remove(r#"global_canonicality_nonclaim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"global_canonicality_nonclaim"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OntologyOverlayV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1SchemaVersion {
+    #[serde(rename = r#"ioi.ontology-overlay.v1"#)]
+    IoiOntologyOverlayV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1OntologyRecordProfile {
+    #[serde(rename = r#"ontology_overlay"#)]
+    OntologyOverlay,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyOverlayV1BaseOntologyBindingsItem {
+    pub ontology_version_ref: String,
+    pub content_hash: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub record_status: OntologyOverlayV1BaseOntologyBindingsItemRecordStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1BaseOntologyBindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-overlay/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_version_ref","content_hash","revision_ordinal","record_status"],"properties":{"ontology_version_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_status":{"enum":["active","deprecated"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_version_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_status: serde_json::from_value::<
+                OntologyOverlayV1BaseOntologyBindingsItemRecordStatus,
+            >(
+                object
+                    .remove(r#"record_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1BaseOntologyBindingsItemRecordStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyOverlayV1AddedTermsItem {
+    pub term_id: String,
+    pub label: String,
+    pub term_kind: OntologyOverlayV1AddedTermsItemTermKind,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1AddedTermsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-overlay/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["term_id","label","term_kind"],"properties":{"term_id":{"$ref":"#/$defs/overlayTermRef"},"label":{"type":"string","minLength":1,"maxLength":160},"term_kind":{"enum":["entity","relationship","event","action"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            term_kind: serde_json::from_value::<OntologyOverlayV1AddedTermsItemTermKind>(
+                object
+                    .remove(r#"term_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"term_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1AddedTermsItemTermKind {
+    #[serde(rename = r#"entity"#)]
+    Entity,
+    #[serde(rename = r#"relationship"#)]
+    Relationship,
+    #[serde(rename = r#"event"#)]
+    Event,
+    #[serde(rename = r#"action"#)]
+    Action,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyOverlayV1OverlaidTermsItem {
+    pub base_term_id: String,
+    pub overlay_disposition: OntologyOverlayV1OverlaidTermsItemOverlayDisposition,
+    pub overlay_label: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1OverlaidTermsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-overlay/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["base_term_id","overlay_disposition","overlay_label"],"properties":{"base_term_id":{"$ref":"#/$defs/termRef"},"overlay_disposition":{"enum":["relabelled","narrowed","annotated","hidden"]},"overlay_label":{"type":"string","minLength":1,"maxLength":160}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            base_term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"base_term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"base_term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overlay_disposition: serde_json::from_value::<
+                OntologyOverlayV1OverlaidTermsItemOverlayDisposition,
+            >(
+                object
+                    .remove(r#"overlay_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overlay_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            overlay_label: serde_json::from_value::<String>(
+                object
+                    .remove(r#"overlay_label"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overlay_label"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1OverlaidTermsItemOverlayDisposition {
+    #[serde(rename = r#"relabelled"#)]
+    Relabelled,
+    #[serde(rename = r#"narrowed"#)]
+    Narrowed,
+    #[serde(rename = r#"annotated"#)]
+    Annotated,
+    #[serde(rename = r#"hidden"#)]
+    Hidden,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyOverlayV1ValidTime {
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1ValidTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-overlay/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            starts_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"starts_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"starts_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ends_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ends_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ends_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyOverlayV1TransactionTime {
+    pub recorded_at: String,
+    pub superseded_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1TransactionTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-overlay/v1"#,
+            r##"{"description":"Admission time, deliberately outside the content commitment. When a divergence was held true is content; when it was recorded is admission.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recorded_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recorded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            superseded_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"superseded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"superseded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyOverlayV1Migration {
+    pub from_version_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub from_revision_ordinal: ArchitectureContractInteger,
+    pub compatibility: OntologyOverlayV1MigrationCompatibility,
+    pub reinterprets_predecessor: OntologyOverlayV1MigrationReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-overlay/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/overlayRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"from_revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<OntologyOverlayV1MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                OntologyOverlayV1MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"additive"#)]
+    Additive,
+    #[serde(rename = r#"breaking"#)]
+    Breaking,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OntologyOverlayV1MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for OntologyOverlayV1MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyOverlayV1Admission {
+    pub overlay_id: String,
+    pub content_hash: String,
+    pub owner_namespace: OntologyOverlayV1AdmissionOwnerNamespace,
+    pub stream_tail: String,
+    pub agentgres_operation_ref: String,
+    pub agentgres_receipt_ref: String,
+    pub admission_seq: ArchitectureContractInteger,
+    pub admission_head: String,
+    pub admission_root: String,
+    pub expected_predecessor_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyOverlayV1Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-overlay/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["overlay_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"overlay_id":{"$ref":"#/$defs/overlayRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-overlays"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            overlay_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"overlay_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"overlay_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_namespace: serde_json::from_value::<OntologyOverlayV1AdmissionOwnerNamespace>(
+                object
+                    .remove(r#"owner_namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stream_tail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stream_tail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stream_tail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_seq: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"admission_seq"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_seq"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_predecessor_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_predecessor_head"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_predecessor_head"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1AdmissionOwnerNamespace {
+    #[serde(rename = r#"hypervisor-ontology-overlays"#)]
+    HypervisorOntologyOverlays,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1ForkNonclaim {
+    #[serde(rename = r#"ontology_overlay_does_not_fork_or_redefine_its_base"#)]
+    OntologyOverlayDoesNotForkOrRedefineItsBase,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1AuthorityNonclaim {
+    #[serde(rename = r#"ontology_overlay_grants_no_authority"#)]
+    OntologyOverlayGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1GlobalCanonicalityNonclaim {
+    #[serde(rename = r#"ontology_overlay_asserts_no_globally_canonical_ontology"#)]
+    OntologyOverlayAssertsNoGloballyCanonicalOntology,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyOverlayV1Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1 {
+    pub schema_version: OntologyCrosswalkV1SchemaVersion,
+    pub ontology_mapping_id: String,
+    pub mapping_family_ref: String,
+    pub mapping_record_profile: OntologyCrosswalkV1MappingRecordProfile,
+    pub namespace: String,
+    pub name: String,
+    pub owner_id: String,
+    pub governing_scope_ref: String,
+    pub admission_domain_ref: String,
+    pub version: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub predecessor_version_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub content_hash: String,
+    pub source_ontology_ref: String,
+    pub target_ontology_ref: String,
+    pub source_and_target_version_refs: Vec<String>,
+    pub source_binding: OntologyCrosswalkV1SourceBinding,
+    pub target_binding: OntologyCrosswalkV1TargetBinding,
+    pub endpoint_resolved_by: String,
+    pub domain_relationship: OntologyCrosswalkV1DomainRelationship,
+    pub term_mappings: Vec<OntologyCrosswalkV1TermMappingsItem>,
+    pub ambiguous_term_refs: Vec<String>,
+    pub compatibility_result: OntologyCrosswalkV1CompatibilityResult,
+    pub mapping_risk: OntologyCrosswalkV1MappingRisk,
+    pub verifier_obligation_refs: Vec<String>,
+    pub mapped_object_relationship_event_and_action_refs: Vec<String>,
+    pub mapping_profile_ref: Option<String>,
+    pub deprecation_and_migration_policy_ref: Option<String>,
+    pub policy_hash: String,
+    pub valid_time: OntologyCrosswalkV1ValidTime,
+    pub transaction_time: OntologyCrosswalkV1TransactionTime,
+    pub migration: OntologyCrosswalkV1Migration,
+    pub admission: Option<OntologyCrosswalkV1Admission>,
+    pub challenge_state: OntologyCrosswalkV1ChallengeState,
+    pub cross_domain_application_nonclaim: OntologyCrosswalkV1CrossDomainApplicationNonclaim,
+    pub correctness_nonclaim: OntologyCrosswalkV1CorrectnessNonclaim,
+    pub authority_nonclaim: OntologyCrosswalkV1AuthorityNonclaim,
+    pub global_canonicality_nonclaim: OntologyCrosswalkV1GlobalCanonicalityNonclaim,
+    pub status: OntologyCrosswalkV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-crosswalk/v1","title":"OntologyCrosswalk","description":"An OntologyMappingEnvelope carrying mapping_record_profile ontology_crosswalk: one immutable, owner-qualified DECLARATION of how one exact source revision's terms relate to one exact target revision's terms, including relation, loss, ambiguity, scope and verifier obligations. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. A crosswalk is a declaration, never an application: declaring it grants nothing, and a cross-domain crosswalk can never reach the active status, because activation is application and application waits on accepted terms (INV-30). Its identity and lifecycle are its own and are distinct from both endpoint's version lineage and from any SemanticMappingDecision that applies it. This build's admission path projects exactly four of the canonical six statuses -- active, challenged, deprecated and revoked for in-domain lineages, and validated in place of active for cross-domain ones; proposed is retained for wire fidelity with canon and is not minted here.","x-ioi-schema-version":"ioi.ontology-crosswalk.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_mapping_id","mapping_family_ref","mapping_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","source_ontology_ref","target_ontology_ref","source_and_target_version_refs","source_binding","target_binding","endpoint_resolved_by","domain_relationship","term_mappings","ambiguous_term_refs","compatibility_result","mapping_risk","verifier_obligation_refs","mapped_object_relationship_event_and_action_refs","mapping_profile_ref","deprecation_and_migration_policy_ref","policy_hash","valid_time","transaction_time","migration","admission","challenge_state","cross_domain_application_nonclaim","correctness_nonclaim","authority_nonclaim","global_canonicality_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-crosswalk.v1"},"ontology_mapping_id":{"$ref":"#/$defs/crosswalkRevisionRef"},"mapping_family_ref":{"$ref":"#/$defs/crosswalkFamilyRef"},"mapping_record_profile":{"const":"ontology_crosswalk"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/crosswalkRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"source_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"target_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"source_and_target_version_refs":{"description":"The canonical OntologyMappingEnvelope field: exactly the two EXACT endpoint revisions, source first. A family ref or a mutable 'latest' pointer is unrepresentable, because a map whose ends can move maps nothing in particular.","type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/endpointRevisionRef"}},"source_binding":{"$ref":"#/$defs/endpointBinding"},"target_binding":{"$ref":"#/$defs/endpointBinding"},"endpoint_resolved_by":{"description":"The exact owner seam that re-resolved both endpoints. A crosswalk that names no resolver is a crosswalk whose ends were taken on faith.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"domain_relationship":{"description":"Server-derived from the two endpoints' owner-qualified namespaces, never asserted by the caller. It is the discriminator the terms-acceptance fence keys on.","enum":["in_domain","cross_domain"]},"term_mappings":{"description":"Silent field equivalence is forbidden: every declared correspondence states its relation AND its loss, and an unmapped source term is recorded as unmapped rather than omitted.","type":"array","minItems":1,"maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","target_term_id","relation","loss"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"target_term_id":{"oneOf":[{"$ref":"#/$defs/anyTermRef"},{"type":"null"}]},"relation":{"enum":["exact","broader","narrower","related","unmapped"]},"loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]}}}},"ambiguous_term_refs":{"description":"Source terms this crosswalk maps more than one way. They are named here so a later application must dispose of each one explicitly; an ambiguity that is not named cannot be adjudicated, and an ambiguity that is named but not disposed of refuses.","type":"array","maxItems":512,"uniqueItems":true,"items":{"$ref":"#/$defs/anyTermRef"}},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"mapping_risk":{"description":"The declared mapping-risk posture. It is content: it is inside the content commitment, so a crosswalk cannot have its risk quietly relabelled after admission.","type":"object","additionalProperties":false,"required":["risk_class","declared_loss","ambiguous_term_count","unmapped_source_term_count","residual_risk_refs"],"properties":{"risk_class":{"enum":["low","moderate","high","unacceptable"]},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"ambiguous_term_count":{"type":"integer","minimum":0,"maximum":512},"unmapped_source_term_count":{"type":"integer","minimum":0,"maximum":512},"residual_risk_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|evidence)://[^\\s]{1,240}$"}}}},"verifier_obligation_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|test|schema|evidence)://[^\\s]{1,240}$"}},"mapped_object_relationship_event_and_action_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:object-model|ontology-action|schema)://[^\\s]{1,240}$"}},"mapping_profile_ref":{"oneOf":[{"type":"string","pattern":"^(?:artifact|mapping)://[^\\s]{1,240}$"},{"type":"null"}]},"deprecation_and_migration_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},{"type":"null"}]},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/crosswalkRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"$ref":"#/$defs/mappingAdmission"},"challenge_state":{"description":"A fact about the chain, deliberately OUTSIDE the content commitment: a challenge changes a mapping's STANDING without editing the bytes it challenged. Every member is server-derived from admitted challenge and resolution operations on this family's own stream.","$ref":"#/$defs/challengeState"},"cross_domain_application_nonclaim":{"const":"ontology_crosswalk_declaration_is_not_cross_domain_application"},"correctness_nonclaim":{"const":"ontology_crosswalk_admission_is_not_a_correctness_claim"},"authority_nonclaim":{"const":"ontology_crosswalk_grants_no_authority"},"global_canonicality_nonclaim":{"const":"ontology_crosswalk_asserts_no_globally_canonical_ontology"},"status":{"enum":["proposed","validated","active","challenged","deprecated","revoked"]}},"allOf":[{"description":"INV-30 at the schema layer. A cross-domain crosswalk may be declared, superseded, challenged, deprecated and revoked, and it may NOT be active: activation is application, and cross-domain application binds only under accepted terms.","if":{"properties":{"domain_relationship":{"const":"cross_domain"}},"required":["domain_relationship"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"A challenged mapping carries at least one open challenge, and an unchallenged one carries none. Standing and evidence move together or the standing is a label.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"challenged"}}}},{"description":"An upheld challenge revokes the mapping it upheld, and its resolution is receipted. A standing that changed with no receipt is a verdict nobody stands behind.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"revoked"}}}},{"description":"A rejected challenge is retained, not erased: the resolution and its receipt stay addressable while the mapping returns to standing.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"enum":["validated","active"]}}}},{"description":"An unchallenged mapping has no challenge refs of either kind and no resolution receipts.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"description":"An incompatible pair is not a usable map. It may be recorded so the incompatibility itself is addressable, and it may never be active.","if":{"properties":{"compatibility_result":{"const":"incompatible"}},"required":["compatibility_result"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"An unacceptable declared risk cannot carry an active mapping either, for the same reason.","if":{"properties":{"mapping_risk":{"type":"object","properties":{"risk_class":{"const":"unacceptable"}},"required":["risk_class"]}},"required":["mapping_risk"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"properties":{"admission":{"type":"object"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"crosswalkFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"},"crosswalkRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"},"endpointFamilyRef":{"description":"Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.","type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"},"endpointRevisionRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"},"anyTermRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"},"endpointBinding":{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}},"challengeState":{"type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"description":"The exact registered challenge contract this family admits. Pinned to VerifierChallengeEnvelope v2, whose challenged_ref widening is what makes an ontology-mapping subject nameable at all; a v1 envelope cannot address this family and is refused rather than downgraded.","const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"}}},"mappingAdmission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_mapping_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_mapping_id":{"type":"string","pattern":"^ontology-mapping://[^\\s]{1,240}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-mappings"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OntologyCrosswalkV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_mapping_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_mapping_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_mapping_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mapping_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mapping_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_record_profile:
+                serde_json::from_value::<OntologyCrosswalkV1MappingRecordProfile>(
+                    object.remove(r#"mapping_record_profile"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mapping_record_profile"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_and_target_version_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_and_target_version_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_and_target_version_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_binding: serde_json::from_value::<OntologyCrosswalkV1SourceBinding>(
+                object
+                    .remove(r#"source_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_binding: serde_json::from_value::<OntologyCrosswalkV1TargetBinding>(
+                object
+                    .remove(r#"target_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            endpoint_resolved_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"endpoint_resolved_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"endpoint_resolved_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_relationship: serde_json::from_value::<OntologyCrosswalkV1DomainRelationship>(
+                object
+                    .remove(r#"domain_relationship"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_relationship"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            term_mappings: serde_json::from_value::<Vec<OntologyCrosswalkV1TermMappingsItem>>(
+                object
+                    .remove(r#"term_mappings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"term_mappings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ambiguous_term_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ambiguous_term_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ambiguous_term_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_result: serde_json::from_value::<OntologyCrosswalkV1CompatibilityResult>(
+                object
+                    .remove(r#"compatibility_result"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility_result"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_risk: serde_json::from_value::<OntologyCrosswalkV1MappingRisk>(
+                object
+                    .remove(r#"mapping_risk"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mapping_risk"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_obligation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"verifier_obligation_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"verifier_obligation_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapped_object_relationship_event_and_action_refs:
+                serde_json::from_value::<Vec<String>>(
+                    object
+                        .remove(r#"mapped_object_relationship_event_and_action_refs"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(
+                                r#"mapped_object_relationship_event_and_action_refs"#,
+                            )
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            mapping_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"mapping_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mapping_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deprecation_and_migration_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"deprecation_and_migration_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"deprecation_and_migration_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_time: serde_json::from_value::<OntologyCrosswalkV1ValidTime>(
+                object
+                    .remove(r#"valid_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transaction_time: serde_json::from_value::<OntologyCrosswalkV1TransactionTime>(
+                object
+                    .remove(r#"transaction_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transaction_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<OntologyCrosswalkV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<Option<OntologyCrosswalkV1Admission>>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_state: serde_json::from_value::<OntologyCrosswalkV1ChallengeState>(
+                object
+                    .remove(r#"challenge_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cross_domain_application_nonclaim: serde_json::from_value::<
+                OntologyCrosswalkV1CrossDomainApplicationNonclaim,
+            >(
+                object
+                    .remove(r#"cross_domain_application_nonclaim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"cross_domain_application_nonclaim"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            correctness_nonclaim: serde_json::from_value::<OntologyCrosswalkV1CorrectnessNonclaim>(
+                object
+                    .remove(r#"correctness_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"correctness_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<OntologyCrosswalkV1AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            global_canonicality_nonclaim: serde_json::from_value::<
+                OntologyCrosswalkV1GlobalCanonicalityNonclaim,
+            >(
+                object
+                    .remove(r#"global_canonicality_nonclaim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"global_canonicality_nonclaim"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OntologyCrosswalkV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1SchemaVersion {
+    #[serde(rename = r#"ioi.ontology-crosswalk.v1"#)]
+    IoiOntologyCrosswalkV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1MappingRecordProfile {
+    #[serde(rename = r#"ontology_crosswalk"#)]
+    OntologyCrosswalk,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1SourceBinding {
+    pub ontology_ref: String,
+    pub ontology_version_ref: String,
+    pub content_hash: String,
+    pub namespace: String,
+    pub name: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub record_profile: OntologyCrosswalkV1SourceBindingRecordProfile,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1SourceBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_version_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_profile:
+                serde_json::from_value::<OntologyCrosswalkV1SourceBindingRecordProfile>(
+                    object
+                        .remove(r#"record_profile"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"record_profile"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1SourceBindingRecordProfile {
+    #[serde(rename = r#"ontology_version"#)]
+    OntologyVersion,
+    #[serde(rename = r#"ontology_overlay"#)]
+    OntologyOverlay,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1TargetBinding {
+    pub ontology_ref: String,
+    pub ontology_version_ref: String,
+    pub content_hash: String,
+    pub namespace: String,
+    pub name: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub record_profile: OntologyCrosswalkV1TargetBindingRecordProfile,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1TargetBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_version_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_profile:
+                serde_json::from_value::<OntologyCrosswalkV1TargetBindingRecordProfile>(
+                    object
+                        .remove(r#"record_profile"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"record_profile"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1TargetBindingRecordProfile {
+    #[serde(rename = r#"ontology_version"#)]
+    OntologyVersion,
+    #[serde(rename = r#"ontology_overlay"#)]
+    OntologyOverlay,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1DomainRelationship {
+    #[serde(rename = r#"in_domain"#)]
+    InDomain,
+    #[serde(rename = r#"cross_domain"#)]
+    CrossDomain,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1TermMappingsItem {
+    pub source_term_id: String,
+    pub target_term_id: Option<String>,
+    pub relation: OntologyCrosswalkV1TermMappingsItemRelation,
+    pub loss: OntologyCrosswalkV1TermMappingsItemLoss,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1TermMappingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_term_id","target_term_id","relation","loss"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"target_term_id":{"oneOf":[{"$ref":"#/$defs/anyTermRef"},{"type":"null"}]},"relation":{"enum":["exact","broader","narrower","related","unmapped"]},"loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_term_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"target_term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            relation: serde_json::from_value::<OntologyCrosswalkV1TermMappingsItemRelation>(
+                object
+                    .remove(r#"relation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"relation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            loss: serde_json::from_value::<OntologyCrosswalkV1TermMappingsItemLoss>(
+                object
+                    .remove(r#"loss"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"loss"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1TermMappingsItemRelation {
+    #[serde(rename = r#"exact"#)]
+    Exact,
+    #[serde(rename = r#"broader"#)]
+    Broader,
+    #[serde(rename = r#"narrower"#)]
+    Narrower,
+    #[serde(rename = r#"related"#)]
+    Related,
+    #[serde(rename = r#"unmapped"#)]
+    Unmapped,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1TermMappingsItemLoss {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"lossy_precision"#)]
+    LossyPrecision,
+    #[serde(rename = r#"lossy_scope"#)]
+    LossyScope,
+    #[serde(rename = r#"lossy_units"#)]
+    LossyUnits,
+    #[serde(rename = r#"unmapped"#)]
+    Unmapped,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1CompatibilityResult {
+    #[serde(rename = r#"exact"#)]
+    Exact,
+    #[serde(rename = r#"compatible"#)]
+    Compatible,
+    #[serde(rename = r#"lossy"#)]
+    Lossy,
+    #[serde(rename = r#"requires_adapter"#)]
+    RequiresAdapter,
+    #[serde(rename = r#"incompatible"#)]
+    Incompatible,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1MappingRisk {
+    pub risk_class: OntologyCrosswalkV1MappingRiskRiskClass,
+    pub declared_loss: OntologyCrosswalkV1MappingRiskDeclaredLoss,
+    pub ambiguous_term_count: ArchitectureContractInteger,
+    pub unmapped_source_term_count: ArchitectureContractInteger,
+    pub residual_risk_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1MappingRisk {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r#"{"description":"The declared mapping-risk posture. It is content: it is inside the content commitment, so a crosswalk cannot have its risk quietly relabelled after admission.","type":"object","additionalProperties":false,"required":["risk_class","declared_loss","ambiguous_term_count","unmapped_source_term_count","residual_risk_refs"],"properties":{"risk_class":{"enum":["low","moderate","high","unacceptable"]},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"ambiguous_term_count":{"type":"integer","minimum":0,"maximum":512},"unmapped_source_term_count":{"type":"integer","minimum":0,"maximum":512},"residual_risk_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|evidence)://[^\\s]{1,240}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            risk_class: serde_json::from_value::<OntologyCrosswalkV1MappingRiskRiskClass>(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_loss: serde_json::from_value::<OntologyCrosswalkV1MappingRiskDeclaredLoss>(
+                object
+                    .remove(r#"declared_loss"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_loss"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ambiguous_term_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"ambiguous_term_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ambiguous_term_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unmapped_source_term_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"unmapped_source_term_count"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"unmapped_source_term_count"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            residual_risk_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"residual_risk_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"residual_risk_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1MappingRiskRiskClass {
+    #[serde(rename = r#"low"#)]
+    Low,
+    #[serde(rename = r#"moderate"#)]
+    Moderate,
+    #[serde(rename = r#"high"#)]
+    High,
+    #[serde(rename = r#"unacceptable"#)]
+    Unacceptable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1MappingRiskDeclaredLoss {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"lossy_precision"#)]
+    LossyPrecision,
+    #[serde(rename = r#"lossy_scope"#)]
+    LossyScope,
+    #[serde(rename = r#"lossy_units"#)]
+    LossyUnits,
+    #[serde(rename = r#"unmapped"#)]
+    Unmapped,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1ValidTime {
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1ValidTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            starts_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"starts_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"starts_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ends_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ends_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ends_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1TransactionTime {
+    pub recorded_at: String,
+    pub superseded_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1TransactionTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recorded_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recorded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            superseded_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"superseded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"superseded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1Migration {
+    pub from_version_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub from_revision_ordinal: ArchitectureContractInteger,
+    pub compatibility: OntologyCrosswalkV1MigrationCompatibility,
+    pub reinterprets_predecessor: OntologyCrosswalkV1MigrationReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/crosswalkRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"from_revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<OntologyCrosswalkV1MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                OntologyCrosswalkV1MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"additive"#)]
+    Additive,
+    #[serde(rename = r#"breaking"#)]
+    Breaking,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OntologyCrosswalkV1MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for OntologyCrosswalkV1MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1Admission {
+    pub ontology_mapping_id: String,
+    pub content_hash: String,
+    pub owner_namespace: OntologyCrosswalkV1AdmissionOwnerNamespace,
+    pub stream_tail: String,
+    pub agentgres_operation_ref: String,
+    pub agentgres_receipt_ref: String,
+    pub admission_seq: ArchitectureContractInteger,
+    pub admission_head: String,
+    pub admission_root: String,
+    pub expected_predecessor_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_mapping_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_mapping_id":{"type":"string","pattern":"^ontology-mapping://[^\\s]{1,240}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-mappings"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_mapping_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_mapping_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_mapping_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_namespace: serde_json::from_value::<OntologyCrosswalkV1AdmissionOwnerNamespace>(
+                object
+                    .remove(r#"owner_namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stream_tail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stream_tail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stream_tail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_seq: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"admission_seq"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_seq"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_predecessor_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_predecessor_head"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_predecessor_head"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1AdmissionOwnerNamespace {
+    #[serde(rename = r#"hypervisor-ontology-mappings"#)]
+    HypervisorOntologyMappings,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyCrosswalkV1ChallengeState {
+    pub standing: OntologyCrosswalkV1ChallengeStateStanding,
+    pub open_challenge_refs: Vec<String>,
+    pub resolved_challenge_refs: Vec<String>,
+    pub resolution_receipt_refs: Vec<String>,
+    pub challenge_contract_ref: OntologyCrosswalkV1ChallengeStateChallengeContractRef,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyCrosswalkV1ChallengeState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"description":"The exact registered challenge contract this family admits. Pinned to VerifierChallengeEnvelope v2, whose challenged_ref widening is what makes an ontology-mapping subject nameable at all; a v1 envelope cannot address this family and is refused rather than downgraded.","const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            standing: serde_json::from_value::<OntologyCrosswalkV1ChallengeStateStanding>(
+                object
+                    .remove(r#"standing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"standing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            open_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"open_challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"open_challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolved_challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolution_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolution_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolution_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_contract_ref: serde_json::from_value::<
+                OntologyCrosswalkV1ChallengeStateChallengeContractRef,
+            >(
+                object
+                    .remove(r#"challenge_contract_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_contract_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1ChallengeStateStanding {
+    #[serde(rename = r#"unchallenged"#)]
+    Unchallenged,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"upheld"#)]
+    Upheld,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1ChallengeStateChallengeContractRef {
+    #[serde(rename = r#"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"#)]
+    SchemaIoiFoundationsObjectsVerifierChallengeEnvelopeV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1CrossDomainApplicationNonclaim {
+    #[serde(rename = r#"ontology_crosswalk_declaration_is_not_cross_domain_application"#)]
+    OntologyCrosswalkDeclarationIsNotCrossDomainApplication,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1CorrectnessNonclaim {
+    #[serde(rename = r#"ontology_crosswalk_admission_is_not_a_correctness_claim"#)]
+    OntologyCrosswalkAdmissionIsNotACorrectnessClaim,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1AuthorityNonclaim {
+    #[serde(rename = r#"ontology_crosswalk_grants_no_authority"#)]
+    OntologyCrosswalkGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1GlobalCanonicalityNonclaim {
+    #[serde(rename = r#"ontology_crosswalk_asserts_no_globally_canonical_ontology"#)]
+    OntologyCrosswalkAssertsNoGloballyCanonicalOntology,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyCrosswalkV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"validated"#)]
+    Validated,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1 {
+    pub schema_version: SemanticMappingDecisionV1SchemaVersion,
+    pub ontology_mapping_id: String,
+    pub mapping_family_ref: String,
+    pub mapping_record_profile: SemanticMappingDecisionV1MappingRecordProfile,
+    pub namespace: String,
+    pub name: String,
+    pub owner_id: String,
+    pub governing_scope_ref: String,
+    pub admission_domain_ref: String,
+    pub version: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub predecessor_version_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub content_hash: String,
+    pub applied_crosswalk_ref: String,
+    pub applied_crosswalk_binding: SemanticMappingDecisionV1AppliedCrosswalkBinding,
+    pub crosswalk_resolved_by: String,
+    pub source_ontology_ref: String,
+    pub target_ontology_ref: String,
+    pub source_and_target_version_refs: Vec<String>,
+    pub source_binding: SemanticMappingDecisionV1SourceBinding,
+    pub target_binding: SemanticMappingDecisionV1TargetBinding,
+    pub domain_relationship: SemanticMappingDecisionV1DomainRelationship,
+    pub application_target_refs: Vec<String>,
+    pub decided_by_ref: String,
+    pub decision_timestamp: String,
+    pub reviewer_lineage: Vec<SemanticMappingDecisionV1ReviewerLineageItem>,
+    pub mapping_risk_acceptance: SemanticMappingDecisionV1MappingRiskAcceptance,
+    pub ambiguity_dispositions: Vec<SemanticMappingDecisionV1AmbiguityDispositionsItem>,
+    pub unmapped_term_dispositions: Vec<SemanticMappingDecisionV1UnmappedTermDispositionsItem>,
+    pub terms_acceptance: Option<SemanticMappingDecisionV1TermsAcceptance>,
+    pub compatibility_result: SemanticMappingDecisionV1CompatibilityResult,
+    pub policy_bound_view_refs: Vec<String>,
+    pub validation_and_challenge_refs: Vec<String>,
+    pub policy_hash: String,
+    pub valid_time: SemanticMappingDecisionV1ValidTime,
+    pub transaction_time: SemanticMappingDecisionV1TransactionTime,
+    pub migration: SemanticMappingDecisionV1Migration,
+    pub admission: Option<SemanticMappingDecisionV1Admission>,
+    pub mapping_decision_receipt_ref: Option<String>,
+    pub challenge_state: SemanticMappingDecisionV1ChallengeState,
+    pub correctness_nonclaim: SemanticMappingDecisionV1CorrectnessNonclaim,
+    pub authority_nonclaim: SemanticMappingDecisionV1AuthorityNonclaim,
+    pub legal_conformity_claim: SemanticMappingDecisionV1LegalConformityClaim,
+    pub global_canonicality_nonclaim: SemanticMappingDecisionV1GlobalCanonicalityNonclaim,
+    pub status: SemanticMappingDecisionV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/semantic-mapping-decision/v1","title":"SemanticMappingDecision","description":"An OntologyMappingEnvelope carrying mapping_record_profile semantic_mapping_decision: one immutable, receipted, challengeable APPLICATION of one exact OntologyCrosswalk revision to one concrete target. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. It is a decision object, not a config row: it binds the exact crosswalk revision and hash, both endpoint revisions and hashes carried verbatim from that crosswalk, named reviewer lineage with per-reviewer decisions, an explicit acceptance of the declared mapping risk, and an explicit disposition for every ambiguous and every unmapped term the crosswalk named. Deciding is not being right and is not being permitted: the decision asserts no correctness, no legal conformity and no authority, and a cross-domain decision binds only under accepted terms (INV-30).","x-ioi-schema-version":"ioi.semantic-mapping-decision.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_mapping_id","mapping_family_ref","mapping_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","applied_crosswalk_ref","applied_crosswalk_binding","crosswalk_resolved_by","source_ontology_ref","target_ontology_ref","source_and_target_version_refs","source_binding","target_binding","domain_relationship","application_target_refs","decided_by_ref","decision_timestamp","reviewer_lineage","mapping_risk_acceptance","ambiguity_dispositions","unmapped_term_dispositions","terms_acceptance","compatibility_result","policy_bound_view_refs","validation_and_challenge_refs","policy_hash","valid_time","transaction_time","migration","admission","mapping_decision_receipt_ref","challenge_state","correctness_nonclaim","authority_nonclaim","legal_conformity_claim","global_canonicality_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.semantic-mapping-decision.v1"},"ontology_mapping_id":{"$ref":"#/$defs/decisionRevisionRef"},"mapping_family_ref":{"$ref":"#/$defs/decisionFamilyRef"},"mapping_record_profile":{"const":"semantic_mapping_decision"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"applied_crosswalk_ref":{"description":"The canonical OntologyMappingEnvelope field, pinned to an EXACT crosswalk revision. A decision that applied 'the crosswalk' rather than one revision of it cannot say afterwards what it applied.","$ref":"#/$defs/crosswalkRevisionRef"},"applied_crosswalk_binding":{"type":"object","additionalProperties":false,"required":["mapping_family_ref","ontology_mapping_id","content_hash","revision_ordinal","compatibility_result","risk_class","declared_loss","challenge_standing"],"properties":{"mapping_family_ref":{"$ref":"#/$defs/crosswalkFamilyRef"},"ontology_mapping_id":{"$ref":"#/$defs/crosswalkRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"risk_class":{"enum":["low","moderate","high","unacceptable"]},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"challenge_standing":{"description":"The crosswalk's standing AS OF THIS DECISION, resolved from the crosswalk owner's chain. It is inside the content commitment, so 'we applied a mapping nobody had challenged' becomes a checkable historical claim rather than a memory.","enum":["unchallenged","challenged","upheld","rejected"]}}},"crosswalk_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"source_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"target_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"source_and_target_version_refs":{"type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/endpointRevisionRef"}},"source_binding":{"$ref":"#/$defs/endpointBinding"},"target_binding":{"$ref":"#/$defs/endpointBinding"},"domain_relationship":{"enum":["in_domain","cross_domain"]},"application_target_refs":{"description":"The concrete things this decision was applied to. Non-empty by construction: an application with no target is a declaration wearing a decision's clothes.","type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$"}},"decided_by_ref":{"description":"Server-resolved from the authenticated principal. A caller may assert it and may never author it.","type":"string","pattern":"^(?:system|worker|org|user|project|service|domain|policy)://[^\\s]{1,240}$"},"decision_timestamp":{"$ref":"#/$defs/dateTime"},"reviewer_lineage":{"description":"Who reviewed, in which role, when, and what they decided. Non-empty by construction, and a rejected review cannot coexist with an active decision.","type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["reviewer_ref","review_role","reviewed_at","review_decision"],"properties":{"reviewer_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"review_role":{"enum":["source_domain_reviewer","target_domain_reviewer","mapping_owner","independent_verifier"]},"reviewed_at":{"$ref":"#/$defs/dateTime"},"review_decision":{"enum":["approved","approved_with_conditions","rejected","abstained"]}}}},"mapping_risk_acceptance":{"description":"The declared risk the decider accepted, carried verbatim from the crosswalk. Accepting a risk is not reducing it, and it is not a claim that the loss did not happen.","type":"object","additionalProperties":false,"required":["accepted_risk_class","accepted_loss","accepted_by_ref","residual_risk_refs"],"properties":{"accepted_risk_class":{"enum":["low","moderate","high"]},"accepted_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"accepted_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"residual_risk_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|evidence)://[^\\s]{1,240}$"}}}},"ambiguity_dispositions":{"description":"One entry for every ambiguous term the applied crosswalk named. An unadjudicated ambiguity is refused before admission; 'refused_ambiguous' is a real disposition that keeps the term out of the applied projection rather than guessing it.","type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","disposition","adjudicated_by_ref"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["adjudicated_exact","adjudicated_broader","adjudicated_narrower","refused_ambiguous"]},"adjudicated_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"}}}},"unmapped_term_dispositions":{"description":"One entry for every source term the crosswalk left unmapped. Dropping a term silently is the defect this list exists to prevent.","type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","disposition"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["carried_as_unmapped","excluded_from_application","escalated"]}}}},"terms_acceptance":{"description":"INV-30. In-domain application binds nothing across a boundary and carries null. Cross-domain application requires each required party's governed decision over the exact terms root, whose owner is M11.1; this build has no landed acceptance resolver, so a cross-domain decision is refused by name at admission rather than admitted on the strength of a caller-supplied acceptance. The shape is registered now so the resolver can land behind it without a wire change.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["collaboration_terms_ref","terms_body_root","accepting_domain_refs","acceptance_resolved_by"],"properties":{"collaboration_terms_ref":{"type":"string","pattern":"^collaboration-terms://[^\\s]{1,240}$"},"terms_body_root":{"$ref":"#/$defs/sha256"},"accepting_domain_refs":{"type":"array","minItems":2,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"}},"acceptance_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"}}}]},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"policy_bound_view_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:view|restricted_view)://[^\\s]{1,240}$"}},"validation_and_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:test|verifier-challenge|evidence)://[^\\s]{1,240}$"}},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"$ref":"#/$defs/mappingAdmission"},"mapping_decision_receipt_ref":{"description":"The canonical decision receipt: the admitting batch's own Agentgres receipt, server-resolved. It attests that this domain admitted this decision, and nothing about whether the mapping is right.","oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},{"type":"null"}]},"challenge_state":{"$ref":"#/$defs/challengeState"},"correctness_nonclaim":{"const":"semantic_mapping_decision_is_not_a_correctness_claim"},"authority_nonclaim":{"const":"semantic_mapping_decision_grants_no_authority"},"legal_conformity_claim":{"const":"not_determined"},"global_canonicality_nonclaim":{"const":"semantic_mapping_decision_asserts_no_globally_canonical_ontology"},"status":{"enum":["proposed","validated","active","challenged","deprecated","revoked"]}},"allOf":[{"description":"An in-domain decision crosses no boundary and therefore accepts no terms; a null here is the absence being stated rather than omitted.","if":{"properties":{"domain_relationship":{"const":"in_domain"}},"required":["domain_relationship"]},"then":{"properties":{"terms_acceptance":{"type":"null"}}}},{"description":"INV-30. A cross-domain decision without a resolved terms acceptance is unrepresentable, so an admitted record can never be the evidence that terms were accepted when they were not.","if":{"properties":{"domain_relationship":{"const":"cross_domain"}},"required":["domain_relationship"]},"then":{"properties":{"terms_acceptance":{"type":"object"}}}},{"description":"A rejected review cannot coexist with an active decision. Retaining the rejection is the point; presenting it as agreement is the defect.","if":{"properties":{"reviewer_lineage":{"type":"array","contains":{"type":"object","properties":{"review_decision":{"const":"rejected"}},"required":["review_decision"]}}},"required":["reviewer_lineage"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"An incompatible or unacceptably risky application is never active, exactly as for the crosswalk it applies.","if":{"properties":{"compatibility_result":{"const":"incompatible"}},"required":["compatibility_result"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"Applying a crosswalk that is under challenge, or one whose challenge was upheld, cannot produce an active decision: the standing it recorded is the standing it must live with.","if":{"properties":{"applied_crosswalk_binding":{"type":"object","properties":{"challenge_standing":{"enum":["challenged","upheld"]}},"required":["challenge_standing"]}},"required":["applied_crosswalk_binding"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"challenged"}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"revoked"}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"enum":["validated","active"]}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"properties":{"admission":{"type":"object"},"mapping_decision_receipt_ref":{"type":"string"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"decisionFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$"},"decisionRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"},"crosswalkFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"},"crosswalkRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"},"endpointFamilyRef":{"description":"Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.","type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"},"endpointRevisionRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"},"anyTermRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"},"endpointBinding":{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}},"challengeState":{"type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"}}},"mappingAdmission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_mapping_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_mapping_id":{"type":"string","pattern":"^ontology-mapping://[^\\s]{1,240}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-mappings"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<SemanticMappingDecisionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_mapping_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_mapping_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_mapping_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mapping_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mapping_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_record_profile: serde_json::from_value::<
+                SemanticMappingDecisionV1MappingRecordProfile,
+            >(
+                object
+                    .remove(r#"mapping_record_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mapping_record_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            applied_crosswalk_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"applied_crosswalk_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"applied_crosswalk_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            applied_crosswalk_binding: serde_json::from_value::<
+                SemanticMappingDecisionV1AppliedCrosswalkBinding,
+            >(
+                object
+                    .remove(r#"applied_crosswalk_binding"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"applied_crosswalk_binding"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            crosswalk_resolved_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"crosswalk_resolved_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"crosswalk_resolved_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_and_target_version_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_and_target_version_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_and_target_version_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_binding: serde_json::from_value::<SemanticMappingDecisionV1SourceBinding>(
+                object
+                    .remove(r#"source_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_binding: serde_json::from_value::<SemanticMappingDecisionV1TargetBinding>(
+                object
+                    .remove(r#"target_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_relationship: serde_json::from_value::<
+                SemanticMappingDecisionV1DomainRelationship,
+            >(
+                object
+                    .remove(r#"domain_relationship"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_relationship"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            application_target_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"application_target_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"application_target_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decided_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decided_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_timestamp: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_timestamp"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_timestamp"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reviewer_lineage: serde_json::from_value::<
+                Vec<SemanticMappingDecisionV1ReviewerLineageItem>,
+            >(
+                object
+                    .remove(r#"reviewer_lineage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reviewer_lineage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_risk_acceptance: serde_json::from_value::<
+                SemanticMappingDecisionV1MappingRiskAcceptance,
+            >(
+                object
+                    .remove(r#"mapping_risk_acceptance"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mapping_risk_acceptance"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ambiguity_dispositions: serde_json::from_value::<
+                Vec<SemanticMappingDecisionV1AmbiguityDispositionsItem>,
+            >(
+                object
+                    .remove(r#"ambiguity_dispositions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ambiguity_dispositions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unmapped_term_dispositions: serde_json::from_value::<
+                Vec<SemanticMappingDecisionV1UnmappedTermDispositionsItem>,
+            >(
+                object
+                    .remove(r#"unmapped_term_dispositions"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"unmapped_term_dispositions"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_acceptance: serde_json::from_value::<
+                Option<SemanticMappingDecisionV1TermsAcceptance>,
+            >(
+                object
+                    .remove(r#"terms_acceptance"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_acceptance"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_result: serde_json::from_value::<
+                SemanticMappingDecisionV1CompatibilityResult,
+            >(
+                object
+                    .remove(r#"compatibility_result"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility_result"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_view_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_bound_view_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_bound_view_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validation_and_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"validation_and_challenge_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"validation_and_challenge_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_time: serde_json::from_value::<SemanticMappingDecisionV1ValidTime>(
+                object
+                    .remove(r#"valid_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transaction_time: serde_json::from_value::<SemanticMappingDecisionV1TransactionTime>(
+                object
+                    .remove(r#"transaction_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transaction_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<SemanticMappingDecisionV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<Option<SemanticMappingDecisionV1Admission>>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_decision_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"mapping_decision_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mapping_decision_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_state: serde_json::from_value::<SemanticMappingDecisionV1ChallengeState>(
+                object
+                    .remove(r#"challenge_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            correctness_nonclaim: serde_json::from_value::<
+                SemanticMappingDecisionV1CorrectnessNonclaim,
+            >(
+                object
+                    .remove(r#"correctness_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"correctness_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim:
+                serde_json::from_value::<SemanticMappingDecisionV1AuthorityNonclaim>(
+                    object
+                        .remove(r#"authority_nonclaim"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            legal_conformity_claim: serde_json::from_value::<
+                SemanticMappingDecisionV1LegalConformityClaim,
+            >(
+                object
+                    .remove(r#"legal_conformity_claim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legal_conformity_claim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            global_canonicality_nonclaim: serde_json::from_value::<
+                SemanticMappingDecisionV1GlobalCanonicalityNonclaim,
+            >(
+                object
+                    .remove(r#"global_canonicality_nonclaim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"global_canonicality_nonclaim"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<SemanticMappingDecisionV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1SchemaVersion {
+    #[serde(rename = r#"ioi.semantic-mapping-decision.v1"#)]
+    IoiSemanticMappingDecisionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1MappingRecordProfile {
+    #[serde(rename = r#"semantic_mapping_decision"#)]
+    SemanticMappingDecision,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1AppliedCrosswalkBinding {
+    pub mapping_family_ref: String,
+    pub ontology_mapping_id: String,
+    pub content_hash: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub compatibility_result: SemanticMappingDecisionV1AppliedCrosswalkBindingCompatibilityResult,
+    pub risk_class: SemanticMappingDecisionV1AppliedCrosswalkBindingRiskClass,
+    pub declared_loss: SemanticMappingDecisionV1AppliedCrosswalkBindingDeclaredLoss,
+    pub challenge_standing: SemanticMappingDecisionV1AppliedCrosswalkBindingChallengeStanding,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1AppliedCrosswalkBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mapping_family_ref","ontology_mapping_id","content_hash","revision_ordinal","compatibility_result","risk_class","declared_loss","challenge_standing"],"properties":{"mapping_family_ref":{"$ref":"#/$defs/crosswalkFamilyRef"},"ontology_mapping_id":{"$ref":"#/$defs/crosswalkRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"risk_class":{"enum":["low","moderate","high","unacceptable"]},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"challenge_standing":{"description":"The crosswalk's standing AS OF THIS DECISION, resolved from the crosswalk owner's chain. It is inside the content commitment, so 'we applied a mapping nobody had challenged' becomes a checkable historical claim rather than a memory.","enum":["unchallenged","challenged","upheld","rejected"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mapping_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mapping_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mapping_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_mapping_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_mapping_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_mapping_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_result: serde_json::from_value::<
+                SemanticMappingDecisionV1AppliedCrosswalkBindingCompatibilityResult,
+            >(
+                object
+                    .remove(r#"compatibility_result"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility_result"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_class: serde_json::from_value::<
+                SemanticMappingDecisionV1AppliedCrosswalkBindingRiskClass,
+            >(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_loss: serde_json::from_value::<
+                SemanticMappingDecisionV1AppliedCrosswalkBindingDeclaredLoss,
+            >(
+                object
+                    .remove(r#"declared_loss"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_loss"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_standing: serde_json::from_value::<
+                SemanticMappingDecisionV1AppliedCrosswalkBindingChallengeStanding,
+            >(
+                object
+                    .remove(r#"challenge_standing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_standing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1AppliedCrosswalkBindingCompatibilityResult {
+    #[serde(rename = r#"exact"#)]
+    Exact,
+    #[serde(rename = r#"compatible"#)]
+    Compatible,
+    #[serde(rename = r#"lossy"#)]
+    Lossy,
+    #[serde(rename = r#"requires_adapter"#)]
+    RequiresAdapter,
+    #[serde(rename = r#"incompatible"#)]
+    Incompatible,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1AppliedCrosswalkBindingRiskClass {
+    #[serde(rename = r#"low"#)]
+    Low,
+    #[serde(rename = r#"moderate"#)]
+    Moderate,
+    #[serde(rename = r#"high"#)]
+    High,
+    #[serde(rename = r#"unacceptable"#)]
+    Unacceptable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1AppliedCrosswalkBindingDeclaredLoss {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"lossy_precision"#)]
+    LossyPrecision,
+    #[serde(rename = r#"lossy_scope"#)]
+    LossyScope,
+    #[serde(rename = r#"lossy_units"#)]
+    LossyUnits,
+    #[serde(rename = r#"unmapped"#)]
+    Unmapped,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1AppliedCrosswalkBindingChallengeStanding {
+    #[serde(rename = r#"unchallenged"#)]
+    Unchallenged,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"upheld"#)]
+    Upheld,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1SourceBinding {
+    pub ontology_ref: String,
+    pub ontology_version_ref: String,
+    pub content_hash: String,
+    pub namespace: String,
+    pub name: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub record_profile: SemanticMappingDecisionV1SourceBindingRecordProfile,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1SourceBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_version_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_profile: serde_json::from_value::<
+                SemanticMappingDecisionV1SourceBindingRecordProfile,
+            >(
+                object
+                    .remove(r#"record_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1SourceBindingRecordProfile {
+    #[serde(rename = r#"ontology_version"#)]
+    OntologyVersion,
+    #[serde(rename = r#"ontology_overlay"#)]
+    OntologyOverlay,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1TargetBinding {
+    pub ontology_ref: String,
+    pub ontology_version_ref: String,
+    pub content_hash: String,
+    pub namespace: String,
+    pub name: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub record_profile: SemanticMappingDecisionV1TargetBindingRecordProfile,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1TargetBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_version_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_profile: serde_json::from_value::<
+                SemanticMappingDecisionV1TargetBindingRecordProfile,
+            >(
+                object
+                    .remove(r#"record_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1TargetBindingRecordProfile {
+    #[serde(rename = r#"ontology_version"#)]
+    OntologyVersion,
+    #[serde(rename = r#"ontology_overlay"#)]
+    OntologyOverlay,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1DomainRelationship {
+    #[serde(rename = r#"in_domain"#)]
+    InDomain,
+    #[serde(rename = r#"cross_domain"#)]
+    CrossDomain,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1ReviewerLineageItem {
+    pub reviewer_ref: String,
+    pub review_role: SemanticMappingDecisionV1ReviewerLineageItemReviewRole,
+    pub reviewed_at: String,
+    pub review_decision: SemanticMappingDecisionV1ReviewerLineageItemReviewDecision,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1ReviewerLineageItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["reviewer_ref","review_role","reviewed_at","review_decision"],"properties":{"reviewer_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"review_role":{"enum":["source_domain_reviewer","target_domain_reviewer","mapping_owner","independent_verifier"]},"reviewed_at":{"$ref":"#/$defs/dateTime"},"review_decision":{"enum":["approved","approved_with_conditions","rejected","abstained"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            reviewer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reviewer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reviewer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_role: serde_json::from_value::<
+                SemanticMappingDecisionV1ReviewerLineageItemReviewRole,
+            >(
+                object
+                    .remove(r#"review_role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reviewed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reviewed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reviewed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_decision: serde_json::from_value::<
+                SemanticMappingDecisionV1ReviewerLineageItemReviewDecision,
+            >(
+                object
+                    .remove(r#"review_decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1ReviewerLineageItemReviewRole {
+    #[serde(rename = r#"source_domain_reviewer"#)]
+    SourceDomainReviewer,
+    #[serde(rename = r#"target_domain_reviewer"#)]
+    TargetDomainReviewer,
+    #[serde(rename = r#"mapping_owner"#)]
+    MappingOwner,
+    #[serde(rename = r#"independent_verifier"#)]
+    IndependentVerifier,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1ReviewerLineageItemReviewDecision {
+    #[serde(rename = r#"approved"#)]
+    Approved,
+    #[serde(rename = r#"approved_with_conditions"#)]
+    ApprovedWithConditions,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"abstained"#)]
+    Abstained,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1MappingRiskAcceptance {
+    pub accepted_risk_class: SemanticMappingDecisionV1MappingRiskAcceptanceAcceptedRiskClass,
+    pub accepted_loss: SemanticMappingDecisionV1MappingRiskAcceptanceAcceptedLoss,
+    pub accepted_by_ref: String,
+    pub residual_risk_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1MappingRiskAcceptance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r#"{"description":"The declared risk the decider accepted, carried verbatim from the crosswalk. Accepting a risk is not reducing it, and it is not a claim that the loss did not happen.","type":"object","additionalProperties":false,"required":["accepted_risk_class","accepted_loss","accepted_by_ref","residual_risk_refs"],"properties":{"accepted_risk_class":{"enum":["low","moderate","high"]},"accepted_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"accepted_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"residual_risk_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|evidence)://[^\\s]{1,240}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            accepted_risk_class: serde_json::from_value::<
+                SemanticMappingDecisionV1MappingRiskAcceptanceAcceptedRiskClass,
+            >(
+                object
+                    .remove(r#"accepted_risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted_risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepted_loss: serde_json::from_value::<
+                SemanticMappingDecisionV1MappingRiskAcceptanceAcceptedLoss,
+            >(
+                object
+                    .remove(r#"accepted_loss"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted_loss"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepted_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accepted_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            residual_risk_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"residual_risk_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"residual_risk_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1MappingRiskAcceptanceAcceptedRiskClass {
+    #[serde(rename = r#"low"#)]
+    Low,
+    #[serde(rename = r#"moderate"#)]
+    Moderate,
+    #[serde(rename = r#"high"#)]
+    High,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1MappingRiskAcceptanceAcceptedLoss {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"lossy_precision"#)]
+    LossyPrecision,
+    #[serde(rename = r#"lossy_scope"#)]
+    LossyScope,
+    #[serde(rename = r#"lossy_units"#)]
+    LossyUnits,
+    #[serde(rename = r#"unmapped"#)]
+    Unmapped,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1AmbiguityDispositionsItem {
+    pub source_term_id: String,
+    pub disposition: SemanticMappingDecisionV1AmbiguityDispositionsItemDisposition,
+    pub adjudicated_by_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1AmbiguityDispositionsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_term_id","disposition","adjudicated_by_ref"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["adjudicated_exact","adjudicated_broader","adjudicated_narrower","refused_ambiguous"]},"adjudicated_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition: serde_json::from_value::<
+                SemanticMappingDecisionV1AmbiguityDispositionsItemDisposition,
+            >(
+                object
+                    .remove(r#"disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudicated_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"adjudicated_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjudicated_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1AmbiguityDispositionsItemDisposition {
+    #[serde(rename = r#"adjudicated_exact"#)]
+    AdjudicatedExact,
+    #[serde(rename = r#"adjudicated_broader"#)]
+    AdjudicatedBroader,
+    #[serde(rename = r#"adjudicated_narrower"#)]
+    AdjudicatedNarrower,
+    #[serde(rename = r#"refused_ambiguous"#)]
+    RefusedAmbiguous,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1UnmappedTermDispositionsItem {
+    pub source_term_id: String,
+    pub disposition: SemanticMappingDecisionV1UnmappedTermDispositionsItemDisposition,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1UnmappedTermDispositionsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_term_id","disposition"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["carried_as_unmapped","excluded_from_application","escalated"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_term_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_term_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_term_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition: serde_json::from_value::<
+                SemanticMappingDecisionV1UnmappedTermDispositionsItemDisposition,
+            >(
+                object
+                    .remove(r#"disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1UnmappedTermDispositionsItemDisposition {
+    #[serde(rename = r#"carried_as_unmapped"#)]
+    CarriedAsUnmapped,
+    #[serde(rename = r#"excluded_from_application"#)]
+    ExcludedFromApplication,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1TermsAcceptance {
+    pub collaboration_terms_ref: String,
+    pub terms_body_root: String,
+    pub accepting_domain_refs: Vec<String>,
+    pub acceptance_resolved_by: String,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1TermsAcceptance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["collaboration_terms_ref","terms_body_root","accepting_domain_refs","acceptance_resolved_by"],"properties":{"collaboration_terms_ref":{"type":"string","pattern":"^collaboration-terms://[^\\s]{1,240}$"},"terms_body_root":{"$ref":"#/$defs/sha256"},"accepting_domain_refs":{"type":"array","minItems":2,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"}},"acceptance_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collaboration_terms_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collaboration_terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collaboration_terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_body_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"terms_body_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_body_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepting_domain_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"accepting_domain_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepting_domain_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_resolved_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"acceptance_resolved_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acceptance_resolved_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1CompatibilityResult {
+    #[serde(rename = r#"exact"#)]
+    Exact,
+    #[serde(rename = r#"compatible"#)]
+    Compatible,
+    #[serde(rename = r#"lossy"#)]
+    Lossy,
+    #[serde(rename = r#"requires_adapter"#)]
+    RequiresAdapter,
+    #[serde(rename = r#"incompatible"#)]
+    Incompatible,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1ValidTime {
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1ValidTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            starts_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"starts_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"starts_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ends_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ends_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ends_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1TransactionTime {
+    pub recorded_at: String,
+    pub superseded_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1TransactionTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recorded_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recorded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            superseded_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"superseded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"superseded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1Migration {
+    pub from_version_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub from_revision_ordinal: ArchitectureContractInteger,
+    pub compatibility: SemanticMappingDecisionV1MigrationCompatibility,
+    pub reinterprets_predecessor: SemanticMappingDecisionV1MigrationReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"from_revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility:
+                serde_json::from_value::<SemanticMappingDecisionV1MigrationCompatibility>(
+                    object
+                        .remove(r#"compatibility"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                SemanticMappingDecisionV1MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"additive"#)]
+    Additive,
+    #[serde(rename = r#"breaking"#)]
+    Breaking,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SemanticMappingDecisionV1MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for SemanticMappingDecisionV1MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1Admission {
+    pub ontology_mapping_id: String,
+    pub content_hash: String,
+    pub owner_namespace: SemanticMappingDecisionV1AdmissionOwnerNamespace,
+    pub stream_tail: String,
+    pub agentgres_operation_ref: String,
+    pub agentgres_receipt_ref: String,
+    pub admission_seq: ArchitectureContractInteger,
+    pub admission_head: String,
+    pub admission_root: String,
+    pub expected_predecessor_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["ontology_mapping_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_mapping_id":{"type":"string","pattern":"^ontology-mapping://[^\\s]{1,240}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-mappings"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_mapping_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_mapping_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_mapping_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_namespace: serde_json::from_value::<
+                SemanticMappingDecisionV1AdmissionOwnerNamespace,
+            >(
+                object
+                    .remove(r#"owner_namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stream_tail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stream_tail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stream_tail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_seq: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"admission_seq"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_seq"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_predecessor_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_predecessor_head"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_predecessor_head"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1AdmissionOwnerNamespace {
+    #[serde(rename = r#"hypervisor-ontology-mappings"#)]
+    HypervisorOntologyMappings,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SemanticMappingDecisionV1ChallengeState {
+    pub standing: SemanticMappingDecisionV1ChallengeStateStanding,
+    pub open_challenge_refs: Vec<String>,
+    pub resolved_challenge_refs: Vec<String>,
+    pub resolution_receipt_refs: Vec<String>,
+    pub challenge_contract_ref: SemanticMappingDecisionV1ChallengeStateChallengeContractRef,
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticMappingDecisionV1ChallengeState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            standing: serde_json::from_value::<SemanticMappingDecisionV1ChallengeStateStanding>(
+                object
+                    .remove(r#"standing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"standing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            open_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"open_challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"open_challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolved_challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolution_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolution_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolution_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_contract_ref: serde_json::from_value::<
+                SemanticMappingDecisionV1ChallengeStateChallengeContractRef,
+            >(
+                object
+                    .remove(r#"challenge_contract_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_contract_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1ChallengeStateStanding {
+    #[serde(rename = r#"unchallenged"#)]
+    Unchallenged,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"upheld"#)]
+    Upheld,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1ChallengeStateChallengeContractRef {
+    #[serde(rename = r#"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"#)]
+    SchemaIoiFoundationsObjectsVerifierChallengeEnvelopeV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1CorrectnessNonclaim {
+    #[serde(rename = r#"semantic_mapping_decision_is_not_a_correctness_claim"#)]
+    SemanticMappingDecisionIsNotACorrectnessClaim,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1AuthorityNonclaim {
+    #[serde(rename = r#"semantic_mapping_decision_grants_no_authority"#)]
+    SemanticMappingDecisionGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1LegalConformityClaim {
+    #[serde(rename = r#"not_determined"#)]
+    NotDetermined,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1GlobalCanonicalityNonclaim {
+    #[serde(rename = r#"semantic_mapping_decision_asserts_no_globally_canonical_ontology"#)]
+    SemanticMappingDecisionAssertsNoGloballyCanonicalOntology,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SemanticMappingDecisionV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"validated"#)]
+    Validated,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2 {
+    pub schema_version: ProvenanceAssertionV2SchemaVersion,
+    pub assertion_id: String,
+    pub assertion_family_ref: String,
+    pub assertion_profile: ProvenanceAssertionV2AssertionProfile,
+    pub namespace: String,
+    pub name: String,
+    pub owner_id: String,
+    pub governing_scope_ref: String,
+    pub admission_domain_ref: String,
+    pub version: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub predecessor_version_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub content_hash: String,
+    pub ontology_ref: String,
+    pub ontology_binding: ProvenanceAssertionV2OntologyBinding,
+    pub ontology_resolved_by: String,
+    pub fact_class_ref: Option<String>,
+    pub subject_ref: String,
+    pub predicate_ref: String,
+    pub object_or_value_ref: ProvenanceAssertionV2ObjectOrValueRef,
+    pub polarity: ProvenanceAssertionV2Polarity,
+    pub valid_time: ProvenanceAssertionV2ValidTime,
+    pub transaction_time: ProvenanceAssertionV2TransactionTime,
+    pub source_attribution: Vec<ProvenanceAssertionV2SourceAttributionItem>,
+    pub evidence_lineage: Vec<ProvenanceAssertionV2EvidenceLineageItem>,
+    pub uncertainty: ProvenanceAssertionV2Uncertainty,
+    pub contradiction_state: ProvenanceAssertionV2ContradictionState,
+    pub supersession: ProvenanceAssertionV2Supersession,
+    pub applicability_scope_ref: Option<String>,
+    pub permitted_consequence_scope_refs: Vec<String>,
+    pub causal_or_counterfactual_context_ref: Option<String>,
+    pub oracle_evidence_profile_ref: Option<String>,
+    pub oracle_evidence_admission_receipt_ref: Option<String>,
+    pub predecessor_contract_ref: ProvenanceAssertionV2PredecessorContractRef,
+    pub reinterpretation_nonclaim: ProvenanceAssertionV2ReinterpretationNonclaim,
+    pub policy_hash: String,
+    pub migration: ProvenanceAssertionV2Migration,
+    pub admission: Option<ProvenanceAssertionV2Admission>,
+    pub challenge_state: ProvenanceAssertionV2ChallengeState,
+    pub universality_nonclaim: ProvenanceAssertionV2UniversalityNonclaim,
+    pub authority_nonclaim: ProvenanceAssertionV2AuthorityNonclaim,
+    pub status: ProvenanceAssertionV2Status,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-assertion/v2","title":"ProvenanceAssertion","description":"An OntologyAssertionEnvelope carrying assertion_profile provenance_assertion, as an immutable revision on its own owner-qualified chain. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologyassertionenvelope. v2 is the EXPLICIT successor of v1 and reinterprets nothing: v1 records remain valid, addressable and unaltered at v1, and the bounded exact-single-source oracle admission that produces them keeps its own contract. What v2 adds is the general plane v1 could not express -- an exact bitemporal revision chain, affirmative AND negative polarity, structured uncertainty, retained contradiction, per-source and per-evidence lineage, supersession, and challenge standing resolved through VerifierChallengeEnvelope v2 and AssuranceTransitionReceipt v1. Admission records that this domain holds the claim as operational truth. It never makes the proposition universally true, and it grants no authority.","x-ioi-schema-version":"ioi.ontology-assertion.v2","type":"object","additionalProperties":false,"required":["schema_version","assertion_id","assertion_family_ref","assertion_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","ontology_ref","ontology_binding","ontology_resolved_by","fact_class_ref","subject_ref","predicate_ref","object_or_value_ref","polarity","valid_time","transaction_time","source_attribution","evidence_lineage","uncertainty","contradiction_state","supersession","applicability_scope_ref","permitted_consequence_scope_refs","causal_or_counterfactual_context_ref","oracle_evidence_profile_ref","oracle_evidence_admission_receipt_ref","predecessor_contract_ref","reinterpretation_nonclaim","policy_hash","migration","admission","challenge_state","universality_nonclaim","authority_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-assertion.v2"},"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"assertion_family_ref":{"$ref":"#/$defs/assertionFamilyRef"},"assertion_profile":{"const":"provenance_assertion"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"ontology_ref":{"description":"The canonical OntologyAssertionEnvelope field: the ontology FAMILY whose vocabulary this assertion speaks.","$ref":"#/$defs/ontologyFamilyRef"},"ontology_binding":{"description":"The EXACT admitted revision that gives the predicate its meaning, bound by ref AND by that owner's committed content hash. Without it, 'the price was 4' is a sentence in no particular language: the term could be redefined by a later revision and the assertion would silently change meaning.","type":"object","additionalProperties":false,"required":["ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_status"],"properties":{"ontology_version_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_status":{"enum":["active","deprecated"]}}},"ontology_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"fact_class_ref":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"predicate_ref":{"description":"A term of the BOUND revision, checked for membership against that revision's own declared vocabulary rather than for shape alone. A well-formed, correctly namespaced term the revision never declared is refused.","$ref":"#/$defs/termRef"},"object_or_value_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":2048},{"type":"number","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"boolean"},{"type":"null"}]},"polarity":{"description":"v2's first structural addition. An affirmative assertion claims the proposition holds; a negative assertion claims it does NOT. Both are recorded claims with sources and evidence, and neither is the absence of a record -- collapsing 'asserted false' into 'nothing asserted' is the loss this member exists to prevent.","enum":["affirmative","negative"]},"valid_time":{"description":"When the claim is held to hold. Content: it is inside the content commitment, so 'true from June' cannot be edited without minting a new revision.","type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"description":"When the claim was recorded, and when a successor closed that interval. Admission, deliberately outside the content commitment.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"source_attribution":{"description":"Who or what said so. Non-empty by construction: an unattributed assertion is a rendering of a log, which is exactly what this object exists instead of.","type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_ref","source_class","observed_at"],"properties":{"source_ref":{"$ref":"#/$defs/canonicalRef"},"source_class":{"enum":["observation","oracle","human_reviewer","worker","derived","external_system","self_report"]},"observed_at":{"$ref":"#/$defs/dateTime"}}}},"evidence_lineage":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["evidence_ref","evidence_class","supports"],"properties":{"evidence_ref":{"type":"string","pattern":"^(?:evidence|receipt|artifact|assurance-evidence)://[^\\s]{1,240}$"},"evidence_class":{"enum":["direct","corroborating","contradicting","inconclusive"]},"supports":{"description":"Which side of the claim this evidence bears on. Evidence that contradicts is retained AS contradicting rather than dropped, so a bundle cannot look unanimous by omission.","enum":["affirmative","negative","neither"]}}}},"uncertainty":{"description":"Structured rather than a bare number: a confidence with no stated kind cannot be compared across estimators, and 'unknown' is a distinct epistemic state from 'zero confidence'.","type":"object","additionalProperties":false,"required":["uncertainty_kind","confidence","estimator_ref"],"properties":{"uncertainty_kind":{"enum":["point_confidence","qualitative","unknown","disputed_estimate"]},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"estimator_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}},"contradiction_state":{"description":"Contradictions are RETAINED, never resolved by deletion. A contradicted assertion keeps pointing at what contradicts it and keeps its own sources and evidence; the reader decides, and the record does not pretend the disagreement was not there.","type":"object","additionalProperties":false,"required":["contradiction_class","contradicting_assertion_refs","retained"],"properties":{"contradiction_class":{"enum":["none","direct_negation","value_conflict","scope_conflict","temporal_conflict"]},"contradicting_assertion_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology-assertion|finding)://[^\\s]{1,240}$"}},"retained":{"const":true}}},"supersession":{"type":"object","additionalProperties":false,"required":["supersedes_ref","supersession_reason"],"properties":{"supersedes_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"supersession_reason":{"enum":["none","corrected","refined","retracted","reclassified","superseded_by_evidence"]}}},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"}},"causal_or_counterfactual_context_ref":{"oneOf":[{"type":"string","pattern":"^(?:artifact|finding)://[^\\s]{1,240}$"},{"type":"null"}]},"oracle_evidence_profile_ref":{"description":"Retained from v1 so a v1-shaped oracle assertion has a v2 home without either record reinterpreting the other. Null on the general path; a v2 record carrying a profile must also carry that profile's admission receipt.","oneOf":[{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,240}$"},{"type":"null"}]},"oracle_evidence_admission_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},{"type":"null"}]},"predecessor_contract_ref":{"description":"The exact predecessor contract this version succeeds. Naming it inside the record is what makes the succession auditable from the bytes rather than only from a registry entry.","const":"schema://ioi/foundations/ontology-assertion/v1"},"reinterpretation_nonclaim":{"const":"provenance_assertion_v2_does_not_reinterpret_v1_records"},"policy_hash":{"$ref":"#/$defs/sha256"},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["assertion_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-provenance-assertions"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"challenge_state":{"description":"A fact about the chain, outside the content commitment. A challenge against an assertion is admissible and changes its STANDING without editing the claim it challenged; resolution binds an AssuranceTransitionReceipt v1, which is evidence and not a verdict.","type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref","resolution_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"},"resolution_contract_ref":{"const":"schema://ioi/foundations/assurance-transition-receipt/v1"}}},"universality_nonclaim":{"const":"provenance_assertion_admission_is_not_universal_truth"},"authority_nonclaim":{"const":"provenance_assertion_grants_no_authority"},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","contradicted","superseded","disputed","rejected"]}},"allOf":[{"description":"A held_unknown assertion is the one state where the domain declines to claim. Its uncertainty must say so rather than encode a number, and it carries no consequence scope.","if":{"properties":{"status":{"const":"held_unknown"}},"required":["status"]},"then":{"properties":{"uncertainty":{"type":"object","properties":{"uncertainty_kind":{"const":"unknown"},"confidence":{"type":"null"}}},"permitted_consequence_scope_refs":{"type":"array","maxItems":0}}}},{"description":"A point confidence is a number; declaring the kind and omitting the number is an estimate that cannot be read.","if":{"properties":{"uncertainty":{"type":"object","properties":{"uncertainty_kind":{"const":"point_confidence"}},"required":["uncertainty_kind"]}},"required":["uncertainty"]},"then":{"properties":{"uncertainty":{"type":"object","properties":{"confidence":{"type":"number"},"estimator_ref":{"type":"string"}}}}}},{"description":"A contradicted assertion names what contradicts it. A status that says 'contradicted' over an empty contradiction set is a label rather than a finding.","if":{"properties":{"status":{"const":"contradicted"}},"required":["status"]},"then":{"properties":{"contradiction_state":{"type":"object","properties":{"contradicting_assertion_refs":{"type":"array","minItems":1},"contradiction_class":{"enum":["direct_negation","value_conflict","scope_conflict","temporal_conflict"]}}}}}},{"description":"And the converse: naming contradictions and calling the record clean is the same defect from the other side.","if":{"properties":{"contradiction_state":{"type":"object","properties":{"contradiction_class":{"const":"none"}},"required":["contradiction_class"]}},"required":["contradiction_state"]},"then":{"properties":{"contradiction_state":{"type":"object","properties":{"contradicting_assertion_refs":{"type":"array","maxItems":0}}},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","superseded","disputed","rejected"]}}}},{"description":"A superseded assertion names what it superseded or was superseded by, with a stated reason. Supersession without a reason is a deletion with extra steps.","if":{"properties":{"status":{"const":"superseded"}},"required":["status"]},"then":{"properties":{"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"string"}}}}}},{"description":"A record that names a supersession target states why; 'none' is reserved for a record that supersedes nothing.","if":{"properties":{"supersession":{"type":"object","properties":{"supersedes_ref":{"type":"string"}},"required":["supersedes_ref"]}},"required":["supersession"]},"then":{"properties":{"supersession":{"type":"object","properties":{"supersession_reason":{"enum":["corrected","refined","retracted","reclassified","superseded_by_evidence"]}}}}}},{"description":"A disputed assertion has an open challenge; a challenge that changed nothing about standing did not happen.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"disputed"}}}},{"description":"An upheld challenge rejects the assertion it upheld, and the resolution is receipted through the assurance ladder rather than asserted here.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"rejected"}}}},{"description":"A rejected challenge is retained beside the assertion it failed to unseat.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"description":"A v1-profile oracle assertion carried into v2 keeps BOTH of v1's requirements: the profile and its qualified admission receipt travel together or neither is present.","if":{"properties":{"oracle_evidence_profile_ref":{"type":"string"}},"required":["oracle_evidence_profile_ref"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"string"},"fact_class_ref":{"type":"string"}}}},{"if":{"properties":{"oracle_evidence_profile_ref":{"type":"null"}},"required":["oracle_evidence_profile_ref"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"null"}}}},{"description":"An admitted assertion carries at least one piece of evidence and a bounded consequence scope. Admission with neither is a belief the domain has agreed to act on for no stated reason.","if":{"properties":{"status":{"const":"admitted"}},"required":["status"]},"then":{"properties":{"evidence_lineage":{"type":"array","minItems":1},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"properties":{"admission":{"type":"object"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"assertionFamilyRef":{"type":"string","pattern":"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"assertionRevisionRef":{"type":"string","pattern":"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]{1,240}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ProvenanceAssertionV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assertion_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"assertion_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assertion_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assertion_family_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"assertion_family_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assertion_family_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assertion_profile: serde_json::from_value::<ProvenanceAssertionV2AssertionProfile>(
+                object
+                    .remove(r#"assertion_profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assertion_profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_binding: serde_json::from_value::<ProvenanceAssertionV2OntologyBinding>(
+                object
+                    .remove(r#"ontology_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_resolved_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_resolved_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_resolved_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fact_class_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"fact_class_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fact_class_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predicate_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predicate_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predicate_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_or_value_ref: serde_json::from_value::<ProvenanceAssertionV2ObjectOrValueRef>(
+                object
+                    .remove(r#"object_or_value_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_or_value_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            polarity: serde_json::from_value::<ProvenanceAssertionV2Polarity>(
+                object
+                    .remove(r#"polarity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"polarity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_time: serde_json::from_value::<ProvenanceAssertionV2ValidTime>(
+                object
+                    .remove(r#"valid_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transaction_time: serde_json::from_value::<ProvenanceAssertionV2TransactionTime>(
+                object
+                    .remove(r#"transaction_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transaction_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_attribution: serde_json::from_value::<
+                Vec<ProvenanceAssertionV2SourceAttributionItem>,
+            >(
+                object
+                    .remove(r#"source_attribution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_attribution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_lineage:
+                serde_json::from_value::<Vec<ProvenanceAssertionV2EvidenceLineageItem>>(
+                    object
+                        .remove(r#"evidence_lineage"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_lineage"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            uncertainty: serde_json::from_value::<ProvenanceAssertionV2Uncertainty>(
+                object
+                    .remove(r#"uncertainty"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uncertainty"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contradiction_state: serde_json::from_value::<ProvenanceAssertionV2ContradictionState>(
+                object
+                    .remove(r#"contradiction_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contradiction_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersession: serde_json::from_value::<ProvenanceAssertionV2Supersession>(
+                object
+                    .remove(r#"supersession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            applicability_scope_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"applicability_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"applicability_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_consequence_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"permitted_consequence_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"permitted_consequence_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            causal_or_counterfactual_context_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"causal_or_counterfactual_context_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"causal_or_counterfactual_context_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"oracle_evidence_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_admission_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"oracle_evidence_admission_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_admission_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_contract_ref: serde_json::from_value::<
+                ProvenanceAssertionV2PredecessorContractRef,
+            >(
+                object
+                    .remove(r#"predecessor_contract_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_contract_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterpretation_nonclaim: serde_json::from_value::<
+                ProvenanceAssertionV2ReinterpretationNonclaim,
+            >(
+                object
+                    .remove(r#"reinterpretation_nonclaim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterpretation_nonclaim"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<ProvenanceAssertionV2Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<Option<ProvenanceAssertionV2Admission>>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_state: serde_json::from_value::<ProvenanceAssertionV2ChallengeState>(
+                object
+                    .remove(r#"challenge_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            universality_nonclaim: serde_json::from_value::<
+                ProvenanceAssertionV2UniversalityNonclaim,
+            >(
+                object
+                    .remove(r#"universality_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"universality_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<ProvenanceAssertionV2AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ProvenanceAssertionV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2SchemaVersion {
+    #[serde(rename = r#"ioi.ontology-assertion.v2"#)]
+    IoiOntologyAssertionV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2AssertionProfile {
+    #[serde(rename = r#"provenance_assertion"#)]
+    ProvenanceAssertion,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2OntologyBinding {
+    pub ontology_version_ref: String,
+    pub content_hash: String,
+    pub namespace: String,
+    pub name: String,
+    pub revision_ordinal: ArchitectureContractInteger,
+    pub record_status: ProvenanceAssertionV2OntologyBindingRecordStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2OntologyBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"description":"The EXACT admitted revision that gives the predicate its meaning, bound by ref AND by that owner's committed content hash. Without it, 'the price was 4' is a sentence in no particular language: the term could be redefined by a later revision and the assertion would silently change meaning.","type":"object","additionalProperties":false,"required":["ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_status"],"properties":{"ontology_version_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_status":{"enum":["active","deprecated"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            ontology_version_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            namespace: serde_json::from_value::<String>(
+                object
+                    .remove(r#"namespace"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"namespace"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_status:
+                serde_json::from_value::<ProvenanceAssertionV2OntologyBindingRecordStatus>(
+                    object
+                        .remove(r#"record_status"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"record_status"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2OntologyBindingRecordStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum ProvenanceAssertionV2ObjectOrValueRef {
+    Branch1(String),
+    Branch2(f64),
+    Branch3(bool),
+    Branch4(()),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2Polarity {
+    #[serde(rename = r#"affirmative"#)]
+    Affirmative,
+    #[serde(rename = r#"negative"#)]
+    Negative,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2ValidTime {
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2ValidTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"description":"When the claim is held to hold. Content: it is inside the content commitment, so 'true from June' cannot be edited without minting a new revision.","type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            starts_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"starts_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"starts_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ends_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ends_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ends_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2TransactionTime {
+    pub recorded_at: String,
+    pub superseded_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2TransactionTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"description":"When the claim was recorded, and when a successor closed that interval. Admission, deliberately outside the content commitment.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recorded_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recorded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            superseded_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"superseded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"superseded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2SourceAttributionItem {
+    pub source_ref: String,
+    pub source_class: ProvenanceAssertionV2SourceAttributionItemSourceClass,
+    pub observed_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2SourceAttributionItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_ref","source_class","observed_at"],"properties":{"source_ref":{"$ref":"#/$defs/canonicalRef"},"source_class":{"enum":["observation","oracle","human_reviewer","worker","derived","external_system","self_report"]},"observed_at":{"$ref":"#/$defs/dateTime"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_class: serde_json::from_value::<
+                ProvenanceAssertionV2SourceAttributionItemSourceClass,
+            >(
+                object
+                    .remove(r#"source_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2SourceAttributionItemSourceClass {
+    #[serde(rename = r#"observation"#)]
+    Observation,
+    #[serde(rename = r#"oracle"#)]
+    Oracle,
+    #[serde(rename = r#"human_reviewer"#)]
+    HumanReviewer,
+    #[serde(rename = r#"worker"#)]
+    Worker,
+    #[serde(rename = r#"derived"#)]
+    Derived,
+    #[serde(rename = r#"external_system"#)]
+    ExternalSystem,
+    #[serde(rename = r#"self_report"#)]
+    SelfReport,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2EvidenceLineageItem {
+    pub evidence_ref: String,
+    pub evidence_class: ProvenanceAssertionV2EvidenceLineageItemEvidenceClass,
+    pub supports: ProvenanceAssertionV2EvidenceLineageItemSupports,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2EvidenceLineageItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["evidence_ref","evidence_class","supports"],"properties":{"evidence_ref":{"type":"string","pattern":"^(?:evidence|receipt|artifact|assurance-evidence)://[^\\s]{1,240}$"},"evidence_class":{"enum":["direct","corroborating","contradicting","inconclusive"]},"supports":{"description":"Which side of the claim this evidence bears on. Evidence that contradicts is retained AS contradicting rather than dropped, so a bundle cannot look unanimous by omission.","enum":["affirmative","negative","neither"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_class: serde_json::from_value::<
+                ProvenanceAssertionV2EvidenceLineageItemEvidenceClass,
+            >(
+                object
+                    .remove(r#"evidence_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supports: serde_json::from_value::<ProvenanceAssertionV2EvidenceLineageItemSupports>(
+                object
+                    .remove(r#"supports"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supports"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2EvidenceLineageItemEvidenceClass {
+    #[serde(rename = r#"direct"#)]
+    Direct,
+    #[serde(rename = r#"corroborating"#)]
+    Corroborating,
+    #[serde(rename = r#"contradicting"#)]
+    Contradicting,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2EvidenceLineageItemSupports {
+    #[serde(rename = r#"affirmative"#)]
+    Affirmative,
+    #[serde(rename = r#"negative"#)]
+    Negative,
+    #[serde(rename = r#"neither"#)]
+    Neither,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2Uncertainty {
+    pub uncertainty_kind: ProvenanceAssertionV2UncertaintyUncertaintyKind,
+    pub confidence: Option<f64>,
+    pub estimator_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2Uncertainty {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"description":"Structured rather than a bare number: a confidence with no stated kind cannot be compared across estimators, and 'unknown' is a distinct epistemic state from 'zero confidence'.","type":"object","additionalProperties":false,"required":["uncertainty_kind","confidence","estimator_ref"],"properties":{"uncertainty_kind":{"enum":["point_confidence","qualitative","unknown","disputed_estimate"]},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"estimator_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            uncertainty_kind: serde_json::from_value::<
+                ProvenanceAssertionV2UncertaintyUncertaintyKind,
+            >(
+                object
+                    .remove(r#"uncertainty_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uncertainty_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            confidence: serde_json::from_value::<Option<f64>>(
+                object
+                    .remove(r#"confidence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"confidence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            estimator_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"estimator_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"estimator_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2UncertaintyUncertaintyKind {
+    #[serde(rename = r#"point_confidence"#)]
+    PointConfidence,
+    #[serde(rename = r#"qualitative"#)]
+    Qualitative,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+    #[serde(rename = r#"disputed_estimate"#)]
+    DisputedEstimate,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2ContradictionState {
+    pub contradiction_class: ProvenanceAssertionV2ContradictionStateContradictionClass,
+    pub contradicting_assertion_refs: Vec<String>,
+    pub retained: ProvenanceAssertionV2ContradictionStateRetained,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2ContradictionState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r#"{"description":"Contradictions are RETAINED, never resolved by deletion. A contradicted assertion keeps pointing at what contradicts it and keeps its own sources and evidence; the reader decides, and the record does not pretend the disagreement was not there.","type":"object","additionalProperties":false,"required":["contradiction_class","contradicting_assertion_refs","retained"],"properties":{"contradiction_class":{"enum":["none","direct_negation","value_conflict","scope_conflict","temporal_conflict"]},"contradicting_assertion_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology-assertion|finding)://[^\\s]{1,240}$"}},"retained":{"const":true}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            contradiction_class: serde_json::from_value::<
+                ProvenanceAssertionV2ContradictionStateContradictionClass,
+            >(
+                object
+                    .remove(r#"contradiction_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contradiction_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contradicting_assertion_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"contradicting_assertion_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"contradicting_assertion_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            retained: serde_json::from_value::<ProvenanceAssertionV2ContradictionStateRetained>(
+                object
+                    .remove(r#"retained"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retained"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2ContradictionStateContradictionClass {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"direct_negation"#)]
+    DirectNegation,
+    #[serde(rename = r#"value_conflict"#)]
+    ValueConflict,
+    #[serde(rename = r#"scope_conflict"#)]
+    ScopeConflict,
+    #[serde(rename = r#"temporal_conflict"#)]
+    TemporalConflict,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProvenanceAssertionV2ContradictionStateRetained {
+    True,
+}
+
+impl serde::Serialize for ProvenanceAssertionV2ContradictionStateRetained {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2ContradictionStateRetained {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2Supersession {
+    pub supersedes_ref: Option<String>,
+    pub supersession_reason: ProvenanceAssertionV2SupersessionSupersessionReason,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2Supersession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["supersedes_ref","supersession_reason"],"properties":{"supersedes_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"supersession_reason":{"enum":["none","corrected","refined","retracted","reclassified","superseded_by_evidence"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            supersedes_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"supersedes_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersedes_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersession_reason: serde_json::from_value::<
+                ProvenanceAssertionV2SupersessionSupersessionReason,
+            >(
+                object
+                    .remove(r#"supersession_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersession_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2SupersessionSupersessionReason {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"corrected"#)]
+    Corrected,
+    #[serde(rename = r#"refined"#)]
+    Refined,
+    #[serde(rename = r#"retracted"#)]
+    Retracted,
+    #[serde(rename = r#"reclassified"#)]
+    Reclassified,
+    #[serde(rename = r#"superseded_by_evidence"#)]
+    SupersededByEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2PredecessorContractRef {
+    #[serde(rename = r#"schema://ioi/foundations/ontology-assertion/v1"#)]
+    SchemaIoiFoundationsOntologyAssertionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2ReinterpretationNonclaim {
+    #[serde(rename = r#"provenance_assertion_v2_does_not_reinterpret_v1_records"#)]
+    ProvenanceAssertionV2DoesNotReinterpretV1Records,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2Migration {
+    pub from_version_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub from_revision_ordinal: ArchitectureContractInteger,
+    pub compatibility: ProvenanceAssertionV2MigrationCompatibility,
+    pub reinterprets_predecessor: ProvenanceAssertionV2MigrationReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_version_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_version_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_version_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_revision_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"from_revision_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_revision_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<ProvenanceAssertionV2MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                ProvenanceAssertionV2MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"additive"#)]
+    Additive,
+    #[serde(rename = r#"breaking"#)]
+    Breaking,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProvenanceAssertionV2MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for ProvenanceAssertionV2MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2Admission {
+    pub assertion_id: String,
+    pub content_hash: String,
+    pub owner_namespace: ProvenanceAssertionV2AdmissionOwnerNamespace,
+    pub stream_tail: String,
+    pub agentgres_operation_ref: String,
+    pub agentgres_receipt_ref: String,
+    pub admission_seq: ArchitectureContractInteger,
+    pub admission_head: String,
+    pub admission_root: String,
+    pub expected_predecessor_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["assertion_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-provenance-assertions"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            assertion_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"assertion_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assertion_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_namespace:
+                serde_json::from_value::<ProvenanceAssertionV2AdmissionOwnerNamespace>(
+                    object
+                        .remove(r#"owner_namespace"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"owner_namespace"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            stream_tail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stream_tail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stream_tail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_seq: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"admission_seq"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_seq"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expected_predecessor_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expected_predecessor_head"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"expected_predecessor_head"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2AdmissionOwnerNamespace {
+    #[serde(rename = r#"hypervisor-provenance-assertions"#)]
+    HypervisorProvenanceAssertions,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ProvenanceAssertionV2ChallengeState {
+    pub standing: ProvenanceAssertionV2ChallengeStateStanding,
+    pub open_challenge_refs: Vec<String>,
+    pub resolved_challenge_refs: Vec<String>,
+    pub resolution_receipt_refs: Vec<String>,
+    pub challenge_contract_ref: ProvenanceAssertionV2ChallengeStateChallengeContractRef,
+    pub resolution_contract_ref: ProvenanceAssertionV2ChallengeStateResolutionContractRef,
+}
+
+impl<'de> serde::Deserialize<'de> for ProvenanceAssertionV2ChallengeState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ontology-assertion/v2"#,
+            r#"{"description":"A fact about the chain, outside the content commitment. A challenge against an assertion is admissible and changes its STANDING without editing the claim it challenged; resolution binds an AssuranceTransitionReceipt v1, which is evidence and not a verdict.","type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref","resolution_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"},"resolution_contract_ref":{"const":"schema://ioi/foundations/assurance-transition-receipt/v1"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            standing: serde_json::from_value::<ProvenanceAssertionV2ChallengeStateStanding>(
+                object
+                    .remove(r#"standing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"standing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            open_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"open_challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"open_challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_challenge_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolved_challenge_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_challenge_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolution_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolution_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolution_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_contract_ref: serde_json::from_value::<
+                ProvenanceAssertionV2ChallengeStateChallengeContractRef,
+            >(
+                object
+                    .remove(r#"challenge_contract_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_contract_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolution_contract_ref: serde_json::from_value::<
+                ProvenanceAssertionV2ChallengeStateResolutionContractRef,
+            >(
+                object
+                    .remove(r#"resolution_contract_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolution_contract_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2ChallengeStateStanding {
+    #[serde(rename = r#"unchallenged"#)]
+    Unchallenged,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"upheld"#)]
+    Upheld,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2ChallengeStateChallengeContractRef {
+    #[serde(rename = r#"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"#)]
+    SchemaIoiFoundationsObjectsVerifierChallengeEnvelopeV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2ChallengeStateResolutionContractRef {
+    #[serde(rename = r#"schema://ioi/foundations/assurance-transition-receipt/v1"#)]
+    SchemaIoiFoundationsAssuranceTransitionReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2UniversalityNonclaim {
+    #[serde(rename = r#"provenance_assertion_admission_is_not_universal_truth"#)]
+    ProvenanceAssertionAdmissionIsNotUniversalTruth,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2AuthorityNonclaim {
+    #[serde(rename = r#"provenance_assertion_grants_no_authority"#)]
+    ProvenanceAssertionGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ProvenanceAssertionV2Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evidence_pending"#)]
+    EvidencePending,
+    #[serde(rename = r#"held_unknown"#)]
+    HeldUnknown,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"contradicted"#)]
+    Contradicted,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"disputed"#)]
+    Disputed,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -109512,6 +114077,910 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
         path: "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_overlay.content_hash.commits_bases_divergence_and_valid_time"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_overlay.family.binds_the_base_it_overlays"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_overlay.base_bindings.cover_the_declared_base_set_exactly"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_overlay.base_bindings.count_matches_the_declared_set"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_overlay.predecessor_hash.binds_migration_source"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_overlay.migration.source_revision_is_strictly_earlier"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_overlay.admission.binds_this_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-overlay/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_crosswalk.content_hash.commits_endpoints_mappings_risk_and_valid_time"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_crosswalk.endpoints.are_exactly_the_two_bound_revisions"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_crosswalk.source_revision.binds_its_own_family_path"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_crosswalk.risk.ambiguity_count_matches_the_named_set"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_crosswalk.term_mappings.declare_each_source_term_once"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_crosswalk.predecessor.binds_migration_source"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ontology_crosswalk.admission.binds_this_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-crosswalk/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.content_hash.commits_crosswalk_reviewers_dispositions_and_valid_time"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.applied_crosswalk.is_the_bound_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.applied_crosswalk.binds_its_own_family_path"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.endpoints.are_exactly_the_two_bound_revisions"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.risk_acceptance.accepts_the_declared_loss"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.risk_acceptance.accepts_the_declared_risk_class"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.compatibility.is_the_crosswalks_own_result"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.reviewers.are_named_once_each_per_role"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.ambiguity_dispositions.name_each_term_once"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.receipt.is_the_admitting_batch_receipt"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("semantic_mapping_decision.admission.binds_this_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/semantic-mapping-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.content_hash.commits_claim_sources_evidence_uncertainty_and_valid_time"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.predicate.is_a_term_of_the_bound_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.ontology_binding.binds_the_declared_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.supersession.does_not_supersede_itself"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.sources.are_attributed_once_each"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.evidence.is_named_once_each"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.predecessor_hash.binds_migration_source"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.migration.source_revision_is_strictly_earlier"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("provenance_assertion.admission.binds_this_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ontology-assertion/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -120157,6 +125626,1249 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-overlay/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-crosswalk/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json"#,
+        contract_id: r#"schema://ioi/foundations/semantic-mapping-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json"#,
+        contract_id: r#"schema://ioi/foundations/ontology-assertion/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -121779,6 +128491,10 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/ontology-action-contract/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-action-contract/v1","title":"OntologyActionContract","description":"One immutable, owner-qualified revision of an executable semantic action contract. It binds an exact admitted OntologyVersion revision and its committed hash, the exact action term that revision defines, an exact released RuntimeToolContract revision and its committed hash, the typed input/output contract, and the declared effect, risk, recovery, compensation, verification, evidence, receipt and physical-safety obligations. It COMPILES MEANING INTO A REQUEST AND GRANTS NOTHING: the same action still passes the capability, policy, authority, daemon-admission, evidence and verification gates named in `required_gates`, and this record neither invokes an effect nor mints a lease, grant, connection or credential.","x-ioi-schema-version":"ioi.ontology-action-contract.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_action_id","action_family_ref","action_record_profile","namespace","name","action_slug","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_revision_ref","predecessor_content_hash","content_hash","ontology_family_ref","ontology_revision_ref","ontology_content_hash","ontology_resolved_by","action_type_ref","runtime_tool_contract_revision_ref","runtime_tool_contract_content_hash","runtime_tool_resolved_by","bound_tool_id","bound_tool_risk_class","bound_tool_effect_class","bound_tool_class_vocabulary","bound_tool_input_schema_hash","bound_tool_output_schema_hash","bound_tool_primitive_capabilities_required","bound_tool_authority_scopes_required","typed_input_schema_ref","typed_output_schema_ref","target_object_model_refs","precondition_refs","postcondition_and_invariant_refs","expected_state_transition_ref","risk_class","effect_recovery_class","idempotency_and_retry_profile_ref","ambiguous_effect_and_reconciliation_profile_ref","compensation_profile_ref","preview_and_dry_run_profile_ref","approval_and_revocation_refs","local_policy_and_authority_scope_refs","verifier_and_evidence_refs","physical_safety_profile_ref","receipt_obligations","required_gates","required_gate_count","policy_hash","does_not_assert","constants","authority_nonclaim","invocation_nonclaim","valid_time","transaction_time","migration","admission","status"],"properties":{"schema_version":{"const":"ioi.ontology-action-contract.v1"},"ontology_action_id":{"$ref":"#/$defs/actionRevisionRef"},"action_family_ref":{"$ref":"#/$defs/actionFamilyRef"},"action_record_profile":{"const":"ontology_action_contract"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"action_slug":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"description":"`agentgres://domain/` plus exactly what `agentgres::refs::event_stream_domain` emits for this family's owner namespace and stream tail.","type":"string","pattern":"^agentgres://domain/event-stream-operations[.][^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/actionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"ontology_family_ref":{"$ref":"#/$defs/ontologyFamilyRef","description":"THE OFFLINE JOIN KEY, and the only reason this derived field exists. `ontology_revision_ref` and `action_type_ref` are both owner-qualified under one family, but a portable invariant can only relate two paths through a third that both share as a prefix. Without this member, 'the compiled term and the bound revision belong to the same family' would be a runtime refusal with no offline counterpart, and a record that bound namespace A's revision to namespace B's term would satisfy every shape check for a relying party holding only the bytes. It is derived by the admitting owner, never accepted from a caller, and it is inside the content commitment."},"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef","description":"EXACT, never a family head. A contract that named `ontology://ns/name` would silently re-mean itself whenever the family advanced, which is the reinterpretation an immutable version exists to refuse."},"ontology_content_hash":{"$ref":"#/$defs/sha256","description":"The ontology owner's committed hash for that exact revision, carried verbatim. It is what makes the membership the admitting owner already checked RE-CHECKABLE: any relying party holding the revision bytes can confirm `action_type_ref` in that revision's `action_types` without trusting this record."},"ontology_resolved_by":{"const":"ontology_version_routes::resolve_admitted_action_type","description":"The exact owner seam that produced this binding. It resolves the revision AND the action against one projection of the ontology family's own chain, so an unknown same-family term is refused rather than admitted; pinning the seam here is what stops a later build substituting a weaker reader while keeping the field."},"action_type_ref":{"$ref":"#/$defs/termRef","description":"The exact admitted action type this contract compiles. Membership in the bound revision's `action_types` is CHECKED by the ontology owner before admission — a well-formed, correctly-namespaced term the revision never declared is refused, not accepted with a caveat."},"runtime_tool_contract_revision_ref":{"$ref":"#/$defs/toolRevisionRef","description":"EXACT released revision, never a mutable tool family id. Admission and package pins use `revision_ref` plus `content_hash` by the connector/tool contract owner's own rule."},"runtime_tool_contract_content_hash":{"$ref":"#/$defs/sha256"},"runtime_tool_resolved_by":{"const":"runtime_tool_contract_registry::resolve_exact"},"bound_tool_id":{"$ref":"#/$defs/toolFamilyRef"},"bound_tool_risk_class":{"type":"string","minLength":1,"maxLength":64},"bound_tool_effect_class":{"type":"string","minLength":1,"maxLength":64},"bound_tool_class_vocabulary":{"const":"runtime_tool_declared_verbatim","description":"The bound tool's risk/effect strings are RETAINED AS THE TOOL OWNER DECLARES THEM and are not members of the canonical ladder. `canonical-enums.md` records that several runtime surfaces still carry pre-consolidation strings; mapping one onto the canonical ladder here would invent an equivalence this contract has no authority to assert. This record's own canonical assessment is `risk_class`."},"bound_tool_input_schema_hash":{"$ref":"#/$defs/sha256"},"bound_tool_output_schema_hash":{"$ref":"#/$defs/sha256"},"bound_tool_primitive_capabilities_required":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^prim:[^\\s]{1,120}$"}},"bound_tool_authority_scopes_required":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^scope:[^\\s]{1,120}$"}},"typed_input_schema_ref":{"$ref":"#/$defs/inputTypedSchemaRef"},"typed_output_schema_ref":{"$ref":"#/$defs/outputTypedSchemaRef"},"target_object_model_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^object-model://[^\\s]{1,240}$"}},"precondition_refs":{"$ref":"#/$defs/conditionRefSet"},"postcondition_and_invariant_refs":{"$ref":"#/$defs/conditionRefSet"},"expected_state_transition_ref":{"type":"string","pattern":"^(?:transition|state-delta)://[^\\s]{1,240}$"},"risk_class":{"enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"],"description":"The canonical ladder owned by `canonical-enums.md`, plus the peer top-tier `physical_action`. This contract registers the member; it does not define the set."},"effect_recovery_class":{"enum":["replayable","checkpointable","compensatable","reconciliation_required","non_retryable"]},"idempotency_and_retry_profile_ref":{"$ref":"#/$defs/policyRef"},"ambiguous_effect_and_reconciliation_profile_ref":{"$ref":"#/$defs/policyRef"},"compensation_profile_ref":{"oneOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"preview_and_dry_run_profile_ref":{"oneOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"approval_and_revocation_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:approval-policy|revocation)://[^\\s]{1,240}$"}},"local_policy_and_authority_scope_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy://|grant://|scope:)[^\\s]{1,240}$"},"description":"REQUIREMENTS, never holdings. A `grant://` member names the grant class an invoker must present; it is not a grant this record possesses, issues or consumes."},"verifier_and_evidence_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier-path|evidence|schema)://[^\\s]{1,240}$"}},"physical_safety_profile_ref":{"oneOf":[{"type":"string","pattern":"^safety://[^\\s]{1,240}$"},{"type":"null"}]},"receipt_obligations":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"required_gates":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["capability","policy","authority","daemon_admission","evidence","verification"]},"description":"ACC-6 clause 5 AS A FIELD. The exact ladder this compiled action still has to pass. Six UNIQUE members drawn from a six-member enum is set equality stated in the keywords the registered-contract compiler supports: dropping a gate fails `minItems`, substituting one fails the enum, and duplicating one to make up the count fails `uniqueItems`. A relying party with only these bytes and no daemon catches all three."},"required_gate_count":{"type":"integer","minimum":6,"maximum":6,"description":"Pinned to exactly six by this schema and compared against the array's own length by a registered invariant, so gate removal fails twice and independently: once as a shape error and once as arithmetic over the ladder the record actually carries."},"policy_hash":{"$ref":"#/$defs/sha256","description":"The exact local policy snapshot in force when this revision was compiled. It is a commitment to WHICH policy applied, never a record that policy decided anything: `policy` remains a member of `required_gates` and `policy_decision` a mandatory member of `does_not_assert`."},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","capability_grant","lease","policy_decision","effect_admission","invocation","connection_is_authority","credential_is_authority","domain_correctness","physical_safety_clearance"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_grant"}},{"contains":{"const":"lease"}},{"contains":{"const":"policy_decision"}},{"contains":{"const":"effect_admission"}},{"contains":{"const":"invocation"}}],"description":"NN 9 AND NN 20 AS A CLOSED FIELD RATHER THAN A PARAGRAPH. Six members are mandatory, and each names a thing a reader might otherwise take a compiled action to confer: authority, a capability grant, a lease, a policy decision, an effect admission, or the invocation itself. `action_term_membership` is DELIBERATELY ABSENT FROM THE VOCABULARY. It belonged here only while the ontology owner published no way to check that the compiled term was one the bound revision actually declares; that seam now exists and admission uses it, so a record disclaiming membership would understate a binding this contract really carries. A nonclaim that understates the object is as much a misstatement as one that overstates it."},"constants":{"type":"object","additionalProperties":false,"required":["authority_nonclaim_token","capability_gate","policy_gate","authority_gate","daemon_admission_gate","evidence_gate","verification_gate"],"description":"TOKENS THE INVARIANT LANGUAGE HAS NO LITERALS FOR. The portable invariant DSL compares paths, never string constants, so a rule that wants to say \"this array contains exactly these six names\" needs the six names to exist somewhere in the document. Pinning them here as `const` gives the invariant layer a place to point at while keeping the schema the authority on their values. The result is two independent fences over one claim: the schema fixes the vocabulary and cardinality, the invariant fixes exact coverage, and an implementation that weakened the gate ladder would have to defeat both.","properties":{"authority_nonclaim_token":{"const":"authority"},"capability_gate":{"const":"capability"},"policy_gate":{"const":"policy"},"authority_gate":{"const":"authority"},"daemon_admission_gate":{"const":"daemon_admission"},"evidence_gate":{"const":"evidence"},"verification_gate":{"const":"verification"}}},"authority_nonclaim":{"const":"ontology_action_contract_grants_no_authority"},"invocation_nonclaim":{"const":"ontology_action_contract_does_not_invoke_or_dispatch"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_revision_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_revision_ref":{"oneOf":[{"$ref":"#/$defs/actionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_action_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_action_id":{"$ref":"#/$defs/actionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-action-contracts"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"description":"Exactly what `agentgres::refs::event_stream_operation_ref` emits. The bound is 460 rather than 240 because the real ref carries the owner namespace, a 96-character stream tail, the sequence and a full sha256 head; a schema that guessed a shorter ceiling would make every real admission unprojectable.","type":"string","pattern":"^agentgres://operation/event-stream/[^\\s]{1,460}$"},"agentgres_receipt_ref":{"description":"Exactly what `agentgres::refs::event_stream_receipt_ref` emits. It is a `receipt://` ref rather than an `agentgres://` one, and its trailing root is sha-prefix-stripped, because that is what the substrate's own ref builder does; guessing either would make every real admission unprojectable.","type":"string","pattern":"^receipt://agentgres/event-stream/[^\\s]{1,460}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"status":{"enum":["active","deprecated"],"description":"One admitted revision is `active` while it is the family head and `deprecated` once a successor closes its transaction interval. Its bytes and content hash never move; only the interval does."}},"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"actionFamilyRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"actionRevisionRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"toolFamilyRef":{"type":"string","pattern":"^tool://[A-Za-z0-9._~/-]{1,200}$"},"toolRevisionRef":{"type":"string","pattern":"^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$"},"inputTypedSchemaRef":{"type":"string","pattern":"^schema://runtime-tool-contract/input/sha256:[0-9a-f]{64}$"},"outputTypedSchemaRef":{"type":"string","pattern":"^schema://runtime-tool-contract/output/sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},"conditionRefSet":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|invariant|state)://[^\\s]{1,240}$"}}}}"##),
     ("schema://ioi/foundations/objects/ontology-surface-descriptor/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v1","title":"OntologySurfaceDescriptorV1","description":"THE PREDECESSOR, REGISTERED SO IT CAN BE NAMED EXACTLY — DEPRECATED AND READ-ONLY. This is the record the ODK descriptor lane minted before the invariant-11 binding set existed: a singular `ontology_ref`, a `recipe_refs` list under the unqualified name the term-boundary ruling forbids, an opaque `view_config`, and NONE of the eight members non-negotiable 11 requires. It is registered for three reasons and no others. First, so `successor_of` on v2 names a contract that actually exists rather than a version string in a comment. Second, so a v2 record converged from a stored v1 can commit that predecessor's EXACT bytes: a convergence hashes the v1 record over ITS OWN enumerated fields under its own domain separator, which is the only way `migration.from_content_hash` identifies one v1 record rather than every v1 record that happens to share an owner and a pattern. Third, so 'v1 carries none of the binding set' is a checked expectation with registered fixtures instead of a claim in prose. AUTHORING AT v1 IS CLOSED. The daemon refuses `schema_version: ioi.hypervisor.odk.surface-descriptor.v1` on create and refuses to patch a stored v1 into a v2. Stored v1 records remain readable EXACTLY as admitted and are never reinterpreted; converging one is an explicit act that names it and its bytes.","x-ioi-schema-version":"ioi.hypervisor.odk.surface-descriptor.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","status","composition_pattern","ontology_ref","recipe_refs","owner_ref","view_config"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.surface-descriptor.v1"},"object":{"const":"ioi.hypervisor.odk.surface_descriptor"},"id":{"type":"string","pattern":"^sd_[0-9a-f]{17}$","description":"Derived from owner + caller idempotency key, never wall-clock, so a retried create resolves the same resource."},"ref":{"type":"string","pattern":"^surface-descriptor://sd_[0-9a-f]{17}$"},"name":{"type":"string","maxLength":200,"description":"v1's own field. v2 renamed it `display_name` and made it 1..160 and mandatory; the two are NOT the same field and a convergence carries neither one into the other silently."},"description":{"type":"string","maxLength":2000,"description":"v1 carried free prose here. v2 has no counterpart: a descriptor declares what a surface BINDS, and the eight binding members are the description."},"status":{"enum":["draft","deleted"],"description":"The two states the v1 lane could ever write. `deleted` is a fifth name canon's four-member status vocabulary does not define, which is why v2 converges a withdrawal onto `revoked` rather than widening the canonical enum to accommodate a legacy tombstone."},"composition_pattern":{"enum":["list_detail","object_view","object_editor","graph","wizard","review_inbox","monitoring_console","dashboard","data_recipe_builder","connector_mapping_editor","domain_app"],"description":"The eleven canonical members. The pattern vocabulary was already complete at v1 and v2 does not touch it — it was the binding set that was absent."},"ontology_ref":{"type":"string","description":"THE SINGULAR, UNRESOLVED, MUTABLE BINDING v2 EXISTS TO REPLACE. One ref, checked only for local resolvability, with no owner resolution, no committed hash and no requirement that it name an exact revision — so a v1 descriptor bound to a family head silently re-meant itself whenever that family advanced."},"recipe_refs":{"type":"array","maxItems":64,"items":{"type":"string"},"description":"The unqualified name the term-boundary ruling forbids. v2 calls this `data_recipe_refs` and refuses the legacy spelling rather than translating it."},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,240}$"},"view_config":{"type":"object","description":"Opaque by construction: no generated UI artifact was ever produced from it, and nothing downstream could check it against anything."}}}"#),
     ("schema://ioi/foundations/objects/ontology-surface-descriptor/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","title":"OntologySurfaceDescriptor","description":"The versioned successor that carries the INVARIANT-11 BINDING SET. Non-negotiable 11 of domain-ontologies-and-data-recipes.md requires every ODK-generated surface to declare owning ontology refs, object-model refs, data-recipe refs where applicable, policy-bound data view refs, authority requirements, daemon/API dependencies, receipt obligations and conformance expectations BEFORE it becomes durable product inventory. v1 carried none of them and named its ontology binding `ontology_ref`/`recipe_refs`, so no stored descriptor could be checked against invariant 11 at all. This contract lands the eight members as required fields, converges the legacy names onto canon, and binds ontology refs as EXACT admitted revisions rather than mutable family heads. AUTHORING IS AN ORDINARY GOVERNED MUTATION: a descriptor declares what a surface binds and is not runtime truth, semantic truth, permission truth or marketplace truth, and authoring one crosses no CapabilityLease and no AuthorityGrant.","x-ioi-schema-version":"ioi.ontology-surface-descriptor.v2","type":"object","additionalProperties":false,"required":["schema_version","surface_descriptor_id","descriptor_record_profile","surface_ref","display_name","owner_ref","composition_pattern","ontology_refs","bound_ontology_revisions","bound_ontology_revision_count","ontology_resolved_by","canonical_object_model_refs","data_recipe_refs","policy_bound_data_view_refs","authority_requirement_refs","daemon_api_refs","receipt_obligations","conformance_profile_refs","connector_mapping_refs","ontology_projection_refs","allowed_action_refs","operator_contract_refs","mcp_contract_refs","generated_artifact_refs","invariant_11_binding_set","invariant_11_member_count","content_hash","migration","constants","authority_nonclaim","truth_nonclaim","does_not_assert","status"],"properties":{"schema_version":{"const":"ioi.ontology-surface-descriptor.v2"},"surface_descriptor_id":{"$ref":"#/$defs/descriptorRef"},"descriptor_record_profile":{"const":"ontology_surface_descriptor"},"surface_ref":{"type":"string","pattern":"^surface://[^\\s]{1,240}$"},"display_name":{"type":"string","minLength":1,"maxLength":160},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,240}$"},"composition_pattern":{"enum":["list_detail","object_view","object_editor","graph","wizard","review_inbox","monitoring_console","dashboard","data_recipe_builder","connector_mapping_editor","domain_app"],"description":"The eleven canonical members, unchanged from v1. The pattern vocabulary was already complete; it was the binding set that was absent, so this successor does not touch it."},"ontology_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"$ref":"#/$defs/ontologyRevisionRef"},"description":"INVARIANT-11 MEMBER 1, and the field-name convergence. v1 carried a singular `ontology_ref`; canon says owning ontology REFS. Each is an EXACT admitted revision — `ontology://ns/name/revision/N` — never `ontology://ns/name`. A descriptor bound to a mutable family head would silently re-mean itself whenever that family advanced, which is precisely what durable product inventory may not do."},"bound_ontology_revisions":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["ontology_revision_ref","ontology_content_hash"],"properties":{"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"ontology_content_hash":{"$ref":"#/$defs/sha256"}}},"description":"The ontology owner's committed hash for each bound revision, carried verbatim from its published resolver. Naming a revision is not binding one: without the hash a relying party holding the descriptor could not tell whether the revision it names is the revision it was authored against."},"bound_ontology_revision_count":{"type":"integer","minimum":1,"maximum":32,"description":"Compared by registered invariants against BOTH `ontology_refs` and `bound_ontology_revisions`, so a descriptor that named three revisions and committed one hash — which reads as a complete binding and is not — fails on the arithmetic rather than on inspection."},"ontology_resolved_by":{"const":"ontology_version_routes::resolve_admitted_revision","description":"The exact owner seam that produced every entry in `bound_ontology_revisions`. Pinned so a later build cannot substitute a prefix check for owner resolution while keeping the field."},"canonical_object_model_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^object-model://[^\\s]{1,240}$"},"description":"INVARIANT-11 MEMBER 2."},"data_recipe_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/dataRecipeRevisionRef"},"description":"INVARIANT-11 MEMBER 3, and the second field-name convergence: v1 called this `recipe_refs`, which is the unqualified name the term-boundary ruling forbids. Canon says 'data-recipe refs WHERE APPLICABLE', so the array may be empty — but it must be PRESENT, because an absent field and a declared 'this surface binds none' are different findings. Each entry is an exact `data-recipe://.../revision/...`, never a family head."},"policy_bound_data_view_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^view://[^\\s]{1,240}$"},"description":"INVARIANT-11 MEMBER 4."},"authority_requirement_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy://|grant://|scope:)[^\\s]{1,240}$"},"description":"INVARIANT-11 MEMBER 5. REQUIREMENTS, NEVER HOLDINGS. A `grant://` member names the grant class an invoker must present at the surface's own effect boundary; it is not a grant this descriptor possesses, issues, consumes or can be redeemed against. Declaring what a surface will need is the opposite of holding it."},"daemon_api_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^api://[^\\s]{1,240}$"},"description":"INVARIANT-11 MEMBER 6."},"receipt_obligations":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"description":"INVARIANT-11 MEMBER 7."},"conformance_profile_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^profile://[^\\s]{1,240}$"},"description":"INVARIANT-11 MEMBER 8."},"connector_mapping_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^mapping://[^\\s]{1,240}$"}},"ontology_projection_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^projection://[^\\s]{1,240}$"}},"allowed_action_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:action|ontology-action)://[^\\s]{1,240}$"},"description":"What the surface may OFFER, not what it may perform. An action named here still compiles through its own `OntologyActionContract` and still passes every gate that contract names."},"operator_contract_refs":{"type":"array","maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^contract://[^\\s]{1,240}$"}},"mcp_contract_refs":{"type":"array","maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^mcp-profile://[^\\s]{1,240}$"}},"generated_artifact_refs":{"type":"array","maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^artifact://[^\\s]{1,240}$"}},"invariant_11_binding_set":{"type":"array","minItems":8,"maxItems":8,"uniqueItems":true,"items":{"enum":["ontology_refs","canonical_object_model_refs","data_recipe_refs","policy_bound_data_view_refs","authority_requirement_refs","daemon_api_refs","receipt_obligations","conformance_profile_refs"]},"description":"INVARIANT 11 AS A FIELD, so a stored descriptor is checkable against it by a relying party who has only the bytes. Eight UNIQUE members drawn from an eight-member enum is set equality stated in the keywords the registered-contract compiler supports: omitting a member fails `minItems`, substituting one fails the enum, and duplicating one to make up the count fails `uniqueItems`. The names are the canonical field names, so a descriptor that reverted to `ontology_ref` or `recipe_refs` could not name its own binding set."},"invariant_11_member_count":{"type":"integer","minimum":8,"maximum":8,"description":"Compared against the array's real length by a registered invariant, so a shortened binding set fails twice and independently."},"content_hash":{"$ref":"#/$defs/sha256"},"migration":{"type":"object","additionalProperties":false,"description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A descriptor authored fresh at v2 has no predecessor and says so in all three slots at once; a descriptor converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Stating the five fields as independently nullable admitted shapes canon does not define, and the partial ones READ AS COMPLETE: `converged_from_v1` with a null `from_content_hash` says 'I came from a v1' while naming no bytes anyone could check, and a `from_descriptor_ref` under `initial` claims a provenance its own compatibility label denies. `compatibility` is a two-member enum and the two conditionals below partition it exactly, so the two legitimate tuples are the ONLY two and a partial or mixed migration block is a SCHEMA refusal rather than something a reader has to notice. `reinterprets_predecessor` is pinned false on both: a convergence ADDS the binding set its predecessor never carried and never claims the predecessor already meant this.","required":["from_schema_version","from_descriptor_ref","from_content_hash","compatibility","reinterprets_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.surface-descriptor.v1"},{"type":"null"}],"description":"The exact registered predecessor contract, `schema://ioi/foundations/objects/ontology-surface-descriptor/v1`, which is deprecated and read-only. There is no third source: a v2 is never converged from another v2, and a v1 record is never READ AS a v2 record."},"from_descriptor_ref":{"oneOf":[{"$ref":"#/$defs/descriptorRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 descriptors the same commitment, so a source that changed after convergence would be indistinguishable from one that did not."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false,"description":"A migration adds the binding set the predecessor never carried; it never claims the predecessor already meant this. v1 stays exactly as readable, and exactly as unconvergeable, as it was."}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_descriptor_ref":{"type":"null"},"from_content_hash":{"type":"null"}}}},{"title":"converged from a stored v1 — all three provenance slots are present together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"converged_from_v1"}}},"then":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.surface-descriptor.v1"},"from_descriptor_ref":{"$ref":"#/$defs/descriptorRef"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"constants":{"type":"object","additionalProperties":false,"required":["member_ontology_refs","member_canonical_object_model_refs","member_data_recipe_refs","member_policy_bound_data_view_refs","member_authority_requirement_refs","member_daemon_api_refs","member_receipt_obligations","member_conformance_profile_refs","nonclaim_authority_token"],"description":"The eight canonical member names, pinned so a portable invariant can require `invariant_11_binding_set` to cover exactly them without the invariant language needing literals of its own. The schema fixes the vocabulary, the invariant fixes exact coverage, and a build that narrowed the binding set would have to defeat both.","properties":{"member_ontology_refs":{"const":"ontology_refs"},"member_canonical_object_model_refs":{"const":"canonical_object_model_refs"},"member_data_recipe_refs":{"const":"data_recipe_refs"},"member_policy_bound_data_view_refs":{"const":"policy_bound_data_view_refs"},"member_authority_requirement_refs":{"const":"authority_requirement_refs"},"member_daemon_api_refs":{"const":"daemon_api_refs"},"member_receipt_obligations":{"const":"receipt_obligations"},"member_conformance_profile_refs":{"const":"conformance_profile_refs"},"nonclaim_authority_token":{"const":"authority","description":"Pinned so a portable invariant can require `does_not_assert` to CONTAIN it without the invariant language needing a literal of its own."}}},"authority_nonclaim":{"const":"ontology_surface_descriptor_grants_no_authority"},"truth_nonclaim":{"const":"ontology_surface_descriptor_is_not_runtime_or_semantic_truth","description":"Non-negotiable 10, as a field: ODK descriptors can scaffold surfaces, domain apps, evals, workers and packages, but they cannot become runtime truth, permission truth, semantic truth or marketplace truth by themselves."},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","capability_lease_crossing","runtime_truth","semantic_truth","permission_truth","marketplace_truth","registration","launchability","mount_admission","conformance_result"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_lease_crossing"}},{"contains":{"const":"runtime_truth"}},{"contains":{"const":"semantic_truth"}},{"contains":{"const":"permission_truth"}},{"contains":{"const":"marketplace_truth"}}],"description":"Six mandatory members. `capability_lease_crossing` is among them because the stale wording that made descriptor authoring an authority crossing was withdrawn by ruling and may not be reintroduced: authoring your own descriptor is not delegated authority, a secret, a decryption lease, external account access or high-risk approval, so it is an ORDINARY GOVERNED MUTATION. The vocabulary deliberately contains NO token for invariant-11 completeness: this contract CHECKS that, and a record disclaiming a binding it enforces would understate itself as surely as one overstating it. The enum is the fence — an absent member cannot be declared."},"status":{"enum":["draft","active","deprecated","revoked"],"description":"Canon's four members, verbatim. The v1 record lane writes a `deleted` tombstone, which is a fifth name canon does not define; the v2 route converges that lane onto `revoked` rather than widening the enum to accommodate it. A withdrawal is a governed state of the descriptor, not a different kind of object."}},"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"descriptorRef":{"type":"string","pattern":"^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[^\\s]{1,200}/revision/[^\\s]{1,64}$"}}}"##),
+    ("schema://ioi/foundations/ontology-overlay/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-overlay/v1","title":"OntologyOverlay","description":"A DomainOntologyEnvelope carrying ontology_record_profile ontology_overlay: one immutable, owner-qualified local divergence from one or more exact base OntologyVersion revisions. Derived from docs/architecture/foundations/objects/semantic-plane.md#domainontologyenvelope. An overlay diverges WITHOUT forking: it binds each base revision by exact ref AND that owner's committed content hash, it may only add terms in its own overlay namespace, and it may relabel, narrow, annotate or hide a base term without redefining or deleting the base meaning. Identity and lifecycle are the overlay's own and are distinct from both the base version and any crosswalk. Meaning never grants authority.","x-ioi-schema-version":"ioi.ontology-overlay.v1","type":"object","additionalProperties":false,"required":["schema_version","overlay_id","overlay_family_ref","ontology_family_ref","ontology_record_profile","namespace","name","overlay_name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","base_ontology_version_refs","base_ontology_bindings","base_resolved_by","added_terms","overlaid_terms","invariant_refs","compatibility_profile_ref","deprecation_policy_ref","policy_hash","valid_time","transaction_time","migration","admission","fork_nonclaim","authority_nonclaim","global_canonicality_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-overlay.v1"},"overlay_id":{"$ref":"#/$defs/overlayRevisionRef"},"overlay_family_ref":{"$ref":"#/$defs/overlayFamilyRef"},"ontology_family_ref":{"description":"The BASE family this overlay diverges from. The overlay family ref is this ref plus an explicit /overlay/ path, so an overlay can never be mistaken for a base version and can never address another domain's lineage.","$ref":"#/$defs/ontologyFamilyRef"},"ontology_record_profile":{"const":"ontology_overlay"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"overlay_name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/overlayRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"base_ontology_version_refs":{"description":"The canonical DomainOntologyEnvelope field: the exact base revisions this overlay overlays. Every entry is an EXACT revision ref; a family ref or a mutable 'latest' pointer is unrepresentable here, because an overlay whose base can move is a fork that has not admitted it yet.","type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"$ref":"#/$defs/ontologyRevisionRef"}},"base_ontology_bindings":{"description":"The same base set carrying each base owner's committed content hash and revision ordinal, resolved through the base owner's own reader. A ref without its owner's hash names a revision without proving which bytes it named.","type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["ontology_version_ref","content_hash","revision_ordinal","record_status"],"properties":{"ontology_version_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_status":{"enum":["active","deprecated"]}}}},"base_resolved_by":{"description":"The exact owner seam that re-resolved every base revision. An overlay that names no resolver is an overlay whose base was taken on faith.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"added_terms":{"description":"Terms the overlay contributes, minted in the OVERLAY's own namespace path. An overlay never mints a term inside its base family's namespace; that would be an edit of the base, which is a fork.","type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["term_id","label","term_kind"],"properties":{"term_id":{"$ref":"#/$defs/overlayTermRef"},"label":{"type":"string","minLength":1,"maxLength":160},"term_kind":{"enum":["entity","relationship","event","action"]}}}},"overlaid_terms":{"description":"Base terms this overlay locally diverges on. The disposition set is deliberately narrower than a version migration's: an overlay may relabel, narrow, annotate or hide, and it may NOT remove, widen or redefine, because those change what the base means rather than how this domain reads it.","type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["base_term_id","overlay_disposition","overlay_label"],"properties":{"base_term_id":{"$ref":"#/$defs/termRef"},"overlay_disposition":{"enum":["relabelled","narrowed","annotated","hidden"]},"overlay_label":{"type":"string","minLength":1,"maxLength":160}}}},"invariant_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^invariant://[^\\s]{1,240}$"}},"compatibility_profile_ref":{"oneOf":[{"type":"string","pattern":"^compatibility://[^\\s]{1,240}$"},{"type":"null"}]},"deprecation_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},{"type":"null"}]},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"description":"Admission time, deliberately outside the content commitment. When a divergence was held true is content; when it was recorded is admission.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/overlayRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["overlay_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"overlay_id":{"$ref":"#/$defs/overlayRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-overlays"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"fork_nonclaim":{"const":"ontology_overlay_does_not_fork_or_redefine_its_base"},"authority_nonclaim":{"const":"ontology_overlay_grants_no_authority"},"global_canonicality_nonclaim":{"const":"ontology_overlay_asserts_no_globally_canonical_ontology"},"status":{"enum":["active","deprecated"]}},"allOf":[{"description":"An overlay that diverges in no way is not an overlay. At least one of the two divergence sets carries an entry.","anyOf":[{"properties":{"added_terms":{"type":"array","minItems":1}}},{"properties":{"overlaid_terms":{"type":"array","minItems":1}}}]},{"description":"The first revision of an overlay lineage migrates from nothing and names no predecessor.","if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"description":"A successor names the exact predecessor it advanced from, by ref and by that predecessor's committed hash.","if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"description":"Every projected overlay revision is admitted; there is no draft overlay on the chain, because an unadmitted overlay is a request rather than a record.","properties":{"admission":{"type":"object"}}},{"description":"An active revision's transaction interval is still open; a deprecated one has been closed by its successor.","if":{"properties":{"status":{"const":"active"}},"required":["status"]},"then":{"properties":{"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"null"}}}}}},{"if":{"properties":{"status":{"const":"deprecated"}},"required":["status"]},"then":{"properties":{"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"string"}}}}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"overlayFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}$"},"overlayRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"overlayTermRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"}}}"##),
+    ("schema://ioi/foundations/ontology-crosswalk/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-crosswalk/v1","title":"OntologyCrosswalk","description":"An OntologyMappingEnvelope carrying mapping_record_profile ontology_crosswalk: one immutable, owner-qualified DECLARATION of how one exact source revision's terms relate to one exact target revision's terms, including relation, loss, ambiguity, scope and verifier obligations. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. A crosswalk is a declaration, never an application: declaring it grants nothing, and a cross-domain crosswalk can never reach the active status, because activation is application and application waits on accepted terms (INV-30). Its identity and lifecycle are its own and are distinct from both endpoint's version lineage and from any SemanticMappingDecision that applies it. This build's admission path projects exactly four of the canonical six statuses -- active, challenged, deprecated and revoked for in-domain lineages, and validated in place of active for cross-domain ones; proposed is retained for wire fidelity with canon and is not minted here.","x-ioi-schema-version":"ioi.ontology-crosswalk.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_mapping_id","mapping_family_ref","mapping_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","source_ontology_ref","target_ontology_ref","source_and_target_version_refs","source_binding","target_binding","endpoint_resolved_by","domain_relationship","term_mappings","ambiguous_term_refs","compatibility_result","mapping_risk","verifier_obligation_refs","mapped_object_relationship_event_and_action_refs","mapping_profile_ref","deprecation_and_migration_policy_ref","policy_hash","valid_time","transaction_time","migration","admission","challenge_state","cross_domain_application_nonclaim","correctness_nonclaim","authority_nonclaim","global_canonicality_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-crosswalk.v1"},"ontology_mapping_id":{"$ref":"#/$defs/crosswalkRevisionRef"},"mapping_family_ref":{"$ref":"#/$defs/crosswalkFamilyRef"},"mapping_record_profile":{"const":"ontology_crosswalk"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/crosswalkRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"source_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"target_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"source_and_target_version_refs":{"description":"The canonical OntologyMappingEnvelope field: exactly the two EXACT endpoint revisions, source first. A family ref or a mutable 'latest' pointer is unrepresentable, because a map whose ends can move maps nothing in particular.","type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/endpointRevisionRef"}},"source_binding":{"$ref":"#/$defs/endpointBinding"},"target_binding":{"$ref":"#/$defs/endpointBinding"},"endpoint_resolved_by":{"description":"The exact owner seam that re-resolved both endpoints. A crosswalk that names no resolver is a crosswalk whose ends were taken on faith.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"domain_relationship":{"description":"Server-derived from the two endpoints' owner-qualified namespaces, never asserted by the caller. It is the discriminator the terms-acceptance fence keys on.","enum":["in_domain","cross_domain"]},"term_mappings":{"description":"Silent field equivalence is forbidden: every declared correspondence states its relation AND its loss, and an unmapped source term is recorded as unmapped rather than omitted.","type":"array","minItems":1,"maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","target_term_id","relation","loss"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"target_term_id":{"oneOf":[{"$ref":"#/$defs/anyTermRef"},{"type":"null"}]},"relation":{"enum":["exact","broader","narrower","related","unmapped"]},"loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]}}}},"ambiguous_term_refs":{"description":"Source terms this crosswalk maps more than one way. They are named here so a later application must dispose of each one explicitly; an ambiguity that is not named cannot be adjudicated, and an ambiguity that is named but not disposed of refuses.","type":"array","maxItems":512,"uniqueItems":true,"items":{"$ref":"#/$defs/anyTermRef"}},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"mapping_risk":{"description":"The declared mapping-risk posture. It is content: it is inside the content commitment, so a crosswalk cannot have its risk quietly relabelled after admission.","type":"object","additionalProperties":false,"required":["risk_class","declared_loss","ambiguous_term_count","unmapped_source_term_count","residual_risk_refs"],"properties":{"risk_class":{"enum":["low","moderate","high","unacceptable"]},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"ambiguous_term_count":{"type":"integer","minimum":0,"maximum":512},"unmapped_source_term_count":{"type":"integer","minimum":0,"maximum":512},"residual_risk_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|evidence)://[^\\s]{1,240}$"}}}},"verifier_obligation_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:verifier_path|test|schema|evidence)://[^\\s]{1,240}$"}},"mapped_object_relationship_event_and_action_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:object-model|ontology-action|schema)://[^\\s]{1,240}$"}},"mapping_profile_ref":{"oneOf":[{"type":"string","pattern":"^(?:artifact|mapping)://[^\\s]{1,240}$"},{"type":"null"}]},"deprecation_and_migration_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[^\\s]{1,240}$"},{"type":"null"}]},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/crosswalkRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"$ref":"#/$defs/mappingAdmission"},"challenge_state":{"description":"A fact about the chain, deliberately OUTSIDE the content commitment: a challenge changes a mapping's STANDING without editing the bytes it challenged. Every member is server-derived from admitted challenge and resolution operations on this family's own stream.","$ref":"#/$defs/challengeState"},"cross_domain_application_nonclaim":{"const":"ontology_crosswalk_declaration_is_not_cross_domain_application"},"correctness_nonclaim":{"const":"ontology_crosswalk_admission_is_not_a_correctness_claim"},"authority_nonclaim":{"const":"ontology_crosswalk_grants_no_authority"},"global_canonicality_nonclaim":{"const":"ontology_crosswalk_asserts_no_globally_canonical_ontology"},"status":{"enum":["proposed","validated","active","challenged","deprecated","revoked"]}},"allOf":[{"description":"INV-30 at the schema layer. A cross-domain crosswalk may be declared, superseded, challenged, deprecated and revoked, and it may NOT be active: activation is application, and cross-domain application binds only under accepted terms.","if":{"properties":{"domain_relationship":{"const":"cross_domain"}},"required":["domain_relationship"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"A challenged mapping carries at least one open challenge, and an unchallenged one carries none. Standing and evidence move together or the standing is a label.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"challenged"}}}},{"description":"An upheld challenge revokes the mapping it upheld, and its resolution is receipted. A standing that changed with no receipt is a verdict nobody stands behind.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"revoked"}}}},{"description":"A rejected challenge is retained, not erased: the resolution and its receipt stay addressable while the mapping returns to standing.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"enum":["validated","active"]}}}},{"description":"An unchallenged mapping has no challenge refs of either kind and no resolution receipts.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"description":"An incompatible pair is not a usable map. It may be recorded so the incompatibility itself is addressable, and it may never be active.","if":{"properties":{"compatibility_result":{"const":"incompatible"}},"required":["compatibility_result"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"An unacceptable declared risk cannot carry an active mapping either, for the same reason.","if":{"properties":{"mapping_risk":{"type":"object","properties":{"risk_class":{"const":"unacceptable"}},"required":["risk_class"]}},"required":["mapping_risk"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"properties":{"admission":{"type":"object"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"crosswalkFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"},"crosswalkRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"},"endpointFamilyRef":{"description":"Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.","type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"},"endpointRevisionRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"},"anyTermRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"},"endpointBinding":{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}},"challengeState":{"type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"description":"The exact registered challenge contract this family admits. Pinned to VerifierChallengeEnvelope v2, whose challenged_ref widening is what makes an ontology-mapping subject nameable at all; a v1 envelope cannot address this family and is refused rather than downgraded.","const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"}}},"mappingAdmission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_mapping_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_mapping_id":{"type":"string","pattern":"^ontology-mapping://[^\\s]{1,240}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-mappings"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]}}}"##),
+    ("schema://ioi/foundations/semantic-mapping-decision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/semantic-mapping-decision/v1","title":"SemanticMappingDecision","description":"An OntologyMappingEnvelope carrying mapping_record_profile semantic_mapping_decision: one immutable, receipted, challengeable APPLICATION of one exact OntologyCrosswalk revision to one concrete target. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. It is a decision object, not a config row: it binds the exact crosswalk revision and hash, both endpoint revisions and hashes carried verbatim from that crosswalk, named reviewer lineage with per-reviewer decisions, an explicit acceptance of the declared mapping risk, and an explicit disposition for every ambiguous and every unmapped term the crosswalk named. Deciding is not being right and is not being permitted: the decision asserts no correctness, no legal conformity and no authority, and a cross-domain decision binds only under accepted terms (INV-30).","x-ioi-schema-version":"ioi.semantic-mapping-decision.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_mapping_id","mapping_family_ref","mapping_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","applied_crosswalk_ref","applied_crosswalk_binding","crosswalk_resolved_by","source_ontology_ref","target_ontology_ref","source_and_target_version_refs","source_binding","target_binding","domain_relationship","application_target_refs","decided_by_ref","decision_timestamp","reviewer_lineage","mapping_risk_acceptance","ambiguity_dispositions","unmapped_term_dispositions","terms_acceptance","compatibility_result","policy_bound_view_refs","validation_and_challenge_refs","policy_hash","valid_time","transaction_time","migration","admission","mapping_decision_receipt_ref","challenge_state","correctness_nonclaim","authority_nonclaim","legal_conformity_claim","global_canonicality_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.semantic-mapping-decision.v1"},"ontology_mapping_id":{"$ref":"#/$defs/decisionRevisionRef"},"mapping_family_ref":{"$ref":"#/$defs/decisionFamilyRef"},"mapping_record_profile":{"const":"semantic_mapping_decision"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"applied_crosswalk_ref":{"description":"The canonical OntologyMappingEnvelope field, pinned to an EXACT crosswalk revision. A decision that applied 'the crosswalk' rather than one revision of it cannot say afterwards what it applied.","$ref":"#/$defs/crosswalkRevisionRef"},"applied_crosswalk_binding":{"type":"object","additionalProperties":false,"required":["mapping_family_ref","ontology_mapping_id","content_hash","revision_ordinal","compatibility_result","risk_class","declared_loss","challenge_standing"],"properties":{"mapping_family_ref":{"$ref":"#/$defs/crosswalkFamilyRef"},"ontology_mapping_id":{"$ref":"#/$defs/crosswalkRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"risk_class":{"enum":["low","moderate","high","unacceptable"]},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"challenge_standing":{"description":"The crosswalk's standing AS OF THIS DECISION, resolved from the crosswalk owner's chain. It is inside the content commitment, so 'we applied a mapping nobody had challenged' becomes a checkable historical claim rather than a memory.","enum":["unchallenged","challenged","upheld","rejected"]}}},"crosswalk_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"source_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"target_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"source_and_target_version_refs":{"type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/endpointRevisionRef"}},"source_binding":{"$ref":"#/$defs/endpointBinding"},"target_binding":{"$ref":"#/$defs/endpointBinding"},"domain_relationship":{"enum":["in_domain","cross_domain"]},"application_target_refs":{"description":"The concrete things this decision was applied to. Non-empty by construction: an application with no target is a declaration wearing a decision's clothes.","type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$"}},"decided_by_ref":{"description":"Server-resolved from the authenticated principal. A caller may assert it and may never author it.","type":"string","pattern":"^(?:system|worker|org|user|project|service|domain|policy)://[^\\s]{1,240}$"},"decision_timestamp":{"$ref":"#/$defs/dateTime"},"reviewer_lineage":{"description":"Who reviewed, in which role, when, and what they decided. Non-empty by construction, and a rejected review cannot coexist with an active decision.","type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["reviewer_ref","review_role","reviewed_at","review_decision"],"properties":{"reviewer_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"review_role":{"enum":["source_domain_reviewer","target_domain_reviewer","mapping_owner","independent_verifier"]},"reviewed_at":{"$ref":"#/$defs/dateTime"},"review_decision":{"enum":["approved","approved_with_conditions","rejected","abstained"]}}}},"mapping_risk_acceptance":{"description":"The declared risk the decider accepted, carried verbatim from the crosswalk. Accepting a risk is not reducing it, and it is not a claim that the loss did not happen.","type":"object","additionalProperties":false,"required":["accepted_risk_class","accepted_loss","accepted_by_ref","residual_risk_refs"],"properties":{"accepted_risk_class":{"enum":["low","moderate","high"]},"accepted_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"accepted_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"residual_risk_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|evidence)://[^\\s]{1,240}$"}}}},"ambiguity_dispositions":{"description":"One entry for every ambiguous term the applied crosswalk named. An unadjudicated ambiguity is refused before admission; 'refused_ambiguous' is a real disposition that keeps the term out of the applied projection rather than guessing it.","type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","disposition","adjudicated_by_ref"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["adjudicated_exact","adjudicated_broader","adjudicated_narrower","refused_ambiguous"]},"adjudicated_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"}}}},"unmapped_term_dispositions":{"description":"One entry for every source term the crosswalk left unmapped. Dropping a term silently is the defect this list exists to prevent.","type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","disposition"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["carried_as_unmapped","excluded_from_application","escalated"]}}}},"terms_acceptance":{"description":"INV-30. In-domain application binds nothing across a boundary and carries null. Cross-domain application requires each required party's governed decision over the exact terms root, whose owner is M11.1; this build has no landed acceptance resolver, so a cross-domain decision is refused by name at admission rather than admitted on the strength of a caller-supplied acceptance. The shape is registered now so the resolver can land behind it without a wire change.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["collaboration_terms_ref","terms_body_root","accepting_domain_refs","acceptance_resolved_by"],"properties":{"collaboration_terms_ref":{"type":"string","pattern":"^collaboration-terms://[^\\s]{1,240}$"},"terms_body_root":{"$ref":"#/$defs/sha256"},"accepting_domain_refs":{"type":"array","minItems":2,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"}},"acceptance_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"}}}]},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"policy_bound_view_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:view|restricted_view)://[^\\s]{1,240}$"}},"validation_and_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:test|verifier-challenge|evidence)://[^\\s]{1,240}$"}},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"$ref":"#/$defs/mappingAdmission"},"mapping_decision_receipt_ref":{"description":"The canonical decision receipt: the admitting batch's own Agentgres receipt, server-resolved. It attests that this domain admitted this decision, and nothing about whether the mapping is right.","oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},{"type":"null"}]},"challenge_state":{"$ref":"#/$defs/challengeState"},"correctness_nonclaim":{"const":"semantic_mapping_decision_is_not_a_correctness_claim"},"authority_nonclaim":{"const":"semantic_mapping_decision_grants_no_authority"},"legal_conformity_claim":{"const":"not_determined"},"global_canonicality_nonclaim":{"const":"semantic_mapping_decision_asserts_no_globally_canonical_ontology"},"status":{"enum":["proposed","validated","active","challenged","deprecated","revoked"]}},"allOf":[{"description":"An in-domain decision crosses no boundary and therefore accepts no terms; a null here is the absence being stated rather than omitted.","if":{"properties":{"domain_relationship":{"const":"in_domain"}},"required":["domain_relationship"]},"then":{"properties":{"terms_acceptance":{"type":"null"}}}},{"description":"INV-30. A cross-domain decision without a resolved terms acceptance is unrepresentable, so an admitted record can never be the evidence that terms were accepted when they were not.","if":{"properties":{"domain_relationship":{"const":"cross_domain"}},"required":["domain_relationship"]},"then":{"properties":{"terms_acceptance":{"type":"object"}}}},{"description":"A rejected review cannot coexist with an active decision. Retaining the rejection is the point; presenting it as agreement is the defect.","if":{"properties":{"reviewer_lineage":{"type":"array","contains":{"type":"object","properties":{"review_decision":{"const":"rejected"}},"required":["review_decision"]}}},"required":["reviewer_lineage"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"An incompatible or unacceptably risky application is never active, exactly as for the crosswalk it applies.","if":{"properties":{"compatibility_result":{"const":"incompatible"}},"required":["compatibility_result"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"Applying a crosswalk that is under challenge, or one whose challenge was upheld, cannot produce an active decision: the standing it recorded is the standing it must live with.","if":{"properties":{"applied_crosswalk_binding":{"type":"object","properties":{"challenge_standing":{"enum":["challenged","upheld"]}},"required":["challenge_standing"]}},"required":["applied_crosswalk_binding"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"challenged"}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"revoked"}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"enum":["validated","active"]}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"properties":{"admission":{"type":"object"},"mapping_decision_receipt_ref":{"type":"string"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"decisionFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$"},"decisionRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"},"crosswalkFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"},"crosswalkRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"},"endpointFamilyRef":{"description":"Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.","type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"},"endpointRevisionRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"},"anyTermRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"},"endpointBinding":{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}},"challengeState":{"type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"}}},"mappingAdmission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_mapping_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_mapping_id":{"type":"string","pattern":"^ontology-mapping://[^\\s]{1,240}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-mappings"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]}}}"##),
+    ("schema://ioi/foundations/ontology-assertion/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-assertion/v2","title":"ProvenanceAssertion","description":"An OntologyAssertionEnvelope carrying assertion_profile provenance_assertion, as an immutable revision on its own owner-qualified chain. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologyassertionenvelope. v2 is the EXPLICIT successor of v1 and reinterprets nothing: v1 records remain valid, addressable and unaltered at v1, and the bounded exact-single-source oracle admission that produces them keeps its own contract. What v2 adds is the general plane v1 could not express -- an exact bitemporal revision chain, affirmative AND negative polarity, structured uncertainty, retained contradiction, per-source and per-evidence lineage, supersession, and challenge standing resolved through VerifierChallengeEnvelope v2 and AssuranceTransitionReceipt v1. Admission records that this domain holds the claim as operational truth. It never makes the proposition universally true, and it grants no authority.","x-ioi-schema-version":"ioi.ontology-assertion.v2","type":"object","additionalProperties":false,"required":["schema_version","assertion_id","assertion_family_ref","assertion_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","ontology_ref","ontology_binding","ontology_resolved_by","fact_class_ref","subject_ref","predicate_ref","object_or_value_ref","polarity","valid_time","transaction_time","source_attribution","evidence_lineage","uncertainty","contradiction_state","supersession","applicability_scope_ref","permitted_consequence_scope_refs","causal_or_counterfactual_context_ref","oracle_evidence_profile_ref","oracle_evidence_admission_receipt_ref","predecessor_contract_ref","reinterpretation_nonclaim","policy_hash","migration","admission","challenge_state","universality_nonclaim","authority_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-assertion.v2"},"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"assertion_family_ref":{"$ref":"#/$defs/assertionFamilyRef"},"assertion_profile":{"const":"provenance_assertion"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"ontology_ref":{"description":"The canonical OntologyAssertionEnvelope field: the ontology FAMILY whose vocabulary this assertion speaks.","$ref":"#/$defs/ontologyFamilyRef"},"ontology_binding":{"description":"The EXACT admitted revision that gives the predicate its meaning, bound by ref AND by that owner's committed content hash. Without it, 'the price was 4' is a sentence in no particular language: the term could be redefined by a later revision and the assertion would silently change meaning.","type":"object","additionalProperties":false,"required":["ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_status"],"properties":{"ontology_version_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_status":{"enum":["active","deprecated"]}}},"ontology_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"fact_class_ref":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"predicate_ref":{"description":"A term of the BOUND revision, checked for membership against that revision's own declared vocabulary rather than for shape alone. A well-formed, correctly namespaced term the revision never declared is refused.","$ref":"#/$defs/termRef"},"object_or_value_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":2048},{"type":"number","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"boolean"},{"type":"null"}]},"polarity":{"description":"v2's first structural addition. An affirmative assertion claims the proposition holds; a negative assertion claims it does NOT. Both are recorded claims with sources and evidence, and neither is the absence of a record -- collapsing 'asserted false' into 'nothing asserted' is the loss this member exists to prevent.","enum":["affirmative","negative"]},"valid_time":{"description":"When the claim is held to hold. Content: it is inside the content commitment, so 'true from June' cannot be edited without minting a new revision.","type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"description":"When the claim was recorded, and when a successor closed that interval. Admission, deliberately outside the content commitment.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"source_attribution":{"description":"Who or what said so. Non-empty by construction: an unattributed assertion is a rendering of a log, which is exactly what this object exists instead of.","type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_ref","source_class","observed_at"],"properties":{"source_ref":{"$ref":"#/$defs/canonicalRef"},"source_class":{"enum":["observation","oracle","human_reviewer","worker","derived","external_system","self_report"]},"observed_at":{"$ref":"#/$defs/dateTime"}}}},"evidence_lineage":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["evidence_ref","evidence_class","supports"],"properties":{"evidence_ref":{"type":"string","pattern":"^(?:evidence|receipt|artifact|assurance-evidence)://[^\\s]{1,240}$"},"evidence_class":{"enum":["direct","corroborating","contradicting","inconclusive"]},"supports":{"description":"Which side of the claim this evidence bears on. Evidence that contradicts is retained AS contradicting rather than dropped, so a bundle cannot look unanimous by omission.","enum":["affirmative","negative","neither"]}}}},"uncertainty":{"description":"Structured rather than a bare number: a confidence with no stated kind cannot be compared across estimators, and 'unknown' is a distinct epistemic state from 'zero confidence'.","type":"object","additionalProperties":false,"required":["uncertainty_kind","confidence","estimator_ref"],"properties":{"uncertainty_kind":{"enum":["point_confidence","qualitative","unknown","disputed_estimate"]},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"estimator_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}},"contradiction_state":{"description":"Contradictions are RETAINED, never resolved by deletion. A contradicted assertion keeps pointing at what contradicts it and keeps its own sources and evidence; the reader decides, and the record does not pretend the disagreement was not there.","type":"object","additionalProperties":false,"required":["contradiction_class","contradicting_assertion_refs","retained"],"properties":{"contradiction_class":{"enum":["none","direct_negation","value_conflict","scope_conflict","temporal_conflict"]},"contradicting_assertion_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology-assertion|finding)://[^\\s]{1,240}$"}},"retained":{"const":true}}},"supersession":{"type":"object","additionalProperties":false,"required":["supersedes_ref","supersession_reason"],"properties":{"supersedes_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"supersession_reason":{"enum":["none","corrected","refined","retracted","reclassified","superseded_by_evidence"]}}},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"}},"causal_or_counterfactual_context_ref":{"oneOf":[{"type":"string","pattern":"^(?:artifact|finding)://[^\\s]{1,240}$"},{"type":"null"}]},"oracle_evidence_profile_ref":{"description":"Retained from v1 so a v1-shaped oracle assertion has a v2 home without either record reinterpreting the other. Null on the general path; a v2 record carrying a profile must also carry that profile's admission receipt.","oneOf":[{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,240}$"},{"type":"null"}]},"oracle_evidence_admission_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},{"type":"null"}]},"predecessor_contract_ref":{"description":"The exact predecessor contract this version succeeds. Naming it inside the record is what makes the succession auditable from the bytes rather than only from a registry entry.","const":"schema://ioi/foundations/ontology-assertion/v1"},"reinterpretation_nonclaim":{"const":"provenance_assertion_v2_does_not_reinterpret_v1_records"},"policy_hash":{"$ref":"#/$defs/sha256"},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["assertion_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-provenance-assertions"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"challenge_state":{"description":"A fact about the chain, outside the content commitment. A challenge against an assertion is admissible and changes its STANDING without editing the claim it challenged; resolution binds an AssuranceTransitionReceipt v1, which is evidence and not a verdict.","type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref","resolution_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"},"resolution_contract_ref":{"const":"schema://ioi/foundations/assurance-transition-receipt/v1"}}},"universality_nonclaim":{"const":"provenance_assertion_admission_is_not_universal_truth"},"authority_nonclaim":{"const":"provenance_assertion_grants_no_authority"},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","contradicted","superseded","disputed","rejected"]}},"allOf":[{"description":"A held_unknown assertion is the one state where the domain declines to claim. Its uncertainty must say so rather than encode a number, and it carries no consequence scope.","if":{"properties":{"status":{"const":"held_unknown"}},"required":["status"]},"then":{"properties":{"uncertainty":{"type":"object","properties":{"uncertainty_kind":{"const":"unknown"},"confidence":{"type":"null"}}},"permitted_consequence_scope_refs":{"type":"array","maxItems":0}}}},{"description":"A point confidence is a number; declaring the kind and omitting the number is an estimate that cannot be read.","if":{"properties":{"uncertainty":{"type":"object","properties":{"uncertainty_kind":{"const":"point_confidence"}},"required":["uncertainty_kind"]}},"required":["uncertainty"]},"then":{"properties":{"uncertainty":{"type":"object","properties":{"confidence":{"type":"number"},"estimator_ref":{"type":"string"}}}}}},{"description":"A contradicted assertion names what contradicts it. A status that says 'contradicted' over an empty contradiction set is a label rather than a finding.","if":{"properties":{"status":{"const":"contradicted"}},"required":["status"]},"then":{"properties":{"contradiction_state":{"type":"object","properties":{"contradicting_assertion_refs":{"type":"array","minItems":1},"contradiction_class":{"enum":["direct_negation","value_conflict","scope_conflict","temporal_conflict"]}}}}}},{"description":"And the converse: naming contradictions and calling the record clean is the same defect from the other side.","if":{"properties":{"contradiction_state":{"type":"object","properties":{"contradiction_class":{"const":"none"}},"required":["contradiction_class"]}},"required":["contradiction_state"]},"then":{"properties":{"contradiction_state":{"type":"object","properties":{"contradicting_assertion_refs":{"type":"array","maxItems":0}}},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","superseded","disputed","rejected"]}}}},{"description":"A superseded assertion names what it superseded or was superseded by, with a stated reason. Supersession without a reason is a deletion with extra steps.","if":{"properties":{"status":{"const":"superseded"}},"required":["status"]},"then":{"properties":{"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"string"}}}}}},{"description":"A record that names a supersession target states why; 'none' is reserved for a record that supersedes nothing.","if":{"properties":{"supersession":{"type":"object","properties":{"supersedes_ref":{"type":"string"}},"required":["supersedes_ref"]}},"required":["supersession"]},"then":{"properties":{"supersession":{"type":"object","properties":{"supersession_reason":{"enum":["corrected","refined","retracted","reclassified","superseded_by_evidence"]}}}}}},{"description":"A disputed assertion has an open challenge; a challenge that changed nothing about standing did not happen.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"disputed"}}}},{"description":"An upheld challenge rejects the assertion it upheld, and the resolution is receipted through the assurance ladder rather than asserted here.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"rejected"}}}},{"description":"A rejected challenge is retained beside the assertion it failed to unseat.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"description":"A v1-profile oracle assertion carried into v2 keeps BOTH of v1's requirements: the profile and its qualified admission receipt travel together or neither is present.","if":{"properties":{"oracle_evidence_profile_ref":{"type":"string"}},"required":["oracle_evidence_profile_ref"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"string"},"fact_class_ref":{"type":"string"}}}},{"if":{"properties":{"oracle_evidence_profile_ref":{"type":"null"}},"required":["oracle_evidence_profile_ref"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"null"}}}},{"description":"An admitted assertion carries at least one piece of evidence and a bounded consequence scope. Admission with neither is a belief the domain has agreed to act on for no stated reason.","if":{"properties":{"status":{"const":"admitted"}},"required":["status"]},"then":{"properties":{"evidence_lineage":{"type":"array","minItems":1},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"properties":{"admission":{"type":"object"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"assertionFamilyRef":{"type":"string","pattern":"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"assertionRevisionRef":{"type":"string","pattern":"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]{1,240}$"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -122010,6 +128726,10 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/ontology-action-contract/v1", r#"[{"rule_id":"ontology_action_contract.content_hash.commits_both_bindings_effect_semantics_and_valid_time","description":"The content hash commits the compiled action's identity, BOTH exact bindings (the ontology revision with its owner-resolved hash and the action term it defines; the RuntimeToolContract revision with its owner-resolved hash and the exact JCS hashes of its declared input and output schemas), the typed effect contract, the declared risk and recovery semantics, the whole gate ladder, the nonclaim set, the predecessor link, and VALID time. Transaction time and the admission block are deliberately excluded: when a compiled meaning is held true is content, when it was recorded is admission, which is what lets a predecessor's transaction interval close while its bytes and hash stay frozen.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-action-contract-content-commitment-jcs-sha256.v1"},"ontology_action_id":{"path":"$.ontology_action_id"},"action_family_ref":{"path":"$.action_family_ref"},"action_record_profile":{"path":"$.action_record_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"action_slug":{"path":"$.action_slug"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_revision_ref":{"path":"$.predecessor_revision_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"ontology_family_ref":{"path":"$.ontology_family_ref"},"ontology_revision_ref":{"path":"$.ontology_revision_ref"},"ontology_content_hash":{"path":"$.ontology_content_hash"},"ontology_resolved_by":{"path":"$.ontology_resolved_by"},"action_type_ref":{"path":"$.action_type_ref"},"runtime_tool_contract_revision_ref":{"path":"$.runtime_tool_contract_revision_ref"},"runtime_tool_contract_content_hash":{"path":"$.runtime_tool_contract_content_hash"},"runtime_tool_resolved_by":{"path":"$.runtime_tool_resolved_by"},"bound_tool_id":{"path":"$.bound_tool_id"},"bound_tool_risk_class":{"path":"$.bound_tool_risk_class"},"bound_tool_effect_class":{"path":"$.bound_tool_effect_class"},"bound_tool_class_vocabulary":{"path":"$.bound_tool_class_vocabulary"},"bound_tool_input_schema_hash":{"path":"$.bound_tool_input_schema_hash"},"bound_tool_output_schema_hash":{"path":"$.bound_tool_output_schema_hash"},"bound_tool_primitive_capabilities_required":{"path":"$.bound_tool_primitive_capabilities_required"},"bound_tool_authority_scopes_required":{"path":"$.bound_tool_authority_scopes_required"},"typed_input_schema_ref":{"path":"$.typed_input_schema_ref"},"typed_output_schema_ref":{"path":"$.typed_output_schema_ref"},"target_object_model_refs":{"path":"$.target_object_model_refs"},"precondition_refs":{"path":"$.precondition_refs"},"postcondition_and_invariant_refs":{"path":"$.postcondition_and_invariant_refs"},"expected_state_transition_ref":{"path":"$.expected_state_transition_ref"},"risk_class":{"path":"$.risk_class"},"effect_recovery_class":{"path":"$.effect_recovery_class"},"idempotency_and_retry_profile_ref":{"path":"$.idempotency_and_retry_profile_ref"},"ambiguous_effect_and_reconciliation_profile_ref":{"path":"$.ambiguous_effect_and_reconciliation_profile_ref"},"compensation_profile_ref":{"path":"$.compensation_profile_ref"},"preview_and_dry_run_profile_ref":{"path":"$.preview_and_dry_run_profile_ref"},"approval_and_revocation_refs":{"path":"$.approval_and_revocation_refs"},"local_policy_and_authority_scope_refs":{"path":"$.local_policy_and_authority_scope_refs"},"verifier_and_evidence_refs":{"path":"$.verifier_and_evidence_refs"},"physical_safety_profile_ref":{"path":"$.physical_safety_profile_ref"},"receipt_obligations":{"path":"$.receipt_obligations"},"required_gates":{"path":"$.required_gates"},"required_gate_count":{"path":"$.required_gate_count"},"policy_hash":{"path":"$.policy_hash"},"does_not_assert":{"path":"$.does_not_assert"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"invocation_nonclaim":{"path":"$.invocation_nonclaim"},"valid_time":{"path":"$.valid_time"},"migration":{"path":"$.migration"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"ontology_action_contract.identity.binds_its_own_family","description":"A revision identity is its family plus an ordinal. A record whose identity does not extend the family it names has been lifted onto another action's lineage while keeping its bytes.","expression":{"operator":"field_starts_with_path","path":"$.ontology_action_id","prefix":"ontology-action://","expected_path":"$.action_family_ref","strip_prefix":"ontology-action://","suffix":"/revision/"}},{"rule_id":"ontology_action_contract.identity.family_ends_with_its_action_slug","description":"The action family is owner-qualified and ends in the action it compiles, so the slug in the identity and the slug in the record cannot drift apart.","expression":{"operator":"field_ends_with","path":"$.action_family_ref","expected_path":"$.action_slug"}},{"rule_id":"ontology_action_contract.bound_revision.is_of_the_bound_ontology_family","description":"The EXACT ontology revision this contract compiles is a revision of the family it names. Without this, an implementation could bind one family's ref and another family's revision and satisfy every shape check.","expression":{"operator":"field_starts_with_path","path":"$.ontology_revision_ref","prefix":"ontology://","expected_path":"$.ontology_family_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"ontology_action_contract.action_term.is_of_the_bound_ontology_family","description":"THE SEMANTIC BINDING, PORTABLY. The compiled action term belongs to the SAME family as the exact bound revision, so a contract cannot claim to compile one domain's action while binding another domain's meaning. This is the half decidable from these bytes ALONE. The other half — that the revision actually declares this action among its `action_types` — is checked before admission by the ontology owner's own `resolve_admitted_action_type` seam, and `ontology_content_hash` commits the bytes that let any relying party re-check it. Two fences, one claim: a term that is well formed and correctly namespaced but never declared is refused at admission, and the evidence to catch it offline is carried here.","expression":{"operator":"field_starts_with_path","path":"$.action_type_ref","prefix":"ontology://","expected_path":"$.ontology_family_ref","strip_prefix":"ontology://","suffix":"/term/"}},{"rule_id":"ontology_action_contract.action_term.ends_with_the_action_slug","description":"Together with the term-ref schema and family-prefix rule, this binds the OntologyActionContract family identity to the exact resolved ontology term. A local alias requires its own admitted mapping decision and is never invented here.","expression":{"operator":"field_ends_with","path":"$.action_type_ref","expected_path":"$.action_slug"}},{"rule_id":"ontology_action_contract.tool_binding.revision_is_owned_by_the_bound_tool","description":"The bound RuntimeToolContract revision is a revision OF the bound tool id. A revision ref belonging to another tool would bind a different effect surface than the one this contract names.","expression":{"operator":"field_starts_with_path","path":"$.runtime_tool_contract_revision_ref","prefix":"tool://","expected_path":"$.bound_tool_id","strip_prefix":"tool://","suffix":"/revision/"}},{"rule_id":"ontology_action_contract.gates.cover_the_canonical_ladder_exactly","description":"ACC-6 CLAUSE 5, PORTABLY AND INDEPENDENTLY OF THE SCHEMA. `required_gates` is exactly the capability, policy, authority, daemon-admission, evidence and verification gates — no omission, no substitution, no extra. The six tokens are `const`-pinned in `constants` because this language compares paths rather than literals, so this rule and the schema's enum/cardinality keywords are two fences a weakening implementation would have to defeat together. A mutation that removes any one gate fails here with no daemon present.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.required_gates","required_paths":["$.constants.capability_gate","$.constants.policy_gate","$.constants.authority_gate","$.constants.daemon_admission_gate","$.constants.evidence_gate","$.constants.verification_gate"],"required_array_paths":[]}},{"rule_id":"ontology_action_contract.gates.count_matches_the_declared_ladder","description":"The second, independent fence on ACC-6 clause 5. The gate ladder is pinned as an exact ordered six by the schema; this requires the declared count to equal the array's real length, so a build that dropped a gate would have to defeat both the ordered const list and this arithmetic to pass.","expression":{"operator":"array_length_equals","array_path":"$.required_gates","count_path":"$.required_gate_count"}},{"rule_id":"ontology_action_contract.nonclaims.does_not_assert_is_non_empty","description":"NN 9 as a checkable field. A contract that disclaims nothing has collapsed 'compiles meaning into a request' into 'confers permission to act on it', which is the exact reading this object exists to refuse.","expression":{"operator":"non_empty","path":"$.does_not_assert"}},{"rule_id":"ontology_action_contract.nonclaims.authority_is_always_disclaimed","description":"Of the closed nonclaim vocabulary, `authority` is the one member that may never be absent: a compiled action that does not say it confers no authority is read as conferring it by silence. The token itself is pinned by the schema in `constants`, so this rule and the schema's own `contains` clause are two independent fences over one claim — an implementation that dropped the authority nonclaim would have to defeat both.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.authority_nonclaim_token"}},{"rule_id":"ontology_action_contract.ontology_hash.is_not_this_records_own_hash","description":"The ontology revision's committed hash is the ONTOLOGY OWNER's, carried verbatim. An implementation that echoed this record's own content hash into that slot would satisfy every shape check while binding nothing.","expression":{"operator":"fields_not_equal","paths":["$.ontology_content_hash","$.content_hash"]}},{"rule_id":"ontology_action_contract.tool_hash.is_not_this_records_own_hash","description":"The same fence on the tool side, for the same reason.","expression":{"operator":"fields_not_equal","paths":["$.runtime_tool_contract_content_hash","$.content_hash"]}},{"rule_id":"ontology_action_contract.bindings.are_two_distinct_owner_commitments","description":"The ontology and tool commitments are two different owners' hashes. An implementation that resolved one and copied it into both slots would read as bound twice and be bound once.","expression":{"operator":"fields_not_equal","paths":["$.ontology_content_hash","$.runtime_tool_contract_content_hash"]}},{"rule_id":"ontology_action_contract.predecessor.is_not_this_record","description":"A successor whose predecessor hash equals its own content hash is a self-linked record, not a revision; the lineage would close into a loop that reads as history.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"ontology_action_contract.migration.source_is_the_exact_predecessor_revision","description":"A migration declares where it came from, and that is the immediate predecessor rather than any earlier revision a successor might prefer to claim.","expression":{"operator":"fields_equal","paths":["$.migration.from_revision_ref","$.predecessor_revision_ref"]}},{"rule_id":"ontology_action_contract.migration.source_hash_is_the_exact_predecessor_hash","description":"And it came from those exact bytes, so a migration cannot reinterpret a predecessor by naming it while binding a different commitment.","expression":{"operator":"fields_equal","paths":["$.migration.from_content_hash","$.predecessor_content_hash"]}},{"rule_id":"ontology_action_contract.physical_action.binds_a_safety_profile","description":"An action contract that can affect the physical world binds the Physical Action Safety profile before any actuator command is eligible. `physical_action` with a null safety profile is the exact combination canon forbids, and it is refused here without a daemon present.","expression":{"operator":"non_empty_when_in","path":"$.physical_safety_profile_ref","when_path":"$.risk_class","values":["physical_action"]}},{"rule_id":"ontology_action_contract.admission.binds_this_action_revision","description":"Admission evidence names this exact revision; a borrowed admission cannot make another record durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"ontology_action_id","expected_path":"$.ontology_action_id"}},{"rule_id":"ontology_action_contract.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
     ("schema://ioi/foundations/objects/ontology-surface-descriptor/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/ontology-surface-descriptor/v2", r#"[{"rule_id":"ontology_surface_descriptor.content_hash.commits_the_whole_descriptor","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. The first cut of this contract had the route derive a content hash that no registered rule checked, over a nested preimage no supported operator could reproduce — a number the record carried rather than a commitment anyone could test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. The producer builds the same flat material map, so the two agree by construction rather than by hope.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-surface-descriptor-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"surface_descriptor_id":{"path":"$.surface_descriptor_id"},"descriptor_record_profile":{"path":"$.descriptor_record_profile"},"surface_ref":{"path":"$.surface_ref"},"display_name":{"path":"$.display_name"},"owner_ref":{"path":"$.owner_ref"},"composition_pattern":{"path":"$.composition_pattern"},"ontology_refs":{"path":"$.ontology_refs"},"bound_ontology_revisions":{"path":"$.bound_ontology_revisions"},"bound_ontology_revision_count":{"path":"$.bound_ontology_revision_count"},"ontology_resolved_by":{"path":"$.ontology_resolved_by"},"canonical_object_model_refs":{"path":"$.canonical_object_model_refs"},"data_recipe_refs":{"path":"$.data_recipe_refs"},"policy_bound_data_view_refs":{"path":"$.policy_bound_data_view_refs"},"authority_requirement_refs":{"path":"$.authority_requirement_refs"},"daemon_api_refs":{"path":"$.daemon_api_refs"},"receipt_obligations":{"path":"$.receipt_obligations"},"conformance_profile_refs":{"path":"$.conformance_profile_refs"},"connector_mapping_refs":{"path":"$.connector_mapping_refs"},"ontology_projection_refs":{"path":"$.ontology_projection_refs"},"allowed_action_refs":{"path":"$.allowed_action_refs"},"operator_contract_refs":{"path":"$.operator_contract_refs"},"mcp_contract_refs":{"path":"$.mcp_contract_refs"},"generated_artifact_refs":{"path":"$.generated_artifact_refs"},"invariant_11_binding_set":{"path":"$.invariant_11_binding_set"},"invariant_11_member_count":{"path":"$.invariant_11_member_count"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"},"status":{"path":"$.status"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"ontology_surface_descriptor.invariant_11.binding_set_covers_every_canonical_member","description":"INVARIANT 11, PORTABLY. The declared binding set is EXACTLY the eight members non-negotiable 11 names — owning ontology refs, object-model refs, data-recipe refs, policy-bound data view refs, authority requirements, daemon/API dependencies, receipt obligations and conformance expectations — with nothing omitted and nothing extra. The member names are pinned by the schema in `constants`, so this rule needs no literals of its own and the two fences stay independent: a build that narrowed the binding set would have to defeat the schema's enum-and-cardinality AND this exact coverage. Before this contract existed, no stored descriptor could be checked against invariant 11 at all.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.invariant_11_binding_set","required_paths":["$.constants.member_ontology_refs","$.constants.member_canonical_object_model_refs","$.constants.member_data_recipe_refs","$.constants.member_policy_bound_data_view_refs","$.constants.member_authority_requirement_refs","$.constants.member_daemon_api_refs","$.constants.member_receipt_obligations","$.constants.member_conformance_profile_refs"],"required_array_paths":[]}},{"rule_id":"ontology_surface_descriptor.invariant_11.member_count_matches_the_declared_set","description":"The second, independent fence on the same claim: the declared member count equals the binding set's real length, so a shortened set would have to defeat both the schema's cardinality and this arithmetic.","expression":{"operator":"array_length_equals","array_path":"$.invariant_11_binding_set","count_path":"$.invariant_11_member_count"}},{"rule_id":"ontology_surface_descriptor.ontology_binding.every_owned_revision_is_counted","description":"NAMING A REVISION IS NOT BINDING ONE. The owning-ontology set and the declared count agree, so the number of revisions a descriptor claims to own is a fact about the bytes rather than about how many the reader happens to look at.","expression":{"operator":"array_length_equals","array_path":"$.ontology_refs","count_path":"$.bound_ontology_revision_count"}},{"rule_id":"ontology_surface_descriptor.ontology_binding.every_owned_revision_carries_an_owner_hash","description":"And the bound-hash set is the SAME size, so a descriptor that named three revisions and committed the hash of one — which reads as a complete binding and is not — fails here. Together with the uniqueness rule below, this makes 'every owned revision carries its owner's committed hash' decidable from the bytes alone.","expression":{"operator":"array_length_equals","array_path":"$.bound_ontology_revisions","count_path":"$.bound_ontology_revision_count"}},{"rule_id":"ontology_surface_descriptor.ontology_binding.the_bound_set_is_exactly_the_owning_set","description":"THE TWO COUNTS AGREEING IS NOT THE TWO SETS AGREEING. The pair of length rules above, plus uniqueness, forces `bound_ontology_revisions` to hold as many DISTINCT revisions as `ontology_refs` names — and a descriptor that names three revisions while binding three OTHER revisions satisfies every one of them. Every arithmetic fence passes, `uniqueItems` passes, and the record reads as a complete binding while committing an owner hash for a revision this surface does not own and committing nothing for one it does. This is the rule that says the projected set of `ontology_revision_ref` IS the owning set, member for member. It needs the operator's item-field projection because no scalar path, scalar array or derived ref can say 'the `ontology_revision_ref` of every row', and set equality between a ref list and the rows that bind it is otherwise inexpressible in this language.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.ontology_refs","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.bound_ontology_revisions","field":"ontology_revision_ref"}]}},{"rule_id":"ontology_surface_descriptor.ontology_binding.no_revision_is_bound_twice","description":"A duplicated entry would let a descriptor reach the required count while leaving another owned revision unbound; the pair of counts alone cannot see that, so identity is required to be unique.","expression":{"operator":"array_unique_by_fields","array_path":"$.bound_ontology_revisions","fields":["ontology_revision_ref"]}},{"rule_id":"ontology_surface_descriptor.nonclaims.authority_is_never_omitted","description":"Of the closed nonclaim vocabulary, `authority` may never be absent: a descriptor that does not say it confers no authority is read as conferring it by silence. The token is pinned by the schema, so this rule and the schema's own `contains` clause are two independent fences over one claim.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_authority_token"}},{"rule_id":"ontology_surface_descriptor.nonclaims.does_not_assert_is_non_empty","description":"NN 10 as a checkable field. A descriptor that disclaims nothing has collapsed 'declares what a surface binds' into 'is what the surface is', which is the reading this object exists to refuse.","expression":{"operator":"non_empty","path":"$.does_not_assert"}},{"rule_id":"ontology_surface_descriptor.identity.surface_ref_is_not_the_descriptor_ref","description":"The surface a descriptor describes and the descriptor itself are two objects. An implementation that echoed one into the other would satisfy every shape check while binding nothing.","expression":{"operator":"fields_not_equal","paths":["$.surface_ref","$.surface_descriptor_id"]}},{"rule_id":"ontology_surface_descriptor.migration.a_converged_record_names_its_exact_source_bytes","description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — as an invariant independent of the schema's `oneOf`. A record whose compatibility says it came from a v1 must name the exact bytes it came from. The first cut of this rule was `any_of(from_descriptor_ref equals from_content_hash, from_content_hash is non-empty)`, which every well-formed record on EITHER path satisfies: the fresh tuple passes the first branch because null equals null, and any record with a hash passes the second — including a mixed one claiming `initial` while naming a predecessor. It could not fail on a real defect, and a rule that cannot fail is not a fence. This one is conditioned on the compatibility label, so a `converged_from_v1` record with no source hash fails HERE as well as at the schema.","expression":{"operator":"non_empty_when_in","path":"$.migration.from_content_hash","when_path":"$.migration.compatibility","values":["converged_from_v1"]}},{"rule_id":"ontology_surface_descriptor.migration.a_converged_record_names_its_predecessor","description":"And the predecessor itself, by ref: naming the bytes without naming the record they came from leaves a relying party holding a hash it cannot resolve to anything.","expression":{"operator":"non_empty_when_in","path":"$.migration.from_descriptor_ref","when_path":"$.migration.compatibility","values":["converged_from_v1"]}},{"rule_id":"ontology_surface_descriptor.migration.a_record_is_never_its_own_predecessor","description":"A convergence mints a NEW descriptor whose identity is derived from its own owner and caller key; the v1 it came from keeps its own. A record naming itself as its predecessor claims to have been converged from bytes that are its own, which is a cycle rather than a provenance — and it would let a v2 acquire a migration history without any v1 ever having existed. On the fresh path the predecessor ref is null, which is trivially not the descriptor's own id, so one rule covers both branches.","expression":{"operator":"fields_not_equal","paths":["$.surface_descriptor_id","$.migration.from_descriptor_ref"]}},{"rule_id":"ontology_surface_descriptor.migration.a_converged_record_names_its_predecessor_contract","description":"And the contract that predecessor was admitted under, so 'converged from a v1' names the exact registered predecessor rather than an unstated one. The three together make the converged tuple whole at the invariant layer, independently of the schema's two-branch `oneOf`, and a build that collapsed the `oneOf` into five independently-nullable fields would still fail all three here.","expression":{"operator":"non_empty_when_in","path":"$.migration.from_schema_version","when_path":"$.migration.compatibility","values":["converged_from_v1"]}}]"#),
+    ("schema://ioi/foundations/ontology-overlay/v1", r#"[{"rule_id":"ontology_overlay.identity.binds_overlay_family_revision_path","description":"An overlay revision id is its overlay family's ref plus an explicit revision path; it can never name another overlay's lineage.","expression":{"operator":"field_starts_with_path","path":"$.overlay_id","prefix":"ontology://","expected_path":"$.overlay_family_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"ontology_overlay.family.binds_the_base_it_overlays","description":"The overlay family ref is the BASE family's ref plus an explicit /overlay/ path. This is what makes 'diverges without forking' structural: an overlay lives inside its base's addressing lineage and cannot be relocated under a different base by editing one field.","expression":{"operator":"field_starts_with_path","path":"$.overlay_family_ref","prefix":"ontology://","expected_path":"$.ontology_family_ref","strip_prefix":"ontology://","suffix":"/overlay/"}},{"rule_id":"ontology_overlay.base_family.binds_owner_namespace","description":"Identity is owner-qualified: the base family ref opens with the owning namespace, so two domains may hold the same local name and the same overlay name without colliding.","expression":{"operator":"field_starts_with_path","path":"$.ontology_family_ref","prefix":"ontology://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"ontology_overlay.base_family.binds_local_name","description":"The base family ref carries the base ontology's own local name verbatim.","expression":{"operator":"field_ends_with","path":"$.ontology_family_ref","expected_path":"$.name"}},{"rule_id":"ontology_overlay.family.binds_overlay_name","description":"The overlay family ref carries this overlay's own local name verbatim, so the readable name and the address cannot drift apart.","expression":{"operator":"field_ends_with","path":"$.overlay_family_ref","expected_path":"$.overlay_name"}},{"rule_id":"ontology_overlay.identity.binds_version_label","description":"The readable version label is the revision segment of the identity; a relabelled overlay revision no longer addresses its own object.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.overlay_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"ontology_overlay.content_hash.commits_bases_divergence_and_valid_time","description":"The content hash commits identity, lineage, every bound base revision AND that base owner's committed hash, both divergence sets, governing policy and VALID time. Transaction time, admission and status are deliberately excluded: when a divergence was held true is content, when it was recorded is admission.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-overlay-content-commitment-jcs-sha256.v1"},"overlay_id":{"path":"$.overlay_id"},"overlay_family_ref":{"path":"$.overlay_family_ref"},"ontology_family_ref":{"path":"$.ontology_family_ref"},"ontology_record_profile":{"path":"$.ontology_record_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"overlay_name":{"path":"$.overlay_name"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"base_ontology_version_refs":{"path":"$.base_ontology_version_refs"},"base_ontology_bindings":{"path":"$.base_ontology_bindings"},"base_resolved_by":{"path":"$.base_resolved_by"},"added_terms":{"path":"$.added_terms"},"overlaid_terms":{"path":"$.overlaid_terms"},"invariant_refs":{"path":"$.invariant_refs"},"compatibility_profile_ref":{"path":"$.compatibility_profile_ref"},"deprecation_policy_ref":{"path":"$.deprecation_policy_ref"},"policy_hash":{"path":"$.policy_hash"},"valid_time":{"path":"$.valid_time"},"migration":{"path":"$.migration"},"fork_nonclaim":{"path":"$.fork_nonclaim"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"global_canonicality_nonclaim":{"path":"$.global_canonicality_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"ontology_overlay.base_bindings.cover_the_declared_base_set_exactly","description":"The canonical base-ref list and the hash-bearing binding rows are the SAME set, member for member. Two lists of equal length that name different revisions would otherwise let an overlay declare one base and bind another's bytes.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.base_ontology_version_refs","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.base_ontology_bindings","field":"ontology_version_ref"}]}},{"rule_id":"ontology_overlay.base_bindings.count_matches_the_declared_set","description":"The second, independent fence on the same claim: a duplicated binding row cannot reach set equality and length equality at once.","expression":{"operator":"array_unique_by_fields","array_path":"$.base_ontology_bindings","fields":["ontology_version_ref"]}},{"rule_id":"ontology_overlay.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor, never from a substituted one.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"ontology_overlay.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor overlay cannot reinterpret the revision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"ontology_overlay.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces; equal or later sources are forks and gaps wearing successor clothing.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"ontology_overlay.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not an edit.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"ontology_overlay.admission.binds_this_revision","description":"Admission evidence names this exact overlay revision; a borrowed admission cannot make another overlay durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"overlay_id","expected_path":"$.overlay_id"}},{"rule_id":"ontology_overlay.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
+    ("schema://ioi/foundations/ontology-crosswalk/v1", r#"[{"rule_id":"ontology_crosswalk.identity.binds_family_revision_path","description":"A crosswalk revision id is its family's ref plus an explicit revision path; it can never name another crosswalk's lineage, and its /crosswalk/ segment keeps it distinct from the decision family that applies it.","expression":{"operator":"field_starts_with_path","path":"$.ontology_mapping_id","prefix":"ontology-mapping://","expected_path":"$.mapping_family_ref","strip_prefix":"ontology-mapping://","suffix":"/revision/"}},{"rule_id":"ontology_crosswalk.family.binds_owner_namespace","description":"Identity is owner-qualified: the mapping family ref opens with the owning namespace, so two domains may hold a same-named crosswalk without colliding.","expression":{"operator":"field_starts_with_path","path":"$.mapping_family_ref","prefix":"ontology-mapping://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"ontology_crosswalk.identity.binds_version_label","description":"The readable version label is the revision segment of the identity; a relabelled revision no longer addresses its own object.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.ontology_mapping_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"ontology_crosswalk.content_hash.commits_endpoints_mappings_risk_and_valid_time","description":"The content hash commits identity, lineage, BOTH endpoint bindings with their owners' committed hashes, every declared term mapping with its relation and loss, the named ambiguities, the declared mapping-risk posture and VALID time. Transaction time, admission, challenge standing and status are deliberately excluded: what a crosswalk declares is content, when it was recorded and how its standing later moved are facts about the chain.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-crosswalk-content-commitment-jcs-sha256.v1"},"ontology_mapping_id":{"path":"$.ontology_mapping_id"},"mapping_family_ref":{"path":"$.mapping_family_ref"},"mapping_record_profile":{"path":"$.mapping_record_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"source_ontology_ref":{"path":"$.source_ontology_ref"},"target_ontology_ref":{"path":"$.target_ontology_ref"},"source_and_target_version_refs":{"path":"$.source_and_target_version_refs"},"source_binding":{"path":"$.source_binding"},"target_binding":{"path":"$.target_binding"},"endpoint_resolved_by":{"path":"$.endpoint_resolved_by"},"domain_relationship":{"path":"$.domain_relationship"},"term_mappings":{"path":"$.term_mappings"},"ambiguous_term_refs":{"path":"$.ambiguous_term_refs"},"compatibility_result":{"path":"$.compatibility_result"},"mapping_risk":{"path":"$.mapping_risk"},"verifier_obligation_refs":{"path":"$.verifier_obligation_refs"},"mapped_object_relationship_event_and_action_refs":{"path":"$.mapped_object_relationship_event_and_action_refs"},"mapping_profile_ref":{"path":"$.mapping_profile_ref"},"deprecation_and_migration_policy_ref":{"path":"$.deprecation_and_migration_policy_ref"},"policy_hash":{"path":"$.policy_hash"},"valid_time":{"path":"$.valid_time"},"migration":{"path":"$.migration"},"cross_domain_application_nonclaim":{"path":"$.cross_domain_application_nonclaim"},"correctness_nonclaim":{"path":"$.correctness_nonclaim"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"global_canonicality_nonclaim":{"path":"$.global_canonicality_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"ontology_crosswalk.endpoints.are_exactly_the_two_bound_revisions","description":"The canonical source_and_target_version_refs list and the two hash-bearing endpoint bindings are the SAME set. A crosswalk that declares one pair of revisions and binds another's bytes maps something other than what it says it maps.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.source_and_target_version_refs","required_paths":["$.source_binding.ontology_version_ref","$.target_binding.ontology_version_ref"],"required_array_paths":[]}},{"rule_id":"ontology_crosswalk.source_binding.binds_its_declared_family","description":"The source endpoint's exact revision is a revision OF the declared source family; a well-formed revision of some other family is refused as the substitution it is.","expression":{"operator":"fields_equal","paths":["$.source_ontology_ref","$.source_binding.ontology_ref"]}},{"rule_id":"ontology_crosswalk.target_binding.binds_its_declared_family","description":"The target endpoint's exact revision is a revision OF the declared target family.","expression":{"operator":"fields_equal","paths":["$.target_ontology_ref","$.target_binding.ontology_ref"]}},{"rule_id":"ontology_crosswalk.source_revision.binds_its_own_family_path","description":"The source revision ref opens with the source family it claims, so the two cannot be edited apart.","expression":{"operator":"field_starts_with_path","path":"$.source_binding.ontology_version_ref","prefix":"ontology://","expected_path":"$.source_binding.ontology_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"ontology_crosswalk.target_revision.binds_its_own_family_path","description":"The target revision ref opens with the target family it claims.","expression":{"operator":"field_starts_with_path","path":"$.target_binding.ontology_version_ref","prefix":"ontology://","expected_path":"$.target_binding.ontology_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"ontology_crosswalk.endpoints.are_two_distinct_revisions","description":"A map from a revision to itself declares nothing. The two endpoints are distinct revisions even when they belong to one family lineage.","expression":{"operator":"fields_not_equal","paths":["$.source_binding.ontology_version_ref","$.target_binding.ontology_version_ref"]}},{"rule_id":"ontology_crosswalk.risk.ambiguity_count_matches_the_named_set","description":"The declared ambiguity count is the real length of the named ambiguity set. A posture that reports fewer ambiguities than it names is the exact under-declaration a later application would be adjudicating against.","expression":{"operator":"array_length_equals","array_path":"$.ambiguous_term_refs","count_path":"$.mapping_risk.ambiguous_term_count"}},{"rule_id":"ontology_crosswalk.term_mappings.declare_each_source_term_once","description":"One source term carries one declared correspondence per revision. Two rows for one term is an ambiguity pretending to be a mapping.","expression":{"operator":"array_unique_by_fields","array_path":"$.term_mappings","fields":["source_term_id","target_term_id"]}},{"rule_id":"ontology_crosswalk.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor, never from a substituted one.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"ontology_crosswalk.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor cannot reinterpret the crosswalk it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"ontology_crosswalk.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"ontology_crosswalk.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not an edit.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"ontology_crosswalk.admission.binds_this_revision","description":"Admission evidence names this exact crosswalk revision.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"ontology_mapping_id","expected_path":"$.ontology_mapping_id"}},{"rule_id":"ontology_crosswalk.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
+    ("schema://ioi/foundations/semantic-mapping-decision/v1", r#"[{"rule_id":"semantic_mapping_decision.identity.binds_family_revision_path","description":"A decision revision id is its decision family's ref plus an explicit revision path. The /decision/ segment is what keeps an application from ever being addressed as the crosswalk it applied.","expression":{"operator":"field_starts_with_path","path":"$.ontology_mapping_id","prefix":"ontology-mapping://","expected_path":"$.mapping_family_ref","strip_prefix":"ontology-mapping://","suffix":"/revision/"}},{"rule_id":"semantic_mapping_decision.family.binds_owner_namespace","description":"Identity is owner-qualified: the decision family ref opens with the owning namespace.","expression":{"operator":"field_starts_with_path","path":"$.mapping_family_ref","prefix":"ontology-mapping://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"semantic_mapping_decision.identity.binds_version_label","description":"The readable version label is the revision segment of the identity.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.ontology_mapping_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"semantic_mapping_decision.content_hash.commits_crosswalk_reviewers_dispositions_and_valid_time","description":"The content hash commits identity, lineage, the exact applied crosswalk revision and its hash, both endpoint bindings, every reviewer and their individual decision, the accepted risk, every ambiguity and unmapped-term disposition, the terms-acceptance binding and VALID time. Transaction time, admission, the decision receipt, challenge standing and status are excluded: what was decided is content, when it was recorded and how its standing later moved are facts about the chain.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.semantic-mapping-decision-content-commitment-jcs-sha256.v1"},"ontology_mapping_id":{"path":"$.ontology_mapping_id"},"mapping_family_ref":{"path":"$.mapping_family_ref"},"mapping_record_profile":{"path":"$.mapping_record_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"applied_crosswalk_ref":{"path":"$.applied_crosswalk_ref"},"applied_crosswalk_binding":{"path":"$.applied_crosswalk_binding"},"crosswalk_resolved_by":{"path":"$.crosswalk_resolved_by"},"source_ontology_ref":{"path":"$.source_ontology_ref"},"target_ontology_ref":{"path":"$.target_ontology_ref"},"source_and_target_version_refs":{"path":"$.source_and_target_version_refs"},"source_binding":{"path":"$.source_binding"},"target_binding":{"path":"$.target_binding"},"domain_relationship":{"path":"$.domain_relationship"},"application_target_refs":{"path":"$.application_target_refs"},"decided_by_ref":{"path":"$.decided_by_ref"},"decision_timestamp":{"path":"$.decision_timestamp"},"reviewer_lineage":{"path":"$.reviewer_lineage"},"mapping_risk_acceptance":{"path":"$.mapping_risk_acceptance"},"ambiguity_dispositions":{"path":"$.ambiguity_dispositions"},"unmapped_term_dispositions":{"path":"$.unmapped_term_dispositions"},"terms_acceptance":{"path":"$.terms_acceptance"},"compatibility_result":{"path":"$.compatibility_result"},"policy_bound_view_refs":{"path":"$.policy_bound_view_refs"},"validation_and_challenge_refs":{"path":"$.validation_and_challenge_refs"},"policy_hash":{"path":"$.policy_hash"},"valid_time":{"path":"$.valid_time"},"migration":{"path":"$.migration"},"correctness_nonclaim":{"path":"$.correctness_nonclaim"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"global_canonicality_nonclaim":{"path":"$.global_canonicality_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"semantic_mapping_decision.applied_crosswalk.is_the_bound_revision","description":"The canonical applied_crosswalk_ref field and the hash-bearing crosswalk binding name the SAME revision. A decision that cites one crosswalk and binds another's bytes applied something other than what it says it applied.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_ref","$.applied_crosswalk_binding.ontology_mapping_id"]}},{"rule_id":"semantic_mapping_decision.applied_crosswalk.binds_its_own_family_path","description":"The applied crosswalk revision opens with the crosswalk family the binding claims, so the two cannot be edited apart.","expression":{"operator":"field_starts_with_path","path":"$.applied_crosswalk_binding.ontology_mapping_id","prefix":"ontology-mapping://","expected_path":"$.applied_crosswalk_binding.mapping_family_ref","strip_prefix":"ontology-mapping://","suffix":"/revision/"}},{"rule_id":"semantic_mapping_decision.endpoints.are_exactly_the_two_bound_revisions","description":"The declared endpoint list and the two hash-bearing endpoint bindings are the SAME set; both are carried verbatim from the applied crosswalk rather than re-asserted by the decider.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.source_and_target_version_refs","required_paths":["$.source_binding.ontology_version_ref","$.target_binding.ontology_version_ref"],"required_array_paths":[]}},{"rule_id":"semantic_mapping_decision.source_binding.binds_its_declared_family","description":"The source endpoint's exact revision is a revision OF the declared source family.","expression":{"operator":"fields_equal","paths":["$.source_ontology_ref","$.source_binding.ontology_ref"]}},{"rule_id":"semantic_mapping_decision.target_binding.binds_its_declared_family","description":"The target endpoint's exact revision is a revision OF the declared target family.","expression":{"operator":"fields_equal","paths":["$.target_ontology_ref","$.target_binding.ontology_ref"]}},{"rule_id":"semantic_mapping_decision.risk_acceptance.accepts_the_declared_loss","description":"The accepted loss is the loss the applied crosswalk declared. Accepting a smaller loss than the crosswalk declared is a decision about a different mapping.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.declared_loss","$.mapping_risk_acceptance.accepted_loss"]}},{"rule_id":"semantic_mapping_decision.risk_acceptance.accepts_the_declared_risk_class","description":"And the accepted risk class is the crosswalk's declared class, so a high-risk map cannot be applied under a low-risk acceptance.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.risk_class","$.mapping_risk_acceptance.accepted_risk_class"]}},{"rule_id":"semantic_mapping_decision.compatibility.is_the_crosswalks_own_result","description":"A decision reports the compatibility its crosswalk computed; relabelling a lossy map as exact at application time is the silent field equivalence canon forbids.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.compatibility_result","$.compatibility_result"]}},{"rule_id":"semantic_mapping_decision.reviewers.are_named_once_each_per_role","description":"One reviewer holds one role in one lineage. A repeated row would let a single reviewer stand in for a quorum of roles.","expression":{"operator":"array_unique_by_fields","array_path":"$.reviewer_lineage","fields":["reviewer_ref","review_role"]}},{"rule_id":"semantic_mapping_decision.ambiguity_dispositions.name_each_term_once","description":"One ambiguous term receives one disposition. Two dispositions for one term is the ambiguity restated rather than adjudicated.","expression":{"operator":"array_unique_by_fields","array_path":"$.ambiguity_dispositions","fields":["source_term_id"]}},{"rule_id":"semantic_mapping_decision.unmapped_dispositions.name_each_term_once","description":"One unmapped term receives one disposition.","expression":{"operator":"array_unique_by_fields","array_path":"$.unmapped_term_dispositions","fields":["source_term_id"]}},{"rule_id":"semantic_mapping_decision.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"semantic_mapping_decision.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor decision cannot reinterpret the decision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"semantic_mapping_decision.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"semantic_mapping_decision.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not a new decision.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"semantic_mapping_decision.admission.binds_this_revision","description":"Admission evidence names this exact decision revision.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"ontology_mapping_id","expected_path":"$.ontology_mapping_id"}},{"rule_id":"semantic_mapping_decision.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}},{"rule_id":"semantic_mapping_decision.receipt.is_the_admitting_batch_receipt","description":"The canonical mapping decision receipt is the admitting batch's own Agentgres receipt, not a second receipt minted beside it. Binding them together is what stops a decision from citing a receipt that attests some other admission.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"agentgres_receipt_ref","expected_path":"$.mapping_decision_receipt_ref"}}]"#),
+    ("schema://ioi/foundations/ontology-assertion/v2", r#"[{"rule_id":"provenance_assertion.identity.binds_family_revision_path","description":"An assertion revision id is its family's ref plus an explicit revision path; it can never name another assertion lineage.","expression":{"operator":"field_starts_with_path","path":"$.assertion_id","prefix":"ontology-assertion://","expected_path":"$.assertion_family_ref","strip_prefix":"ontology-assertion://","suffix":"/revision/"}},{"rule_id":"provenance_assertion.family.binds_owner_namespace","description":"Identity is owner-qualified: the assertion family ref opens with the owning namespace, so two domains may assert about the same-named subject without either becoming the other's truth.","expression":{"operator":"field_starts_with_path","path":"$.assertion_family_ref","prefix":"ontology-assertion://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"provenance_assertion.family.binds_local_name","description":"The assertion family ref carries this lineage's own local name verbatim.","expression":{"operator":"field_ends_with","path":"$.assertion_family_ref","expected_path":"$.name"}},{"rule_id":"provenance_assertion.identity.binds_version_label","description":"The readable version label is the revision segment of the identity.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.assertion_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"provenance_assertion.content_hash.commits_claim_sources_evidence_uncertainty_and_valid_time","description":"The content hash commits identity, lineage, the exact bound ontology revision and its owner's hash, the claim itself with its POLARITY, every attributed source, every piece of evidence with which side it bears on, the structured uncertainty, the retained contradiction set, the supersession statement and VALID time. Transaction time, admission, challenge standing and status are excluded: what was claimed is content; when it was recorded and how its standing later moved are facts about the chain.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.provenance-assertion-content-commitment-jcs-sha256.v2"},"assertion_id":{"path":"$.assertion_id"},"assertion_family_ref":{"path":"$.assertion_family_ref"},"assertion_profile":{"path":"$.assertion_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"ontology_ref":{"path":"$.ontology_ref"},"ontology_binding":{"path":"$.ontology_binding"},"ontology_resolved_by":{"path":"$.ontology_resolved_by"},"fact_class_ref":{"path":"$.fact_class_ref"},"subject_ref":{"path":"$.subject_ref"},"predicate_ref":{"path":"$.predicate_ref"},"object_or_value_ref":{"path":"$.object_or_value_ref"},"polarity":{"path":"$.polarity"},"valid_time":{"path":"$.valid_time"},"source_attribution":{"path":"$.source_attribution"},"evidence_lineage":{"path":"$.evidence_lineage"},"uncertainty":{"path":"$.uncertainty"},"contradiction_state":{"path":"$.contradiction_state"},"supersession":{"path":"$.supersession"},"applicability_scope_ref":{"path":"$.applicability_scope_ref"},"permitted_consequence_scope_refs":{"path":"$.permitted_consequence_scope_refs"},"causal_or_counterfactual_context_ref":{"path":"$.causal_or_counterfactual_context_ref"},"oracle_evidence_profile_ref":{"path":"$.oracle_evidence_profile_ref"},"oracle_evidence_admission_receipt_ref":{"path":"$.oracle_evidence_admission_receipt_ref"},"predecessor_contract_ref":{"path":"$.predecessor_contract_ref"},"reinterpretation_nonclaim":{"path":"$.reinterpretation_nonclaim"},"policy_hash":{"path":"$.policy_hash"},"migration":{"path":"$.migration"},"universality_nonclaim":{"path":"$.universality_nonclaim"},"authority_nonclaim":{"path":"$.authority_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"provenance_assertion.ontology_binding.binds_the_declared_family","description":"The bound revision is a revision OF the declared ontology family. A well-formed revision of some other family would give the predicate a different meaning while the record still read as though it had not moved.","expression":{"operator":"field_starts_with_path","path":"$.ontology_binding.ontology_version_ref","prefix":"ontology://","expected_path":"$.ontology_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"provenance_assertion.predicate.is_a_term_of_the_bound_family","description":"The predicate is a term of the SAME family the assertion bound. Shape alone cannot say this: a canonical term of another domain's namespace is well-formed and still means nothing here.","expression":{"operator":"field_starts_with_path","path":"$.predicate_ref","prefix":"ontology://","expected_path":"$.ontology_ref","strip_prefix":"ontology://","suffix":"/term/"}},{"rule_id":"provenance_assertion.ontology_binding.binds_the_owning_namespace","description":"The bound revision's namespace is the one the binding names, so an assertion cannot silently attribute its vocabulary to a domain that never declared it.","expression":{"operator":"field_starts_with_path","path":"$.ontology_ref","prefix":"ontology://","expected_path":"$.ontology_binding.namespace","suffix":"/"}},{"rule_id":"provenance_assertion.supersession.does_not_supersede_itself","description":"An assertion that supersedes itself is a cycle, not a correction.","expression":{"operator":"fields_not_equal","paths":["$.assertion_id","$.supersession.supersedes_ref"]}},{"rule_id":"provenance_assertion.sources.are_attributed_once_each","description":"One source contributes one attribution row per revision; a repeated source would let a single observation read as corroboration.","expression":{"operator":"array_unique_by_fields","array_path":"$.source_attribution","fields":["source_ref"]}},{"rule_id":"provenance_assertion.evidence.is_named_once_each","description":"One piece of evidence appears once. Counting the same artifact twice is how a thin evidence set looks thick.","expression":{"operator":"array_unique_by_fields","array_path":"$.evidence_lineage","fields":["evidence_ref"]}},{"rule_id":"provenance_assertion.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"provenance_assertion.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor assertion cannot reinterpret the revision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"provenance_assertion.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"provenance_assertion.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not a corrected claim.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"provenance_assertion.admission.binds_this_revision","description":"Admission evidence names this exact assertion revision; a borrowed admission cannot make another claim durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"assertion_id","expected_path":"$.assertion_id"}},{"rule_id":"provenance_assertion.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -122135,8 +128855,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:artifact|evidence|receipt|ledger)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:artifact|finding)://[^\s]{1,240}$"#,
+        r#"^(?:artifact|finding)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:artifact|finding)://[^\s]{1,248}$"#,
         r#"^(?:artifact|finding)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:artifact|mapping)://[^\s]{1,240}$"#,
+        r#"^(?:artifact|mapping)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:artifact|patch|mapping|state-delta)://[^\s]{1,500}$"#,
@@ -122347,6 +129075,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:evidence|receipt|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:evidence|receipt|artifact|assurance-evidence)://[^\s]{1,240}$"#,
+        r#"^(?:evidence|receipt|artifact|assurance-evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:evidence|receipt|artifact|attestation)://[^\s]{1,240}$"#,
         r#"^(?:evidence|receipt|artifact|attestation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -122495,8 +129227,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:network|chain|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:object-model|ontology-action|schema)://[^\s]{1,240}$"#,
+        r#"^(?:object-model|ontology-action|schema)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:observed-state|agentgres)://[^\s]{1,240}$"#,
         r#"^(?:observed-state|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^(?:ontology-assertion|finding)://[^\s]{1,240}$"#,
+        r#"^(?:ontology-assertion|finding)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:ontology-assertion|finding)://[^\s]{1,248}$"#,
@@ -122505,6 +129245,18 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:ontology-assertion|verifier-challenge|dispute)://[^\s]{1,248}$"#,
         r#"^(?:ontology-assertion|verifier-challenge|dispute)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"#,
+        r#"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"#,
+    ),
+    (
+        r#"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"#,
+        r#"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"#,
+        r#"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"#,
     ),
     (
         r#"^(?:ontology|semantic-profile|ontology-mapping)://[^\s]{1,500}$"#,
@@ -122537,6 +129289,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:outcome-room|user|org)://[^\s]{1,500}$"#,
         r#"^(?:outcome-room|user|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:packet|handoff|object|query|ontology-action|artifact)://[^\s]{1,240}$"#,
+        r#"^(?:packet|handoff|object|query|ontology-action|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:participant-lease|system|domain|worker|service|agent|org)://[^\s]{1,500}$"#,
@@ -122577,6 +129333,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:policy|event)://[^\s]{1,500}$"#,
         r#"^(?:policy|event)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:policy|finding|evidence)://[^\s]{1,240}$"#,
+        r#"^(?:policy|finding|evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:policy|finding|ontology)://[^\s]{1,500}$"#,
@@ -122879,6 +129639,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:system|wallet|org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:system|worker|org|user|project|service|domain|policy)://[^\s]{1,240}$"#,
+        r#"^(?:system|worker|org|user|project|service|domain|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:system|worker|service|org|domain)://[^\s]{1,500}$"#,
         r#"^(?:system|worker|service|org|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -122903,6 +129667,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:test|gate|receipt|branch-checkpoint)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^(?:test|verifier-challenge|evidence)://[^\s]{1,240}$"#,
+        r#"^(?:test|verifier-challenge|evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:tokenizer|artifact)://[^\s]{1,500}$"#,
         r#"^(?:tokenizer|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -122917,6 +129685,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:user|org)://[^\s]{1,500}$"#,
         r#"^(?:user|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:user|org|worker|service|system|domain)://[^\s]{1,240}$"#,
+        r#"^(?:user|org|worker|service|system|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:user|wallet)://\S*$"#,
@@ -122955,12 +129727,20 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:verifier_path|rubric|gate)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:verifier_path|test|schema|evidence)://[^\s]{1,240}$"#,
+        r#"^(?:verifier_path|test|schema|evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
         r#"^(?:verifier_path|verifier-challenge)://[^\s]{1,500}$"#,
         r#"^(?:verifier_path|verifier-challenge)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:verifier_path|worker|gate|receipt)://[^\s]{1,500}$"#,
         r#"^(?:verifier_path|worker|gate|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:view|restricted_view)://[^\s]{1,240}$"#,
+        r#"^(?:view|restricted_view)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^(?:wallet-client|guardian|surface)://[^\s]{1,500}$"#,
@@ -123163,6 +129943,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^[a-z][a-z0-9-]*://[^\s]+$"#,
         r#"^[a-z][a-z0-9-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9-]*://[^\s]{1,240}$"#,
+        r#"^[a-z][a-z0-9-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^[a-z][a-z0-9.-]*(?:://|:)[^\s]{1,248}$"#,
@@ -123551,6 +130335,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^cleanup-obligation://[^\s]{1,240}$"#,
         r#"^cleanup-obligation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^collaboration-terms://[^\s]{1,240}$"#,
+        r#"^collaboration-terms://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^collaboration://[^\s]{1,500}$"#,
@@ -124162,6 +130950,34 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^ontology-assertion://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
+        r#"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
+    ),
+    (
+        r#"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^ontology-mapping://[^\s]{1,240}$"#,
+        r#"^ontology-mapping://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"#,
+        r#"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"#,
+    ),
+    (
+        r#"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"#,
+        r#"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$"#,
+        r#"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$"#,
+    ),
+    (
+        r#"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"#,
+        r#"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
         r#"^ontology://[^\s]{1,248}$"#,
         r#"^ontology://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -124170,12 +130986,28 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
     ),
     (
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}$"#,
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}$"#,
+    ),
+    (
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"#,
+        r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"#,
+    ),
+    (
         r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
         r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"#,
         r#"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"#,
+    ),
+    (
+        r#"^oracle-evidence-profile://[^\s]{1,240}$"#,
+        r#"^oracle-evidence-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^oracle-evidence-profile://[^\s]{1,248}$"#,
@@ -124921,6 +131753,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^verification://[^\s]{1,248}$"#,
         r#"^verification://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^verifier-challenge://[^\s]{1,240}$"#,
+        r#"^verifier-challenge://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^verifier-challenge://[^\s]{1,500}$"#,
@@ -126992,6 +133828,119 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -128135,6 +135084,26 @@ mod tests {
         },
         "schema://ioi/foundations/objects/ontology-surface-descriptor/v2" => {
             serde_json::from_value::<OntologySurfaceDescriptorV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/ontology-overlay/v1" => {
+            serde_json::from_value::<OntologyOverlayV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/ontology-crosswalk/v1" => {
+            serde_json::from_value::<OntologyCrosswalkV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/semantic-mapping-decision/v1" => {
+            serde_json::from_value::<SemanticMappingDecisionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/ontology-assertion/v2" => {
+            serde_json::from_value::<ProvenanceAssertionV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -129284,6 +136253,26 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/ontology-overlay/v1" => {
+            let projection = serde_json::from_value::<OntologyOverlayV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/ontology-crosswalk/v1" => {
+            let projection = serde_json::from_value::<OntologyCrosswalkV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/semantic-mapping-decision/v1" => {
+            let projection = serde_json::from_value::<SemanticMappingDecisionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/ontology-assertion/v2" => {
+            let projection = serde_json::from_value::<ProvenanceAssertionV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -129420,8 +136409,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            823,
-            "the registered golden corpus must remain the explicit 823-fixture bar",
+            936,
+            "the registered golden corpus must remain the explicit 936-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -129663,7 +136652,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 784,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 813,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

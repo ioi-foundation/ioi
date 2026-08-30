@@ -1,0 +1,227 @@
+{
+  "$id": "invariant://ioi/foundations/ontology-crosswalk/exact-endpoints-declared-loss-and-challengeable-standing/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+  "rules": [
+    {
+      "rule_id": "ontology_crosswalk.identity.binds_family_revision_path",
+      "description": "A crosswalk revision id is its family's ref plus an explicit revision path; it can never name another crosswalk's lineage, and its /crosswalk/ segment keeps it distinct from the decision family that applies it.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_mapping_id",
+        "prefix": "ontology-mapping://",
+        "expected_path": "$.mapping_family_ref",
+        "strip_prefix": "ontology-mapping://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.family.binds_owner_namespace",
+      "description": "Identity is owner-qualified: the mapping family ref opens with the owning namespace, so two domains may hold a same-named crosswalk without colliding.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.mapping_family_ref",
+        "prefix": "ontology-mapping://",
+        "expected_path": "$.namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.identity.binds_version_label",
+      "description": "The readable version label is the revision segment of the identity; a relabelled revision no longer addresses its own object.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.ontology_mapping_id",
+        "delimiter": "/",
+        "target_path": "$.version",
+        "target_prefix": "v"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.content_hash.commits_endpoints_mappings_risk_and_valid_time",
+      "description": "The content hash commits identity, lineage, BOTH endpoint bindings with their owners' committed hashes, every declared term mapping with its relation and loss, the named ambiguities, the declared mapping-risk posture and VALID time. Transaction time, admission, challenge standing and status are deliberately excluded: what a crosswalk declares is content, when it was recorded and how its standing later moved are facts about the chain.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.ontology-crosswalk-content-commitment-jcs-sha256.v1" },
+          "ontology_mapping_id": { "path": "$.ontology_mapping_id" },
+          "mapping_family_ref": { "path": "$.mapping_family_ref" },
+          "mapping_record_profile": { "path": "$.mapping_record_profile" },
+          "namespace": { "path": "$.namespace" },
+          "name": { "path": "$.name" },
+          "owner_id": { "path": "$.owner_id" },
+          "governing_scope_ref": { "path": "$.governing_scope_ref" },
+          "version": { "path": "$.version" },
+          "revision_ordinal": { "path": "$.revision_ordinal" },
+          "predecessor_version_ref": { "path": "$.predecessor_version_ref" },
+          "predecessor_content_hash": { "path": "$.predecessor_content_hash" },
+          "source_ontology_ref": { "path": "$.source_ontology_ref" },
+          "target_ontology_ref": { "path": "$.target_ontology_ref" },
+          "source_and_target_version_refs": { "path": "$.source_and_target_version_refs" },
+          "source_binding": { "path": "$.source_binding" },
+          "target_binding": { "path": "$.target_binding" },
+          "endpoint_resolved_by": { "path": "$.endpoint_resolved_by" },
+          "domain_relationship": { "path": "$.domain_relationship" },
+          "term_mappings": { "path": "$.term_mappings" },
+          "ambiguous_term_refs": { "path": "$.ambiguous_term_refs" },
+          "compatibility_result": { "path": "$.compatibility_result" },
+          "mapping_risk": { "path": "$.mapping_risk" },
+          "verifier_obligation_refs": { "path": "$.verifier_obligation_refs" },
+          "mapped_object_relationship_event_and_action_refs": {
+            "path": "$.mapped_object_relationship_event_and_action_refs"
+          },
+          "mapping_profile_ref": { "path": "$.mapping_profile_ref" },
+          "deprecation_and_migration_policy_ref": {
+            "path": "$.deprecation_and_migration_policy_ref"
+          },
+          "policy_hash": { "path": "$.policy_hash" },
+          "valid_time": { "path": "$.valid_time" },
+          "migration": { "path": "$.migration" },
+          "cross_domain_application_nonclaim": {
+            "path": "$.cross_domain_application_nonclaim"
+          },
+          "correctness_nonclaim": { "path": "$.correctness_nonclaim" },
+          "authority_nonclaim": { "path": "$.authority_nonclaim" },
+          "global_canonicality_nonclaim": { "path": "$.global_canonicality_nonclaim" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.endpoints.are_exactly_the_two_bound_revisions",
+      "description": "The canonical source_and_target_version_refs list and the two hash-bearing endpoint bindings are the SAME set. A crosswalk that declares one pair of revisions and binds another's bytes maps something other than what it says it maps.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.source_and_target_version_refs",
+        "required_paths": [
+          "$.source_binding.ontology_version_ref",
+          "$.target_binding.ontology_version_ref"
+        ],
+        "required_array_paths": []
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.source_binding.binds_its_declared_family",
+      "description": "The source endpoint's exact revision is a revision OF the declared source family; a well-formed revision of some other family is refused as the substitution it is.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.source_ontology_ref", "$.source_binding.ontology_ref"]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.target_binding.binds_its_declared_family",
+      "description": "The target endpoint's exact revision is a revision OF the declared target family.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.target_ontology_ref", "$.target_binding.ontology_ref"]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.source_revision.binds_its_own_family_path",
+      "description": "The source revision ref opens with the source family it claims, so the two cannot be edited apart.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.source_binding.ontology_version_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.source_binding.ontology_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.target_revision.binds_its_own_family_path",
+      "description": "The target revision ref opens with the target family it claims.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.target_binding.ontology_version_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.target_binding.ontology_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.endpoints.are_two_distinct_revisions",
+      "description": "A map from a revision to itself declares nothing. The two endpoints are distinct revisions even when they belong to one family lineage.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.source_binding.ontology_version_ref",
+          "$.target_binding.ontology_version_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.risk.ambiguity_count_matches_the_named_set",
+      "description": "The declared ambiguity count is the real length of the named ambiguity set. A posture that reports fewer ambiguities than it names is the exact under-declaration a later application would be adjudicating against.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.ambiguous_term_refs",
+        "count_path": "$.mapping_risk.ambiguous_term_count"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.term_mappings.declare_each_source_term_once",
+      "description": "One source term carries one declared correspondence per revision. Two rows for one term is an ambiguity pretending to be a mapping.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.term_mappings",
+        "fields": ["source_term_id", "target_term_id"]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.predecessor.binds_migration_source",
+      "description": "The migration migrates from exactly the declared predecessor, never from a substituted one.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.predecessor_version_ref", "$.migration.from_version_ref"]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.predecessor_hash.binds_migration_source",
+      "description": "The migration carries the predecessor's exact content hash, so a successor cannot reinterpret the crosswalk it succeeds.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.predecessor_content_hash", "$.migration.from_content_hash"]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.migration.source_revision_is_strictly_earlier",
+      "description": "A migration source is strictly earlier than the revision it produces.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": ["$.migration.from_revision_ordinal", "$.revision_ordinal"]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.content_hash.differs_from_predecessor",
+      "description": "A successor whose content hash equals its predecessor's is a replayed revision, not an edit.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.content_hash", "$.predecessor_content_hash"]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.admission.binds_this_revision",
+      "description": "Admission evidence names this exact crosswalk revision.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "ontology_mapping_id",
+        "expected_path": "$.ontology_mapping_id"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ]
+}

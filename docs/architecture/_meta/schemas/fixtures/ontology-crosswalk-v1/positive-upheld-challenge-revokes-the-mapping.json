@@ -1,0 +1,113 @@
+{
+  "schema_version": "ioi.ontology-crosswalk.v1",
+  "ontology_mapping_id": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/2",
+  "mapping_family_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk",
+  "mapping_record_profile": "ontology_crosswalk",
+  "namespace": "acme-clinic",
+  "name": "intake-v1-to-v2",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/clinical",
+  "admission_domain_ref": "agentgres://domain/hypervisor-ontology-mappings.ontology-crosswalk-family.acme-clinic.intake-v1-to-v2",
+  "version": "v2",
+  "revision_ordinal": 2,
+  "predecessor_version_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/1",
+  "predecessor_content_hash": "sha256:79e19b9f844c14d33983870f5763d46afae6be8abce2438dae57a4ee4f5357ad",
+  "content_hash": "sha256:996bcb40cbd5fa34f85da110b2d9216b8dc4a3c33b100500e27613d88ca43867",
+  "source_ontology_ref": "ontology://acme-clinic/patient-intake",
+  "target_ontology_ref": "ontology://acme-clinic/patient-intake",
+  "source_and_target_version_refs": [
+    "ontology://acme-clinic/patient-intake/revision/1",
+    "ontology://acme-clinic/patient-intake/revision/2"
+  ],
+  "source_binding": {
+    "ontology_ref": "ontology://acme-clinic/patient-intake",
+    "ontology_version_ref": "ontology://acme-clinic/patient-intake/revision/1",
+    "content_hash": "sha256:f367eac87fdb2159e810b28a3746e96b01b331a0cadda5508272cbebac824bb6",
+    "namespace": "acme-clinic",
+    "name": "patient-intake",
+    "revision_ordinal": 1,
+    "record_profile": "ontology_version"
+  },
+  "target_binding": {
+    "ontology_ref": "ontology://acme-clinic/patient-intake",
+    "ontology_version_ref": "ontology://acme-clinic/patient-intake/revision/2",
+    "content_hash": "sha256:577ef3f0e89e9e704d01c4883d2578099e8f72e18d517c741909086ea67f3fb0",
+    "namespace": "acme-clinic",
+    "name": "patient-intake",
+    "revision_ordinal": 2,
+    "record_profile": "ontology_version"
+  },
+  "endpoint_resolved_by": "ontology_version_routes::resolve_admitted_revision",
+  "domain_relationship": "in_domain",
+  "term_mappings": [
+    {
+      "source_term_id": "ontology://acme-clinic/patient-intake/term/triage-level",
+      "target_term_id": "ontology://acme-clinic/patient-intake/term/acuity-band",
+      "relation": "exact",
+      "loss": "none"
+    }
+  ],
+  "ambiguous_term_refs": [],
+  "compatibility_result": "compatible",
+  "mapping_risk": {
+    "risk_class": "low",
+    "declared_loss": "none",
+    "ambiguous_term_count": 0,
+    "unmapped_source_term_count": 0,
+    "residual_risk_refs": [
+      "policy://acme-clinic/unmapped-legacy-note-is-escalated"
+    ]
+  },
+  "verifier_obligation_refs": [
+    "test://acme-clinic/triage-band-round-trip"
+  ],
+  "mapped_object_relationship_event_and_action_refs": [
+    "object-model://acme-clinic/encounter"
+  ],
+  "mapping_profile_ref": null,
+  "deprecation_and_migration_policy_ref": null,
+  "policy_hash": "sha256:edcae3d8d0855d9d712baa9d8c1c201875d40bddf9d5d3ca1d8fca814f1776e4",
+  "valid_time": {
+    "starts_at": "2026-07-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-09-02T10:00:00Z",
+    "superseded_at": null
+  },
+  "migration": {
+    "from_version_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/1",
+    "from_content_hash": "sha256:79e19b9f844c14d33983870f5763d46afae6be8abce2438dae57a4ee4f5357ad",
+    "from_revision_ordinal": 1,
+    "compatibility": "additive",
+    "reinterprets_predecessor": false
+  },
+  "admission": {
+    "ontology_mapping_id": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/2",
+    "content_hash": "sha256:996bcb40cbd5fa34f85da110b2d9216b8dc4a3c33b100500e27613d88ca43867",
+    "owner_namespace": "hypervisor-ontology-mappings",
+    "stream_tail": "ontology-crosswalk-family.acme-clinic.intake-v1-to-v2",
+    "agentgres_operation_ref": "agentgres://event-stream/hypervisor-ontology-mappings/ontology-crosswalk-family.acme-clinic.intake-v1-to-v2/operation/1",
+    "agentgres_receipt_ref": "receipt://event-stream/hypervisor-ontology-mappings/ontology-crosswalk-family.acme-clinic.intake-v1-to-v2/batch/1",
+    "admission_seq": 1,
+    "admission_head": "sha256:dc5d3982f2374e83a3e6f3f72c8cf8c1d4bcbdbd54c01e5fa390ea1251a518ad",
+    "admission_root": "sha256:ed8964358e94d5cc694ab147c3d7994f3c8e2eb423298c4f83be398b793acda7",
+    "expected_predecessor_head": "sha256:f05c7b2d9f6bf8be6726fb8f383ff68fce7b3d4cac0185431c135f4283d38233"
+  },
+  "challenge_state": {
+    "standing": "upheld",
+    "open_challenge_refs": [],
+    "resolved_challenge_refs": [
+      "verifier-challenge://acme-clinic/triage-band-is-not-exact"
+    ],
+    "resolution_receipt_refs": [
+      "receipt://event-stream/hypervisor-assurance-transitions/t/batch/2"
+    ],
+    "challenge_contract_ref": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2"
+  },
+  "cross_domain_application_nonclaim": "ontology_crosswalk_declaration_is_not_cross_domain_application",
+  "correctness_nonclaim": "ontology_crosswalk_admission_is_not_a_correctness_claim",
+  "authority_nonclaim": "ontology_crosswalk_grants_no_authority",
+  "global_canonicality_nonclaim": "ontology_crosswalk_asserts_no_globally_canonical_ontology",
+  "status": "revoked"
+}

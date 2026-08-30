@@ -1,0 +1,81 @@
+{
+  "schema_version": "ioi.ontology-overlay.v1",
+  "overlay_id": "ontology://acme-clinic/patient-intake/overlay/night-clinic/revision/1",
+  "overlay_family_ref": "ontology://acme-clinic/patient-intake/overlay/night-clinic",
+  "ontology_family_ref": "ontology://acme-clinic/patient-intake",
+  "ontology_record_profile": "ontology_overlay",
+  "namespace": "acme-clinic",
+  "name": "patient-intake",
+  "overlay_name": "night-clinic",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/clinical",
+  "admission_domain_ref": "agentgres://domain/hypervisor-ontology-overlays.ontology-overlay-family.acme-clinic.patient-intake.night-clinic",
+  "version": "v1",
+  "revision_ordinal": 1,
+  "predecessor_version_ref": null,
+  "predecessor_content_hash": null,
+  "content_hash": "sha256:3e824d866b0d376bb22ddf14c186d7dc6ee0bd2a13d7b641ef76655c7a02f886",
+  "base_ontology_version_refs": [
+    "ontology://acme-clinic/patient-intake/revision/1"
+  ],
+  "base_ontology_bindings": [
+    {
+      "ontology_version_ref": "ontology://acme-clinic/patient-intake/revision/1",
+      "content_hash": "sha256:f367eac87fdb2159e810b28a3746e96b01b331a0cadda5508272cbebac824bb6",
+      "revision_ordinal": 1,
+      "record_status": "active"
+    }
+  ],
+  "base_resolved_by": "ontology_version_routes::resolve_admitted_revision",
+  "added_terms": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/overlay/night-clinic/term/night-triage-band",
+      "label": "Night triage band",
+      "term_kind": "entity"
+    }
+  ],
+  "overlaid_terms": [
+    {
+      "base_term_id": "ontology://acme-clinic/patient-intake/term/triage-level",
+      "overlay_disposition": "narrowed",
+      "overlay_label": "Triage level (night clinic subset)"
+    }
+  ],
+  "invariant_refs": [
+    "invariant://acme-clinic/night-clinic-triage-is-narrower"
+  ],
+  "compatibility_profile_ref": null,
+  "deprecation_policy_ref": null,
+  "policy_hash": "sha256:0c9c77ecf4c41cf906f92426af36e878fdcda45dba0ce45f85d5e5aecabcbf5c",
+  "valid_time": {
+    "starts_at": "2026-06-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-09-01T09:00:00Z",
+    "superseded_at": "2026-09-05T09:00:00Z"
+  },
+  "migration": {
+    "from_version_ref": null,
+    "from_content_hash": null,
+    "from_revision_ordinal": 0,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false
+  },
+  "admission": {
+    "overlay_id": "ontology://acme-clinic/patient-intake/overlay/night-clinic/revision/1",
+    "content_hash": "sha256:3e824d866b0d376bb22ddf14c186d7dc6ee0bd2a13d7b641ef76655c7a02f886",
+    "owner_namespace": "hypervisor-ontology-overlays",
+    "stream_tail": "ontology-overlay-family.acme-clinic.patient-intake.night-clinic",
+    "agentgres_operation_ref": "agentgres://event-stream/hypervisor-ontology-overlays/ontology-overlay-family.acme-clinic.patient-intake.night-clinic/operation/0",
+    "agentgres_receipt_ref": "receipt://event-stream/hypervisor-ontology-overlays/ontology-overlay-family.acme-clinic.patient-intake.night-clinic/batch/0",
+    "admission_seq": 0,
+    "admission_head": "sha256:d8e106b78690d2624ff311a7e959fc43ba0278f429603a3ba3954df2cd337552",
+    "admission_root": "sha256:1150219301d2090a28d9b53f0e17eb68f0937dde1602f2f27788c8406cdc60bf",
+    "expected_predecessor_head": null
+  },
+  "fork_nonclaim": "ontology_overlay_does_not_fork_or_redefine_its_base",
+  "authority_nonclaim": "ontology_overlay_grants_no_authority",
+  "global_canonicality_nonclaim": "ontology_overlay_asserts_no_globally_canonical_ontology",
+  "status": "deprecated"
+}

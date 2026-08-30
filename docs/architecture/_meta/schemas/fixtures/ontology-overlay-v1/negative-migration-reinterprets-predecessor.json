@@ -1,0 +1,86 @@
+{
+  "schema_version": "ioi.ontology-overlay.v1",
+  "overlay_id": "ontology://acme-clinic/patient-intake/overlay/night-clinic/revision/2",
+  "overlay_family_ref": "ontology://acme-clinic/patient-intake/overlay/night-clinic",
+  "ontology_family_ref": "ontology://acme-clinic/patient-intake",
+  "ontology_record_profile": "ontology_overlay",
+  "namespace": "acme-clinic",
+  "name": "patient-intake",
+  "overlay_name": "night-clinic",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/clinical",
+  "admission_domain_ref": "agentgres://domain/hypervisor-ontology-overlays.ontology-overlay-family.acme-clinic.patient-intake.night-clinic",
+  "version": "v2",
+  "revision_ordinal": 2,
+  "predecessor_version_ref": "ontology://acme-clinic/patient-intake/overlay/night-clinic/revision/1",
+  "predecessor_content_hash": "sha256:3e824d866b0d376bb22ddf14c186d7dc6ee0bd2a13d7b641ef76655c7a02f886",
+  "content_hash": "sha256:c10a5e25b01eed3f72a1d57f5f8764e9947a4d11000b53ed5fa3ddcc71b48015",
+  "base_ontology_version_refs": [
+    "ontology://acme-clinic/patient-intake/revision/2"
+  ],
+  "base_ontology_bindings": [
+    {
+      "ontology_version_ref": "ontology://acme-clinic/patient-intake/revision/2",
+      "content_hash": "sha256:577ef3f0e89e9e704d01c4883d2578099e8f72e18d517c741909086ea67f3fb0",
+      "revision_ordinal": 2,
+      "record_status": "active"
+    }
+  ],
+  "base_resolved_by": "ontology_version_routes::resolve_admitted_revision",
+  "added_terms": [
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/overlay/night-clinic/term/night-triage-band",
+      "label": "Night triage band",
+      "term_kind": "entity"
+    },
+    {
+      "term_id": "ontology://acme-clinic/patient-intake/overlay/night-clinic/term/night-escalation",
+      "label": "Night escalation path",
+      "term_kind": "action"
+    }
+  ],
+  "overlaid_terms": [
+    {
+      "base_term_id": "ontology://acme-clinic/patient-intake/term/triage-level",
+      "overlay_disposition": "narrowed",
+      "overlay_label": "Triage level (night clinic subset)"
+    }
+  ],
+  "invariant_refs": [
+    "invariant://acme-clinic/night-clinic-triage-is-narrower"
+  ],
+  "compatibility_profile_ref": null,
+  "deprecation_policy_ref": null,
+  "policy_hash": "sha256:0c9c77ecf4c41cf906f92426af36e878fdcda45dba0ce45f85d5e5aecabcbf5c",
+  "valid_time": {
+    "starts_at": "2026-06-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-09-02T09:00:00Z",
+    "superseded_at": null
+  },
+  "migration": {
+    "from_version_ref": "ontology://acme-clinic/patient-intake/overlay/night-clinic/revision/1",
+    "from_content_hash": "sha256:3e824d866b0d376bb22ddf14c186d7dc6ee0bd2a13d7b641ef76655c7a02f886",
+    "from_revision_ordinal": 1,
+    "compatibility": "additive",
+    "reinterprets_predecessor": true
+  },
+  "admission": {
+    "overlay_id": "ontology://acme-clinic/patient-intake/overlay/night-clinic/revision/2",
+    "content_hash": "sha256:c10a5e25b01eed3f72a1d57f5f8764e9947a4d11000b53ed5fa3ddcc71b48015",
+    "owner_namespace": "hypervisor-ontology-overlays",
+    "stream_tail": "ontology-overlay-family.acme-clinic.patient-intake.night-clinic",
+    "agentgres_operation_ref": "agentgres://event-stream/hypervisor-ontology-overlays/ontology-overlay-family.acme-clinic.patient-intake.night-clinic/operation/1",
+    "agentgres_receipt_ref": "receipt://event-stream/hypervisor-ontology-overlays/ontology-overlay-family.acme-clinic.patient-intake.night-clinic/batch/1",
+    "admission_seq": 1,
+    "admission_head": "sha256:83e5b15b644e5bb8c1f450a11db4277be75d71f6fd2b93f9b402a575c69b3e1c",
+    "admission_root": "sha256:13ff79bbd8a094214c1d8dc76f1f3c7da5ffb94906143700f31ecb5d9bc622f1",
+    "expected_predecessor_head": "sha256:d8e106b78690d2624ff311a7e959fc43ba0278f429603a3ba3954df2cd337552"
+  },
+  "fork_nonclaim": "ontology_overlay_does_not_fork_or_redefine_its_base",
+  "authority_nonclaim": "ontology_overlay_grants_no_authority",
+  "global_canonicality_nonclaim": "ontology_overlay_asserts_no_globally_canonical_ontology",
+  "status": "active"
+}

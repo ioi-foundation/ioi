@@ -9500,6 +9500,404 @@ export type OntologySurfaceDescriptorV2 = {
   status: "draft" | "active" | "deprecated" | "revoked";
 };
 
+export type OntologyOverlayV1 = {
+  schema_version: "ioi.ontology-overlay.v1";
+  overlay_id: string;
+  overlay_family_ref: string;
+  ontology_family_ref: string;
+  ontology_record_profile: "ontology_overlay";
+  namespace: string;
+  name: string;
+  overlay_name: string;
+  owner_id: string;
+  governing_scope_ref: string;
+  admission_domain_ref: string;
+  version: string;
+  revision_ordinal: number;
+  predecessor_version_ref: string | null;
+  predecessor_content_hash: string | null;
+  content_hash: string;
+  base_ontology_version_refs: Array<string>;
+  base_ontology_bindings: Array<{
+        ontology_version_ref: string;
+        content_hash: string;
+        revision_ordinal: number;
+        record_status: "active" | "deprecated";
+      }>;
+  base_resolved_by: string;
+  added_terms: Array<{
+        term_id: string;
+        label: string;
+        term_kind: "entity" | "relationship" | "event" | "action";
+      }>;
+  overlaid_terms: Array<{
+        base_term_id: string;
+        overlay_disposition: "relabelled" | "narrowed" | "annotated" | "hidden";
+        overlay_label: string;
+      }>;
+  invariant_refs: Array<string>;
+  compatibility_profile_ref: string | null;
+  deprecation_policy_ref: string | null;
+  policy_hash: string;
+  valid_time: {
+      starts_at: string;
+      ends_at: string | null;
+    };
+  transaction_time: {
+      recorded_at: string;
+      superseded_at: string | null;
+    };
+  migration: {
+      from_version_ref: string | null;
+      from_content_hash: string | null;
+      from_revision_ordinal: number;
+      compatibility: "initial" | "additive" | "breaking";
+      reinterprets_predecessor: false;
+    };
+  admission: null | {
+      overlay_id: string;
+      content_hash: string;
+      owner_namespace: "hypervisor-ontology-overlays";
+      stream_tail: string;
+      agentgres_operation_ref: string;
+      agentgres_receipt_ref: string;
+      admission_seq: number;
+      admission_head: string;
+      admission_root: string;
+      expected_predecessor_head: string | null;
+    };
+  fork_nonclaim: "ontology_overlay_does_not_fork_or_redefine_its_base";
+  authority_nonclaim: "ontology_overlay_grants_no_authority";
+  global_canonicality_nonclaim: "ontology_overlay_asserts_no_globally_canonical_ontology";
+  status: "active" | "deprecated";
+};
+
+export type OntologyCrosswalkV1 = {
+  schema_version: "ioi.ontology-crosswalk.v1";
+  ontology_mapping_id: string;
+  mapping_family_ref: string;
+  mapping_record_profile: "ontology_crosswalk";
+  namespace: string;
+  name: string;
+  owner_id: string;
+  governing_scope_ref: string;
+  admission_domain_ref: string;
+  version: string;
+  revision_ordinal: number;
+  predecessor_version_ref: string | null;
+  predecessor_content_hash: string | null;
+  content_hash: string;
+  source_ontology_ref: string;
+  target_ontology_ref: string;
+  source_and_target_version_refs: Array<string>;
+  source_binding: {
+      ontology_ref: string;
+      ontology_version_ref: string;
+      content_hash: string;
+      namespace: string;
+      name: string;
+      revision_ordinal: number;
+      record_profile: "ontology_version" | "ontology_overlay";
+    };
+  target_binding: {
+      ontology_ref: string;
+      ontology_version_ref: string;
+      content_hash: string;
+      namespace: string;
+      name: string;
+      revision_ordinal: number;
+      record_profile: "ontology_version" | "ontology_overlay";
+    };
+  endpoint_resolved_by: string;
+  domain_relationship: "in_domain" | "cross_domain";
+  term_mappings: Array<{
+        source_term_id: string;
+        target_term_id: string | null;
+        relation: "exact" | "broader" | "narrower" | "related" | "unmapped";
+        loss: "none" | "lossy_precision" | "lossy_scope" | "lossy_units" | "unmapped";
+      }>;
+  ambiguous_term_refs: Array<string>;
+  compatibility_result: "exact" | "compatible" | "lossy" | "requires_adapter" | "incompatible";
+  mapping_risk: {
+      risk_class: "low" | "moderate" | "high" | "unacceptable";
+      declared_loss: "none" | "lossy_precision" | "lossy_scope" | "lossy_units" | "unmapped";
+      ambiguous_term_count: number;
+      unmapped_source_term_count: number;
+      residual_risk_refs: Array<string>;
+    };
+  verifier_obligation_refs: Array<string>;
+  mapped_object_relationship_event_and_action_refs: Array<string>;
+  mapping_profile_ref: string | null;
+  deprecation_and_migration_policy_ref: string | null;
+  policy_hash: string;
+  valid_time: {
+      starts_at: string;
+      ends_at: string | null;
+    };
+  transaction_time: {
+      recorded_at: string;
+      superseded_at: string | null;
+    };
+  migration: {
+      from_version_ref: string | null;
+      from_content_hash: string | null;
+      from_revision_ordinal: number;
+      compatibility: "initial" | "additive" | "breaking";
+      reinterprets_predecessor: false;
+    };
+  admission: null | {
+      ontology_mapping_id: string;
+      content_hash: string;
+      owner_namespace: "hypervisor-ontology-mappings";
+      stream_tail: string;
+      agentgres_operation_ref: string;
+      agentgres_receipt_ref: string;
+      admission_seq: number;
+      admission_head: string;
+      admission_root: string;
+      expected_predecessor_head: string | null;
+    };
+  challenge_state: {
+      standing: "unchallenged" | "challenged" | "upheld" | "rejected";
+      open_challenge_refs: Array<string>;
+      resolved_challenge_refs: Array<string>;
+      resolution_receipt_refs: Array<string>;
+      challenge_contract_ref: "schema://ioi/foundations/objects/verifier-challenge-envelope/v2";
+    };
+  cross_domain_application_nonclaim: "ontology_crosswalk_declaration_is_not_cross_domain_application";
+  correctness_nonclaim: "ontology_crosswalk_admission_is_not_a_correctness_claim";
+  authority_nonclaim: "ontology_crosswalk_grants_no_authority";
+  global_canonicality_nonclaim: "ontology_crosswalk_asserts_no_globally_canonical_ontology";
+  status: "proposed" | "validated" | "active" | "challenged" | "deprecated" | "revoked";
+};
+
+export type SemanticMappingDecisionV1 = {
+  schema_version: "ioi.semantic-mapping-decision.v1";
+  ontology_mapping_id: string;
+  mapping_family_ref: string;
+  mapping_record_profile: "semantic_mapping_decision";
+  namespace: string;
+  name: string;
+  owner_id: string;
+  governing_scope_ref: string;
+  admission_domain_ref: string;
+  version: string;
+  revision_ordinal: number;
+  predecessor_version_ref: string | null;
+  predecessor_content_hash: string | null;
+  content_hash: string;
+  applied_crosswalk_ref: string;
+  applied_crosswalk_binding: {
+      mapping_family_ref: string;
+      ontology_mapping_id: string;
+      content_hash: string;
+      revision_ordinal: number;
+      compatibility_result: "exact" | "compatible" | "lossy" | "requires_adapter" | "incompatible";
+      risk_class: "low" | "moderate" | "high" | "unacceptable";
+      declared_loss: "none" | "lossy_precision" | "lossy_scope" | "lossy_units" | "unmapped";
+      challenge_standing: "unchallenged" | "challenged" | "upheld" | "rejected";
+    };
+  crosswalk_resolved_by: string;
+  source_ontology_ref: string;
+  target_ontology_ref: string;
+  source_and_target_version_refs: Array<string>;
+  source_binding: {
+      ontology_ref: string;
+      ontology_version_ref: string;
+      content_hash: string;
+      namespace: string;
+      name: string;
+      revision_ordinal: number;
+      record_profile: "ontology_version" | "ontology_overlay";
+    };
+  target_binding: {
+      ontology_ref: string;
+      ontology_version_ref: string;
+      content_hash: string;
+      namespace: string;
+      name: string;
+      revision_ordinal: number;
+      record_profile: "ontology_version" | "ontology_overlay";
+    };
+  domain_relationship: "in_domain" | "cross_domain";
+  application_target_refs: Array<string>;
+  decided_by_ref: string;
+  decision_timestamp: string;
+  reviewer_lineage: Array<{
+        reviewer_ref: string;
+        review_role: "source_domain_reviewer" | "target_domain_reviewer" | "mapping_owner" | "independent_verifier";
+        reviewed_at: string;
+        review_decision: "approved" | "approved_with_conditions" | "rejected" | "abstained";
+      }>;
+  mapping_risk_acceptance: {
+      accepted_risk_class: "low" | "moderate" | "high";
+      accepted_loss: "none" | "lossy_precision" | "lossy_scope" | "lossy_units" | "unmapped";
+      accepted_by_ref: string;
+      residual_risk_refs: Array<string>;
+    };
+  ambiguity_dispositions: Array<{
+        source_term_id: string;
+        disposition: "adjudicated_exact" | "adjudicated_broader" | "adjudicated_narrower" | "refused_ambiguous";
+        adjudicated_by_ref: string;
+      }>;
+  unmapped_term_dispositions: Array<{
+        source_term_id: string;
+        disposition: "carried_as_unmapped" | "excluded_from_application" | "escalated";
+      }>;
+  terms_acceptance: null | {
+      collaboration_terms_ref: string;
+      terms_body_root: string;
+      accepting_domain_refs: Array<string>;
+      acceptance_resolved_by: string;
+    };
+  compatibility_result: "exact" | "compatible" | "lossy" | "requires_adapter" | "incompatible";
+  policy_bound_view_refs: Array<string>;
+  validation_and_challenge_refs: Array<string>;
+  policy_hash: string;
+  valid_time: {
+      starts_at: string;
+      ends_at: string | null;
+    };
+  transaction_time: {
+      recorded_at: string;
+      superseded_at: string | null;
+    };
+  migration: {
+      from_version_ref: string | null;
+      from_content_hash: string | null;
+      from_revision_ordinal: number;
+      compatibility: "initial" | "additive" | "breaking";
+      reinterprets_predecessor: false;
+    };
+  admission: null | {
+      ontology_mapping_id: string;
+      content_hash: string;
+      owner_namespace: "hypervisor-ontology-mappings";
+      stream_tail: string;
+      agentgres_operation_ref: string;
+      agentgres_receipt_ref: string;
+      admission_seq: number;
+      admission_head: string;
+      admission_root: string;
+      expected_predecessor_head: string | null;
+    };
+  mapping_decision_receipt_ref: string | null;
+  challenge_state: {
+      standing: "unchallenged" | "challenged" | "upheld" | "rejected";
+      open_challenge_refs: Array<string>;
+      resolved_challenge_refs: Array<string>;
+      resolution_receipt_refs: Array<string>;
+      challenge_contract_ref: "schema://ioi/foundations/objects/verifier-challenge-envelope/v2";
+    };
+  correctness_nonclaim: "semantic_mapping_decision_is_not_a_correctness_claim";
+  authority_nonclaim: "semantic_mapping_decision_grants_no_authority";
+  legal_conformity_claim: "not_determined";
+  global_canonicality_nonclaim: "semantic_mapping_decision_asserts_no_globally_canonical_ontology";
+  status: "proposed" | "validated" | "active" | "challenged" | "deprecated" | "revoked";
+};
+
+export type ProvenanceAssertionV2 = {
+  schema_version: "ioi.ontology-assertion.v2";
+  assertion_id: string;
+  assertion_family_ref: string;
+  assertion_profile: "provenance_assertion";
+  namespace: string;
+  name: string;
+  owner_id: string;
+  governing_scope_ref: string;
+  admission_domain_ref: string;
+  version: string;
+  revision_ordinal: number;
+  predecessor_version_ref: string | null;
+  predecessor_content_hash: string | null;
+  content_hash: string;
+  ontology_ref: string;
+  ontology_binding: {
+      ontology_version_ref: string;
+      content_hash: string;
+      namespace: string;
+      name: string;
+      revision_ordinal: number;
+      record_status: "active" | "deprecated";
+    };
+  ontology_resolved_by: string;
+  fact_class_ref: string | null;
+  subject_ref: string;
+  predicate_ref: string;
+  object_or_value_ref: string | number | boolean | null;
+  polarity: "affirmative" | "negative";
+  valid_time: {
+      starts_at: string;
+      ends_at: string | null;
+    };
+  transaction_time: {
+      recorded_at: string;
+      superseded_at: string | null;
+    };
+  source_attribution: Array<{
+        source_ref: string;
+        source_class: "observation" | "oracle" | "human_reviewer" | "worker" | "derived" | "external_system" | "self_report";
+        observed_at: string;
+      }>;
+  evidence_lineage: Array<{
+        evidence_ref: string;
+        evidence_class: "direct" | "corroborating" | "contradicting" | "inconclusive";
+        supports: "affirmative" | "negative" | "neither";
+      }>;
+  uncertainty: {
+      uncertainty_kind: "point_confidence" | "qualitative" | "unknown" | "disputed_estimate";
+      confidence: number | null;
+      estimator_ref: string | null;
+    };
+  contradiction_state: {
+      contradiction_class: "none" | "direct_negation" | "value_conflict" | "scope_conflict" | "temporal_conflict";
+      contradicting_assertion_refs: Array<string>;
+      retained: true;
+    };
+  supersession: {
+      supersedes_ref: string | null;
+      supersession_reason: "none" | "corrected" | "refined" | "retracted" | "reclassified" | "superseded_by_evidence";
+    };
+  applicability_scope_ref: string | null;
+  permitted_consequence_scope_refs: Array<string>;
+  causal_or_counterfactual_context_ref: string | null;
+  oracle_evidence_profile_ref: string | null;
+  oracle_evidence_admission_receipt_ref: string | null;
+  predecessor_contract_ref: "schema://ioi/foundations/ontology-assertion/v1";
+  reinterpretation_nonclaim: "provenance_assertion_v2_does_not_reinterpret_v1_records";
+  policy_hash: string;
+  migration: {
+      from_version_ref: string | null;
+      from_content_hash: string | null;
+      from_revision_ordinal: number;
+      compatibility: "initial" | "additive" | "breaking";
+      reinterprets_predecessor: false;
+    };
+  admission: null | {
+      assertion_id: string;
+      content_hash: string;
+      owner_namespace: "hypervisor-provenance-assertions";
+      stream_tail: string;
+      agentgres_operation_ref: string;
+      agentgres_receipt_ref: string;
+      admission_seq: number;
+      admission_head: string;
+      admission_root: string;
+      expected_predecessor_head: string | null;
+    };
+  challenge_state: {
+      standing: "unchallenged" | "challenged" | "upheld" | "rejected";
+      open_challenge_refs: Array<string>;
+      resolved_challenge_refs: Array<string>;
+      resolution_receipt_refs: Array<string>;
+      challenge_contract_ref: "schema://ioi/foundations/objects/verifier-challenge-envelope/v2";
+      resolution_contract_ref: "schema://ioi/foundations/assurance-transition-receipt/v1";
+    };
+  universality_nonclaim: "provenance_assertion_admission_is_not_universal_truth";
+  authority_nonclaim: "provenance_assertion_grants_no_authority";
+  status: "proposed" | "evidence_pending" | "held_unknown" | "admitted" | "contradicted" | "superseded" | "disputed" | "rejected";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -16089,6 +16487,910 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_overlay.content_hash.commits_bases_divergence_and_valid_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_overlay.family.binds_the_base_it_overlays"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_overlay.base_bindings.cover_the_declared_base_set_exactly"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_overlay.base_bindings.count_matches_the_declared_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_overlay.predecessor_hash.binds_migration_source"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_overlay.migration.source_revision_is_strictly_earlier"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_overlay.admission.binds_this_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_crosswalk.content_hash.commits_endpoints_mappings_risk_and_valid_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_crosswalk.endpoints.are_exactly_the_two_bound_revisions"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_crosswalk.source_revision.binds_its_own_family_path"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_crosswalk.risk.ambiguity_count_matches_the_named_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_crosswalk.term_mappings.declare_each_source_term_once"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_crosswalk.predecessor.binds_migration_source"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ontology_crosswalk.admission.binds_this_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.content_hash.commits_crosswalk_reviewers_dispositions_and_valid_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.applied_crosswalk.is_the_bound_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.applied_crosswalk.binds_its_own_family_path"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.endpoints.are_exactly_the_two_bound_revisions"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.risk_acceptance.accepts_the_declared_loss"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.risk_acceptance.accepts_the_declared_risk_class"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.compatibility.is_the_crosswalks_own_result"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.reviewers.are_named_once_each_per_role"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.ambiguity_dispositions.name_each_term_once"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.receipt.is_the_admitting_batch_receipt"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "semantic_mapping_decision.admission.binds_this_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.content_hash.commits_claim_sources_evidence_uncertainty_and_valid_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.predicate.is_a_term_of_the_bound_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.ontology_binding.binds_the_declared_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.supersession.does_not_supersede_itself"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.sources.are_attributed_once_each"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.evidence.is_named_once_each"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.predecessor_hash.binds_migration_source"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.migration.source_revision_is_strictly_earlier"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "provenance_assertion.admission.binds_this_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -24440,6 +25742,797 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json",
+    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json",
+    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json",
+    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json",
+    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -25340,7 +27433,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:artifact|cid)://[^\\s]{1,248}$",
   "^(?:artifact|cid)://[^\\s]{1,500}$",
   "^(?:artifact|evidence|receipt|ledger)://[^\\s]{1,500}$",
+  "^(?:artifact|finding)://[^\\s]{1,240}$",
   "^(?:artifact|finding)://[^\\s]{1,248}$",
+  "^(?:artifact|mapping)://[^\\s]{1,240}$",
   "^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$",
   "^(?:artifact|payload)://[^\\s]{1,248}$",
   "^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$",
@@ -25393,6 +27488,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:evidence|receipt)://[^\\s]{1,248}$",
   "^(?:evidence|receipt)://[^\\s]{1,500}$",
   "^(?:evidence|receipt|artifact)://[^\\s]{1,248}$",
+  "^(?:evidence|receipt|artifact|assurance-evidence)://[^\\s]{1,240}$",
   "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$",
   "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$",
   "^(?:evidence|receipt|benchmark|conformance_profile|certification_claim)://[^\\s]{1,500}$",
@@ -25430,9 +27526,14 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:method|finding|artifact)://[^\\s]{1,500}$",
   "^(?:model_route|harness-profile|tool|connector)://[^\\s]{1,500}$",
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
+  "^(?:object-model|ontology-action|schema)://[^\\s]{1,240}$",
   "^(?:observed-state|agentgres)://[^\\s]{1,240}$",
+  "^(?:ontology-assertion|finding)://[^\\s]{1,240}$",
   "^(?:ontology-assertion|finding)://[^\\s]{1,248}$",
   "^(?:ontology-assertion|verifier-challenge|dispute)://[^\\s]{1,248}$",
+  "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$",
+  "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$",
+  "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$",
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project)://[^\\s]{1,240}$",
@@ -25441,6 +27542,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$",
   "^(?:origin-binding|origin)://[^\\s]{1,500}$",
   "^(?:outcome-room|user|org)://[^\\s]{1,500}$",
+  "^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$",
   "^(?:participant-lease|system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|agent)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$",
@@ -25451,6 +27553,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$",
   "^(?:policy|budget)://[^\\s]{1,500}$",
   "^(?:policy|event)://[^\\s]{1,500}$",
+  "^(?:policy|finding|evidence)://[^\\s]{1,240}$",
   "^(?:policy|finding|ontology)://[^\\s]{1,500}$",
   "^(?:policy|gate|state)://[^\\s]{1,500}$",
   "^(?:policy|invariant|state)://[^\\s]{1,240}$",
@@ -25526,16 +27629,19 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|policy)://[^\\s]{1,500}$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
+  "^(?:system|worker|org|user|project|service|domain|policy)://[^\\s]{1,240}$",
   "^(?:system|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:target-state|agentgres)://[^\\s]{1,240}$",
   "^(?:task|task-brief|policy)://[^\\s]{1,500}$",
   "^(?:task|task_brief|policy)://[^\\s]{1,500}$",
   "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$",
   "^(?:test|gate|receipt|branch-checkpoint)://[^\\s]+$",
+  "^(?:test|verifier-challenge|evidence)://[^\\s]{1,240}$",
   "^(?:tokenizer|artifact)://[^\\s]{1,500}$",
   "^(?:transition|decision)://[^\\s]{1,248}$",
   "^(?:transition|state-delta)://[^\\s]{1,240}$",
   "^(?:user|org)://[^\\s]{1,500}$",
+  "^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$",
   "^(?:user|wallet)://\\S*$",
   "^(?:user|wallet)://\\S+$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
@@ -25545,8 +27651,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:verifier-path|verifier-challenge)://[^\\s]{1,500}$",
   "^(?:verifier-path|worker|gate|receipt)://[^\\s]{1,500}$",
   "^(?:verifier_path|rubric|gate)://[^\\s]{1,500}$",
+  "^(?:verifier_path|test|schema|evidence)://[^\\s]{1,240}$",
   "^(?:verifier_path|verifier-challenge)://[^\\s]{1,500}$",
   "^(?:verifier_path|worker|gate|receipt)://[^\\s]{1,500}$",
+  "^(?:view|restricted_view)://[^\\s]{1,240}$",
   "^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$",
   "^(?:wallet|org|project)://[^\\s]{1,240}$",
   "^(?:wallet|org|project)://[^\\s]{1,248}$",
@@ -25608,6 +27716,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9-]*://[^\\s]+$",
+  "^[a-z][a-z0-9-]*://[^\\s]{1,240}$",
   "^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$",
   "^[a-z][a-z0-9._-]*$",
@@ -25711,6 +27820,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^checkpoint://[^\\s]{1,500}$",
   "^checkpoint://foundry/[^\\s]{1,500}$",
   "^cleanup-obligation://[^\\s]{1,240}$",
+  "^collaboration-terms://[^\\s]{1,240}$",
   "^collaboration://[^\\s]{1,500}$",
   "^commitment://[^\\s]{1,248}$",
   "^commitment://[^\\s]{1,500}$",
@@ -25864,10 +27974,21 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
   "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
   "^ontology-assertion://[^\\s]{1,248}$",
+  "^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
+  "^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
+  "^ontology-mapping://[^\\s]{1,240}$",
+  "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$",
+  "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$",
+  "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$",
+  "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$",
   "^ontology://[^\\s]{1,248}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
+  "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}$",
+  "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
+  "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$",
+  "^oracle-evidence-profile://[^\\s]{1,240}$",
   "^oracle-evidence-profile://[^\\s]{1,248}$",
   "^oracle-evidence-profile://[^\\s]{1,500}$",
   "^ordering-profile://[^\\s]{1,248}$",
@@ -26064,6 +28185,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^v[1-9][0-9]{0,8}$",
   "^vault://[^\\s]{1,248}$",
   "^verification://[^\\s]{1,248}$",
+  "^verifier-challenge://[^\\s]{1,240}$",
   "^verifier-challenge://[^\\s]{1,500}$",
   "^verifier-contract://[^\\s]{1,248}$",
   "^verifier-path://[^\\s]{1,500}$",
@@ -26323,7 +28445,11 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27",
   "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5",
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": "sha256:8555f92bfd59dffeb01228f8b759d8150962eef762dbf72d26fa002160b171ec",
-  "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": "sha256:72784f0460f17dd9a45503103fdfb32663b25c9ca3698187a2dc1f38cf6c7368"
+  "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": "sha256:72784f0460f17dd9a45503103fdfb32663b25c9ca3698187a2dc1f38cf6c7368",
+  "schema://ioi/foundations/ontology-overlay/v1": "sha256:56b57fa3e0ca896b60fc0c4c11bd66b484a12e64f94df7fea0ad4e243649b6ab",
+  "schema://ioi/foundations/ontology-crosswalk/v1": "sha256:a7abed71d27df9794f5d63e0ec5f6a8bcda3b24ba6e29557d24b3912a6900d99",
+  "schema://ioi/foundations/semantic-mapping-decision/v1": "sha256:a35f12979fc1f3f4d9b70f498464b8aff0af33b02e82999aa2d98c98a0b2c8b9",
+  "schema://ioi/foundations/ontology-assertion/v2": "sha256:289ac57362611c30979eca7245e6220a3325b6510429a3a54c855f3302abf869"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -97145,6 +99271,4109 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^data-recipe://[^\\s]{1,200}/revision/[^\\s]{1,64}$"
       }
     }
+  },
+  "schema://ioi/foundations/ontology-overlay/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/ontology-overlay/v1",
+    "title": "OntologyOverlay",
+    "description": "A DomainOntologyEnvelope carrying ontology_record_profile ontology_overlay: one immutable, owner-qualified local divergence from one or more exact base OntologyVersion revisions. Derived from docs/architecture/foundations/objects/semantic-plane.md#domainontologyenvelope. An overlay diverges WITHOUT forking: it binds each base revision by exact ref AND that owner's committed content hash, it may only add terms in its own overlay namespace, and it may relabel, narrow, annotate or hide a base term without redefining or deleting the base meaning. Identity and lifecycle are the overlay's own and are distinct from both the base version and any crosswalk. Meaning never grants authority.",
+    "x-ioi-schema-version": "ioi.ontology-overlay.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "overlay_id",
+      "overlay_family_ref",
+      "ontology_family_ref",
+      "ontology_record_profile",
+      "namespace",
+      "name",
+      "overlay_name",
+      "owner_id",
+      "governing_scope_ref",
+      "admission_domain_ref",
+      "version",
+      "revision_ordinal",
+      "predecessor_version_ref",
+      "predecessor_content_hash",
+      "content_hash",
+      "base_ontology_version_refs",
+      "base_ontology_bindings",
+      "base_resolved_by",
+      "added_terms",
+      "overlaid_terms",
+      "invariant_refs",
+      "compatibility_profile_ref",
+      "deprecation_policy_ref",
+      "policy_hash",
+      "valid_time",
+      "transaction_time",
+      "migration",
+      "admission",
+      "fork_nonclaim",
+      "authority_nonclaim",
+      "global_canonicality_nonclaim",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ontology-overlay.v1"
+      },
+      "overlay_id": {
+        "$ref": "#/$defs/overlayRevisionRef"
+      },
+      "overlay_family_ref": {
+        "$ref": "#/$defs/overlayFamilyRef"
+      },
+      "ontology_family_ref": {
+        "description": "The BASE family this overlay diverges from. The overlay family ref is this ref plus an explicit /overlay/ path, so an overlay can never be mistaken for a base version and can never address another domain's lineage.",
+        "$ref": "#/$defs/ontologyFamilyRef"
+      },
+      "ontology_record_profile": {
+        "const": "ontology_overlay"
+      },
+      "namespace": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "name": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "overlay_name": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "owner_id": {
+        "type": "string",
+        "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+      },
+      "governing_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+      },
+      "admission_domain_ref": {
+        "type": "string",
+        "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^v[1-9][0-9]{0,8}$"
+      },
+      "revision_ordinal": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 999999999
+      },
+      "predecessor_version_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/overlayRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_content_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "base_ontology_version_refs": {
+        "description": "The canonical DomainOntologyEnvelope field: the exact base revisions this overlay overlays. Every entry is an EXACT revision ref; a family ref or a mutable 'latest' pointer is unrepresentable here, because an overlay whose base can move is a fork that has not admitted it yet.",
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ontologyRevisionRef"
+        }
+      },
+      "base_ontology_bindings": {
+        "description": "The same base set carrying each base owner's committed content hash and revision ordinal, resolved through the base owner's own reader. A ref without its owner's hash names a revision without proving which bytes it named.",
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ontology_version_ref",
+            "content_hash",
+            "revision_ordinal",
+            "record_status"
+          ],
+          "properties": {
+            "ontology_version_ref": {
+              "$ref": "#/$defs/ontologyRevisionRef"
+            },
+            "content_hash": {
+              "$ref": "#/$defs/sha256"
+            },
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999999999
+            },
+            "record_status": {
+              "enum": [
+                "active",
+                "deprecated"
+              ]
+            }
+          }
+        }
+      },
+      "base_resolved_by": {
+        "description": "The exact owner seam that re-resolved every base revision. An overlay that names no resolver is an overlay whose base was taken on faith.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+      },
+      "added_terms": {
+        "description": "Terms the overlay contributes, minted in the OVERLAY's own namespace path. An overlay never mints a term inside its base family's namespace; that would be an edit of the base, which is a fork.",
+        "type": "array",
+        "maxItems": 256,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "term_id",
+            "label",
+            "term_kind"
+          ],
+          "properties": {
+            "term_id": {
+              "$ref": "#/$defs/overlayTermRef"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "term_kind": {
+              "enum": [
+                "entity",
+                "relationship",
+                "event",
+                "action"
+              ]
+            }
+          }
+        }
+      },
+      "overlaid_terms": {
+        "description": "Base terms this overlay locally diverges on. The disposition set is deliberately narrower than a version migration's: an overlay may relabel, narrow, annotate or hide, and it may NOT remove, widen or redefine, because those change what the base means rather than how this domain reads it.",
+        "type": "array",
+        "maxItems": 256,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "base_term_id",
+            "overlay_disposition",
+            "overlay_label"
+          ],
+          "properties": {
+            "base_term_id": {
+              "$ref": "#/$defs/termRef"
+            },
+            "overlay_disposition": {
+              "enum": [
+                "relabelled",
+                "narrowed",
+                "annotated",
+                "hidden"
+              ]
+            },
+            "overlay_label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        }
+      },
+      "invariant_refs": {
+        "type": "array",
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^invariant://[^\\s]{1,240}$"
+        }
+      },
+      "compatibility_profile_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^compatibility://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "deprecation_policy_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "valid_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "starts_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "ends_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "transaction_time": {
+        "description": "Admission time, deliberately outside the content commitment. When a divergence was held true is content; when it was recorded is admission.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recorded_at",
+          "superseded_at"
+        ],
+        "properties": {
+          "recorded_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "superseded_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_version_ref",
+          "from_content_hash",
+          "from_revision_ordinal",
+          "compatibility",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "from_version_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/overlayRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_revision_ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "additive",
+              "breaking"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          }
+        }
+      },
+      "admission": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "overlay_id",
+              "content_hash",
+              "owner_namespace",
+              "stream_tail",
+              "agentgres_operation_ref",
+              "agentgres_receipt_ref",
+              "admission_seq",
+              "admission_head",
+              "admission_root",
+              "expected_predecessor_head"
+            ],
+            "properties": {
+              "overlay_id": {
+                "$ref": "#/$defs/overlayRevisionRef"
+              },
+              "content_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "owner_namespace": {
+                "const": "hypervisor-ontology-overlays"
+              },
+              "stream_tail": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+              },
+              "agentgres_operation_ref": {
+                "type": "string",
+                "pattern": "^agentgres://[^\\s]{1,240}$"
+              },
+              "agentgres_receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,240}$"
+              },
+              "admission_seq": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "admission_head": {
+                "$ref": "#/$defs/sha256"
+              },
+              "admission_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "expected_predecessor_head": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "fork_nonclaim": {
+        "const": "ontology_overlay_does_not_fork_or_redefine_its_base"
+      },
+      "authority_nonclaim": {
+        "const": "ontology_overlay_grants_no_authority"
+      },
+      "global_canonicality_nonclaim": {
+        "const": "ontology_overlay_asserts_no_globally_canonical_ontology"
+      },
+      "status": {
+        "enum": [
+          "active",
+          "deprecated"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "description": "An overlay that diverges in no way is not an overlay. At least one of the two divergence sets carries an entry.",
+        "anyOf": [
+          {
+            "properties": {
+              "added_terms": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          },
+          {
+            "properties": {
+              "overlaid_terms": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        ]
+      },
+      {
+        "description": "The first revision of an overlay lineage migrates from nothing and names no predecessor.",
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1
+            },
+            "predecessor_content_hash": {
+              "type": "null"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 0
+                },
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "description": "A successor names the exact predecessor it advanced from, by ref and by that predecessor's committed hash.",
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 999999999
+            },
+            "predecessor_content_hash": {
+              "type": "string"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "string"
+                },
+                "from_content_hash": {
+                  "type": "string"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 999999999
+                },
+                "compatibility": {
+                  "enum": [
+                    "additive",
+                    "breaking"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "description": "Every projected overlay revision is admitted; there is no draft overlay on the chain, because an unadmitted overlay is a request rather than a record.",
+        "properties": {
+          "admission": {
+            "type": "object"
+          }
+        }
+      },
+      {
+        "description": "An active revision's transaction interval is still open; a deprecated one has been closed by its successor.",
+        "if": {
+          "properties": {
+            "status": {
+              "const": "active"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "transaction_time": {
+              "type": "object",
+              "properties": {
+                "superseded_at": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "deprecated"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "transaction_time": {
+              "type": "object",
+              "properties": {
+                "superseded_at": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nameToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "ontologyFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "ontologyRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "termRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "overlayFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "overlayRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "overlayTermRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+      }
+    }
+  },
+  "schema://ioi/foundations/ontology-crosswalk/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/ontology-crosswalk/v1",
+    "title": "OntologyCrosswalk",
+    "description": "An OntologyMappingEnvelope carrying mapping_record_profile ontology_crosswalk: one immutable, owner-qualified DECLARATION of how one exact source revision's terms relate to one exact target revision's terms, including relation, loss, ambiguity, scope and verifier obligations. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. A crosswalk is a declaration, never an application: declaring it grants nothing, and a cross-domain crosswalk can never reach the active status, because activation is application and application waits on accepted terms (INV-30). Its identity and lifecycle are its own and are distinct from both endpoint's version lineage and from any SemanticMappingDecision that applies it. This build's admission path projects exactly four of the canonical six statuses -- active, challenged, deprecated and revoked for in-domain lineages, and validated in place of active for cross-domain ones; proposed is retained for wire fidelity with canon and is not minted here.",
+    "x-ioi-schema-version": "ioi.ontology-crosswalk.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "ontology_mapping_id",
+      "mapping_family_ref",
+      "mapping_record_profile",
+      "namespace",
+      "name",
+      "owner_id",
+      "governing_scope_ref",
+      "admission_domain_ref",
+      "version",
+      "revision_ordinal",
+      "predecessor_version_ref",
+      "predecessor_content_hash",
+      "content_hash",
+      "source_ontology_ref",
+      "target_ontology_ref",
+      "source_and_target_version_refs",
+      "source_binding",
+      "target_binding",
+      "endpoint_resolved_by",
+      "domain_relationship",
+      "term_mappings",
+      "ambiguous_term_refs",
+      "compatibility_result",
+      "mapping_risk",
+      "verifier_obligation_refs",
+      "mapped_object_relationship_event_and_action_refs",
+      "mapping_profile_ref",
+      "deprecation_and_migration_policy_ref",
+      "policy_hash",
+      "valid_time",
+      "transaction_time",
+      "migration",
+      "admission",
+      "challenge_state",
+      "cross_domain_application_nonclaim",
+      "correctness_nonclaim",
+      "authority_nonclaim",
+      "global_canonicality_nonclaim",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ontology-crosswalk.v1"
+      },
+      "ontology_mapping_id": {
+        "$ref": "#/$defs/crosswalkRevisionRef"
+      },
+      "mapping_family_ref": {
+        "$ref": "#/$defs/crosswalkFamilyRef"
+      },
+      "mapping_record_profile": {
+        "const": "ontology_crosswalk"
+      },
+      "namespace": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "name": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "owner_id": {
+        "type": "string",
+        "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+      },
+      "governing_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+      },
+      "admission_domain_ref": {
+        "type": "string",
+        "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^v[1-9][0-9]{0,8}$"
+      },
+      "revision_ordinal": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 999999999
+      },
+      "predecessor_version_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/crosswalkRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_content_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "source_ontology_ref": {
+        "$ref": "#/$defs/endpointFamilyRef"
+      },
+      "target_ontology_ref": {
+        "$ref": "#/$defs/endpointFamilyRef"
+      },
+      "source_and_target_version_refs": {
+        "description": "The canonical OntologyMappingEnvelope field: exactly the two EXACT endpoint revisions, source first. A family ref or a mutable 'latest' pointer is unrepresentable, because a map whose ends can move maps nothing in particular.",
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/endpointRevisionRef"
+        }
+      },
+      "source_binding": {
+        "$ref": "#/$defs/endpointBinding"
+      },
+      "target_binding": {
+        "$ref": "#/$defs/endpointBinding"
+      },
+      "endpoint_resolved_by": {
+        "description": "The exact owner seam that re-resolved both endpoints. A crosswalk that names no resolver is a crosswalk whose ends were taken on faith.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+      },
+      "domain_relationship": {
+        "description": "Server-derived from the two endpoints' owner-qualified namespaces, never asserted by the caller. It is the discriminator the terms-acceptance fence keys on.",
+        "enum": [
+          "in_domain",
+          "cross_domain"
+        ]
+      },
+      "term_mappings": {
+        "description": "Silent field equivalence is forbidden: every declared correspondence states its relation AND its loss, and an unmapped source term is recorded as unmapped rather than omitted.",
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 512,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_term_id",
+            "target_term_id",
+            "relation",
+            "loss"
+          ],
+          "properties": {
+            "source_term_id": {
+              "$ref": "#/$defs/anyTermRef"
+            },
+            "target_term_id": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/anyTermRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "relation": {
+              "enum": [
+                "exact",
+                "broader",
+                "narrower",
+                "related",
+                "unmapped"
+              ]
+            },
+            "loss": {
+              "enum": [
+                "none",
+                "lossy_precision",
+                "lossy_scope",
+                "lossy_units",
+                "unmapped"
+              ]
+            }
+          }
+        }
+      },
+      "ambiguous_term_refs": {
+        "description": "Source terms this crosswalk maps more than one way. They are named here so a later application must dispose of each one explicitly; an ambiguity that is not named cannot be adjudicated, and an ambiguity that is named but not disposed of refuses.",
+        "type": "array",
+        "maxItems": 512,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/anyTermRef"
+        }
+      },
+      "compatibility_result": {
+        "enum": [
+          "exact",
+          "compatible",
+          "lossy",
+          "requires_adapter",
+          "incompatible"
+        ]
+      },
+      "mapping_risk": {
+        "description": "The declared mapping-risk posture. It is content: it is inside the content commitment, so a crosswalk cannot have its risk quietly relabelled after admission.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "risk_class",
+          "declared_loss",
+          "ambiguous_term_count",
+          "unmapped_source_term_count",
+          "residual_risk_refs"
+        ],
+        "properties": {
+          "risk_class": {
+            "enum": [
+              "low",
+              "moderate",
+              "high",
+              "unacceptable"
+            ]
+          },
+          "declared_loss": {
+            "enum": [
+              "none",
+              "lossy_precision",
+              "lossy_scope",
+              "lossy_units",
+              "unmapped"
+            ]
+          },
+          "ambiguous_term_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 512
+          },
+          "unmapped_source_term_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 512
+          },
+          "residual_risk_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(?:policy|finding|evidence)://[^\\s]{1,240}$"
+            }
+          }
+        }
+      },
+      "verifier_obligation_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:verifier_path|test|schema|evidence)://[^\\s]{1,240}$"
+        }
+      },
+      "mapped_object_relationship_event_and_action_refs": {
+        "type": "array",
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:object-model|ontology-action|schema)://[^\\s]{1,240}$"
+        }
+      },
+      "mapping_profile_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:artifact|mapping)://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "deprecation_and_migration_policy_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "valid_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "starts_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "ends_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "transaction_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recorded_at",
+          "superseded_at"
+        ],
+        "properties": {
+          "recorded_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "superseded_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_version_ref",
+          "from_content_hash",
+          "from_revision_ordinal",
+          "compatibility",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "from_version_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/crosswalkRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_revision_ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "additive",
+              "breaking"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          }
+        }
+      },
+      "admission": {
+        "$ref": "#/$defs/mappingAdmission"
+      },
+      "challenge_state": {
+        "description": "A fact about the chain, deliberately OUTSIDE the content commitment: a challenge changes a mapping's STANDING without editing the bytes it challenged. Every member is server-derived from admitted challenge and resolution operations on this family's own stream.",
+        "$ref": "#/$defs/challengeState"
+      },
+      "cross_domain_application_nonclaim": {
+        "const": "ontology_crosswalk_declaration_is_not_cross_domain_application"
+      },
+      "correctness_nonclaim": {
+        "const": "ontology_crosswalk_admission_is_not_a_correctness_claim"
+      },
+      "authority_nonclaim": {
+        "const": "ontology_crosswalk_grants_no_authority"
+      },
+      "global_canonicality_nonclaim": {
+        "const": "ontology_crosswalk_asserts_no_globally_canonical_ontology"
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "validated",
+          "active",
+          "challenged",
+          "deprecated",
+          "revoked"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "description": "INV-30 at the schema layer. A cross-domain crosswalk may be declared, superseded, challenged, deprecated and revoked, and it may NOT be active: activation is application, and cross-domain application binds only under accepted terms.",
+        "if": {
+          "properties": {
+            "domain_relationship": {
+              "const": "cross_domain"
+            }
+          },
+          "required": [
+            "domain_relationship"
+          ]
+        },
+        "then": {
+          "properties": {
+            "status": {
+              "enum": [
+                "proposed",
+                "validated",
+                "challenged",
+                "deprecated",
+                "revoked"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "description": "A challenged mapping carries at least one open challenge, and an unchallenged one carries none. Standing and evidence move together or the standing is a label.",
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "challenged"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            },
+            "status": {
+              "const": "challenged"
+            }
+          }
+        }
+      },
+      {
+        "description": "An upheld challenge revokes the mapping it upheld, and its resolution is receipted. A standing that changed with no receipt is a verdict nobody stands behind.",
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "upheld"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            },
+            "status": {
+              "const": "revoked"
+            }
+          }
+        }
+      },
+      {
+        "description": "A rejected challenge is retained, not erased: the resolution and its receipt stay addressable while the mapping returns to standing.",
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "rejected"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            },
+            "status": {
+              "enum": [
+                "validated",
+                "active"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "description": "An unchallenged mapping has no challenge refs of either kind and no resolution receipts.",
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "unchallenged"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1
+            },
+            "predecessor_content_hash": {
+              "type": "null"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 0
+                },
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 999999999
+            },
+            "predecessor_content_hash": {
+              "type": "string"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "string"
+                },
+                "from_content_hash": {
+                  "type": "string"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 999999999
+                },
+                "compatibility": {
+                  "enum": [
+                    "additive",
+                    "breaking"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "description": "An incompatible pair is not a usable map. It may be recorded so the incompatibility itself is addressable, and it may never be active.",
+        "if": {
+          "properties": {
+            "compatibility_result": {
+              "const": "incompatible"
+            }
+          },
+          "required": [
+            "compatibility_result"
+          ]
+        },
+        "then": {
+          "properties": {
+            "status": {
+              "enum": [
+                "proposed",
+                "validated",
+                "challenged",
+                "deprecated",
+                "revoked"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "description": "An unacceptable declared risk cannot carry an active mapping either, for the same reason.",
+        "if": {
+          "properties": {
+            "mapping_risk": {
+              "type": "object",
+              "properties": {
+                "risk_class": {
+                  "const": "unacceptable"
+                }
+              },
+              "required": [
+                "risk_class"
+              ]
+            }
+          },
+          "required": [
+            "mapping_risk"
+          ]
+        },
+        "then": {
+          "properties": {
+            "status": {
+              "enum": [
+                "proposed",
+                "validated",
+                "challenged",
+                "deprecated",
+                "revoked"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "properties": {
+          "admission": {
+            "type": "object"
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nameToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "crosswalkFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"
+      },
+      "crosswalkRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"
+      },
+      "endpointFamilyRef": {
+        "description": "Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.",
+        "type": "string",
+        "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"
+      },
+      "endpointRevisionRef": {
+        "type": "string",
+        "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"
+      },
+      "anyTermRef": {
+        "type": "string",
+        "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "endpointBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ontology_ref",
+          "ontology_version_ref",
+          "content_hash",
+          "namespace",
+          "name",
+          "revision_ordinal",
+          "record_profile"
+        ],
+        "properties": {
+          "ontology_ref": {
+            "$ref": "#/$defs/endpointFamilyRef"
+          },
+          "ontology_version_ref": {
+            "$ref": "#/$defs/endpointRevisionRef"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "namespace": {
+            "$ref": "#/$defs/nameToken"
+          },
+          "name": {
+            "$ref": "#/$defs/nameToken"
+          },
+          "revision_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999999
+          },
+          "record_profile": {
+            "enum": [
+              "ontology_version",
+              "ontology_overlay"
+            ]
+          }
+        }
+      },
+      "challengeState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "standing",
+          "open_challenge_refs",
+          "resolved_challenge_refs",
+          "resolution_receipt_refs",
+          "challenge_contract_ref"
+        ],
+        "properties": {
+          "standing": {
+            "enum": [
+              "unchallenged",
+              "challenged",
+              "upheld",
+              "rejected"
+            ]
+          },
+          "open_challenge_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^verifier-challenge://[^\\s]{1,240}$"
+            }
+          },
+          "resolved_challenge_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^verifier-challenge://[^\\s]{1,240}$"
+            }
+          },
+          "resolution_receipt_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,240}$"
+            }
+          },
+          "challenge_contract_ref": {
+            "description": "The exact registered challenge contract this family admits. Pinned to VerifierChallengeEnvelope v2, whose challenged_ref widening is what makes an ontology-mapping subject nameable at all; a v1 envelope cannot address this family and is refused rather than downgraded.",
+            "const": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2"
+          }
+        }
+      },
+      "mappingAdmission": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ontology_mapping_id",
+              "content_hash",
+              "owner_namespace",
+              "stream_tail",
+              "agentgres_operation_ref",
+              "agentgres_receipt_ref",
+              "admission_seq",
+              "admission_head",
+              "admission_root",
+              "expected_predecessor_head"
+            ],
+            "properties": {
+              "ontology_mapping_id": {
+                "type": "string",
+                "pattern": "^ontology-mapping://[^\\s]{1,240}$"
+              },
+              "content_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "owner_namespace": {
+                "const": "hypervisor-ontology-mappings"
+              },
+              "stream_tail": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+              },
+              "agentgres_operation_ref": {
+                "type": "string",
+                "pattern": "^agentgres://[^\\s]{1,240}$"
+              },
+              "agentgres_receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,240}$"
+              },
+              "admission_seq": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "admission_head": {
+                "$ref": "#/$defs/sha256"
+              },
+              "admission_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "expected_predecessor_head": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/semantic-mapping-decision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+    "title": "SemanticMappingDecision",
+    "description": "An OntologyMappingEnvelope carrying mapping_record_profile semantic_mapping_decision: one immutable, receipted, challengeable APPLICATION of one exact OntologyCrosswalk revision to one concrete target. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. It is a decision object, not a config row: it binds the exact crosswalk revision and hash, both endpoint revisions and hashes carried verbatim from that crosswalk, named reviewer lineage with per-reviewer decisions, an explicit acceptance of the declared mapping risk, and an explicit disposition for every ambiguous and every unmapped term the crosswalk named. Deciding is not being right and is not being permitted: the decision asserts no correctness, no legal conformity and no authority, and a cross-domain decision binds only under accepted terms (INV-30).",
+    "x-ioi-schema-version": "ioi.semantic-mapping-decision.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "ontology_mapping_id",
+      "mapping_family_ref",
+      "mapping_record_profile",
+      "namespace",
+      "name",
+      "owner_id",
+      "governing_scope_ref",
+      "admission_domain_ref",
+      "version",
+      "revision_ordinal",
+      "predecessor_version_ref",
+      "predecessor_content_hash",
+      "content_hash",
+      "applied_crosswalk_ref",
+      "applied_crosswalk_binding",
+      "crosswalk_resolved_by",
+      "source_ontology_ref",
+      "target_ontology_ref",
+      "source_and_target_version_refs",
+      "source_binding",
+      "target_binding",
+      "domain_relationship",
+      "application_target_refs",
+      "decided_by_ref",
+      "decision_timestamp",
+      "reviewer_lineage",
+      "mapping_risk_acceptance",
+      "ambiguity_dispositions",
+      "unmapped_term_dispositions",
+      "terms_acceptance",
+      "compatibility_result",
+      "policy_bound_view_refs",
+      "validation_and_challenge_refs",
+      "policy_hash",
+      "valid_time",
+      "transaction_time",
+      "migration",
+      "admission",
+      "mapping_decision_receipt_ref",
+      "challenge_state",
+      "correctness_nonclaim",
+      "authority_nonclaim",
+      "legal_conformity_claim",
+      "global_canonicality_nonclaim",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.semantic-mapping-decision.v1"
+      },
+      "ontology_mapping_id": {
+        "$ref": "#/$defs/decisionRevisionRef"
+      },
+      "mapping_family_ref": {
+        "$ref": "#/$defs/decisionFamilyRef"
+      },
+      "mapping_record_profile": {
+        "const": "semantic_mapping_decision"
+      },
+      "namespace": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "name": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "owner_id": {
+        "type": "string",
+        "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+      },
+      "governing_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+      },
+      "admission_domain_ref": {
+        "type": "string",
+        "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^v[1-9][0-9]{0,8}$"
+      },
+      "revision_ordinal": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 999999999
+      },
+      "predecessor_version_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/decisionRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_content_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "applied_crosswalk_ref": {
+        "description": "The canonical OntologyMappingEnvelope field, pinned to an EXACT crosswalk revision. A decision that applied 'the crosswalk' rather than one revision of it cannot say afterwards what it applied.",
+        "$ref": "#/$defs/crosswalkRevisionRef"
+      },
+      "applied_crosswalk_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mapping_family_ref",
+          "ontology_mapping_id",
+          "content_hash",
+          "revision_ordinal",
+          "compatibility_result",
+          "risk_class",
+          "declared_loss",
+          "challenge_standing"
+        ],
+        "properties": {
+          "mapping_family_ref": {
+            "$ref": "#/$defs/crosswalkFamilyRef"
+          },
+          "ontology_mapping_id": {
+            "$ref": "#/$defs/crosswalkRevisionRef"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "revision_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999999
+          },
+          "compatibility_result": {
+            "enum": [
+              "exact",
+              "compatible",
+              "lossy",
+              "requires_adapter",
+              "incompatible"
+            ]
+          },
+          "risk_class": {
+            "enum": [
+              "low",
+              "moderate",
+              "high",
+              "unacceptable"
+            ]
+          },
+          "declared_loss": {
+            "enum": [
+              "none",
+              "lossy_precision",
+              "lossy_scope",
+              "lossy_units",
+              "unmapped"
+            ]
+          },
+          "challenge_standing": {
+            "description": "The crosswalk's standing AS OF THIS DECISION, resolved from the crosswalk owner's chain. It is inside the content commitment, so 'we applied a mapping nobody had challenged' becomes a checkable historical claim rather than a memory.",
+            "enum": [
+              "unchallenged",
+              "challenged",
+              "upheld",
+              "rejected"
+            ]
+          }
+        }
+      },
+      "crosswalk_resolved_by": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+      },
+      "source_ontology_ref": {
+        "$ref": "#/$defs/endpointFamilyRef"
+      },
+      "target_ontology_ref": {
+        "$ref": "#/$defs/endpointFamilyRef"
+      },
+      "source_and_target_version_refs": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/endpointRevisionRef"
+        }
+      },
+      "source_binding": {
+        "$ref": "#/$defs/endpointBinding"
+      },
+      "target_binding": {
+        "$ref": "#/$defs/endpointBinding"
+      },
+      "domain_relationship": {
+        "enum": [
+          "in_domain",
+          "cross_domain"
+        ]
+      },
+      "application_target_refs": {
+        "description": "The concrete things this decision was applied to. Non-empty by construction: an application with no target is a declaration wearing a decision's clothes.",
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$"
+        }
+      },
+      "decided_by_ref": {
+        "description": "Server-resolved from the authenticated principal. A caller may assert it and may never author it.",
+        "type": "string",
+        "pattern": "^(?:system|worker|org|user|project|service|domain|policy)://[^\\s]{1,240}$"
+      },
+      "decision_timestamp": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "reviewer_lineage": {
+        "description": "Who reviewed, in which role, when, and what they decided. Non-empty by construction, and a rejected review cannot coexist with an active decision.",
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reviewer_ref",
+            "review_role",
+            "reviewed_at",
+            "review_decision"
+          ],
+          "properties": {
+            "reviewer_ref": {
+              "type": "string",
+              "pattern": "^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"
+            },
+            "review_role": {
+              "enum": [
+                "source_domain_reviewer",
+                "target_domain_reviewer",
+                "mapping_owner",
+                "independent_verifier"
+              ]
+            },
+            "reviewed_at": {
+              "$ref": "#/$defs/dateTime"
+            },
+            "review_decision": {
+              "enum": [
+                "approved",
+                "approved_with_conditions",
+                "rejected",
+                "abstained"
+              ]
+            }
+          }
+        }
+      },
+      "mapping_risk_acceptance": {
+        "description": "The declared risk the decider accepted, carried verbatim from the crosswalk. Accepting a risk is not reducing it, and it is not a claim that the loss did not happen.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accepted_risk_class",
+          "accepted_loss",
+          "accepted_by_ref",
+          "residual_risk_refs"
+        ],
+        "properties": {
+          "accepted_risk_class": {
+            "enum": [
+              "low",
+              "moderate",
+              "high"
+            ]
+          },
+          "accepted_loss": {
+            "enum": [
+              "none",
+              "lossy_precision",
+              "lossy_scope",
+              "lossy_units",
+              "unmapped"
+            ]
+          },
+          "accepted_by_ref": {
+            "type": "string",
+            "pattern": "^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"
+          },
+          "residual_risk_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(?:policy|finding|evidence)://[^\\s]{1,240}$"
+            }
+          }
+        }
+      },
+      "ambiguity_dispositions": {
+        "description": "One entry for every ambiguous term the applied crosswalk named. An unadjudicated ambiguity is refused before admission; 'refused_ambiguous' is a real disposition that keeps the term out of the applied projection rather than guessing it.",
+        "type": "array",
+        "maxItems": 512,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_term_id",
+            "disposition",
+            "adjudicated_by_ref"
+          ],
+          "properties": {
+            "source_term_id": {
+              "$ref": "#/$defs/anyTermRef"
+            },
+            "disposition": {
+              "enum": [
+                "adjudicated_exact",
+                "adjudicated_broader",
+                "adjudicated_narrower",
+                "refused_ambiguous"
+              ]
+            },
+            "adjudicated_by_ref": {
+              "type": "string",
+              "pattern": "^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"
+            }
+          }
+        }
+      },
+      "unmapped_term_dispositions": {
+        "description": "One entry for every source term the crosswalk left unmapped. Dropping a term silently is the defect this list exists to prevent.",
+        "type": "array",
+        "maxItems": 512,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_term_id",
+            "disposition"
+          ],
+          "properties": {
+            "source_term_id": {
+              "$ref": "#/$defs/anyTermRef"
+            },
+            "disposition": {
+              "enum": [
+                "carried_as_unmapped",
+                "excluded_from_application",
+                "escalated"
+              ]
+            }
+          }
+        }
+      },
+      "terms_acceptance": {
+        "description": "INV-30. In-domain application binds nothing across a boundary and carries null. Cross-domain application requires each required party's governed decision over the exact terms root, whose owner is M11.1; this build has no landed acceptance resolver, so a cross-domain decision is refused by name at admission rather than admitted on the strength of a caller-supplied acceptance. The shape is registered now so the resolver can land behind it without a wire change.",
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "collaboration_terms_ref",
+              "terms_body_root",
+              "accepting_domain_refs",
+              "acceptance_resolved_by"
+            ],
+            "properties": {
+              "collaboration_terms_ref": {
+                "type": "string",
+                "pattern": "^collaboration-terms://[^\\s]{1,240}$"
+              },
+              "terms_body_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "accepting_domain_refs": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 16,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+                }
+              },
+              "acceptance_resolved_by": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+              }
+            }
+          }
+        ]
+      },
+      "compatibility_result": {
+        "enum": [
+          "exact",
+          "compatible",
+          "lossy",
+          "requires_adapter",
+          "incompatible"
+        ]
+      },
+      "policy_bound_view_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:view|restricted_view)://[^\\s]{1,240}$"
+        }
+      },
+      "validation_and_challenge_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:test|verifier-challenge|evidence)://[^\\s]{1,240}$"
+        }
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "valid_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "starts_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "ends_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "transaction_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recorded_at",
+          "superseded_at"
+        ],
+        "properties": {
+          "recorded_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "superseded_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_version_ref",
+          "from_content_hash",
+          "from_revision_ordinal",
+          "compatibility",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "from_version_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/decisionRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_revision_ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "additive",
+              "breaking"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          }
+        }
+      },
+      "admission": {
+        "$ref": "#/$defs/mappingAdmission"
+      },
+      "mapping_decision_receipt_ref": {
+        "description": "The canonical decision receipt: the admitting batch's own Agentgres receipt, server-resolved. It attests that this domain admitted this decision, and nothing about whether the mapping is right.",
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "challenge_state": {
+        "$ref": "#/$defs/challengeState"
+      },
+      "correctness_nonclaim": {
+        "const": "semantic_mapping_decision_is_not_a_correctness_claim"
+      },
+      "authority_nonclaim": {
+        "const": "semantic_mapping_decision_grants_no_authority"
+      },
+      "legal_conformity_claim": {
+        "const": "not_determined"
+      },
+      "global_canonicality_nonclaim": {
+        "const": "semantic_mapping_decision_asserts_no_globally_canonical_ontology"
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "validated",
+          "active",
+          "challenged",
+          "deprecated",
+          "revoked"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "description": "An in-domain decision crosses no boundary and therefore accepts no terms; a null here is the absence being stated rather than omitted.",
+        "if": {
+          "properties": {
+            "domain_relationship": {
+              "const": "in_domain"
+            }
+          },
+          "required": [
+            "domain_relationship"
+          ]
+        },
+        "then": {
+          "properties": {
+            "terms_acceptance": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "description": "INV-30. A cross-domain decision without a resolved terms acceptance is unrepresentable, so an admitted record can never be the evidence that terms were accepted when they were not.",
+        "if": {
+          "properties": {
+            "domain_relationship": {
+              "const": "cross_domain"
+            }
+          },
+          "required": [
+            "domain_relationship"
+          ]
+        },
+        "then": {
+          "properties": {
+            "terms_acceptance": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "description": "A rejected review cannot coexist with an active decision. Retaining the rejection is the point; presenting it as agreement is the defect.",
+        "if": {
+          "properties": {
+            "reviewer_lineage": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "review_decision": {
+                    "const": "rejected"
+                  }
+                },
+                "required": [
+                  "review_decision"
+                ]
+              }
+            }
+          },
+          "required": [
+            "reviewer_lineage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "status": {
+              "enum": [
+                "proposed",
+                "validated",
+                "challenged",
+                "deprecated",
+                "revoked"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "description": "An incompatible or unacceptably risky application is never active, exactly as for the crosswalk it applies.",
+        "if": {
+          "properties": {
+            "compatibility_result": {
+              "const": "incompatible"
+            }
+          },
+          "required": [
+            "compatibility_result"
+          ]
+        },
+        "then": {
+          "properties": {
+            "status": {
+              "enum": [
+                "proposed",
+                "validated",
+                "challenged",
+                "deprecated",
+                "revoked"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "description": "Applying a crosswalk that is under challenge, or one whose challenge was upheld, cannot produce an active decision: the standing it recorded is the standing it must live with.",
+        "if": {
+          "properties": {
+            "applied_crosswalk_binding": {
+              "type": "object",
+              "properties": {
+                "challenge_standing": {
+                  "enum": [
+                    "challenged",
+                    "upheld"
+                  ]
+                }
+              },
+              "required": [
+                "challenge_standing"
+              ]
+            }
+          },
+          "required": [
+            "applied_crosswalk_binding"
+          ]
+        },
+        "then": {
+          "properties": {
+            "status": {
+              "enum": [
+                "proposed",
+                "validated",
+                "challenged",
+                "deprecated",
+                "revoked"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "challenged"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            },
+            "status": {
+              "const": "challenged"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "upheld"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            },
+            "status": {
+              "const": "revoked"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "rejected"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            },
+            "status": {
+              "enum": [
+                "validated",
+                "active"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "unchallenged"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1
+            },
+            "predecessor_content_hash": {
+              "type": "null"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 0
+                },
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 999999999
+            },
+            "predecessor_content_hash": {
+              "type": "string"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "string"
+                },
+                "from_content_hash": {
+                  "type": "string"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 999999999
+                },
+                "compatibility": {
+                  "enum": [
+                    "additive",
+                    "breaking"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "properties": {
+          "admission": {
+            "type": "object"
+          },
+          "mapping_decision_receipt_ref": {
+            "type": "string"
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nameToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "decisionFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$"
+      },
+      "decisionRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"
+      },
+      "crosswalkFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"
+      },
+      "crosswalkRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"
+      },
+      "endpointFamilyRef": {
+        "description": "Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.",
+        "type": "string",
+        "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"
+      },
+      "endpointRevisionRef": {
+        "type": "string",
+        "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"
+      },
+      "anyTermRef": {
+        "type": "string",
+        "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "endpointBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ontology_ref",
+          "ontology_version_ref",
+          "content_hash",
+          "namespace",
+          "name",
+          "revision_ordinal",
+          "record_profile"
+        ],
+        "properties": {
+          "ontology_ref": {
+            "$ref": "#/$defs/endpointFamilyRef"
+          },
+          "ontology_version_ref": {
+            "$ref": "#/$defs/endpointRevisionRef"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "namespace": {
+            "$ref": "#/$defs/nameToken"
+          },
+          "name": {
+            "$ref": "#/$defs/nameToken"
+          },
+          "revision_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999999
+          },
+          "record_profile": {
+            "enum": [
+              "ontology_version",
+              "ontology_overlay"
+            ]
+          }
+        }
+      },
+      "challengeState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "standing",
+          "open_challenge_refs",
+          "resolved_challenge_refs",
+          "resolution_receipt_refs",
+          "challenge_contract_ref"
+        ],
+        "properties": {
+          "standing": {
+            "enum": [
+              "unchallenged",
+              "challenged",
+              "upheld",
+              "rejected"
+            ]
+          },
+          "open_challenge_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^verifier-challenge://[^\\s]{1,240}$"
+            }
+          },
+          "resolved_challenge_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^verifier-challenge://[^\\s]{1,240}$"
+            }
+          },
+          "resolution_receipt_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,240}$"
+            }
+          },
+          "challenge_contract_ref": {
+            "const": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2"
+          }
+        }
+      },
+      "mappingAdmission": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ontology_mapping_id",
+              "content_hash",
+              "owner_namespace",
+              "stream_tail",
+              "agentgres_operation_ref",
+              "agentgres_receipt_ref",
+              "admission_seq",
+              "admission_head",
+              "admission_root",
+              "expected_predecessor_head"
+            ],
+            "properties": {
+              "ontology_mapping_id": {
+                "type": "string",
+                "pattern": "^ontology-mapping://[^\\s]{1,240}$"
+              },
+              "content_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "owner_namespace": {
+                "const": "hypervisor-ontology-mappings"
+              },
+              "stream_tail": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+              },
+              "agentgres_operation_ref": {
+                "type": "string",
+                "pattern": "^agentgres://[^\\s]{1,240}$"
+              },
+              "agentgres_receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,240}$"
+              },
+              "admission_seq": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "admission_head": {
+                "$ref": "#/$defs/sha256"
+              },
+              "admission_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "expected_predecessor_head": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/ontology-assertion/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/ontology-assertion/v2",
+    "title": "ProvenanceAssertion",
+    "description": "An OntologyAssertionEnvelope carrying assertion_profile provenance_assertion, as an immutable revision on its own owner-qualified chain. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologyassertionenvelope. v2 is the EXPLICIT successor of v1 and reinterprets nothing: v1 records remain valid, addressable and unaltered at v1, and the bounded exact-single-source oracle admission that produces them keeps its own contract. What v2 adds is the general plane v1 could not express -- an exact bitemporal revision chain, affirmative AND negative polarity, structured uncertainty, retained contradiction, per-source and per-evidence lineage, supersession, and challenge standing resolved through VerifierChallengeEnvelope v2 and AssuranceTransitionReceipt v1. Admission records that this domain holds the claim as operational truth. It never makes the proposition universally true, and it grants no authority.",
+    "x-ioi-schema-version": "ioi.ontology-assertion.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "assertion_id",
+      "assertion_family_ref",
+      "assertion_profile",
+      "namespace",
+      "name",
+      "owner_id",
+      "governing_scope_ref",
+      "admission_domain_ref",
+      "version",
+      "revision_ordinal",
+      "predecessor_version_ref",
+      "predecessor_content_hash",
+      "content_hash",
+      "ontology_ref",
+      "ontology_binding",
+      "ontology_resolved_by",
+      "fact_class_ref",
+      "subject_ref",
+      "predicate_ref",
+      "object_or_value_ref",
+      "polarity",
+      "valid_time",
+      "transaction_time",
+      "source_attribution",
+      "evidence_lineage",
+      "uncertainty",
+      "contradiction_state",
+      "supersession",
+      "applicability_scope_ref",
+      "permitted_consequence_scope_refs",
+      "causal_or_counterfactual_context_ref",
+      "oracle_evidence_profile_ref",
+      "oracle_evidence_admission_receipt_ref",
+      "predecessor_contract_ref",
+      "reinterpretation_nonclaim",
+      "policy_hash",
+      "migration",
+      "admission",
+      "challenge_state",
+      "universality_nonclaim",
+      "authority_nonclaim",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ontology-assertion.v2"
+      },
+      "assertion_id": {
+        "$ref": "#/$defs/assertionRevisionRef"
+      },
+      "assertion_family_ref": {
+        "$ref": "#/$defs/assertionFamilyRef"
+      },
+      "assertion_profile": {
+        "const": "provenance_assertion"
+      },
+      "namespace": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "name": {
+        "$ref": "#/$defs/nameToken"
+      },
+      "owner_id": {
+        "type": "string",
+        "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+      },
+      "governing_scope_ref": {
+        "type": "string",
+        "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+      },
+      "admission_domain_ref": {
+        "type": "string",
+        "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^v[1-9][0-9]{0,8}$"
+      },
+      "revision_ordinal": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 999999999
+      },
+      "predecessor_version_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/assertionRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_content_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "ontology_ref": {
+        "description": "The canonical OntologyAssertionEnvelope field: the ontology FAMILY whose vocabulary this assertion speaks.",
+        "$ref": "#/$defs/ontologyFamilyRef"
+      },
+      "ontology_binding": {
+        "description": "The EXACT admitted revision that gives the predicate its meaning, bound by ref AND by that owner's committed content hash. Without it, 'the price was 4' is a sentence in no particular language: the term could be redefined by a later revision and the assertion would silently change meaning.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ontology_version_ref",
+          "content_hash",
+          "namespace",
+          "name",
+          "revision_ordinal",
+          "record_status"
+        ],
+        "properties": {
+          "ontology_version_ref": {
+            "$ref": "#/$defs/ontologyRevisionRef"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "namespace": {
+            "$ref": "#/$defs/nameToken"
+          },
+          "name": {
+            "$ref": "#/$defs/nameToken"
+          },
+          "revision_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999999
+          },
+          "record_status": {
+            "enum": [
+              "active",
+              "deprecated"
+            ]
+          }
+        }
+      },
+      "ontology_resolved_by": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+      },
+      "fact_class_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/termRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "subject_ref": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "predicate_ref": {
+        "description": "A term of the BOUND revision, checked for membership against that revision's own declared vocabulary rather than for shape alone. A well-formed, correctly namespaced term the revision never declared is refused.",
+        "$ref": "#/$defs/termRef"
+      },
+      "object_or_value_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          {
+            "type": "number",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "polarity": {
+        "description": "v2's first structural addition. An affirmative assertion claims the proposition holds; a negative assertion claims it does NOT. Both are recorded claims with sources and evidence, and neither is the absence of a record -- collapsing 'asserted false' into 'nothing asserted' is the loss this member exists to prevent.",
+        "enum": [
+          "affirmative",
+          "negative"
+        ]
+      },
+      "valid_time": {
+        "description": "When the claim is held to hold. Content: it is inside the content commitment, so 'true from June' cannot be edited without minting a new revision.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "starts_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "ends_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "transaction_time": {
+        "description": "When the claim was recorded, and when a successor closed that interval. Admission, deliberately outside the content commitment.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recorded_at",
+          "superseded_at"
+        ],
+        "properties": {
+          "recorded_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "superseded_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "source_attribution": {
+        "description": "Who or what said so. Non-empty by construction: an unattributed assertion is a rendering of a log, which is exactly what this object exists instead of.",
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_ref",
+            "source_class",
+            "observed_at"
+          ],
+          "properties": {
+            "source_ref": {
+              "$ref": "#/$defs/canonicalRef"
+            },
+            "source_class": {
+              "enum": [
+                "observation",
+                "oracle",
+                "human_reviewer",
+                "worker",
+                "derived",
+                "external_system",
+                "self_report"
+              ]
+            },
+            "observed_at": {
+              "$ref": "#/$defs/dateTime"
+            }
+          }
+        }
+      },
+      "evidence_lineage": {
+        "type": "array",
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_ref",
+            "evidence_class",
+            "supports"
+          ],
+          "properties": {
+            "evidence_ref": {
+              "type": "string",
+              "pattern": "^(?:evidence|receipt|artifact|assurance-evidence)://[^\\s]{1,240}$"
+            },
+            "evidence_class": {
+              "enum": [
+                "direct",
+                "corroborating",
+                "contradicting",
+                "inconclusive"
+              ]
+            },
+            "supports": {
+              "description": "Which side of the claim this evidence bears on. Evidence that contradicts is retained AS contradicting rather than dropped, so a bundle cannot look unanimous by omission.",
+              "enum": [
+                "affirmative",
+                "negative",
+                "neither"
+              ]
+            }
+          }
+        }
+      },
+      "uncertainty": {
+        "description": "Structured rather than a bare number: a confidence with no stated kind cannot be compared across estimators, and 'unknown' is a distinct epistemic state from 'zero confidence'.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uncertainty_kind",
+          "confidence",
+          "estimator_ref"
+        ],
+        "properties": {
+          "uncertainty_kind": {
+            "enum": [
+              "point_confidence",
+              "qualitative",
+              "unknown",
+              "disputed_estimate"
+            ]
+          },
+          "confidence": {
+            "oneOf": [
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimator_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "contradiction_state": {
+        "description": "Contradictions are RETAINED, never resolved by deletion. A contradicted assertion keeps pointing at what contradicts it and keeps its own sources and evidence; the reader decides, and the record does not pretend the disagreement was not there.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contradiction_class",
+          "contradicting_assertion_refs",
+          "retained"
+        ],
+        "properties": {
+          "contradiction_class": {
+            "enum": [
+              "none",
+              "direct_negation",
+              "value_conflict",
+              "scope_conflict",
+              "temporal_conflict"
+            ]
+          },
+          "contradicting_assertion_refs": {
+            "type": "array",
+            "maxItems": 128,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(?:ontology-assertion|finding)://[^\\s]{1,240}$"
+            }
+          },
+          "retained": {
+            "const": true
+          }
+        }
+      },
+      "supersession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "supersedes_ref",
+          "supersession_reason"
+        ],
+        "properties": {
+          "supersedes_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/assertionRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supersession_reason": {
+            "enum": [
+              "none",
+              "corrected",
+              "refined",
+              "retracted",
+              "reclassified",
+              "superseded_by_evidence"
+            ]
+          }
+        }
+      },
+      "applicability_scope_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "permitted_consequence_scope_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^policy://[^\\s]{1,240}$"
+        }
+      },
+      "causal_or_counterfactual_context_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:artifact|finding)://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "oracle_evidence_profile_ref": {
+        "description": "Retained from v1 so a v1-shaped oracle assertion has a v2 home without either record reinterpreting the other. Null on the general path; a v2 record carrying a profile must also carry that profile's admission receipt.",
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^oracle-evidence-profile://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "oracle_evidence_admission_receipt_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_contract_ref": {
+        "description": "The exact predecessor contract this version succeeds. Naming it inside the record is what makes the succession auditable from the bytes rather than only from a registry entry.",
+        "const": "schema://ioi/foundations/ontology-assertion/v1"
+      },
+      "reinterpretation_nonclaim": {
+        "const": "provenance_assertion_v2_does_not_reinterpret_v1_records"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from_version_ref",
+          "from_content_hash",
+          "from_revision_ordinal",
+          "compatibility",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "from_version_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/assertionRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_revision_ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "additive",
+              "breaking"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          }
+        }
+      },
+      "admission": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "assertion_id",
+              "content_hash",
+              "owner_namespace",
+              "stream_tail",
+              "agentgres_operation_ref",
+              "agentgres_receipt_ref",
+              "admission_seq",
+              "admission_head",
+              "admission_root",
+              "expected_predecessor_head"
+            ],
+            "properties": {
+              "assertion_id": {
+                "$ref": "#/$defs/assertionRevisionRef"
+              },
+              "content_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "owner_namespace": {
+                "const": "hypervisor-provenance-assertions"
+              },
+              "stream_tail": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+              },
+              "agentgres_operation_ref": {
+                "type": "string",
+                "pattern": "^agentgres://[^\\s]{1,240}$"
+              },
+              "agentgres_receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,240}$"
+              },
+              "admission_seq": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "admission_head": {
+                "$ref": "#/$defs/sha256"
+              },
+              "admission_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "expected_predecessor_head": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "challenge_state": {
+        "description": "A fact about the chain, outside the content commitment. A challenge against an assertion is admissible and changes its STANDING without editing the claim it challenged; resolution binds an AssuranceTransitionReceipt v1, which is evidence and not a verdict.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "standing",
+          "open_challenge_refs",
+          "resolved_challenge_refs",
+          "resolution_receipt_refs",
+          "challenge_contract_ref",
+          "resolution_contract_ref"
+        ],
+        "properties": {
+          "standing": {
+            "enum": [
+              "unchallenged",
+              "challenged",
+              "upheld",
+              "rejected"
+            ]
+          },
+          "open_challenge_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^verifier-challenge://[^\\s]{1,240}$"
+            }
+          },
+          "resolved_challenge_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^verifier-challenge://[^\\s]{1,240}$"
+            }
+          },
+          "resolution_receipt_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,240}$"
+            }
+          },
+          "challenge_contract_ref": {
+            "const": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2"
+          },
+          "resolution_contract_ref": {
+            "const": "schema://ioi/foundations/assurance-transition-receipt/v1"
+          }
+        }
+      },
+      "universality_nonclaim": {
+        "const": "provenance_assertion_admission_is_not_universal_truth"
+      },
+      "authority_nonclaim": {
+        "const": "provenance_assertion_grants_no_authority"
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "evidence_pending",
+          "held_unknown",
+          "admitted",
+          "contradicted",
+          "superseded",
+          "disputed",
+          "rejected"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "description": "A held_unknown assertion is the one state where the domain declines to claim. Its uncertainty must say so rather than encode a number, and it carries no consequence scope.",
+        "if": {
+          "properties": {
+            "status": {
+              "const": "held_unknown"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "uncertainty": {
+              "type": "object",
+              "properties": {
+                "uncertainty_kind": {
+                  "const": "unknown"
+                },
+                "confidence": {
+                  "type": "null"
+                }
+              }
+            },
+            "permitted_consequence_scope_refs": {
+              "type": "array",
+              "maxItems": 0
+            }
+          }
+        }
+      },
+      {
+        "description": "A point confidence is a number; declaring the kind and omitting the number is an estimate that cannot be read.",
+        "if": {
+          "properties": {
+            "uncertainty": {
+              "type": "object",
+              "properties": {
+                "uncertainty_kind": {
+                  "const": "point_confidence"
+                }
+              },
+              "required": [
+                "uncertainty_kind"
+              ]
+            }
+          },
+          "required": [
+            "uncertainty"
+          ]
+        },
+        "then": {
+          "properties": {
+            "uncertainty": {
+              "type": "object",
+              "properties": {
+                "confidence": {
+                  "type": "number"
+                },
+                "estimator_ref": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "description": "A contradicted assertion names what contradicts it. A status that says 'contradicted' over an empty contradiction set is a label rather than a finding.",
+        "if": {
+          "properties": {
+            "status": {
+              "const": "contradicted"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "contradiction_state": {
+              "type": "object",
+              "properties": {
+                "contradicting_assertion_refs": {
+                  "type": "array",
+                  "minItems": 1
+                },
+                "contradiction_class": {
+                  "enum": [
+                    "direct_negation",
+                    "value_conflict",
+                    "scope_conflict",
+                    "temporal_conflict"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "description": "And the converse: naming contradictions and calling the record clean is the same defect from the other side.",
+        "if": {
+          "properties": {
+            "contradiction_state": {
+              "type": "object",
+              "properties": {
+                "contradiction_class": {
+                  "const": "none"
+                }
+              },
+              "required": [
+                "contradiction_class"
+              ]
+            }
+          },
+          "required": [
+            "contradiction_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "contradiction_state": {
+              "type": "object",
+              "properties": {
+                "contradicting_assertion_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                }
+              }
+            },
+            "status": {
+              "enum": [
+                "proposed",
+                "evidence_pending",
+                "held_unknown",
+                "admitted",
+                "superseded",
+                "disputed",
+                "rejected"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "description": "A superseded assertion names what it superseded or was superseded by, with a stated reason. Supersession without a reason is a deletion with extra steps.",
+        "if": {
+          "properties": {
+            "status": {
+              "const": "superseded"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "transaction_time": {
+              "type": "object",
+              "properties": {
+                "superseded_at": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "description": "A record that names a supersession target states why; 'none' is reserved for a record that supersedes nothing.",
+        "if": {
+          "properties": {
+            "supersession": {
+              "type": "object",
+              "properties": {
+                "supersedes_ref": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "supersedes_ref"
+              ]
+            }
+          },
+          "required": [
+            "supersession"
+          ]
+        },
+        "then": {
+          "properties": {
+            "supersession": {
+              "type": "object",
+              "properties": {
+                "supersession_reason": {
+                  "enum": [
+                    "corrected",
+                    "refined",
+                    "retracted",
+                    "reclassified",
+                    "superseded_by_evidence"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "description": "A disputed assertion has an open challenge; a challenge that changed nothing about standing did not happen.",
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "challenged"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            },
+            "status": {
+              "const": "disputed"
+            }
+          }
+        }
+      },
+      {
+        "description": "An upheld challenge rejects the assertion it upheld, and the resolution is receipted through the assurance ladder rather than asserted here.",
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "upheld"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            },
+            "status": {
+              "const": "rejected"
+            }
+          }
+        }
+      },
+      {
+        "description": "A rejected challenge is retained beside the assertion it failed to unseat.",
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "rejected"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "minItems": 1
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "standing": {
+                  "const": "unchallenged"
+                }
+              },
+              "required": [
+                "standing"
+              ]
+            }
+          },
+          "required": [
+            "challenge_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_state": {
+              "type": "object",
+              "properties": {
+                "open_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolved_challenge_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "resolution_receipt_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "description": "A v1-profile oracle assertion carried into v2 keeps BOTH of v1's requirements: the profile and its qualified admission receipt travel together or neither is present.",
+        "if": {
+          "properties": {
+            "oracle_evidence_profile_ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "oracle_evidence_profile_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle_evidence_admission_receipt_ref": {
+              "type": "string"
+            },
+            "fact_class_ref": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "oracle_evidence_profile_ref": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "oracle_evidence_profile_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle_evidence_admission_receipt_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "description": "An admitted assertion carries at least one piece of evidence and a bounded consequence scope. Admission with neither is a belief the domain has agreed to act on for no stated reason.",
+        "if": {
+          "properties": {
+            "status": {
+              "const": "admitted"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "evidence_lineage": {
+              "type": "array",
+              "minItems": 1
+            },
+            "permitted_consequence_scope_refs": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1
+            },
+            "predecessor_content_hash": {
+              "type": "null"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 0
+                },
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "predecessor_version_ref": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "predecessor_version_ref"
+          ]
+        },
+        "then": {
+          "properties": {
+            "revision_ordinal": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 999999999
+            },
+            "predecessor_content_hash": {
+              "type": "string"
+            },
+            "migration": {
+              "type": "object",
+              "properties": {
+                "from_version_ref": {
+                  "type": "string"
+                },
+                "from_content_hash": {
+                  "type": "string"
+                },
+                "from_revision_ordinal": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 999999999
+                },
+                "compatibility": {
+                  "enum": [
+                    "additive",
+                    "breaking"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "properties": {
+          "admission": {
+            "type": "object"
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nameToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "assertionFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "assertionRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ontologyFamilyRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "ontologyRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "termRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*://[^\\s]{1,240}$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -107704,6 +113933,1228 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/foundations/ontology-overlay/v1": [
+    {
+      "rule_id": "ontology_overlay.identity.binds_overlay_family_revision_path",
+      "description": "An overlay revision id is its overlay family's ref plus an explicit revision path; it can never name another overlay's lineage.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.overlay_id",
+        "prefix": "ontology://",
+        "expected_path": "$.overlay_family_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.family.binds_the_base_it_overlays",
+      "description": "The overlay family ref is the BASE family's ref plus an explicit /overlay/ path. This is what makes 'diverges without forking' structural: an overlay lives inside its base's addressing lineage and cannot be relocated under a different base by editing one field.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.overlay_family_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_family_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/overlay/"
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.base_family.binds_owner_namespace",
+      "description": "Identity is owner-qualified: the base family ref opens with the owning namespace, so two domains may hold the same local name and the same overlay name without colliding.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_family_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.base_family.binds_local_name",
+      "description": "The base family ref carries the base ontology's own local name verbatim.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.ontology_family_ref",
+        "expected_path": "$.name"
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.family.binds_overlay_name",
+      "description": "The overlay family ref carries this overlay's own local name verbatim, so the readable name and the address cannot drift apart.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.overlay_family_ref",
+        "expected_path": "$.overlay_name"
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.identity.binds_version_label",
+      "description": "The readable version label is the revision segment of the identity; a relabelled overlay revision no longer addresses its own object.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.overlay_id",
+        "delimiter": "/",
+        "target_path": "$.version",
+        "target_prefix": "v"
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.content_hash.commits_bases_divergence_and_valid_time",
+      "description": "The content hash commits identity, lineage, every bound base revision AND that base owner's committed hash, both divergence sets, governing policy and VALID time. Transaction time, admission and status are deliberately excluded: when a divergence was held true is content, when it was recorded is admission.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.ontology-overlay-content-commitment-jcs-sha256.v1"
+          },
+          "overlay_id": {
+            "path": "$.overlay_id"
+          },
+          "overlay_family_ref": {
+            "path": "$.overlay_family_ref"
+          },
+          "ontology_family_ref": {
+            "path": "$.ontology_family_ref"
+          },
+          "ontology_record_profile": {
+            "path": "$.ontology_record_profile"
+          },
+          "namespace": {
+            "path": "$.namespace"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "overlay_name": {
+            "path": "$.overlay_name"
+          },
+          "owner_id": {
+            "path": "$.owner_id"
+          },
+          "governing_scope_ref": {
+            "path": "$.governing_scope_ref"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "revision_ordinal": {
+            "path": "$.revision_ordinal"
+          },
+          "predecessor_version_ref": {
+            "path": "$.predecessor_version_ref"
+          },
+          "predecessor_content_hash": {
+            "path": "$.predecessor_content_hash"
+          },
+          "base_ontology_version_refs": {
+            "path": "$.base_ontology_version_refs"
+          },
+          "base_ontology_bindings": {
+            "path": "$.base_ontology_bindings"
+          },
+          "base_resolved_by": {
+            "path": "$.base_resolved_by"
+          },
+          "added_terms": {
+            "path": "$.added_terms"
+          },
+          "overlaid_terms": {
+            "path": "$.overlaid_terms"
+          },
+          "invariant_refs": {
+            "path": "$.invariant_refs"
+          },
+          "compatibility_profile_ref": {
+            "path": "$.compatibility_profile_ref"
+          },
+          "deprecation_policy_ref": {
+            "path": "$.deprecation_policy_ref"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "valid_time": {
+            "path": "$.valid_time"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "fork_nonclaim": {
+            "path": "$.fork_nonclaim"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "global_canonicality_nonclaim": {
+            "path": "$.global_canonicality_nonclaim"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.base_bindings.cover_the_declared_base_set_exactly",
+      "description": "The canonical base-ref list and the hash-bearing binding rows are the SAME set, member for member. Two lists of equal length that name different revisions would otherwise let an overlay declare one base and bind another's bytes.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.base_ontology_version_refs",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.base_ontology_bindings",
+            "field": "ontology_version_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.base_bindings.count_matches_the_declared_set",
+      "description": "The second, independent fence on the same claim: a duplicated binding row cannot reach set equality and length equality at once.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.base_ontology_bindings",
+        "fields": [
+          "ontology_version_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.predecessor.binds_migration_source",
+      "description": "The migration migrates from exactly the declared predecessor, never from a substituted one.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_version_ref",
+          "$.migration.from_version_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.predecessor_hash.binds_migration_source",
+      "description": "The migration carries the predecessor's exact content hash, so a successor overlay cannot reinterpret the revision it succeeds.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_content_hash",
+          "$.migration.from_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.migration.source_revision_is_strictly_earlier",
+      "description": "A migration source is strictly earlier than the revision it produces; equal or later sources are forks and gaps wearing successor clothing.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.migration.from_revision_ordinal",
+          "$.revision_ordinal"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.content_hash.differs_from_predecessor",
+      "description": "A successor whose content hash equals its predecessor's is a replayed revision, not an edit.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.content_hash",
+          "$.predecessor_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.admission.binds_this_revision",
+      "description": "Admission evidence names this exact overlay revision; a borrowed admission cannot make another overlay durable.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "overlay_id",
+        "expected_path": "$.overlay_id"
+      }
+    },
+    {
+      "rule_id": "ontology_overlay.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ],
+  "schema://ioi/foundations/ontology-crosswalk/v1": [
+    {
+      "rule_id": "ontology_crosswalk.identity.binds_family_revision_path",
+      "description": "A crosswalk revision id is its family's ref plus an explicit revision path; it can never name another crosswalk's lineage, and its /crosswalk/ segment keeps it distinct from the decision family that applies it.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_mapping_id",
+        "prefix": "ontology-mapping://",
+        "expected_path": "$.mapping_family_ref",
+        "strip_prefix": "ontology-mapping://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.family.binds_owner_namespace",
+      "description": "Identity is owner-qualified: the mapping family ref opens with the owning namespace, so two domains may hold a same-named crosswalk without colliding.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.mapping_family_ref",
+        "prefix": "ontology-mapping://",
+        "expected_path": "$.namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.identity.binds_version_label",
+      "description": "The readable version label is the revision segment of the identity; a relabelled revision no longer addresses its own object.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.ontology_mapping_id",
+        "delimiter": "/",
+        "target_path": "$.version",
+        "target_prefix": "v"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.content_hash.commits_endpoints_mappings_risk_and_valid_time",
+      "description": "The content hash commits identity, lineage, BOTH endpoint bindings with their owners' committed hashes, every declared term mapping with its relation and loss, the named ambiguities, the declared mapping-risk posture and VALID time. Transaction time, admission, challenge standing and status are deliberately excluded: what a crosswalk declares is content, when it was recorded and how its standing later moved are facts about the chain.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.ontology-crosswalk-content-commitment-jcs-sha256.v1"
+          },
+          "ontology_mapping_id": {
+            "path": "$.ontology_mapping_id"
+          },
+          "mapping_family_ref": {
+            "path": "$.mapping_family_ref"
+          },
+          "mapping_record_profile": {
+            "path": "$.mapping_record_profile"
+          },
+          "namespace": {
+            "path": "$.namespace"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "owner_id": {
+            "path": "$.owner_id"
+          },
+          "governing_scope_ref": {
+            "path": "$.governing_scope_ref"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "revision_ordinal": {
+            "path": "$.revision_ordinal"
+          },
+          "predecessor_version_ref": {
+            "path": "$.predecessor_version_ref"
+          },
+          "predecessor_content_hash": {
+            "path": "$.predecessor_content_hash"
+          },
+          "source_ontology_ref": {
+            "path": "$.source_ontology_ref"
+          },
+          "target_ontology_ref": {
+            "path": "$.target_ontology_ref"
+          },
+          "source_and_target_version_refs": {
+            "path": "$.source_and_target_version_refs"
+          },
+          "source_binding": {
+            "path": "$.source_binding"
+          },
+          "target_binding": {
+            "path": "$.target_binding"
+          },
+          "endpoint_resolved_by": {
+            "path": "$.endpoint_resolved_by"
+          },
+          "domain_relationship": {
+            "path": "$.domain_relationship"
+          },
+          "term_mappings": {
+            "path": "$.term_mappings"
+          },
+          "ambiguous_term_refs": {
+            "path": "$.ambiguous_term_refs"
+          },
+          "compatibility_result": {
+            "path": "$.compatibility_result"
+          },
+          "mapping_risk": {
+            "path": "$.mapping_risk"
+          },
+          "verifier_obligation_refs": {
+            "path": "$.verifier_obligation_refs"
+          },
+          "mapped_object_relationship_event_and_action_refs": {
+            "path": "$.mapped_object_relationship_event_and_action_refs"
+          },
+          "mapping_profile_ref": {
+            "path": "$.mapping_profile_ref"
+          },
+          "deprecation_and_migration_policy_ref": {
+            "path": "$.deprecation_and_migration_policy_ref"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "valid_time": {
+            "path": "$.valid_time"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "cross_domain_application_nonclaim": {
+            "path": "$.cross_domain_application_nonclaim"
+          },
+          "correctness_nonclaim": {
+            "path": "$.correctness_nonclaim"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "global_canonicality_nonclaim": {
+            "path": "$.global_canonicality_nonclaim"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.endpoints.are_exactly_the_two_bound_revisions",
+      "description": "The canonical source_and_target_version_refs list and the two hash-bearing endpoint bindings are the SAME set. A crosswalk that declares one pair of revisions and binds another's bytes maps something other than what it says it maps.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.source_and_target_version_refs",
+        "required_paths": [
+          "$.source_binding.ontology_version_ref",
+          "$.target_binding.ontology_version_ref"
+        ],
+        "required_array_paths": []
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.source_binding.binds_its_declared_family",
+      "description": "The source endpoint's exact revision is a revision OF the declared source family; a well-formed revision of some other family is refused as the substitution it is.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.source_ontology_ref",
+          "$.source_binding.ontology_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.target_binding.binds_its_declared_family",
+      "description": "The target endpoint's exact revision is a revision OF the declared target family.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.target_ontology_ref",
+          "$.target_binding.ontology_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.source_revision.binds_its_own_family_path",
+      "description": "The source revision ref opens with the source family it claims, so the two cannot be edited apart.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.source_binding.ontology_version_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.source_binding.ontology_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.target_revision.binds_its_own_family_path",
+      "description": "The target revision ref opens with the target family it claims.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.target_binding.ontology_version_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.target_binding.ontology_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.endpoints.are_two_distinct_revisions",
+      "description": "A map from a revision to itself declares nothing. The two endpoints are distinct revisions even when they belong to one family lineage.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.source_binding.ontology_version_ref",
+          "$.target_binding.ontology_version_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.risk.ambiguity_count_matches_the_named_set",
+      "description": "The declared ambiguity count is the real length of the named ambiguity set. A posture that reports fewer ambiguities than it names is the exact under-declaration a later application would be adjudicating against.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.ambiguous_term_refs",
+        "count_path": "$.mapping_risk.ambiguous_term_count"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.term_mappings.declare_each_source_term_once",
+      "description": "One source term carries one declared correspondence per revision. Two rows for one term is an ambiguity pretending to be a mapping.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.term_mappings",
+        "fields": [
+          "source_term_id",
+          "target_term_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.predecessor.binds_migration_source",
+      "description": "The migration migrates from exactly the declared predecessor, never from a substituted one.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_version_ref",
+          "$.migration.from_version_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.predecessor_hash.binds_migration_source",
+      "description": "The migration carries the predecessor's exact content hash, so a successor cannot reinterpret the crosswalk it succeeds.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_content_hash",
+          "$.migration.from_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.migration.source_revision_is_strictly_earlier",
+      "description": "A migration source is strictly earlier than the revision it produces.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.migration.from_revision_ordinal",
+          "$.revision_ordinal"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.content_hash.differs_from_predecessor",
+      "description": "A successor whose content hash equals its predecessor's is a replayed revision, not an edit.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.content_hash",
+          "$.predecessor_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.admission.binds_this_revision",
+      "description": "Admission evidence names this exact crosswalk revision.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "ontology_mapping_id",
+        "expected_path": "$.ontology_mapping_id"
+      }
+    },
+    {
+      "rule_id": "ontology_crosswalk.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ],
+  "schema://ioi/foundations/semantic-mapping-decision/v1": [
+    {
+      "rule_id": "semantic_mapping_decision.identity.binds_family_revision_path",
+      "description": "A decision revision id is its decision family's ref plus an explicit revision path. The /decision/ segment is what keeps an application from ever being addressed as the crosswalk it applied.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_mapping_id",
+        "prefix": "ontology-mapping://",
+        "expected_path": "$.mapping_family_ref",
+        "strip_prefix": "ontology-mapping://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.family.binds_owner_namespace",
+      "description": "Identity is owner-qualified: the decision family ref opens with the owning namespace.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.mapping_family_ref",
+        "prefix": "ontology-mapping://",
+        "expected_path": "$.namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.identity.binds_version_label",
+      "description": "The readable version label is the revision segment of the identity.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.ontology_mapping_id",
+        "delimiter": "/",
+        "target_path": "$.version",
+        "target_prefix": "v"
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.content_hash.commits_crosswalk_reviewers_dispositions_and_valid_time",
+      "description": "The content hash commits identity, lineage, the exact applied crosswalk revision and its hash, both endpoint bindings, every reviewer and their individual decision, the accepted risk, every ambiguity and unmapped-term disposition, the terms-acceptance binding and VALID time. Transaction time, admission, the decision receipt, challenge standing and status are excluded: what was decided is content, when it was recorded and how its standing later moved are facts about the chain.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.semantic-mapping-decision-content-commitment-jcs-sha256.v1"
+          },
+          "ontology_mapping_id": {
+            "path": "$.ontology_mapping_id"
+          },
+          "mapping_family_ref": {
+            "path": "$.mapping_family_ref"
+          },
+          "mapping_record_profile": {
+            "path": "$.mapping_record_profile"
+          },
+          "namespace": {
+            "path": "$.namespace"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "owner_id": {
+            "path": "$.owner_id"
+          },
+          "governing_scope_ref": {
+            "path": "$.governing_scope_ref"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "revision_ordinal": {
+            "path": "$.revision_ordinal"
+          },
+          "predecessor_version_ref": {
+            "path": "$.predecessor_version_ref"
+          },
+          "predecessor_content_hash": {
+            "path": "$.predecessor_content_hash"
+          },
+          "applied_crosswalk_ref": {
+            "path": "$.applied_crosswalk_ref"
+          },
+          "applied_crosswalk_binding": {
+            "path": "$.applied_crosswalk_binding"
+          },
+          "crosswalk_resolved_by": {
+            "path": "$.crosswalk_resolved_by"
+          },
+          "source_ontology_ref": {
+            "path": "$.source_ontology_ref"
+          },
+          "target_ontology_ref": {
+            "path": "$.target_ontology_ref"
+          },
+          "source_and_target_version_refs": {
+            "path": "$.source_and_target_version_refs"
+          },
+          "source_binding": {
+            "path": "$.source_binding"
+          },
+          "target_binding": {
+            "path": "$.target_binding"
+          },
+          "domain_relationship": {
+            "path": "$.domain_relationship"
+          },
+          "application_target_refs": {
+            "path": "$.application_target_refs"
+          },
+          "decided_by_ref": {
+            "path": "$.decided_by_ref"
+          },
+          "decision_timestamp": {
+            "path": "$.decision_timestamp"
+          },
+          "reviewer_lineage": {
+            "path": "$.reviewer_lineage"
+          },
+          "mapping_risk_acceptance": {
+            "path": "$.mapping_risk_acceptance"
+          },
+          "ambiguity_dispositions": {
+            "path": "$.ambiguity_dispositions"
+          },
+          "unmapped_term_dispositions": {
+            "path": "$.unmapped_term_dispositions"
+          },
+          "terms_acceptance": {
+            "path": "$.terms_acceptance"
+          },
+          "compatibility_result": {
+            "path": "$.compatibility_result"
+          },
+          "policy_bound_view_refs": {
+            "path": "$.policy_bound_view_refs"
+          },
+          "validation_and_challenge_refs": {
+            "path": "$.validation_and_challenge_refs"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "valid_time": {
+            "path": "$.valid_time"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "correctness_nonclaim": {
+            "path": "$.correctness_nonclaim"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "legal_conformity_claim": {
+            "path": "$.legal_conformity_claim"
+          },
+          "global_canonicality_nonclaim": {
+            "path": "$.global_canonicality_nonclaim"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.applied_crosswalk.is_the_bound_revision",
+      "description": "The canonical applied_crosswalk_ref field and the hash-bearing crosswalk binding name the SAME revision. A decision that cites one crosswalk and binds another's bytes applied something other than what it says it applied.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.applied_crosswalk_ref",
+          "$.applied_crosswalk_binding.ontology_mapping_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.applied_crosswalk.binds_its_own_family_path",
+      "description": "The applied crosswalk revision opens with the crosswalk family the binding claims, so the two cannot be edited apart.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.applied_crosswalk_binding.ontology_mapping_id",
+        "prefix": "ontology-mapping://",
+        "expected_path": "$.applied_crosswalk_binding.mapping_family_ref",
+        "strip_prefix": "ontology-mapping://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.endpoints.are_exactly_the_two_bound_revisions",
+      "description": "The declared endpoint list and the two hash-bearing endpoint bindings are the SAME set; both are carried verbatim from the applied crosswalk rather than re-asserted by the decider.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.source_and_target_version_refs",
+        "required_paths": [
+          "$.source_binding.ontology_version_ref",
+          "$.target_binding.ontology_version_ref"
+        ],
+        "required_array_paths": []
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.source_binding.binds_its_declared_family",
+      "description": "The source endpoint's exact revision is a revision OF the declared source family.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.source_ontology_ref",
+          "$.source_binding.ontology_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.target_binding.binds_its_declared_family",
+      "description": "The target endpoint's exact revision is a revision OF the declared target family.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.target_ontology_ref",
+          "$.target_binding.ontology_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.risk_acceptance.accepts_the_declared_loss",
+      "description": "The accepted loss is the loss the applied crosswalk declared. Accepting a smaller loss than the crosswalk declared is a decision about a different mapping.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.applied_crosswalk_binding.declared_loss",
+          "$.mapping_risk_acceptance.accepted_loss"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.risk_acceptance.accepts_the_declared_risk_class",
+      "description": "And the accepted risk class is the crosswalk's declared class, so a high-risk map cannot be applied under a low-risk acceptance.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.applied_crosswalk_binding.risk_class",
+          "$.mapping_risk_acceptance.accepted_risk_class"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.compatibility.is_the_crosswalks_own_result",
+      "description": "A decision reports the compatibility its crosswalk computed; relabelling a lossy map as exact at application time is the silent field equivalence canon forbids.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.applied_crosswalk_binding.compatibility_result",
+          "$.compatibility_result"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.reviewers.are_named_once_each_per_role",
+      "description": "One reviewer holds one role in one lineage. A repeated row would let a single reviewer stand in for a quorum of roles.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.reviewer_lineage",
+        "fields": [
+          "reviewer_ref",
+          "review_role"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.ambiguity_dispositions.name_each_term_once",
+      "description": "One ambiguous term receives one disposition. Two dispositions for one term is the ambiguity restated rather than adjudicated.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.ambiguity_dispositions",
+        "fields": [
+          "source_term_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.unmapped_dispositions.name_each_term_once",
+      "description": "One unmapped term receives one disposition.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.unmapped_term_dispositions",
+        "fields": [
+          "source_term_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.predecessor.binds_migration_source",
+      "description": "The migration migrates from exactly the declared predecessor.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_version_ref",
+          "$.migration.from_version_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.predecessor_hash.binds_migration_source",
+      "description": "The migration carries the predecessor's exact content hash, so a successor decision cannot reinterpret the decision it succeeds.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_content_hash",
+          "$.migration.from_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.migration.source_revision_is_strictly_earlier",
+      "description": "A migration source is strictly earlier than the revision it produces.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.migration.from_revision_ordinal",
+          "$.revision_ordinal"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.content_hash.differs_from_predecessor",
+      "description": "A successor whose content hash equals its predecessor's is a replayed revision, not a new decision.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.content_hash",
+          "$.predecessor_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.admission.binds_this_revision",
+      "description": "Admission evidence names this exact decision revision.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "ontology_mapping_id",
+        "expected_path": "$.ontology_mapping_id"
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    },
+    {
+      "rule_id": "semantic_mapping_decision.receipt.is_the_admitting_batch_receipt",
+      "description": "The canonical mapping decision receipt is the admitting batch's own Agentgres receipt, not a second receipt minted beside it. Binding them together is what stops a decision from citing a receipt that attests some other admission.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "agentgres_receipt_ref",
+        "expected_path": "$.mapping_decision_receipt_ref"
+      }
+    }
+  ],
+  "schema://ioi/foundations/ontology-assertion/v2": [
+    {
+      "rule_id": "provenance_assertion.identity.binds_family_revision_path",
+      "description": "An assertion revision id is its family's ref plus an explicit revision path; it can never name another assertion lineage.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.assertion_id",
+        "prefix": "ontology-assertion://",
+        "expected_path": "$.assertion_family_ref",
+        "strip_prefix": "ontology-assertion://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.family.binds_owner_namespace",
+      "description": "Identity is owner-qualified: the assertion family ref opens with the owning namespace, so two domains may assert about the same-named subject without either becoming the other's truth.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.assertion_family_ref",
+        "prefix": "ontology-assertion://",
+        "expected_path": "$.namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.family.binds_local_name",
+      "description": "The assertion family ref carries this lineage's own local name verbatim.",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.assertion_family_ref",
+        "expected_path": "$.name"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.identity.binds_version_label",
+      "description": "The readable version label is the revision segment of the identity.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.assertion_id",
+        "delimiter": "/",
+        "target_path": "$.version",
+        "target_prefix": "v"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.content_hash.commits_claim_sources_evidence_uncertainty_and_valid_time",
+      "description": "The content hash commits identity, lineage, the exact bound ontology revision and its owner's hash, the claim itself with its POLARITY, every attributed source, every piece of evidence with which side it bears on, the structured uncertainty, the retained contradiction set, the supersession statement and VALID time. Transaction time, admission, challenge standing and status are excluded: what was claimed is content; when it was recorded and how its standing later moved are facts about the chain.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.provenance-assertion-content-commitment-jcs-sha256.v2"
+          },
+          "assertion_id": {
+            "path": "$.assertion_id"
+          },
+          "assertion_family_ref": {
+            "path": "$.assertion_family_ref"
+          },
+          "assertion_profile": {
+            "path": "$.assertion_profile"
+          },
+          "namespace": {
+            "path": "$.namespace"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "owner_id": {
+            "path": "$.owner_id"
+          },
+          "governing_scope_ref": {
+            "path": "$.governing_scope_ref"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "revision_ordinal": {
+            "path": "$.revision_ordinal"
+          },
+          "predecessor_version_ref": {
+            "path": "$.predecessor_version_ref"
+          },
+          "predecessor_content_hash": {
+            "path": "$.predecessor_content_hash"
+          },
+          "ontology_ref": {
+            "path": "$.ontology_ref"
+          },
+          "ontology_binding": {
+            "path": "$.ontology_binding"
+          },
+          "ontology_resolved_by": {
+            "path": "$.ontology_resolved_by"
+          },
+          "fact_class_ref": {
+            "path": "$.fact_class_ref"
+          },
+          "subject_ref": {
+            "path": "$.subject_ref"
+          },
+          "predicate_ref": {
+            "path": "$.predicate_ref"
+          },
+          "object_or_value_ref": {
+            "path": "$.object_or_value_ref"
+          },
+          "polarity": {
+            "path": "$.polarity"
+          },
+          "valid_time": {
+            "path": "$.valid_time"
+          },
+          "source_attribution": {
+            "path": "$.source_attribution"
+          },
+          "evidence_lineage": {
+            "path": "$.evidence_lineage"
+          },
+          "uncertainty": {
+            "path": "$.uncertainty"
+          },
+          "contradiction_state": {
+            "path": "$.contradiction_state"
+          },
+          "supersession": {
+            "path": "$.supersession"
+          },
+          "applicability_scope_ref": {
+            "path": "$.applicability_scope_ref"
+          },
+          "permitted_consequence_scope_refs": {
+            "path": "$.permitted_consequence_scope_refs"
+          },
+          "causal_or_counterfactual_context_ref": {
+            "path": "$.causal_or_counterfactual_context_ref"
+          },
+          "oracle_evidence_profile_ref": {
+            "path": "$.oracle_evidence_profile_ref"
+          },
+          "oracle_evidence_admission_receipt_ref": {
+            "path": "$.oracle_evidence_admission_receipt_ref"
+          },
+          "predecessor_contract_ref": {
+            "path": "$.predecessor_contract_ref"
+          },
+          "reinterpretation_nonclaim": {
+            "path": "$.reinterpretation_nonclaim"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "universality_nonclaim": {
+            "path": "$.universality_nonclaim"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.ontology_binding.binds_the_declared_family",
+      "description": "The bound revision is a revision OF the declared ontology family. A well-formed revision of some other family would give the predicate a different meaning while the record still read as though it had not moved.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_binding.ontology_version_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.predicate.is_a_term_of_the_bound_family",
+      "description": "The predicate is a term of the SAME family the assertion bound. Shape alone cannot say this: a canonical term of another domain's namespace is well-formed and still means nothing here.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.predicate_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_ref",
+        "strip_prefix": "ontology://",
+        "suffix": "/term/"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.ontology_binding.binds_the_owning_namespace",
+      "description": "The bound revision's namespace is the one the binding names, so an assertion cannot silently attribute its vocabulary to a domain that never declared it.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.ontology_ref",
+        "prefix": "ontology://",
+        "expected_path": "$.ontology_binding.namespace",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.supersession.does_not_supersede_itself",
+      "description": "An assertion that supersedes itself is a cycle, not a correction.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.assertion_id",
+          "$.supersession.supersedes_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.sources.are_attributed_once_each",
+      "description": "One source contributes one attribution row per revision; a repeated source would let a single observation read as corroboration.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.source_attribution",
+        "fields": [
+          "source_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.evidence.is_named_once_each",
+      "description": "One piece of evidence appears once. Counting the same artifact twice is how a thin evidence set looks thick.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.evidence_lineage",
+        "fields": [
+          "evidence_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.predecessor.binds_migration_source",
+      "description": "The migration migrates from exactly the declared predecessor.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_version_ref",
+          "$.migration.from_version_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.predecessor_hash.binds_migration_source",
+      "description": "The migration carries the predecessor's exact content hash, so a successor assertion cannot reinterpret the revision it succeeds.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_content_hash",
+          "$.migration.from_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.migration.source_revision_is_strictly_earlier",
+      "description": "A migration source is strictly earlier than the revision it produces.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.migration.from_revision_ordinal",
+          "$.revision_ordinal"
+        ]
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.content_hash.differs_from_predecessor",
+      "description": "A successor whose content hash equals its predecessor's is a replayed revision, not a corrected claim.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.content_hash",
+          "$.predecessor_content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.admission.binds_this_revision",
+      "description": "Admission evidence names this exact assertion revision; a borrowed admission cannot make another claim durable.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "assertion_id",
+        "expected_path": "$.assertion_id"
+      }
+    },
+    {
+      "rule_id": "provenance_assertion.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
   ]
 };
 
@@ -109943,4 +117394,28 @@ export function validateOntologySurfaceDescriptorV2(
   value: unknown,
 ): value is OntologySurfaceDescriptorV2 {
   return validateArchitectureContract("schema://ioi/foundations/objects/ontology-surface-descriptor/v2", value).ok;
+}
+
+export function validateOntologyOverlayV1(
+  value: unknown,
+): value is OntologyOverlayV1 {
+  return validateArchitectureContract("schema://ioi/foundations/ontology-overlay/v1", value).ok;
+}
+
+export function validateOntologyCrosswalkV1(
+  value: unknown,
+): value is OntologyCrosswalkV1 {
+  return validateArchitectureContract("schema://ioi/foundations/ontology-crosswalk/v1", value).ok;
+}
+
+export function validateSemanticMappingDecisionV1(
+  value: unknown,
+): value is SemanticMappingDecisionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/semantic-mapping-decision/v1", value).ok;
+}
+
+export function validateProvenanceAssertionV2(
+  value: unknown,
+): value is ProvenanceAssertionV2 {
+  return validateArchitectureContract("schema://ioi/foundations/ontology-assertion/v2", value).ok;
 }

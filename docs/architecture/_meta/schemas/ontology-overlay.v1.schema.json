@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/ontology-overlay/v1",
+  "title": "OntologyOverlay",
+  "description": "A DomainOntologyEnvelope carrying ontology_record_profile ontology_overlay: one immutable, owner-qualified local divergence from one or more exact base OntologyVersion revisions. Derived from docs/architecture/foundations/objects/semantic-plane.md#domainontologyenvelope. An overlay diverges WITHOUT forking: it binds each base revision by exact ref AND that owner's committed content hash, it may only add terms in its own overlay namespace, and it may relabel, narrow, annotate or hide a base term without redefining or deleting the base meaning. Identity and lifecycle are the overlay's own and are distinct from both the base version and any crosswalk. Meaning never grants authority.",
+  "x-ioi-schema-version": "ioi.ontology-overlay.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "overlay_id", "overlay_family_ref", "ontology_family_ref",
+    "ontology_record_profile", "namespace", "name", "overlay_name", "owner_id",
+    "governing_scope_ref", "admission_domain_ref", "version", "revision_ordinal",
+    "predecessor_version_ref", "predecessor_content_hash", "content_hash",
+    "base_ontology_version_refs", "base_ontology_bindings", "base_resolved_by",
+    "added_terms", "overlaid_terms", "invariant_refs", "compatibility_profile_ref",
+    "deprecation_policy_ref", "policy_hash", "valid_time", "transaction_time",
+    "migration", "admission", "fork_nonclaim", "authority_nonclaim",
+    "global_canonicality_nonclaim", "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.ontology-overlay.v1" },
+    "overlay_id": { "$ref": "#/$defs/overlayRevisionRef" },
+    "overlay_family_ref": { "$ref": "#/$defs/overlayFamilyRef" },
+    "ontology_family_ref": {
+      "description": "The BASE family this overlay diverges from. The overlay family ref is this ref plus an explicit /overlay/ path, so an overlay can never be mistaken for a base version and can never address another domain's lineage.",
+      "$ref": "#/$defs/ontologyFamilyRef"
+    },
+    "ontology_record_profile": { "const": "ontology_overlay" },
+    "namespace": { "$ref": "#/$defs/nameToken" },
+    "name": { "$ref": "#/$defs/nameToken" },
+    "overlay_name": { "$ref": "#/$defs/nameToken" },
+    "owner_id": {
+      "type": "string",
+      "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+    },
+    "governing_scope_ref": {
+      "type": "string",
+      "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+    },
+    "admission_domain_ref": {
+      "type": "string",
+      "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+    },
+    "version": { "type": "string", "pattern": "^v[1-9][0-9]{0,8}$" },
+    "revision_ordinal": { "type": "integer", "minimum": 1, "maximum": 999999999 },
+    "predecessor_version_ref": {
+      "oneOf": [{ "$ref": "#/$defs/overlayRevisionRef" }, { "type": "null" }]
+    },
+    "predecessor_content_hash": {
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "content_hash": { "$ref": "#/$defs/sha256" },
+    "base_ontology_version_refs": {
+      "description": "The canonical DomainOntologyEnvelope field: the exact base revisions this overlay overlays. Every entry is an EXACT revision ref; a family ref or a mutable 'latest' pointer is unrepresentable here, because an overlay whose base can move is a fork that has not admitted it yet.",
+      "type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/ontologyRevisionRef" }
+    },
+    "base_ontology_bindings": {
+      "description": "The same base set carrying each base owner's committed content hash and revision ordinal, resolved through the base owner's own reader. A ref without its owner's hash names a revision without proving which bytes it named.",
+      "type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["ontology_version_ref", "content_hash", "revision_ordinal", "record_status"],
+        "properties": {
+          "ontology_version_ref": { "$ref": "#/$defs/ontologyRevisionRef" },
+          "content_hash": { "$ref": "#/$defs/sha256" },
+          "revision_ordinal": { "type": "integer", "minimum": 1, "maximum": 999999999 },
+          "record_status": { "enum": ["active", "deprecated"] }
+        }
+      }
+    },
+    "base_resolved_by": {
+      "description": "The exact owner seam that re-resolved every base revision. An overlay that names no resolver is an overlay whose base was taken on faith.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+    },
+    "added_terms": {
+      "description": "Terms the overlay contributes, minted in the OVERLAY's own namespace path. An overlay never mints a term inside its base family's namespace; that would be an edit of the base, which is a fork.",
+      "type": "array", "maxItems": 256, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["term_id", "label", "term_kind"],
+        "properties": {
+          "term_id": { "$ref": "#/$defs/overlayTermRef" },
+          "label": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "term_kind": { "enum": ["entity", "relationship", "event", "action"] }
+        }
+      }
+    },
+    "overlaid_terms": {
+      "description": "Base terms this overlay locally diverges on. The disposition set is deliberately narrower than a version migration's: an overlay may relabel, narrow, annotate or hide, and it may NOT remove, widen or redefine, because those change what the base means rather than how this domain reads it.",
+      "type": "array", "maxItems": 256, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["base_term_id", "overlay_disposition", "overlay_label"],
+        "properties": {
+          "base_term_id": { "$ref": "#/$defs/termRef" },
+          "overlay_disposition": { "enum": ["relabelled", "narrowed", "annotated", "hidden"] },
+          "overlay_label": { "type": "string", "minLength": 1, "maxLength": 160 }
+        }
+      }
+    },
+    "invariant_refs": {
+      "type": "array", "maxItems": 128, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^invariant://[^\\s]{1,240}$" }
+    },
+    "compatibility_profile_ref": {
+      "oneOf": [
+        { "type": "string", "pattern": "^compatibility://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "deprecation_policy_ref": {
+      "oneOf": [
+        { "type": "string", "pattern": "^policy://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "policy_hash": { "$ref": "#/$defs/sha256" },
+    "valid_time": {
+      "type": "object", "additionalProperties": false,
+      "required": ["starts_at", "ends_at"],
+      "properties": {
+        "starts_at": { "$ref": "#/$defs/dateTime" },
+        "ends_at": { "oneOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] }
+      }
+    },
+    "transaction_time": {
+      "description": "Admission time, deliberately outside the content commitment. When a divergence was held true is content; when it was recorded is admission.",
+      "type": "object", "additionalProperties": false,
+      "required": ["recorded_at", "superseded_at"],
+      "properties": {
+        "recorded_at": { "$ref": "#/$defs/dateTime" },
+        "superseded_at": { "oneOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] }
+      }
+    },
+    "migration": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "from_version_ref", "from_content_hash", "from_revision_ordinal",
+        "compatibility", "reinterprets_predecessor"
+      ],
+      "properties": {
+        "from_version_ref": {
+          "oneOf": [{ "$ref": "#/$defs/overlayRevisionRef" }, { "type": "null" }]
+        },
+        "from_content_hash": {
+          "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "from_revision_ordinal": { "type": "integer", "minimum": 0, "maximum": 999999999 },
+        "compatibility": { "enum": ["initial", "additive", "breaking"] },
+        "reinterprets_predecessor": { "const": false }
+      }
+    },
+    "admission": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "overlay_id", "content_hash", "owner_namespace", "stream_tail",
+            "agentgres_operation_ref", "agentgres_receipt_ref", "admission_seq",
+            "admission_head", "admission_root", "expected_predecessor_head"
+          ],
+          "properties": {
+            "overlay_id": { "$ref": "#/$defs/overlayRevisionRef" },
+            "content_hash": { "$ref": "#/$defs/sha256" },
+            "owner_namespace": { "const": "hypervisor-ontology-overlays" },
+            "stream_tail": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$" },
+            "agentgres_operation_ref": {
+              "type": "string", "pattern": "^agentgres://[^\\s]{1,240}$"
+            },
+            "agentgres_receipt_ref": {
+              "type": "string", "pattern": "^receipt://[^\\s]{1,240}$"
+            },
+            "admission_seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "admission_head": { "$ref": "#/$defs/sha256" },
+            "admission_root": { "$ref": "#/$defs/sha256" },
+            "expected_predecessor_head": {
+              "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+            }
+          }
+        }
+      ]
+    },
+    "fork_nonclaim": { "const": "ontology_overlay_does_not_fork_or_redefine_its_base" },
+    "authority_nonclaim": { "const": "ontology_overlay_grants_no_authority" },
+    "global_canonicality_nonclaim": {
+      "const": "ontology_overlay_asserts_no_globally_canonical_ontology"
+    },
+    "status": { "enum": ["active", "deprecated"] }
+  },
+  "allOf": [
+    {
+      "description": "An overlay that diverges in no way is not an overlay. At least one of the two divergence sets carries an entry.",
+      "anyOf": [
+        { "properties": { "added_terms": { "type": "array", "minItems": 1 } } },
+        { "properties": { "overlaid_terms": { "type": "array", "minItems": 1 } } }
+      ]
+    },
+    {
+      "description": "The first revision of an overlay lineage migrates from nothing and names no predecessor.",
+      "if": {
+        "properties": { "predecessor_version_ref": { "type": "null" } },
+        "required": ["predecessor_version_ref"]
+      },
+      "then": {
+        "properties": {
+          "revision_ordinal": { "type": "integer", "minimum": 1, "maximum": 1 },
+          "predecessor_content_hash": { "type": "null" },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "from_version_ref": { "type": "null" },
+              "from_content_hash": { "type": "null" },
+              "from_revision_ordinal": { "type": "integer", "minimum": 0, "maximum": 0 },
+              "compatibility": { "const": "initial" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A successor names the exact predecessor it advanced from, by ref and by that predecessor's committed hash.",
+      "if": {
+        "properties": { "predecessor_version_ref": { "type": "string" } },
+        "required": ["predecessor_version_ref"]
+      },
+      "then": {
+        "properties": {
+          "revision_ordinal": { "type": "integer", "minimum": 2, "maximum": 999999999 },
+          "predecessor_content_hash": { "type": "string" },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "from_version_ref": { "type": "string" },
+              "from_content_hash": { "type": "string" },
+              "from_revision_ordinal": {
+                "type": "integer", "minimum": 1, "maximum": 999999999
+              },
+              "compatibility": { "enum": ["additive", "breaking"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Every projected overlay revision is admitted; there is no draft overlay on the chain, because an unadmitted overlay is a request rather than a record.",
+      "properties": { "admission": { "type": "object" } }
+    },
+    {
+      "description": "An active revision's transaction interval is still open; a deprecated one has been closed by its successor.",
+      "if": { "properties": { "status": { "const": "active" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "transaction_time": {
+            "type": "object",
+            "properties": { "superseded_at": { "type": "null" } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "deprecated" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "transaction_time": {
+            "type": "object",
+            "properties": { "superseded_at": { "type": "string" } }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nameToken": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+    "ontologyFamilyRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "ontologyRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "termRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "overlayFamilyRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "overlayRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "overlayTermRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+    }
+  }
+}

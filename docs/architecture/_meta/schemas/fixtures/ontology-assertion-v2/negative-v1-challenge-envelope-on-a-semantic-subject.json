@@ -1,0 +1,107 @@
+{
+  "schema_version": "ioi.ontology-assertion.v2",
+  "assertion_id": "ontology-assertion://acme-clinic/encounter-0114-triage/revision/1",
+  "assertion_family_ref": "ontology-assertion://acme-clinic/encounter-0114-triage",
+  "assertion_profile": "provenance_assertion",
+  "namespace": "acme-clinic",
+  "name": "encounter-0114-triage",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/clinical",
+  "admission_domain_ref": "agentgres://domain/hypervisor-provenance-assertions.provenance-assertion-family.acme-clinic.encounter-0114-triage",
+  "version": "v1",
+  "revision_ordinal": 1,
+  "predecessor_version_ref": null,
+  "predecessor_content_hash": null,
+  "content_hash": "sha256:02a8829f8683c331f38380bd58493c99ba8533dfe10ae850eb7a7453934e5355",
+  "ontology_ref": "ontology://acme-clinic/patient-intake",
+  "ontology_binding": {
+    "ontology_version_ref": "ontology://acme-clinic/patient-intake/revision/2",
+    "content_hash": "sha256:577ef3f0e89e9e704d01c4883d2578099e8f72e18d517c741909086ea67f3fb0",
+    "namespace": "acme-clinic",
+    "name": "patient-intake",
+    "revision_ordinal": 2,
+    "record_status": "active"
+  },
+  "ontology_resolved_by": "ontology_version_routes::resolve_admitted_revision",
+  "fact_class_ref": null,
+  "subject_ref": "object://acme-clinic/encounter/2026-08-30-0114",
+  "predicate_ref": "ontology://acme-clinic/patient-intake/term/triage-level",
+  "object_or_value_ref": "urgent",
+  "polarity": "affirmative",
+  "valid_time": {
+    "starts_at": "2026-08-30T02:10:00Z",
+    "ends_at": "2026-08-30T06:00:00Z"
+  },
+  "transaction_time": {
+    "recorded_at": "2026-09-01T12:00:00Z",
+    "superseded_at": null
+  },
+  "source_attribution": [
+    {
+      "source_ref": "observation://acme-clinic/triage-station-3",
+      "source_class": "observation",
+      "observed_at": "2026-08-30T02:11:00Z"
+    }
+  ],
+  "evidence_lineage": [
+    {
+      "evidence_ref": "evidence://acme-clinic/triage-form-0114",
+      "evidence_class": "direct",
+      "supports": "affirmative"
+    }
+  ],
+  "uncertainty": {
+    "uncertainty_kind": "point_confidence",
+    "confidence": 0.75,
+    "estimator_ref": "worker://acme-clinic/triage-scorer"
+  },
+  "contradiction_state": {
+    "contradiction_class": "none",
+    "contradicting_assertion_refs": [],
+    "retained": true
+  },
+  "supersession": {
+    "supersedes_ref": null,
+    "supersession_reason": "none"
+  },
+  "applicability_scope_ref": "policy://acme-clinic/night-shift-triage",
+  "permitted_consequence_scope_refs": [
+    "policy://acme-clinic/triage-queue-ordering"
+  ],
+  "causal_or_counterfactual_context_ref": null,
+  "oracle_evidence_profile_ref": null,
+  "oracle_evidence_admission_receipt_ref": null,
+  "predecessor_contract_ref": "schema://ioi/foundations/ontology-assertion/v1",
+  "reinterpretation_nonclaim": "provenance_assertion_v2_does_not_reinterpret_v1_records",
+  "policy_hash": "sha256:d2605c9c777eae4e7e03a057bf66fe7b4326d5a23292d0549b25520d36a7acaa",
+  "migration": {
+    "from_version_ref": null,
+    "from_content_hash": null,
+    "from_revision_ordinal": 0,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false
+  },
+  "admission": {
+    "assertion_id": "ontology-assertion://acme-clinic/encounter-0114-triage/revision/1",
+    "content_hash": "sha256:02a8829f8683c331f38380bd58493c99ba8533dfe10ae850eb7a7453934e5355",
+    "owner_namespace": "hypervisor-provenance-assertions",
+    "stream_tail": "provenance-assertion-family.acme-clinic.encounter-0114-triage",
+    "agentgres_operation_ref": "agentgres://event-stream/hypervisor-provenance-assertions/provenance-assertion-family.acme-clinic.encounter-0114-triage/operation/0",
+    "agentgres_receipt_ref": "receipt://event-stream/hypervisor-provenance-assertions/provenance-assertion-family.acme-clinic.encounter-0114-triage/batch/0",
+    "admission_seq": 0,
+    "admission_head": "sha256:c738ff24cfac04cb9d6cdee23366bb82f40f030c3541afb72c52299f9b0d5ce9",
+    "admission_root": "sha256:d111ca4d59a7d7a8316ea88e4e7eb1f8740179ffaba5e18f6dfd60bbd1a642f3",
+    "expected_predecessor_head": null
+  },
+  "challenge_state": {
+    "standing": "unchallenged",
+    "open_challenge_refs": [],
+    "resolved_challenge_refs": [],
+    "resolution_receipt_refs": [],
+    "challenge_contract_ref": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "resolution_contract_ref": "schema://ioi/foundations/assurance-transition-receipt/v1"
+  },
+  "universality_nonclaim": "provenance_assertion_admission_is_not_universal_truth",
+  "authority_nonclaim": "provenance_assertion_grants_no_authority",
+  "status": "admitted"
+}

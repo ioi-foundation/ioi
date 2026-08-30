@@ -1,0 +1,986 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/ontology-crosswalk/v1",
+  "title": "OntologyCrosswalk",
+  "description": "An OntologyMappingEnvelope carrying mapping_record_profile ontology_crosswalk: one immutable, owner-qualified DECLARATION of how one exact source revision's terms relate to one exact target revision's terms, including relation, loss, ambiguity, scope and verifier obligations. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. A crosswalk is a declaration, never an application: declaring it grants nothing, and a cross-domain crosswalk can never reach the active status, because activation is application and application waits on accepted terms (INV-30). Its identity and lifecycle are its own and are distinct from both endpoint's version lineage and from any SemanticMappingDecision that applies it. This build's admission path projects exactly four of the canonical six statuses -- active, challenged, deprecated and revoked for in-domain lineages, and validated in place of active for cross-domain ones; proposed is retained for wire fidelity with canon and is not minted here.",
+  "x-ioi-schema-version": "ioi.ontology-crosswalk.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ontology_mapping_id",
+    "mapping_family_ref",
+    "mapping_record_profile",
+    "namespace",
+    "name",
+    "owner_id",
+    "governing_scope_ref",
+    "admission_domain_ref",
+    "version",
+    "revision_ordinal",
+    "predecessor_version_ref",
+    "predecessor_content_hash",
+    "content_hash",
+    "source_ontology_ref",
+    "target_ontology_ref",
+    "source_and_target_version_refs",
+    "source_binding",
+    "target_binding",
+    "endpoint_resolved_by",
+    "domain_relationship",
+    "term_mappings",
+    "ambiguous_term_refs",
+    "compatibility_result",
+    "mapping_risk",
+    "verifier_obligation_refs",
+    "mapped_object_relationship_event_and_action_refs",
+    "mapping_profile_ref",
+    "deprecation_and_migration_policy_ref",
+    "policy_hash",
+    "valid_time",
+    "transaction_time",
+    "migration",
+    "admission",
+    "challenge_state",
+    "cross_domain_application_nonclaim",
+    "correctness_nonclaim",
+    "authority_nonclaim",
+    "global_canonicality_nonclaim",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.ontology-crosswalk.v1"
+    },
+    "ontology_mapping_id": {
+      "$ref": "#/$defs/crosswalkRevisionRef"
+    },
+    "mapping_family_ref": {
+      "$ref": "#/$defs/crosswalkFamilyRef"
+    },
+    "mapping_record_profile": {
+      "const": "ontology_crosswalk"
+    },
+    "namespace": {
+      "$ref": "#/$defs/nameToken"
+    },
+    "name": {
+      "$ref": "#/$defs/nameToken"
+    },
+    "owner_id": {
+      "type": "string",
+      "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+    },
+    "governing_scope_ref": {
+      "type": "string",
+      "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+    },
+    "admission_domain_ref": {
+      "type": "string",
+      "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[1-9][0-9]{0,8}$"
+    },
+    "revision_ordinal": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999999999
+    },
+    "predecessor_version_ref": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/crosswalkRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "predecessor_content_hash": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_ontology_ref": {
+      "$ref": "#/$defs/endpointFamilyRef"
+    },
+    "target_ontology_ref": {
+      "$ref": "#/$defs/endpointFamilyRef"
+    },
+    "source_and_target_version_refs": {
+      "description": "The canonical OntologyMappingEnvelope field: exactly the two EXACT endpoint revisions, source first. A family ref or a mutable 'latest' pointer is unrepresentable, because a map whose ends can move maps nothing in particular.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/endpointRevisionRef"
+      }
+    },
+    "source_binding": {
+      "$ref": "#/$defs/endpointBinding"
+    },
+    "target_binding": {
+      "$ref": "#/$defs/endpointBinding"
+    },
+    "endpoint_resolved_by": {
+      "description": "The exact owner seam that re-resolved both endpoints. A crosswalk that names no resolver is a crosswalk whose ends were taken on faith.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+    },
+    "domain_relationship": {
+      "description": "Server-derived from the two endpoints' owner-qualified namespaces, never asserted by the caller. It is the discriminator the terms-acceptance fence keys on.",
+      "enum": [
+        "in_domain",
+        "cross_domain"
+      ]
+    },
+    "term_mappings": {
+      "description": "Silent field equivalence is forbidden: every declared correspondence states its relation AND its loss, and an unmapped source term is recorded as unmapped rather than omitted.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_term_id",
+          "target_term_id",
+          "relation",
+          "loss"
+        ],
+        "properties": {
+          "source_term_id": {
+            "$ref": "#/$defs/anyTermRef"
+          },
+          "target_term_id": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/anyTermRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "relation": {
+            "enum": [
+              "exact",
+              "broader",
+              "narrower",
+              "related",
+              "unmapped"
+            ]
+          },
+          "loss": {
+            "enum": [
+              "none",
+              "lossy_precision",
+              "lossy_scope",
+              "lossy_units",
+              "unmapped"
+            ]
+          }
+        }
+      }
+    },
+    "ambiguous_term_refs": {
+      "description": "Source terms this crosswalk maps more than one way. They are named here so a later application must dispose of each one explicitly; an ambiguity that is not named cannot be adjudicated, and an ambiguity that is named but not disposed of refuses.",
+      "type": "array",
+      "maxItems": 512,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/anyTermRef"
+      }
+    },
+    "compatibility_result": {
+      "enum": [
+        "exact",
+        "compatible",
+        "lossy",
+        "requires_adapter",
+        "incompatible"
+      ]
+    },
+    "mapping_risk": {
+      "description": "The declared mapping-risk posture. It is content: it is inside the content commitment, so a crosswalk cannot have its risk quietly relabelled after admission.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "risk_class",
+        "declared_loss",
+        "ambiguous_term_count",
+        "unmapped_source_term_count",
+        "residual_risk_refs"
+      ],
+      "properties": {
+        "risk_class": {
+          "enum": [
+            "low",
+            "moderate",
+            "high",
+            "unacceptable"
+          ]
+        },
+        "declared_loss": {
+          "enum": [
+            "none",
+            "lossy_precision",
+            "lossy_scope",
+            "lossy_units",
+            "unmapped"
+          ]
+        },
+        "ambiguous_term_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 512
+        },
+        "unmapped_source_term_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 512
+        },
+        "residual_risk_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(?:policy|finding|evidence)://[^\\s]{1,240}$"
+          }
+        }
+      }
+    },
+    "verifier_obligation_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:verifier_path|test|schema|evidence)://[^\\s]{1,240}$"
+      }
+    },
+    "mapped_object_relationship_event_and_action_refs": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:object-model|ontology-action|schema)://[^\\s]{1,240}$"
+      }
+    },
+    "mapping_profile_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:artifact|mapping)://[^\\s]{1,240}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "deprecation_and_migration_policy_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^policy://[^\\s]{1,240}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policy_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "valid_time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "starts_at",
+        "ends_at"
+      ],
+      "properties": {
+        "starts_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "ends_at": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/dateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "transaction_time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recorded_at",
+        "superseded_at"
+      ],
+      "properties": {
+        "recorded_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "superseded_at": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/dateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_version_ref",
+        "from_content_hash",
+        "from_revision_ordinal",
+        "compatibility",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "from_version_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/crosswalkRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_revision_ordinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999999999
+        },
+        "compatibility": {
+          "enum": [
+            "initial",
+            "additive",
+            "breaking"
+          ]
+        },
+        "reinterprets_predecessor": {
+          "const": false
+        }
+      }
+    },
+    "admission": {
+      "$ref": "#/$defs/mappingAdmission"
+    },
+    "challenge_state": {
+      "description": "A fact about the chain, deliberately OUTSIDE the content commitment: a challenge changes a mapping's STANDING without editing the bytes it challenged. Every member is server-derived from admitted challenge and resolution operations on this family's own stream.",
+      "$ref": "#/$defs/challengeState"
+    },
+    "cross_domain_application_nonclaim": {
+      "const": "ontology_crosswalk_declaration_is_not_cross_domain_application"
+    },
+    "correctness_nonclaim": {
+      "const": "ontology_crosswalk_admission_is_not_a_correctness_claim"
+    },
+    "authority_nonclaim": {
+      "const": "ontology_crosswalk_grants_no_authority"
+    },
+    "global_canonicality_nonclaim": {
+      "const": "ontology_crosswalk_asserts_no_globally_canonical_ontology"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "validated",
+        "active",
+        "challenged",
+        "deprecated",
+        "revoked"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "description": "INV-30 at the schema layer. A cross-domain crosswalk may be declared, superseded, challenged, deprecated and revoked, and it may NOT be active: activation is application, and cross-domain application binds only under accepted terms.",
+      "if": {
+        "properties": {
+          "domain_relationship": {
+            "const": "cross_domain"
+          }
+        },
+        "required": [
+          "domain_relationship"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "proposed",
+              "validated",
+              "challenged",
+              "deprecated",
+              "revoked"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "A challenged mapping carries at least one open challenge, and an unchallenged one carries none. Standing and evidence move together or the standing is a label.",
+      "if": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "standing": {
+                "const": "challenged"
+              }
+            },
+            "required": [
+              "standing"
+            ]
+          }
+        },
+        "required": [
+          "challenge_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "open_challenge_refs": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          },
+          "status": {
+            "const": "challenged"
+          }
+        }
+      }
+    },
+    {
+      "description": "An upheld challenge revokes the mapping it upheld, and its resolution is receipted. A standing that changed with no receipt is a verdict nobody stands behind.",
+      "if": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "standing": {
+                "const": "upheld"
+              }
+            },
+            "required": [
+              "standing"
+            ]
+          }
+        },
+        "required": [
+          "challenge_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "open_challenge_refs": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "resolved_challenge_refs": {
+                "type": "array",
+                "minItems": 1
+              },
+              "resolution_receipt_refs": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          },
+          "status": {
+            "const": "revoked"
+          }
+        }
+      }
+    },
+    {
+      "description": "A rejected challenge is retained, not erased: the resolution and its receipt stay addressable while the mapping returns to standing.",
+      "if": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "standing": {
+                "const": "rejected"
+              }
+            },
+            "required": [
+              "standing"
+            ]
+          }
+        },
+        "required": [
+          "challenge_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "open_challenge_refs": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "resolved_challenge_refs": {
+                "type": "array",
+                "minItems": 1
+              },
+              "resolution_receipt_refs": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          },
+          "status": {
+            "enum": [
+              "validated",
+              "active"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "An unchallenged mapping has no challenge refs of either kind and no resolution receipts.",
+      "if": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "standing": {
+                "const": "unchallenged"
+              }
+            },
+            "required": [
+              "standing"
+            ]
+          }
+        },
+        "required": [
+          "challenge_state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "open_challenge_refs": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "resolved_challenge_refs": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "resolution_receipt_refs": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "predecessor_version_ref": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "predecessor_version_ref"
+        ]
+      },
+      "then": {
+        "properties": {
+          "revision_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "predecessor_content_hash": {
+            "type": "null"
+          },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "from_version_ref": {
+                "type": "null"
+              },
+              "from_content_hash": {
+                "type": "null"
+              },
+              "from_revision_ordinal": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 0
+              },
+              "compatibility": {
+                "const": "initial"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "predecessor_version_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "predecessor_version_ref"
+        ]
+      },
+      "then": {
+        "properties": {
+          "revision_ordinal": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 999999999
+          },
+          "predecessor_content_hash": {
+            "type": "string"
+          },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "from_version_ref": {
+                "type": "string"
+              },
+              "from_content_hash": {
+                "type": "string"
+              },
+              "from_revision_ordinal": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 999999999
+              },
+              "compatibility": {
+                "enum": [
+                  "additive",
+                  "breaking"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "An incompatible pair is not a usable map. It may be recorded so the incompatibility itself is addressable, and it may never be active.",
+      "if": {
+        "properties": {
+          "compatibility_result": {
+            "const": "incompatible"
+          }
+        },
+        "required": [
+          "compatibility_result"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "proposed",
+              "validated",
+              "challenged",
+              "deprecated",
+              "revoked"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "An unacceptable declared risk cannot carry an active mapping either, for the same reason.",
+      "if": {
+        "properties": {
+          "mapping_risk": {
+            "type": "object",
+            "properties": {
+              "risk_class": {
+                "const": "unacceptable"
+              }
+            },
+            "required": [
+              "risk_class"
+            ]
+          }
+        },
+        "required": [
+          "mapping_risk"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "proposed",
+              "validated",
+              "challenged",
+              "deprecated",
+              "revoked"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "admission": {
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nameToken": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "crosswalkFamilyRef": {
+      "type": "string",
+      "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"
+    },
+    "crosswalkRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"
+    },
+    "endpointFamilyRef": {
+      "description": "Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.",
+      "type": "string",
+      "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"
+    },
+    "endpointRevisionRef": {
+      "type": "string",
+      "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"
+    },
+    "anyTermRef": {
+      "type": "string",
+      "pattern": "^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "endpointBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ontology_ref",
+        "ontology_version_ref",
+        "content_hash",
+        "namespace",
+        "name",
+        "revision_ordinal",
+        "record_profile"
+      ],
+      "properties": {
+        "ontology_ref": {
+          "$ref": "#/$defs/endpointFamilyRef"
+        },
+        "ontology_version_ref": {
+          "$ref": "#/$defs/endpointRevisionRef"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "namespace": {
+          "$ref": "#/$defs/nameToken"
+        },
+        "name": {
+          "$ref": "#/$defs/nameToken"
+        },
+        "revision_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 999999999
+        },
+        "record_profile": {
+          "enum": [
+            "ontology_version",
+            "ontology_overlay"
+          ]
+        }
+      }
+    },
+    "challengeState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "standing",
+        "open_challenge_refs",
+        "resolved_challenge_refs",
+        "resolution_receipt_refs",
+        "challenge_contract_ref"
+      ],
+      "properties": {
+        "standing": {
+          "enum": [
+            "unchallenged",
+            "challenged",
+            "upheld",
+            "rejected"
+          ]
+        },
+        "open_challenge_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^verifier-challenge://[^\\s]{1,240}$"
+          }
+        },
+        "resolved_challenge_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^verifier-challenge://[^\\s]{1,240}$"
+          }
+        },
+        "resolution_receipt_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,240}$"
+          }
+        },
+        "challenge_contract_ref": {
+          "description": "The exact registered challenge contract this family admits. Pinned to VerifierChallengeEnvelope v2, whose challenged_ref widening is what makes an ontology-mapping subject nameable at all; a v1 envelope cannot address this family and is refused rather than downgraded.",
+          "const": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2"
+        }
+      }
+    },
+    "mappingAdmission": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ontology_mapping_id",
+            "content_hash",
+            "owner_namespace",
+            "stream_tail",
+            "agentgres_operation_ref",
+            "agentgres_receipt_ref",
+            "admission_seq",
+            "admission_head",
+            "admission_root",
+            "expected_predecessor_head"
+          ],
+          "properties": {
+            "ontology_mapping_id": {
+              "type": "string",
+              "pattern": "^ontology-mapping://[^\\s]{1,240}$"
+            },
+            "content_hash": {
+              "$ref": "#/$defs/sha256"
+            },
+            "owner_namespace": {
+              "const": "hypervisor-ontology-mappings"
+            },
+            "stream_tail": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+            },
+            "agentgres_operation_ref": {
+              "type": "string",
+              "pattern": "^agentgres://[^\\s]{1,240}$"
+            },
+            "agentgres_receipt_ref": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,240}$"
+            },
+            "admission_seq": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "admission_head": {
+              "$ref": "#/$defs/sha256"
+            },
+            "admission_root": {
+              "$ref": "#/$defs/sha256"
+            },
+            "expected_predecessor_head": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

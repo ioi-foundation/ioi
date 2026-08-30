@@ -1,0 +1,677 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/ontology-assertion/v2",
+  "title": "ProvenanceAssertion",
+  "description": "An OntologyAssertionEnvelope carrying assertion_profile provenance_assertion, as an immutable revision on its own owner-qualified chain. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologyassertionenvelope. v2 is the EXPLICIT successor of v1 and reinterprets nothing: v1 records remain valid, addressable and unaltered at v1, and the bounded exact-single-source oracle admission that produces them keeps its own contract. What v2 adds is the general plane v1 could not express -- an exact bitemporal revision chain, affirmative AND negative polarity, structured uncertainty, retained contradiction, per-source and per-evidence lineage, supersession, and challenge standing resolved through VerifierChallengeEnvelope v2 and AssuranceTransitionReceipt v1. Admission records that this domain holds the claim as operational truth. It never makes the proposition universally true, and it grants no authority.",
+  "x-ioi-schema-version": "ioi.ontology-assertion.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "assertion_id", "assertion_family_ref", "assertion_profile",
+    "namespace", "name", "owner_id", "governing_scope_ref", "admission_domain_ref",
+    "version", "revision_ordinal", "predecessor_version_ref", "predecessor_content_hash",
+    "content_hash", "ontology_ref", "ontology_binding", "ontology_resolved_by",
+    "fact_class_ref", "subject_ref", "predicate_ref", "object_or_value_ref", "polarity",
+    "valid_time", "transaction_time", "source_attribution", "evidence_lineage",
+    "uncertainty", "contradiction_state", "supersession", "applicability_scope_ref",
+    "permitted_consequence_scope_refs", "causal_or_counterfactual_context_ref",
+    "oracle_evidence_profile_ref", "oracle_evidence_admission_receipt_ref",
+    "predecessor_contract_ref", "reinterpretation_nonclaim", "policy_hash",
+    "migration", "admission", "challenge_state", "universality_nonclaim",
+    "authority_nonclaim", "status"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.ontology-assertion.v2" },
+    "assertion_id": { "$ref": "#/$defs/assertionRevisionRef" },
+    "assertion_family_ref": { "$ref": "#/$defs/assertionFamilyRef" },
+    "assertion_profile": { "const": "provenance_assertion" },
+    "namespace": { "$ref": "#/$defs/nameToken" },
+    "name": { "$ref": "#/$defs/nameToken" },
+    "owner_id": {
+      "type": "string",
+      "pattern": "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"
+    },
+    "governing_scope_ref": {
+      "type": "string",
+      "pattern": "^(?:domain|org|project|service|system)://[^\\s]{1,240}$"
+    },
+    "admission_domain_ref": {
+      "type": "string",
+      "pattern": "^agentgres://domain/[^\\s]{1,224}$"
+    },
+    "version": { "type": "string", "pattern": "^v[1-9][0-9]{0,8}$" },
+    "revision_ordinal": { "type": "integer", "minimum": 1, "maximum": 999999999 },
+    "predecessor_version_ref": {
+      "oneOf": [{ "$ref": "#/$defs/assertionRevisionRef" }, { "type": "null" }]
+    },
+    "predecessor_content_hash": {
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "content_hash": { "$ref": "#/$defs/sha256" },
+    "ontology_ref": {
+      "description": "The canonical OntologyAssertionEnvelope field: the ontology FAMILY whose vocabulary this assertion speaks.",
+      "$ref": "#/$defs/ontologyFamilyRef"
+    },
+    "ontology_binding": {
+      "description": "The EXACT admitted revision that gives the predicate its meaning, bound by ref AND by that owner's committed content hash. Without it, 'the price was 4' is a sentence in no particular language: the term could be redefined by a later revision and the assertion would silently change meaning.",
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "ontology_version_ref", "content_hash", "namespace", "name", "revision_ordinal",
+        "record_status"
+      ],
+      "properties": {
+        "ontology_version_ref": { "$ref": "#/$defs/ontologyRevisionRef" },
+        "content_hash": { "$ref": "#/$defs/sha256" },
+        "namespace": { "$ref": "#/$defs/nameToken" },
+        "name": { "$ref": "#/$defs/nameToken" },
+        "revision_ordinal": { "type": "integer", "minimum": 1, "maximum": 999999999 },
+        "record_status": { "enum": ["active", "deprecated"] }
+      }
+    },
+    "ontology_resolved_by": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+    },
+    "fact_class_ref": {
+      "oneOf": [{ "$ref": "#/$defs/termRef" }, { "type": "null" }]
+    },
+    "subject_ref": { "$ref": "#/$defs/canonicalRef" },
+    "predicate_ref": {
+      "description": "A term of the BOUND revision, checked for membership against that revision's own declared vocabulary rather than for shape alone. A well-formed, correctly namespaced term the revision never declared is refused.",
+      "$ref": "#/$defs/termRef"
+    },
+    "object_or_value_ref": {
+      "anyOf": [
+        { "type": "string", "minLength": 1, "maxLength": 2048 },
+        { "type": "number", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        { "type": "boolean" },
+        { "type": "null" }
+      ]
+    },
+    "polarity": {
+      "description": "v2's first structural addition. An affirmative assertion claims the proposition holds; a negative assertion claims it does NOT. Both are recorded claims with sources and evidence, and neither is the absence of a record -- collapsing 'asserted false' into 'nothing asserted' is the loss this member exists to prevent.",
+      "enum": ["affirmative", "negative"]
+    },
+    "valid_time": {
+      "description": "When the claim is held to hold. Content: it is inside the content commitment, so 'true from June' cannot be edited without minting a new revision.",
+      "type": "object", "additionalProperties": false,
+      "required": ["starts_at", "ends_at"],
+      "properties": {
+        "starts_at": { "$ref": "#/$defs/dateTime" },
+        "ends_at": { "oneOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] }
+      }
+    },
+    "transaction_time": {
+      "description": "When the claim was recorded, and when a successor closed that interval. Admission, deliberately outside the content commitment.",
+      "type": "object", "additionalProperties": false,
+      "required": ["recorded_at", "superseded_at"],
+      "properties": {
+        "recorded_at": { "$ref": "#/$defs/dateTime" },
+        "superseded_at": { "oneOf": [{ "$ref": "#/$defs/dateTime" }, { "type": "null" }] }
+      }
+    },
+    "source_attribution": {
+      "description": "Who or what said so. Non-empty by construction: an unattributed assertion is a rendering of a log, which is exactly what this object exists instead of.",
+      "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["source_ref", "source_class", "observed_at"],
+        "properties": {
+          "source_ref": { "$ref": "#/$defs/canonicalRef" },
+          "source_class": {
+            "enum": [
+              "observation", "oracle", "human_reviewer", "worker", "derived",
+              "external_system", "self_report"
+            ]
+          },
+          "observed_at": { "$ref": "#/$defs/dateTime" }
+        }
+      }
+    },
+    "evidence_lineage": {
+      "type": "array", "maxItems": 128, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["evidence_ref", "evidence_class", "supports"],
+        "properties": {
+          "evidence_ref": {
+            "type": "string",
+            "pattern": "^(?:evidence|receipt|artifact|assurance-evidence)://[^\\s]{1,240}$"
+          },
+          "evidence_class": {
+            "enum": ["direct", "corroborating", "contradicting", "inconclusive"]
+          },
+          "supports": {
+            "description": "Which side of the claim this evidence bears on. Evidence that contradicts is retained AS contradicting rather than dropped, so a bundle cannot look unanimous by omission.",
+            "enum": ["affirmative", "negative", "neither"]
+          }
+        }
+      }
+    },
+    "uncertainty": {
+      "description": "Structured rather than a bare number: a confidence with no stated kind cannot be compared across estimators, and 'unknown' is a distinct epistemic state from 'zero confidence'.",
+      "type": "object", "additionalProperties": false,
+      "required": ["uncertainty_kind", "confidence", "estimator_ref"],
+      "properties": {
+        "uncertainty_kind": {
+          "enum": ["point_confidence", "qualitative", "unknown", "disputed_estimate"]
+        },
+        "confidence": {
+          "oneOf": [
+            { "type": "number", "minimum": 0, "maximum": 1 },
+            { "type": "null" }
+          ]
+        },
+        "estimator_ref": {
+          "oneOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }]
+        }
+      }
+    },
+    "contradiction_state": {
+      "description": "Contradictions are RETAINED, never resolved by deletion. A contradicted assertion keeps pointing at what contradicts it and keeps its own sources and evidence; the reader decides, and the record does not pretend the disagreement was not there.",
+      "type": "object", "additionalProperties": false,
+      "required": ["contradiction_class", "contradicting_assertion_refs", "retained"],
+      "properties": {
+        "contradiction_class": {
+          "enum": ["none", "direct_negation", "value_conflict", "scope_conflict", "temporal_conflict"]
+        },
+        "contradicting_assertion_refs": {
+          "type": "array", "maxItems": 128, "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(?:ontology-assertion|finding)://[^\\s]{1,240}$"
+          }
+        },
+        "retained": { "const": true }
+      }
+    },
+    "supersession": {
+      "type": "object", "additionalProperties": false,
+      "required": ["supersedes_ref", "supersession_reason"],
+      "properties": {
+        "supersedes_ref": {
+          "oneOf": [{ "$ref": "#/$defs/assertionRevisionRef" }, { "type": "null" }]
+        },
+        "supersession_reason": {
+          "enum": [
+            "none", "corrected", "refined", "retracted", "reclassified",
+            "superseded_by_evidence"
+          ]
+        }
+      }
+    },
+    "applicability_scope_ref": {
+      "oneOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }]
+    },
+    "permitted_consequence_scope_refs": {
+      "type": "array", "maxItems": 64, "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^policy://[^\\s]{1,240}$" }
+    },
+    "causal_or_counterfactual_context_ref": {
+      "oneOf": [
+        { "type": "string", "pattern": "^(?:artifact|finding)://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "oracle_evidence_profile_ref": {
+      "description": "Retained from v1 so a v1-shaped oracle assertion has a v2 home without either record reinterpreting the other. Null on the general path; a v2 record carrying a profile must also carry that profile's admission receipt.",
+      "oneOf": [
+        { "type": "string", "pattern": "^oracle-evidence-profile://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "oracle_evidence_admission_receipt_ref": {
+      "oneOf": [
+        { "type": "string", "pattern": "^receipt://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "predecessor_contract_ref": {
+      "description": "The exact predecessor contract this version succeeds. Naming it inside the record is what makes the succession auditable from the bytes rather than only from a registry entry.",
+      "const": "schema://ioi/foundations/ontology-assertion/v1"
+    },
+    "reinterpretation_nonclaim": {
+      "const": "provenance_assertion_v2_does_not_reinterpret_v1_records"
+    },
+    "policy_hash": { "$ref": "#/$defs/sha256" },
+    "migration": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "from_version_ref", "from_content_hash", "from_revision_ordinal",
+        "compatibility", "reinterprets_predecessor"
+      ],
+      "properties": {
+        "from_version_ref": {
+          "oneOf": [{ "$ref": "#/$defs/assertionRevisionRef" }, { "type": "null" }]
+        },
+        "from_content_hash": {
+          "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "from_revision_ordinal": { "type": "integer", "minimum": 0, "maximum": 999999999 },
+        "compatibility": { "enum": ["initial", "additive", "breaking"] },
+        "reinterprets_predecessor": { "const": false }
+      }
+    },
+    "admission": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "assertion_id", "content_hash", "owner_namespace", "stream_tail",
+            "agentgres_operation_ref", "agentgres_receipt_ref", "admission_seq",
+            "admission_head", "admission_root", "expected_predecessor_head"
+          ],
+          "properties": {
+            "assertion_id": { "$ref": "#/$defs/assertionRevisionRef" },
+            "content_hash": { "$ref": "#/$defs/sha256" },
+            "owner_namespace": { "const": "hypervisor-provenance-assertions" },
+            "stream_tail": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$" },
+            "agentgres_operation_ref": {
+              "type": "string", "pattern": "^agentgres://[^\\s]{1,240}$"
+            },
+            "agentgres_receipt_ref": {
+              "type": "string", "pattern": "^receipt://[^\\s]{1,240}$"
+            },
+            "admission_seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "admission_head": { "$ref": "#/$defs/sha256" },
+            "admission_root": { "$ref": "#/$defs/sha256" },
+            "expected_predecessor_head": {
+              "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+            }
+          }
+        }
+      ]
+    },
+    "challenge_state": {
+      "description": "A fact about the chain, outside the content commitment. A challenge against an assertion is admissible and changes its STANDING without editing the claim it challenged; resolution binds an AssuranceTransitionReceipt v1, which is evidence and not a verdict.",
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "standing", "open_challenge_refs", "resolved_challenge_refs",
+        "resolution_receipt_refs", "challenge_contract_ref", "resolution_contract_ref"
+      ],
+      "properties": {
+        "standing": { "enum": ["unchallenged", "challenged", "upheld", "rejected"] },
+        "open_challenge_refs": {
+          "type": "array", "maxItems": 64, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^verifier-challenge://[^\\s]{1,240}$" }
+        },
+        "resolved_challenge_refs": {
+          "type": "array", "maxItems": 64, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^verifier-challenge://[^\\s]{1,240}$" }
+        },
+        "resolution_receipt_refs": {
+          "type": "array", "maxItems": 64, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^receipt://[^\\s]{1,240}$" }
+        },
+        "challenge_contract_ref": {
+          "const": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2"
+        },
+        "resolution_contract_ref": {
+          "const": "schema://ioi/foundations/assurance-transition-receipt/v1"
+        }
+      }
+    },
+    "universality_nonclaim": {
+      "const": "provenance_assertion_admission_is_not_universal_truth"
+    },
+    "authority_nonclaim": { "const": "provenance_assertion_grants_no_authority" },
+    "status": {
+      "enum": [
+        "proposed", "evidence_pending", "held_unknown", "admitted", "contradicted",
+        "superseded", "disputed", "rejected"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "description": "A held_unknown assertion is the one state where the domain declines to claim. Its uncertainty must say so rather than encode a number, and it carries no consequence scope.",
+      "if": {
+        "properties": { "status": { "const": "held_unknown" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "uncertainty": {
+            "type": "object",
+            "properties": {
+              "uncertainty_kind": { "const": "unknown" },
+              "confidence": { "type": "null" }
+            }
+          },
+          "permitted_consequence_scope_refs": { "type": "array", "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "description": "A point confidence is a number; declaring the kind and omitting the number is an estimate that cannot be read.",
+      "if": {
+        "properties": {
+          "uncertainty": {
+            "type": "object",
+            "properties": { "uncertainty_kind": { "const": "point_confidence" } },
+            "required": ["uncertainty_kind"]
+          }
+        },
+        "required": ["uncertainty"]
+      },
+      "then": {
+        "properties": {
+          "uncertainty": {
+            "type": "object",
+            "properties": {
+              "confidence": { "type": "number" },
+              "estimator_ref": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A contradicted assertion names what contradicts it. A status that says 'contradicted' over an empty contradiction set is a label rather than a finding.",
+      "if": {
+        "properties": { "status": { "const": "contradicted" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "contradiction_state": {
+            "type": "object",
+            "properties": {
+              "contradicting_assertion_refs": { "type": "array", "minItems": 1 },
+              "contradiction_class": {
+                "enum": [
+                  "direct_negation", "value_conflict", "scope_conflict", "temporal_conflict"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "And the converse: naming contradictions and calling the record clean is the same defect from the other side.",
+      "if": {
+        "properties": {
+          "contradiction_state": {
+            "type": "object",
+            "properties": { "contradiction_class": { "const": "none" } },
+            "required": ["contradiction_class"]
+          }
+        },
+        "required": ["contradiction_state"]
+      },
+      "then": {
+        "properties": {
+          "contradiction_state": {
+            "type": "object",
+            "properties": {
+              "contradicting_assertion_refs": { "type": "array", "maxItems": 0 }
+            }
+          },
+          "status": {
+            "enum": [
+              "proposed", "evidence_pending", "held_unknown", "admitted", "superseded",
+              "disputed", "rejected"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "A superseded assertion names what it superseded or was superseded by, with a stated reason. Supersession without a reason is a deletion with extra steps.",
+      "if": {
+        "properties": { "status": { "const": "superseded" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "transaction_time": {
+            "type": "object",
+            "properties": { "superseded_at": { "type": "string" } }
+          }
+        }
+      }
+    },
+    {
+      "description": "A record that names a supersession target states why; 'none' is reserved for a record that supersedes nothing.",
+      "if": {
+        "properties": {
+          "supersession": {
+            "type": "object",
+            "properties": { "supersedes_ref": { "type": "string" } },
+            "required": ["supersedes_ref"]
+          }
+        },
+        "required": ["supersession"]
+      },
+      "then": {
+        "properties": {
+          "supersession": {
+            "type": "object",
+            "properties": {
+              "supersession_reason": {
+                "enum": [
+                  "corrected", "refined", "retracted", "reclassified",
+                  "superseded_by_evidence"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A disputed assertion has an open challenge; a challenge that changed nothing about standing did not happen.",
+      "if": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": { "standing": { "const": "challenged" } },
+            "required": ["standing"]
+          }
+        },
+        "required": ["challenge_state"]
+      },
+      "then": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": { "open_challenge_refs": { "type": "array", "minItems": 1 } }
+          },
+          "status": { "const": "disputed" }
+        }
+      }
+    },
+    {
+      "description": "An upheld challenge rejects the assertion it upheld, and the resolution is receipted through the assurance ladder rather than asserted here.",
+      "if": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": { "standing": { "const": "upheld" } },
+            "required": ["standing"]
+          }
+        },
+        "required": ["challenge_state"]
+      },
+      "then": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "open_challenge_refs": { "type": "array", "maxItems": 0 },
+              "resolved_challenge_refs": { "type": "array", "minItems": 1 },
+              "resolution_receipt_refs": { "type": "array", "minItems": 1 }
+            }
+          },
+          "status": { "const": "rejected" }
+        }
+      }
+    },
+    {
+      "description": "A rejected challenge is retained beside the assertion it failed to unseat.",
+      "if": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": { "standing": { "const": "rejected" } },
+            "required": ["standing"]
+          }
+        },
+        "required": ["challenge_state"]
+      },
+      "then": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "open_challenge_refs": { "type": "array", "maxItems": 0 },
+              "resolved_challenge_refs": { "type": "array", "minItems": 1 },
+              "resolution_receipt_refs": { "type": "array", "minItems": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": { "standing": { "const": "unchallenged" } },
+            "required": ["standing"]
+          }
+        },
+        "required": ["challenge_state"]
+      },
+      "then": {
+        "properties": {
+          "challenge_state": {
+            "type": "object",
+            "properties": {
+              "open_challenge_refs": { "type": "array", "maxItems": 0 },
+              "resolved_challenge_refs": { "type": "array", "maxItems": 0 },
+              "resolution_receipt_refs": { "type": "array", "maxItems": 0 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "A v1-profile oracle assertion carried into v2 keeps BOTH of v1's requirements: the profile and its qualified admission receipt travel together or neither is present.",
+      "if": {
+        "properties": { "oracle_evidence_profile_ref": { "type": "string" } },
+        "required": ["oracle_evidence_profile_ref"]
+      },
+      "then": {
+        "properties": {
+          "oracle_evidence_admission_receipt_ref": { "type": "string" },
+          "fact_class_ref": { "type": "string" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "oracle_evidence_profile_ref": { "type": "null" } },
+        "required": ["oracle_evidence_profile_ref"]
+      },
+      "then": {
+        "properties": {
+          "oracle_evidence_admission_receipt_ref": { "type": "null" }
+        }
+      }
+    },
+    {
+      "description": "An admitted assertion carries at least one piece of evidence and a bounded consequence scope. Admission with neither is a belief the domain has agreed to act on for no stated reason.",
+      "if": {
+        "properties": { "status": { "const": "admitted" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "evidence_lineage": { "type": "array", "minItems": 1 },
+          "permitted_consequence_scope_refs": { "type": "array", "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "predecessor_version_ref": { "type": "null" } },
+        "required": ["predecessor_version_ref"]
+      },
+      "then": {
+        "properties": {
+          "revision_ordinal": { "type": "integer", "minimum": 1, "maximum": 1 },
+          "predecessor_content_hash": { "type": "null" },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "from_version_ref": { "type": "null" },
+              "from_content_hash": { "type": "null" },
+              "from_revision_ordinal": { "type": "integer", "minimum": 0, "maximum": 0 },
+              "compatibility": { "const": "initial" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "predecessor_version_ref": { "type": "string" } },
+        "required": ["predecessor_version_ref"]
+      },
+      "then": {
+        "properties": {
+          "revision_ordinal": { "type": "integer", "minimum": 2, "maximum": 999999999 },
+          "predecessor_content_hash": { "type": "string" },
+          "migration": {
+            "type": "object",
+            "properties": {
+              "from_version_ref": { "type": "string" },
+              "from_content_hash": { "type": "string" },
+              "from_revision_ordinal": {
+                "type": "integer", "minimum": 1, "maximum": 999999999
+              },
+              "compatibility": { "enum": ["additive", "breaking"] }
+            }
+          }
+        }
+      }
+    },
+    { "properties": { "admission": { "type": "object" } } }
+  ],
+  "$defs": {
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nameToken": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+    "assertionFamilyRef": {
+      "type": "string",
+      "pattern": "^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "assertionRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ontologyFamilyRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "ontologyRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "termRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*://[^\\s]{1,240}$"
+    }
+  }
+}

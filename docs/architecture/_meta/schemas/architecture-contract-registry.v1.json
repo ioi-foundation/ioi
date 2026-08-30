@@ -8059,7 +8059,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/ontology-assertion/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -10908,6 +10908,595 @@
         },
         {
           "path": "fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
+      "canonical_name": "OntologyOverlay",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#domainontologyenvelope",
+      "schema_version": "ioi.ontology-overlay.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-overlay.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/ontology-overlay/divergence-without-forking/v1",
+          "path": "invariants/ontology-overlay.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OntologyOverlayV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OntologyOverlayV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ontology-overlay-v1/positive-genesis-active.json",
+        "fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json",
+        "fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json",
+        "fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-content-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_overlay.content_hash.commits_bases_divergence_and_valid_time"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_overlay.family.binds_the_base_it_overlays"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_overlay.base_bindings.cover_the_declared_base_set_exactly"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_overlay.base_bindings.count_matches_the_declared_set"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_overlay.predecessor_hash.binds_migration_source"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_overlay.migration.source_revision_is_strictly_earlier"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_overlay.admission.binds_this_revision"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
+      "canonical_name": "OntologyCrosswalk",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope",
+      "schema_version": "ioi.ontology-crosswalk.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-crosswalk.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/ontology-crosswalk/exact-endpoints-declared-loss-and-challengeable-standing/v1",
+          "path": "invariants/ontology-crosswalk.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OntologyCrosswalkV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OntologyCrosswalkV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ontology-crosswalk-v1/positive-in-domain-active.json",
+        "fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json",
+        "fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json",
+        "fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json",
+        "fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json",
+        "fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_crosswalk.content_hash.commits_endpoints_mappings_risk_and_valid_time"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_crosswalk.endpoints.are_exactly_the_two_bound_revisions"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_crosswalk.source_revision.binds_its_own_family_path"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_crosswalk.risk.ambiguity_count_matches_the_named_set"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_crosswalk.term_mappings.declare_each_source_term_once"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_crosswalk.predecessor.binds_migration_source"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ontology_crosswalk.admission.binds_this_revision"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
+      "canonical_name": "SemanticMappingDecision",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope",
+      "schema_version": "ioi.semantic-mapping-decision.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "semantic-mapping-decision.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/semantic-mapping-decision/receipted-reviewed-application-that-grants-nothing/v1",
+          "path": "invariants/semantic-mapping-decision.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "SemanticMappingDecisionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "SemanticMappingDecisionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json",
+        "fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json",
+        "fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json",
+        "fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.content_hash.commits_crosswalk_reviewers_dispositions_and_valid_time"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.applied_crosswalk.is_the_bound_revision"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.applied_crosswalk.binds_its_own_family_path"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.endpoints.are_exactly_the_two_bound_revisions"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.risk_acceptance.accepts_the_declared_loss"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.risk_acceptance.accepts_the_declared_risk_class"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.compatibility.is_the_crosswalks_own_result"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.reviewers.are_named_once_each_per_role"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.ambiguity_dispositions.name_each_term_once"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.receipt.is_the_admitting_batch_receipt"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "semantic_mapping_decision.admission.binds_this_revision"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
+      "canonical_name": "ProvenanceAssertion",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologyassertionenvelope",
+      "schema_version": "ioi.ontology-assertion.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/ontology-assertion/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ontology-assertion.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/ontology-assertion/provenance-assertion-graph/v2",
+          "path": "invariants/ontology-assertion.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ProvenanceAssertionV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ProvenanceAssertionV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ontology-assertion-v2/positive-affirmative-admitted.json",
+        "fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json",
+        "fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json",
+        "fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json",
+        "fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json",
+        "fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json",
+        "fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json",
+        "fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json",
+        "fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-content-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.content_hash.commits_claim_sources_evidence_uncertainty_and_valid_time"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.predicate.is_a_term_of_the_bound_family"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.ontology_binding.binds_the_declared_family"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.supersession.does_not_supersede_itself"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.sources.are_attributed_once_each"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.evidence.is_named_once_each"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.predecessor_hash.binds_migration_source"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.migration.source_revision_is_strictly_earlier"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "provenance_assertion.admission.binds_this_revision"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-unattributed-assertion.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json",
           "expected_failure": "schema"
         }
       ]

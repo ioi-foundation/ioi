@@ -1,0 +1,134 @@
+{
+  "schema_version": "ioi.semantic-mapping-decision.v1",
+  "ontology_mapping_id": "ontology-mapping://acme-clinic/intake-v1-to-v2/decision/revision/1",
+  "mapping_family_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/decision",
+  "mapping_record_profile": "semantic_mapping_decision",
+  "namespace": "acme-clinic",
+  "name": "intake-v1-to-v2",
+  "owner_id": "org://acme-clinic",
+  "governing_scope_ref": "domain://acme-clinic/clinical",
+  "admission_domain_ref": "agentgres://domain/hypervisor-ontology-mappings.ontology-mapping-decision-family.acme-clinic.intake-v1-to-v2",
+  "version": "v1",
+  "revision_ordinal": 1,
+  "predecessor_version_ref": null,
+  "predecessor_content_hash": null,
+  "content_hash": "sha256:b349181866f1c6db44dca7a84dbe61053c8a74498eac65042fb2f5a94e3dab63",
+  "applied_crosswalk_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/1",
+  "applied_crosswalk_binding": {
+    "mapping_family_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk",
+    "ontology_mapping_id": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/1",
+    "content_hash": "sha256:79e19b9f844c14d33983870f5763d46afae6be8abce2438dae57a4ee4f5357ad",
+    "revision_ordinal": 1,
+    "compatibility_result": "lossy",
+    "risk_class": "moderate",
+    "declared_loss": "lossy_precision",
+    "challenge_standing": "unchallenged"
+  },
+  "crosswalk_resolved_by": "semantic_mapping_routes::resolve_admitted_crosswalk",
+  "source_ontology_ref": "ontology://acme-clinic/patient-intake",
+  "target_ontology_ref": "ontology://acme-clinic/patient-intake",
+  "source_and_target_version_refs": [
+    "ontology://acme-clinic/patient-intake/revision/1",
+    "ontology://acme-clinic/patient-intake/revision/2"
+  ],
+  "source_binding": {
+    "ontology_ref": "ontology://acme-clinic/patient-intake",
+    "ontology_version_ref": "ontology://acme-clinic/patient-intake/revision/1",
+    "content_hash": "sha256:f367eac87fdb2159e810b28a3746e96b01b331a0cadda5508272cbebac824bb6",
+    "namespace": "acme-clinic",
+    "name": "patient-intake",
+    "revision_ordinal": 1,
+    "record_profile": "ontology_version"
+  },
+  "target_binding": {
+    "ontology_ref": "ontology://acme-clinic/patient-intake",
+    "ontology_version_ref": "ontology://acme-clinic/patient-intake/revision/2",
+    "content_hash": "sha256:577ef3f0e89e9e704d01c4883d2578099e8f72e18d517c741909086ea67f3fb0",
+    "namespace": "acme-clinic",
+    "name": "patient-intake",
+    "revision_ordinal": 2,
+    "record_profile": "ontology_version"
+  },
+  "domain_relationship": "in_domain",
+  "application_target_refs": [
+    "handoff://acme-clinic/night-intake-handoff-2026-08"
+  ],
+  "decided_by_ref": "user://acme-clinic/clinical-informatics-lead",
+  "decision_timestamp": "2026-08-30T11:00:00Z",
+  "reviewer_lineage": [
+    {
+      "reviewer_ref": "user://acme-clinic/clinical-informatics-lead",
+      "review_role": "mapping_owner",
+      "reviewed_at": "2026-08-30T10:30:00Z",
+      "review_decision": "approved"
+    },
+    {
+      "reviewer_ref": "user://acme-clinic/intake-clinician",
+      "review_role": "source_domain_reviewer",
+      "reviewed_at": "2026-08-30T10:45:00Z",
+      "review_decision": "approved_with_conditions"
+    }
+  ],
+  "mapping_risk_acceptance": {
+    "accepted_risk_class": "moderate",
+    "accepted_loss": "lossy_precision",
+    "accepted_by_ref": "user://acme-clinic/clinical-informatics-lead",
+    "residual_risk_refs": [
+      "policy://acme-clinic/unmapped-legacy-note-is-escalated"
+    ]
+  },
+  "ambiguity_dispositions": [],
+  "unmapped_term_dispositions": [
+    {
+      "source_term_id": "ontology://acme-clinic/patient-intake/term/legacy-note",
+      "disposition": "escalated"
+    }
+  ],
+  "terms_acceptance": null,
+  "compatibility_result": "lossy",
+  "policy_bound_view_refs": [],
+  "validation_and_challenge_refs": [
+    "test://acme-clinic/triage-band-round-trip"
+  ],
+  "policy_hash": "sha256:7fef0081d3122fe36c1a89234ab367052527f70fba6f652fdbc899fc25c4d96b",
+  "valid_time": {
+    "starts_at": "2026-08-30T11:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-09-01T11:00:00Z",
+    "superseded_at": null
+  },
+  "migration": {
+    "from_version_ref": null,
+    "from_content_hash": null,
+    "from_revision_ordinal": 0,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false
+  },
+  "admission": {
+    "ontology_mapping_id": "ontology-mapping://acme-clinic/intake-v1-to-v2/decision/revision/8",
+    "content_hash": "sha256:b349181866f1c6db44dca7a84dbe61053c8a74498eac65042fb2f5a94e3dab63",
+    "owner_namespace": "hypervisor-ontology-mappings",
+    "stream_tail": "ontology-mapping-decision-family.acme-clinic.intake-v1-to-v2",
+    "agentgres_operation_ref": "agentgres://event-stream/hypervisor-ontology-mappings/ontology-mapping-decision-family.acme-clinic.intake-v1-to-v2/operation/0",
+    "agentgres_receipt_ref": "receipt://event-stream/hypervisor-ontology-mappings/ontology-mapping-decision-family.acme-clinic.intake-v1-to-v2/batch/0",
+    "admission_seq": 0,
+    "admission_head": "sha256:a609a37213f5f119905385ed8be6c0034e5f9d4f25aba9a4a5984be768bd9ba0",
+    "admission_root": "sha256:b3ff01d2810e3938872127d0bf20ee14a9129b53dee0c0191ca16cd818e9d03c",
+    "expected_predecessor_head": null
+  },
+  "mapping_decision_receipt_ref": "receipt://event-stream/hypervisor-ontology-mappings/ontology-mapping-decision-family.acme-clinic.intake-v1-to-v2/batch/0",
+  "challenge_state": {
+    "standing": "unchallenged",
+    "open_challenge_refs": [],
+    "resolved_challenge_refs": [],
+    "resolution_receipt_refs": [],
+    "challenge_contract_ref": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2"
+  },
+  "correctness_nonclaim": "semantic_mapping_decision_is_not_a_correctness_claim",
+  "authority_nonclaim": "semantic_mapping_decision_grants_no_authority",
+  "legal_conformity_claim": "not_determined",
+  "global_canonicality_nonclaim": "semantic_mapping_decision_asserts_no_globally_canonical_ontology",
+  "status": "active"
+}

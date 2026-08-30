@@ -13,9 +13,10 @@
 //! 1. THE SUBJECT IS RESOLVED, NEVER ASSERTED. `subject_ref` is handed to the subject family's own
 //!    current owner, and `subject_content_hash` is that owner's committed hash carried verbatim. A
 //!    URI whose prefix merely LOOKS like a family is not proof the subject exists: the ontology
-//!    revision family goes through `ontology_version_routes::resolve_admitted_revision` — the one
-//!    reader its owner already publishes — and every other family is refused BY NAME. That refusal is
-//!    the whole point: a ladder that admits unresolvable subjects has moved nothing.
+//!    revision family goes through `ontology_version_routes::resolve_admitted_revision` and the
+//!    mapping-revision family through `semantic_mapping_routes::resolve_admitted_mapping_revision` —
+//!    each the one reader its owner already publishes — and every other family is refused BY NAME.
+//!    That refusal is the whole point: a ladder that admits unresolvable subjects has moved nothing.
 //!
 //! 2. STAGES DO NOT SKIP, AND THE PROOF IS PORTABLE. `transition_ordinal` is derived from the
 //!    subject's own chain length and `to_stage_ordinal` is pinned to `to_stage` by the registered
@@ -54,6 +55,7 @@ use super::mutation_event_foundation::{
     scope_refusal_reply, stream_tail, ScopedMutation, WriteCaller,
 };
 use super::ontology_version_routes::resolve_admitted_revision;
+use super::semantic_mapping_routes::resolve_admitted_mapping_revision;
 use super::substrate_store::{
     authorize_request_resource_scope, authorized_request_resource_refs,
     bind_request_resource_scope, resolve_request_identity, RequestIdentity, RequestResourceScope,
@@ -222,11 +224,12 @@ struct ResolvedSubject {
 
 /// Resolve `subject_ref` through the current owner of its family, or refuse.
 ///
-/// THE ONE PLACE A SUBJECT BECOMES REAL. Today exactly one family has a landed owner reader, so
-/// exactly one resolves; every other family is well-formed on the wire and REFUSED BY NAME here. That
-/// asymmetry is the design, not a gap: the v1 wire is subject-general from birth so that M05.2 and
-/// M05.3 can add their resolvers behind this seam without a wire change, while a build that cannot
-/// resolve a family must never admit a transition over it on the strength of a URI prefix.
+/// THE ONE PLACE A SUBJECT BECOMES REAL. The v1 wire was subject-general from birth so that later
+/// units could add their resolvers behind this seam WITHOUT a wire change; M05.2 has now done exactly
+/// that, and the crosswalk/decision family resolves through its owner's published reader. Every
+/// family still without a landed owner reader remains well-formed on the wire and REFUSED BY NAME
+/// here, because a build that cannot resolve a family must never admit a transition over it on the
+/// strength of a URI prefix.
 fn resolve_subject(
     data_dir: &str,
     identity: &RequestIdentity,
@@ -259,6 +262,24 @@ fn resolve_subject(
                 family,
                 content_hash: revision.content_hash,
                 resolved_by: "ontology_version_routes::resolve_admitted_revision".to_string(),
+            })
+        }
+        // THE SECOND REAL ONE, LANDED BY M05.2. Same discipline as the revision arm: the mapping
+        // owner's OWN published reader, so the receipt never acquires a second interpretation of a
+        // mapping's truth, and the caller's scope is the mapping owner's scope unchanged.
+        SubjectFamily::OntologyMappingRevision => {
+            let mapping = resolve_admitted_mapping_revision(data_dir, identity, subject_ref)?;
+            if !is_sha256(&mapping.content_hash) {
+                return Err(bad(
+                    StatusCode::BAD_GATEWAY,
+                    "assurance_transition_subject_hash_not_canonical",
+                    "the subject owner resolved this subject to a content hash that is not a canonical sha256; a transition is not sealed over a malformed binding",
+                ));
+            }
+            Ok(ResolvedSubject {
+                family,
+                content_hash: mapping.content_hash,
+                resolved_by: "semantic_mapping_routes::resolve_admitted_mapping_revision".to_string(),
             })
         }
         // FAIL CLOSED, BY NAME. Not "unsupported subject" — the exact family and the exact unit that

@@ -178,6 +178,8 @@ mod room_participation_routes;
 mod runpod_candidate_source;
 #[path = "hypervisor_daemon_routes/scm_publication_routes.rs"]
 mod scm_publication_routes;
+#[path = "hypervisor_daemon_routes/semantic_mapping_routes.rs"]
+mod semantic_mapping_routes;
 #[path = "hypervisor_daemon_routes/skill_contract_routes.rs"]
 mod skill_contract_routes;
 #[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
@@ -793,6 +795,37 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/ontology-action-contracts",
             post(ontology_action_contract_routes::handle_ontology_action_contract_admit)
                 .get(ontology_action_contract_routes::handle_ontology_action_contract_query),
+        )
+        // M05.2 — local divergence, the cross-domain map, and the receipted challengeable
+        // application of that map. Three families, three identities, three lifecycles: an overlay is
+        // addressed under its base's own path, a crosswalk DECLARES a correspondence and a decision
+        // APPLIES one. Each producer resolves every binding through that binding's own owner seam,
+        // each consumer answers bitemporally off the chain, and a challenge appends to the subject's
+        // own stream rather than editing what it challenged. Cross-domain APPLICATION is refused by
+        // name until M11.1 lands a terms-acceptance resolver (INV-30). No route mints, widens or
+        // consults authority.
+        .route(
+            "/v1/hypervisor/ontology-overlays",
+            post(semantic_mapping_routes::handle_ontology_overlay_admit)
+                .get(semantic_mapping_routes::handle_ontology_overlay_query),
+        )
+        .route(
+            "/v1/hypervisor/ontology-crosswalks",
+            post(semantic_mapping_routes::handle_ontology_crosswalk_admit)
+                .get(semantic_mapping_routes::handle_ontology_crosswalk_query),
+        )
+        .route(
+            "/v1/hypervisor/ontology-crosswalks/challenges",
+            post(semantic_mapping_routes::handle_ontology_crosswalk_challenge),
+        )
+        .route(
+            "/v1/hypervisor/semantic-mapping-decisions",
+            post(semantic_mapping_routes::handle_semantic_mapping_decision_admit)
+                .get(semantic_mapping_routes::handle_semantic_mapping_decision_query),
+        )
+        .route(
+            "/v1/hypervisor/semantic-mapping-decisions/challenges",
+            post(semantic_mapping_routes::handle_semantic_mapping_decision_challenge),
         )
         // M06 prerequisite — one step of the assurance ladder as an exact-head object over a subject
         // its own owner resolved. One producer, one query consumer; the receipt is evidence, never a
