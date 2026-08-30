@@ -333,9 +333,38 @@ const PINNED = {
   //      THREE writer buckets, the raw-filesystem count, family mentions and judged token
   //      positions are unchanged, which is the load-bearing part of this row: the new module is
   //      reachable and readable to this census and adjudicates to no ODK family at all.
-  modules: 101,
+  //
+  // M06 AssuranceTransitionReceipt re-derivation (2026-08-30). Two movements again, and again
+  // recorded separately, because one of them is INHERITED and folding it in would let this commit
+  // silently absorb a drift it did not cause:
+  //
+  //   1. AN INHERITED, UNREPINNED DRIFT from the M05.1 exact-resolver commit `f7217d4f8`. That
+  //      commit added 485 lines to ontology_version_routes.rs without re-deriving these pins, so
+  //      this gate was ALREADY RED at the branch point — measured before any M06 byte was written:
+  //      129168 tokens, 2009 opaque initialisers, 4227 foreign-qualified names against pins of
+  //      128992 / 2007 / 4225. It is re-derived here rather than left standing red, and it is
+  //      named as inherited rather than claimed as this unit's, because this unit did not cause it.
+  //
+  //   2. assurance_transition_routes.rs joins the reachable graph — +1 module, and against the
+  //      corrected 129168 baseline +542 source tokens, +35 opaque initialisers and +14
+  //      foreign-qualified names. The module writes NO record family and makes NO raw filesystem
+  //      call: its only durable artifact is the shared Agentgres chain, reached through the
+  //      owner-scoped mutation boundary, and its subject binding is resolved through the ontology
+  //      owner's own published reader rather than through a second chain read. So all THREE writer
+  //      buckets, the raw-filesystem count (234), family mentions (284) and judged token positions
+  //      (281) are UNCHANGED — which is the load-bearing part of this row: the new module is
+  //      reachable and readable to this census and adjudicates to no ODK family at all.
+  //
+  //   3. Owner-review repair of that same module (2026-08-30, same commit): binding the actor to
+  //      the authenticated principal, comparing replay intent before answering from the ladder,
+  //      truncating the transaction-time slice before projection, and keying the non-truth cache
+  //      by reader-and-subject add a further +60 source tokens, +2 opaque initialisers and +1
+  //      foreign-qualified name against the 129710 baseline above. Module count, family mentions,
+  //      judged token positions, all three writer buckets and the raw-filesystem count are again
+  //      unchanged: the repair moved no owner edge.
+  modules: 102,
   familyMentions: 284,
-  tokenMentions: 128992,
+  tokenMentions: 129770,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
@@ -356,8 +385,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4225,
-    "opaque-initialiser": 2007,
+    "foreign-qualified": 4242,
+    "opaque-initialiser": 2046,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

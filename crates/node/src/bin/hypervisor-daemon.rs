@@ -32,6 +32,8 @@
 mod agentops_routes;
 #[path = "hypervisor_daemon_routes/akash_candidate_source.rs"]
 mod akash_candidate_source;
+#[path = "hypervisor_daemon_routes/assurance_transition_routes.rs"]
+mod assurance_transition_routes;
 #[path = "hypervisor_daemon_routes/attempt_finding_routes.rs"]
 mod attempt_finding_routes;
 #[path = "hypervisor_daemon_routes/authority_gateway_routes.rs"]
@@ -780,6 +782,14 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/ontology-versions",
             post(ontology_version_routes::handle_ontology_version_admit)
                 .get(ontology_version_routes::handle_ontology_version_query),
+        )
+        // M06 prerequisite — one step of the assurance ladder as an exact-head object over a subject
+        // its own owner resolved. One producer, one query consumer; the receipt is evidence, never a
+        // verdict, and neither route mints, widens or consults authority.
+        .route(
+            "/v1/hypervisor/assurance-transitions",
+            post(assurance_transition_routes::handle_assurance_transition_admit)
+                .get(assurance_transition_routes::handle_assurance_transition_query),
         )
         .route(
             "/v1/action-requests",

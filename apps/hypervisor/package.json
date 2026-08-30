@@ -42,6 +42,8 @@
     "mutate:ontology-admission-census": "node scripts/mutate-ontology-admission-census.mjs",
     "check:ontology-version-lifecycle": "node scripts/verify-hypervisor-ontology-version-lifecycle.mjs",
     "mutate:ontology-version-lifecycle": "node scripts/verify-hypervisor-ontology-version-lifecycle.mjs --mutate",
+    "check:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs",
+    "mutate:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs --mutate",
     "check:named-gap-truth": "node scripts/verify-hypervisor-named-gap-truth.mjs && node scripts/mutate-hypervisor-named-gap-truth.mjs",
     "check:provider-transport": "node scripts/verify-hypervisor-provider-transport.mjs",
     "check:provider-transport:live": "node scripts/verify-hypervisor-provider-transport.mjs --live",

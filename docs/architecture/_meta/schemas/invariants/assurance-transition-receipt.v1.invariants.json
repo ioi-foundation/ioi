@@ -1,0 +1,113 @@
+{
+  "$id": "invariant://ioi/foundations/assurance-transition-receipt/ordered-subject-bound-ladder/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "assurance_transition.ladder.position_matches_chain_position",
+      "description": "THE NO-SKIP RULE, PORTABLY. The ladder position of to_stage must equal the transition's position in its subject's own chain. transition_ordinal is derived from the durable chain length and to_stage_ordinal is pinned to to_stage by the schema, so a transition that jumps a member carries a ladder position its chain position cannot support and fails with no daemon present. This is the offline half of ACC-8 clause 1: a stage nobody stood behind cannot be reached by skipping the one before it.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.to_stage_ordinal", "$.transition_ordinal"]
+      }
+    },
+    {
+      "rule_id": "assurance_transition.content_hash.commits_subject_stage_outcome_and_valid_time",
+      "description": "The content hash commits the bound subject and its owner-resolved hash, the exact ladder movement, the declared outcome class, the actor, the evidence and nonclaim sets, the predecessor link and VALID time. Transaction time and the admission block are deliberately excluded: when a stage was claimed true is content, when it was recorded is admission, which is what lets a predecessor's transaction interval close while its bytes stay frozen.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.assurance-transition-content-commitment-jcs-sha256.v1"
+          },
+          "transition_id": { "path": "$.transition_id" },
+          "subject_ref": { "path": "$.subject_ref" },
+          "subject_family": { "path": "$.subject_family" },
+          "subject_content_hash": { "path": "$.subject_content_hash" },
+          "subject_resolved_by": { "path": "$.subject_resolved_by" },
+          "from_stage": { "path": "$.from_stage" },
+          "to_stage": { "path": "$.to_stage" },
+          "to_stage_ordinal": { "path": "$.to_stage_ordinal" },
+          "transition_ordinal": { "path": "$.transition_ordinal" },
+          "outcome_class": { "path": "$.outcome_class" },
+          "actor_ref": { "path": "$.actor_ref" },
+          "evidence_refs": { "path": "$.evidence_refs" },
+          "does_not_assert": { "path": "$.does_not_assert" },
+          "expected_predecessor_transition_ref": {
+            "path": "$.expected_predecessor_transition_ref"
+          },
+          "expected_predecessor_transition_hash": {
+            "path": "$.expected_predecessor_transition_hash"
+          },
+          "valid_time": { "path": "$.valid_time" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.identity.binds_subject_family",
+      "description": "A transition id names the family of the subject it moves, so a record cannot be lifted onto another family's ladder while keeping its identity.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.transition_id",
+        "prefix": "assurance-transition://",
+        "expected_path": "$.subject_family",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.subject_hash.is_not_this_records_own_hash",
+      "description": "The subject's committed hash is the SUBJECT OWNER's, carried verbatim. An implementation that echoes this record's own content hash into the subject slot would satisfy every shape check while binding nothing, so the two are required to differ.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.subject_content_hash", "$.content_hash"]
+      }
+    },
+    {
+      "rule_id": "assurance_transition.predecessor.is_not_this_record",
+      "description": "A successor whose predecessor hash equals its own content hash is a self-linked record, not a step; the chain would close into a loop that reads as history.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.content_hash", "$.expected_predecessor_transition_hash"]
+      }
+    },
+    {
+      "rule_id": "assurance_transition.nonclaims.does_not_assert_is_non_empty",
+      "description": "NN 20 as a checkable field. A transition that disclaims nothing has collapsed 'who stands behind what' into a bare success flag, which is the exact reading this ladder exists to refuse.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.does_not_assert"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.evidence.is_non_empty",
+      "description": "Each transition names its evidence. A stage asserted with no evidence ref is prose wearing a receipt's shape.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.evidence_refs"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.admission.binds_this_transition",
+      "description": "Admission evidence names this exact transition; a borrowed admission cannot make another record durable.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "transition_id",
+        "expected_path": "$.transition_id"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ]
+}

@@ -1,0 +1,595 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+  "title": "AssuranceTransitionReceipt",
+  "description": "One step of the canonical assurance ladder as an immutable, exact-head object over an owner-resolved subject. Derived from the canon definition at docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#assurance-transition-receipt; the stage member set is frozen by canonical-enums.md and is not chosen here. The receipt names its actor, its evidence and what it does not assert; it is not a verdict and grants no authority.",
+  "x-ioi-schema-version": "ioi.assurance-transition-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "receipt_type",
+    "receipt_profile_ref",
+    "transition_id",
+    "subject_ref",
+    "subject_family",
+    "subject_content_hash",
+    "subject_resolved_by",
+    "from_stage",
+    "to_stage",
+    "to_stage_ordinal",
+    "transition_ordinal",
+    "outcome_class",
+    "actor_ref",
+    "evidence_refs",
+    "does_not_assert",
+    "valid_time",
+    "transaction_time",
+    "expected_predecessor_transition_ref",
+    "expected_predecessor_transition_hash",
+    "resulting_stage_head_hash",
+    "content_hash",
+    "authority_nonclaim",
+    "verdict_nonclaim",
+    "admission"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.assurance-transition-receipt.v1"
+    },
+    "receipt_id": {
+      "$ref": "#/$defs/receiptRef"
+    },
+    "receipt_type": {
+      "const": "assurance_transition"
+    },
+    "receipt_profile_ref": {
+      "const": "schema://ioi/foundations/assurance-transition-receipt/v1"
+    },
+    "transition_id": {
+      "type": "string",
+      "pattern": "^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"
+    },
+    "subject_ref": {
+      "$ref": "#/$defs/subjectRef"
+    },
+    "subject_family": {
+      "description": "The closed discriminator naming which owner is entitled to resolve subject_ref. Present so a later unit can add its own resolver without reinterpreting a v1 record: an unresolvable family is refused by name, never admitted on the strength of its URI prefix.",
+      "enum": [
+        "work_result",
+        "ontology_revision",
+        "ontology_mapping_revision",
+        "ontology_assertion",
+        "finding",
+        "attempt"
+      ]
+    },
+    "subject_content_hash": {
+      "description": "The subject owner's committed content hash, carried verbatim from that owner's own resolution. Never recomputed here and never asserted by the caller.",
+      "$ref": "#/$defs/sha256"
+    },
+    "subject_resolved_by": {
+      "description": "The exact owner seam that re-resolved the subject for this transition. A record that names no resolver is a record whose subject was taken on faith. Deliberately a pattern rather than a closed enum: a later unit adds its own resolver and emits its own seam name without a v1 wire change, while the set of families this build can actually resolve stays a runtime fact that fails closed by name.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+    },
+    "from_stage": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/assuranceStage"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "to_stage": {
+      "$ref": "#/$defs/assuranceStage"
+    },
+    "to_stage_ordinal": {
+      "description": "The ladder position of to_stage, 1-based in canonical order. It exists so that 'no stage skips' is a PORTABLE check rather than a runtime habit: a registered invariant pins it equal to transition_ordinal, and transition_ordinal is derived from the subject's own chain length. A transition that jumps attested -> verified therefore carries ordinal 3 at chain position 2 and fails offline, with no daemon present.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6
+    },
+    "transition_ordinal": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6
+    },
+    "outcome_class": {
+      "description": "ACC-8 clause 2. Retained verbatim; no consumer or projection may collapse a non-positive member into positive.",
+      "enum": [
+        "positive",
+        "negative",
+        "inconclusive",
+        "invalid",
+        "exploit",
+        "superseded",
+        "disputed",
+        "no_fault"
+      ]
+    },
+    "actor_ref": {
+      "description": "Who stands behind this stage. Server-resolved from the authenticated principal; a caller may assert it but never author it.",
+      "$ref": "#/$defs/principalRef"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/evidenceRef"
+      }
+    },
+    "does_not_assert": {
+      "description": "The explicit nonclaim set. Non-empty by construction: a transition that disclaims nothing is the collapse of NN 20 into a bare success flag.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "correctness",
+          "external_world_occurrence",
+          "causality",
+          "acceptance",
+          "adjudication",
+          "settlement",
+          "economic_value",
+          "authority"
+        ]
+      }
+    },
+    "valid_time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "starts_at",
+        "ends_at"
+      ],
+      "properties": {
+        "starts_at": {
+          "$ref": "#/$defs/canonicalDateTime"
+        },
+        "ends_at": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/canonicalDateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "transaction_time": {
+      "description": "Admission time, deliberately outside the content commitment. When the stage was claimed true is content; when it was recorded is admission.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recorded_at",
+        "superseded_at"
+      ],
+      "properties": {
+        "recorded_at": {
+          "$ref": "#/$defs/canonicalDateTime"
+        },
+        "superseded_at": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/canonicalDateTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "expected_predecessor_transition_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^assurance-transition://[^\\s]{1,460}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expected_predecessor_transition_hash": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "resulting_stage_head_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "admission": {
+      "description": "Server-resolved admission evidence from the owner-scoped Agentgres chain. Explicitly null on a portable record rather than absent, because the registered admission invariants are defined over null-or-object and an absent key would leave them silently unevaluated.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transition_id",
+            "content_hash",
+            "owner_namespace",
+            "stream_tail",
+            "agentgres_operation_ref",
+            "agentgres_receipt_ref",
+            "admission_seq",
+            "admission_head",
+            "admission_root",
+            "expected_predecessor_head"
+          ],
+          "properties": {
+            "transition_id": {
+              "type": "string",
+              "pattern": "^assurance-transition://[^\\s]{1,460}$"
+            },
+            "content_hash": {
+              "$ref": "#/$defs/sha256"
+            },
+            "owner_namespace": {
+              "const": "hypervisor-assurance-transitions"
+            },
+            "stream_tail": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+            },
+            "agentgres_operation_ref": {
+              "type": "string",
+              "pattern": "^agentgres://[^\\s]{1,460}$"
+            },
+            "agentgres_receipt_ref": {
+              "description": "The admitting batch's receipt ref. It is a receipt:// ref, not an agentgres:// one, because that is what the substrate's own ref builder emits.",
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,460}$"
+            },
+            "admission_seq": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "admission_head": {
+              "$ref": "#/$defs/sha256"
+            },
+            "admission_root": {
+              "$ref": "#/$defs/sha256"
+            },
+            "expected_predecessor_head": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "admission_domain_ref": {
+      "type": "string",
+      "pattern": "^agentgres://domain/[^\\s]{1,460}$"
+    },
+    "authority_nonclaim": {
+      "const": "assurance_transition_grants_no_authority"
+    },
+    "verdict_nonclaim": {
+      "const": "assurance_transition_is_not_a_verdict"
+    }
+  },
+  "allOf": [
+    {
+      "description": "attested is ladder position 1 and is the entry member: it advances from nothing.",
+      "if": {
+        "properties": {
+          "to_stage": {
+            "const": "attested"
+          }
+        },
+        "required": [
+          "to_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_stage_ordinal": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "from_stage": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "description": "evidenced is ladder position 2 and advances only from attested.",
+      "if": {
+        "properties": {
+          "to_stage": {
+            "const": "evidenced"
+          }
+        },
+        "required": [
+          "to_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_stage_ordinal": {
+            "type": "integer",
+            "enum": [
+              2
+            ]
+          },
+          "from_stage": {
+            "const": "attested"
+          }
+        }
+      }
+    },
+    {
+      "description": "verified is ladder position 3 and advances only from evidenced.",
+      "if": {
+        "properties": {
+          "to_stage": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "to_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_stage_ordinal": {
+            "type": "integer",
+            "enum": [
+              3
+            ]
+          },
+          "from_stage": {
+            "const": "evidenced"
+          }
+        }
+      }
+    },
+    {
+      "description": "accepted is ladder position 4 and advances only from verified.",
+      "if": {
+        "properties": {
+          "to_stage": {
+            "const": "accepted"
+          }
+        },
+        "required": [
+          "to_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_stage_ordinal": {
+            "type": "integer",
+            "enum": [
+              4
+            ]
+          },
+          "from_stage": {
+            "const": "verified"
+          }
+        }
+      }
+    },
+    {
+      "description": "adjudicated is ladder position 5 and advances only from accepted.",
+      "if": {
+        "properties": {
+          "to_stage": {
+            "const": "adjudicated"
+          }
+        },
+        "required": [
+          "to_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_stage_ordinal": {
+            "type": "integer",
+            "enum": [
+              5
+            ]
+          },
+          "from_stage": {
+            "const": "accepted"
+          }
+        }
+      }
+    },
+    {
+      "description": "settled is ladder position 6 and advances only from adjudicated. v1 represents no no-contest shortcut to settlement; introducing one is a later owner ruling with its own evidence, not an omission to be read in here.",
+      "if": {
+        "properties": {
+          "to_stage": {
+            "const": "settled"
+          }
+        },
+        "required": [
+          "to_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_stage_ordinal": {
+            "type": "integer",
+            "enum": [
+              6
+            ]
+          },
+          "from_stage": {
+            "const": "adjudicated"
+          }
+        }
+      }
+    },
+    {
+      "description": "The first transition of a subject enters the ladder at its narrowest member and names no predecessor.",
+      "if": {
+        "properties": {
+          "from_stage": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "from_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "to_stage": {
+            "const": "attested"
+          },
+          "transition_ordinal": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "expected_predecessor_transition_ref": {
+            "type": "null"
+          },
+          "expected_predecessor_transition_hash": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "description": "A successor names the exact predecessor it advanced from; a stage that arrives without one is an unlinked claim.",
+      "if": {
+        "properties": {
+          "from_stage": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "transition_ordinal": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6
+          },
+          "expected_predecessor_transition_ref": {
+            "type": "string"
+          },
+          "expected_predecessor_transition_hash": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "description": "A stage short of acceptance may not omit the acceptance nonclaim, and one short of settlement may not omit the settlement nonclaim. This is the schema-level half of NN 20; the ordered no-skip rule itself is a portable invariant.",
+      "if": {
+        "properties": {
+          "to_stage": {
+            "enum": [
+              "attested",
+              "evidenced",
+              "verified"
+            ]
+          }
+        },
+        "required": [
+          "to_stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "does_not_assert": {
+            "type": "array",
+            "allOf": [
+              {
+                "type": "array",
+                "contains": {
+                  "const": "acceptance"
+                }
+              },
+              {
+                "type": "array",
+                "contains": {
+                  "const": "settlement"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "assuranceStage": {
+      "description": "Frozen by docs/architecture/foundations/canonical-enums.md#assurance-stages-assurance_stage. This contract registers and drives the ladder; it does not choose its members.",
+      "enum": [
+        "attested",
+        "evidenced",
+        "verified",
+        "accepted",
+        "adjudicated",
+        "settled"
+      ]
+    },
+    "subjectRef": {
+      "type": "string",
+      "pattern": "^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,460}$"
+    },
+    "principalRef": {
+      "type": "string",
+      "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|assurance-evidence|artifact|receipt)://[^\\s]{1,460}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

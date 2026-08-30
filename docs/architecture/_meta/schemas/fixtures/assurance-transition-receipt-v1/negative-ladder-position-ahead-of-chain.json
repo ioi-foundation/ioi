@@ -1,0 +1,53 @@
+{
+  "schema_version": "ioi.assurance-transition-receipt.v1",
+  "receipt_id": "receipt://assurance-transition/ontology_revision/3",
+  "receipt_type": "assurance_transition",
+  "receipt_profile_ref": "schema://ioi/foundations/assurance-transition-receipt/v1",
+  "transition_id": "assurance-transition://ontology_revision/clinical-intake~patient-intake~2/transition/3",
+  "subject_ref": "ontology://clinical-intake/patient-intake/revision/2",
+  "subject_family": "ontology_revision",
+  "subject_content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "subject_resolved_by": "ontology_version_routes::resolve_admitted_revision",
+  "from_stage": "evidenced",
+  "to_stage": "verified",
+  "to_stage_ordinal": 3,
+  "transition_ordinal": 2,
+  "outcome_class": "positive",
+  "actor_ref": "system://hypervisor/assurance",
+  "evidence_refs": [
+    "evidence://assurance/ontology_revision/3"
+  ],
+  "does_not_assert": [
+    "correctness",
+    "acceptance",
+    "settlement",
+    "authority"
+  ],
+  "valid_time": {
+    "starts_at": "2026-08-30T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-08-30T12:00:00Z",
+    "superseded_at": null
+  },
+  "expected_predecessor_transition_ref": "assurance-transition://ontology_revision/clinical-intake~patient-intake~2/transition/2",
+  "expected_predecessor_transition_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "resulting_stage_head_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "authority_nonclaim": "assurance_transition_grants_no_authority",
+  "verdict_nonclaim": "assurance_transition_is_not_a_verdict",
+  "content_hash": "sha256:ff46d23d8b6fc8b7153896c14600a4065abeb4ebaafbfeb65ea4a13ce2ea82fa",
+  "admission_domain_ref": "agentgres://domain/hypervisor-assurance-transitions",
+  "admission": {
+    "transition_id": "assurance-transition://ontology_revision/clinical-intake~patient-intake~2/transition/3",
+    "content_hash": "sha256:ff46d23d8b6fc8b7153896c14600a4065abeb4ebaafbfeb65ea4a13ce2ea82fa",
+    "owner_namespace": "hypervisor-assurance-transitions",
+    "stream_tail": "assurance-transition-subject/ontology_revision",
+    "agentgres_operation_ref": "agentgres://operation/hypervisor-assurance-transitions/1",
+    "agentgres_receipt_ref": "agentgres://receipt/hypervisor-assurance-transitions/1",
+    "admission_seq": 3,
+    "admission_head": "head-3",
+    "admission_root": "root-3",
+    "expected_predecessor_head": "head-2"
+  }
+}

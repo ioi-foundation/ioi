@@ -9604,7 +9604,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -9636,6 +9636,14 @@
         },
         {
           "path": "fixtures/verifier-challenge-envelope-v1/negative-unchallengeable-subject.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verifier-challenge-envelope-v1/negative-ontology-assertion-subject-refused.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verifier-challenge-envelope-v1/negative-ontology-mapping-subject-refused.json",
           "expected_failure": "schema"
         }
       ]
@@ -10511,6 +10519,169 @@
       ],
       "positive_fixture_refs": ["fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json"],
       "negative_fixture_refs": [{ "path": "fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json", "expected_failure": "invariant", "expected_rule_id": "foundry_artifact_intent.intent_ref.binds_artifact_hash" }]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+      "canonical_name": "AssuranceTransitionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#assurance-transition-receipt",
+      "schema_version": "ioi.assurance-transition-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "assurance-transition-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/assurance-transition-receipt/ordered-subject-bound-ladder/v1",
+          "path": "invariants/assurance-transition-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AssuranceTransitionReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AssuranceTransitionReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/assurance-transition-receipt-v1/positive-genesis-attested.json",
+        "fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json",
+        "fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json",
+        "fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-empty-does-not-assert.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-verified-omits-acceptance-nonclaim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-unknown-outcome-class.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-unsupported-subject-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-genesis-carries-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-missing-verdict-nonclaim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-ladder-position-ahead-of-chain.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.ladder.position_matches_chain_position"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-content-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.content_hash.commits_subject_stage_outcome_and_valid_time"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-subject-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.content_hash.commits_subject_stage_outcome_and_valid_time"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-subject-hash-echoes-own-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.subject_hash.is_not_this_records_own_hash"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-identity-family-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.identity.binds_subject_family"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-admission-binds-other-transition.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.admission.binds_this_transition"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v1/negative-admission-content-hash-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.admission.binds_this_content_hash"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+      "canonical_name": "VerifierChallengeEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#challenging-a-semantic-plane-subject",
+      "schema_version": "ioi.foundations.verifier-challenge-envelope.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "verifier-challenge-envelope.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "VerifierChallengeEnvelopeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "VerifierChallengeEnvelopeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/verifier-challenge-envelope-v2/positive-minimal.json",
+        "fixtures/verifier-challenge-envelope-v2/positive-ontology-assertion-subject.json",
+        "fixtures/verifier-challenge-envelope-v2/positive-ontology-mapping-subject.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

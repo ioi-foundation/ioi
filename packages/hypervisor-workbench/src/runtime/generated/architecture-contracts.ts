@@ -9271,6 +9271,71 @@ export type FoundryArtifactIntentV1 = {
   status: "pending";
 };
 
+export type AssuranceTransitionReceiptV1 = {
+  schema_version: "ioi.assurance-transition-receipt.v1";
+  receipt_id: string;
+  receipt_type: "assurance_transition";
+  receipt_profile_ref: "schema://ioi/foundations/assurance-transition-receipt/v1";
+  transition_id: string;
+  subject_ref: string;
+  subject_family: "work_result" | "ontology_revision" | "ontology_mapping_revision" | "ontology_assertion" | "finding" | "attempt";
+  subject_content_hash: string;
+  subject_resolved_by: string;
+  from_stage: "attested" | "evidenced" | "verified" | "accepted" | "adjudicated" | "settled" | null;
+  to_stage: "attested" | "evidenced" | "verified" | "accepted" | "adjudicated" | "settled";
+  to_stage_ordinal: number;
+  transition_ordinal: number;
+  outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit" | "superseded" | "disputed" | "no_fault";
+  actor_ref: string;
+  evidence_refs: Array<string>;
+  does_not_assert: Array<"correctness" | "external_world_occurrence" | "causality" | "acceptance" | "adjudication" | "settlement" | "economic_value" | "authority">;
+  valid_time: {
+      starts_at: string;
+      ends_at: string | null;
+    };
+  transaction_time: {
+      recorded_at: string;
+      superseded_at: string | null;
+    };
+  expected_predecessor_transition_ref: string | null;
+  expected_predecessor_transition_hash: string | null;
+  resulting_stage_head_hash: string;
+  content_hash: string;
+  admission: null | {
+      transition_id: string;
+      content_hash: string;
+      owner_namespace: "hypervisor-assurance-transitions";
+      stream_tail: string;
+      agentgres_operation_ref: string;
+      agentgres_receipt_ref: string;
+      admission_seq: number;
+      admission_head: string;
+      admission_root: string;
+      expected_predecessor_head: string | null;
+    };
+  admission_domain_ref?: string;
+  authority_nonclaim: "assurance_transition_grants_no_authority";
+  verdict_nonclaim: "assurance_transition_is_not_a_verdict";
+};
+
+export type VerifierChallengeEnvelopeV2 = {
+  schema_version: "ioi.foundations.verifier-challenge-envelope.v2";
+  verifier_challenge_id: string;
+  outcome_room_ref?: string | null;
+  system_binding?: Record<string, unknown> | null;
+  challenger_ref: string;
+  challenged_ref: string;
+  challenge_kind: "metric" | "rule" | "verifier" | "evidence" | "eligibility" | "result" | "exploit" | "independence" | "collusion" | "mapping";
+  challenge_evidence_refs?: Array<string>;
+  adjudicator_policy_ref: string;
+  prior_rule_version_ref?: string | null;
+  proposed_rule_version_ref?: string | null;
+  affected_attempt_refs?: Array<string>;
+  reverification_required: boolean;
+  adjudication_ref?: string | null;
+  status: "proposed" | "admitted" | "investigating" | "upheld" | "rejected" | "rule_changed" | "reverifying" | "resolved" | "withdrawn";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -14938,6 +15003,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-assertion-subject-refused.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-mapping-subject-refused.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json",
     "expected": "accept",
@@ -15416,6 +15497,198 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "foundry_artifact_intent.intent_ref.binds_artifact_hash"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-genesis-attested.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-empty-does-not-assert.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-verified-omits-acceptance-nonclaim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unknown-outcome-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unsupported-subject-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-genesis-carries-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-missing-verdict-nonclaim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-ladder-position-ahead-of-chain.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "assurance_transition.ladder.position_matches_chain_position"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-content-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "assurance_transition.content_hash.commits_subject_stage_outcome_and_valid_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "assurance_transition.content_hash.commits_subject_stage_outcome_and_valid_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-hash-echoes-own-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "assurance_transition.subject_hash.is_not_this_records_own_hash"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-identity-family-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "assurance_transition.identity.binds_subject_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-binds-other-transition.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "assurance_transition.admission.binds_this_transition"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-content-hash-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "assurance_transition.admission.binds_this_content_hash"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-assertion-subject.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-mapping-subject.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -22951,6 +23224,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-assertion-subject-refused.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-assertion-subject-refused.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-mapping-subject-refused.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-mapping-subject-refused.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json",
     "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json",
@@ -23367,6 +23654,174 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json",
     "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-genesis-attested.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-genesis-attested.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-empty-does-not-assert.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-empty-does-not-assert.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-verified-omits-acceptance-nonclaim.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-verified-omits-acceptance-nonclaim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unknown-outcome-class.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unknown-outcome-class.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unsupported-subject-scheme.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unsupported-subject-scheme.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-genesis-carries-predecessor.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-genesis-carries-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-missing-verdict-nonclaim.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-missing-verdict-nonclaim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-ladder-position-ahead-of-chain.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-ladder-position-ahead-of-chain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-content-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-content-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-substituted.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-hash-echoes-own-hash.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-hash-echoes-own-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-identity-family-mismatch.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-identity-family-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-binds-other-transition.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-binds-other-transition.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-content-hash-substituted.json",
+    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-content-hash-substituted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-minimal.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-minimal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-assertion-subject.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-assertion-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-mapping-subject.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-mapping-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json",
+    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -24279,6 +24734,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:attempt|finding)://[^\\s]{1,500}$",
   "^(?:attempt|finding|verifier-path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$",
   "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision)://[^\\s]{1,500}$",
+  "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision|ontology-assertion|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$",
   "^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$",
   "^(?:auth_factor|guardian)://[^\\s]{1,500}$",
@@ -24316,6 +24772,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:evidence|assurance-evidence|artifact)://[^\\s]+$",
   "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,248}$",
   "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$",
+  "^(?:evidence|assurance-evidence|artifact|receipt)://[^\\s]{1,460}$",
   "^(?:evidence|certification_claim|receipt)://[^\\s]{1,500}$",
   "^(?:evidence|receipt)://[^\\s]{1,248}$",
   "^(?:evidence|receipt)://[^\\s]{1,500}$",
@@ -24446,6 +24903,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|user|org|project|domain|service)://[^\\s]{1,500}$",
   "^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$",
   "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
+  "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$",
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|policy)://[^\\s]{1,500}$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
@@ -24477,6 +24935,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:wallet|provider|org)://[^\\s]{1,248}$",
   "^(?:wallet|user|agent|system)://[^\\s]{1,500}$",
   "^(?:work-claim|decision|receipt)://[^\\s]{1,500}$",
+  "^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$",
   "^(?:work-result|outcome-delta)://[^\\s]{1,500}$",
   "^(?:work-run|run)://[^\\s]{1,500}$",
   "^(?:worker-package|package)://[^\\s]{1,500}$",
@@ -24537,6 +24996,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9_-]{0,127}$",
   "^[a-z][a-z0-9_]*$",
   "^[a-z][a-z0-9_]{0,159}$",
+  "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$",
   "^[a-z][a-z0-9_]{1,80}$",
   "^aai_[0-9a-f]+$",
   "^acceptance://[^\\s]+$",
@@ -24555,9 +25015,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agent://[^\\s]{1,500}$",
   "^agentgres://[^\\s]{1,240}$",
   "^agentgres://[^\\s]{1,400}$",
+  "^agentgres://[^\\s]{1,460}$",
   "^agentgres://[^\\s]{1,500}$",
   "^agentgres://domain/[^\\s]{1,224}$",
   "^agentgres://domain/[^\\s]{1,240}$",
+  "^agentgres://domain/[^\\s]{1,460}$",
   "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$",
   "^agentgres://object-set/[^\\s]{1,248}$",
   "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$",
@@ -24591,6 +25053,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^artifact://foundry-dataset/[0-9a-f]{64}$",
   "^assurance-evidence://[^\\s]+$",
   "^assurance-profile://[^\\s]{1,248}$",
+  "^assurance-transition://[^\\s]{1,460}$",
+  "^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$",
   "^attempt://[^\\s]{1,240}$",
   "^attempt://[^\\s]{1,500}$",
   "^auth_factor://[^\\s]{1,500}$",
@@ -24838,6 +25302,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[^\\s]{1,240}$",
   "^receipt://[^\\s]{1,248}$",
   "^receipt://[^\\s]{1,400}$",
+  "^receipt://[^\\s]{1,460}$",
   "^receipt://[^\\s]{1,500}$",
   "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
@@ -25207,7 +25672,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-training-program/v1": "sha256:389c0eec02944b340660f0070b982a16b75e3fb3a942e5af116cfd7f6d3b5eb1",
   "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1": "sha256:01f3a640cd573a50d6088b6b48f05440931208718c956e886cac9253cfb578e2",
   "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1": "sha256:de7a97b715688c7510c6c1bb2935c24ee24bf99db285742412631246568f6c94",
-  "schema://ioi/components/hypervisor/foundry-artifact-intent/v1": "sha256:90a68419c1347290914c48a0565e575777b0e940e09beaef621a9956aafaf883"
+  "schema://ioi/components/hypervisor/foundry-artifact-intent/v1": "sha256:90a68419c1347290914c48a0565e575777b0e940e09beaef621a9956aafaf883",
+  "schema://ioi/foundations/assurance-transition-receipt/v1": "sha256:62d284c67dd29fe5d9ae2148229b995c99c75ab6b29c03194bf4f4bc05e89733",
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -93972,6 +94439,743 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^sha256:[0-9a-f]{64}$"
       }
     }
+  },
+  "schema://ioi/foundations/assurance-transition-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/assurance-transition-receipt/v1",
+    "title": "AssuranceTransitionReceipt",
+    "description": "One step of the canonical assurance ladder as an immutable, exact-head object over an owner-resolved subject. Derived from the canon definition at docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#assurance-transition-receipt; the stage member set is frozen by canonical-enums.md and is not chosen here. The receipt names its actor, its evidence and what it does not assert; it is not a verdict and grants no authority.",
+    "x-ioi-schema-version": "ioi.assurance-transition-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_type",
+      "receipt_profile_ref",
+      "transition_id",
+      "subject_ref",
+      "subject_family",
+      "subject_content_hash",
+      "subject_resolved_by",
+      "from_stage",
+      "to_stage",
+      "to_stage_ordinal",
+      "transition_ordinal",
+      "outcome_class",
+      "actor_ref",
+      "evidence_refs",
+      "does_not_assert",
+      "valid_time",
+      "transaction_time",
+      "expected_predecessor_transition_ref",
+      "expected_predecessor_transition_hash",
+      "resulting_stage_head_hash",
+      "content_hash",
+      "authority_nonclaim",
+      "verdict_nonclaim",
+      "admission"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.assurance-transition-receipt.v1"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_type": {
+        "const": "assurance_transition"
+      },
+      "receipt_profile_ref": {
+        "const": "schema://ioi/foundations/assurance-transition-receipt/v1"
+      },
+      "transition_id": {
+        "type": "string",
+        "pattern": "^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"
+      },
+      "subject_ref": {
+        "$ref": "#/$defs/subjectRef"
+      },
+      "subject_family": {
+        "description": "The closed discriminator naming which owner is entitled to resolve subject_ref. Present so a later unit can add its own resolver without reinterpreting a v1 record: an unresolvable family is refused by name, never admitted on the strength of its URI prefix.",
+        "enum": [
+          "work_result",
+          "ontology_revision",
+          "ontology_mapping_revision",
+          "ontology_assertion",
+          "finding",
+          "attempt"
+        ]
+      },
+      "subject_content_hash": {
+        "description": "The subject owner's committed content hash, carried verbatim from that owner's own resolution. Never recomputed here and never asserted by the caller.",
+        "$ref": "#/$defs/sha256"
+      },
+      "subject_resolved_by": {
+        "description": "The exact owner seam that re-resolved the subject for this transition. A record that names no resolver is a record whose subject was taken on faith. Deliberately a pattern rather than a closed enum: a later unit adds its own resolver and emits its own seam name without a v1 wire change, while the set of families this build can actually resolve stays a runtime fact that fails closed by name.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+      },
+      "from_stage": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/assuranceStage"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "to_stage": {
+        "$ref": "#/$defs/assuranceStage"
+      },
+      "to_stage_ordinal": {
+        "description": "The ladder position of to_stage, 1-based in canonical order. It exists so that 'no stage skips' is a PORTABLE check rather than a runtime habit: a registered invariant pins it equal to transition_ordinal, and transition_ordinal is derived from the subject's own chain length. A transition that jumps attested -> verified therefore carries ordinal 3 at chain position 2 and fails offline, with no daemon present.",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 6
+      },
+      "transition_ordinal": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 6
+      },
+      "outcome_class": {
+        "description": "ACC-8 clause 2. Retained verbatim; no consumer or projection may collapse a non-positive member into positive.",
+        "enum": [
+          "positive",
+          "negative",
+          "inconclusive",
+          "invalid",
+          "exploit",
+          "superseded",
+          "disputed",
+          "no_fault"
+        ]
+      },
+      "actor_ref": {
+        "description": "Who stands behind this stage. Server-resolved from the authenticated principal; a caller may assert it but never author it.",
+        "$ref": "#/$defs/principalRef"
+      },
+      "evidence_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/evidenceRef"
+        }
+      },
+      "does_not_assert": {
+        "description": "The explicit nonclaim set. Non-empty by construction: a transition that disclaims nothing is the collapse of NN 20 into a bare success flag.",
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 8,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "correctness",
+            "external_world_occurrence",
+            "causality",
+            "acceptance",
+            "adjudication",
+            "settlement",
+            "economic_value",
+            "authority"
+          ]
+        }
+      },
+      "valid_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "starts_at": {
+            "$ref": "#/$defs/canonicalDateTime"
+          },
+          "ends_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/canonicalDateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "transaction_time": {
+        "description": "Admission time, deliberately outside the content commitment. When the stage was claimed true is content; when it was recorded is admission.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recorded_at",
+          "superseded_at"
+        ],
+        "properties": {
+          "recorded_at": {
+            "$ref": "#/$defs/canonicalDateTime"
+          },
+          "superseded_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/canonicalDateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "expected_predecessor_transition_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^assurance-transition://[^\\s]{1,460}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "expected_predecessor_transition_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resulting_stage_head_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "admission": {
+        "description": "Server-resolved admission evidence from the owner-scoped Agentgres chain. Explicitly null on a portable record rather than absent, because the registered admission invariants are defined over null-or-object and an absent key would leave them silently unevaluated.",
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "transition_id",
+              "content_hash",
+              "owner_namespace",
+              "stream_tail",
+              "agentgres_operation_ref",
+              "agentgres_receipt_ref",
+              "admission_seq",
+              "admission_head",
+              "admission_root",
+              "expected_predecessor_head"
+            ],
+            "properties": {
+              "transition_id": {
+                "type": "string",
+                "pattern": "^assurance-transition://[^\\s]{1,460}$"
+              },
+              "content_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "owner_namespace": {
+                "const": "hypervisor-assurance-transitions"
+              },
+              "stream_tail": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"
+              },
+              "agentgres_operation_ref": {
+                "type": "string",
+                "pattern": "^agentgres://[^\\s]{1,460}$"
+              },
+              "agentgres_receipt_ref": {
+                "description": "The admitting batch's receipt ref. It is a receipt:// ref, not an agentgres:// one, because that is what the substrate's own ref builder emits.",
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,460}$"
+              },
+              "admission_seq": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "admission_head": {
+                "$ref": "#/$defs/sha256"
+              },
+              "admission_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "expected_predecessor_head": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "admission_domain_ref": {
+        "type": "string",
+        "pattern": "^agentgres://domain/[^\\s]{1,460}$"
+      },
+      "authority_nonclaim": {
+        "const": "assurance_transition_grants_no_authority"
+      },
+      "verdict_nonclaim": {
+        "const": "assurance_transition_is_not_a_verdict"
+      }
+    },
+    "allOf": [
+      {
+        "description": "attested is ladder position 1 and is the entry member: it advances from nothing.",
+        "if": {
+          "properties": {
+            "to_stage": {
+              "const": "attested"
+            }
+          },
+          "required": [
+            "to_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "to_stage_ordinal": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "from_stage": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "description": "evidenced is ladder position 2 and advances only from attested.",
+        "if": {
+          "properties": {
+            "to_stage": {
+              "const": "evidenced"
+            }
+          },
+          "required": [
+            "to_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "to_stage_ordinal": {
+              "type": "integer",
+              "enum": [
+                2
+              ]
+            },
+            "from_stage": {
+              "const": "attested"
+            }
+          }
+        }
+      },
+      {
+        "description": "verified is ladder position 3 and advances only from evidenced.",
+        "if": {
+          "properties": {
+            "to_stage": {
+              "const": "verified"
+            }
+          },
+          "required": [
+            "to_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "to_stage_ordinal": {
+              "type": "integer",
+              "enum": [
+                3
+              ]
+            },
+            "from_stage": {
+              "const": "evidenced"
+            }
+          }
+        }
+      },
+      {
+        "description": "accepted is ladder position 4 and advances only from verified.",
+        "if": {
+          "properties": {
+            "to_stage": {
+              "const": "accepted"
+            }
+          },
+          "required": [
+            "to_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "to_stage_ordinal": {
+              "type": "integer",
+              "enum": [
+                4
+              ]
+            },
+            "from_stage": {
+              "const": "verified"
+            }
+          }
+        }
+      },
+      {
+        "description": "adjudicated is ladder position 5 and advances only from accepted.",
+        "if": {
+          "properties": {
+            "to_stage": {
+              "const": "adjudicated"
+            }
+          },
+          "required": [
+            "to_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "to_stage_ordinal": {
+              "type": "integer",
+              "enum": [
+                5
+              ]
+            },
+            "from_stage": {
+              "const": "accepted"
+            }
+          }
+        }
+      },
+      {
+        "description": "settled is ladder position 6 and advances only from adjudicated. v1 represents no no-contest shortcut to settlement; introducing one is a later owner ruling with its own evidence, not an omission to be read in here.",
+        "if": {
+          "properties": {
+            "to_stage": {
+              "const": "settled"
+            }
+          },
+          "required": [
+            "to_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "to_stage_ordinal": {
+              "type": "integer",
+              "enum": [
+                6
+              ]
+            },
+            "from_stage": {
+              "const": "adjudicated"
+            }
+          }
+        }
+      },
+      {
+        "description": "The first transition of a subject enters the ladder at its narrowest member and names no predecessor.",
+        "if": {
+          "properties": {
+            "from_stage": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "from_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "to_stage": {
+              "const": "attested"
+            },
+            "transition_ordinal": {
+              "type": "integer",
+              "enum": [
+                1
+              ]
+            },
+            "expected_predecessor_transition_ref": {
+              "type": "null"
+            },
+            "expected_predecessor_transition_hash": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "description": "A successor names the exact predecessor it advanced from; a stage that arrives without one is an unlinked claim.",
+        "if": {
+          "properties": {
+            "from_stage": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "from_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "transition_ordinal": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 6
+            },
+            "expected_predecessor_transition_ref": {
+              "type": "string"
+            },
+            "expected_predecessor_transition_hash": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "description": "A stage short of acceptance may not omit the acceptance nonclaim, and one short of settlement may not omit the settlement nonclaim. This is the schema-level half of NN 20; the ordered no-skip rule itself is a portable invariant.",
+        "if": {
+          "properties": {
+            "to_stage": {
+              "enum": [
+                "attested",
+                "evidenced",
+                "verified"
+              ]
+            }
+          },
+          "required": [
+            "to_stage"
+          ]
+        },
+        "then": {
+          "properties": {
+            "does_not_assert": {
+              "type": "array",
+              "allOf": [
+                {
+                  "type": "array",
+                  "contains": {
+                    "const": "acceptance"
+                  }
+                },
+                {
+                  "type": "array",
+                  "contains": {
+                    "const": "settlement"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "assuranceStage": {
+        "description": "Frozen by docs/architecture/foundations/canonical-enums.md#assurance-stages-assurance_stage. This contract registers and drives the ladder; it does not choose its members.",
+        "enum": [
+          "attested",
+          "evidenced",
+          "verified",
+          "accepted",
+          "adjudicated",
+          "settled"
+        ]
+      },
+      "subjectRef": {
+        "type": "string",
+        "pattern": "^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,460}$"
+      },
+      "principalRef": {
+        "type": "string",
+        "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|assurance-evidence|artifact|receipt)://[^\\s]{1,460}$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+    "title": "VerifierChallengeEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.verifier-challenge-envelope.v2",
+    "description": "A typed challenge against a metric, rule, verifier, evidence set, eligibility decision, result, exploit, independence claim, collusion claim, or ontology mapping. v2 is the explicit successor of v1: every other property, enumeration and nullability is preserved byte-for-byte from v1, and the single change is that challenged_ref now admits the two semantic-plane subjects the v1 pattern refused while the v1 description and the 'mapping' challenge_kind already advertised them -- ontology-assertion:// and ontology-mapping://. Widening a registered pattern is a new version, not an edit: v1 bytes remain valid and addressable. The widening is owned by docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#challenging-a-semantic-plane-subject; all other fields remain owned by docs/architecture/domains/ioi-ai/collaborative-pursuit.md#verifierchallengeenvelope.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "verifier_challenge_id",
+      "challenger_ref",
+      "challenged_ref",
+      "challenge_kind",
+      "adjudicator_policy_ref",
+      "reverification_required",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.verifier-challenge-envelope.v2"
+      },
+      "verifier_challenge_id": {
+        "type": "string",
+        "pattern": "^verifier-challenge://[^\\s]{1,500}$"
+      },
+      "outcome_room_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^outcome-room://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "challenger_ref": {
+        "type": "string",
+        "pattern": "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"
+      },
+      "challenged_ref": {
+        "type": "string",
+        "pattern": "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision|ontology-assertion|ontology-mapping)://[^\\s]{1,500}$",
+        "description": "v2 widening. The two added schemes are the M05.2 ontology-mapping revision and the M05.3 ontology assertion; nothing else about a challenge changes, and admitting a subject here is not a verdict about it."
+      },
+      "challenge_kind": {
+        "enum": [
+          "metric",
+          "rule",
+          "verifier",
+          "evidence",
+          "eligibility",
+          "result",
+          "exploit",
+          "independence",
+          "collusion",
+          "mapping"
+        ]
+      },
+      "challenge_evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+        }
+      },
+      "adjudicator_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,500}$"
+      },
+      "prior_rule_version_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:rubric|verifier_path)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "proposed_rule_version_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:rubric|verifier_path)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "affected_attempt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^attempt://[^\\s]{1,500}$"
+        }
+      },
+      "reverification_required": {
+        "type": "boolean"
+      },
+      "adjudication_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:decision|dispute)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "admitted",
+          "investigating",
+          "upheld",
+          "rejected",
+          "rule_changed",
+          "reverifying",
+          "resolved",
+          "withdrawn"
+        ]
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -103737,7 +104941,153 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "target_prefix": "sha256:"
       }
     }
-  ]
+  ],
+  "schema://ioi/foundations/assurance-transition-receipt/v1": [
+    {
+      "rule_id": "assurance_transition.ladder.position_matches_chain_position",
+      "description": "THE NO-SKIP RULE, PORTABLY. The ladder position of to_stage must equal the transition's position in its subject's own chain. transition_ordinal is derived from the durable chain length and to_stage_ordinal is pinned to to_stage by the schema, so a transition that jumps a member carries a ladder position its chain position cannot support and fails with no daemon present. This is the offline half of ACC-8 clause 1: a stage nobody stood behind cannot be reached by skipping the one before it.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.to_stage_ordinal",
+          "$.transition_ordinal"
+        ]
+      }
+    },
+    {
+      "rule_id": "assurance_transition.content_hash.commits_subject_stage_outcome_and_valid_time",
+      "description": "The content hash commits the bound subject and its owner-resolved hash, the exact ladder movement, the declared outcome class, the actor, the evidence and nonclaim sets, the predecessor link and VALID time. Transaction time and the admission block are deliberately excluded: when a stage was claimed true is content, when it was recorded is admission, which is what lets a predecessor's transaction interval close while its bytes stay frozen.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.assurance-transition-content-commitment-jcs-sha256.v1"
+          },
+          "transition_id": {
+            "path": "$.transition_id"
+          },
+          "subject_ref": {
+            "path": "$.subject_ref"
+          },
+          "subject_family": {
+            "path": "$.subject_family"
+          },
+          "subject_content_hash": {
+            "path": "$.subject_content_hash"
+          },
+          "subject_resolved_by": {
+            "path": "$.subject_resolved_by"
+          },
+          "from_stage": {
+            "path": "$.from_stage"
+          },
+          "to_stage": {
+            "path": "$.to_stage"
+          },
+          "to_stage_ordinal": {
+            "path": "$.to_stage_ordinal"
+          },
+          "transition_ordinal": {
+            "path": "$.transition_ordinal"
+          },
+          "outcome_class": {
+            "path": "$.outcome_class"
+          },
+          "actor_ref": {
+            "path": "$.actor_ref"
+          },
+          "evidence_refs": {
+            "path": "$.evidence_refs"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          },
+          "expected_predecessor_transition_ref": {
+            "path": "$.expected_predecessor_transition_ref"
+          },
+          "expected_predecessor_transition_hash": {
+            "path": "$.expected_predecessor_transition_hash"
+          },
+          "valid_time": {
+            "path": "$.valid_time"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.identity.binds_subject_family",
+      "description": "A transition id names the family of the subject it moves, so a record cannot be lifted onto another family's ladder while keeping its identity.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.transition_id",
+        "prefix": "assurance-transition://",
+        "expected_path": "$.subject_family",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.subject_hash.is_not_this_records_own_hash",
+      "description": "The subject's committed hash is the SUBJECT OWNER's, carried verbatim. An implementation that echoes this record's own content hash into the subject slot would satisfy every shape check while binding nothing, so the two are required to differ.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.subject_content_hash",
+          "$.content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "assurance_transition.predecessor.is_not_this_record",
+      "description": "A successor whose predecessor hash equals its own content hash is a self-linked record, not a step; the chain would close into a loop that reads as history.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.content_hash",
+          "$.expected_predecessor_transition_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "assurance_transition.nonclaims.does_not_assert_is_non_empty",
+      "description": "NN 20 as a checkable field. A transition that disclaims nothing has collapsed 'who stands behind what' into a bare success flag, which is the exact reading this ladder exists to refuse.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.does_not_assert"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.evidence.is_non_empty",
+      "description": "Each transition names its evidence. A stage asserted with no evidence ref is prose wearing a receipt's shape.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.evidence_refs"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.admission.binds_this_transition",
+      "description": "Admission evidence names this exact transition; a borrowed admission cannot make another record durable.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "transition_id",
+        "expected_path": "$.transition_id"
+      }
+    },
+    {
+      "rule_id": "assurance_transition.admission.binds_this_content_hash",
+      "description": "Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.admission",
+        "field": "content_hash",
+        "expected_path": "$.content_hash"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -105926,4 +107276,16 @@ export function validateFoundryArtifactIntentV1(
   value: unknown,
 ): value is FoundryArtifactIntentV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-artifact-intent/v1", value).ok;
+}
+
+export function validateAssuranceTransitionReceiptV1(
+  value: unknown,
+): value is AssuranceTransitionReceiptV1 {
+  return validateArchitectureContract("schema://ioi/foundations/assurance-transition-receipt/v1", value).ok;
+}
+
+export function validateVerifierChallengeEnvelopeV2(
+  value: unknown,
+): value is VerifierChallengeEnvelopeV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/verifier-challenge-envelope/v2", value).ok;
 }

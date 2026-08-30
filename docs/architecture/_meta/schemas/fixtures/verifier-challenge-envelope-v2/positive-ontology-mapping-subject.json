@@ -1,0 +1,10 @@
+{
+  "schema_version": "ioi.foundations.verifier-challenge-envelope.v2",
+  "verifier_challenge_id": "verifier-challenge://ioi/clinical-intake/challenge/10",
+  "challenger_ref": "org://billing/terms-committee",
+  "challenged_ref": "ontology-mapping://clinical-intake/billing/crosswalk/3",
+  "challenge_kind": "mapping",
+  "adjudicator_policy_ref": "policy://clinical-intake/adjudication",
+  "reverification_required": false,
+  "status": "admitted"
+}

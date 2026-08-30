@@ -207,6 +207,116 @@ the domain admitted the exact semantic assertion through exact-head CAS. It
 does not prove the proposition, replace the oracle evaluator, or convey effect
 authority.
 
+## Assurance Transition Receipt
+
+`AssuranceTransitionReceipt` is the object form of one step of the assurance
+ladder defined above. The ladder members themselves are frozen by
+[`canonical-enums.md`](../../foundations/canonical-enums.md) under
+`assurance_stage`; this file owns the field shape, and the receipt registers
+here before any owner relies on it.
+
+A transition is a claim about *who stands behind what*, so it names three
+things that prose cannot be checked for: its **actor**, its **evidence**, and
+what it explicitly **does not assert**. The third is a closed, non-empty set,
+which is what makes NN 20 a machine-checkable constraint rather than a
+paragraph.
+
+```yaml
+AssuranceTransitionReceipt:
+  receipt_type: assurance_transition
+  receipt_profile_ref: schema://ioi/foundations/assurance-transition-receipt/v1
+  transition_id: assurance-transition://...
+  subject_ref:
+    work-result://... | ontology://... | ontology-mapping://... |
+    ontology-assertion://... | finding://... | attempt://...
+  subject_family:
+    work_result | ontology_revision | ontology_mapping_revision |
+    ontology_assertion | finding | attempt
+  subject_content_hash: sha256:...
+  subject_resolved_by: <owner module ref that re-resolved the subject>
+  from_stage: attested | evidenced | verified | accepted | adjudicated | settled | null
+  to_stage: attested | evidenced | verified | accepted | adjudicated | settled
+  outcome_class:
+    positive | negative | inconclusive | invalid | exploit |
+    superseded | disputed | no_fault
+  actor_ref: system://... | user://... | org://... | worker://... | service://... | runtime://...
+  evidence_refs:
+    - evidence://... | artifact://... | receipt://...
+  does_not_assert:
+    - correctness | external_world_occurrence | causality | acceptance |
+      adjudication | settlement | economic_value | authority
+  valid_time: { starts_at, ends_at }
+  transaction_time: { recorded_at, superseded_at }
+  expected_predecessor_transition_ref: assurance-transition://... | null
+  expected_predecessor_transition_hash: sha256:... | null
+  resulting_stage_head_hash: sha256:...
+  agentgres_operation_ref: agentgres://operation/...
+  agentgres_receipt_ref: agentgres://receipt/...
+  authority_nonclaim: assurance_transition_grants_no_authority
+  verdict_nonclaim: assurance_transition_is_not_a_verdict
+```
+
+**The subject is bound, never asserted.** `subject_ref` is resolved through the
+subject family's own current owner, and `subject_content_hash` is that owner's
+committed hash carried verbatim. A URI whose prefix merely *looks* like a
+family is not proof that the subject exists: a family with no resolver in this
+build is refused by name rather than admitted on the strength of its spelling.
+That refusal is what keeps the receipt from becoming a place where unresolvable
+subjects accumulate while the ladder claims to have moved them.
+
+**Stages do not skip and history does not rewrite.** One subject is one
+head-linked chain. The first transition carries a null predecessor and enters
+at `attested`; every later transition names the exact current head and advances
+by exactly one member. Because the ladder is ordered from the narrowest
+attributable statement to economic finality, a skipped member is a stage the
+receipt claims without anyone having stood behind it.
+
+**Negative outcomes are retained, never normalised.** `outcome_class` is
+content the actor declares, and no consumer or projection may collapse
+`negative`, `inconclusive`, `invalid`, `exploit`, `superseded`, `disputed`, or
+`no_fault` into `positive`. A ladder that only records successes has not
+recorded anything (NN 21).
+
+**What it is not.** The receipt proves that a named actor recorded a stage
+transition over an exactly-bound subject with the evidence it names. It does
+not establish correctness, external-world occurrence, causality, acceptance,
+adjudication, settlement, or economic value; reaching `to_stage: settled` is
+not proof that value moved, which remains the owning settlement adapter's to
+attest. It conveys no authority and is not a verdict — both nonclaims are
+carried explicitly on every record so a consumer cannot read one in by
+omission. The adjudication decision object itself remains
+`DisputeResolutionEnvelope` below; this receipt does not mint, replace, or
+resolve a dispute.
+
+### Challenging a semantic-plane subject
+
+`VerifierChallengeEnvelope` v1 advertises coverage of "or ontology mapping" in
+its own description and carries `mapping` in `challenge_kind`, while its
+`challenged_ref` pattern admits neither an ontology assertion nor an ontology
+mapping revision. A contract whose description claims more than its constraint
+allows is the failure mode this estate names explicitly, and the assurance
+ladder is the first consumer that needs the gap closed: a semantic-plane
+subject that can reach `verified` but can never be challenged is a one-way
+ladder.
+
+**v2 widens exactly one pattern.** `challenged_ref` gains
+`ontology-assertion://` and `ontology-mapping://`. Every other property, closed
+enumeration and nullability is preserved byte-for-byte from v1, which remains
+registered, valid and addressable — widening a registered pattern is a new
+version, never an edit of the old one.
+
+This section owns **only** that widening. The rest of the envelope — challenger
+kinds, `challenge_kind`, adjudicator policy, rule-version refs, affected
+attempts, `adjudication_ref`, and the `status` enumeration — remains owned by
+[`collaborative-pursuit.md`](../../domains/ioi-ai/collaborative-pursuit.md#verifierchallengeenvelope)
+and is not restated or reinterpreted here.
+
+**Admitting a subject is not resolving one.** v2 makes a semantic-plane subject
+*nameable* by a challenge. It mints no dispute or decision object, drives no
+`status` transition, and grants the challenge no standing it did not already
+have. The resolution verdict remains the later evaluation/acceptance owner's,
+and no assurance transition may be read as one.
+
 ## Receipt Checkpoints And Offline Proofs
 
 `ReceiptCheckpoint` v1 and `ReceiptProofBundle` v1 are the portable export
@@ -789,6 +899,7 @@ AIIPPacketReceipt
 AIIPDeliveryUpdateReceipt
 AIIPAcceptanceDecisionReceipt
 DisputeResolutionReceipt
+AssuranceTransitionReceipt
 BondDistributionReceipt
 DisputeRemedyExecutionReceipt
 AIIPDisputeResolutionReceipt

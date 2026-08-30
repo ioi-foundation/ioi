@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
+  "title": "VerifierChallengeEnvelope",
+  "x-ioi-schema-version": "ioi.foundations.verifier-challenge-envelope.v2",
+  "description": "A typed challenge against a metric, rule, verifier, evidence set, eligibility decision, result, exploit, independence claim, collusion claim, or ontology mapping. v2 is the explicit successor of v1: every other property, enumeration and nullability is preserved byte-for-byte from v1, and the single change is that challenged_ref now admits the two semantic-plane subjects the v1 pattern refused while the v1 description and the 'mapping' challenge_kind already advertised them -- ontology-assertion:// and ontology-mapping://. Widening a registered pattern is a new version, not an edit: v1 bytes remain valid and addressable. The widening is owned by docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#challenging-a-semantic-plane-subject; all other fields remain owned by docs/architecture/domains/ioi-ai/collaborative-pursuit.md#verifierchallengeenvelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verifier_challenge_id",
+    "challenger_ref",
+    "challenged_ref",
+    "challenge_kind",
+    "adjudicator_policy_ref",
+    "reverification_required",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.verifier-challenge-envelope.v2"
+    },
+    "verifier_challenge_id": {
+      "type": "string",
+      "pattern": "^verifier-challenge://[^\\s]{1,500}$"
+    },
+    "outcome_room_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^outcome-room://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "system_binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "SystemScopedObjectBinding. Owned by its own contract and deliberately left opaque here: this registration transcribes the enclosing envelope definition and does not get to invent a neighbouring family's shape."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "challenger_ref": {
+      "type": "string",
+      "pattern": "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$"
+    },
+    "challenged_ref": {
+      "type": "string",
+      "pattern": "^(?:attempt|finding|verifier_path|benchmark|rubric|evidence|eligibility|decision|ontology-assertion|ontology-mapping)://[^\\s]{1,500}$",
+      "description": "v2 widening. The two added schemes are the M05.2 ontology-mapping revision and the M05.3 ontology assertion; nothing else about a challenge changes, and admitting a subject here is not a verdict about it."
+    },
+    "challenge_kind": {
+      "enum": [
+        "metric",
+        "rule",
+        "verifier",
+        "evidence",
+        "eligibility",
+        "result",
+        "exploit",
+        "independence",
+        "collusion",
+        "mapping"
+      ]
+    },
+    "challenge_evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,500}$"
+      }
+    },
+    "adjudicator_policy_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,500}$"
+    },
+    "prior_rule_version_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:rubric|verifier_path)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposed_rule_version_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:rubric|verifier_path)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "affected_attempt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^attempt://[^\\s]{1,500}$"
+      }
+    },
+    "reverification_required": {
+      "type": "boolean"
+    },
+    "adjudication_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:decision|dispute)://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "admitted",
+        "investigating",
+        "upheld",
+        "rejected",
+        "rule_changed",
+        "reverifying",
+        "resolved",
+        "withdrawn"
+      ]
+    }
+  }
+}
