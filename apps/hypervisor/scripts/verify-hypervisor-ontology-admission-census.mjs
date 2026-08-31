@@ -221,7 +221,7 @@ const RECORDED_PLANE = {
   "odk-ontology-proposals": { admits: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"], touches: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"] },
   "odk-ontology-receipts": { admits: ["hypervisor_daemon_routes/odk_routes.rs"], touches: ["hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-policy-bound-data-view-receipts": { admits: [], touches: ["hypervisor_daemon_routes/policy_bound_data_view_routes.rs"] },
-  "odk-policy-bound-data-views": { admits: ["hypervisor_daemon_routes/policy_bound_data_view_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/policy_bound_data_view_routes.rs", "hypervisor_daemon_routes/transformation_run_routes.rs"] },
+  "odk-policy-bound-data-views": { admits: ["hypervisor_daemon_routes/policy_bound_data_view_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/policy_bound_data_view_revision_routes.rs", "hypervisor_daemon_routes/policy_bound_data_view_routes.rs", "hypervisor_daemon_routes/transformation_run_routes.rs"] },
   "odk-saved-object-sets": { admits: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"], touches: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"] },
   "odk-surface-descriptors": { admits: [], touches: ["hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-transformation-run-receipts": { admits: ["hypervisor_daemon_routes/transformation_run_routes.rs"], touches: ["hypervisor_daemon_routes/transformation_run_routes.rs"] },
@@ -437,9 +437,15 @@ const PINNED = {
   // function that writes — the owner binding rides on an admission envelope beside each v1 record
   // rather than on a second store. Baselined against HEAD before repinning: HEAD was 27/27 with all
   // four counts exactly on their pins, so this delta is attributable to this cut alone.
-  modules: 106,
-  familyMentions: 284,
-  tokenMentions: 138835,
+  // M05.8 runtime re-derivation (2026-08-31): the registered v2 view runtime adds three reachable
+  // modules and one conservative family mention in its owner-boundary documentation. Its source,
+  // schema fixtures and focused tests account for the exact token, include and resolution-bucket
+  // movement below. The production writer populations, judged family positions and raw-filesystem
+  // calls do not move: v2 persists through the shared owner-scoped Agentgres mutation boundary,
+  // while the v1 ODK route remains the sole recorded admitter for its distinct predecessor family.
+  modules: 109,
+  familyMentions: 285,
+  tokenMentions: 141999,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
@@ -460,17 +466,17 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4396,
-    "opaque-initialiser": 2403,
-    "bare-undeclared": 529,
+    "foreign-qualified": 4431,
+    "opaque-initialiser": 2581,
+    "bare-undeclared": 532,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 82, dataBytes: 0, dataOpaqueArg: 13 },
+  includes: { splicedCode: 0, dataStr: 88, dataBytes: 0, dataOpaqueArg: 19 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
-  compileAssembly: { production: 0, test: 15 },
+  compileAssembly: { production: 0, test: 21 },
 };
 
 /**
