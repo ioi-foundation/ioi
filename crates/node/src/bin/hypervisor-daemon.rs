@@ -110,6 +110,8 @@ mod harness_routes;
 mod hypervisor_environment_routes;
 #[path = "hypervisor_daemon_routes/hypervisoros_node_routes.rs"]
 mod hypervisoros_node_routes;
+#[path = "hypervisor_daemon_routes/institutional_learning_boundary_routes.rs"]
+mod institutional_learning_boundary_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
 mod ioi_agent_routes;
 #[path = "hypervisor_daemon_routes/ioi_intelligence_routes.rs"]
@@ -130,6 +132,8 @@ mod marketplace_routes;
 mod materializing_run_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
+#[path = "hypervisor_daemon_routes/model_route_rights_routes.rs"]
+mod model_route_rights_routes;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
 mod model_routes;
 #[path = "hypervisor_daemon_routes/mutation_event_foundation.rs"]
@@ -1695,6 +1699,40 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/transformation-runs",
             get(data_transformation_routes::handle_transformation_run_query)
                 .post(data_transformation_routes::handle_transformation_run_admit),
+        )
+        // M07.2 — the route-rights half of the compiled learning boundary. An immutable,
+        // owner-qualified revision whose use partition is DERIVED from what its terms prohibit and
+        // what it could not resolve, so an unresolved right cannot coexist with the permission it
+        // would need. M10.3 intersects against this family through its read-only owner seam rather
+        // than reading this chain itself.
+        .route(
+            "/v1/hypervisor/model-route-rights-contracts",
+            get(model_route_rights_routes::handle_model_route_rights_query)
+                .post(model_route_rights_routes::handle_model_route_rights_admit),
+        )
+        // M10.3 — the compiled institutional learning boundary. The claim is the rights half, the
+        // profile is the most-restrictive intersection COMPILED from resolved inputs rather than
+        // asserted, the eligibility is one bounded decision against a bound profile, and the receipt
+        // is an evidence-bounded crossing. Every input resolves through its owner's read-only seam.
+        .route(
+            "/v1/hypervisor/learning-source-rights-claims",
+            get(institutional_learning_boundary_routes::handle_source_rights_claim_query)
+                .post(institutional_learning_boundary_routes::handle_source_rights_claim_admit),
+        )
+        .route(
+            "/v1/hypervisor/institutional-learning-boundary-profiles",
+            get(institutional_learning_boundary_routes::handle_boundary_profile_query)
+                .post(institutional_learning_boundary_routes::handle_boundary_profile_admit),
+        )
+        .route(
+            "/v1/hypervisor/learning-evidence-eligibilities",
+            get(institutional_learning_boundary_routes::handle_evidence_eligibility_query)
+                .post(institutional_learning_boundary_routes::handle_evidence_eligibility_admit),
+        )
+        .route(
+            "/v1/hypervisor/learning-egress-receipts",
+            get(institutional_learning_boundary_routes::handle_learning_egress_receipt_query)
+                .post(institutional_learning_boundary_routes::handle_learning_egress_receipt_emit),
         )
         // WS-D: harness session binding admission.
         .route(
