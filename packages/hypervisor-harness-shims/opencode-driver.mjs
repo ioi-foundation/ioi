@@ -26,12 +26,12 @@ const endpointRaw = String(
 // opencode's openai-compatible provider needs the /v1 base.
 const endpoint = endpointRaw.endsWith("/v1") ? endpointRaw : `${endpointRaw}/v1`;
 // HOT-HOST INFERENCE BUDGET (paired-budget invariant — keep these aligned):
-//   shim task budget (here, 600s)  <  daemon HOST_SPAWN_LANE_TIMEOUT_SECS (660s)  <  any
+//   shim task budget (here, 720s)  <  daemon HOST_SPAWN_LANE_TIMEOUT_SECS (780s)  <  any
 //   composite/per-suite ceiling. The shim must emit its honest timeout/result BEFORE the
 //   daemon lane reaps the child, or the invocation loses its result entirely. CPU-only
 //   local-model gates treat inference latency and stop-discipline as STOCHASTIC (bounded
 //   real retries, honest-completion break conditions) — never as deterministic constants.
-const childTimeoutMs = Number(options["task-timeout-ms"] || 600000);
+const childTimeoutMs = Number(options["task-timeout-ms"] || 720000);
 
 // Hermetic provider + permission config, outside the workspace.
 const configPath = writeTempConfig("ioi-opencode-", "opencode.json", JSON.stringify({
@@ -44,7 +44,44 @@ const configPath = writeTempConfig("ioi-opencode-", "opencode.json", JSON.string
       models: { [model]: { name: model } },
     },
   },
-  permission: { edit: "allow", bash: "allow", webfetch: "deny" },
+  permission: {
+    read: "allow",
+    write: "deny",
+    edit: "allow",
+    apply_patch: "deny",
+    bash: "deny",
+    glob: "deny",
+    grep: "deny",
+    task: "deny",
+    webfetch: "deny",
+    websearch: "deny",
+    external_directory: "deny",
+    doom_loop: "deny",
+  },
+  // This adapter's admitted purpose is one bounded workspace edit plus
+  // readback. OpenCode's shipped file-mutation primitive is `edit`; expose only
+  // that primitive and `read`. Shell, search, patching, delegation,
+  // network, external-directory access, and planning remain unavailable.
+  tools: {
+    read: true,
+    write: false,
+    bash: false,
+    edit: true,
+    apply_patch: false,
+    glob: false,
+    grep: false,
+    list: false,
+    codesearch: false,
+    patch: false,
+    task: false,
+    todowrite: false,
+    todoread: false,
+    question: false,
+    webfetch: false,
+    websearch: false,
+    lsp: false,
+    skill: false,
+  },
 }, null, 2));
 
 function mapLine(line) {

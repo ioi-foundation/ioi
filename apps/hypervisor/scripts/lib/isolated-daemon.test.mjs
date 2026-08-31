@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   linuxListenerOwnershipEvidence,
   resolveIsolatedDaemonBinary,
+  resolveIsolatedReadyTimeoutMs,
 } from "./isolated-daemon.mjs";
 
 test("isolated daemon defaults to debug and honors the explicit binary override", () => {
@@ -17,6 +18,24 @@ test("isolated daemon defaults to debug and honors the explicit binary override"
       IOI_HYPERVISOR_DAEMON_BINARY: "target/release/hypervisor-daemon",
     }),
     /target\/release\/hypervisor-daemon$/u,
+  );
+});
+
+test("isolated daemon readiness keeps its default and bounds an explicit verifier ceiling", () => {
+  assert.equal(resolveIsolatedReadyTimeoutMs({}), 30_000);
+  assert.equal(
+    resolveIsolatedReadyTimeoutMs({
+      IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: "120000",
+    }),
+    120_000,
+  );
+  assert.throws(
+    () => resolveIsolatedReadyTimeoutMs({ IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: "0" }),
+    /between 1000 and 1200000/u,
+  );
+  assert.throws(
+    () => resolveIsolatedReadyTimeoutMs({ IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: "fast" }),
+    /integer number of milliseconds/u,
   );
 });
 

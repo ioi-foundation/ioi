@@ -4,6 +4,7 @@
 // runtime approval-decision authority's structural verify AND the settlement layer's
 // cryptographic verify_approval_grant_signature — no test-only bypass.
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,7 +13,7 @@ let built = false;
 
 export function mintApprovalGrant(options = {}) {
   const binary = path.join(repoRoot, "target", "debug", "mint-approval-grant");
-  if (!built) {
+  if (!built && !existsSync(binary)) {
     const build = spawnSync(
       "cargo",
       ["build", "-p", "ioi-node", "--bin", "mint-approval-grant"],
@@ -21,8 +22,8 @@ export function mintApprovalGrant(options = {}) {
     if (build.status !== 0) {
       throw new Error(`Failed to build mint-approval-grant:\n${build.stdout}\n${build.stderr}`);
     }
-    built = true;
   }
+  built = true;
   const args = [];
   if (options.seed) args.push("--seed", options.seed);
   if (options.expiresAt) args.push("--expires-at", String(options.expiresAt));

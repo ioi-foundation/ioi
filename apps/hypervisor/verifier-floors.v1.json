@@ -125,9 +125,9 @@
       "id": "m4-outcome-room-system-spine",
       "npm_script": "check:m4-outcome-room-system-spine",
       "source": "apps/hypervisor/scripts/verify-m4-outcome-room-system-spine.mjs",
-      "runtime_assertions": 103,
-      "assertion_names_sha256": "b09aa67c538bb2b8c96af0e180d0fe7fbfd4bee414a003b19bcc62b3b1d28e75",
-      "note": "M04.5 live execution closure: the retained M4 room/System spine now proves that one successful bounded GoalRun invocation consumes the exact daemon-owned launch predecessor chain and thread/fork/managed-session facts, persists one byte-identical binding across invocation, receipt, and candidate, resolves it back to the launch owner record, and keeps GoalRun identity invocation-ref-only."
+      "runtime_assertions": 104,
+      "assertion_names_sha256": "f99c0325bda775cbd437b22224a84f8f2a0b9194868f5a035965ab0c44af333b",
+      "note": "M04.5/M04.9 live execution closure: 104 assertions retain the bounded GoalRun launch predecessor and reciprocal room/System spine, and prove the accepted M04.9 route owners through exact typed refusal or honest-empty projections without reviving the retired predecessor handler."
     },
     {
       "id": "m4-work-lifecycle-plane",

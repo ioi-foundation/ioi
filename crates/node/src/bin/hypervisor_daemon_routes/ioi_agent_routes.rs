@@ -132,8 +132,8 @@ async fn self_call(url: &str, method: &str, body: Option<&Value>) -> (u16, Value
         Some(payload) => builder.json(payload),
         None => builder,
     };
-    // Budget ladder: shim 600s < spawn lane 660s < THIS self-call < composite suite 30m. A compare
-    // goal-run start wraps up to two 660s-reaped invocations plus a bounded full-run retry and
+    // Budget ladder: longest shim 720s < spawn lane 780s < THIS self-call < composite suite 30m. A compare
+    // goal-run start wraps up to two 780s-reaped invocations plus a bounded full-run retry and
     // verify/reconcile, so the wrapper must sit at the suite ceiling — 600s here deterministically
     // broke compare launches (self_call_failed) whenever one implementer ran to its shim budget.
     match builder

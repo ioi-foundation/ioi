@@ -238,7 +238,17 @@ const DEFAULT_DAEMON_PROJECTION_TIMEOUT_MS = 10_000;
 // demonstrated that a 10-second debug-process deadline can expire while the same direct owner
 // reads remain healthy. Keep a hard two-minute bound: Goal Space shares it across its five serial
 // reads, while the two GoalRun timeline reads run concurrently under the same selected bound.
-const M4_OWNER_PROJECTION_TIMEOUT_MS = 120_000;
+// A deterministic verifier may raise this hang bound for an instrumented/debug daemon; the
+// production default remains two minutes. This is a liveness ceiling, not a performance claim.
+const configuredM4OwnerProjectionTimeoutMs = Number(
+  process.env.IOI_M4_OWNER_PROJECTION_TIMEOUT_MS || 120_000,
+);
+const M4_OWNER_PROJECTION_TIMEOUT_MS =
+  Number.isSafeInteger(configuredM4OwnerProjectionTimeoutMs) &&
+  configuredM4OwnerProjectionTimeoutMs >= 120_000 &&
+  configuredM4OwnerProjectionTimeoutMs <= 1_800_000
+    ? configuredM4OwnerProjectionTimeoutMs
+    : 120_000;
 // W1.1 / DEF-IDENT-1 — ambient per-request identity, mirroring the envelope
 // `ioi-api-adapter.mjs:42` already uses. 130 of this file's 190 daemon calls used to be bare
 // `daemonFetch(`...`)` from render helpers that take no `req`, so every one of those reads

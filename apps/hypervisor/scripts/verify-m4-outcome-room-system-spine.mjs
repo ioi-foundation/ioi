@@ -21,7 +21,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { get as httpGet } from "node:http";
+import http, { get as httpGet } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -550,48 +550,84 @@ function durableTruthSnapshot(dataDir, families) {
   });
 }
 
-async function boundedResponseText(response, limit = 4 * 1024 * 1024) {
-  const chunks = [];
-  let bytes = 0;
-  if (!response.body) return "";
-  const reader = response.body.getReader();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    bytes += value.byteLength;
-    if (bytes > limit) {
-      await reader.cancel("response_oversize").catch(() => {});
-      throw new Error(`daemon_response_oversize:${response.url}`);
-    }
-    chunks.push(Buffer.from(value));
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-
 async function request(base, method, path, body, headers = {}) {
-  const response = await fetch(`${base}${path}`, {
-    method,
-    headers: { "content-type": "application/json", ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(30 * 60 * 1000),
+  // Governed activation may synchronously wait on the real wallet fixture for
+  // longer than undici's fixed 300 s response-header timeout. Use node:http so
+  // transport cannot abort a still-bounded authority admission. The 30-minute
+  // ceiling is an interim hang bound, not a performance tripwire.
+  const target = new URL(`${base}${path}`);
+  const payload = body === undefined ? null : JSON.stringify(body);
+  return await new Promise((resolve, reject) => {
+    let settled = false;
+    let deadline;
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      reject(error);
+    };
+    const succeed = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      resolve(value);
+    };
+    const outbound = http.request(
+      {
+        hostname: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        method,
+        headers: {
+          "content-type": "application/json",
+          ...headers,
+          ...(payload === null ? {} : { "content-length": Buffer.byteLength(payload) }),
+        },
+      },
+      (response) => {
+        const chunks = [];
+        let bytes = 0;
+        response.on("data", (chunk) => {
+          bytes += chunk.length;
+          if (bytes > 4 * 1024 * 1024) {
+            response.destroy(new Error(`daemon_response_oversize:${target}`));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        response.on("aborted", () => fail(new Error(`daemon_response_aborted:${target}`)));
+        response.on("error", fail);
+        response.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf8");
+          let parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch {
+            parsed = {};
+          }
+          succeed({
+            status: response.statusCode,
+            headers: Object.fromEntries(
+              Object.entries(response.headers)
+                .sort(([left], [right]) => left.localeCompare(right))
+                .map(([key, value]) => [
+                  key,
+                  Array.isArray(value) ? [...value] : String(value ?? ""),
+                ]),
+            ),
+            raw,
+            body: parsed,
+          });
+        });
+      },
+    );
+    outbound.on("error", fail);
+    deadline = setTimeout(() => {
+      outbound.destroy(new Error(`M04 OutcomeRoom request timed out: ${method} ${path}`));
+    }, 1_800_000);
+    if (payload !== null) outbound.write(payload);
+    outbound.end();
   });
-  const raw = await boundedResponseText(response);
-  return {
-    status: response.status,
-    headers: Object.fromEntries(
-      [...response.headers.entries()].sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
-    ),
-    raw,
-    body: (() => {
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return {};
-      }
-    })(),
-  };
 }
 
 function readHttpText(url, headers = {}, timeoutMs = 60_000) {
@@ -615,12 +651,12 @@ function readHttpText(url, headers = {}, timeoutMs = 60_000) {
           chunks.push(chunk);
         });
         response.on("aborted", () =>
-          reject(new Error("product_projection_transport_aborted")),
+          reject(new Error(`product_projection_transport_aborted:${url}`)),
         );
         response.on("error", (error) =>
           reject(
             new Error(
-              `product_projection_transport_response_error: ${error.message}`,
+              `product_projection_transport_response_error:${url}: ${error.message}`,
             ),
           ),
         );
@@ -641,7 +677,7 @@ function readHttpText(url, headers = {}, timeoutMs = 60_000) {
       },
     );
     request.setTimeout(timeoutMs, () =>
-      request.destroy(new Error("product_projection_transport_timeout")),
+      request.destroy(new Error(`product_projection_transport_timeout:${url}`)),
     );
     request.on("error", (error) =>
       reject(
@@ -1048,6 +1084,10 @@ try {
     IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF,
     IOI_HYPERVISOR_MODEL: "qwen2.5:7b",
     IOI_HYPERVISOR_SESSIONS_ROOT: sessionsRoot,
+    // Five strict owner projections are intentionally serialized. An instrumented debug daemon
+    // can take longer than the product's two-minute default without being unavailable, so the
+    // verifier uses a bounded 20-minute hang ceiling. No elapsed-time acceptance claim is made.
+    IOI_M4_OWNER_PROJECTION_TIMEOUT_MS: "1200000",
   };
   plane = await startIsolatedPlane({
     dataDir,
@@ -1392,7 +1432,7 @@ try {
       // projection that correctly renders the GoalRun intent contains the same byte sequence as
       // the result payload and makes the export-leakage assertion a false positive. The runtime
       // still has an exact, deterministic output contract without receiving the canary verbatim.
-      goal: "Use the available workspace file tool to create m4-room-load-proof.txt containing, with no trailing newline, the four words bounded, room, load, and proven joined by one ASCII space in that order. Read the file back before returning. Do not report completion unless that exact file exists with exactly the requested four-word ASCII-space sequence",
+      goal: "Use the available workspace edit tool to create m4-room-load-proof.txt. Its content is the result of joining this JSON array with one ASCII space: [\"bounded\",\"room\",\"load\",\"proven\"]. The brackets, quotes, and commas are not file content. The result is exactly four tokens and 24 ASCII bytes with no trailing newline. Your FIRST tool call MUST be edit with filePath ./m4-room-load-proof.txt, oldString set to the empty string, newString set to that four-token join result, and replaceAll false. Do not use a content argument and do not read before that edit succeeds. Then use read on ./m4-room-load-proof.txt. Do not report completion unless the readback has exactly four tokens and 24 bytes",
       session_ref: sessionRef,
       target_system_id: SYSTEM_ID,
       admission_path_request: collectivePathRequest(),
@@ -4606,8 +4646,9 @@ try {
       family: "resource-capability-offer-receipts",
       tail: matchTail,
       basePath: "/v1/goal-orchestration/work-eligibility-matches",
-      listField: "eligibility_match_receipts",
+      listField: "work_eligibility_match_receipts",
       overview: true,
+      overviewCountField: "total",
       record: {
         schema_version: "ioi.hypervisor.work-eligibility-match-receipt.v1",
         receipt_ref: `receipt://${matchTail}`,
@@ -4744,57 +4785,124 @@ try {
     collectiveGoal.goal_ref,
     predecessorFixtureMarker,
   ]);
+  // M04.9 repointed these public paths to the current M04.8 owner. The current handlers must
+  // reject an M4-shaped body/query under their own exact typed contract; expecting the retired
+  // predecessor handler here would silently test a route that is no longer mounted. Eligibility is
+  // the one roomless read family: it returns an honestly empty current projection, while its point
+  // read remains an exact typed absence. Current room-child overviews require
+  // `outcome_room_ref`, so a roomless overview probe is also an exact typed refusal.
+  const currentWriteRefusalCodes = [
+    "m048_participation_request_invalid",
+    "m048_frontier_request_invalid",
+    "m048_claim_request_invalid",
+    "m048_resource_offer_request_invalid",
+    "m048_capability_offer_request_invalid",
+    "m048_eligibility_request_invalid",
+    "m048_attempt_request_invalid",
+    "m048_finding_request_invalid",
+    "m048_challenge_request_invalid",
+  ];
+  const currentReadRefusalCodes = [
+    "m048_participation_request_invalid",
+    "m048_lease_request_invalid",
+    "m048_frontier_request_invalid",
+    "m048_claim_request_invalid",
+    "m048_resource_offer_request_invalid",
+    "m048_capability_offer_request_invalid",
+    null,
+    "m048_attempt_request_invalid",
+    "m048_finding_request_invalid",
+    "m048_challenge_request_invalid",
+  ];
+  const currentPointRefusalCodes = [
+    "m048_participation_request_invalid",
+    "m048_lease_request_invalid",
+    "m048_frontier_request_invalid",
+    "m048_claim_request_invalid",
+    "m048_resource_offer_request_invalid",
+    "m048_capability_offer_request_invalid",
+    "m048_eligibility_not_found",
+    "m048_attempt_request_invalid",
+    "m048_finding_request_invalid",
+    "m048_challenge_request_invalid",
+  ];
+  const currentTransitionRefusals = [
+    [503, "m048_participation_transition_unavailable"],
+    [400, "m048_lease_request_invalid"],
+    [400, "m048_frontier_request_invalid"],
+    [400, "m048_claim_request_invalid"],
+    [400, "m048_resource_offer_request_invalid"],
+    [400, "m048_capability_offer_request_invalid"],
+    [400, "m048_attempt_request_invalid"],
+    [400, "m048_finding_request_invalid"],
+    [400, "m048_challenge_request_invalid"],
+  ];
+  const currentOverviewRefusalCodes = [
+    "m048_frontier_request_invalid",
+    "m048_claim_request_invalid",
+    "m048_resource_offer_request_invalid",
+    "m048_capability_offer_request_invalid",
+    null,
+    "m048_attempt_request_invalid",
+    "m048_finding_request_invalid",
+    "m048_challenge_request_invalid",
+  ];
   check(
     "M5 BOUNDARY: predecessor writes/reads/completers fail closed and M4 projections stay empty",
     predecessorProfileWriteResponses.length === 9 &&
       predecessorProfileWriteResponses.every(
-        (response) =>
-          response.status >= 400 &&
-          response.status < 500 &&
-          response.body.error?.code ===
-            "outcome_room_predecessor_child_profile_retired",
+        (response, index) =>
+          response.status === 400 &&
+          response.body.error?.code === currentWriteRefusalCodes[index],
       ) &&
       predecessorProfileReadResponses.length === 10 &&
       predecessorProfileReadResponses.every(
-        (response) =>
-          response.status >= 400 &&
-          response.status < 500 &&
-          response.body.error?.code ===
-            "outcome_room_predecessor_child_profile_retired",
+        (response, index) =>
+          currentReadRefusalCodes[index] === null
+            ? response.status === 200 &&
+              Array.isArray(response.body.work_eligibility_match_receipts) &&
+              response.body.work_eligibility_match_receipts.length === 0
+            : response.status === 400 &&
+              response.body.error?.code === currentReadRefusalCodes[index],
       ) &&
       predecessorFixtureGetResponses.length === 10 &&
       predecessorFixtureGetResponses.every(
-        (response) =>
-          response.status >= 400 &&
-          response.status < 500 &&
-          response.body.error?.code ===
-            "outcome_room_predecessor_child_profile_retired",
+        (response, index) =>
+          response.status === (index === 6 ? 404 : 400) &&
+          response.body.error?.code === currentPointRefusalCodes[index],
       ) &&
       predecessorFixtureTransitionResponses.length === 9 &&
       predecessorFixtureTransitionResponses.every(
-        (response) =>
-          response.status >= 400 &&
-          response.status < 500 &&
-          response.body.error?.code ===
-            "outcome_room_predecessor_child_profile_retired",
+        (response, index) =>
+          response.status === currentTransitionRefusals[index][0] &&
+          response.body.error?.code === currentTransitionRefusals[index][1],
       ) &&
       predecessorFixtureUnfilteredResponses.length === 10 &&
       predecessorFixtureUnfilteredResponses.every(
         (response, index) =>
-          response.status === 200 &&
-          Array.isArray(
-            response.body[predecessorProfileFixtures[index].listField],
-          ) &&
-          response.body[predecessorProfileFixtures[index].listField].length ===
-            0 &&
-          !response.raw.includes(predecessorFixtureMarker),
+          currentReadRefusalCodes[index] === null
+            ? response.status === 200 &&
+              Array.isArray(
+                response.body[predecessorProfileFixtures[index].listField],
+              ) &&
+              response.body[predecessorProfileFixtures[index].listField]
+                .length === 0 &&
+              !response.raw.includes(predecessorFixtureMarker)
+            : response.status === 400 &&
+              response.body.error?.code === currentReadRefusalCodes[index] &&
+              !response.raw.includes(predecessorFixtureMarker),
       ) &&
       predecessorFixtureOverviewResponses.length === 8 &&
       predecessorFixtureOverviewResponses.every(
-        (response) =>
-          response.status === 200 &&
-          response.body.count === 0 &&
-          !response.raw.includes(predecessorFixtureMarker),
+        (response, index) =>
+          currentOverviewRefusalCodes[index] === null
+            ? response.status === 200 &&
+              response.body.total === 0 &&
+              !response.raw.includes(predecessorFixtureMarker)
+            : response.status === 400 &&
+              response.body.error?.code ===
+                currentOverviewRefusalCodes[index] &&
+              !response.raw.includes(predecessorFixtureMarker),
       ) &&
       predecessorFixtureBytesUnchanged &&
       predecessorProfileResponses.every((response) =>
@@ -4844,13 +4952,14 @@ try {
         "resource-offers",
         "capability-offers",
       ].every((family) => familyCount(dataDir, family) === 0) &&
+      familyCount(dataDir, "m048-work-eligibility-matches") === 0 &&
       familyCount(dataDir, "outcome-room-admitted-object-projections") === 0 &&
       replayResponse.body.operations?.every(
         (operation) =>
           operation.typed_payload?.schema_version !==
           "ioi.applications.ioi-ai.participant-state-bundle.v2",
       ),
-    `creates=${predecessorProfileWriteResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/room_reads=${predecessorProfileReadResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/gets=${predecessorFixtureGetResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/transitions=${predecessorFixtureTransitionResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/unfiltered=${predecessorFixtureUnfilteredResponses.map((response) => response.status).join(",")}/overviews=${predecessorFixtureOverviewResponses.map((response) => `${response.status}/${response.body.count}`).join(",")}/fixture_bytes_unchanged=${predecessorFixtureBytesUnchanged}/base_tree=${predecessorProfileSnapshotAfter === predecessorProfileSnapshotBefore}/fixture_tree=${predecessorFixtureSnapshotAfter === predecessorFixtureSnapshotBefore}/deep=${predecessorProfileFenceTests.code}`,
+    `creates=${predecessorProfileWriteResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/room_reads=${predecessorProfileReadResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/gets=${predecessorFixtureGetResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/transitions=${predecessorFixtureTransitionResponses.map((response) => `${response.status}/${response.body.error?.code}`).join(",")}/unfiltered=${predecessorFixtureUnfilteredResponses.map((response) => response.status).join(",")}/overviews=${predecessorFixtureOverviewResponses.map((response) => `${response.status}/${response.body.error?.code ?? response.body.total ?? response.body.count}`).join(",")}/fixture_bytes_unchanged=${predecessorFixtureBytesUnchanged}/base_tree=${predecessorProfileSnapshotAfter === predecessorProfileSnapshotBefore}/fixture_tree=${predecessorFixtureSnapshotAfter === predecessorFixtureSnapshotBefore}/deep=${predecessorProfileFenceTests.code}`,
   );
   const projectionResponses = [
     graphResponse,

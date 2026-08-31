@@ -2,6 +2,7 @@
 // belongs to wallet/device custody; this wrapper only invokes the real Rust type and Ed25519
 // implementation so integration tests have no verification bypass.
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,7 +18,7 @@ const required = (value, label) => {
 
 export function mintStandingApprovalGrant(options = {}) {
   const binary = path.join(repoRoot, "target", "debug", "mint-standing-approval-grant");
-  if (!built) {
+  if (!built && !existsSync(binary)) {
     const build = spawnSync(
       "cargo",
       ["build", "-p", "ioi-node", "--bin", "mint-standing-approval-grant"],
@@ -28,8 +29,8 @@ export function mintStandingApprovalGrant(options = {}) {
         `Failed to build mint-standing-approval-grant:\n${build.stdout}\n${build.stderr}`,
       );
     }
-    built = true;
   }
+  built = true;
   const fields = [
     ["--seed", "seed"],
     ["--standing-envelope-hash", "standingEnvelopeHash"],

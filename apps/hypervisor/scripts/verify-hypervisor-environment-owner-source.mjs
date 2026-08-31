@@ -129,7 +129,7 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
-  census.registered_route_handlers === 1003 && census.workspace_route_handlers === 38
+  census.registered_route_handlers === 1069 && census.workspace_route_handlers === 38
     && census.routes.length === 44 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
@@ -139,7 +139,7 @@ check("R1_DERIVED_CLOSED_WORLD",
       "provider_routes::handle_provider_op",
       "workload_effect_boundary::handle_governed_capability_consume",
     ].join(",")
-    && hasAll(src.census, ["rawStringHashes", "if (here === \"r\"", "if (here === \"'\")", "AGGREGATE_ONLY_HANDLERS", "invalidAggregateMarker", "POLICY_CONTEXT_FUNCTION", "invalidPolicyContextMarker"]),
+    && hasAll(src.census, ["rawStringHashes", "if (here === \"r\"", "if (here === \"'\")", "AGGREGATE_ONLY_HANDLERS", "invalidAggregateMarker", "POLICY_CONTEXT_FUNCTION", "invalidPolicyContextMarker", "contribution_read_handlers"]),
   `registered=${census.registered_route_handlers} workspace=${census.workspace_route_handlers} candidates=${census.routes.length} unresolved=${census.unresolved.length} unclassified=${census.unclassified.length}`);
 
 check("R2_ONE_CREATE_SEAM",

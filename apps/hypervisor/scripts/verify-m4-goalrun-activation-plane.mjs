@@ -20,6 +20,7 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import http from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -318,21 +319,71 @@ const onlyFamilyRecord = (family, root = dataDir) => {
 };
 
 async function request(base, method, path, body, headers = {}) {
-  const response = await fetch(`${base}${path}`, {
-    method,
-    headers: { "content-type": "application/json", ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
+  // Governed activation may synchronously wait on the real wallet fixture for
+  // longer than undici's fixed 300 s response-header timeout. Use node:http so
+  // transport cannot abort a still-bounded authority admission. The 30-minute
+  // ceiling is an interim hang bound, not a performance tripwire.
+  const target = new URL(`${base}${path}`);
+  const payload = body === undefined ? null : JSON.stringify(body);
+  return await new Promise((resolve, reject) => {
+    let settled = false;
+    let deadline;
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      reject(error);
+    };
+    const succeed = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      resolve(value);
+    };
+    const outbound = http.request(
+      {
+        hostname: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        method,
+        headers: {
+          "content-type": "application/json",
+          ...headers,
+          ...(payload === null ? {} : { "content-length": Buffer.byteLength(payload) }),
+        },
+      },
+      (response) => {
+        const chunks = [];
+        let bytes = 0;
+        response.on("data", (chunk) => {
+          bytes += chunk.length;
+          if (bytes > 4 * 1024 * 1024) {
+            response.destroy(new Error(`daemon_response_oversize:${target}`));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        response.on("aborted", () => fail(new Error(`daemon_response_aborted:${target}`)));
+        response.on("error", fail);
+        response.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf8");
+          let parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch {
+            parsed = {};
+          }
+          succeed({ status: response.statusCode, raw, body: parsed });
+        });
+      },
+    );
+    outbound.on("error", fail);
+    deadline = setTimeout(() => {
+      outbound.destroy(new Error(`M04 GoalRun request timed out: ${method} ${path}`));
+    }, 1_800_000);
+    if (payload !== null) outbound.write(payload);
+    outbound.end();
   });
-  // raw retains the exact response bytes so anonymous-refusal uniformity can be
-  // asserted by byte equality, not status or parsed-field equality.
-  const raw = await response.text();
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    parsed = {};
-  }
-  return { status: response.status, raw, body: parsed };
 }
 
 function activationId(record) {

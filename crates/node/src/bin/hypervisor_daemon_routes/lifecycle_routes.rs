@@ -9832,7 +9832,7 @@ fn nanos_now() -> u128 {
         .map(|d| d.as_nanos())
         .unwrap_or(0)
 }
-const HOST_SPAWN_LANE_TIMEOUT_SECS: u64 = 660; // shim task budget (600s) + reap margin — the shim must emit its honest timeout result BEFORE the lane reaps it
+const HOST_SPAWN_LANE_TIMEOUT_SECS: u64 = 780; // longest shim task budget (OpenCode 720s) + reap margin — the shim must emit its honest timeout result BEFORE the lane reaps it
 
 /// Outcome of one real host-spawn lane run (truthful — failure reflects reality).
 pub(crate) struct HostLaneOutcome {

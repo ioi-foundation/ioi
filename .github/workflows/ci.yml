@@ -181,10 +181,257 @@ jobs:
           cargo test --locked -p ioi-services rejects_unsafe_odd_sized_guardian_committee_under_production_policy -- --nocapture
           cargo test --locked -p ioi-consensus --features aft boundary_ring_reference_trace_matches_committed_golden -- --nocapture
 
+  # These verifiers are JavaScript orchestrators, but each intentionally
+  # launches focused Cargo tests or a Rust extractor. Give that family its own
+  # Rust-capable runner instead of extending the already-long build_and_test
+  # gauntlet. Its census is merged later by verifier_family_floor, while the
+  # independently running product_surfaces command graph remains Node-only.
+  rust_backed_verifiers:
+    name: Rust-backed product verifier family
+    runs-on: ubuntu-latest
+    # Interim hang ceiling only; verifier floors, not elapsed time, are the
+    # acceptance doctrine.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native deps for Rust-backed verification
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y \
+            pkg-config \
+            cmake \
+            libdbus-1-dev \
+            protobuf-compiler \
+            libxcb1-dev \
+            libxdo-dev
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Cache Rust-backed verifier dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-rust-backed-verifiers-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # check:env-lease-authority boots target/debug/hypervisor-daemon. Build the
+      # current checkout explicitly: a restored target/ is a cache, never proof
+      # that the runnable daemon matches this revision.
+      - name: Build the daemon the Rust-backed verifiers boot
+        run: cargo build --locked -p ioi-node --bin hypervisor-daemon
+
+      - name: Verify the Rust-backed product contract family
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: |
+          npm run check:env-lease-authority --workspace=@ioi/hypervisor-app
+          npm run check:command-execution-guardrails --workspace=@ioi/hypervisor-app
+          npm run check:enforcement-coverage-producer --workspace=@ioi/hypervisor-app
+          npm run check:runtime-tool-contract-admission --workspace=@ioi/hypervisor-app
+          npm run check:provider-proposal-provenance --workspace=@ioi/hypervisor-app
+          npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
+          npm run check:governed-effect-assurance-floor --workspace=@ioi/hypervisor-app
+
+      - name: Publish the Rust-backed verifier census
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-backed-verifier-census
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .artifacts/verifier-census
+
+  # The two M04 plane verifiers are deliberately isolated from both existing
+  # jobs. They build the current daemon, focused Rust tests, and the real
+  # wallet.network authority fixture, so the Node-only product job cannot run
+  # them. Keeping this as a parallel Rust job also avoids extending the already
+  # serial build_and_test gauntlet. The 120-minute timeout is an interim hang
+  # ceiling, not a performance target or accepted runtime doctrine; emitted
+  # census artifacts retain the exact M04.9 floors for verifier_family_floor.
+  m4_plane_verifiers:
+    name: M04 daemon-backed plane verifier (${{ matrix.verifier_id }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - verifier_id: goalrun-activation-plane
+          - verifier_id: outcome-room-system-spine
+    # Each matrix entry gets a separate runner and 120-minute interim hang
+    # ceiling. This is not a performance threshold or accepted runtime doctrine.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native deps for daemon-backed verification
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y \
+            pkg-config \
+            cmake \
+            libdbus-1-dev \
+            protobuf-compiler \
+            libxcb1-dev \
+            libxdo-dev \
+            bubblewrap
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Cache M04 verifier dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-m4-plane-cargo-${{ matrix.verifier_id }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-m4-plane-cargo-${{ matrix.verifier_id }}-
+            ${{ runner.os }}-cargo-
+
+      - name: Prebuild the daemon, signer, and wallet fixture binaries
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon --bin mint-approval-grant
+          cargo test --locked --release -p ioi-cli --test hypervisor_wallet_network_fixture --no-run
+          # The fixture builds this exact feature set in a separate FNV-1a-keyed
+          # target directory during readiness. Populate it before the verifier
+          # starts so a cold compile cannot consume its readiness ceiling.
+          NODE_FEATURES="validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm"
+          NODE_DIR="target/test-node-builds/release-$(python3 - "$NODE_FEATURES" <<'PYEOF'
+          import sys
+          value = 0xcbf29ce484222325
+          for byte in sys.argv[1].encode():
+              value ^= byte
+              value = (value * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
+          print(f"{value:016x}")
+          PYEOF
+          )"
+          CARGO_TARGET_DIR="$NODE_DIR" cargo build --locked --release -p ioi-node \
+            --no-default-features --features "$NODE_FEATURES"
+
+      - name: Install the exact Outcome adapter
+        if: matrix.verifier_id == 'outcome-room-system-spine'
+        run: |
+          npm install --global opencode-ai@1.18.25
+          test "$(opencode --version)" = "1.18.25"
+          command -v bwrap
+          bwrap --version
+
+      - name: Cache the exact Outcome model
+        if: matrix.verifier_id == 'outcome-room-system-spine'
+        uses: actions/cache@v3
+        with:
+          path: ~/.ollama/models
+          key: ollama-qwen2.5-7b-845dbda0ea48
+
+      - name: Provision the exact Outcome model route
+        if: matrix.verifier_id == 'outcome-room-system-spine'
+        run: |
+          curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=0.18.3 sh
+          test "$(ollama --version | awk '{print $NF}')" = "0.18.3"
+          nohup ollama serve > /tmp/ollama-serve.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:11434/api/tags >/dev/null && break
+            if [ "$attempt" -eq 30 ]; then
+              cat /tmp/ollama-serve.log
+              exit 1
+            fi
+            sleep 2
+          done
+          ollama pull qwen2.5:7b
+          node - <<'NODEEOF'
+          const response = await fetch("http://127.0.0.1:11434/api/tags");
+          if (!response.ok) throw new Error(`ollama tags returned ${response.status}`);
+          const tags = await response.json();
+          const model = tags.models?.find((entry) => entry.name === "qwen2.5:7b");
+          const expected = "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e";
+          if (model?.digest !== expected) {
+            throw new Error(`qwen2.5:7b digest ${model?.digest ?? "absent"} != ${expected}`);
+          }
+          NODEEOF
+
+      # Keep both literal npm commands visible to check:verifier-floors. Each
+      # matrix runner executes exactly one mutually exclusive step.
+      - name: Verify the GoalRun activation plane
+        if: matrix.verifier_id == 'goalrun-activation-plane'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_WORKLOAD_GRPC_TIMEOUT_MS: 120000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+          IOI_WALLET_FIXTURE_RELEASE: "1"
+        run: npm run check:m4-goalrun-activation-plane --workspace=@ioi/hypervisor-app
+
+      - name: Verify the OutcomeRoom/System spine
+        if: matrix.verifier_id == 'outcome-room-system-spine'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_WORKLOAD_GRPC_TIMEOUT_MS: 120000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+          IOI_WALLET_FIXTURE_RELEASE: "1"
+        run: |
+          # Re-establish the loopback model route in the same step in case the
+          # runner reaped a process backgrounded by the provisioning step.
+          if ! curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then
+            nohup ollama serve > /tmp/ollama-serve-verifier.log 2>&1 &
+            for attempt in $(seq 1 30); do
+              curl -fsS http://127.0.0.1:11434/api/tags >/dev/null && break
+              if [ "$attempt" -eq 30 ]; then
+                cat /tmp/ollama-serve-verifier.log
+                exit 1
+              fi
+              sleep 2
+            done
+          fi
+          npm run check:m4-outcome-room-system-spine --workspace=@ioi/hypervisor-app
+
+      - name: Publish the M04 plane verifier census
+        uses: actions/upload-artifact@v4
+        with:
+          name: m4-plane-verifier-census-${{ matrix.verifier_id }}
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .artifacts/verifier-census
+
   product_surfaces:
     name: Product builds and browser smoke
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Product work needs only the daemon artifact. Rust-backed and M04 verifier
+    # families run beside it; a small final job merges all census artifacts.
     needs: build_and_test
     steps:
       - uses: actions/checkout@v4
@@ -262,9 +509,8 @@ jobs:
           npm run check:seed-provenance --workspace=@ioi/hypervisor-app
           npm run check:source-neutral --workspace=@ioi/hypervisor-app
 
-      # IOI_VERIFIER_CENSUS_DIR makes each verifier write the RUNTIME assertion census that
-      # `check:verifier-floors` reads in the next step. Without it the floors gate has no evidence
-      # and fails closed — which is the intended behaviour, not a misconfiguration to paper over.
+      # IOI_VERIFIER_CENSUS_DIR makes each verifier write the runtime assertion
+      # census consumed by verifier_family_floor. Missing evidence fails closed.
       - name: Verify the first surface journeys against an isolated live daemon
         env:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
@@ -274,11 +520,10 @@ jobs:
           npm run check:studio-journey --workspace=@ioi/hypervisor-app
           npm run check:packages-journey --workspace=@ioi/hypervisor-app
           npm run check:automations-journey --workspace=@ioi/hypervisor-app
+          npm run check:odk-contract-and-domainapp --workspace=@ioi/hypervisor-app
           npm run check:skill-contracts --workspace=@ioi/hypervisor-app
           npm run check:goal-profile-contracts --workspace=@ioi/hypervisor-app
           npm run check:m3-goalrun-plane --workspace=@ioi/hypervisor-app
-          npm run check:m4-goalrun-activation-plane --workspace=@ioi/hypervisor-app
-          npm run check:m4-outcome-room-system-spine --workspace=@ioi/hypervisor-app
           npm run check:m4-work-lifecycle-plane --workspace=@ioi/hypervisor-app
           npm run check:launch-chain --workspace=@ioi/hypervisor-app
           npm run check:session-authority --workspace=@ioi/hypervisor-app
@@ -289,16 +534,9 @@ jobs:
           npm run check:model-router-decisions --workspace=@ioi/hypervisor-app
           npm run check:backup-restore --workspace=@ioi/hypervisor-app
           npm run check:environment-custody --workspace=@ioi/hypervisor-app
-          npm run check:env-lease-authority --workspace=@ioi/hypervisor-app
-          npm run check:command-execution-guardrails --workspace=@ioi/hypervisor-app
-          npm run check:enforcement-coverage-producer --workspace=@ioi/hypervisor-app
-          npm run check:runtime-tool-contract-admission --workspace=@ioi/hypervisor-app
-          npm run check:provider-proposal-provenance --workspace=@ioi/hypervisor-app
           npm run check:operational-depth --workspace=@ioi/hypervisor-app
           npm run check:ontology-backend-families --workspace=@ioi/hypervisor-app
-          npm run check:ontology-admission-census --workspace=@ioi/hypervisor-app
           npm run check:named-gap-truth --workspace=@ioi/hypervisor-app
-          npm run check:governed-effect-assurance-floor --workspace=@ioi/hypervisor-app
 
       - name: Verify the product-shell safety and native-container contracts
         env:
@@ -322,13 +560,13 @@ jobs:
           npm run check:app-runtime-safety --workspace=@ioi/hypervisor-app
           npm run check:native-shell --workspace=@ioi/hypervisor-app
 
-      # The floor the verifier family never had. Every verifier above is pinned at the number of
-      # assertions it actually EXECUTED; deleting assertions from any of them was silently green
-      # before this gate existed. Runs after the journeys because it reads their census artifacts.
-      - name: Verify the verifier family did not shrink
-        env:
-          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
-        run: npm run check:verifier-floors --workspace=@ioi/hypervisor-app
+      - name: Publish the Node product verifier census
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-verifier-census
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .artifacts/verifier-census
 
       - name: Record post-build shipped-product artifact identities
         run: |
@@ -363,6 +601,53 @@ jobs:
       # deliberately rather than closed by guessing: `OQ-4` — whether the ioi.ai web UI ships, and
       # from which root — is an open question in the implementation guide, and inventing a
       # working-directory here would answer it by accident.
+
+  # Every verifier is pinned at the assertion count it actually executed. This
+  # final job starts only after the independent Node, Rust-backed, and two M04
+  # jobs publish their immutable censuses. It invokes no verifier, Cargo build,
+  # daemon, or authority path; omission and shrinkage fail closed here.
+  # Timeout-graph ceiling (not a performance claim): max(build 90 + product 45,
+  # Rust-backed 90, either parallel M04 matrix leg 120) + floor 20 = 155 minutes.
+  verifier_family_floor:
+    name: Verifier family census floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [product_surfaces, rust_backed_verifiers, m4_plane_verifiers]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Download the Node product verifier census
+        uses: actions/download-artifact@v4
+        with:
+          name: product-verifier-census
+          path: .artifacts/verifier-census
+
+      - name: Download the Rust-backed verifier census
+        uses: actions/download-artifact@v4
+        with:
+          name: rust-backed-verifier-census
+          path: .artifacts/verifier-census
+
+      - name: Download both M04 plane verifier censuses
+        uses: actions/download-artifact@v4
+        with:
+          pattern: m4-plane-verifier-census-*
+          merge-multiple: true
+          path: .artifacts/verifier-census
+
+      - name: Verify the verifier family did not shrink
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:verifier-floors --workspace=@ioi/hypervisor-app
 
   aft_formal_floor:
     name: AFT Formal Floor

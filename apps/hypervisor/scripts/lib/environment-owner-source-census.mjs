@@ -143,6 +143,27 @@ function rustFunctions(file, source) {
       functions.push({ key: `${module}::${name}`, module, name, file, body: `${target}()` });
     }
   }
+  // M04.9's current Attempt/Finding/VerifierChallenge read routes are emitted by this macro.
+  // Materialize the generated handler call graph just as we do for `family_handlers!`; otherwise
+  // the central router sees real registered handlers that this source census cannot resolve.
+  // Each synthetic body names both the principal check and the exact local projection helper, so
+  // a future environment/workspace sink introduced below either call remains transitively visible.
+  const contributionReadInvocation = /contribution_read_handlers!\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,[\s\S]*?\);/gu;
+  for (const invocation of source.matchAll(contributionReadInvocation)) {
+    for (const [name, target] of [
+      [invocation[1], "contribution_list"],
+      [invocation[2], "contribution_get"],
+      [invocation[3], "contribution_overview"],
+    ]) {
+      functions.push({
+        key: `${module}::${name}`,
+        module,
+        name,
+        file,
+        body: `room_system::request_principal(); ${target}()`,
+      });
+    }
+  }
   return functions;
 }
 

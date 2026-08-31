@@ -135,7 +135,28 @@ function freePort() {
   });
 }
 
-async function waitFor(url, tries = 60, delayMs = 500) {
+const DEFAULT_READY_TIMEOUT_MS = 30_000;
+const MAX_READY_TIMEOUT_MS = 1_200_000;
+
+export function resolveIsolatedReadyTimeoutMs(source = process.env) {
+  const raw = source.IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS;
+  if (raw === undefined || raw === "") return DEFAULT_READY_TIMEOUT_MS;
+  if (!/^[0-9]+$/u.test(raw)) {
+    throw new Error(
+      "IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS must be an integer number of milliseconds",
+    );
+  }
+  const timeoutMs = Number(raw);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > MAX_READY_TIMEOUT_MS) {
+    throw new Error(
+      `IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS must be between 1000 and ${MAX_READY_TIMEOUT_MS}`,
+    );
+  }
+  return timeoutMs;
+}
+
+async function waitFor(url, timeoutMs, delayMs = 500) {
+  const tries = Math.ceil(timeoutMs / delayMs);
   for (let i = 0; i < tries; i++) {
     const r = await fetch(url).then((x) => (x.ok ? x : null)).catch(() => null);
     if (r) return true;
@@ -269,6 +290,7 @@ export async function startIsolatedPlane({
 } = {}) {
   const { existsSync } = await import("node:fs");
   if (!existsSync(DAEMON_BINARY)) return null;
+  const readyTimeoutMs = resolveIsolatedReadyTimeoutMs(baseEnv);
   const reused = !!reuseDataDir;
   const dataDir = reuseDataDir || mkdtempSync(join(tmpdir(), "ioi-isolated-plane-"));
   const daemonPort = await freePort();
@@ -366,7 +388,7 @@ export async function startIsolatedPlane({
     return stopPromise;
   };
 
-  if (!(await waitFor(`${daemonUrl}/v1/hypervisor/data-sources`)) || !childIsAlive(daemon)) {
+  if (!(await waitFor(`${daemonUrl}/v1/hypervisor/data-sources`, readyTimeoutMs)) || !childIsAlive(daemon)) {
     const diagnosticTail = boundedSanitizedLogTail(logPath);
     const exit = await Promise.race([
       childExits.get(daemon),
@@ -418,7 +440,7 @@ export async function startIsolatedPlane({
       stdio: ["ignore", serveLogFd, serveLogFd],
     }));
     closeSync(serveLogFd);
-    if (!(await waitFor(`${serveUrl}/__ioi/data/sources`)) || !childIsAlive(serveChild)) {
+    if (!(await waitFor(`${serveUrl}/__ioi/data/sources`, readyTimeoutMs)) || !childIsAlive(serveChild)) {
       const diagnosticTail = boundedSanitizedLogTail(logPath);
       const exit = await Promise.race([
         childExits.get(serveChild),
