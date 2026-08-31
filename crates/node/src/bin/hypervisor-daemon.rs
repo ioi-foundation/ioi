@@ -58,6 +58,8 @@ mod connector_mapping_routes;
 mod connector_session_routes;
 #[path = "hypervisor_daemon_routes/data_source_routes.rs"]
 mod data_source_routes;
+#[path = "hypervisor_daemon_routes/data_transformation_routes.rs"]
+mod data_transformation_routes;
 #[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
 mod decentralized_cloud_routes;
 #[path = "hypervisor_daemon_routes/device_custody_routes.rs"]
@@ -1650,13 +1652,49 @@ async fn async_main() -> anyhow::Result<()> {
             post(managed_runtime_routes::handle_restore_plan_action),
         )
         // WS-2: DevelopmentEnvironmentRecipe (repo-detect-first) → resolution → readiness gate.
+        //
+        // M05.7 — THE RECIPE NAME IS QUALIFIED HERE. The term-boundary ruling makes a generic
+        // executable recipe family a defect: every recipe is owner-qualified. This family is the
+        // DEVELOPMENT-ENVIRONMENT recipe, so its canonical route now says so, and the bare generic
+        // name is demoted to a READ-ONLY compatibility alias — the POST verb, which is what made
+        // `recipes` a creatable generic family rather than merely a legacy read path, is gone from
+        // it. Nothing about the object moves: `recipe_routes` is byte-unchanged and the
+        // `DevelopmentEnvironmentRecipe` object rename remains M09.2's to make.
+        .route(
+            "/v1/hypervisor/environment-recipes",
+            get(recipe_routes::handle_recipes_list).post(recipe_routes::handle_recipe_create),
+        )
+        .route(
+            "/v1/hypervisor/environment-recipes/:id",
+            get(recipe_routes::handle_recipe_get),
+        )
         .route(
             "/v1/hypervisor/recipes",
-            get(recipe_routes::handle_recipes_list).post(recipe_routes::handle_recipe_create),
+            get(recipe_routes::handle_recipes_list),
         )
         .route(
             "/v1/hypervisor/recipes/:id",
             get(recipe_routes::handle_recipe_get),
+        )
+        // M05.7 — the definition/run split as three SEPARATE families on the canonical chain.
+        // `DataRecipe` is an immutable definition, `TransformationRun` is one admitted execution,
+        // and `ConnectorMapping` is a provider/form/field map. The v1 ODK lanes under
+        // `/v1/hypervisor/odk/*` are unchanged and remain readable; these are the v2 planes and the
+        // only ones that bind exact revisions, freeze a semantic tuple, or refuse a drift.
+        .route(
+            "/v1/hypervisor/data-recipe-revisions",
+            get(data_transformation_routes::handle_data_recipe_query)
+                .post(data_transformation_routes::handle_data_recipe_admit),
+        )
+        .route(
+            "/v1/hypervisor/connector-mapping-revisions",
+            get(data_transformation_routes::handle_connector_mapping_query)
+                .post(data_transformation_routes::handle_connector_mapping_admit),
+        )
+        .route(
+            "/v1/hypervisor/transformation-runs",
+            get(data_transformation_routes::handle_transformation_run_query)
+                .post(data_transformation_routes::handle_transformation_run_admit),
         )
         // WS-D: harness session binding admission.
         .route(

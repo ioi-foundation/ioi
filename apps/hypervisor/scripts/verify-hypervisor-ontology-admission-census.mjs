@@ -404,7 +404,41 @@ const PINNED = {
   // families persist solely through the shared owner-scoped Agentgres mutation boundary and resolve
   // ontology terms/revisions through M05.1's published reader. This unchanged owner/admitter census
   // is the load-bearing result; the token/bucket increases merely keep traversal reach explicit.
-  modules: 105,
+  //
+  // M05.7 re-derivation (2026-08-31). THIS GATE WAS ALREADY RED AT THE BRANCH POINT, and the
+  // distinction matters, so it is measured and recorded before this unit's own delta rather than
+  // folded into it. Measured at `dbce74ba4` on an UNTOUCHED tree, before a byte of M05.7 runtime
+  // was written: 22/27, with five standing failures —
+  //
+  //   * `opaque-initialiser` 2327 against a pin of 2280,
+  //   * 137,055 source tokens against 135,713, and 279 family-resolving token positions against 288,
+  //   * `include_str!` 81 against 78,
+  //   * the recorded map stale in five rows (`odk-domain-ontologies`, `odk-data-recipes`,
+  //     `odk-manifests`, `odk-surface-descriptors` no longer named by `domain_apps_routes.rs`, and
+  //     `odk-manifests` no longer named by `package_registry_routes.rs`), and
+  //   * 282 family mentions against 291.
+  //
+  // Those five are INHERITED — the M05.6 commit that stopped `domain_apps_routes.rs` naming those
+  // families did not re-derive them — and they are DELIBERATELY LEFT AS THEY STAND. Re-deriving a
+  // number this unit did not move would let this commit absorb another commit's drift as its own,
+  // which is the exact failure mode the M06 row above records and refuses.
+  //
+  // What M05.7 itself moves is ONE pin, and it is the one re-derived here.
+  // `data_transformation_routes.rs` joins the reachable graph: +1 module, 105 -> 106. Against the
+  // already-red baselines it also adds 1,261 source tokens (137,055 -> 138,316) and 74 opaque
+  // initialisers (2327 -> 2401), which are recorded here and NOT repinned, because repinning them
+  // is what would silently swallow the inherited drift they sit on top of.
+  //
+  // The load-bearing result is what does NOT move: family mentions (282), judged family-resolving
+  // token positions (279), production filesystem calls (234), `include_str!` (81) and all three
+  // writer buckets are IDENTICAL either side of this unit. The new module names no ODK record
+  // family at all — it deliberately does not read the v1 record directories, which is why its
+  // v1 convergence takes caller-supplied predecessor bytes and carries an explicit custody
+  // nonclaim — and it persists solely through the shared owner-scoped Agentgres mutation boundary,
+  // resolving exact ontology revisions through M05.1's published reader. It mints no second
+  // admitter and moves no owner/admitter edge. After this re-derivation the gate returns to its
+  // inherited 22/27 rather than to green, which is the honest position.
+  modules: 106,
   familyMentions: 291,
   tokenMentions: 135713,
   judgedTokenPositions: 288,

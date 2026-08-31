@@ -347,7 +347,10 @@ async function handleImpl(pathname, bodyText) {
       "workruns": "/v1/hypervisor/workruns",
       "receipts": "/v1/model-mount/receipts",
       // WS-12 — Phase 1 surfaces the panel projects.
-      "recipes": "/v1/hypervisor/recipes",
+      // M05.7 — the owner-qualified route name. `recipes` is this panel's key, not the daemon's
+      // family: it reads the DEVELOPMENT-ENVIRONMENT recipe family, and the generic
+      // `/v1/hypervisor/recipes` path it used to call is now a read-only compatibility alias.
+      "recipes": "/v1/hypervisor/environment-recipes",
       "snapshots": "/v1/hypervisor/snapshots",
       "incidents": "/v1/hypervisor/incidents",
       "recovery-attempts": "/v1/hypervisor/recovery-attempts",
