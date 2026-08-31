@@ -20,6 +20,7 @@
 // Exit: 0 all assertions pass · 1 any assertion fails · 2 BLOCKED (daemon binary missing).
 
 import { spawn, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -32,6 +33,8 @@ const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
 const MUTATE = process.argv.includes("--mutate");
 const ANCHORS = process.argv.includes("--anchors");
+const SUMMARIZE = process.argv.includes("--summarize");
+const RESTORE = process.argv.includes("--restore");
 // `--only=id,id` scores a SUBSET. A battery that can only run whole risks losing every completed
 // mutant when the run is interrupted, and an interrupted run produced no result at all. Scoring in
 // bounded batches makes each batch its own evidence; the ledger line always reports the denominator
@@ -524,12 +527,52 @@ async function run() {
     claimBody("ilb-claim-revoked", { family: "acme.revoked-claim", status: "revoked" }),
   );
   const deadRecord = deadClaim.j?.learning_source_rights_claim ?? {};
+
+  // THE SECOND WAY A CLAIM STOPS BEING CURRENT, set up here so ONE assertion can check both. This
+  // claim is `admitted` and carries every permission in its own bytes — nothing about the record is
+  // self-evidently stale — but its validity window closed before the compilation instant. A boundary
+  // that read `status` alone would treat it as a live permission, which is exactly the
+  // "authority captured when work was staged" failure the admission contract requires the boundary
+  // to revalidate against rather than inherit.
+  const lapsedClaim = await req(
+    "POST",
+    CLAIMS,
+    claimBody("ilb-claim-lapsed", {
+      family: "acme.lapsed-records",
+      status: "admitted",
+      declared_prohibited_uses: [],
+      unresolved_rights_findings: [],
+      validity: { valid_from: "2025-01-01T00:00:00Z", valid_until: "2026-01-01T00:00:00Z" },
+    }),
+  );
+  const lapsedRecord = lapsedClaim.j?.learning_source_rights_claim ?? {};
+  const lapsedClaimRef = lapsedRecord.revision_ref ?? "";
+  const lapsedProfile = await req(
+    "POST",
+    PROFILES,
+    profileBody("ilb-profile-lapsed", {
+      family: "acme.expiry-revalidation",
+      learning_source_rights_claim_revision_refs: [lapsedClaimRef],
+    }),
+  );
+  const lapsedProfileRecord = lapsedProfile.j?.institutional_learning_boundary_profile ?? {};
   ok(
-    "M10.3: a REVOKED claim permits nothing and says why — every use it could otherwise have carried becomes a finding naming the state that removed it, rather than an empty set with no explanation",
+    "M10.3: a claim that is not CURRENT permits nothing and says WHICH way it lapsed — a revoked claim empties its own permitted set with a finding naming the state, and a still-admitted claim whose validity window has closed is revalidated AT COMPILATION and denied with `expired_input` attributed to that exact revision",
+    // revoked-by-status: the claim family empties its own permitted set and records why
     deadClaim.status === 201 &&
       (deadRecord.permitted_uses || []).length === 0 &&
-      (deadRecord.unresolved_rights_findings || []).some((f) => f.resolution === "revoked"),
-    `permitted ${(deadRecord.permitted_uses || []).length} findings ${(deadRecord.unresolved_rights_findings || []).length}`,
+      (deadRecord.unresolved_rights_findings || []).some((f) => f.resolution === "revoked") &&
+      // lapsed-by-window: the record still looks live, so only the compiler's revalidation removes it
+      lapsedClaim.status === 201 &&
+      lapsedRecord.status === "admitted" &&
+      (lapsedRecord.permitted_uses || []).length === 15 &&
+      lapsedProfile.status === 201 &&
+      (lapsedProfileRecord.effective_permitted_uses || []).length === 0 &&
+      (lapsedProfileRecord.indeterminate_findings || []).length === 15 &&
+      (lapsedProfileRecord.indeterminate_findings || []).every(
+        (f) => f.resolution === "expired_input" && f.disputed_input_ref === lapsedClaimRef,
+      ),
+    `revoked permits ${(deadRecord.permitted_uses || []).length}; lapsed claim permits ${(lapsedRecord.permitted_uses || []).length} but compiles to ${(lapsedProfileRecord.effective_permitted_uses || []).length} with ${(lapsedProfileRecord.indeterminate_findings || []).length} indeterminate`,
   );
 
   // ================================================================= M10.3 — the compiled profile
@@ -1252,29 +1295,168 @@ const MUTANTS = [
     }`,
   },
   {
-    id: "a-cross-tenant-input-is-intersected-anyway",
+    // REPLACES `a-cross-tenant-input-is-intersected-anyway` (see REJECTED_MUTANTS below). Expiry is
+    // the one narrowing input with no other route into the intersection: the claim is `admitted`,
+    // its bytes carry every permission, and ONLY the compilation-time revalidation removes them. So
+    // this anchor is load-bearing in a way the owner pin was not — deleting it changes the answer.
+    id: "an-expired-source-claim-is-still-treated-as-live",
     source: "ilb",
     reddens:
-      "ISOLATION: a second principal cannot COMPILE a boundary that intersects another principal's source-rights claim — the input is resolved under the caller's own owner binding and refused there",
-    from: "",
-    to: "",
-    skipReason:
-      "NAMED RESIDUAL, not an oversight. Dropping the owner pin from the claim resolution does NOT open the hole, because `authorize_request_resource_scope` already refuses on principal_ref before the owner expectation is consulted — the pin is defence in depth over a check that is load-bearing on its own. The isolation assertion therefore passes for the RIGHT reason with or without it, and a mutant that cannot change the outcome is not evidence. The principal check itself lives in substrate_store.rs, outside this unit's ownership, and is mutation-covered by the M05.7 gate that owns it.",
+      "M10.3: a claim that is not CURRENT permits nothing and says WHICH way it lapsed — a revoked claim empties its own permitted set with a finding naming the state, and a still-admitted claim whose validity window has closed is revalidated AT COMPILATION and denied with `expired_input` attributed to that exact revision",
+    from: `    if !claim.is_live() || claim.expires_before(at_ms) {`,
+    to: `    if !claim.is_live() {`,
+  },
+];
+
+/// Mutations that were CONSIDERED AND REJECTED, kept here because a rejected mutant is a finding
+/// about the gate and deleting it silently would let the same idea be re-proposed as new. Neither
+/// is counted in the battery population: the census denominator is `MUTANTS.length`, and these are
+/// not members of it.
+const REJECTED_MUTANTS = [
+  {
+    id: "a-cross-tenant-input-is-intersected-anyway",
+    replacedBy: "an-expired-source-claim-is-still-treated-as-live",
+    rejectedBecause:
+      "NOT LOAD-BEARING, therefore not evidence. Dropping the owner pin from the claim resolution does not open the hole: `authorize_request_resource_scope` already refuses on principal_ref before the owner expectation is consulted, so the isolation assertion passes for the RIGHT reason with or without the pin. Reddening it would require a second owner inside one tenant, which this deployment's fixture cannot express without broadening scope. The principal check itself lives in substrate_store.rs, outside this unit's ownership, and is mutation-covered by the M05.7 gate that owns it.",
   },
   {
     id: "a-denial-need-not-be-attributed",
-    source: "ilb",
-    reddens:
-      "M10.3: EVERY locally added denial is attributed exactly once, to a named input or to an indeterminacy — an unattributed denial is impossible rather than discouraged",
-    from: `        narrowing_decisions.push(json!({
-            "denied_use": token,`,
-    to: `        if false { narrowing_decisions.push(json!({
-            "denied_use": token,`,
-    skipReason: "the mutant does not balance its own braces; re-aim rather than plant a non-compiling defect",
+    replacedBy: null,
+    rejectedBecause:
+      "The mutant did not balance its own braces, so it planted a non-compiling defect rather than a behavioural one, and a mutant that cannot build is a defect in the mutant. The property it aimed at — every locally added denial is attributed exactly once — is already covered from the other side by `the-inherited-denial-set-is-dropped`, which moves the same coverage arithmetic and does redden on target.",
   },
-].filter((mutant) => !mutant.skipReason);
+];
 
 const SOURCES = { route: ROUTE_SOURCE, ilb: ILB_SOURCE };
+
+// =============================================================== crash-safe byte restoration
+//
+// SIGKILL CANNOT BE TRAPPED, so in-process restore handlers are not a guarantee — a hard kill
+// between planting and restoring leaves a defect in the tree, and a pattern grep cannot even find
+// it when the mutant DELETED a line rather than adding one. The journal makes restoration a
+// property of the FILESYSTEM rather than of the dying process: pristine bytes are copied aside and
+// their digests recorded BEFORE the first plant, so any later invocation — the next battery, the
+// anchor pre-flight, or an explicit `--restore` — can byte-restore without knowing what was planted
+// or whether anything was. Recovery is idempotent and content-addressed: a file already matching
+// its pristine digest is left untouched.
+
+const JOURNAL = path.join(os.tmpdir(), "ioi-ilb-mutation-journal.json");
+const LEDGER = path.join(os.tmpdir(), "ioi-ilb-mutation-ledger.json");
+
+const sha256File = (file) =>
+  `sha256:${crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex")}`;
+
+/** Copy pristine bytes aside and record their digests before anything is planted. */
+function openJournal() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-ilb-pristine-"));
+  const sources = Object.entries(SOURCES).map(([key, file]) => {
+    const backup = path.join(dir, `${key}.rs`);
+    fs.copyFileSync(file, backup);
+    return { key, path: file, backup, sha256: sha256File(file) };
+  });
+  fs.writeFileSync(JOURNAL, JSON.stringify({ openedFor: "mutation-battery", dir, sources }, null, 2));
+  return sources;
+}
+
+/**
+ * Byte-restore anything a previous run left planted. Returns the list of files it had to repair.
+ *
+ * An EMPTY list is the interesting answer: it means every source already matched its pristine
+ * digest, which is the positive proof that the tree is byte-clean rather than merely "looks fine".
+ */
+function recoverFromJournal({ quiet = false } = {}) {
+  if (!fs.existsSync(JOURNAL)) return { present: false, repaired: [] };
+  let journal;
+  try {
+    journal = JSON.parse(fs.readFileSync(JOURNAL, "utf8"));
+  } catch {
+    return { present: false, repaired: [] };
+  }
+  const repaired = [];
+  for (const entry of journal.sources ?? []) {
+    if (!fs.existsSync(entry.backup)) continue;
+    if (sha256File(entry.path) !== entry.sha256) {
+      fs.writeFileSync(entry.path, fs.readFileSync(entry.backup));
+      repaired.push(entry.key);
+    }
+  }
+  if (repaired.length && !quiet) {
+    process.stderr.write(
+      `RECOVERED  a previous run left ${repaired.join(", ")} planted; byte-restored from the journal\n`,
+    );
+  }
+  return { present: true, repaired, journal };
+}
+
+function closeJournal(sources) {
+  for (const entry of sources) {
+    const current = sha256File(entry.path);
+    if (current !== entry.sha256) {
+      throw new Error(
+        `${entry.key} did not byte-restore: ${current} != ${entry.sha256}; refusing to report a census over a mutated tree`,
+      );
+    }
+  }
+  try {
+    const journal = JSON.parse(fs.readFileSync(JOURNAL, "utf8"));
+    fs.rmSync(journal.dir, { recursive: true, force: true });
+  } catch {
+    /* best effort */
+  }
+  fs.rmSync(JOURNAL, { force: true });
+}
+
+/**
+ * The population identity this ledger's rows belong to.
+ *
+ * Digested over the verifier PLUS both pristine sources, so any edit to the harness or to the code
+ * under test invalidates every stored row. That is what stops a batched census from accumulating
+ * rows that were scored against different bytes and reporting them as one sweep.
+ */
+function harnessDigest(sources) {
+  const hash = crypto.createHash("sha256");
+  const self = fileURLToPath(import.meta.url);
+  hash.update(path.relative(ROOT, self));
+  hash.update(fs.readFileSync(self));
+  for (const entry of [...sources].sort((a, b) => a.path.localeCompare(b.path))) {
+    hash.update(path.relative(ROOT, entry.path));
+    hash.update(fs.readFileSync(entry.backup));
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
+
+function readLedger(digest) {
+  try {
+    const held = JSON.parse(fs.readFileSync(LEDGER, "utf8"));
+    if (held.harness === digest) return held;
+  } catch {
+    /* absent or unreadable */
+  }
+  return { harness: digest, rows: {} };
+}
+
+/** Print the union of every batch scored against the CURRENT harness digest. */
+function summarize() {
+  const sources = Object.entries(SOURCES).map(([key, file]) => ({
+    key,
+    path: file,
+    backup: file,
+    sha256: sha256File(file),
+  }));
+  const digest = harnessDigest(sources);
+  const ledger = readLedger(digest);
+  const scored = MUTANTS.map((mutant) => ({ id: mutant.id, ...(ledger.rows[mutant.id] ?? {}) }));
+  for (const row of scored) {
+    const outcome = row.outcome ?? "NOT_RUN";
+    process.stdout.write(`${outcome === "RED_ON_TARGET" ? "RED " : "MISS"}  ${row.id} — ${row.detail ?? "not scored against this harness"}\n`);
+  }
+  const onTarget = scored.filter((row) => row.outcome === "RED_ON_TARGET").length;
+  process.stdout.write(`\nharness digest ${digest}\n`);
+  process.stdout.write(
+    `institutional-learning-boundary mutation battery: ${onTarget}/${MUTANTS.length} RED ON TARGET (union over batches)\n`,
+  );
+  process.exit(onTarget === MUTANTS.length ? 0 : 1);
+}
 
 /** Zero-build pre-flight: every anchor must occur EXACTLY once, and no two mutants may share a target. */
 function checkAnchors() {
@@ -1303,8 +1485,12 @@ async function runMutationBattery() {
   const originals = Object.fromEntries(
     Object.entries(SOURCES).map(([key, file]) => [key, fs.readFileSync(file, "utf8")]),
   );
+  const journalled = openJournal();
+  const digest = harnessDigest(journalled);
   // A KILLED BATTERY MUST NOT LEAVE A DEFECT PLANTED IN THE TREE. `finally` does not run when the
   // process is signalled, so the restore is registered on the signals too, and it is idempotent.
+  // SIGKILL still cannot be trapped — that case is covered by the on-disk journal above, which the
+  // next invocation replays.
   const restore = () => {
     for (const [key, file] of Object.entries(SOURCES)) fs.writeFileSync(file, originals[key]);
   };
@@ -1369,21 +1555,54 @@ async function runMutationBattery() {
       // Restore after EVERY mutant, not only at the end: two mutants in different files would
       // otherwise compound, and the second would be graded against a daemon carrying both defects.
       restore();
+      // AND PROVE IT, per child. A restore that silently failed would grade every later mutant
+      // against a tree still carrying this one, so the digest is compared rather than assumed.
+      for (const entry of journalled) {
+        const current = sha256File(entry.path);
+        if (current !== entry.sha256) {
+          throw new Error(
+            `${entry.key} did not byte-restore after ${mutant.id}: ${current} != ${entry.sha256}`,
+          );
+        }
+      }
+      // Persist the row against this harness digest so batched runs accumulate into ONE census
+      // rather than a set of unrelated partial claims.
+      const ledger = readLedger(digest);
+      ledger.rows[mutant.id] = { outcome, detail };
+      fs.writeFileSync(LEDGER, JSON.stringify(ledger, null, 2));
     }
   } finally {
     restore();
     rebuildDaemon();
   }
+  closeJournal(journalled);
   const onTarget = rows.filter((row) => row.outcome === "RED_ON_TARGET").length;
+  process.stdout.write(`\nharness digest ${digest}\n`);
   process.stdout.write(
-    `\ninstitutional-learning-boundary mutation battery: ${onTarget}/${selected.length} RED ON TARGET${
-      ONLY.length ? ` (subset of ${MUTANTS.length})` : ""
+    `institutional-learning-boundary mutation battery: ${onTarget}/${selected.length} RED ON TARGET${
+      ONLY.length ? ` (subset of ${MUTANTS.length}; run --summarize for the union)` : ""
     }\n`,
   );
   process.exit(onTarget === selected.length ? 0 : 1);
 }
 
 // ------------------------------------------------------------------------------------- the driver
+
+// Every entry point starts from the same byte-clean state. In particular, an ordinary verifier
+// run must not exercise a defect left by a SIGKILL, and a new mutation battery must not overwrite
+// the only journal that can restore an earlier one. Retire the recovered journal before dispatch
+// so the recovery is idempotent and a later battery owns a fresh backup directory.
+const startupRecovery = recoverFromJournal();
+if (startupRecovery.present) closeJournal(startupRecovery.journal?.sources ?? []);
+
+if (RESTORE) {
+  process.stdout.write(
+    startupRecovery.present
+      ? `restore: ${startupRecovery.repaired.length ? `byte-restored ${startupRecovery.repaired.join(", ")}` : "every source already matched its pristine digest"}\n`
+      : "restore: no journal present; nothing was left planted\n",
+  );
+  process.exit(0);
+}
 
 try {
   fs.accessSync(daemonBinary(), fs.constants.X_OK);
@@ -1392,7 +1611,9 @@ try {
   process.exit(2);
 }
 
-if (ANCHORS) {
+if (SUMMARIZE) {
+  summarize();
+} else if (ANCHORS) {
   checkAnchors();
 } else if (MUTATE) {
   runMutationBattery().catch((error) => {
